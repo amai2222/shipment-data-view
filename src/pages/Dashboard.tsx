@@ -282,12 +282,24 @@ export default function Dashboard() {
                   fill="#4ade80" 
                   name="actualTransport"
                   radius={[2, 2, 0, 0]}
+                  label={{
+                    position: 'top',
+                    fontSize: 12,
+                    fill: '#374151',
+                    formatter: (value: number) => value.toFixed(1)
+                  }}
                 />
                 <Bar 
                   dataKey="returns" 
                   fill="#ef4444" 
                   name="returns"
                   radius={[2, 2, 0, 0]}
+                  label={{
+                    position: 'top',
+                    fontSize: 12,
+                    fill: '#374151',
+                    formatter: (value: number) => value.toFixed(1)
+                  }}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -349,6 +361,12 @@ export default function Dashboard() {
                   strokeWidth={2}
                   dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, fill: '#3b82f6' }}
+                  label={{
+                    position: 'top',
+                    fontSize: 12,
+                    fill: '#374151',
+                    formatter: (value: number) => value.toString()
+                  }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -405,6 +423,12 @@ export default function Dashboard() {
                   fill="#10b981" 
                   name="totalCost"
                   radius={[2, 2, 0, 0]}
+                  label={{
+                    position: 'top',
+                    fontSize: 12,
+                    fill: '#374151',
+                    formatter: (value: number) => `¥${(value/1000).toFixed(1)}k`
+                  }}
                 />
               </BarChart>
             </ResponsiveContainer>
