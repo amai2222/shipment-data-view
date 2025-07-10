@@ -22,27 +22,39 @@ export default function Dashboard() {
 
   // 加载数据
   useEffect(() => {
-    setRecords(LocalStorage.getLogisticsRecords());
+    const allRecords = LocalStorage.getLogisticsRecords();
+    setRecords(allRecords);
+    console.log("Dashboard - 加载的记录数量:", allRecords.length);
+    console.log("Dashboard - 记录样例:", allRecords[0]);
     
-    // 设置默认日期范围（最近7天）
-    const today = new Date();
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(today.getDate() - 7);
+    // 设置默认日期范围（2024年7月，因为数据是7月的）
+    const startDate = "2024-07-01";
+    const endDate = "2024-07-31";
     
     setDateRange({
-      startDate: sevenDaysAgo.toISOString().split('T')[0],
-      endDate: today.toISOString().split('T')[0],
+      startDate,
+      endDate,
     });
+    
+    console.log("Dashboard - 设置日期范围:", startDate, "到", endDate);
   }, []);
 
   // 根据日期范围过滤记录
   const filteredRecords = useMemo(() => {
     if (!dateRange.startDate || !dateRange.endDate) return records;
     
-    return records.filter(record => {
+    const filtered = records.filter(record => {
       const recordDate = new Date(record.loadingTime).toISOString().split('T')[0];
       return recordDate >= dateRange.startDate && recordDate <= dateRange.endDate;
     });
+    
+    console.log("Dashboard - 过滤后的记录数量:", filtered.length);
+    console.log("Dashboard - 日期范围:", dateRange.startDate, "到", dateRange.endDate);
+    if (filtered.length > 0) {
+      console.log("Dashboard - 过滤后记录样例:", filtered[0]);
+    }
+    
+    return filtered;
   }, [records, dateRange]);
 
   // 每日运输量统计
@@ -62,10 +74,13 @@ export default function Dashboard() {
       statsMap.set(date, current);
     });
     
-    return Array.from(statsMap.entries()).map(([date, stats]) => ({
+    const result = Array.from(statsMap.entries()).map(([date, stats]) => ({
       date,
       ...stats,
     })).sort((a, b) => a.date.localeCompare(b.date));
+    
+    console.log("Dashboard - 每日运输量统计结果:", result);
+    return result;
   }, [filteredRecords]);
 
   // 每日成本统计
@@ -109,14 +124,20 @@ export default function Dashboard() {
       sum + (record.currentCost || 0) + (record.extraCost || 0), 0);
     const actualTransportCount = filteredRecords.filter(r => r.transportType === "实际运输").length;
     
-    return {
+    const stats = {
       totalRecords,
       totalWeight,
       totalCost,
       actualTransportCount,
       returnCount: totalRecords - actualTransportCount,
     };
-  }, [filteredRecords]);
+    
+    console.log("Dashboard - 统计概览:", stats);
+    console.log("Dashboard - 过滤记录数量:", filteredRecords.length);
+    console.log("Dashboard - 原始记录数量:", records.length);
+    
+    return stats;
+  }, [filteredRecords, records]);
 
   return (
     <div className="space-y-8">
@@ -154,6 +175,41 @@ export default function Dashboard() {
                 onChange={(e) => setDateRange(prev => ({...prev, endDate: e.target.value}))}
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 数据检查面板 - 临时调试用 */}
+      <Card className="shadow-card bg-yellow-50 border-yellow-200">
+        <CardHeader>
+          <CardTitle className="text-yellow-800">数据检查面板 (调试用)</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p><strong>原始记录总数:</strong> {records.length}</p>
+              <p><strong>过滤后记录数:</strong> {filteredRecords.length}</p>
+              <p><strong>日期范围:</strong> {dateRange.startDate} 到 {dateRange.endDate}</p>
+            </div>
+            <div>
+              <p><strong>实际运输:</strong> {overviewStats.actualTransportCount} 次</p>
+              <p><strong>退货:</strong> {overviewStats.returnCount} 次</p>
+              <p><strong>总重量:</strong> {overviewStats.totalWeight.toFixed(2)} 吨</p>
+            </div>
+          </div>
+          {records.length > 0 && (
+            <div className="mt-4">
+              <p><strong>最新一条记录:</strong></p>
+              <pre className="text-xs bg-white p-2 rounded mt-2 overflow-auto">
+                {JSON.stringify(records[0], null, 2)}
+              </pre>
+            </div>
+          )}
+          <div className="mt-4">
+            <p><strong>每日运输量统计数据:</strong></p>
+            <pre className="text-xs bg-white p-2 rounded mt-2 overflow-auto">
+              {JSON.stringify(dailyTransportStats, null, 2)}
+            </pre>
           </div>
         </CardContent>
       </Card>
