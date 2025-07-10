@@ -10,11 +10,10 @@ interface LayoutProps {
 }
 
 const navigation = [
-  { name: "业务录入", href: "/", icon: Plus },
+  { name: "数据看板", href: "/", icon: BarChart3 },
   { name: "项目管理", href: "/projects", icon: Package },
   { name: "司机管理", href: "/drivers", icon: Truck },
   { name: "地点管理", href: "/locations", icon: MapPin },
-  { name: "数据看板", href: "/dashboard", icon: BarChart3 },
 ];
 
 export function Layout({ children }: LayoutProps) {

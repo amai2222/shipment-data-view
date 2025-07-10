@@ -1,503 +1,485 @@
-import { useState, useEffect } from "react";
-import { clearAndImportData } from "@/utils/importData";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarIcon, Edit, Trash2, Save, X } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { BarChart3, TrendingUp, Truck, Package } from "lucide-react";
 import { LocalStorage } from "@/utils/storage";
-import { Project, Driver, Location, LogisticsRecord } from "@/types";
+import { LogisticsRecord, DailyTransportStats, DailyCostStats } from "@/types";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+
+// 每日运输次数统计
+interface DailyCountStats {
+  date: string;
+  count: number;
+}
 
 export default function Home() {
-  const { toast } = useToast();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
-  const [isEditing, setIsEditing] = useState<string | null>(null);
-
-  // 表单状态
-  const [formData, setFormData] = useState({
-    projectId: "",
-    loadingTime: "",
-    loadingLocation: "",
-    unloadingLocation: "",
-    driverId: "",
-    loadingWeight: "",
-    unloadingDate: "",
-    unloadingWeight: "",
-    transportType: "实际运输" as "实际运输" | "退货",
-    currentCost: "",
-    extraCost: "",
-    payableCost: "",
-    remarks: "",
+  const [projects, setProjects] = useState<any[]>([]);
+  const [dateRange, setDateRange] = useState({
+    startDate: "",
+    endDate: "",
   });
-
-  const [loadingDate, setLoadingDate] = useState<Date>();
-  const [unloadingDate, setUnloadingDate] = useState<Date>();
 
   // 加载数据
   useEffect(() => {
-    // 清空并导入新数据
-    clearAndImportData();
+    const allRecords = LocalStorage.getLogisticsRecords();
+    const allProjects = LocalStorage.getProjects();
+    setRecords(allRecords);
+    setProjects(allProjects);
     
-    setProjects(LocalStorage.getProjects());
-    setDrivers(LocalStorage.getDrivers());
-    setLocations(LocalStorage.getLocations());
-    setRecords(LocalStorage.getLogisticsRecords());
+    // 设置默认日期范围（2024年7月，因为数据是7月的）
+    const startDate = "2024-07-01";
+    const endDate = "2024-07-31";
+    
+    setDateRange({
+      startDate,
+      endDate,
+    });
   }, []);
 
-  // 重置表单
-  const resetForm = () => {
-    setFormData({
-      projectId: "",
-      loadingTime: "",
-      loadingLocation: "",
-      unloadingLocation: "",
-      driverId: "",
-      loadingWeight: "",
-      unloadingDate: "",
-      unloadingWeight: "",
-      transportType: "实际运输",
-      currentCost: "",
-      extraCost: "",
-      payableCost: "",
-      remarks: "",
-    });
-    setLoadingDate(undefined);
-    setUnloadingDate(undefined);
-  };
-
-  // 司机选择联动
-  const handleDriverChange = (driverId: string) => {
-    const driver = drivers.find(d => d.id === driverId);
-    setFormData(prev => ({
-      ...prev,
-      driverId,
-    }));
-  };
-
-  // 获取选中司机信息
-  const getSelectedDriver = () => {
-    return drivers.find(d => d.id === formData.driverId);
-  };
-
-  // 提交表单
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // 根据日期范围过滤记录
+  const filteredRecords = useMemo(() => {
+    if (!dateRange.startDate || !dateRange.endDate) return records;
     
-    if (!formData.projectId || !formData.loadingTime || !formData.loadingLocation || 
-        !formData.unloadingLocation || !formData.driverId || !formData.loadingWeight) {
-      toast({
-        title: "请填写必填字段",
-        description: "项目、装车时间、装车地、卸货地、司机和装货净重为必填项",
-        variant: "destructive",
-      });
-      return;
-    }
+    return records.filter(record => {
+      const recordDate = new Date(record.loadingTime).toISOString().split('T')[0];
+      return recordDate >= dateRange.startDate && recordDate <= dateRange.endDate;
+    });
+  }, [records, dateRange]);
 
-    const project = projects.find(p => p.id === formData.projectId);
-    const driver = drivers.find(d => d.id === formData.driverId);
+  // 按项目分组的记录
+  const recordsByProject = useMemo(() => {
+    const grouped = filteredRecords.reduce((acc, record) => {
+      if (!acc[record.projectId]) {
+        acc[record.projectId] = [];
+      }
+      acc[record.projectId].push(record);
+      return acc;
+    }, {} as Record<string, LogisticsRecord[]>);
+    return grouped;
+  }, [filteredRecords]);
 
-    if (!project || !driver) {
-      toast({
-        title: "数据错误",
-        description: "请检查项目和司机信息",
-        variant: "destructive",
-      });
-      return;
-    }
+  // 按项目生成统计数据
+  const projectStats = useMemo(() => {
+    return Object.keys(recordsByProject).map(projectId => {
+      const projectRecords = recordsByProject[projectId];
+      const project = projects.find(p => p.id === projectId);
+      
+      // 每日运输量统计
+      const dailyTransportStats: DailyTransportStats[] = (() => {
+        const statsMap = new Map<string, { actualTransport: number; returns: number }>();
+        
+        projectRecords.forEach(record => {
+          const date = new Date(record.loadingTime).toISOString().split('T')[0];
+          const current = statsMap.get(date) || { actualTransport: 0, returns: 0 };
+          
+          if (record.transportType === "实际运输") {
+            current.actualTransport += record.loadingWeight;
+          } else {
+            current.returns += record.loadingWeight;
+          }
+          
+          statsMap.set(date, current);
+        });
+        
+        return Array.from(statsMap.entries()).map(([date, stats]) => ({
+          date,
+          ...stats,
+        })).sort((a, b) => a.date.localeCompare(b.date));
+      })();
 
-    const recordData = {
-      projectId: formData.projectId,
-      projectName: project.name,
-      loadingTime: formData.loadingTime,
-      loadingLocation: formData.loadingLocation,
-      unloadingLocation: formData.unloadingLocation,
-      driverId: formData.driverId,
-      driverName: driver.name,
-      licensePlate: driver.licensePlate,
-      driverPhone: driver.phone,
-      loadingWeight: parseFloat(formData.loadingWeight),
-      unloadingDate: formData.unloadingDate || undefined,
-      unloadingWeight: formData.unloadingWeight ? parseFloat(formData.unloadingWeight) : undefined,
-      transportType: formData.transportType,
-      currentCost: formData.currentCost ? parseFloat(formData.currentCost) : undefined,
-      extraCost: formData.extraCost ? parseFloat(formData.extraCost) : undefined,
-      payableCost: formData.payableCost ? parseFloat(formData.payableCost) : undefined,
-      remarks: formData.remarks || undefined,
-      createdByUserId: "current_user", // 模拟当前用户ID
+      // 每日成本统计
+      const dailyCostStats: DailyCostStats[] = (() => {
+        const statsMap = new Map<string, number>();
+        
+        projectRecords.forEach(record => {
+          const date = new Date(record.loadingTime).toISOString().split('T')[0];
+          const current = statsMap.get(date) || 0;
+          const cost = (record.currentCost || 0) + (record.extraCost || 0);
+          statsMap.set(date, current + cost);
+        });
+        
+        return Array.from(statsMap.entries()).map(([date, totalCost]) => ({
+          date,
+          totalCost,
+        })).sort((a, b) => a.date.localeCompare(b.date));
+      })();
+
+      // 每日运输次数统计
+      const dailyCountStats: DailyCountStats[] = (() => {
+        const statsMap = new Map<string, number>();
+        
+        projectRecords.forEach(record => {
+          const date = new Date(record.loadingTime).toISOString().split('T')[0];
+          const current = statsMap.get(date) || 0;
+          statsMap.set(date, current + 1);
+        });
+        
+        return Array.from(statsMap.entries()).map(([date, count]) => ({
+          date,
+          count,
+        })).sort((a, b) => a.date.localeCompare(b.date));
+      })();
+
+      // 图例汇总数据
+      const legendTotals = {
+        actualTransportTotal: dailyTransportStats.reduce((sum, day) => sum + day.actualTransport, 0),
+        returnsTotal: dailyTransportStats.reduce((sum, day) => sum + day.returns, 0),
+        totalCostSum: dailyCostStats.reduce((sum, day) => sum + day.totalCost, 0),
+        totalTrips: dailyCountStats.reduce((sum, day) => sum + day.count, 0),
+      };
+
+      return {
+        projectId,
+        project,
+        projectRecords,
+        dailyTransportStats,
+        dailyCostStats,
+        dailyCountStats,
+        legendTotals,
+      };
+    });
+  }, [recordsByProject, projects]);
+
+  // 统计概览
+  const overviewStats = useMemo(() => {
+    const totalRecords = filteredRecords.length;
+    const totalWeight = filteredRecords.reduce((sum, record) => sum + record.loadingWeight, 0);
+    const totalCost = filteredRecords.reduce((sum, record) => 
+      sum + (record.currentCost || 0) + (record.extraCost || 0), 0);
+    const actualTransportCount = filteredRecords.filter(r => r.transportType === "实际运输").length;
+    
+    return {
+      totalRecords,
+      totalWeight,
+      totalCost,
+      actualTransportCount,
+      returnCount: totalRecords - actualTransportCount,
     };
-
-    if (isEditing) {
-      LocalStorage.updateLogisticsRecord(isEditing, recordData);
-      setIsEditing(null);
-      toast({
-        title: "更新成功",
-        description: "记录已成功更新",
-      });
-    } else {
-      LocalStorage.addLogisticsRecord(recordData);
-      toast({
-        title: "添加成功",
-        description: "新记录已成功添加",
-      });
-    }
-
-    setRecords(LocalStorage.getLogisticsRecords());
-    resetForm();
-  };
-
-  // 编辑记录
-  const handleEdit = (record: LogisticsRecord) => {
-    setFormData({
-      projectId: record.projectId,
-      loadingTime: record.loadingTime,
-      loadingLocation: record.loadingLocation,
-      unloadingLocation: record.unloadingLocation,
-      driverId: record.driverId,
-      loadingWeight: record.loadingWeight.toString(),
-      unloadingDate: record.unloadingDate || "",
-      unloadingWeight: record.unloadingWeight?.toString() || "",
-      transportType: record.transportType,
-      currentCost: record.currentCost?.toString() || "",
-      extraCost: record.extraCost?.toString() || "",
-      payableCost: record.payableCost?.toString() || "",
-      remarks: record.remarks || "",
-    });
-    setIsEditing(record.id);
-  };
-
-  // 删除记录
-  const handleDelete = (id: string) => {
-    LocalStorage.deleteLogisticsRecord(id);
-    setRecords(LocalStorage.getLogisticsRecords());
-    toast({
-      title: "删除成功",
-      description: "记录已成功删除",
-    });
-  };
+  }, [filteredRecords]);
 
   return (
     <div className="space-y-8">
       {/* 页面标题 */}
       <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
-        <h1 className="text-2xl font-bold mb-2">物流业务录入</h1>
-        <p className="opacity-90">录入运输记录，系统将自动生成编号并关联相关信息</p>
+        <h1 className="text-2xl font-bold mb-2 flex items-center">
+          <BarChart3 className="mr-2" />
+          数据看板
+        </h1>
+        <p className="opacity-90">运输数据统计分析与可视化</p>
       </div>
 
-      {/* 业务表单 */}
+      {/* 日期筛选器 */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <span>{isEditing ? "编辑" : "新增"}运输记录</span>
-            {isEditing && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setIsEditing(null);
-                  resetForm();
-                }}
-              >
-                <X className="h-4 w-4 mr-1" />
-                取消编辑
-              </Button>
-            )}
-          </CardTitle>
+          <CardTitle>数据筛选</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* 自动编号 */}
-              <div className="space-y-2">
-                <Label>自动编号</Label>
-                <Input
-                  value={isEditing ? records.find(r => r.id === isEditing)?.autoNumber || "" : LocalStorage.generateAutoNumber()}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-
-              {/* 项目名称 */}
-              <div className="space-y-2">
-                <Label>项目名称 *</Label>
-                <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({...prev, projectId: value}))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择项目" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* 装车时间 */}
-              <div className="space-y-2">
-                <Label>装车时间 *</Label>
-                <Input
-                  type="datetime-local"
-                  value={formData.loadingTime}
-                  onChange={(e) => setFormData(prev => ({...prev, loadingTime: e.target.value}))}
-                />
-              </div>
-
-              {/* 装车地 */}
-              <div className="space-y-2">
-                <Label>装车地 *</Label>
-                <Select value={formData.loadingLocation} onValueChange={(value) => setFormData(prev => ({...prev, loadingLocation: value}))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择装车地" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.name}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* 卸货地 */}
-              <div className="space-y-2">
-                <Label>卸货地 *</Label>
-                <Select value={formData.unloadingLocation} onValueChange={(value) => setFormData(prev => ({...prev, unloadingLocation: value}))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择卸货地" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.name}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* 司机姓名 */}
-              <div className="space-y-2">
-                <Label>司机姓名 *</Label>
-                <Select value={formData.driverId} onValueChange={handleDriverChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择司机" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {drivers.map((driver) => (
-                      <SelectItem key={driver.id} value={driver.id}>
-                        {driver.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* 车牌号（自动填充） */}
-              <div className="space-y-2">
-                <Label>车牌号</Label>
-                <Input
-                  value={getSelectedDriver()?.licensePlate || ""}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-
-              {/* 司机电话（自动填充） */}
-              <div className="space-y-2">
-                <Label>司机电话</Label>
-                <Input
-                  value={getSelectedDriver()?.phone || ""}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-
-              {/* 装货净重 */}
-              <div className="space-y-2">
-                <Label>装货净重(吨) *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.loadingWeight}
-                  onChange={(e) => setFormData(prev => ({...prev, loadingWeight: e.target.value}))}
-                />
-              </div>
-
-              {/* 卸货日期 */}
-              <div className="space-y-2">
-                <Label>卸货日期</Label>
-                <Input
-                  type="date"
-                  value={formData.unloadingDate}
-                  onChange={(e) => setFormData(prev => ({...prev, unloadingDate: e.target.value}))}
-                />
-              </div>
-
-              {/* 卸货净重 */}
-              <div className="space-y-2">
-                <Label>卸货净重(吨)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.unloadingWeight}
-                  onChange={(e) => setFormData(prev => ({...prev, unloadingWeight: e.target.value}))}
-                />
-              </div>
-
-              {/* 运输类别 */}
-              <div className="space-y-2">
-                <Label>运输类别 *</Label>
-                <Select value={formData.transportType} onValueChange={(value: "实际运输" | "退货") => setFormData(prev => ({...prev, transportType: value}))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="实际运输">实际运输</SelectItem>
-                    <SelectItem value="退货">退货</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* 当次费用 */}
-              <div className="space-y-2">
-                <Label>当次费用(元)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.currentCost}
-                  onChange={(e) => setFormData(prev => ({...prev, currentCost: e.target.value}))}
-                />
-              </div>
-
-              {/* 额外费用 */}
-              <div className="space-y-2">
-                <Label>额外费用(元)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.extraCost}
-                  onChange={(e) => setFormData(prev => ({...prev, extraCost: e.target.value}))}
-                />
-              </div>
-
-              {/* 应付费用 */}
-              <div className="space-y-2">
-                <Label>应付费用(元)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.payableCost}
-                  onChange={(e) => setFormData(prev => ({...prev, payableCost: e.target.value}))}
-                />
-              </div>
-            </div>
-
-            {/* 备注 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>备注</Label>
-              <Textarea
-                value={formData.remarks}
-                onChange={(e) => setFormData(prev => ({...prev, remarks: e.target.value}))}
-                rows={3}
+              <Label htmlFor="startDate">开始日期</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={dateRange.startDate}
+                onChange={(e) => setDateRange(prev => ({...prev, startDate: e.target.value}))}
               />
             </div>
-
-            <Button type="submit" className="bg-gradient-primary hover:bg-primary-hover shadow-primary">
-              <Save className="h-4 w-4 mr-2" />
-              {isEditing ? "更新记录" : "保存记录"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* 数据列表 */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>运输记录列表</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>自动编号</TableHead>
-                  <TableHead>项目</TableHead>
-                  <TableHead>装车时间</TableHead>
-                  <TableHead>装车地</TableHead>
-                  <TableHead>卸货地</TableHead>
-                  <TableHead>司机</TableHead>
-                  <TableHead>车牌号</TableHead>
-                  <TableHead>装货重量</TableHead>
-                  <TableHead>运输类别</TableHead>
-                  <TableHead>操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell className="font-mono">{record.autoNumber}</TableCell>
-                    <TableCell>{record.projectName}</TableCell>
-                    <TableCell>{new Date(record.loadingTime).toLocaleString()}</TableCell>
-                    <TableCell>{record.loadingLocation}</TableCell>
-                    <TableCell>{record.unloadingLocation}</TableCell>
-                    <TableCell>{record.driverName}</TableCell>
-                    <TableCell>{record.licensePlate}</TableCell>
-                    <TableCell>{record.loadingWeight}吨</TableCell>
-                    <TableCell>
-                      <span className={cn(
-                        "px-2 py-1 rounded-full text-xs font-medium",
-                        record.transportType === "实际运输" 
-                          ? "bg-green-100 text-green-800" 
-                          : "bg-orange-100 text-orange-800"
-                      )}>
-                        {record.transportType}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(record)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(record.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {records.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                      暂无记录
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <div className="space-y-2">
+              <Label htmlFor="endDate">结束日期</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={dateRange.endDate}
+                onChange={(e) => setDateRange(prev => ({...prev, endDate: e.target.value}))}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* 统计概览 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="shadow-card">
+          <CardContent className="flex items-center p-6">
+            <div className="p-2 bg-blue-100 rounded-lg mr-4">
+              <Package className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">总运输次数</p>
+              <p className="text-2xl font-bold">{overviewStats.totalRecords}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card">
+          <CardContent className="flex items-center p-6">
+            <div className="p-2 bg-green-100 rounded-lg mr-4">
+              <Truck className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">总运输重量</p>
+              <p className="text-2xl font-bold">{overviewStats.totalWeight.toFixed(1)}吨</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card">
+          <CardContent className="flex items-center p-6">
+            <div className="p-2 bg-yellow-100 rounded-lg mr-4">
+              <TrendingUp className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">总运输成本</p>
+              <p className="text-2xl font-bold">¥{overviewStats.totalCost.toFixed(2)}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card">
+          <CardContent className="flex items-center p-6">
+            <div className="p-2 bg-purple-100 rounded-lg mr-4">
+              <BarChart3 className="h-6 w-6 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">实际运输/退货</p>
+              <p className="text-2xl font-bold">{overviewStats.actualTransportCount}/{overviewStats.returnCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 按项目分类显示图表 */}
+      {projectStats.map((projectData) => (
+        <div key={projectData.projectId} className="space-y-6">
+          {/* 项目分隔标题 */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+            <h2 className="text-xl font-bold text-blue-900 mb-1">
+              {projectData.project?.name || '未知项目'}
+            </h2>
+            <p className="text-blue-700">
+              项目负责人：{projectData.project?.manager || '未指定'}
+            </p>
+          </div>
+
+          {/* 每日运输量统计图表 */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>
+                每日运输量统计 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) (吨)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-96">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={projectData.dailyTransportStats}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                      }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      interval={0}
+                    />
+                    <YAxis 
+                      domain={[0, 'dataMax + 20']}
+                      tickFormatter={(value) => value.toString()}
+                    />
+                    <Tooltip 
+                      labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
+                      formatter={(value, name) => {
+                        const label = name === 'actualTransport' ? '有效运输量' : '退货量';
+                        return [`${Number(value).toFixed(2)}`, label];
+                      }}
+                      contentStyle={{
+                        backgroundColor: '#fff',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px'
+                      }}
+                    />
+                    <Legend 
+                      formatter={(value) => {
+                        if (value === 'actualTransport') {
+                          return `有效运输量 (${projectData.legendTotals.actualTransportTotal.toFixed(1)}吨)`;
+                        }
+                        return `退货量 (${projectData.legendTotals.returnsTotal.toFixed(1)}吨)`;
+                      }}
+                      wrapperStyle={{ 
+                        paddingTop: '20px',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="actualTransport" 
+                      fill="#4ade80" 
+                      name="actualTransport"
+                      radius={[2, 2, 0, 0]}
+                      label={{
+                        position: 'top',
+                        fontSize: 12,
+                        fill: '#374151',
+                        formatter: (value: number) => value.toFixed(1)
+                      }}
+                    />
+                    <Bar 
+                      dataKey="returns" 
+                      fill="#ef4444" 
+                      name="returns"
+                      radius={[2, 2, 0, 0]}
+                      label={{
+                        position: 'top',
+                        fontSize: 12,
+                        fill: '#374151',
+                        formatter: (value: number) => value.toFixed(1)
+                      }}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 运输日报 - 折线图 */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>
+                运输日报 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) ({dateRange.startDate} 至 {dateRange.endDate})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart 
+                    data={projectData.dailyCountStats}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                      }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      interval={0}
+                    />
+                    <YAxis 
+                      domain={[0, 'dataMax + 1']}
+                      tickFormatter={(value) => value.toString()}
+                    />
+                    <Tooltip 
+                      labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
+                      formatter={(value) => [`${value} 次`, '运输次数']}
+                      contentStyle={{
+                        backgroundColor: '#fff',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px'
+                      }}
+                    />
+                    <Legend 
+                      formatter={() => `运输次数 (总计${projectData.legendTotals.totalTrips}次)`}
+                      wrapperStyle={{ 
+                        paddingTop: '20px',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="count" 
+                      stroke="#3b82f6" 
+                      strokeWidth={2}
+                      dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, fill: '#3b82f6' }}
+                      label={{
+                        position: 'top',
+                        fontSize: 12,
+                        fill: '#374151',
+                        formatter: (value: number) => value.toString()
+                      }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 每日运输成本分析图表 */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>
+                每日运输成本分析 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) (元)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={projectData.dailyCostStats}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                      }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      interval={0}
+                    />
+                    <YAxis 
+                      tickFormatter={(value) => `¥${(value/1000).toFixed(1)}k`}
+                    />
+                    <Tooltip 
+                      labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
+                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总成本']}
+                      contentStyle={{
+                        backgroundColor: '#fff',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px'
+                      }}
+                    />
+                    <Legend 
+                      formatter={() => `总成本 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { maximumFractionDigits: 0 })})`}
+                      wrapperStyle={{ 
+                        paddingTop: '20px',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="totalCost" 
+                      fill="#10b981" 
+                      name="totalCost"
+                      radius={[2, 2, 0, 0]}
+                      label={{
+                        position: 'top',
+                        fontSize: 12,
+                        fill: '#374151',
+                        formatter: (value: number) => `¥${(value/1000).toFixed(1)}k`
+                      }}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ))}
     </div>
   );
 }
