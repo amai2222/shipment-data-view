@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { initializeSampleData } from "@/utils/sampleData";
+import { clearAndImportData } from "@/utils/importData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,8 +46,8 @@ export default function Home() {
 
   // 加载数据
   useEffect(() => {
-    // 初始化示例数据
-    initializeSampleData();
+    // 清空并导入新数据
+    clearAndImportData();
     
     setProjects(LocalStorage.getProjects());
     setDrivers(LocalStorage.getDrivers());

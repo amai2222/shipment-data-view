@@ -1,7 +1,9 @@
 import { ReactNode } from "react";
-import { Truck, Package, MapPin, BarChart3, Plus } from "lucide-react";
+import { Truck, Package, MapPin, BarChart3, Plus, RotateCcw } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { forceReimportData } from "@/utils/importData";
 
 interface LayoutProps {
   children: ReactNode;
@@ -33,6 +35,18 @@ export function Layout({ children }: LayoutProps) {
                 <p className="text-sm text-muted-foreground">高效管理 · 精准统计</p>
               </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                forceReimportData();
+                window.location.reload();
+              }}
+              className="flex items-center space-x-1"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span>重新导入数据</span>
+            </Button>
           </div>
         </div>
       </header>

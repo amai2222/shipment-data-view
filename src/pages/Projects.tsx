@@ -24,7 +24,11 @@ export default function Projects() {
 
   // 加载项目数据
   useEffect(() => {
-    setProjects(LocalStorage.getProjects());
+    const loadData = () => setProjects(LocalStorage.getProjects());
+    loadData();
+    // 添加存储变化监听器
+    window.addEventListener('storage', loadData);
+    return () => window.removeEventListener('storage', loadData);
   }, []);
 
   // 重置表单
