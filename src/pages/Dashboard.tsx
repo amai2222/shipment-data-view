@@ -118,6 +118,21 @@ export default function Dashboard() {
     };
   }, [filteredRecords]);
 
+  // 计算图例显示的汇总数据
+  const legendTotals = useMemo(() => {
+    const actualTransportTotal = dailyTransportStats.reduce((sum, day) => sum + day.actualTransport, 0);
+    const returnsTotal = dailyTransportStats.reduce((sum, day) => sum + day.returns, 0);
+    const totalCostSum = dailyCostStats.reduce((sum, day) => sum + day.totalCost, 0);
+    const totalTrips = dailyCountStats.reduce((sum, day) => sum + day.count, 0);
+    
+    return {
+      actualTransportTotal,
+      returnsTotal,
+      totalCostSum,
+      totalTrips,
+    };
+  }, [dailyTransportStats, dailyCostStats, dailyCountStats]);
+
   return (
     <div className="space-y-8">
       {/* 页面标题 */}
@@ -250,8 +265,17 @@ export default function Dashboard() {
                   }}
                 />
                 <Legend 
-                  formatter={(value) => value === 'actualTransport' ? '有效运输量' : '退货量'}
-                  wrapperStyle={{ paddingTop: '20px' }}
+                  formatter={(value) => {
+                    if (value === 'actualTransport') {
+                      return `有效运输量 (${legendTotals.actualTransportTotal.toFixed(1)}吨)`;
+                    }
+                    return `退货量 (${legendTotals.returnsTotal.toFixed(1)}吨)`;
+                  }}
+                  wrapperStyle={{ 
+                    paddingTop: '20px',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
                 />
                 <Bar 
                   dataKey="actualTransport" 
@@ -310,6 +334,14 @@ export default function Dashboard() {
                     borderRadius: '4px'
                   }}
                 />
+                <Legend 
+                  formatter={() => `运输次数 (总计${legendTotals.totalTrips}次)`}
+                  wrapperStyle={{ 
+                    paddingTop: '20px',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                />
                 <Line 
                   type="monotone" 
                   dataKey="count" 
@@ -360,7 +392,14 @@ export default function Dashboard() {
                     borderRadius: '4px'
                   }}
                 />
-                <Legend formatter={() => '总成本'} />
+                <Legend 
+                  formatter={() => `总成本 (¥${legendTotals.totalCostSum.toLocaleString('zh-CN', { maximumFractionDigits: 0 })})`}
+                  wrapperStyle={{ 
+                    paddingTop: '20px',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                />
                 <Bar 
                   dataKey="totalCost" 
                   fill="#10b981" 
