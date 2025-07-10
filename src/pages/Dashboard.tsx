@@ -15,6 +15,7 @@ interface DailyCountStats {
 
 export default function Dashboard() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [dateRange, setDateRange] = useState({
     startDate: "",
     endDate: "",
@@ -23,7 +24,9 @@ export default function Dashboard() {
   // 加载数据
   useEffect(() => {
     const allRecords = LocalStorage.getLogisticsRecords();
+    const allProjects = LocalStorage.getProjects();
     setRecords(allRecords);
+    setProjects(allProjects);
     
     // 设置默认日期范围（2024年7月，因为数据是7月的）
     const startDate = "2024-07-01";
@@ -45,61 +48,99 @@ export default function Dashboard() {
     });
   }, [records, dateRange]);
 
-  // 每日运输量统计
-  const dailyTransportStats: DailyTransportStats[] = useMemo(() => {
-    const statsMap = new Map<string, { actualTransport: number; returns: number }>();
-    
-    filteredRecords.forEach(record => {
-      const date = new Date(record.loadingTime).toISOString().split('T')[0];
-      const current = statsMap.get(date) || { actualTransport: 0, returns: 0 };
-      
-      if (record.transportType === "实际运输") {
-        current.actualTransport += record.loadingWeight;
-      } else {
-        current.returns += record.loadingWeight;
+  // 按项目分组的记录
+  const recordsByProject = useMemo(() => {
+    const grouped = filteredRecords.reduce((acc, record) => {
+      if (!acc[record.projectId]) {
+        acc[record.projectId] = [];
       }
+      acc[record.projectId].push(record);
+      return acc;
+    }, {} as Record<string, LogisticsRecord[]>);
+    return grouped;
+  }, [filteredRecords]);
+
+  // 按项目生成统计数据
+  const projectStats = useMemo(() => {
+    return Object.keys(recordsByProject).map(projectId => {
+      const projectRecords = recordsByProject[projectId];
+      const project = projects.find(p => p.id === projectId);
       
-      statsMap.set(date, current);
-    });
-    
-    return Array.from(statsMap.entries()).map(([date, stats]) => ({
-      date,
-      ...stats,
-    })).sort((a, b) => a.date.localeCompare(b.date));
-  }, [filteredRecords]);
+      // 每日运输量统计
+      const dailyTransportStats: DailyTransportStats[] = (() => {
+        const statsMap = new Map<string, { actualTransport: number; returns: number }>();
+        
+        projectRecords.forEach(record => {
+          const date = new Date(record.loadingTime).toISOString().split('T')[0];
+          const current = statsMap.get(date) || { actualTransport: 0, returns: 0 };
+          
+          if (record.transportType === "实际运输") {
+            current.actualTransport += record.loadingWeight;
+          } else {
+            current.returns += record.loadingWeight;
+          }
+          
+          statsMap.set(date, current);
+        });
+        
+        return Array.from(statsMap.entries()).map(([date, stats]) => ({
+          date,
+          ...stats,
+        })).sort((a, b) => a.date.localeCompare(b.date));
+      })();
 
-  // 每日成本统计
-  const dailyCostStats: DailyCostStats[] = useMemo(() => {
-    const statsMap = new Map<string, number>();
-    
-    filteredRecords.forEach(record => {
-      const date = new Date(record.loadingTime).toISOString().split('T')[0];
-      const current = statsMap.get(date) || 0;
-      const cost = (record.currentCost || 0) + (record.extraCost || 0);
-      statsMap.set(date, current + cost);
-    });
-    
-    return Array.from(statsMap.entries()).map(([date, totalCost]) => ({
-      date,
-      totalCost,
-    })).sort((a, b) => a.date.localeCompare(b.date));
-  }, [filteredRecords]);
+      // 每日成本统计
+      const dailyCostStats: DailyCostStats[] = (() => {
+        const statsMap = new Map<string, number>();
+        
+        projectRecords.forEach(record => {
+          const date = new Date(record.loadingTime).toISOString().split('T')[0];
+          const current = statsMap.get(date) || 0;
+          const cost = (record.currentCost || 0) + (record.extraCost || 0);
+          statsMap.set(date, current + cost);
+        });
+        
+        return Array.from(statsMap.entries()).map(([date, totalCost]) => ({
+          date,
+          totalCost,
+        })).sort((a, b) => a.date.localeCompare(b.date));
+      })();
 
-  // 每日运输次数统计
-  const dailyCountStats: DailyCountStats[] = useMemo(() => {
-    const statsMap = new Map<string, number>();
-    
-    filteredRecords.forEach(record => {
-      const date = new Date(record.loadingTime).toISOString().split('T')[0];
-      const current = statsMap.get(date) || 0;
-      statsMap.set(date, current + 1);
+      // 每日运输次数统计
+      const dailyCountStats: DailyCountStats[] = (() => {
+        const statsMap = new Map<string, number>();
+        
+        projectRecords.forEach(record => {
+          const date = new Date(record.loadingTime).toISOString().split('T')[0];
+          const current = statsMap.get(date) || 0;
+          statsMap.set(date, current + 1);
+        });
+        
+        return Array.from(statsMap.entries()).map(([date, count]) => ({
+          date,
+          count,
+        })).sort((a, b) => a.date.localeCompare(b.date));
+      })();
+
+      // 图例汇总数据
+      const legendTotals = {
+        actualTransportTotal: dailyTransportStats.reduce((sum, day) => sum + day.actualTransport, 0),
+        returnsTotal: dailyTransportStats.reduce((sum, day) => sum + day.returns, 0),
+        totalCostSum: dailyCostStats.reduce((sum, day) => sum + day.totalCost, 0),
+        totalTrips: dailyCountStats.reduce((sum, day) => sum + day.count, 0),
+      };
+
+      return {
+        projectId,
+        project,
+        projectRecords,
+        dailyTransportStats,
+        dailyCostStats,
+        dailyCountStats,
+        legendTotals,
+      };
     });
-    
-    return Array.from(statsMap.entries()).map(([date, count]) => ({
-      date,
-      count,
-    })).sort((a, b) => a.date.localeCompare(b.date));
-  }, [filteredRecords]);
+  }, [recordsByProject, projects]);
 
   // 统计概览
   const overviewStats = useMemo(() => {
@@ -118,20 +159,6 @@ export default function Dashboard() {
     };
   }, [filteredRecords]);
 
-  // 计算图例显示的汇总数据
-  const legendTotals = useMemo(() => {
-    const actualTransportTotal = dailyTransportStats.reduce((sum, day) => sum + day.actualTransport, 0);
-    const returnsTotal = dailyTransportStats.reduce((sum, day) => sum + day.returns, 0);
-    const totalCostSum = dailyCostStats.reduce((sum, day) => sum + day.totalCost, 0);
-    const totalTrips = dailyCountStats.reduce((sum, day) => sum + day.count, 0);
-    
-    return {
-      actualTransportTotal,
-      returnsTotal,
-      totalCostSum,
-      totalTrips,
-    };
-  }, [dailyTransportStats, dailyCostStats, dailyCountStats]);
 
   return (
     <div className="space-y-8">
@@ -224,217 +251,236 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* 每日运输量统计图表 - 按模板样式 */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>每日运输量统计 (吨)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-96">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
-                data={dailyTransportStats}
-                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={(value) => {
-                    const date = new Date(value);
-                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                  }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  interval={0}
-                />
-                <YAxis 
-                  domain={[0, 'dataMax + 20']}
-                  tickFormatter={(value) => value.toString()}
-                />
-                <Tooltip 
-                  labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
-                  formatter={(value, name) => {
-                    const label = name === 'actualTransport' ? '有效运输量' : '退货量';
-                    return [`${Number(value).toFixed(2)}`, label];
-                  }}
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px'
-                  }}
-                />
-                <Legend 
-                  formatter={(value) => {
-                    if (value === 'actualTransport') {
-                      return `有效运输量 (${legendTotals.actualTransportTotal.toFixed(1)}吨)`;
-                    }
-                    return `退货量 (${legendTotals.returnsTotal.toFixed(1)}吨)`;
-                  }}
-                  wrapperStyle={{ 
-                    paddingTop: '20px',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                />
-                <Bar 
-                  dataKey="actualTransport" 
-                  fill="#4ade80" 
-                  name="actualTransport"
-                  radius={[2, 2, 0, 0]}
-                  label={{
-                    position: 'top',
-                    fontSize: 12,
-                    fill: '#374151',
-                    formatter: (value: number) => value.toFixed(1)
-                  }}
-                />
-                <Bar 
-                  dataKey="returns" 
-                  fill="#ef4444" 
-                  name="returns"
-                  radius={[2, 2, 0, 0]}
-                  label={{
-                    position: 'top',
-                    fontSize: 12,
-                    fill: '#374151',
-                    formatter: (value: number) => value.toFixed(1)
-                  }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+      {/* 按项目分类显示图表 */}
+      {projectStats.map((projectData) => (
+        <div key={projectData.projectId} className="space-y-6">
+          {/* 项目分隔标题 */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+            <h2 className="text-xl font-bold text-blue-900 mb-1">
+              {projectData.project?.name || '未知项目'}
+            </h2>
+            <p className="text-blue-700">
+              项目负责人：{projectData.project?.manager || '未指定'}
+            </p>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* 镇赉-大安运输日报 - 折线图 */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>
-            镇赉-大安运输日报 ({dateRange.startDate} 至 {dateRange.endDate})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart 
-                data={dailyCountStats}
-                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={(value) => {
-                    const date = new Date(value);
-                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                  }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  interval={0}
-                />
-                <YAxis 
-                  domain={[0, 'dataMax + 1']}
-                  tickFormatter={(value) => value.toString()}
-                />
-                <Tooltip 
-                  labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
-                  formatter={(value) => [`${value} 次`, '运输次数']}
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px'
-                  }}
-                />
-                <Legend 
-                  formatter={() => `运输次数 (总计${legendTotals.totalTrips}次)`}
-                  wrapperStyle={{ 
-                    paddingTop: '20px',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="count" 
-                  stroke="#3b82f6" 
-                  strokeWidth={2}
-                  dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, fill: '#3b82f6' }}
-                  label={{
-                    position: 'top',
-                    fontSize: 12,
-                    fill: '#374151',
-                    formatter: (value: number) => value.toString()
-                  }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+          {/* 每日运输量统计图表 */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>
+                每日运输量统计 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) (吨)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-96">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={projectData.dailyTransportStats}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                      }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      interval={0}
+                    />
+                    <YAxis 
+                      domain={[0, 'dataMax + 20']}
+                      tickFormatter={(value) => value.toString()}
+                    />
+                    <Tooltip 
+                      labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
+                      formatter={(value, name) => {
+                        const label = name === 'actualTransport' ? '有效运输量' : '退货量';
+                        return [`${Number(value).toFixed(2)}`, label];
+                      }}
+                      contentStyle={{
+                        backgroundColor: '#fff',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px'
+                      }}
+                    />
+                    <Legend 
+                      formatter={(value) => {
+                        if (value === 'actualTransport') {
+                          return `有效运输量 (${projectData.legendTotals.actualTransportTotal.toFixed(1)}吨)`;
+                        }
+                        return `退货量 (${projectData.legendTotals.returnsTotal.toFixed(1)}吨)`;
+                      }}
+                      wrapperStyle={{ 
+                        paddingTop: '20px',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="actualTransport" 
+                      fill="#4ade80" 
+                      name="actualTransport"
+                      radius={[2, 2, 0, 0]}
+                      label={{
+                        position: 'top',
+                        fontSize: 12,
+                        fill: '#374151',
+                        formatter: (value: number) => value.toFixed(1)
+                      }}
+                    />
+                    <Bar 
+                      dataKey="returns" 
+                      fill="#ef4444" 
+                      name="returns"
+                      radius={[2, 2, 0, 0]}
+                      label={{
+                        position: 'top',
+                        fontSize: 12,
+                        fill: '#374151',
+                        formatter: (value: number) => value.toFixed(1)
+                      }}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* 每日运输成本分析图表 */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>每日运输成本分析 (元)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
-                data={dailyCostStats}
-                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={(value) => {
-                    const date = new Date(value);
-                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                  }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  interval={0}
-                />
-                <YAxis 
-                  tickFormatter={(value) => `¥${(value/1000).toFixed(1)}k`}
-                />
-                <Tooltip 
-                  labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
-                  formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总成本']}
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px'
-                  }}
-                />
-                <Legend 
-                  formatter={() => `总成本 (¥${legendTotals.totalCostSum.toLocaleString('zh-CN', { maximumFractionDigits: 0 })})`}
-                  wrapperStyle={{ 
-                    paddingTop: '20px',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                />
-                <Bar 
-                  dataKey="totalCost" 
-                  fill="#10b981" 
-                  name="totalCost"
-                  radius={[2, 2, 0, 0]}
-                  label={{
-                    position: 'top',
-                    fontSize: 12,
-                    fill: '#374151',
-                    formatter: (value: number) => `¥${(value/1000).toFixed(1)}k`
-                  }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+          {/* 运输日报 - 折线图 */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>
+                运输日报 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) ({dateRange.startDate} 至 {dateRange.endDate})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart 
+                    data={projectData.dailyCountStats}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                      }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      interval={0}
+                    />
+                    <YAxis 
+                      domain={[0, 'dataMax + 1']}
+                      tickFormatter={(value) => value.toString()}
+                    />
+                    <Tooltip 
+                      labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
+                      formatter={(value) => [`${value} 次`, '运输次数']}
+                      contentStyle={{
+                        backgroundColor: '#fff',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px'
+                      }}
+                    />
+                    <Legend 
+                      formatter={() => `运输次数 (总计${projectData.legendTotals.totalTrips}次)`}
+                      wrapperStyle={{ 
+                        paddingTop: '20px',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="count" 
+                      stroke="#3b82f6" 
+                      strokeWidth={2}
+                      dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, fill: '#3b82f6' }}
+                      label={{
+                        position: 'top',
+                        fontSize: 12,
+                        fill: '#374151',
+                        formatter: (value: number) => value.toString()
+                      }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 每日运输成本分析图表 */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>
+                每日运输成本分析 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) (元)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={projectData.dailyCostStats}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                      }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      interval={0}
+                    />
+                    <YAxis 
+                      tickFormatter={(value) => `¥${(value/1000).toFixed(1)}k`}
+                    />
+                    <Tooltip 
+                      labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
+                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总成本']}
+                      contentStyle={{
+                        backgroundColor: '#fff',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px'
+                      }}
+                    />
+                    <Legend 
+                      formatter={() => `总成本 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { maximumFractionDigits: 0 })})`}
+                      wrapperStyle={{ 
+                        paddingTop: '20px',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="totalCost" 
+                      fill="#10b981" 
+                      name="totalCost"
+                      radius={[2, 2, 0, 0]}
+                      label={{
+                        position: 'top',
+                        fontSize: 12,
+                        fill: '#374151',
+                        formatter: (value: number) => `¥${(value/1000).toFixed(1)}k`
+                      }}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ))}
     </div>
   );
 }
