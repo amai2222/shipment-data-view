@@ -5,7 +5,13 @@ import { Label } from "@/components/ui/label";
 import { BarChart3, TrendingUp, Truck, Package } from "lucide-react";
 import { LocalStorage } from "@/utils/storage";
 import { LogisticsRecord, DailyTransportStats, DailyCostStats } from "@/types";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+
+// 每日运输次数统计
+interface DailyCountStats {
+  date: string;
+  count: number;
+}
 
 export default function Dashboard() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
@@ -76,6 +82,22 @@ export default function Dashboard() {
     return Array.from(statsMap.entries()).map(([date, totalCost]) => ({
       date,
       totalCost,
+    })).sort((a, b) => a.date.localeCompare(b.date));
+  }, [filteredRecords]);
+
+  // 每日运输次数统计
+  const dailyCountStats: DailyCountStats[] = useMemo(() => {
+    const statsMap = new Map<string, number>();
+    
+    filteredRecords.forEach(record => {
+      const date = new Date(record.loadingTime).toISOString().split('T')[0];
+      const current = statsMap.get(date) || 0;
+      statsMap.set(date, current + 1);
+    });
+    
+    return Array.from(statsMap.entries()).map(([date, count]) => ({
+      date,
+      count,
     })).sort((a, b) => a.date.localeCompare(b.date));
   }, [filteredRecords]);
 
@@ -187,29 +209,116 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* 每日运输量统计图表 */}
+      {/* 每日运输量统计图表 - 按模板样式 */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>每日运输量统计</CardTitle>
+          <CardTitle>每日运输量统计 (吨)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-96">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart 
+                data={dailyTransportStats}
+                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="date" 
+                  tickFormatter={(value) => {
+                    const date = new Date(value);
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                  }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  interval={0}
+                />
+                <YAxis 
+                  domain={[0, 'dataMax + 20']}
+                  tickFormatter={(value) => value.toString()}
+                />
+                <Tooltip 
+                  labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
+                  formatter={(value, name) => {
+                    const label = name === 'actualTransport' ? '有效运输量' : '退货量';
+                    return [`${Number(value).toFixed(2)}`, label];
+                  }}
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px'
+                  }}
+                />
+                <Legend 
+                  formatter={(value) => value === 'actualTransport' ? '有效运输量' : '退货量'}
+                  wrapperStyle={{ paddingTop: '20px' }}
+                />
+                <Bar 
+                  dataKey="actualTransport" 
+                  fill="#4ade80" 
+                  name="actualTransport"
+                  radius={[2, 2, 0, 0]}
+                />
+                <Bar 
+                  dataKey="returns" 
+                  fill="#ef4444" 
+                  name="returns"
+                  radius={[2, 2, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 镇赉-大安运输日报 - 折线图 */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>
+            镇赉-大安运输日报 ({dateRange.startDate} 至 {dateRange.endDate})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dailyTransportStats}>
-                <CartesianGrid strokeDasharray="3 3" />
+              <LineChart 
+                data={dailyCountStats}
+                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis 
                   dataKey="date" 
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                  tickFormatter={(value) => {
+                    const date = new Date(value);
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                  }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  interval={0}
                 />
-                <YAxis />
+                <YAxis 
+                  domain={[0, 'dataMax + 1']}
+                  tickFormatter={(value) => value.toString()}
+                />
                 <Tooltip 
                   labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
-                  formatter={(value, name) => [`${value} 吨`, name === 'actualTransport' ? '实际运输' : '退货']}
+                  formatter={(value) => [`${value} 次`, '运输次数']}
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px'
+                  }}
                 />
-                <Legend formatter={(value) => value === 'actualTransport' ? '实际运输' : '退货'} />
-                <Bar dataKey="actualTransport" fill="hsl(217 91% 60%)" name="actualTransport" />
-                <Bar dataKey="returns" fill="hsl(38 92% 50%)" name="returns" />
-              </BarChart>
+                <Line 
+                  type="monotone" 
+                  dataKey="count" 
+                  stroke="#3b82f6" 
+                  strokeWidth={2}
+                  dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, fill: '#3b82f6' }}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </CardContent>
@@ -218,24 +327,46 @@ export default function Dashboard() {
       {/* 每日运输成本分析图表 */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>每日运输成本分析</CardTitle>
+          <CardTitle>每日运输成本分析 (元)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dailyCostStats}>
-                <CartesianGrid strokeDasharray="3 3" />
+              <BarChart 
+                data={dailyCostStats}
+                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis 
                   dataKey="date" 
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                  tickFormatter={(value) => {
+                    const date = new Date(value);
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                  }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  interval={0}
                 />
-                <YAxis />
+                <YAxis 
+                  tickFormatter={(value) => `¥${(value/1000).toFixed(1)}k`}
+                />
                 <Tooltip 
                   labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
                   formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总成本']}
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px'
+                  }}
                 />
                 <Legend formatter={() => '总成本'} />
-                <Bar dataKey="totalCost" fill="hsl(142 76% 36%)" name="totalCost" />
+                <Bar 
+                  dataKey="totalCost" 
+                  fill="#10b981" 
+                  name="totalCost"
+                  radius={[2, 2, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
