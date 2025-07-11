@@ -19,6 +19,8 @@ export function clearAndImportData() {
     startDate: "2024-07-01",
     endDate: "2024-12-31",
     manager: "运输部经理",
+    loadingAddress: "镇赉",
+    unloadingAddress: "大安",
   });
 
   // 创建司机信息

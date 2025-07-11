@@ -20,6 +20,8 @@ export default function Projects() {
     startDate: "",
     endDate: "",
     manager: "",
+    loadingAddress: "",
+    unloadingAddress: "",
   });
 
   // 加载项目数据
@@ -38,6 +40,8 @@ export default function Projects() {
       startDate: "",
       endDate: "",
       manager: "",
+      loadingAddress: "",
+      unloadingAddress: "",
     });
     setEditingProject(null);
   };
@@ -49,6 +53,8 @@ export default function Projects() {
       startDate: project.startDate,
       endDate: project.endDate,
       manager: project.manager,
+      loadingAddress: project.loadingAddress,
+      unloadingAddress: project.unloadingAddress,
     });
     setEditingProject(project);
     setIsDialogOpen(true);
@@ -58,7 +64,7 @@ export default function Projects() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.startDate || !formData.endDate || !formData.manager) {
+    if (!formData.name || !formData.startDate || !formData.endDate || !formData.manager || !formData.loadingAddress || !formData.unloadingAddress) {
       toast({
         title: "请填写所有字段",
         description: "所有字段都是必填的",
@@ -67,17 +73,30 @@ export default function Projects() {
       return;
     }
 
+    // 自动将装货地址和卸货地址添加到地址库
+    const existingLocations = LocalStorage.getLocations();
+    const loadingLocationExists = existingLocations.some(loc => loc.name === formData.loadingAddress);
+    const unloadingLocationExists = existingLocations.some(loc => loc.name === formData.unloadingAddress);
+
+    if (!loadingLocationExists) {
+      LocalStorage.addLocation({ name: formData.loadingAddress });
+    }
+    
+    if (!unloadingLocationExists) {
+      LocalStorage.addLocation({ name: formData.unloadingAddress });
+    }
+
     if (editingProject) {
       LocalStorage.updateProject(editingProject.id, formData);
       toast({
         title: "更新成功",
-        description: "项目信息已成功更新",
+        description: "项目信息已成功更新，相关地址已自动加入地址库",
       });
     } else {
       LocalStorage.addProject(formData);
       toast({
         title: "添加成功",
-        description: "新项目已成功添加",
+        description: "新项目已成功添加，相关地址已自动加入地址库",
       });
     }
 
@@ -158,6 +177,24 @@ export default function Projects() {
                     placeholder="请输入负责人姓名"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="loadingAddress">装货地址 *</Label>
+                  <Input
+                    id="loadingAddress"
+                    value={formData.loadingAddress}
+                    onChange={(e) => setFormData(prev => ({...prev, loadingAddress: e.target.value}))}
+                    placeholder="请输入装货地址"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="unloadingAddress">卸货地址 *</Label>
+                  <Input
+                    id="unloadingAddress"
+                    value={formData.unloadingAddress}
+                    onChange={(e) => setFormData(prev => ({...prev, unloadingAddress: e.target.value}))}
+                    placeholder="请输入卸货地址"
+                  />
+                </div>
                 <div className="flex justify-end space-x-2">
                   <Button
                     type="button"
@@ -190,6 +227,8 @@ export default function Projects() {
                   <TableHead>开始日期</TableHead>
                   <TableHead>结束日期</TableHead>
                   <TableHead>项目负责人</TableHead>
+                  <TableHead>装货地址</TableHead>
+                  <TableHead>卸货地址</TableHead>
                   <TableHead>创建时间</TableHead>
                   <TableHead>操作</TableHead>
                 </TableRow>
@@ -201,6 +240,8 @@ export default function Projects() {
                     <TableCell>{project.startDate}</TableCell>
                     <TableCell>{project.endDate}</TableCell>
                     <TableCell>{project.manager}</TableCell>
+                    <TableCell>{project.loadingAddress}</TableCell>
+                    <TableCell>{project.unloadingAddress}</TableCell>
                     <TableCell>{new Date(project.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
@@ -224,7 +265,7 @@ export default function Projects() {
                 ))}
                 {projects.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       暂无项目数据
                     </TableCell>
                   </TableRow>

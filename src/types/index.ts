@@ -5,6 +5,8 @@ export interface Project {
   startDate: string;
   endDate: string;
   manager: string;
+  loadingAddress: string;
+  unloadingAddress: string;
   createdAt: string;
 }
 

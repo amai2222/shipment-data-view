@@ -11,6 +11,8 @@ export function initializeSampleData() {
     startDate: "2024-01-01",
     endDate: "2024-12-31",
     manager: "李经理",
+    loadingAddress: "北京仓储中心",
+    unloadingAddress: "天津配送站",
   });
 
   LocalStorage.addProject({
@@ -18,6 +20,8 @@ export function initializeSampleData() {
     startDate: "2024-06-01",
     endDate: "2024-12-31", 
     manager: "王总监",
+    loadingAddress: "上海物流园",
+    unloadingAddress: "深圳港口",
   });
 
   // 添加示例司机
