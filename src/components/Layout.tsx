@@ -14,6 +14,7 @@ const navigation = [
   { name: "项目管理", href: "/projects", icon: Package },
   { name: "司机管理", href: "/drivers", icon: Truck },
   { name: "地点管理", href: "/locations", icon: MapPin },
+  { name: "核心业务录入", href: "/business-entry", icon: Plus },
 ];
 
 export function Layout({ children }: LayoutProps) {
