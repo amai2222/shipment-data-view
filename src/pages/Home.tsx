@@ -2,10 +2,12 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart3, TrendingUp, Truck, Package } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BarChart3, TrendingUp, Truck, Package, Eye } from "lucide-react";
 import { LocalStorage } from "@/utils/storage";
 import { LogisticsRecord, DailyTransportStats, DailyCostStats } from "@/types";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell } from "recharts";
 
 // 每日运输次数统计
 interface DailyCountStats {
@@ -16,6 +18,9 @@ interface DailyCountStats {
 export default function Home() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [dateRange, setDateRange] = useState({
     startDate: "",
     endDate: "",
@@ -141,6 +146,27 @@ export default function Home() {
       };
     });
   }, [recordsByProject, projects]);
+
+  // 获取选中日期和项目的详细记录
+  const selectedRecords = useMemo(() => {
+    if (!selectedDate || !selectedProjectId) return [];
+    
+    const projectRecords = recordsByProject[selectedProjectId] || [];
+    return projectRecords.filter(record => {
+      const recordDate = new Date(record.loadingTime).toISOString().split('T')[0];
+      return recordDate === selectedDate;
+    });
+  }, [selectedDate, selectedProjectId, recordsByProject]);
+
+  // 处理图表点击事件
+  const handleChartClick = (data: any, projectId: string) => {
+    if (data && data.activePayload && data.activePayload[0]) {
+      const clickedDate = data.activePayload[0].payload.date;
+      setSelectedDate(clickedDate);
+      setSelectedProjectId(projectId);
+      setIsDetailDialogOpen(true);
+    }
+  };
 
   // 统计概览
   const overviewStats = useMemo(() => {
@@ -276,6 +302,7 @@ export default function Home() {
                   <BarChart 
                     data={projectData.dailyTransportStats}
                     margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                    onClick={(data) => handleChartClick(data, projectData.projectId)}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis 
@@ -304,6 +331,7 @@ export default function Home() {
                         border: '1px solid #ccc',
                         borderRadius: '4px'
                       }}
+                      cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
                     />
                     <Legend 
                       formatter={(value) => {
@@ -323,6 +351,7 @@ export default function Home() {
                       fill="#4ade80" 
                       name="actualTransport"
                       radius={[2, 2, 0, 0]}
+                      cursor="pointer"
                       label={{
                         position: 'top',
                         fontSize: 12,
@@ -335,6 +364,7 @@ export default function Home() {
                       fill="#ef4444" 
                       name="returns"
                       radius={[2, 2, 0, 0]}
+                      cursor="pointer"
                       label={{
                         position: 'top',
                         fontSize: 12,
@@ -361,6 +391,7 @@ export default function Home() {
                   <LineChart 
                     data={projectData.dailyCountStats}
                     margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                    onClick={(data) => handleChartClick(data, projectData.projectId)}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis 
@@ -386,6 +417,7 @@ export default function Home() {
                         border: '1px solid #ccc',
                         borderRadius: '4px'
                       }}
+                      cursor={{ stroke: 'rgba(59, 130, 246, 0.3)', strokeWidth: 2 }}
                     />
                     <Legend 
                       formatter={() => `运输次数 (总计${projectData.legendTotals.totalTrips}次)`}
@@ -400,8 +432,8 @@ export default function Home() {
                       dataKey="count" 
                       stroke="#3b82f6" 
                       strokeWidth={2}
-                      dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                      activeDot={{ r: 6, fill: '#3b82f6' }}
+                      dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4, cursor: 'pointer' }}
+                      activeDot={{ r: 6, fill: '#3b82f6', cursor: 'pointer' }}
                       label={{
                         position: 'top',
                         fontSize: 12,
@@ -428,6 +460,7 @@ export default function Home() {
                   <BarChart 
                     data={projectData.dailyCostStats}
                     margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                    onClick={(data) => handleChartClick(data, projectData.projectId)}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis 
@@ -441,7 +474,7 @@ export default function Home() {
                       height={80}
                       interval={0}
                     />
-                    <YAxis 
+                    <YAxis
                       tickFormatter={(value) => `¥${(value/1000).toFixed(1)}k`}
                     />
                     <Tooltip 
@@ -452,6 +485,7 @@ export default function Home() {
                         border: '1px solid #ccc',
                         borderRadius: '4px'
                       }}
+                      cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
                     />
                     <Legend 
                       formatter={() => `总成本 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { maximumFractionDigits: 0 })})`}
@@ -466,6 +500,7 @@ export default function Home() {
                       fill="#10b981" 
                       name="totalCost"
                       radius={[2, 2, 0, 0]}
+                      cursor="pointer"
                       label={{
                         position: 'top',
                         fontSize: 12,
@@ -480,6 +515,102 @@ export default function Home() {
           </Card>
         </div>
       ))}
+
+      {/* 详细数据对话框 */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Eye className="mr-2 h-5 w-5" />
+              {selectedDate && `${new Date(selectedDate).toLocaleDateString('zh-CN')} 详细运输记录`}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedRecords.length > 0 ? (
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-blue-900">数据概览</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                  <div>
+                    <p className="text-sm text-blue-700">运输次数</p>
+                    <p className="text-lg font-bold text-blue-900">{selectedRecords.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-blue-700">总重量</p>
+                    <p className="text-lg font-bold text-blue-900">
+                      {selectedRecords.reduce((sum, r) => sum + r.loadingWeight, 0).toFixed(1)}吨
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-blue-700">总成本</p>
+                    <p className="text-lg font-bold text-blue-900">
+                      ¥{selectedRecords.reduce((sum, r) => sum + (r.currentCost || 0) + (r.extraCost || 0), 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-blue-700">实际运输/退货</p>
+                    <p className="text-lg font-bold text-blue-900">
+                      {selectedRecords.filter(r => r.transportType === "实际运输").length}/
+                      {selectedRecords.filter(r => r.transportType === "退货").length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>运单号</TableHead>
+                      <TableHead>司机</TableHead>
+                      <TableHead>车牌号</TableHead>
+                      <TableHead>装货地</TableHead>
+                      <TableHead>卸货地</TableHead>
+                      <TableHead>装货重量</TableHead>
+                      <TableHead>卸货重量</TableHead>
+                      <TableHead>运输类型</TableHead>
+                      <TableHead>成本</TableHead>
+                      <TableHead>备注</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedRecords.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">{record.autoNumber}</TableCell>
+                        <TableCell>{record.driverName}</TableCell>
+                        <TableCell>{record.licensePlate}</TableCell>
+                        <TableCell>{record.loadingLocation}</TableCell>
+                        <TableCell>{record.unloadingLocation}</TableCell>
+                        <TableCell>{record.loadingWeight.toFixed(2)}吨</TableCell>
+                        <TableCell>{record.unloadingWeight?.toFixed(2) || '-'}吨</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            record.transportType === "实际运输" 
+                              ? "bg-green-100 text-green-800" 
+                              : "bg-red-100 text-red-800"
+                          }`}>
+                            {record.transportType}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          ¥{((record.currentCost || 0) + (record.extraCost || 0)).toFixed(2)}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={record.remarks}>
+                          {record.remarks || '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              该日期没有运输记录
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
