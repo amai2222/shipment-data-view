@@ -51,6 +51,46 @@ export interface LogisticsRecord {
   createdByUserId: string;
 }
 
+// 合作方数据类型
+export interface Partner {
+  id: string;
+  name: string;
+  level: number;
+  taxRate: number;
+  createdAt: string;
+}
+
+// 项目合作方关联
+export interface ProjectPartner {
+  id: string;
+  projectId: string;
+  partnerId: string;
+  level: number;
+  createdAt: string;
+}
+
+// 物流记录合作方费用
+export interface LogisticsPartnerCost {
+  id: string;
+  logisticsRecordId: string;
+  partnerId: string;
+  level: number;
+  baseAmount: number;
+  payableAmount: number;
+  taxRate: number;
+  createdAt: string;
+}
+
+// 合作方费用计算结果
+export interface PartnerCostCalculation {
+  partnerId: string;
+  partnerName: string;
+  level: number;
+  baseAmount: number;
+  payableAmount: number;
+  taxRate: number;
+}
+
 // 统计数据类型
 export interface DailyTransportStats {
   date: string;

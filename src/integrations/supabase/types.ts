@@ -56,6 +56,54 @@ export type Database = {
         }
         Relationships: []
       }
+      logistics_partner_costs: {
+        Row: {
+          base_amount: number
+          created_at: string
+          id: string
+          level: number
+          logistics_record_id: string
+          partner_id: string
+          payable_amount: number
+          tax_rate: number
+        }
+        Insert: {
+          base_amount: number
+          created_at?: string
+          id?: string
+          level: number
+          logistics_record_id: string
+          partner_id: string
+          payable_amount: number
+          tax_rate: number
+        }
+        Update: {
+          base_amount?: number
+          created_at?: string
+          id?: string
+          level?: number
+          logistics_record_id?: string
+          partner_id?: string
+          payable_amount?: number
+          tax_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logistics_partner_costs_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logistics_partner_costs_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       logistics_records: {
         Row: {
           auto_number: string
@@ -143,6 +191,69 @@ export type Database = {
           },
         ]
       }
+      partners: {
+        Row: {
+          created_at: string
+          id: string
+          level: number
+          name: string
+          tax_rate: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level: number
+          name: string
+          tax_rate: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: number
+          name?: string
+          tax_rate?: number
+        }
+        Relationships: []
+      }
+      project_partners: {
+        Row: {
+          created_at: string
+          id: string
+          level: number
+          partner_id: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level: number
+          partner_id: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: number
+          partner_id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_partners_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_partners_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           created_at: string
@@ -181,6 +292,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_partner_costs: {
+        Args: { p_base_amount: number; p_project_id: string }
+        Returns: {
+          partner_id: string
+          partner_name: string
+          level: number
+          base_amount: number
+          payable_amount: number
+          tax_rate: number
+        }[]
+      }
       generate_auto_number: {
         Args: { loading_date_input: string }
         Returns: string

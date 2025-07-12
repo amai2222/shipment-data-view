@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import Projects from "./pages/Projects";
 import Drivers from "./pages/Drivers";
 import Locations from "./pages/Locations";
+import Partners from "./pages/Partners";
 import BusinessEntry from "./pages/BusinessEntry";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/projects" element={<Layout><Projects /></Layout>} />
           <Route path="/drivers" element={<Layout><Drivers /></Layout>} />
           <Route path="/locations" element={<Layout><Locations /></Layout>} />
+          <Route path="/partners" element={<Layout><Partners /></Layout>} />
           <Route path="/business-entry" element={<Layout><BusinessEntry /></Layout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

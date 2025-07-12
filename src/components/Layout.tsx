@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Truck, Package, MapPin, BarChart3, Plus, RotateCcw } from "lucide-react";
+import { Truck, Package, MapPin, BarChart3, Plus, RotateCcw, Users } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ const navigation = [
   { name: "项目管理", href: "/projects", icon: Package },
   { name: "司机管理", href: "/drivers", icon: Truck },
   { name: "地点管理", href: "/locations", icon: MapPin },
+  { name: "合作方管理", href: "/partners", icon: Users },
   { name: "核心业务录入", href: "/business-entry", icon: Plus },
 ];
 
