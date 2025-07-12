@@ -248,7 +248,7 @@ export default function BusinessEntry() {
           const recordData = {
             projectId: project.id,
             projectName: project.name,
-            loadingDate: row['装车日期'] ? row['装车日期'].split('T')[0] : row['装车日期'], // 只保存日期部分
+            loadingDate: row['装车日期'] ? (row['装车日期'].toString().includes('T') ? row['装车日期'].toString().split('T')[0] : row['装车日期'].toString()) : row['装车日期'], // 只保存日期部分
             loadingLocation: row['装车地点'],
             unloadingLocation: row['卸车地点'],
             driverId: driver.id,
@@ -256,7 +256,7 @@ export default function BusinessEntry() {
             licensePlate: driver.licensePlate,
             driverPhone: driver.phone,
             loadingWeight: parseFloat(row['装车重量']) || 0,
-            unloadingDate: row['卸车日期'] || undefined,
+            unloadingDate: row['卸车日期'] ? (row['卸车日期'].toString().includes('T') ? row['卸车日期'].toString().split('T')[0] : row['卸车日期'].toString()) : undefined,
             unloadingWeight: row['卸车重量'] ? parseFloat(row['卸车重量']) : undefined,
             transportType: row['运输类型'] || '实际运输',
             currentFee: row['当前费用'] ? parseFloat(row['当前费用']) : undefined,
@@ -335,21 +335,21 @@ export default function BusinessEntry() {
       const exportData = filteredRecords.map(record => ({
         '自动编号': record.autoNumber,
         '项目名称': record.projectName,
-        '装车日期': record.loadingDate,
+        '装车日期': record.loadingDate.includes('T') ? record.loadingDate.split('T')[0] : record.loadingDate,
         '装车地点': record.loadingLocation,
         '卸车地点': record.unloadingLocation,
         '司机姓名': record.driverName,
         '车牌号': record.licensePlate,
         '司机电话': record.driverPhone,
         '装车重量': record.loadingWeight,
-        '卸车日期': record.unloadingDate || '',
+        '卸车日期': record.unloadingDate ? (record.unloadingDate.includes('T') ? record.unloadingDate.split('T')[0] : record.unloadingDate) : '',
         '卸车重量': record.unloadingWeight || '',
         '运输类型': record.transportType,
         '当前费用': record.currentFee || '',
         '额外费用': record.extraFee || '',
         '应付费用': record.payableFee || '',
         '备注': record.remarks || '',
-        '创建时间': new Date(record.createdAt).toLocaleString()
+        '创建时间': new Date(record.createdAt).toLocaleDateString()
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
