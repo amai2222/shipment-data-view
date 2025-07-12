@@ -300,6 +300,9 @@ export default function BusinessEntry() {
     
     console.log('开始筛选，总记录数:', records.length);
     console.log('筛选条件 - 司机:', filterDriver, '日期:', filterStartDate);
+    
+    // 显示前几条记录的装车日期，用于调试
+    console.log('前5条记录的装车日期:', records.slice(0, 5).map(r => `${r.autoNumber}: ${r.loadingDate}`));
 
     // 司机筛选
     if (filterDriver) {
@@ -310,16 +313,20 @@ export default function BusinessEntry() {
     // 装车日期筛选
     if (filterStartDate) {
       console.log('应用日期筛选，筛选日期:', filterStartDate);
+      console.log('筛选前记录装车日期示例:', filtered.slice(0, 3).map(r => `${r.autoNumber}: ${r.loadingDate}`));
+      
       filtered = filtered.filter(record => {
         // 处理装车日期格式，支持多种格式
         let recordDate = record.loadingDate;
         if (recordDate.includes('T')) {
           recordDate = recordDate.split('T')[0]; // 如果包含时间，提取日期部分
         }
-        console.log('记录日期:', recordDate, '比较结果:', recordDate >= filterStartDate);
-        return recordDate >= filterStartDate;
+        const result = recordDate >= filterStartDate;
+        console.log(`记录 ${record.autoNumber}: 日期 ${recordDate} >= ${filterStartDate} = ${result}`);
+        return result;
       });
       console.log('日期筛选后记录数:', filtered.length);
+      console.log('筛选后记录装车日期:', filtered.slice(0, 3).map(r => `${r.autoNumber}: ${r.loadingDate}`));
     }
 
     console.log('最终筛选结果数:', filtered.length);
