@@ -110,34 +110,6 @@ export function AppSidebar() {
           )}
         </div>
         
-        {!collapsed && (
-          <div className="flex flex-col gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={async () => {
-                const { SupabaseStorage } = await import('@/utils/supabase');
-                await SupabaseStorage.fixExistingRecordsPartnerCosts();
-                window.location.reload();
-              }}
-              className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-all text-xs"
-            >
-              修复财务数据
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                forceReimportData();
-                window.location.reload();
-              }}
-              className="w-full flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-all text-xs"
-            >
-              <RotateCcw className="h-3 w-3" />
-              重新导入数据
-            </Button>
-          </div>
-        )}
       </SidebarHeader>
 
       <SidebarContent className="bg-gradient-to-b from-secondary to-background">
