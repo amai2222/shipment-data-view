@@ -191,7 +191,7 @@ export class SupabaseStorage {
     const { data, error } = await supabase
       .from('logistics_records')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('auto_number', { ascending: false });
     
     if (error) throw error;
     return data?.map(record => ({

@@ -114,7 +114,7 @@ export default function BusinessEntry() {
     const recordData = {
       projectId: formData.projectId,
       projectName: project.name,
-      loadingDate: formData.loadingTime,
+      loadingDate: formData.loadingTime.split('T')[0], // 只保存日期部分
       loadingLocation: formData.loadingLocation,
       unloadingLocation: formData.unloadingLocation,
       driverId: formData.driverId,
@@ -240,7 +240,7 @@ export default function BusinessEntry() {
           const recordData = {
             projectId: project.id,
             projectName: project.name,
-            loadingDate: row['装车日期'],
+            loadingDate: row['装车日期'] ? row['装车日期'].split('T')[0] : row['装车日期'], // 只保存日期部分
             loadingLocation: row['装车地点'],
             unloadingLocation: row['卸车地点'],
             driverId: driver.id,
@@ -598,7 +598,7 @@ export default function BusinessEntry() {
                   <TableRow key={record.id}>
                     <TableCell className="font-medium">{record.autoNumber}</TableCell>
                     <TableCell>{record.projectName}</TableCell>
-                    <TableCell>{new Date(record.loadingDate).toLocaleString()}</TableCell>
+                    <TableCell>{record.loadingDate}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-1 text-sm">
                         <MapPinIcon className="h-3 w-3" />
