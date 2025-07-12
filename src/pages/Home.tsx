@@ -284,12 +284,20 @@ export default function Home() {
   const selectedRecords = useMemo(() => {
     if (!selectedDate || !selectedProjectId) return [];
     
-    const projectRecords = recordsByProject[selectedProjectId] || [];
+    let projectRecords: any[] = [];
+    if (selectedProjectId === 'all') {
+      // 如果选择的是"所有项目"，则获取所有项目的记录
+      projectRecords = filteredRecords;
+    } else {
+      // 否则获取特定项目的记录
+      projectRecords = recordsByProject[selectedProjectId] || [];
+    }
+    
     return projectRecords.filter(record => {
       const recordDate = getValidDateString(record.loadingDate);
       return recordDate === selectedDate;
     });
-  }, [selectedDate, selectedProjectId, recordsByProject]);
+  }, [selectedDate, selectedProjectId, recordsByProject, filteredRecords]);
 
   // 处理图表点击事件
   const handleChartClick = (data: any, projectId: string) => {
