@@ -23,13 +23,24 @@ interface LogisticsRecord {
 interface PartnerPayable {
   partner_id: string;
   partner_name: string;
+  level: number;
   total_payable: number;
   records_count: number;
 }
 
+interface LogisticsRecordWithPartners extends LogisticsRecord {
+  partner_costs: {
+    partner_id: string;
+    partner_name: string;
+    level: number;
+    payable_amount: number;
+  }[];
+}
+
 export default function FinanceReconciliation() {
-  const [logisticsRecords, setLogisticsRecords] = useState<LogisticsRecord[]>([]);
+  const [logisticsRecords, setLogisticsRecords] = useState<LogisticsRecordWithPartners[]>([]);
   const [partnerPayables, setPartnerPayables] = useState<PartnerPayable[]>([]);
+  const [allPartners, setAllPartners] = useState<{id: string, name: string, level: number}[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -39,54 +50,91 @@ export default function FinanceReconciliation() {
 
   const loadData = async () => {
     try {
-      // 加载运单数据
+      // 先获取所有合作方信息，按级别排序
+      const { data: partnersData, error: partnersError } = await supabase
+        .from('project_partners')
+        .select(`
+          partner_id,
+          level,
+          partners!inner(name)
+        `)
+        .order('level', { ascending: true });
+
+      if (partnersError) throw partnersError;
+
+      const uniquePartners = Array.from(
+        new Map(partnersData?.map(p => [
+          p.partner_id, 
+          { 
+            id: p.partner_id, 
+            name: (p.partners as any).name, 
+            level: p.level 
+          }
+        ]) || []).values()
+      ).sort((a, b) => a.level - b.level);
+
+      setAllPartners(uniquePartners);
+
+      // 加载运单数据及其合作方成本
       const { data: records, error: recordsError } = await supabase
         .from('logistics_records')
-        .select('id, auto_number, project_name, driver_name, loading_location, unloading_location, loading_date, current_cost, payable_cost')
+        .select(`
+          id, auto_number, project_name, driver_name, 
+          loading_location, unloading_location, loading_date, 
+          current_cost, payable_cost,
+          logistics_partner_costs(
+            partner_id,
+            level,
+            payable_amount,
+            partners!inner(name)
+          )
+        `)
         .order('loading_date', { ascending: false });
 
       if (recordsError) throw recordsError;
 
-      setLogisticsRecords(records || []);
+      // 处理运单数据，添加合作方成本信息
+      const recordsWithPartners: LogisticsRecordWithPartners[] = (records || []).map(record => ({
+        ...record,
+        partner_costs: (record.logistics_partner_costs || []).map(cost => ({
+          partner_id: cost.partner_id,
+          partner_name: (cost.partners as any).name,
+          level: cost.level,
+          payable_amount: cost.payable_amount
+        })).sort((a, b) => a.level - b.level)
+      }));
 
-      // 计算合作方应付金额
-      const { data: partnerCosts, error: costsError } = await supabase
-        .from('logistics_partner_costs')
-        .select(`
-          partner_id,
-          base_amount,
-          payable_amount,
-          partners!inner(name)
-        `);
-
-      if (costsError) throw costsError;
+      setLogisticsRecords(recordsWithPartners);
 
       // 汇总合作方应付金额
-      const payableMap = new Map<string, { name: string; total: number; count: number }>();
+      const payableMap = new Map<string, { name: string; level: number; total: number; count: number }>();
       
-      partnerCosts?.forEach(cost => {
-        const partnerId = cost.partner_id;
-        const partnerName = (cost.partners as any).name;
-        
-        if (payableMap.has(partnerId)) {
-          const existing = payableMap.get(partnerId)!;
-          existing.total += cost.payable_amount;
-          existing.count += 1;
-        } else {
-          payableMap.set(partnerId, {
-            name: partnerName,
-            total: cost.payable_amount,
-            count: 1
-          });
-        }
+      recordsWithPartners.forEach(record => {
+        record.partner_costs.forEach(cost => {
+          const partnerId = cost.partner_id;
+          
+          if (payableMap.has(partnerId)) {
+            const existing = payableMap.get(partnerId)!;
+            existing.total += cost.payable_amount;
+            existing.count += 1;
+          } else {
+            payableMap.set(partnerId, {
+              name: cost.partner_name,
+              level: cost.level,
+              total: cost.payable_amount,
+              count: 1
+            });
+          }
+        });
       });
 
       const payables: PartnerPayable[] = Array.from(payableMap.entries()).map(([partnerId, data]) => ({
         partner_id: partnerId,
         partner_name: data.name,
+        level: data.level,
         total_payable: data.total,
         records_count: data.count
-      }));
+      })).sort((a, b) => a.level - b.level);
 
       setPartnerPayables(payables);
     } catch (error) {
@@ -219,6 +267,9 @@ export default function FinanceReconciliation() {
       <Card>
         <CardHeader>
           <CardTitle>运单财务明细</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            各合作方应付金额按级别从左到右排列
+          </p>
         </CardHeader>
         <CardContent>
           <Table>
@@ -230,7 +281,12 @@ export default function FinanceReconciliation() {
                 <TableHead>路线</TableHead>
                 <TableHead>装货日期</TableHead>
                 <TableHead>运费金额</TableHead>
-                <TableHead>应付金额</TableHead>
+                {allPartners.map((partner) => (
+                  <TableHead key={partner.id} className="text-center bg-gradient-to-r from-primary/5 to-accent/5">
+                    {partner.name}
+                    <div className="text-xs text-muted-foreground">({partner.level}级)</div>
+                  </TableHead>
+                ))}
                 <TableHead>状态</TableHead>
               </TableRow>
             </TableHeader>
@@ -247,9 +303,14 @@ export default function FinanceReconciliation() {
                   <TableCell className="font-mono">
                     {record.current_cost ? `¥${record.current_cost.toFixed(2)}` : '-'}
                   </TableCell>
-                  <TableCell className="font-mono">
-                    {record.payable_cost ? `¥${record.payable_cost.toFixed(2)}` : '-'}
-                  </TableCell>
+                  {allPartners.map((partner) => {
+                    const partnerCost = record.partner_costs.find(cost => cost.partner_id === partner.id);
+                    return (
+                      <TableCell key={partner.id} className="font-mono text-center bg-gradient-to-r from-primary/5 to-accent/5">
+                        {partnerCost ? `¥${partnerCost.payable_amount.toFixed(2)}` : '-'}
+                      </TableCell>
+                    );
+                  })}
                   <TableCell>
                     <Badge variant={record.current_cost ? "default" : "secondary"}>
                       {record.current_cost ? "已计费" : "待计费"}

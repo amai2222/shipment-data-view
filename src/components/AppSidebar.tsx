@@ -96,7 +96,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
-      <SidebarContent>
+      <SidebarContent className="bg-gradient-to-b from-secondary to-background">
         {menuItems.map((group) => {
           const isGroupOpen = openGroups.includes(group.title);
           const hasActiveItem = group.items.some(item => isActive(item.url));
@@ -105,10 +105,10 @@ export function AppSidebar() {
             <SidebarGroup key={group.title}>
               <Collapsible open={isGroupOpen} onOpenChange={() => toggleGroup(group.title)}>
                 <CollapsibleTrigger asChild>
-                  <SidebarGroupLabel className="group/label text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md p-2 cursor-pointer flex items-center justify-between">
+                  <SidebarGroupLabel className="group/label text-sm font-medium hover:bg-gradient-primary hover:text-white rounded-lg p-3 cursor-pointer flex items-center justify-between transition-all shadow-sm">
                     <div className="flex items-center gap-2">
-                      <group.icon className="h-4 w-4" />
-                      {!collapsed && <span>{group.title}</span>}
+                      <group.icon className="h-5 w-5" />
+                      {!collapsed && <span className="font-semibold">{group.title}</span>}
                     </div>
                     {!collapsed && (
                       <ChevronDown 
@@ -127,10 +127,10 @@ export function AppSidebar() {
                             <SidebarMenuButton asChild>
                               <Link
                                 to={item.url}
-                                className={`flex items-center gap-2 rounded-md p-2 text-sm transition-colors ${
+                                className={`flex items-center gap-3 rounded-lg p-3 text-sm transition-all ${
                                   isActive(item.url)
-                                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                                    : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                    ? "bg-gradient-accent text-white shadow-primary font-medium"
+                                    : "hover:bg-gradient-secondary hover:shadow-card"
                                 }`}
                               >
                                 <item.icon className="h-4 w-4" />

@@ -17,26 +17,26 @@ export function AppLayout({ children }: AppLayoutProps) {
         
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <header className="bg-card/95 backdrop-blur-sm border-b border-border shadow-card sticky top-0 z-50">
-            <div className="flex justify-between items-center h-16 px-4">
-              <div className="flex items-center space-x-3">
-                <SidebarTrigger className="mr-2" />
-                <div className="p-2 bg-gradient-primary rounded-lg shadow-primary">
-                  <Truck className="h-6 w-6 text-primary-foreground" />
+          <header className="bg-gradient-primary shadow-lg sticky top-0 z-50">
+            <div className="flex justify-between items-center h-16 px-6">
+              <div className="flex items-center space-x-4">
+                <SidebarTrigger className="text-white hover:bg-white/20 transition-colors" />
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <Truck className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-foreground">中科物流业务跟踪系统</h1>
-                  <p className="text-sm text-muted-foreground">高效管理 · 精准统计</p>
+                  <h1 className="text-xl font-bold text-white">中科物流业务跟踪系统</h1>
+                  <p className="text-sm text-white/80">高效管理 · 精准统计</p>
                 </div>
               </div>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => {
                   forceReimportData();
                   window.location.reload();
                 }}
-                className="flex items-center space-x-1"
+                className="flex items-center space-x-1 bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-all"
               >
                 <RotateCcw className="h-4 w-4" />
                 <span>重新导入数据</span>
