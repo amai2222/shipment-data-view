@@ -256,6 +256,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          auto_code: string | null
           created_at: string
           end_date: string
           id: string
@@ -266,6 +267,7 @@ export type Database = {
           unloading_address: string
         }
         Insert: {
+          auto_code?: string | null
           created_at?: string
           end_date: string
           id?: string
@@ -276,6 +278,7 @@ export type Database = {
           unloading_address: string
         }
         Update: {
+          auto_code?: string | null
           created_at?: string
           end_date?: string
           id?: string
@@ -305,6 +308,10 @@ export type Database = {
       }
       generate_auto_number: {
         Args: { loading_date_input: string }
+        Returns: string
+      }
+      generate_project_code: {
+        Args: Record<PropertyKey, never>
         Returns: string
       }
     }
