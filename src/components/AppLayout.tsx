@@ -29,18 +29,32 @@ export function AppLayout({ children }: AppLayoutProps) {
                   <p className="text-sm text-white/80">高效管理 · 精准统计</p>
                 </div>
               </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  forceReimportData();
-                  window.location.reload();
-                }}
-                className="flex items-center space-x-1 bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-all"
-              >
-                <RotateCcw className="h-4 w-4" />
-                <span>重新导入数据</span>
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={async () => {
+                    const { SupabaseStorage } = await import('@/utils/supabase');
+                    await SupabaseStorage.fixExistingRecordsPartnerCosts();
+                    window.location.reload();
+                  }}
+                  className="flex items-center space-x-1 bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-all"
+                >
+                  <span>修复财务数据</span>
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    forceReimportData();
+                    window.location.reload();
+                  }}
+                  className="flex items-center space-x-1 bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-all"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span>重新导入数据</span>
+                </Button>
+              </div>
             </div>
           </header>
 

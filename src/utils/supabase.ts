@@ -253,7 +253,7 @@ export class SupabaseStorage {
     
     if (error) throw error;
     
-    return {
+    const newRecord = {
       id: data.id,
       autoNumber: data.auto_number,
       projectId: data.project_id,
@@ -276,9 +276,22 @@ export class SupabaseStorage {
       createdAt: data.created_at,
       createdByUserId: data.created_by_user_id,
     };
+
+    // 如果有运费金额，自动生成合作方成本
+    if (record.currentFee && record.currentFee > 0 && record.projectId) {
+      await this.generatePartnerCosts(data.id, record.currentFee, record.projectId);
+    }
+    
+    return newRecord;
   }
 
   static async updateLogisticsRecord(id: string, updates: Partial<LogisticsRecord>): Promise<void> {
+    // 先删除现有的合作方成本记录
+    await supabase
+      .from('logistics_partner_costs')
+      .delete()
+      .eq('logistics_record_id', id);
+
     const { error } = await supabase
       .from('logistics_records')
       .update({
@@ -303,9 +316,20 @@ export class SupabaseStorage {
       .eq('id', id);
     
     if (error) throw error;
+
+    // 如果有运费金额，重新生成合作方成本
+    if (updates.currentFee && updates.currentFee > 0 && updates.projectId) {
+      await this.generatePartnerCosts(id, updates.currentFee, updates.projectId);
+    }
   }
 
   static async deleteLogisticsRecord(id: string): Promise<void> {
+    // 先删除相关的合作方成本记录
+    await supabase
+      .from('logistics_partner_costs')
+      .delete()
+      .eq('logistics_record_id', id);
+
     const { error } = await supabase
       .from('logistics_records')
       .delete()
@@ -350,5 +374,74 @@ export class SupabaseStorage {
     
     // 不存在则创建
     return await this.addLocation({ name });
+  }
+
+  // 生成合作方成本记录
+  static async generatePartnerCosts(logisticsRecordId: string, baseCost: number, projectId: string): Promise<void> {
+    try {
+      // 使用数据库函数计算合作方成本
+      const { data: partnerCosts, error } = await supabase
+        .rpc('calculate_partner_costs', {
+          p_base_amount: baseCost,
+          p_project_id: projectId
+        });
+
+      if (error) throw error;
+
+      if (partnerCosts && partnerCosts.length > 0) {
+        // 插入合作方成本记录
+        const costRecords = partnerCosts.map((cost: any) => ({
+          logistics_record_id: logisticsRecordId,
+          partner_id: cost.partner_id,
+          level: cost.level,
+          base_amount: cost.base_amount,
+          payable_amount: cost.payable_amount,
+          tax_rate: cost.tax_rate
+        }));
+
+        const { error: insertError } = await supabase
+          .from('logistics_partner_costs')
+          .insert(costRecords);
+
+        if (insertError) throw insertError;
+      }
+    } catch (error) {
+      console.error('Error generating partner costs:', error);
+      // 不阻断主流程，只记录错误
+    }
+  }
+
+  // 一次性修复现有运单的合作方成本（仅在开发期间使用）
+  static async fixExistingRecordsPartnerCosts(): Promise<void> {
+    try {
+      // 获取所有有运费但没有合作方成本的运单
+      const { data: records, error } = await supabase
+        .from('logistics_records')
+        .select('id, current_cost, project_id')
+        .not('current_cost', 'is', null)
+        .gt('current_cost', 0);
+
+      if (error) throw error;
+
+      console.log(`找到 ${records?.length || 0} 条需要修复的记录`);
+
+      for (const record of records || []) {
+        // 检查是否已经有合作方成本记录
+        const { data: existingCosts } = await supabase
+          .from('logistics_partner_costs')
+          .select('id')
+          .eq('logistics_record_id', record.id);
+
+        if (!existingCosts || existingCosts.length === 0) {
+          // 生成合作方成本
+          await this.generatePartnerCosts(record.id, record.current_cost, record.project_id);
+          console.log(`为运单 ${record.id} 生成了合作方成本`);
+        }
+      }
+
+      console.log('修复完成');
+    } catch (error) {
+      console.error('修复现有记录时出错:', error);
+    }
   }
 }
