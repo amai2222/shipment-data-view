@@ -81,14 +81,6 @@ export default function Home() {
         });
       }
       
-      // 设置默认日期范围（2025年7月，因为数据已更新为2025年）
-      const startDate = "2025-07-01";
-      const endDate = "2025-07-31";
-      
-      setDateRange({
-        startDate,
-        endDate,
-      });
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
