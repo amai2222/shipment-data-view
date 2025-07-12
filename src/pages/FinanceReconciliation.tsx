@@ -1,8 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -41,7 +44,17 @@ export default function FinanceReconciliation() {
   const [logisticsRecords, setLogisticsRecords] = useState<LogisticsRecordWithPartners[]>([]);
   const [partnerPayables, setPartnerPayables] = useState<PartnerPayable[]>([]);
   const [allPartners, setAllPartners] = useState<{id: string, name: string, level: number}[]>([]);
+  const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // 筛选器状态
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [dateRange, setDateRange] = useState({
+    startDate: "",
+    endDate: ""
+  });
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
+  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -50,6 +63,15 @@ export default function FinanceReconciliation() {
 
   const loadData = async () => {
     try {
+      // 加载项目数据
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('id, name')
+        .order('name');
+
+      if (projectsError) throw projectsError;
+      setProjects(projectsData || []);
+
       // 先获取所有合作方信息，按级别排序
       const { data: partnersData, error: partnersError } = await supabase
         .from('project_partners')
@@ -106,37 +128,8 @@ export default function FinanceReconciliation() {
 
       setLogisticsRecords(recordsWithPartners);
 
-      // 汇总合作方应付金额
-      const payableMap = new Map<string, { name: string; level: number; total: number; count: number }>();
-      
-      recordsWithPartners.forEach(record => {
-        record.partner_costs.forEach(cost => {
-          const partnerId = cost.partner_id;
-          
-          if (payableMap.has(partnerId)) {
-            const existing = payableMap.get(partnerId)!;
-            existing.total += cost.payable_amount;
-            existing.count += 1;
-          } else {
-            payableMap.set(partnerId, {
-              name: cost.partner_name,
-              level: cost.level,
-              total: cost.payable_amount,
-              count: 1
-            });
-          }
-        });
-      });
-
-      const payables: PartnerPayable[] = Array.from(payableMap.entries()).map(([partnerId, data]) => ({
-        partner_id: partnerId,
-        partner_name: data.name,
-        level: data.level,
-        total_payable: data.total,
-        records_count: data.count
-      })).sort((a, b) => a.level - b.level);
-
-      setPartnerPayables(payables);
+      // 汇总合作方应付金额（基于所有数据）
+      calculatePartnerPayables(recordsWithPartners);
     } catch (error) {
       console.error('加载财务对账数据失败:', error);
       toast({
@@ -149,11 +142,109 @@ export default function FinanceReconciliation() {
     }
   };
 
+  // 计算合作方应付金额的独立函数
+  const calculatePartnerPayables = (records: LogisticsRecordWithPartners[]) => {
+    const payableMap = new Map<string, { name: string; level: number; total: number; count: number }>();
+    
+    records.forEach(record => {
+      record.partner_costs.forEach(cost => {
+        const partnerId = cost.partner_id;
+        
+        if (payableMap.has(partnerId)) {
+          const existing = payableMap.get(partnerId)!;
+          existing.total += cost.payable_amount;
+          existing.count += 1;
+        } else {
+          payableMap.set(partnerId, {
+            name: cost.partner_name,
+            level: cost.level,
+            total: cost.payable_amount,
+            count: 1
+          });
+        }
+      });
+    });
+
+    const payables: PartnerPayable[] = Array.from(payableMap.entries()).map(([partnerId, data]) => ({
+      partner_id: partnerId,
+      partner_name: data.name,
+      level: data.level,
+      total_payable: data.total,
+      records_count: data.count
+    })).sort((a, b) => a.level - b.level);
+
+    setPartnerPayables(payables);
+  };
+  // 筛选后的数据
+  const filteredRecords = useMemo(() => {
+    let filtered = logisticsRecords;
+
+    // 项目筛选
+    if (selectedProjectId) {
+      filtered = filtered.filter(record => record.project_name === projects.find(p => p.id === selectedProjectId)?.name);
+    }
+
+    // 日期范围筛选
+    if (dateRange.startDate) {
+      filtered = filtered.filter(record => record.loading_date >= dateRange.startDate);
+    }
+    if (dateRange.endDate) {
+      filtered = filtered.filter(record => record.loading_date <= dateRange.endDate);
+    }
+
+    // 合作方筛选
+    if (selectedPartnerId) {
+      filtered = filtered.filter(record => 
+        record.partner_costs.some(cost => cost.partner_id === selectedPartnerId)
+      );
+    }
+
+    return filtered;
+  }, [logisticsRecords, selectedProjectId, projects, dateRange, selectedPartnerId]);
+
+  // 基于筛选数据重新计算合作方应付
+  const filteredPartnerPayables = useMemo(() => {
+    const payableMap = new Map<string, { name: string; level: number; total: number; count: number }>();
+    
+    filteredRecords.forEach(record => {
+      record.partner_costs.forEach(cost => {
+        // 如果选择了特定合作方，只计算该合作方的数据
+        if (selectedPartnerId && cost.partner_id !== selectedPartnerId) {
+          return;
+        }
+
+        const partnerId = cost.partner_id;
+        
+        if (payableMap.has(partnerId)) {
+          const existing = payableMap.get(partnerId)!;
+          existing.total += cost.payable_amount;
+          existing.count += 1;
+        } else {
+          payableMap.set(partnerId, {
+            name: cost.partner_name,
+            level: cost.level,
+            total: cost.payable_amount,
+            count: 1
+          });
+        }
+      });
+    });
+
+    return Array.from(payableMap.entries()).map(([partnerId, data]) => ({
+      partner_id: partnerId,
+      partner_name: data.name,
+      level: data.level,
+      total_payable: data.total,
+      records_count: data.count
+    })).sort((a, b) => a.level - b.level);
+  }, [filteredRecords, selectedPartnerId]);
+
+
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     
-    // 运单财务数据
-    const recordsData = logisticsRecords.map(record => ({
+    // 运单财务数据（使用筛选后的数据）
+    const recordsData = filteredRecords.map(record => ({
       '运单编号': record.auto_number,
       '项目名称': record.project_name,
       '司机姓名': record.driver_name,
@@ -167,8 +258,8 @@ export default function FinanceReconciliation() {
     const recordsWs = XLSX.utils.json_to_sheet(recordsData);
     XLSX.utils.book_append_sheet(wb, recordsWs, '运单财务');
     
-    // 合作方应付数据
-    const partnersData = partnerPayables.map(partner => ({
+    // 合作方应付数据（使用筛选后的数据）
+    const partnersData = filteredPartnerPayables.map(partner => ({
       '合作方名称': partner.partner_name,
       '运单数量': partner.records_count,
       '应付总金额': partner.total_payable.toFixed(2)
@@ -202,6 +293,89 @@ export default function FinanceReconciliation() {
         </Button>
       </div>
 
+      {/* 筛选器 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>筛选条件</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 项目筛选 */}
+            <div className="space-y-2">
+              <Label htmlFor="projectFilter">项目筛选</Label>
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger id="projectFilter">
+                  <SelectValue placeholder="选择项目" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">所有项目</SelectItem>
+                  {projects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 装货日期范围 */}
+            <div className="space-y-2">
+              <Label htmlFor="startDate">开始日期</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={dateRange.startDate}
+                onChange={(e) => setDateRange(prev => ({...prev, startDate: e.target.value}))}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="endDate">结束日期</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={dateRange.endDate}
+                onChange={(e) => setDateRange(prev => ({...prev, endDate: e.target.value}))}
+              />
+            </div>
+
+            {/* 合作方筛选 */}
+            <div className="space-y-2">
+              <Label htmlFor="partnerFilter">合作方筛选</Label>
+              <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
+                <SelectTrigger id="partnerFilter">
+                  <SelectValue placeholder="选择合作方" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">所有合作方</SelectItem>
+                  {allPartners.map(partner => (
+                    <SelectItem key={partner.id} value={partner.id}>
+                      {partner.name} ({partner.level}级)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 清除筛选按钮 */}
+            <div className="space-y-2">
+              <Label>&nbsp;</Label>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSelectedProjectId("");
+                  setDateRange({ startDate: "", endDate: "" });
+                  setSelectedPartnerId("");
+                }}
+                className="w-full"
+              >
+                清除筛选
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 统计卡片 */}
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
@@ -209,7 +383,10 @@ export default function FinanceReconciliation() {
             <CardTitle className="text-sm font-medium">运单总数</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{logisticsRecords.length}</div>
+            <div className="text-2xl font-bold">{filteredRecords.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {logisticsRecords.length > filteredRecords.length && `总共 ${logisticsRecords.length} 条`}
+            </p>
           </CardContent>
         </Card>
         
@@ -219,7 +396,7 @@ export default function FinanceReconciliation() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ¥{logisticsRecords.reduce((sum, record) => sum + (record.current_cost || 0), 0).toFixed(2)}
+              ¥{filteredRecords.reduce((sum, record) => sum + (record.current_cost || 0), 0).toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -230,7 +407,7 @@ export default function FinanceReconciliation() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ¥{partnerPayables.reduce((sum, partner) => sum + partner.total_payable, 0).toFixed(2)}
+              ¥{filteredPartnerPayables.reduce((sum, partner) => sum + partner.total_payable, 0).toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -251,7 +428,7 @@ export default function FinanceReconciliation() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {partnerPayables.map((partner) => (
+              {filteredPartnerPayables.map((partner) => (
                 <TableRow key={partner.partner_id}>
                   <TableCell className="font-medium">{partner.partner_name}</TableCell>
                   <TableCell>{partner.records_count}</TableCell>
@@ -291,7 +468,7 @@ export default function FinanceReconciliation() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {logisticsRecords.map((record) => (
+              {filteredRecords.map((record) => (
                 <TableRow key={record.id}>
                   <TableCell className="font-mono">{record.auto_number}</TableCell>
                   <TableCell>{record.project_name}</TableCell>
