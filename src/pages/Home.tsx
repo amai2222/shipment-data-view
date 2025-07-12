@@ -282,30 +282,45 @@ export default function Home() {
 
   // 获取选中日期和项目的详细记录
   const selectedRecords = useMemo(() => {
-    if (!selectedDate || !selectedProjectId) return [];
+    console.log('Calculating selectedRecords:', { selectedDate, selectedProjectId });
+    
+    if (!selectedDate || !selectedProjectId) {
+      console.log('Missing selectedDate or selectedProjectId, returning empty array');
+      return [];
+    }
     
     let projectRecords: any[] = [];
     if (selectedProjectId === 'all') {
       // 如果选择的是"所有项目"，则获取所有项目的记录
       projectRecords = filteredRecords;
+      console.log('Using all filtered records:', filteredRecords.length);
     } else {
       // 否则获取特定项目的记录
       projectRecords = recordsByProject[selectedProjectId] || [];
+      console.log('Using specific project records:', projectRecords.length);
     }
     
-    return projectRecords.filter(record => {
+    const result = projectRecords.filter(record => {
       const recordDate = getValidDateString(record.loadingDate);
       return recordDate === selectedDate;
     });
+    
+    console.log('Selected records result:', result.length, 'for date:', selectedDate);
+    return result;
   }, [selectedDate, selectedProjectId, recordsByProject, filteredRecords]);
 
   // 处理图表点击事件
   const handleChartClick = (data: any, projectId: string) => {
+    console.log('Chart clicked:', { data, projectId, activePayload: data?.activePayload });
+    
     if (data && data.activePayload && data.activePayload[0]) {
       const clickedDate = data.activePayload[0].payload.date;
+      console.log('Setting selected date:', clickedDate, 'projectId:', projectId);
       setSelectedDate(clickedDate);
       setSelectedProjectId(projectId);
       setIsDetailDialogOpen(true);
+    } else {
+      console.log('Chart click data invalid:', data);
     }
   };
 
@@ -709,12 +724,15 @@ export default function Home() {
 
       {/* 详细数据对话框 */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" aria-describedby="dialog-description">
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <Eye className="mr-2 h-5 w-5" />
               {selectedDate && `${new Date(selectedDate).toLocaleDateString('zh-CN')} 详细运输记录`}
             </DialogTitle>
+            <div id="dialog-description" className="sr-only">
+              显示选中日期的详细运输记录信息
+            </div>
           </DialogHeader>
           
           {selectedRecords.length > 0 ? (
