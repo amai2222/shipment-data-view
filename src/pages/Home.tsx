@@ -22,7 +22,7 @@ interface DailyCountStats {
 export default function Home() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -128,15 +128,25 @@ export default function Home() {
     }
   };
 
-  // 根据日期范围过滤记录
+  // 根据日期范围和项目过滤记录
   const filteredRecords = useMemo(() => {
-    if (!dateRange.startDate || !dateRange.endDate) return records;
+    let filtered = records;
     
-    return records.filter(record => {
-      const recordDate = new Date(record.loadingTime).toISOString().split('T')[0];
-      return recordDate >= dateRange.startDate && recordDate <= dateRange.endDate;
-    });
-  }, [records, dateRange]);
+    // 按日期范围过滤
+    if (dateRange.startDate && dateRange.endDate) {
+      filtered = filtered.filter(record => {
+        const recordDate = new Date(record.loadingTime).toISOString().split('T')[0];
+        return recordDate >= dateRange.startDate && recordDate <= dateRange.endDate;
+      });
+    }
+    
+    // 按项目过滤
+    if (selectedProjectId) {
+      filtered = filtered.filter(record => record.projectId === selectedProjectId);
+    }
+    
+    return filtered;
+  }, [records, dateRange, selectedProjectId]);
 
   // 按项目分组的记录
   const recordsByProject = useMemo(() => {
