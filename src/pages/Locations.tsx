@@ -1,20 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, MapPin } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, Upload, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Location } from "@/types";
+import * as XLSX from 'xlsx';
 
 export default function Locations() {
   const { toast } = useToast();
   const [locations, setLocations] = useState<Location[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
   });
@@ -115,6 +117,98 @@ export default function Locations() {
     }
   };
 
+  // Excel导入功能
+  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        let importedCount = 0;
+        let duplicateCount = 0;
+
+        for (const row of jsonData as any[]) {
+          // 检查是否已存在相同地点名称
+          const existingLocation = locations.find(l => l.name === row['地点名称']);
+          
+          if (existingLocation) {
+            duplicateCount++;
+            continue;
+          }
+
+          const locationData = {
+            name: row['地点名称'] || '',
+          };
+
+          // 验证必填字段
+          if (!locationData.name) {
+            console.warn(`跳过行：缺少地点名称`, row);
+            continue;
+          }
+
+          await SupabaseStorage.addLocation(locationData);
+          importedCount++;
+        }
+
+        toast({
+          title: "导入完成",
+          description: `成功导入 ${importedCount} 个地点，跳过 ${duplicateCount} 个重复地点`,
+        });
+
+        await loadData();
+      } catch (error) {
+        console.error('Error importing Excel:', error);
+        toast({
+          title: "导入失败",
+          description: "Excel文件格式不正确或数据有误",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    
+    // 清空文件输入
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Excel导出功能
+  const handleExcelExport = () => {
+    try {
+      const exportData = locations.map(location => ({
+        '地点名称': location.name,
+        '创建时间': new Date(location.createdAt).toLocaleDateString()
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, '地点列表');
+
+      const fileName = `地点列表_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      toast({
+        title: "导出成功",
+        description: `已导出 ${locations.length} 个地点到 ${fileName}`,
+      });
+    } catch (error) {
+      console.error('Error exporting Excel:', error);
+      toast({
+        title: "导出失败",
+        description: "无法导出Excel文件",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* 页面标题 */}
@@ -171,7 +265,34 @@ export default function Locations() {
       {/* 地点列表 */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>地点列表</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>地点列表 ({locations.length} 个地点)</CardTitle>
+            <div className="flex space-x-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleExcelImport}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center space-x-2"
+              >
+                <Upload className="h-4 w-4" />
+                <span>导入Excel</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleExcelExport}
+                className="flex items-center space-x-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>导出Excel</span>
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">

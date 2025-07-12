@@ -1,14 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Package, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Loader2, Upload, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Project, Location } from "@/types";
+import * as XLSX from 'xlsx';
 
 export default function Projects() {
   const { toast } = useToast();
@@ -18,6 +19,7 @@ export default function Projects() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
     startDate: "",
@@ -162,6 +164,112 @@ export default function Projects() {
     }
   };
 
+  // Excel导入功能
+  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        let importedCount = 0;
+        let duplicateCount = 0;
+
+        for (const row of jsonData as any[]) {
+          // 检查是否已存在相同项目名称
+          const existingProject = projects.find(p => p.name === row['项目名称']);
+          
+          if (existingProject) {
+            duplicateCount++;
+            continue;
+          }
+
+          const projectData = {
+            name: row['项目名称'] || '',
+            startDate: row['开始日期'] ? (row['开始日期'].toString().includes('T') ? row['开始日期'].toString().split('T')[0] : row['开始日期'].toString()) : '',
+            endDate: row['结束日期'] ? (row['结束日期'].toString().includes('T') ? row['结束日期'].toString().split('T')[0] : row['结束日期'].toString()) : '',
+            manager: row['项目负责人'] || '',
+            loadingAddress: row['装货地址'] || '',
+            unloadingAddress: row['卸货地址'] || '',
+          };
+
+          // 验证必填字段
+          if (!projectData.name || !projectData.startDate || !projectData.endDate || !projectData.manager || !projectData.loadingAddress || !projectData.unloadingAddress) {
+            console.warn(`跳过行：缺少必填字段`, row);
+            continue;
+          }
+
+          // 确保装货和卸货地址存在于地址库中
+          await findOrCreateLocation(projectData.loadingAddress);
+          await findOrCreateLocation(projectData.unloadingAddress);
+
+          await SupabaseStorage.addProject(projectData);
+          importedCount++;
+        }
+
+        toast({
+          title: "导入完成",
+          description: `成功导入 ${importedCount} 个项目，跳过 ${duplicateCount} 个重复项目`,
+        });
+
+        await loadData();
+      } catch (error) {
+        console.error('Error importing Excel:', error);
+        toast({
+          title: "导入失败",
+          description: "Excel文件格式不正确或数据有误",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    
+    // 清空文件输入
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Excel导出功能
+  const handleExcelExport = () => {
+    try {
+      const exportData = projects.map(project => ({
+        '项目名称': project.name,
+        '开始日期': project.startDate,
+        '结束日期': project.endDate,
+        '项目负责人': project.manager,
+        '装货地址': project.loadingAddress,
+        '卸货地址': project.unloadingAddress,
+        '创建时间': new Date(project.createdAt).toLocaleDateString()
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, '项目列表');
+
+      const fileName = `项目列表_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      toast({
+        title: "导出成功",
+        description: `已导出 ${projects.length} 个项目到 ${fileName}`,
+      });
+    } catch (error) {
+      console.error('Error exporting Excel:', error);
+      toast({
+        title: "导出失败",
+        description: "无法导出Excel文件",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -286,7 +394,34 @@ export default function Projects() {
       {/* 项目列表 */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>项目列表 ({projects.length} 个项目)</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>项目列表 ({projects.length} 个项目)</CardTitle>
+            <div className="flex space-x-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleExcelImport}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center space-x-2"
+              >
+                <Upload className="h-4 w-4" />
+                <span>导入Excel</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleExcelExport}
+                className="flex items-center space-x-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>导出Excel</span>
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
