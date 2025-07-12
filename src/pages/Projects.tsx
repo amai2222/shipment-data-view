@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Plus, Edit, Trash2, Package, Loader2, Upload, Download, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
@@ -688,68 +687,66 @@ export default function Projects() {
                <TableHeader>
                  <TableRow>
                    <TableHead className="w-8"></TableHead>
-                   <TableHead>项目名称</TableHead>
-                   <TableHead>项目负责人</TableHead>
-                   <TableHead>装货地址</TableHead>
-                   <TableHead>卸货地址</TableHead>
-                   <TableHead>合作链路</TableHead>
-                   <TableHead>操作</TableHead>
+                   <TableHead className="w-48">项目名称</TableHead>
+                   <TableHead className="w-32">项目负责人</TableHead>
+                   <TableHead className="w-40">装货地址</TableHead>
+                   <TableHead className="w-40">卸货地址</TableHead>
+                   <TableHead className="min-w-60">合作链路</TableHead>
+                   <TableHead className="w-32">操作</TableHead>
                  </TableRow>
                </TableHeader>
                <TableBody>
                  {projects.map((project) => (
-                   <Collapsible 
-                     key={project.id} 
-                     open={expandedProject === project.id}
-                     onOpenChange={(open) => setExpandedProject(open ? project.id : null)}
-                   >
-                     <CollapsibleTrigger asChild>
-                       <TableRow className="cursor-pointer hover:bg-muted/50 transition-colors">
-                         <TableCell>
-                           {expandedProject === project.id ? (
-                             <ChevronDown className="h-4 w-4" />
-                           ) : (
-                             <ChevronRight className="h-4 w-4" />
-                           )}
-                         </TableCell>
-                         <TableCell className="font-medium">{project.name}</TableCell>
-                         <TableCell>{project.manager}</TableCell>
-                         <TableCell>{project.loadingAddress}</TableCell>
-                         <TableCell>{project.unloadingAddress}</TableCell>
-                         <TableCell className="text-sm">
-                           <div className="max-w-xs overflow-hidden text-ellipsis">
-                             {getPartnerChain(project.id)}
-                           </div>
-                         </TableCell>
-                         <TableCell>
-                           <div className="flex space-x-2">
-                             <Button
-                               variant="outline"
-                               size="sm"
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 handleEdit(project);
-                               }}
-                             >
-                               <Edit className="h-4 w-4" />
-                             </Button>
-                             <Button
-                               variant="outline"
-                               size="sm"
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 handleDelete(project.id, project.name);
-                               }}
-                             >
-                               <Trash2 className="h-4 w-4" />
-                             </Button>
-                           </div>
-                         </TableCell>
-                       </TableRow>
-                     </CollapsibleTrigger>
-                     <CollapsibleContent asChild>
+                   <React.Fragment key={project.id}>
+                     <TableRow 
+                       className="cursor-pointer hover:bg-muted/50 transition-colors"
+                       onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
+                     >
+                       <TableCell className="w-8">
+                         {expandedProject === project.id ? (
+                           <ChevronDown className="h-4 w-4" />
+                         ) : (
+                           <ChevronRight className="h-4 w-4" />
+                         )}
+                       </TableCell>
+                       <TableCell className="font-medium">{project.name}</TableCell>
+                       <TableCell>{project.manager}</TableCell>
+                       <TableCell>{project.loadingAddress}</TableCell>
+                       <TableCell>{project.unloadingAddress}</TableCell>
+                       <TableCell className="text-sm">
+                         <div className="max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                           {getPartnerChain(project.id)}
+                         </div>
+                       </TableCell>
+                       <TableCell>
+                         <div className="flex space-x-2">
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               handleEdit(project);
+                             }}
+                           >
+                             <Edit className="h-4 w-4" />
+                           </Button>
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               handleDelete(project.id, project.name);
+                             }}
+                           >
+                             <Trash2 className="h-4 w-4" />
+                           </Button>
+                         </div>
+                       </TableCell>
+                     </TableRow>
+                     
+                     {expandedProject === project.id && (
                        <TableRow>
-                         <TableCell colSpan={7} className="bg-muted/30">
+                         <TableCell colSpan={7} className="bg-muted/30 p-0">
                            <div className="p-4 space-y-3 animate-fade-in">
                              <h4 className="font-semibold text-sm mb-3">项目详细信息</h4>
                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -767,29 +764,27 @@ export default function Projects() {
                                </div>
                                <div>
                                  <span className="text-muted-foreground">项目ID：</span>
-                                 <span className="font-mono text-xs">{project.id}</span>
+                                 <span className="font-mono text-xs break-all">{project.id}</span>
                                </div>
                              </div>
                              
                              {(projectPartners[project.id] || []).length > 0 && (
                                <div className="mt-4">
                                  <h5 className="font-medium text-sm mb-2">合作方详情</h5>
-                                 <div className="grid gap-2">
+                                 <div className="flex flex-wrap gap-2">
                                    {(projectPartners[project.id] || [])
                                      .sort((a, b) => a.level - b.level)
                                      .map((partner, index) => (
-                                     <div key={partner.id} className="flex items-center justify-between p-2 bg-background rounded border">
-                                       <div className="flex items-center space-x-4">
-                                         <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">
-                                           {partner.level}
-                                         </div>
-                                         <div>
-                                           <div className="font-medium">{partner.partnerName}</div>
-                                           <div className="text-xs text-muted-foreground">税点: {(partner.partnerTaxRate * 100).toFixed(2)}%</div>
-                                         </div>
+                                     <div key={partner.id} className="flex items-center bg-background border rounded-lg p-2">
+                                       <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium mr-2">
+                                         {partner.level}
+                                       </div>
+                                       <div className="text-sm">
+                                         <div className="font-medium">{partner.partnerName}</div>
+                                         <div className="text-xs text-muted-foreground">税点: {(partner.partnerTaxRate * 100).toFixed(2)}%</div>
                                        </div>
                                        {index < (projectPartners[project.id] || []).length - 1 && (
-                                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                         <ChevronRight className="h-4 w-4 text-muted-foreground ml-2" />
                                        )}
                                      </div>
                                    ))}
@@ -799,8 +794,8 @@ export default function Projects() {
                            </div>
                          </TableCell>
                        </TableRow>
-                     </CollapsibleContent>
-                   </Collapsible>
+                     )}
+                   </React.Fragment>
                  ))}
                  {projects.length === 0 && (
                    <TableRow>
