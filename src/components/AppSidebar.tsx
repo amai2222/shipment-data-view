@@ -10,9 +10,12 @@ import {
   Package,
   MapPin,
   Users,
-  Plus
+  Plus,
+  RotateCcw,
+  ChevronDown
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -22,13 +25,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
+  SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
+import { forceReimportData } from "@/utils/importData";
 
 // 菜单配置
 const menuItems = [
@@ -94,7 +95,51 @@ export function AppSidebar() {
   const isActive = (path: string) => currentPath === path;
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
+    <Sidebar className={collapsed ? "w-14" : "w-80"} collapsible="icon">
+      {/* Header Section */}
+      <SidebarHeader className="bg-gradient-primary text-white p-4 space-y-3">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+            <Truck className="h-6 w-6 text-white" />
+          </div>
+          {!collapsed && (
+            <div>
+              <h1 className="text-lg font-bold text-white">中科物流业务跟踪系统</h1>
+              <p className="text-sm text-white/80">高效管理 · 精准统计</p>
+            </div>
+          )}
+        </div>
+        
+        {!collapsed && (
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={async () => {
+                const { SupabaseStorage } = await import('@/utils/supabase');
+                await SupabaseStorage.fixExistingRecordsPartnerCosts();
+                window.location.reload();
+              }}
+              className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-all text-xs"
+            >
+              修复财务数据
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                forceReimportData();
+                window.location.reload();
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-all text-xs"
+            >
+              <RotateCcw className="h-3 w-3" />
+              重新导入数据
+            </Button>
+          </div>
+        )}
+      </SidebarHeader>
+
       <SidebarContent className="bg-gradient-to-b from-secondary to-background">
         {menuItems.map((group) => {
           const isGroupOpen = openGroups.includes(group.title);
