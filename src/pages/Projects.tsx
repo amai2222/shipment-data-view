@@ -230,6 +230,18 @@ export default function Projects() {
 
       // 保存项目合作方关联
       if (selectedPartners.length > 0) {
+        // 先更新合作方的税点信息
+        for (const sp of selectedPartners) {
+          const { error: partnerUpdateError } = await supabase
+            .from('partners')
+            .update({ tax_rate: sp.taxRate })
+            .eq('id', sp.partnerId);
+
+          if (partnerUpdateError) {
+            console.error('Error updating partner tax rate:', partnerUpdateError);
+          }
+        }
+
         const projectPartnersData = selectedPartners.map(sp => ({
           project_id: projectId,
           partner_id: sp.partnerId,

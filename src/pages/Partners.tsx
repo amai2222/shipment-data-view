@@ -13,6 +13,7 @@ import * as XLSX from 'xlsx';
 
 export default function Partners() {
   const [partners, setPartners] = useState<Partner[]>([]);
+  const [partnerProjects, setPartnerProjects] = useState<Record<string, any[]>>({});
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [formData, setFormData] = useState({
@@ -23,6 +24,7 @@ export default function Partners() {
 
   useEffect(() => {
     fetchPartners();
+    fetchPartnerProjects();
   }, []);
 
   const fetchPartners = async () => {
@@ -46,6 +48,41 @@ export default function Partners() {
     } catch (error) {
       console.error('获取合作方失败:', error);
       toast.error('获取合作方失败');
+    }
+  };
+
+  const fetchPartnerProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('project_partners')
+        .select(`
+          partner_id,
+          level,
+          projects (
+            id,
+            name,
+            auto_code
+          )
+        `);
+
+      if (error) throw error;
+
+      const projectsByPartner: Record<string, any[]> = {};
+      data.forEach(item => {
+        if (!projectsByPartner[item.partner_id]) {
+          projectsByPartner[item.partner_id] = [];
+        }
+        projectsByPartner[item.partner_id].push({
+          projectId: item.projects?.id,
+          projectName: item.projects?.name,
+          projectCode: item.projects?.auto_code,
+          level: item.level
+        });
+      });
+
+      setPartnerProjects(projectsByPartner);
+    } catch (error) {
+      console.error('获取合作方项目关联失败:', error);
     }
   };
 
@@ -83,13 +120,14 @@ export default function Partners() {
           .insert([partnerData]);
 
         if (error) throw error;
-        toast.success('合作方添加成功');
+      toast.success('合作方添加成功');
       }
 
       setIsDialogOpen(false);
       setEditingPartner(null);
       setFormData({ name: '', level: 1, taxRate: 0 });
       fetchPartners();
+      fetchPartnerProjects();
     } catch (error: any) {
       console.error('保存合作方失败:', error);
       if (error.code === '23505') {
@@ -122,6 +160,7 @@ export default function Partners() {
       if (error) throw error;
       toast.success('合作方删除成功');
       fetchPartners();
+      fetchPartnerProjects();
     } catch (error) {
       console.error('删除合作方失败:', error);
       toast.error('删除合作方失败');
@@ -192,6 +231,7 @@ export default function Partners() {
 
         toast.success(`成功导入 ${newData.length} 个合作方`);
         fetchPartners();
+        fetchPartnerProjects();
       } catch (error) {
         console.error('导入失败:', error);
         toast.error('导入失败');
@@ -298,6 +338,7 @@ export default function Partners() {
                 <TableHead>合作方名称</TableHead>
                 <TableHead>级别</TableHead>
                 <TableHead>税点</TableHead>
+                <TableHead>关联项目</TableHead>
                 <TableHead>创建时间</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
@@ -308,6 +349,27 @@ export default function Partners() {
                   <TableCell>{partner.name}</TableCell>
                   <TableCell>{partner.level}</TableCell>
                   <TableCell>{(partner.taxRate * 100).toFixed(2)}%</TableCell>
+                  <TableCell>
+                    <div className="max-w-xs">
+                      {(partnerProjects[partner.id] || []).length > 0 ? (
+                        <div className="space-y-1">
+                          {partnerProjects[partner.id].slice(0, 2).map((project, index) => (
+                            <div key={index} className="text-xs">
+                              <span className="font-mono text-blue-600">{project.projectCode}</span>
+                              <span className="text-muted-foreground ml-1">({project.projectName})</span>
+                            </div>
+                          ))}
+                          {partnerProjects[partner.id].length > 2 && (
+                            <div className="text-xs text-muted-foreground">
+                              +{partnerProjects[partner.id].length - 2} 个项目
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">未关联项目</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{new Date(partner.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
