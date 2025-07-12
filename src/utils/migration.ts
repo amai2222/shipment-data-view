@@ -1,17 +1,12 @@
 import { LocalStorage } from './storage';
 import { SupabaseStorage } from './supabase';
-import { useToast } from '@/hooks/use-toast';
 
 export class DataMigration {
   // 迁移所有数据到Supabase
   static async migrateAllData() {
-    const { toast } = useToast();
     
     try {
-      toast({
-        title: "开始数据迁移",
-        description: "正在将本地数据迁移到Supabase...",
-      });
+      console.log('开始数据迁移...');
 
       // 1. 迁移地点数据
       const localLocations = LocalStorage.getLocations();
@@ -105,19 +100,10 @@ export class DataMigration {
         }
       }
 
-      toast({
-        title: "数据迁移完成",
-        description: "所有本地数据已成功迁移到Supabase！",
-      });
-
+      console.log('数据迁移完成！');
       return true;
     } catch (error) {
       console.error('Migration error:', error);
-      toast({
-        title: "迁移失败",
-        description: "数据迁移过程中出现错误，请重试。",
-        variant: "destructive",
-      });
       return false;
     }
   }

@@ -45,13 +45,31 @@ export default function Home() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [allRecords, allProjects] = await Promise.all([
-        SupabaseStorage.getLogisticsRecords(),
-        SupabaseStorage.getProjects()
-      ]);
-      
-      setRecords(allRecords);
-      setProjects(allProjects);
+      // 尝试从Supabase加载数据，如果失败则使用本地数据
+      try {
+        const [allRecords, allProjects] = await Promise.all([
+          SupabaseStorage.getLogisticsRecords(),
+          SupabaseStorage.getProjects()
+        ]);
+        
+        setRecords(allRecords);
+        setProjects(allProjects);
+      } catch (supabaseError) {
+        console.warn('Supabase数据加载失败，使用本地数据:', supabaseError);
+        // 回退到本地存储
+        const { LocalStorage } = await import('@/utils/storage');
+        const localRecords = LocalStorage.getLogisticsRecords();
+        const localProjects = LocalStorage.getProjects();
+        
+        setRecords(localRecords);
+        setProjects(localProjects);
+        
+        toast({
+          title: "使用本地数据",
+          description: "Supabase连接失败，正在使用本地存储的数据。",
+          variant: "default",
+        });
+      }
       
       // 设置默认日期范围（2024年7月，因为数据是7月的）
       const startDate = "2024-07-01";
@@ -65,7 +83,7 @@ export default function Home() {
       console.error('Error loading data:', error);
       toast({
         title: "数据加载失败",
-        description: "无法从Supabase加载数据，请检查连接。",
+        description: "无法加载数据，请检查连接。",
         variant: "destructive",
       });
     } finally {
@@ -79,10 +97,33 @@ export default function Home() {
   };
 
   const handleMigrateData = async () => {
-    const success = await DataMigration.migrateAllData();
-    if (success) {
-      await loadData();
-      await checkMigrationStatus();
+    try {
+      toast({
+        title: "开始数据迁移",
+        description: "正在将本地数据迁移到Supabase...",
+      });
+
+      const success = await DataMigration.migrateAllData();
+      if (success) {
+        await loadData();
+        await checkMigrationStatus();
+        toast({
+          title: "数据迁移完成",
+          description: "所有本地数据已成功迁移到Supabase！",
+        });
+      } else {
+        toast({
+          title: "迁移失败",
+          description: "数据迁移过程中出现错误，请重试。",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "迁移失败", 
+        description: "数据迁移过程中出现错误，请重试。",
+        variant: "destructive",
+      });
     }
   };
 
