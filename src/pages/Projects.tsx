@@ -82,7 +82,6 @@ export default function Projects() {
       const formattedData: Partner[] = data.map(item => ({
         id: item.id,
         name: item.name,
-        level: item.level,
         taxRate: Number(item.tax_rate),
         createdAt: item.created_at,
       }));
@@ -103,9 +102,7 @@ export default function Projects() {
           *,
           partners:partner_id (
             id,
-            name,
-            level,
-            tax_rate
+            name
           )
         `)
         .eq('project_id', projectId)
@@ -118,9 +115,9 @@ export default function Projects() {
         projectId: item.project_id,
         partnerId: item.partner_id,
         level: item.level,
+        taxRate: Number(item.tax_rate),
         createdAt: item.created_at,
         partnerName: item.partners?.name || '',
-        partnerTaxRate: Number(item.partners?.tax_rate) || 0,
       }));
 
       return formattedData;
@@ -163,7 +160,7 @@ export default function Projects() {
       return {
         partnerId: pp.partnerId,
         level: pp.level,
-        taxRate: partner?.taxRate || pp.partnerTaxRate || 0
+        taxRate: pp.taxRate || partner?.taxRate || 0
       };
     });
     setSelectedPartners(partnersWithDetails);
@@ -241,7 +238,6 @@ export default function Projects() {
               .from('partners')
               .insert({
                 name: sp.partnerName,
-                level: sp.level,
                 tax_rate: sp.taxRate
               })
               .select()
@@ -274,7 +270,8 @@ export default function Projects() {
             projectPartnersData.push({
               project_id: projectId,
               partner_id: partnerId,
-              level: sp.level
+              level: sp.level,
+              tax_rate: sp.taxRate
             });
           }
         }
@@ -444,7 +441,7 @@ export default function Projects() {
     
     return partners
       .sort((a, b) => a.level - b.level)
-      .map(p => `${p.partnerName}(${p.level}级,${(p.partnerTaxRate * 100).toFixed(1)}%)`)
+      .map(p => `${p.partnerName}(${p.level}级,${(p.taxRate * 100).toFixed(1)}%)`)
       .join(" → ");
   };
 
@@ -831,7 +828,7 @@ export default function Projects() {
                                        </div>
                                        <div className="text-sm">
                                          <div className="font-medium">{partner.partnerName}</div>
-                                         <div className="text-xs text-muted-foreground">税点: {(partner.partnerTaxRate * 100).toFixed(2)}%</div>
+                                         <div className="text-xs text-muted-foreground">税点: {(partner.taxRate * 100).toFixed(2)}%</div>
                                        </div>
                                        {index < (projectPartners[project.id] || []).length - 1 && (
                                          <ChevronRight className="h-4 w-4 text-muted-foreground ml-2" />

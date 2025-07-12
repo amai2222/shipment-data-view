@@ -56,8 +56,7 @@ export interface LogisticsRecord {
 export interface Partner {
   id: string;
   name: string;
-  level: number;
-  taxRate: number;
+  taxRate: number;  // 默认税点
   createdAt: string;
 }
 
@@ -67,9 +66,9 @@ export interface ProjectPartner {
   projectId: string;
   partnerId: string;
   level: number;
+  taxRate: number;  // 项目特定税点
   createdAt: string;
   partnerName?: string;
-  partnerTaxRate?: number;
 }
 
 // 物流记录合作方费用

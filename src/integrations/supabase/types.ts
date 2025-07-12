@@ -195,21 +195,18 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          level: number
           name: string
           tax_rate: number
         }
         Insert: {
           created_at?: string
           id?: string
-          level: number
           name: string
           tax_rate: number
         }
         Update: {
           created_at?: string
           id?: string
-          level?: number
           name?: string
           tax_rate?: number
         }
@@ -222,6 +219,7 @@ export type Database = {
           level: number
           partner_id: string
           project_id: string
+          tax_rate: number
         }
         Insert: {
           created_at?: string
@@ -229,6 +227,7 @@ export type Database = {
           level: number
           partner_id: string
           project_id: string
+          tax_rate?: number
         }
         Update: {
           created_at?: string
@@ -236,6 +235,7 @@ export type Database = {
           level?: number
           partner_id?: string
           project_id?: string
+          tax_rate?: number
         }
         Relationships: [
           {

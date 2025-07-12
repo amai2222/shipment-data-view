@@ -18,7 +18,6 @@ export default function Partners() {
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    level: 1,
     taxRate: 0,
   });
 
@@ -32,14 +31,13 @@ export default function Partners() {
       const { data, error } = await supabase
         .from('partners')
         .select('*')
-        .order('level', { ascending: true });
+        .order('name', { ascending: true });
 
       if (error) throw error;
 
       const formattedData: Partner[] = data.map(item => ({
         id: item.id,
         name: item.name,
-        level: item.level,
         taxRate: Number(item.tax_rate),
         createdAt: item.created_at,
       }));
@@ -58,6 +56,7 @@ export default function Partners() {
         .select(`
           partner_id,
           level,
+          tax_rate,
           projects (
             id,
             name,
@@ -76,7 +75,8 @@ export default function Partners() {
           projectId: item.projects?.id,
           projectName: item.projects?.name,
           projectCode: item.projects?.auto_code,
-          level: item.level
+          level: item.level,
+          taxRate: Number(item.tax_rate)
         });
       });
 
@@ -102,7 +102,6 @@ export default function Partners() {
     try {
       const partnerData = {
         name: formData.name.trim(),
-        level: formData.level,
         tax_rate: formData.taxRate,
       };
 
@@ -125,7 +124,7 @@ export default function Partners() {
 
       setIsDialogOpen(false);
       setEditingPartner(null);
-      setFormData({ name: '', level: 1, taxRate: 0 });
+      setFormData({ name: '', taxRate: 0 });
       fetchPartners();
       fetchPartnerProjects();
     } catch (error: any) {
@@ -142,7 +141,6 @@ export default function Partners() {
     setEditingPartner(partner);
     setFormData({
       name: partner.name,
-      level: partner.level,
       taxRate: partner.taxRate,
     });
     setIsDialogOpen(true);
@@ -170,8 +168,7 @@ export default function Partners() {
   const exportToExcel = () => {
     const exportData = partners.map(partner => ({
       '合作方名称': partner.name,
-      '级别': partner.level,
-      '税点': (partner.taxRate * 100).toFixed(2) + '%',
+      '默认税点': (partner.taxRate * 100).toFixed(2) + '%',
       '创建时间': new Date(partner.createdAt).toLocaleDateString(),
     }));
 
@@ -197,14 +194,12 @@ export default function Partners() {
 
         const importData = jsonData.map((row: any) => ({
           name: row['合作方名称'] || row['name'] || '',
-          level: parseInt(row['级别'] || row['level'] || '1'),
-          tax_rate: parseFloat((row['税点'] || row['taxRate'] || '0').toString().replace('%', '')) / 100,
+          tax_rate: parseFloat((row['默认税点'] || row['税点'] || row['taxRate'] || '0').toString().replace('%', '')) / 100,
         }));
 
         // 验证数据
         const validData = importData.filter(item => 
           item.name && 
-          item.level > 0 && 
           item.tax_rate >= 0 && 
           item.tax_rate < 1
         );
@@ -244,7 +239,7 @@ export default function Partners() {
   const closeDialog = () => {
     setIsDialogOpen(false);
     setEditingPartner(null);
-    setFormData({ name: '', level: 1, taxRate: 0 });
+    setFormData({ name: '', taxRate: 0 });
   };
 
   return (
@@ -290,18 +285,7 @@ export default function Partners() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="level">级别</Label>
-                  <Input
-                    id="level"
-                    type="number"
-                    min="1"
-                    value={formData.level}
-                    onChange={(e) => setFormData({ ...formData, level: parseInt(e.target.value) || 1 })}
-                    placeholder="请输入级别"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="taxRate">税点 (0-1之间的小数)</Label>
+                  <Label htmlFor="taxRate">默认税点 (0-1之间的小数)</Label>
                   <Input
                     id="taxRate"
                     type="number"
@@ -336,8 +320,7 @@ export default function Partners() {
             <TableHeader>
               <TableRow>
                 <TableHead>合作方名称</TableHead>
-                <TableHead>级别</TableHead>
-                <TableHead>税点</TableHead>
+                <TableHead>默认税点</TableHead>
                 <TableHead>关联项目</TableHead>
                 <TableHead>创建时间</TableHead>
                 <TableHead>操作</TableHead>
@@ -347,7 +330,6 @@ export default function Partners() {
               {partners.map((partner) => (
                 <TableRow key={partner.id}>
                   <TableCell>{partner.name}</TableCell>
-                  <TableCell>{partner.level}</TableCell>
                   <TableCell>{(partner.taxRate * 100).toFixed(2)}%</TableCell>
                   <TableCell>
                     <div className="max-w-xs">
@@ -357,6 +339,7 @@ export default function Partners() {
                             <div key={index} className="text-xs">
                               <span className="font-mono text-blue-600">{project.projectCode}</span>
                               <span className="text-muted-foreground ml-1">({project.projectName})</span>
+                              <span className="text-xs text-orange-600 ml-1">级别{project.level} 税点{(project.taxRate * 100).toFixed(2)}%</span>
                             </div>
                           ))}
                           {partnerProjects[partner.id].length > 2 && (
