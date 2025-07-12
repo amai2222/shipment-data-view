@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,11 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CalendarIcon, TruckIcon, MapPinIcon, Plus, Edit2, Trash2, Eye, Calendar, Truck, MapPin, User, Clock, Weight, DollarSign } from "lucide-react";
+import { CalendarIcon, TruckIcon, MapPinIcon, Plus, Edit2, Trash2, Eye, Calendar, Truck, MapPin, User, Clock, Weight, DollarSign, Upload, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { LogisticsRecord, Project, Driver, Location } from "@/types";
+import * as XLSX from 'xlsx';
 
 export default function BusinessEntry() {
   const { toast } = useToast();
@@ -22,6 +23,7 @@ export default function BusinessEntry() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -193,6 +195,137 @@ export default function BusinessEntry() {
           variant: "destructive",
         });
       }
+    }
+  };
+
+  // Excel导入功能
+  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        let importedCount = 0;
+        let duplicateCount = 0;
+
+        for (const row of jsonData as any[]) {
+          // 查找项目和司机
+          const project = projects.find(p => p.name === row['项目名称']);
+          const driver = drivers.find(d => d.name === row['司机姓名'] && d.licensePlate === row['车牌号']);
+
+          if (!project || !driver) {
+            console.warn(`跳过行：无法找到匹配的项目或司机`, row);
+            continue;
+          }
+
+          // 检查是否已存在相同记录（基于项目、司机、装车时间）
+          const existingRecord = records.find(r => 
+            r.projectId === project.id && 
+            r.driverId === driver.id && 
+            r.loadingTime === row['装车时间']
+          );
+
+          if (existingRecord) {
+            duplicateCount++;
+            continue;
+          }
+
+          const recordData = {
+            projectId: project.id,
+            projectName: project.name,
+            loadingTime: row['装车时间'],
+            loadingLocation: row['装车地点'],
+            unloadingLocation: row['卸车地点'],
+            driverId: driver.id,
+            driverName: driver.name,
+            licensePlate: driver.licensePlate,
+            driverPhone: driver.phone,
+            loadingWeight: parseFloat(row['装车重量']) || 0,
+            unloadingDate: row['卸车日期'] || undefined,
+            unloadingWeight: row['卸车重量'] ? parseFloat(row['卸车重量']) : undefined,
+            transportType: row['运输类型'] || '实际运输',
+            currentFee: row['当前费用'] ? parseFloat(row['当前费用']) : undefined,
+            extraFee: row['额外费用'] ? parseFloat(row['额外费用']) : undefined,
+            payableFee: row['应付费用'] ? parseFloat(row['应付费用']) : undefined,
+            remarks: row['备注'] || undefined,
+            createdByUserId: "current-user",
+          };
+
+          await SupabaseStorage.addLogisticsRecord(recordData);
+          importedCount++;
+        }
+
+        toast({
+          title: "导入完成",
+          description: `成功导入 ${importedCount} 条记录，跳过 ${duplicateCount} 条重复记录`,
+        });
+
+        await loadData();
+      } catch (error) {
+        console.error('Error importing Excel:', error);
+        toast({
+          title: "导入失败",
+          description: "Excel文件格式不正确或数据有误",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    
+    // 清空文件输入
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Excel导出功能
+  const handleExcelExport = () => {
+    try {
+      const exportData = records.map(record => ({
+        '自动编号': record.autoNumber,
+        '项目名称': record.projectName,
+        '装车时间': record.loadingTime,
+        '装车地点': record.loadingLocation,
+        '卸车地点': record.unloadingLocation,
+        '司机姓名': record.driverName,
+        '车牌号': record.licensePlate,
+        '司机电话': record.driverPhone,
+        '装车重量': record.loadingWeight,
+        '卸车日期': record.unloadingDate || '',
+        '卸车重量': record.unloadingWeight || '',
+        '运输类型': record.transportType,
+        '当前费用': record.currentFee || '',
+        '额外费用': record.extraFee || '',
+        '应付费用': record.payableFee || '',
+        '备注': record.remarks || '',
+        '创建时间': new Date(record.createdAt).toLocaleString()
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, '物流记录');
+
+      const fileName = `物流记录_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      toast({
+        title: "导出成功",
+        description: `已导出 ${records.length} 条记录到 ${fileName}`,
+      });
+    } catch (error) {
+      console.error('Error exporting Excel:', error);
+      toast({
+        title: "导出失败",
+        description: "无法导出Excel文件",
+        variant: "destructive",
+      });
     }
   };
 
@@ -410,8 +543,39 @@ export default function BusinessEntry() {
       {/* 记录列表 */}
       <Card>
         <CardHeader>
-          <CardTitle>物流记录列表</CardTitle>
-          <CardDescription>所有物流运输记录</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>物流记录列表</CardTitle>
+              <CardDescription>所有物流运输记录</CardDescription>
+            </div>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center space-x-2"
+              >
+                <Upload className="h-4 w-4" />
+                <span>导入Excel</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExcelExport}
+                className="flex items-center space-x-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>导出Excel</span>
+              </Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".xlsx,.xls"
+                onChange={handleExcelImport}
+                style={{ display: 'none' }}
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
