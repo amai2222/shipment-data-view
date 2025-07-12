@@ -323,6 +323,7 @@ export default function BusinessEntry() {
     }
 
     console.log('最终筛选结果数:', filtered.length);
+    console.log('设置筛选结果，前5条记录的单号:', filtered.slice(0, 5).map(r => r.autoNumber));
     setFilteredRecords(filtered);
   };
 
@@ -671,6 +672,7 @@ export default function BusinessEntry() {
             </div>
             <div className="mt-3 text-xs text-muted-foreground">
               共 {filteredRecords.length} 条记录 / 总计 {records.length} 条
+              <span className="ml-4">筛选状态: 司机={filterDriver ? '已选择' : '未选择'}, 日期={filterStartDate || '未选择'}</span>
             </div>
           </div>
           
