@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CalendarIcon, TruckIcon, MapPinIcon, Plus, Edit2, Trash2 } from "lucide-react";
+import { CalendarIcon, TruckIcon, MapPinIcon, Plus, Edit2, Trash2, Eye, Calendar, Truck, MapPin, User, Clock, Weight, DollarSign } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { LogisticsRecord, Project, Driver, Location } from "@/types";
@@ -20,6 +21,7 @@ export default function BusinessEntry() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
+  const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -463,24 +465,32 @@ export default function BusinessEntry() {
                     <TableCell>
                       {record.payableFee && `¥${record.payableFee.toFixed(2)}`}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(record)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(record.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                     <TableCell>
+                       <div className="flex space-x-1">
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => setViewingRecord(record)}
+                           title="查看详情"
+                         >
+                           <Eye className="h-4 w-4" />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => handleEdit(record)}
+                         >
+                           <Edit2 className="h-4 w-4" />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => handleDelete(record.id)}
+                         >
+                           <Trash2 className="h-4 w-4" />
+                         </Button>
+                       </div>
+                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -493,6 +503,175 @@ export default function BusinessEntry() {
           )}
         </CardContent>
       </Card>
+
+      {/* 记录详情对话框 */}
+      <Dialog open={!!viewingRecord} onOpenChange={() => setViewingRecord(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>物流记录详情</DialogTitle>
+          </DialogHeader>
+          {viewingRecord && (
+            <div className="grid gap-6">
+              {/* 基本信息 */}
+              <div className="grid gap-4">
+                <h3 className="font-semibold text-lg">基本信息</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">自动编号</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.autoNumber}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">项目名称</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.projectName}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">装车时间</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.loadingTime}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">卸车日期</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.unloadingDate || "未填写"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 位置信息 */}
+              <div className="grid gap-4">
+                <h3 className="font-semibold text-lg">位置信息</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">装车地点</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.loadingLocation}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">卸车地点</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.unloadingLocation}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 司机信息 */}
+              <div className="grid gap-4">
+                <h3 className="font-semibold text-lg">司机信息</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">司机姓名</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.driverName}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">车牌号</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.licensePlate}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">联系电话</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.driverPhone}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 重量信息 */}
+              <div className="grid gap-4">
+                <h3 className="font-semibold text-lg">重量信息</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Weight className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">装车重量</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.loadingWeight ? `${viewingRecord.loadingWeight}吨` : "未填写"}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Weight className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">卸车重量</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.unloadingWeight ? `${viewingRecord.unloadingWeight}吨` : "未填写"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 费用信息 */}
+              <div className="grid gap-4">
+                <h3 className="font-semibold text-lg">费用信息</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">当前费用</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.currentFee ? `¥${viewingRecord.currentFee.toFixed(2)}` : "未填写"}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">额外费用</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.extraFee ? `¥${viewingRecord.extraFee.toFixed(2)}` : "未填写"}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">应付费用</span>
+                    </div>
+                    <p className="font-medium">{viewingRecord.payableFee ? `¥${viewingRecord.payableFee.toFixed(2)}` : "未填写"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 其他信息 */}
+              <div className="grid gap-4">
+                <h3 className="font-semibold text-lg">其他信息</h3>
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">运输类型</span>
+                    </div>
+                    <Badge variant={viewingRecord.transportType === "实际运输" ? "default" : "secondary"}>
+                      {viewingRecord.transportType}
+                    </Badge>
+                  </div>
+                  {viewingRecord.remarks && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">备注</span>
+                      </div>
+                      <p className="font-medium bg-muted p-3 rounded-md">{viewingRecord.remarks}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

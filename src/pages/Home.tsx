@@ -31,10 +31,19 @@ export default function Home() {
     localCount: number;
     isMigrated: boolean;
   } | null>(null);
-  const [dateRange, setDateRange] = useState({
-    startDate: "",
-    endDate: "",
-  });
+  // 默认显示最近一周的数据
+  const getDefaultDateRange = () => {
+    const today = new Date();
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(today.getDate() - 7);
+    
+    return {
+      startDate: oneWeekAgo.toISOString().split('T')[0],
+      endDate: today.toISOString().split('T')[0],
+    };
+  };
+
+  const [dateRange, setDateRange] = useState(getDefaultDateRange());
   const { toast } = useToast();
 
   // 加载数据
