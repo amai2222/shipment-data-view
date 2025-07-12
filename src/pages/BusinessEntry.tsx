@@ -29,7 +29,6 @@ export default function BusinessEntry() {
   // 筛选器状态
   const [filterDriver, setFilterDriver] = useState<string>("");
   const [filterStartDate, setFilterStartDate] = useState<string>("");
-  const [filterEndDate, setFilterEndDate] = useState<string>("");
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -308,9 +307,6 @@ export default function BusinessEntry() {
     if (filterStartDate) {
       filtered = filtered.filter(record => record.loadingDate >= filterStartDate);
     }
-    if (filterEndDate) {
-      filtered = filtered.filter(record => record.loadingDate <= filterEndDate);
-    }
 
     setFilteredRecords(filtered);
   };
@@ -318,13 +314,12 @@ export default function BusinessEntry() {
   // 当筛选条件变化时应用筛选
   useEffect(() => {
     applyFilters();
-  }, [records, filterDriver, filterStartDate, filterEndDate]);
+  }, [records, filterDriver, filterStartDate]);
 
   // 清除筛选器
   const clearFilters = () => {
     setFilterDriver("");
     setFilterStartDate("");
-    setFilterEndDate("");
   };
 
   // Excel导出功能
@@ -633,7 +628,7 @@ export default function BusinessEntry() {
                 清除筛选
               </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs">司机筛选</Label>
                 <Select value={filterDriver} onValueChange={setFilterDriver}>
@@ -650,20 +645,11 @@ export default function BusinessEntry() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">装车开始日期</Label>
+                <Label className="text-xs">装车日期</Label>
                 <Input
                   type="date"
                   value={filterStartDate}
                   onChange={(e) => setFilterStartDate(e.target.value)}
-                  className="h-8"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">装车结束日期</Label>
-                <Input
-                  type="date"
-                  value={filterEndDate}
-                  onChange={(e) => setFilterEndDate(e.target.value)}
                   className="h-8"
                 />
               </div>
