@@ -762,10 +762,10 @@ export default function Projects() {
                                  <span className="text-muted-foreground">创建时间：</span>
                                  <span className="font-medium">{new Date(project.createdAt).toLocaleDateString('zh-CN')}</span>
                                </div>
-                               <div>
-                                 <span className="text-muted-foreground">项目ID：</span>
-                                 <span className="font-mono text-xs break-all">{project.id}</span>
-                               </div>
+                                <div>
+                                  <span className="text-muted-foreground">项目编码：</span>
+                                  <span className="font-mono text-xs">{project.autoCode || '未生成'}</span>
+                                </div>
                              </div>
                              
                              {(projectPartners[project.id] || []).length > 0 && (

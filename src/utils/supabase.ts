@@ -19,6 +19,7 @@ export class SupabaseStorage {
       manager: p.manager,
       loadingAddress: p.loading_address,
       unloadingAddress: p.unloading_address,
+      autoCode: p.auto_code,
       createdAt: p.created_at,
     })) || [];
   }
@@ -47,6 +48,7 @@ export class SupabaseStorage {
       manager: data.manager,
       loadingAddress: data.loading_address,
       unloadingAddress: data.unloading_address,
+      autoCode: data.auto_code,
       createdAt: data.created_at,
     };
   }

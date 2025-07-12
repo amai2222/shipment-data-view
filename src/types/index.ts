@@ -7,6 +7,7 @@ export interface Project {
   manager: string;
   loadingAddress: string;
   unloadingAddress: string;
+  autoCode?: string;
   createdAt: string;
 }
 
