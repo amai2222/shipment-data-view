@@ -75,7 +75,7 @@ export default function Projects() {
       const { data, error } = await supabase
         .from('partners')
         .select('*')
-        .order('level', { ascending: true });
+        .order('name', { ascending: true });
 
       if (error) throw error;
 
