@@ -414,32 +414,33 @@ export class SupabaseStorage {
   // 一次性修复现有运单的合作方成本（仅在开发期间使用）
   static async fixExistingRecordsPartnerCosts(): Promise<void> {
     try {
-      // 获取所有有运费但没有合作方成本的运单
+      // 先清除所有现有的合作方成本记录
+      const { error: deleteError } = await supabase
+        .from('logistics_partner_costs')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // 删除所有记录
+
+      if (deleteError) throw deleteError;
+      console.log('已清除所有现有合作方成本记录');
+
+      // 获取所有有运费的运单
       const { data: records, error } = await supabase
         .from('logistics_records')
-        .select('id, current_cost, project_id')
+        .select('id, current_cost, project_id, auto_number')
         .not('current_cost', 'is', null)
         .gt('current_cost', 0);
 
       if (error) throw error;
 
-      console.log(`找到 ${records?.length || 0} 条需要修复的记录`);
+      console.log(`找到 ${records?.length || 0} 条需要重新生成的记录`);
 
       for (const record of records || []) {
-        // 检查是否已经有合作方成本记录
-        const { data: existingCosts } = await supabase
-          .from('logistics_partner_costs')
-          .select('id')
-          .eq('logistics_record_id', record.id);
-
-        if (!existingCosts || existingCosts.length === 0) {
-          // 生成合作方成本
-          await this.generatePartnerCosts(record.id, record.current_cost, record.project_id);
-          console.log(`为运单 ${record.id} 生成了合作方成本`);
-        }
+        // 重新生成合作方成本
+        await this.generatePartnerCosts(record.id, record.current_cost, record.project_id);
+        console.log(`为运单 ${record.auto_number} 重新生成了合作方成本`);
       }
 
-      console.log('修复完成');
+      console.log('修复完成 - 所有合作方成本已按正确公式重新计算');
     } catch (error) {
       console.error('修复现有记录时出错:', error);
     }
