@@ -300,9 +300,21 @@ export default function Home() {
       console.log('Using specific project records:', projectRecords.length);
     }
     
+    // 添加调试：显示一些记录的实际loadingDate格式
+    if (projectRecords.length > 0) {
+      console.log('Sample record loading dates:', projectRecords.slice(0, 3).map(r => ({
+        original: r.loadingDate,
+        processed: getValidDateString(r.loadingDate)
+      })));
+    }
+    
     const result = projectRecords.filter(record => {
       const recordDate = getValidDateString(record.loadingDate);
-      return recordDate === selectedDate;
+      const matches = recordDate === selectedDate;
+      if (!matches && projectRecords.length < 10) {
+        console.log('Date comparison:', { recordDate, selectedDate, matches, originalDate: record.loadingDate });
+      }
+      return matches;
     });
     
     console.log('Selected records result:', result.length, 'for date:', selectedDate);
