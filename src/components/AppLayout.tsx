@@ -12,9 +12,11 @@ export function AppLayout({ children }: AppLayoutProps) {
       <div className="min-h-screen flex w-full bg-gradient-to-br from-background to-secondary">
         <AppSidebar />
         
-        {/* Main Content - Full width without header */}
-        <main className="flex-1 p-6">
-          {children}
+        {/* Main Content - Full width and height */}
+        <main className="flex-1 w-full h-screen overflow-auto">
+          <div className="p-6">
+            {children}
+          </div>
         </main>
       </div>
     </SidebarProvider>
