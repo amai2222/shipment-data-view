@@ -8,13 +8,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Edit, Trash2, Package, Loader2, Upload, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
-import { Project, Location } from "@/types";
+import { Project, Location, Partner, ProjectPartner } from "@/types";
 import * as XLSX from 'xlsx';
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Projects() {
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [projectPartners, setProjectPartners] = useState<ProjectPartner[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +31,7 @@ export default function Projects() {
     loadingAddress: "",
     unloadingAddress: "",
   });
+  const [selectedPartners, setSelectedPartners] = useState<{partnerId: string, level: number, taxRate: number}[]>([]);
 
   // 加载数据
   useEffect(() => {
@@ -39,7 +43,8 @@ export default function Projects() {
       setIsLoading(true);
       const [loadedProjects, loadedLocations] = await Promise.all([
         SupabaseStorage.getProjects(),
-        SupabaseStorage.getLocations()
+        SupabaseStorage.getLocations(),
+        loadPartners()
       ]);
       setProjects(loadedProjects);
       setLocations(loadedLocations);
@@ -55,6 +60,65 @@ export default function Projects() {
     }
   };
 
+  const loadPartners = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('partners')
+        .select('*')
+        .order('level', { ascending: true });
+
+      if (error) throw error;
+
+      const formattedData: Partner[] = data.map(item => ({
+        id: item.id,
+        name: item.name,
+        level: item.level,
+        taxRate: Number(item.tax_rate),
+        createdAt: item.created_at,
+      }));
+
+      setPartners(formattedData);
+      return formattedData;
+    } catch (error) {
+      console.error('Error loading partners:', error);
+      return [];
+    }
+  };
+
+  const loadProjectPartners = async (projectId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('project_partners')
+        .select(`
+          *,
+          partners:partner_id (
+            id,
+            name,
+            level,
+            tax_rate
+          )
+        `)
+        .eq('project_id', projectId)
+        .order('level', { ascending: true });
+
+      if (error) throw error;
+
+      const formattedData: ProjectPartner[] = data.map(item => ({
+        id: item.id,
+        projectId: item.project_id,
+        partnerId: item.partner_id,
+        level: item.level,
+        createdAt: item.created_at,
+      }));
+
+      setProjectPartners(formattedData);
+      return formattedData;
+    } catch (error) {
+      console.error('Error loading project partners:', error);
+      return [];
+    }
+  };
+
   // 重置表单
   const resetForm = () => {
     setFormData({
@@ -65,11 +129,12 @@ export default function Projects() {
       loadingAddress: "",
       unloadingAddress: "",
     });
+    setSelectedPartners([]);
     setEditingProject(null);
   };
 
   // 打开编辑对话框
-  const handleEdit = (project: Project) => {
+  const handleEdit = async (project: Project) => {
     setFormData({
       name: project.name,
       startDate: project.startDate,
@@ -79,6 +144,19 @@ export default function Projects() {
       unloadingAddress: project.unloadingAddress,
     });
     setEditingProject(project);
+    
+    // 加载项目合作方
+    const projectPartners = await loadProjectPartners(project.id);
+    const partnersWithDetails = projectPartners.map(pp => {
+      const partner = partners.find(p => p.id === pp.partnerId);
+      return {
+        partnerId: pp.partnerId,
+        level: pp.level,
+        taxRate: partner?.taxRate || 0
+      };
+    });
+    setSelectedPartners(partnersWithDetails);
+    
     setIsDialogOpen(true);
   };
 
@@ -114,18 +192,51 @@ export default function Projects() {
       await findOrCreateLocation(formData.loadingAddress);
       await findOrCreateLocation(formData.unloadingAddress);
 
+      let projectId: string;
+      
       if (editingProject) {
         await SupabaseStorage.updateProject(editingProject.id, formData);
+        projectId = editingProject.id;
+        
+        // 删除现有的项目合作方关联
+        await supabase
+          .from('project_partners')
+          .delete()
+          .eq('project_id', projectId);
+          
         toast({
           title: "项目更新成功",
           description: `项目 "${formData.name}" 已更新，相关地址已自动加入地址库`,
         });
       } else {
-        await SupabaseStorage.addProject(formData);
+        const newProject = await SupabaseStorage.addProject(formData);
+        projectId = newProject.id;
         toast({
           title: "项目创建成功",
           description: `项目 "${formData.name}" 已创建，相关地址已自动加入地址库`,
         });
+      }
+
+      // 保存项目合作方关联
+      if (selectedPartners.length > 0) {
+        const projectPartnersData = selectedPartners.map(sp => ({
+          project_id: projectId,
+          partner_id: sp.partnerId,
+          level: sp.level
+        }));
+
+        const { error: partnersError } = await supabase
+          .from('project_partners')
+          .insert(projectPartnersData);
+
+        if (partnersError) {
+          console.error('Error saving project partners:', partnersError);
+          toast({
+            title: "合作方保存失败",
+            description: "项目已保存，但合作方关联保存失败",
+            variant: "destructive",
+          });
+        }
       }
 
       // 重新加载数据
@@ -298,7 +409,7 @@ export default function Projects() {
                 新增项目
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingProject ? "编辑项目" : "新增项目"}
@@ -364,6 +475,131 @@ export default function Projects() {
                     placeholder="请输入卸货地址（自动加入地址库）"
                     disabled={isSubmitting}
                   />
+                </div>
+                
+                {/* 合作方设置 */}
+                <div className="space-y-4 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">项目合作方设置</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (partners.length === 0) {
+                          toast({
+                            title: "无可用合作方",
+                            description: "请先在合作方管理中添加合作方",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        const nextLevel = selectedPartners.length + 1;
+                        const availablePartner = partners.find(p => !selectedPartners.some(sp => sp.partnerId === p.id));
+                        if (availablePartner) {
+                          setSelectedPartners(prev => [...prev, {
+                            partnerId: availablePartner.id,
+                            level: nextLevel,
+                            taxRate: availablePartner.taxRate
+                          }]);
+                        }
+                      }}
+                      disabled={isSubmitting}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      添加合作方
+                    </Button>
+                  </div>
+                  
+                  {selectedPartners.length > 0 && (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {selectedPartners.map((sp, index) => {
+                        const partner = partners.find(p => p.id === sp.partnerId);
+                        return (
+                          <div key={index} className="flex items-center space-x-2 p-2 border rounded">
+                            <div className="flex-1">
+                              <select
+                                value={sp.partnerId}
+                                onChange={(e) => {
+                                  const partnerId = e.target.value;
+                                  const selectedPartner = partners.find(p => p.id === partnerId);
+                                  if (selectedPartner) {
+                                    setSelectedPartners(prev => prev.map((item, i) => 
+                                      i === index ? {
+                                        ...item,
+                                        partnerId,
+                                        taxRate: selectedPartner.taxRate
+                                      } : item
+                                    ));
+                                  }
+                                }}
+                                className="w-full p-1 border rounded text-sm"
+                                disabled={isSubmitting}
+                              >
+                                <option value="">选择合作方</option>
+                                {partners.filter(p => !selectedPartners.some((sp2, i2) => i2 !== index && sp2.partnerId === p.id)).map(p => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name} (税点: {(p.taxRate * 100).toFixed(2)}%)
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="w-16">
+                              <input
+                                type="number"
+                                min="1"
+                                value={sp.level}
+                                onChange={(e) => {
+                                  const level = parseInt(e.target.value) || 1;
+                                  setSelectedPartners(prev => prev.map((item, i) => 
+                                    i === index ? { ...item, level } : item
+                                  ));
+                                }}
+                                className="w-full p-1 border rounded text-sm"
+                                placeholder="级别"
+                                disabled={isSubmitting}
+                              />
+                            </div>
+                            <div className="w-20">
+                              <input
+                                type="number"
+                                step="0.0001"
+                                min="0"
+                                max="0.9999"
+                                value={sp.taxRate}
+                                onChange={(e) => {
+                                  const taxRate = parseFloat(e.target.value) || 0;
+                                  setSelectedPartners(prev => prev.map((item, i) => 
+                                    i === index ? { ...item, taxRate } : item
+                                  ));
+                                }}
+                                className="w-full p-1 border rounded text-sm"
+                                placeholder="税点"
+                                disabled={isSubmitting}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedPartners(prev => prev.filter((_, i) => i !== index));
+                              }}
+                              disabled={isSubmitting}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {selectedPartners.length === 0 && (
+                    <div className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded">
+                      暂无合作方，点击"添加合作方"开始配置
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button
