@@ -5,16 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Package } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { LocalStorage } from "@/utils/storage";
-import { Project } from "@/types";
+import { SupabaseStorage } from "@/utils/supabase";
+import { Project, Location } from "@/types";
 
 export default function Projects() {
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     startDate: "",
@@ -24,14 +27,31 @@ export default function Projects() {
     unloadingAddress: "",
   });
 
-  // 加载项目数据
+  // 加载数据
   useEffect(() => {
-    const loadData = () => setProjects(LocalStorage.getProjects());
     loadData();
-    // 添加存储变化监听器
-    window.addEventListener('storage', loadData);
-    return () => window.removeEventListener('storage', loadData);
   }, []);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [loadedProjects, loadedLocations] = await Promise.all([
+        SupabaseStorage.getProjects(),
+        SupabaseStorage.getLocations()
+      ]);
+      setProjects(loadedProjects);
+      setLocations(loadedLocations);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast({
+        title: "数据加载失败",
+        description: "无法从数据库加载数据，请重试。",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // 重置表单
   const resetForm = () => {
@@ -60,8 +80,20 @@ export default function Projects() {
     setIsDialogOpen(true);
   };
 
+  // 查找或创建地址
+  const findOrCreateLocation = async (address: string) => {
+    const existingLocation = locations.find(loc => loc.name === address);
+    if (existingLocation) {
+      return existingLocation;
+    }
+    
+    // 创建新地址
+    const newLocation = await SupabaseStorage.findOrCreateLocation(address);
+    return newLocation;
+  };
+
   // 提交表单
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name || !formData.startDate || !formData.endDate || !formData.manager || !formData.loadingAddress || !formData.unloadingAddress) {
@@ -73,47 +105,71 @@ export default function Projects() {
       return;
     }
 
-    // 自动将装货地址和卸货地址添加到地址库
-    const existingLocations = LocalStorage.getLocations();
-    const loadingLocationExists = existingLocations.some(loc => loc.name === formData.loadingAddress);
-    const unloadingLocationExists = existingLocations.some(loc => loc.name === formData.unloadingAddress);
+    try {
+      setIsSubmitting(true);
+      
+      // 先确保装货和卸货地址存在于地址库中
+      await findOrCreateLocation(formData.loadingAddress);
+      await findOrCreateLocation(formData.unloadingAddress);
 
-    if (!loadingLocationExists) {
-      LocalStorage.addLocation({ name: formData.loadingAddress });
-    }
-    
-    if (!unloadingLocationExists) {
-      LocalStorage.addLocation({ name: formData.unloadingAddress });
-    }
+      if (editingProject) {
+        await SupabaseStorage.updateProject(editingProject.id, formData);
+        toast({
+          title: "项目更新成功",
+          description: `项目 "${formData.name}" 已更新，相关地址已自动加入地址库`,
+        });
+      } else {
+        await SupabaseStorage.addProject(formData);
+        toast({
+          title: "项目创建成功",
+          description: `项目 "${formData.name}" 已创建，相关地址已自动加入地址库`,
+        });
+      }
 
-    if (editingProject) {
-      LocalStorage.updateProject(editingProject.id, formData);
+      // 重新加载数据
+      await loadData();
+      
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error saving project:', error);
       toast({
-        title: "更新成功",
-        description: "项目信息已成功更新，相关地址已自动加入地址库",
+        title: "操作失败",
+        description: "创建或更新项目时出现错误",
+        variant: "destructive",
       });
-    } else {
-      LocalStorage.addProject(formData);
-      toast({
-        title: "添加成功",
-        description: "新项目已成功添加，相关地址已自动加入地址库",
-      });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setProjects(LocalStorage.getProjects());
-    setIsDialogOpen(false);
-    resetForm();
   };
 
   // 删除项目
-  const handleDelete = (id: string) => {
-    LocalStorage.deleteProject(id);
-    setProjects(LocalStorage.getProjects());
-    toast({
-      title: "删除成功",
-      description: "项目已成功删除",
-    });
+  const handleDelete = async (id: string, name: string) => {
+    try {
+      await SupabaseStorage.deleteProject(id);
+      await loadData();
+      toast({
+        title: "项目删除成功",
+        description: `项目"${name}"已从列表中移除`,
+      });
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast({
+        title: "删除失败",
+        description: "删除项目时出现错误",
+        variant: "destructive",
+      });
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">加载项目数据中...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -125,7 +181,7 @@ export default function Projects() {
               <Package className="mr-2" />
               项目管理
             </h1>
-            <p className="opacity-90">管理所有物流项目的基本信息</p>
+            <p className="opacity-90">管理所有物流项目的基本信息（Supabase数据库）</p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -148,6 +204,7 @@ export default function Projects() {
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({...prev, name: e.target.value}))}
                     placeholder="请输入项目名称"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="space-y-2">
@@ -157,6 +214,7 @@ export default function Projects() {
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => setFormData(prev => ({...prev, startDate: e.target.value}))}
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="space-y-2">
@@ -166,6 +224,7 @@ export default function Projects() {
                     type="date"
                     value={formData.endDate}
                     onChange={(e) => setFormData(prev => ({...prev, endDate: e.target.value}))}
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="space-y-2">
@@ -175,6 +234,7 @@ export default function Projects() {
                     value={formData.manager}
                     onChange={(e) => setFormData(prev => ({...prev, manager: e.target.value}))}
                     placeholder="请输入负责人姓名"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="space-y-2">
@@ -183,7 +243,8 @@ export default function Projects() {
                     id="loadingAddress"
                     value={formData.loadingAddress}
                     onChange={(e) => setFormData(prev => ({...prev, loadingAddress: e.target.value}))}
-                    placeholder="请输入装货地址"
+                    placeholder="请输入装货地址（自动加入地址库）"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="space-y-2">
@@ -192,7 +253,8 @@ export default function Projects() {
                     id="unloadingAddress"
                     value={formData.unloadingAddress}
                     onChange={(e) => setFormData(prev => ({...prev, unloadingAddress: e.target.value}))}
-                    placeholder="请输入卸货地址"
+                    placeholder="请输入卸货地址（自动加入地址库）"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="flex justify-end space-x-2">
@@ -200,11 +262,19 @@ export default function Projects() {
                     type="button"
                     variant="outline"
                     onClick={() => setIsDialogOpen(false)}
+                    disabled={isSubmitting}
                   >
                     取消
                   </Button>
-                  <Button type="submit" className="bg-gradient-primary hover:bg-primary-hover">
-                    {editingProject ? "更新" : "添加"}
+                  <Button type="submit" className="bg-gradient-primary hover:bg-primary-hover" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        {editingProject ? "更新中..." : "添加中..."}
+                      </>
+                    ) : (
+                      editingProject ? "更新" : "添加"
+                    )}
                   </Button>
                 </div>
               </form>
@@ -216,7 +286,7 @@ export default function Projects() {
       {/* 项目列表 */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>项目列表</CardTitle>
+          <CardTitle>项目列表 ({projects.length} 个项目)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -242,7 +312,7 @@ export default function Projects() {
                     <TableCell>{project.manager}</TableCell>
                     <TableCell>{project.loadingAddress}</TableCell>
                     <TableCell>{project.unloadingAddress}</TableCell>
-                    <TableCell>{new Date(project.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(project.createdAt).toLocaleDateString('zh-CN')}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
                         <Button
@@ -255,7 +325,7 @@ export default function Projects() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDelete(project.id)}
+                          onClick={() => handleDelete(project.id, project.name)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -266,7 +336,7 @@ export default function Projects() {
                 {projects.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      暂无项目数据
+                      暂无项目数据，请点击"新增项目"开始添加
                     </TableCell>
                   </TableRow>
                 )}

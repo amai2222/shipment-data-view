@@ -4,10 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BarChart3, TrendingUp, Truck, Package, Eye } from "lucide-react";
-import { LocalStorage } from "@/utils/storage";
+import { Button } from "@/components/ui/button";
+import { BarChart3, TrendingUp, Truck, Package, Eye, Database, RefreshCw } from "lucide-react";
+import { SupabaseStorage } from "@/utils/supabase";
+import { DataMigration } from "@/utils/migration";
 import { LogisticsRecord, DailyTransportStats, DailyCostStats } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell } from "recharts";
+import { useToast } from "@/hooks/use-toast";
 
 // 每日运输次数统计
 interface DailyCountStats {
@@ -21,27 +24,67 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [migrationStatus, setMigrationStatus] = useState<{
+    supabaseCount: number;
+    localCount: number;
+    isMigrated: boolean;
+  } | null>(null);
   const [dateRange, setDateRange] = useState({
     startDate: "",
     endDate: "",
   });
+  const { toast } = useToast();
 
   // 加载数据
   useEffect(() => {
-    const allRecords = LocalStorage.getLogisticsRecords();
-    const allProjects = LocalStorage.getProjects();
-    setRecords(allRecords);
-    setProjects(allProjects);
-    
-    // 设置默认日期范围（2024年7月，因为数据是7月的）
-    const startDate = "2024-07-01";
-    const endDate = "2024-07-31";
-    
-    setDateRange({
-      startDate,
-      endDate,
-    });
+    loadData();
+    checkMigrationStatus();
   }, []);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [allRecords, allProjects] = await Promise.all([
+        SupabaseStorage.getLogisticsRecords(),
+        SupabaseStorage.getProjects()
+      ]);
+      
+      setRecords(allRecords);
+      setProjects(allProjects);
+      
+      // 设置默认日期范围（2024年7月，因为数据是7月的）
+      const startDate = "2024-07-01";
+      const endDate = "2024-07-31";
+      
+      setDateRange({
+        startDate,
+        endDate,
+      });
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast({
+        title: "数据加载失败",
+        description: "无法从Supabase加载数据，请检查连接。",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const checkMigrationStatus = async () => {
+    const status = await DataMigration.checkMigrationStatus();
+    setMigrationStatus(status);
+  };
+
+  const handleMigrateData = async () => {
+    const success = await DataMigration.migrateAllData();
+    if (success) {
+      await loadData();
+      await checkMigrationStatus();
+    }
+  };
 
   // 根据日期范围过滤记录
   const filteredRecords = useMemo(() => {
@@ -185,15 +228,46 @@ export default function Home() {
     };
   }, [filteredRecords]);
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="h-8 w-8 animate-spin" />
+        <span className="ml-2">加载数据中...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
+      {/* 数据迁移状态 */}
+      {migrationStatus && !migrationStatus.isMigrated && migrationStatus.localCount > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Database className="h-5 w-5 text-orange-600 mr-2" />
+                <div>
+                  <p className="text-sm font-medium">检测到本地数据</p>
+                  <p className="text-xs text-muted-foreground">
+                    本地有{migrationStatus.localCount}条记录，建议迁移到Supabase
+                  </p>
+                </div>
+              </div>
+              <Button onClick={handleMigrateData} size="sm">
+                迁移数据
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 页面标题 */}
       <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
         <h1 className="text-2xl font-bold mb-2 flex items-center">
           <BarChart3 className="mr-2" />
           数据看板
         </h1>
-        <p className="opacity-90">运输数据统计分析与可视化</p>
+        <p className="opacity-90">运输数据统计分析与可视化（Supabase数据库）</p>
       </div>
 
       {/* 日期筛选器 */}
@@ -336,9 +410,9 @@ export default function Home() {
                     <Legend 
                       formatter={(value) => {
                         if (value === 'actualTransport') {
-                          return `有效运输量 (${projectData.legendTotals.actualTransportTotal.toFixed(1)}吨)`;
+                          return `有效运输量 (${projectData.legendTotals.actualTransportTotal.toFixed(1)}吨) - 点击查看详情`;
                         }
-                        return `退货量 (${projectData.legendTotals.returnsTotal.toFixed(1)}吨)`;
+                        return `退货量 (${projectData.legendTotals.returnsTotal.toFixed(1)}吨) - 点击查看详情`;
                       }}
                       wrapperStyle={{ 
                         paddingTop: '20px',
@@ -420,7 +494,7 @@ export default function Home() {
                       cursor={{ stroke: 'rgba(59, 130, 246, 0.3)', strokeWidth: 2 }}
                     />
                     <Legend 
-                      formatter={() => `运输次数 (总计${projectData.legendTotals.totalTrips}次)`}
+                      formatter={() => `运输次数 (总计${projectData.legendTotals.totalTrips}次) - 点击查看运单详情`}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',
@@ -488,7 +562,7 @@ export default function Home() {
                       cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
                     />
                     <Legend 
-                      formatter={() => `总成本 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { maximumFractionDigits: 0 })})`}
+                      formatter={() => `总成本 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}) - 点击查看运单详情`}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',
