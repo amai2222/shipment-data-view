@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2, Truck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { LocalStorage } from "@/utils/storage";
+import { SupabaseStorage } from "@/utils/supabase";
 import { Driver } from "@/types";
 
 export default function Drivers() {
@@ -23,8 +23,22 @@ export default function Drivers() {
 
   // 加载司机数据
   useEffect(() => {
-    setDrivers(LocalStorage.getDrivers());
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    try {
+      const loadedDrivers = await SupabaseStorage.getDrivers();
+      setDrivers(loadedDrivers);
+    } catch (error) {
+      console.error('Error loading drivers:', error);
+      toast({
+        title: "加载失败",
+        description: "无法加载司机数据",
+        variant: "destructive",
+      });
+    }
+  };
 
   // 重置表单
   const resetForm = () => {
@@ -48,7 +62,7 @@ export default function Drivers() {
   };
 
   // 提交表单
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name || !formData.licensePlate || !formData.phone) {
@@ -60,33 +74,51 @@ export default function Drivers() {
       return;
     }
 
-    if (editingDriver) {
-      LocalStorage.updateDriver(editingDriver.id, formData);
+    try {
+      if (editingDriver) {
+        await SupabaseStorage.updateDriver(editingDriver.id, formData);
+        toast({
+          title: "更新成功",
+          description: "司机信息已成功更新",
+        });
+      } else {
+        await SupabaseStorage.addDriver(formData);
+        toast({
+          title: "添加成功",
+          description: "新司机已成功添加",
+        });
+      }
+
+      await loadData();
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error saving driver:', error);
       toast({
-        title: "更新成功",
-        description: "司机信息已成功更新",
-      });
-    } else {
-      LocalStorage.addDriver(formData);
-      toast({
-        title: "添加成功",
-        description: "新司机已成功添加",
+        title: "保存失败",
+        description: "无法保存司机信息",
+        variant: "destructive",
       });
     }
-
-    setDrivers(LocalStorage.getDrivers());
-    setIsDialogOpen(false);
-    resetForm();
   };
 
   // 删除司机
-  const handleDelete = (id: string) => {
-    LocalStorage.deleteDriver(id);
-    setDrivers(LocalStorage.getDrivers());
-    toast({
-      title: "删除成功",
-      description: "司机已成功删除",
-    });
+  const handleDelete = async (id: string) => {
+    try {
+      await SupabaseStorage.deleteDriver(id);
+      await loadData();
+      toast({
+        title: "删除成功",
+        description: "司机已成功删除",
+      });
+    } catch (error) {
+      console.error('Error deleting driver:', error);
+      toast({
+        title: "删除失败",
+        description: "无法删除司机",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

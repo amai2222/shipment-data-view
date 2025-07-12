@@ -14,7 +14,168 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      drivers: {
+        Row: {
+          created_at: string
+          id: string
+          license_plate: string
+          name: string
+          phone: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          license_plate: string
+          name: string
+          phone: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          license_plate?: string
+          name?: string
+          phone?: string
+        }
+        Relationships: []
+      }
+      locations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      logistics_records: {
+        Row: {
+          auto_number: string
+          created_at: string
+          created_by_user_id: string
+          current_cost: number | null
+          driver_id: string | null
+          driver_name: string
+          driver_phone: string
+          extra_cost: number | null
+          id: string
+          license_plate: string
+          loading_location: string
+          loading_time: string
+          loading_weight: number | null
+          payable_cost: number | null
+          project_id: string | null
+          project_name: string
+          remarks: string | null
+          transport_type: string
+          unloading_date: string | null
+          unloading_location: string
+          unloading_weight: number | null
+        }
+        Insert: {
+          auto_number: string
+          created_at?: string
+          created_by_user_id: string
+          current_cost?: number | null
+          driver_id?: string | null
+          driver_name: string
+          driver_phone: string
+          extra_cost?: number | null
+          id?: string
+          license_plate: string
+          loading_location: string
+          loading_time: string
+          loading_weight?: number | null
+          payable_cost?: number | null
+          project_id?: string | null
+          project_name: string
+          remarks?: string | null
+          transport_type: string
+          unloading_date?: string | null
+          unloading_location: string
+          unloading_weight?: number | null
+        }
+        Update: {
+          auto_number?: string
+          created_at?: string
+          created_by_user_id?: string
+          current_cost?: number | null
+          driver_id?: string | null
+          driver_name?: string
+          driver_phone?: string
+          extra_cost?: number | null
+          id?: string
+          license_plate?: string
+          loading_location?: string
+          loading_time?: string
+          loading_weight?: number | null
+          payable_cost?: number | null
+          project_id?: string | null
+          project_name?: string
+          remarks?: string | null
+          transport_type?: string
+          unloading_date?: string | null
+          unloading_location?: string
+          unloading_weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logistics_records_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logistics_records_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          loading_address: string
+          manager: string
+          name: string
+          start_date: string
+          unloading_address: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          loading_address: string
+          manager: string
+          name: string
+          start_date: string
+          unloading_address: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          loading_address?: string
+          manager?: string
+          name?: string
+          start_date?: string
+          unloading_address?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

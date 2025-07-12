@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { LocalStorage } from "@/utils/storage";
+import { SupabaseStorage } from "@/utils/supabase";
 import { Location } from "@/types";
 
 export default function Locations() {
@@ -21,8 +21,22 @@ export default function Locations() {
 
   // 加载地点数据
   useEffect(() => {
-    setLocations(LocalStorage.getLocations());
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    try {
+      const loadedLocations = await SupabaseStorage.getLocations();
+      setLocations(loadedLocations);
+    } catch (error) {
+      console.error('Error loading locations:', error);
+      toast({
+        title: "加载失败",
+        description: "无法加载地点数据",
+        variant: "destructive",
+      });
+    }
+  };
 
   // 重置表单
   const resetForm = () => {
@@ -42,7 +56,7 @@ export default function Locations() {
   };
 
   // 提交表单
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name) {
@@ -54,33 +68,51 @@ export default function Locations() {
       return;
     }
 
-    if (editingLocation) {
-      LocalStorage.updateLocation(editingLocation.id, formData);
+    try {
+      if (editingLocation) {
+        await SupabaseStorage.updateLocation(editingLocation.id, formData);
+        toast({
+          title: "更新成功",
+          description: "地点信息已成功更新",
+        });
+      } else {
+        await SupabaseStorage.addLocation(formData);
+        toast({
+          title: "添加成功",
+          description: "新地点已成功添加",
+        });
+      }
+
+      await loadData();
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error saving location:', error);
       toast({
-        title: "更新成功",
-        description: "地点信息已成功更新",
-      });
-    } else {
-      LocalStorage.addLocation(formData);
-      toast({
-        title: "添加成功",
-        description: "新地点已成功添加",
+        title: "保存失败",
+        description: "无法保存地点信息",
+        variant: "destructive",
       });
     }
-
-    setLocations(LocalStorage.getLocations());
-    setIsDialogOpen(false);
-    resetForm();
   };
 
   // 删除地点
-  const handleDelete = (id: string) => {
-    LocalStorage.deleteLocation(id);
-    setLocations(LocalStorage.getLocations());
-    toast({
-      title: "删除成功",
-      description: "地点已成功删除",
-    });
+  const handleDelete = async (id: string) => {
+    try {
+      await SupabaseStorage.deleteLocation(id);
+      await loadData();
+      toast({
+        title: "删除成功",
+        description: "地点已成功删除",
+      });
+    } catch (error) {
+      console.error('Error deleting location:', error);
+      toast({
+        title: "删除失败",
+        description: "无法删除地点",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

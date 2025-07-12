@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CalendarIcon, TruckIcon, MapPinIcon, Plus, Edit2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { LocalStorage } from "@/utils/storage";
+import { SupabaseStorage } from "@/utils/supabase";
 import { LogisticsRecord, Project, Driver, Location } from "@/types";
 
 export default function BusinessEntry() {
@@ -41,11 +41,26 @@ export default function BusinessEntry() {
     loadData();
   }, []);
 
-  const loadData = () => {
-    setProjects(LocalStorage.getProjects());
-    setDrivers(LocalStorage.getDrivers());
-    setLocations(LocalStorage.getLocations());
-    setRecords(LocalStorage.getLogisticsRecords());
+  const loadData = async () => {
+    try {
+      const [loadedProjects, loadedDrivers, loadedLocations, loadedRecords] = await Promise.all([
+        SupabaseStorage.getProjects(),
+        SupabaseStorage.getDrivers(),
+        SupabaseStorage.getLocations(),
+        SupabaseStorage.getLogisticsRecords()
+      ]);
+      setProjects(loadedProjects);
+      setDrivers(loadedDrivers);
+      setLocations(loadedLocations);
+      setRecords(loadedRecords);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast({
+        title: "加载失败",
+        description: "无法加载数据",
+        variant: "destructive",
+      });
+    }
   };
 
   const resetForm = () => {
@@ -67,7 +82,7 @@ export default function BusinessEntry() {
     setEditingRecord(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.projectId || !formData.loadingTime || !formData.loadingLocation || 
@@ -113,22 +128,31 @@ export default function BusinessEntry() {
       createdByUserId: "current-user",
     };
 
-    if (editingRecord) {
-      LocalStorage.updateLogisticsRecord(editingRecord.id, recordData);
+    try {
+      if (editingRecord) {
+        await SupabaseStorage.updateLogisticsRecord(editingRecord.id, recordData);
+        toast({
+          title: "成功",
+          description: "物流记录已更新",
+        });
+      } else {
+        await SupabaseStorage.addLogisticsRecord(recordData);
+        toast({
+          title: "成功",
+          description: "物流记录已添加",
+        });
+      }
+
+      resetForm();
+      await loadData();
+    } catch (error) {
+      console.error('Error saving record:', error);
       toast({
-        title: "成功",
-        description: "物流记录已更新",
-      });
-    } else {
-      LocalStorage.addLogisticsRecord(recordData);
-      toast({
-        title: "成功",
-        description: "物流记录已添加",
+        title: "保存失败",
+        description: "无法保存物流记录",
+        variant: "destructive",
       });
     }
-
-    resetForm();
-    loadData();
   };
 
   const handleEdit = (record: LogisticsRecord) => {
@@ -150,14 +174,23 @@ export default function BusinessEntry() {
     setEditingRecord(record);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("确定要删除这条记录吗？")) {
-      LocalStorage.deleteLogisticsRecord(id);
-      toast({
-        title: "成功",
-        description: "记录已删除",
-      });
-      loadData();
+      try {
+        await SupabaseStorage.deleteLogisticsRecord(id);
+        toast({
+          title: "成功",
+          description: "记录已删除",
+        });
+        await loadData();
+      } catch (error) {
+        console.error('Error deleting record:', error);
+        toast({
+          title: "删除失败",
+          description: "无法删除记录",
+          variant: "destructive",
+        });
+      }
     }
   };
 

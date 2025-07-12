@@ -1,12 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { Project, Driver, Location, LogisticsRecord } from '@/types';
-
-// 在Lovable中，Supabase连接后环境变量会自动提供
-// 如果环境变量不可用，使用默认配置避免错误
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // 数据库操作工具类
 export class SupabaseStorage {
@@ -18,7 +11,16 @@ export class SupabaseStorage {
       .order('created_at', { ascending: false });
     
     if (error) throw error;
-    return data || [];
+    return data?.map(p => ({
+      id: p.id,
+      name: p.name,
+      startDate: p.start_date,
+      endDate: p.end_date,
+      manager: p.manager,
+      loadingAddress: p.loading_address,
+      unloadingAddress: p.unloading_address,
+      createdAt: p.created_at,
+    })) || [];
   }
 
   static async addProject(project: Omit<Project, 'id' | 'createdAt'>): Promise<Project> {
@@ -143,7 +145,11 @@ export class SupabaseStorage {
       .order('created_at', { ascending: false });
     
     if (error) throw error;
-    return data || [];
+    return data?.map(l => ({
+      id: l.id,
+      name: l.name,
+      createdAt: l.created_at,
+    })) || [];
   }
 
   static async addLocation(location: Omit<Location, 'id' | 'createdAt'>): Promise<Location> {
@@ -260,7 +266,7 @@ export class SupabaseStorage {
       loadingWeight: data.loading_weight,
       unloadingDate: data.unloading_date,
       unloadingWeight: data.unloading_weight,
-      transportType: data.transport_type,
+      transportType: data.transport_type as "实际运输" | "退货",
       currentCost: data.current_cost,
       extraCost: data.extra_cost,
       payableCost: data.payable_cost,
