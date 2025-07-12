@@ -36,9 +36,8 @@ const menuItems = [
     title: "数据概览",
     icon: BarChart3,
     items: [
-      { title: "数量概览", url: "/dashboard/quantity", icon: PieChart },
+      { title: "运输概览", url: "/dashboard/transport", icon: Truck },
       { title: "财务概览", url: "/dashboard/financial", icon: DollarSign },
-      { title: "运输概览", url: "/", icon: Truck },
     ]
   },
   {

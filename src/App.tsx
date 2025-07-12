@@ -5,12 +5,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import Home from "./pages/Home";
+import TransportOverview from "./pages/TransportOverview";
 import Projects from "./pages/Projects";
 import Drivers from "./pages/Drivers";
 import Locations from "./pages/Locations";
 import Partners from "./pages/Partners";
 import BusinessEntry from "./pages/BusinessEntry";
-import QuantityOverview from "./pages/QuantityOverview";
 import FinancialOverview from "./pages/FinancialOverview";
 import FinanceReconciliation from "./pages/FinanceReconciliation";
 import NotFound from "./pages/NotFound";
@@ -24,8 +24,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<AppLayout><Home /></AppLayout>} />
-          <Route path="/dashboard/quantity" element={<AppLayout><QuantityOverview /></AppLayout>} />
+          <Route path="/" element={<AppLayout><TransportOverview /></AppLayout>} />
+          <Route path="/dashboard/transport" element={<AppLayout><TransportOverview /></AppLayout>} />
           <Route path="/dashboard/financial" element={<AppLayout><FinancialOverview /></AppLayout>} />
           <Route path="/projects" element={<AppLayout><Projects /></AppLayout>} />
           <Route path="/drivers" element={<AppLayout><Drivers /></AppLayout>} />

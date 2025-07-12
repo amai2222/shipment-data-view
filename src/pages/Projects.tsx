@@ -819,12 +819,12 @@ export default function Projects() {
                  </TableRow>
                </TableHeader>
                <TableBody>
-                 {projects.map((project) => (
-                   <React.Fragment key={project.id}>
-                     <TableRow 
-                       className="cursor-pointer hover:bg-muted/50 transition-colors"
-                       onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
-                     >
+                  {projects.map((project) => (
+                    <React.Fragment key={project.id}>
+                      <TableRow 
+                        className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
+                      >
                        <TableCell className="w-8">
                          {expandedProject === project.id ? (
                            <ChevronDown className="h-4 w-4" />
