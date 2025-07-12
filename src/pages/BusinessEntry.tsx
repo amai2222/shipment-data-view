@@ -297,24 +297,32 @@ export default function BusinessEntry() {
   // 筛选功能
   const applyFilters = () => {
     let filtered = [...records];
+    
+    console.log('开始筛选，总记录数:', records.length);
+    console.log('筛选条件 - 司机:', filterDriver, '日期:', filterStartDate);
 
     // 司机筛选
     if (filterDriver) {
       filtered = filtered.filter(record => record.driverId === filterDriver);
+      console.log('司机筛选后记录数:', filtered.length);
     }
 
     // 装车日期筛选
     if (filterStartDate) {
+      console.log('应用日期筛选，筛选日期:', filterStartDate);
       filtered = filtered.filter(record => {
         // 处理装车日期格式，支持多种格式
         let recordDate = record.loadingDate;
         if (recordDate.includes('T')) {
           recordDate = recordDate.split('T')[0]; // 如果包含时间，提取日期部分
         }
+        console.log('记录日期:', recordDate, '比较结果:', recordDate >= filterStartDate);
         return recordDate >= filterStartDate;
       });
+      console.log('日期筛选后记录数:', filtered.length);
     }
 
+    console.log('最终筛选结果数:', filtered.length);
     setFilteredRecords(filtered);
   };
 
