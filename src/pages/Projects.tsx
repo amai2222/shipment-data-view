@@ -551,11 +551,11 @@ export default function Projects() {
                       size="sm"
                       onClick={() => {
                         const nextLevel = selectedPartners.length + 1;
-                        // 添加新的空合作方选项，用户可以输入新合作方名称
+                        // 添加新的合作方选项，默认为空选择状态
                         setSelectedPartners(prev => [...prev, {
-                          partnerId: '', // 空的partnerId表示新合作方
+                          partnerId: '', // 空的partnerId表示需要选择
                           level: nextLevel,
-                          taxRate: 0.06 // 默认税点6%
+                          taxRate: 0.03 // 默认税点3%
                         }]);
                       }}
                       disabled={isSubmitting}
@@ -572,33 +572,59 @@ export default function Projects() {
                         return (
                            <div key={index} className="flex items-center space-x-2 p-2 border rounded">
                              <div className="flex-1">
-                               {sp.partnerId ? (
-                                 <select
-                                   value={sp.partnerId}
-                                   onChange={(e) => {
-                                     const partnerId = e.target.value;
+                               <select
+                                 value={sp.partnerId}
+                                 onChange={(e) => {
+                                   const partnerId = e.target.value;
+                                    if (partnerId === 'new') {
+                                      // 选择新增合作方
+                                      setSelectedPartners(prev => prev.map((item, i) => 
+                                        i === index ? {
+                                          ...item,
+                                          partnerId: '',
+                                          partnerName: '',
+                                          taxRate: 0.03
+                                        } : item
+                                      ));
+                                   } else if (partnerId) {
+                                     // 选择现有合作方
                                      const selectedPartner = partners.find(p => p.id === partnerId);
                                      if (selectedPartner) {
                                        setSelectedPartners(prev => prev.map((item, i) => 
                                          i === index ? {
                                            ...item,
                                            partnerId,
+                                           partnerName: selectedPartner.name,
                                            taxRate: selectedPartner.taxRate
                                          } : item
                                        ));
                                      }
-                                   }}
-                                   className="w-full p-1 border rounded text-sm"
-                                   disabled={isSubmitting}
-                                 >
-                                   <option value="">选择合作方</option>
-                                   {partners.filter(p => !selectedPartners.some((sp2, i2) => i2 !== index && sp2.partnerId === p.id)).map(p => (
-                                     <option key={p.id} value={p.id}>
-                                       {p.name} (税点: {(p.taxRate * 100).toFixed(2)}%)
-                                     </option>
-                                   ))}
-                                 </select>
-                               ) : (
+                                   } else {
+                                     // 清空选择
+                                     setSelectedPartners(prev => prev.map((item, i) => 
+                                       i === index ? {
+                                         ...item,
+                                         partnerId: '',
+                                         partnerName: '',
+                                         taxRate: 0.03
+                                       } : item
+                                     ));
+                                   }
+                                 }}
+                                 className="w-full p-1 border rounded text-sm"
+                                 disabled={isSubmitting}
+                               >
+                                 <option value="">请选择合作方</option>
+                                 {partners.filter(p => !selectedPartners.some((sp2, i2) => i2 !== index && sp2.partnerId === p.id)).map(p => (
+                                   <option key={p.id} value={p.id}>
+                                     {p.name} (默认税点: {(p.taxRate * 100).toFixed(2)}%)
+                                   </option>
+                                 ))}
+                                 <option value="new">+ 新增合作方</option>
+                               </select>
+                               
+                               {/* 如果选择了新增合作方，显示输入框 */}
+                               {!sp.partnerId && (
                                  <input
                                    type="text"
                                    value={sp.partnerName || ''}
@@ -607,7 +633,7 @@ export default function Projects() {
                                        i === index ? { ...item, partnerName: e.target.value } : item
                                      ));
                                    }}
-                                   className="w-full p-1 border rounded text-sm"
+                                   className="w-full p-1 border rounded text-sm mt-1"
                                    placeholder="输入新合作方名称"
                                    disabled={isSubmitting}
                                  />
