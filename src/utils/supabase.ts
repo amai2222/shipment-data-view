@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { Project, Driver, Location, LogisticsRecord } from '@/types';
 
-// Supabase配置将通过Lovable的Supabase集成自动提供
-// 临时使用模拟配置以避免环境变量错误
-const supabaseUrl = 'https://placeholder.supabase.co';
-const supabaseAnonKey = 'placeholder-key';
+// 在Lovable中，Supabase连接后环境变量会自动提供
+// 如果环境变量不可用，使用默认配置避免错误
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
