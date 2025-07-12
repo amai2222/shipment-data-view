@@ -3,14 +3,16 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Layout } from "./components/Layout";
+import { AppLayout } from "./components/AppLayout";
 import Home from "./pages/Home";
 import Projects from "./pages/Projects";
 import Drivers from "./pages/Drivers";
 import Locations from "./pages/Locations";
 import Partners from "./pages/Partners";
 import BusinessEntry from "./pages/BusinessEntry";
-import Dashboard from "./pages/Dashboard";
+import QuantityOverview from "./pages/QuantityOverview";
+import FinancialOverview from "./pages/FinancialOverview";
+import FinanceReconciliation from "./pages/FinanceReconciliation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,12 +24,15 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Layout><Home /></Layout>} />
-          <Route path="/projects" element={<Layout><Projects /></Layout>} />
-          <Route path="/drivers" element={<Layout><Drivers /></Layout>} />
-          <Route path="/locations" element={<Layout><Locations /></Layout>} />
-          <Route path="/partners" element={<Layout><Partners /></Layout>} />
-          <Route path="/business-entry" element={<Layout><BusinessEntry /></Layout>} />
+          <Route path="/" element={<AppLayout><Home /></AppLayout>} />
+          <Route path="/dashboard/quantity" element={<AppLayout><QuantityOverview /></AppLayout>} />
+          <Route path="/dashboard/financial" element={<AppLayout><FinancialOverview /></AppLayout>} />
+          <Route path="/projects" element={<AppLayout><Projects /></AppLayout>} />
+          <Route path="/drivers" element={<AppLayout><Drivers /></AppLayout>} />
+          <Route path="/locations" element={<AppLayout><Locations /></AppLayout>} />
+          <Route path="/partners" element={<AppLayout><Partners /></AppLayout>} />
+          <Route path="/business-entry" element={<AppLayout><BusinessEntry /></AppLayout>} />
+          <Route path="/finance/reconciliation" element={<AppLayout><FinanceReconciliation /></AppLayout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
