@@ -171,41 +171,9 @@ export default function Home() {
       }
       acc[record.projectId].push(record);
       return acc;
-    }, {} as Record<string, LogisticsRecord[]>);
+  }, {} as Record<string, LogisticsRecord[]>);
     return grouped;
   }, [filteredRecords]);
-
-  // 按项目生成统计数据
-  const projectStats = useMemo(() => {
-    if (selectedProjectId) {
-      // 选中了特定项目，只显示该项目
-      const projectRecords = recordsByProject[selectedProjectId] || [];
-      const project = projects.find(p => p.id === selectedProjectId);
-      
-      return [{
-        projectId: selectedProjectId,
-        project,
-        projectRecords,
-        dailyTransportStats: generateDailyTransportStats(projectRecords),
-        dailyCostStats: generateDailyCostStats(projectRecords), 
-        dailyCountStats: generateDailyCountStats(projectRecords),
-        legendTotals: generateLegendTotals(projectRecords),
-        isAllProjects: false
-      }];
-    } else {
-      // 没有选择项目，显示所有项目汇总
-      return [{
-        projectId: 'all',
-        project: { name: '所有项目', manager: '全部负责人' },
-        projectRecords: filteredRecords,
-        dailyTransportStats: generateDailyTransportStats(filteredRecords),
-        dailyCostStats: generateDailyCostStats(filteredRecords),
-        dailyCountStats: generateDailyCountStats(filteredRecords), 
-        legendTotals: generateLegendTotals(filteredRecords),
-        isAllProjects: true
-      }];
-    }
-  }, [recordsByProject, projects, selectedProjectId, filteredRecords]);
 
   // 生成每日运输量统计的辅助函数
   const generateDailyTransportStats = (projectRecords: LogisticsRecord[]): DailyTransportStats[] => {
@@ -279,6 +247,38 @@ export default function Home() {
       totalTrips: dailyCountStats.reduce((sum, day) => sum + day.count, 0),
     };
   };
+
+  // 按项目生成统计数据
+  const projectStats = useMemo(() => {
+    if (selectedProjectId) {
+      // 选中了特定项目，只显示该项目
+      const projectRecords = recordsByProject[selectedProjectId] || [];
+      const project = projects.find(p => p.id === selectedProjectId);
+      
+      return [{
+        projectId: selectedProjectId,
+        project,
+        projectRecords,
+        dailyTransportStats: generateDailyTransportStats(projectRecords),
+        dailyCostStats: generateDailyCostStats(projectRecords), 
+        dailyCountStats: generateDailyCountStats(projectRecords),
+        legendTotals: generateLegendTotals(projectRecords),
+        isAllProjects: false
+      }];
+    } else {
+      // 没有选择项目，显示所有项目汇总
+      return [{
+        projectId: 'all',
+        project: { name: '所有项目', manager: '全部负责人' },
+        projectRecords: filteredRecords,
+        dailyTransportStats: generateDailyTransportStats(filteredRecords),
+        dailyCostStats: generateDailyCostStats(filteredRecords),
+        dailyCountStats: generateDailyCountStats(filteredRecords), 
+        legendTotals: generateLegendTotals(filteredRecords),
+        isAllProjects: true
+      }];
+    }
+  }, [recordsByProject, projects, selectedProjectId, filteredRecords]);
 
   // 获取选中日期和项目的详细记录
   const selectedRecords = useMemo(() => {
