@@ -59,6 +59,14 @@ export default function Dashboard() {
     }
   };
 
+  // 安全的日期转换函数
+  const getValidDateString = (dateValue: string | Date): string | null => {
+    if (!dateValue) return null;
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return null;
+    return date.toISOString().split('T')[0];
+  };
+
   // 根据日期范围和项目过滤记录
   const filteredRecords = useMemo(() => {
     let filtered = records;
@@ -66,7 +74,9 @@ export default function Dashboard() {
     // 按日期范围过滤
     if (dateRange.from && dateRange.to) {
       filtered = filtered.filter(record => {
-        const recordDate = new Date(record.loadingDate);
+        const dateStr = getValidDateString(record.loadingDate);
+        if (!dateStr) return false;
+        const recordDate = new Date(dateStr);
         return recordDate >= dateRange.from! && recordDate <= dateRange.to!;
       });
     }
@@ -91,7 +101,6 @@ export default function Dashboard() {
     return grouped;
   }, [filteredRecords]);
 
-  // 按项目生成统计数据
   const projectStats = useMemo(() => {
     const projectIds = selectedProjectId === "all" 
       ? Object.keys(recordsByProject)
@@ -106,7 +115,8 @@ export default function Dashboard() {
         const statsMap = new Map<string, { actualTransport: number; returns: number }>();
         
         projectRecords.forEach(record => {
-          const date = new Date(record.loadingDate).toISOString().split('T')[0];
+          const date = getValidDateString(record.loadingDate);
+          if (!date) return;
           const current = statsMap.get(date) || { actualTransport: 0, returns: 0 };
           
           if (record.transportType === "实际运输") {
@@ -129,7 +139,8 @@ export default function Dashboard() {
         const statsMap = new Map<string, number>();
         
         projectRecords.forEach(record => {
-          const date = new Date(record.loadingDate).toISOString().split('T')[0];
+          const date = getValidDateString(record.loadingDate);
+          if (!date) return;
           const current = statsMap.get(date) || 0;
           const cost = (record.currentFee || 0) + (record.extraFee || 0);
           statsMap.set(date, current + cost);
@@ -146,7 +157,8 @@ export default function Dashboard() {
         const statsMap = new Map<string, number>();
         
         projectRecords.forEach(record => {
-          const date = new Date(record.loadingDate).toISOString().split('T')[0];
+          const date = getValidDateString(record.loadingDate);
+          if (!date) return;
           const current = statsMap.get(date) || 0;
           statsMap.set(date, current + 1);
         });
