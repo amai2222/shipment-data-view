@@ -321,8 +321,9 @@ export default function BusinessEntry() {
         if (recordDate.includes('T')) {
           recordDate = recordDate.split('T')[0]; // 如果包含时间，提取日期部分
         }
-        const result = recordDate >= filterStartDate;
-        console.log(`记录 ${record.autoNumber}: 日期 ${recordDate} >= ${filterStartDate} = ${result}`);
+        // 改为精确匹配，而不是大于等于
+        const result = recordDate === filterStartDate;
+        console.log(`记录 ${record.autoNumber}: 日期 ${recordDate} === ${filterStartDate} = ${result}`);
         return result;
       });
       console.log('日期筛选后记录数:', filtered.length);
@@ -668,7 +669,7 @@ export default function BusinessEntry() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">装车日期</Label>
+                <Label className="text-xs">装车日期（精确匹配）</Label>
                 <Input
                   type="date"
                   value={filterStartDate}
