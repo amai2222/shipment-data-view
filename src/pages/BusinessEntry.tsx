@@ -21,9 +21,15 @@ export default function BusinessEntry() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
+  const [filteredRecords, setFilteredRecords] = useState<LogisticsRecord[]>([]);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 筛选器状态
+  const [filterDriver, setFilterDriver] = useState<string>("");
+  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterEndDate, setFilterEndDate] = useState<string>("");
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -57,6 +63,7 @@ export default function BusinessEntry() {
       setDrivers(loadedDrivers);
       setLocations(loadedLocations);
       setRecords(loadedRecords);
+      setFilteredRecords(loadedRecords);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -149,8 +156,9 @@ export default function BusinessEntry() {
 
       resetForm();
       await loadData();
+      applyFilters();
     } catch (error) {
-      console.error('Error saving record:', error);
+        console.error('Error saving record:', error);
       toast({
         title: "保存失败",
         description: "无法保存物流记录",
@@ -187,6 +195,7 @@ export default function BusinessEntry() {
           description: "记录已删除",
         });
         await loadData();
+        applyFilters();
       } catch (error) {
         console.error('Error deleting record:', error);
         toast({
@@ -268,6 +277,7 @@ export default function BusinessEntry() {
         });
 
         await loadData();
+        applyFilters();
       } catch (error) {
         console.error('Error importing Excel:', error);
         toast({
@@ -285,10 +295,42 @@ export default function BusinessEntry() {
     }
   };
 
+  // 筛选功能
+  const applyFilters = () => {
+    let filtered = [...records];
+
+    // 司机筛选
+    if (filterDriver) {
+      filtered = filtered.filter(record => record.driverId === filterDriver);
+    }
+
+    // 装车日期筛选
+    if (filterStartDate) {
+      filtered = filtered.filter(record => record.loadingDate >= filterStartDate);
+    }
+    if (filterEndDate) {
+      filtered = filtered.filter(record => record.loadingDate <= filterEndDate);
+    }
+
+    setFilteredRecords(filtered);
+  };
+
+  // 当筛选条件变化时应用筛选
+  useEffect(() => {
+    applyFilters();
+  }, [records, filterDriver, filterStartDate, filterEndDate]);
+
+  // 清除筛选器
+  const clearFilters = () => {
+    setFilterDriver("");
+    setFilterStartDate("");
+    setFilterEndDate("");
+  };
+
   // Excel导出功能
   const handleExcelExport = () => {
     try {
-      const exportData = records.map(record => ({
+      const exportData = filteredRecords.map(record => ({
         '自动编号': record.autoNumber,
         '项目名称': record.projectName,
         '装车日期': record.loadingDate,
@@ -317,7 +359,7 @@ export default function BusinessEntry() {
 
       toast({
         title: "导出成功",
-        description: `已导出 ${records.length} 条记录到 ${fileName}`,
+        description: `已导出 ${filteredRecords.length} 条记录到 ${fileName}`,
       });
     } catch (error) {
       console.error('Error exporting Excel:', error);
@@ -578,6 +620,59 @@ export default function BusinessEntry() {
           </div>
         </CardHeader>
         <CardContent>
+          {/* 筛选器 */}
+          <div className="mb-6 p-4 bg-muted/50 rounded-lg border">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-medium text-sm">筛选条件</h4>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="text-xs"
+              >
+                清除筛选
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs">司机筛选</Label>
+                <Select value={filterDriver} onValueChange={setFilterDriver}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="选择司机" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {drivers.map((driver) => (
+                      <SelectItem key={driver.id} value={driver.id}>
+                        {driver.name} - {driver.licensePlate}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">装车开始日期</Label>
+                <Input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  className="h-8"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">装车结束日期</Label>
+                <Input
+                  type="date"
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  className="h-8"
+                />
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-muted-foreground">
+              共 {filteredRecords.length} 条记录 / 总计 {records.length} 条
+            </div>
+          </div>
+          
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -594,7 +689,7 @@ export default function BusinessEntry() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {records.map((record) => (
+                {filteredRecords.map((record) => (
                   <TableRow key={record.id}>
                     <TableCell className="font-medium">{record.autoNumber}</TableCell>
                     <TableCell>{record.projectName}</TableCell>
@@ -660,6 +755,11 @@ export default function BusinessEntry() {
               </TableBody>
             </Table>
           </div>
+          {filteredRecords.length === 0 && records.length > 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              没有符合筛选条件的记录
+            </div>
+          )}
           {records.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               暂无物流记录
