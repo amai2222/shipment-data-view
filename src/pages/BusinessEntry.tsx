@@ -297,41 +297,24 @@ export default function BusinessEntry() {
   // 筛选功能
   const applyFilters = () => {
     let filtered = [...records];
-    
-    console.log('开始筛选，总记录数:', records.length);
-    console.log('筛选条件 - 司机:', filterDriver, '日期:', filterStartDate);
-    
-    // 显示前几条记录的装车日期，用于调试
-    console.log('前5条记录的装车日期:', records.slice(0, 5).map(r => `${r.autoNumber}: ${r.loadingDate}`));
 
     // 司机筛选
     if (filterDriver) {
       filtered = filtered.filter(record => record.driverId === filterDriver);
-      console.log('司机筛选后记录数:', filtered.length);
     }
 
-    // 装车日期筛选
+    // 装车日期筛选（精确匹配）
     if (filterStartDate) {
-      console.log('应用日期筛选，筛选日期:', filterStartDate);
-      console.log('筛选前记录装车日期示例:', filtered.slice(0, 3).map(r => `${r.autoNumber}: ${r.loadingDate}`));
-      
       filtered = filtered.filter(record => {
         // 处理装车日期格式，支持多种格式
         let recordDate = record.loadingDate;
         if (recordDate.includes('T')) {
           recordDate = recordDate.split('T')[0]; // 如果包含时间，提取日期部分
         }
-        // 改为精确匹配，而不是大于等于
-        const result = recordDate === filterStartDate;
-        console.log(`记录 ${record.autoNumber}: 日期 ${recordDate} === ${filterStartDate} = ${result}`);
-        return result;
+        return recordDate === filterStartDate;
       });
-      console.log('日期筛选后记录数:', filtered.length);
-      console.log('筛选后记录装车日期:', filtered.slice(0, 3).map(r => `${r.autoNumber}: ${r.loadingDate}`));
     }
 
-    console.log('最终筛选结果数:', filtered.length);
-    console.log('设置筛选结果，前5条记录的单号:', filtered.slice(0, 5).map(r => r.autoNumber));
     setFilteredRecords(filtered);
   };
 
@@ -669,7 +652,7 @@ export default function BusinessEntry() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">装车日期（精确匹配）</Label>
+                <Label className="text-xs">装车日期</Label>
                 <Input
                   type="date"
                   value={filterStartDate}
@@ -680,7 +663,6 @@ export default function BusinessEntry() {
             </div>
             <div className="mt-3 text-xs text-muted-foreground">
               共 {filteredRecords.length} 条记录 / 总计 {records.length} 条
-              <span className="ml-4">筛选状态: 司机={filterDriver ? '已选择' : '未选择'}, 日期={filterStartDate || '未选择'}</span>
             </div>
           </div>
           
