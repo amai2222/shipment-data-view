@@ -31,14 +31,13 @@ export default function Home() {
     localCount: number;
     isMigrated: boolean;
   } | null>(null);
-  // 默认显示最近一周的数据
+  // 默认显示当前月份1号到当前日期的数据
   const getDefaultDateRange = () => {
     const today = new Date();
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(today.getDate() - 7);
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     
     return {
-      startDate: oneWeekAgo.toISOString().split('T')[0],
+      startDate: firstDayOfMonth.toISOString().split('T')[0],
       endDate: today.toISOString().split('T')[0],
     };
   };
@@ -451,7 +450,7 @@ export default function Home() {
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle>
-                每日运输量统计 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) (吨)
+                每日运输量统计 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) ({dateRange.startDate} 至 {dateRange.endDate}) (吨)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -609,7 +608,7 @@ export default function Home() {
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle>
-                每日运输费用分析 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) (元)
+                每日运输费用分析 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) ({dateRange.startDate} 至 {dateRange.endDate}) (元)
               </CardTitle>
             </CardHeader>
             <CardContent>
