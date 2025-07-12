@@ -306,8 +306,11 @@ export default function BusinessEntry() {
     // 装车日期筛选
     if (filterStartDate) {
       filtered = filtered.filter(record => {
-        // 确保日期格式一致进行比较
-        const recordDate = record.loadingDate.split('T')[0]; // 提取日期部分
+        // 处理装车日期格式，支持多种格式
+        let recordDate = record.loadingDate;
+        if (recordDate.includes('T')) {
+          recordDate = recordDate.split('T')[0]; // 如果包含时间，提取日期部分
+        }
         return recordDate >= filterStartDate;
       });
     }
