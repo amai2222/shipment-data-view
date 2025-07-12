@@ -95,17 +95,17 @@ export function AppSidebar() {
   const isActive = (path: string) => currentPath === path;
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-80"} collapsible="icon">
+    <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
       {/* Header Section */}
-      <SidebarHeader className="bg-gradient-primary text-white p-4 space-y-3">
-        <div className="flex items-center space-x-3">
+      <SidebarHeader className="bg-gradient-primary text-white p-3 space-y-2">
+        <div className="flex items-center space-x-2">
           <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
             <Truck className="h-6 w-6 text-white" />
           </div>
           {!collapsed && (
             <div>
-              <h1 className="text-lg font-bold text-white">中科物流业务跟踪系统</h1>
-              <p className="text-sm text-white/80">高效管理 · 精准统计</p>
+              <h1 className="text-base font-bold text-white">中科物流业务跟踪系统</h1>
+              <p className="text-xs text-white/80">高效管理 · 精准统计</p>
             </div>
           )}
         </div>
