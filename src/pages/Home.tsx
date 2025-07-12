@@ -34,11 +34,17 @@ export default function Home() {
   // 默认显示当前月份1号到当前日期的数据
   const getDefaultDateRange = () => {
     const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    // 确保使用本地时间避免时区问题
+    const year = today.getFullYear();
+    const month = today.getMonth(); // 0-11
+    const day = today.getDate();
+    
+    const firstDayOfMonth = new Date(year, month, 1);
+    const currentDate = new Date(year, month, day);
     
     return {
-      startDate: firstDayOfMonth.toISOString().split('T')[0],
-      endDate: today.toISOString().split('T')[0],
+      startDate: `${year}-${String(month + 1).padStart(2, '0')}-01`,
+      endDate: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
     };
   };
 
@@ -631,9 +637,9 @@ export default function Home() {
                       height={80}
                       interval={0}
                     />
-                    <YAxis
-                      tickFormatter={(value) => `¥${(value/1000).toFixed(1)}k`}
-                    />
+                     <YAxis
+                       tickFormatter={(value) => `¥${Number(value).toLocaleString('zh-CN')}`}
+                     />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
                       formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总费用']}
