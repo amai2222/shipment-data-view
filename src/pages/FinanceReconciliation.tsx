@@ -48,12 +48,12 @@ export default function FinanceReconciliation() {
   const [loading, setLoading] = useState(true);
   
   // 筛选器状态
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
   const [dateRange, setDateRange] = useState({
     startDate: "",
     endDate: ""
   });
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>("all");
   
   const { toast } = useToast();
 
@@ -180,7 +180,7 @@ export default function FinanceReconciliation() {
     let filtered = logisticsRecords;
 
     // 项目筛选
-    if (selectedProjectId) {
+    if (selectedProjectId && selectedProjectId !== "all") {
       filtered = filtered.filter(record => record.project_name === projects.find(p => p.id === selectedProjectId)?.name);
     }
 
@@ -193,7 +193,7 @@ export default function FinanceReconciliation() {
     }
 
     // 合作方筛选
-    if (selectedPartnerId) {
+    if (selectedPartnerId && selectedPartnerId !== "all") {
       filtered = filtered.filter(record => 
         record.partner_costs.some(cost => cost.partner_id === selectedPartnerId)
       );
@@ -209,7 +209,7 @@ export default function FinanceReconciliation() {
     filteredRecords.forEach(record => {
       record.partner_costs.forEach(cost => {
         // 如果选择了特定合作方，只计算该合作方的数据
-        if (selectedPartnerId && cost.partner_id !== selectedPartnerId) {
+        if (selectedPartnerId && selectedPartnerId !== "all" && cost.partner_id !== selectedPartnerId) {
           return;
         }
 
@@ -308,7 +308,7 @@ export default function FinanceReconciliation() {
                   <SelectValue placeholder="选择项目" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">所有项目</SelectItem>
+                  <SelectItem value="all">所有项目</SelectItem>
                   {projects.map(project => (
                     <SelectItem key={project.id} value={project.id}>
                       {project.name}
@@ -347,7 +347,7 @@ export default function FinanceReconciliation() {
                   <SelectValue placeholder="选择合作方" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">所有合作方</SelectItem>
+                  <SelectItem value="all">所有合作方</SelectItem>
                   {allPartners.map(partner => (
                     <SelectItem key={partner.id} value={partner.id}>
                       {partner.name} ({partner.level}级)
@@ -363,9 +363,9 @@ export default function FinanceReconciliation() {
               <Button 
                 variant="outline" 
                 onClick={() => {
-                  setSelectedProjectId("");
+                  setSelectedProjectId("all");
                   setDateRange({ startDate: "", endDate: "" });
-                  setSelectedPartnerId("");
+                  setSelectedPartnerId("all");
                 }}
                 className="w-full"
               >
