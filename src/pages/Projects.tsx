@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Package, Loader2, Upload, Download } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Plus, Edit, Trash2, Package, Loader2, Upload, Download, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Project, Location, Partner, ProjectPartner } from "@/types";
@@ -17,7 +18,8 @@ export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
-  const [projectPartners, setProjectPartners] = useState<ProjectPartner[]>([]);
+  const [projectPartners, setProjectPartners] = useState<{[key: string]: ProjectPartner[]}>({});
+  const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,13 +43,22 @@ export default function Projects() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [loadedProjects, loadedLocations] = await Promise.all([
+      const [loadedProjects, loadedLocations, loadedPartners] = await Promise.all([
         SupabaseStorage.getProjects(),
         SupabaseStorage.getLocations(),
         loadPartners()
       ]);
       setProjects(loadedProjects);
       setLocations(loadedLocations);
+      
+      // 加载所有项目的合作方信息
+      const allProjectPartners: {[key: string]: ProjectPartner[]} = {};
+      for (const project of loadedProjects) {
+        const partners = await loadProjectPartners(project.id);
+        allProjectPartners[project.id] = partners;
+      }
+      setProjectPartners(allProjectPartners);
+      
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -109,9 +120,10 @@ export default function Projects() {
         partnerId: item.partner_id,
         level: item.level,
         createdAt: item.created_at,
+        partnerName: item.partners?.name || '',
+        partnerTaxRate: Number(item.partners?.tax_rate) || 0,
       }));
 
-      setProjectPartners(formattedData);
       return formattedData;
     } catch (error) {
       console.error('Error loading project partners:', error);
@@ -146,13 +158,13 @@ export default function Projects() {
     setEditingProject(project);
     
     // 加载项目合作方
-    const projectPartners = await loadProjectPartners(project.id);
-    const partnersWithDetails = projectPartners.map(pp => {
+    const currentProjectPartners = projectPartners[project.id] || [];
+    const partnersWithDetails = currentProjectPartners.map(pp => {
       const partner = partners.find(p => p.id === pp.partnerId);
       return {
         partnerId: pp.partnerId,
         level: pp.level,
-        taxRate: partner?.taxRate || 0
+        taxRate: partner?.taxRate || pp.partnerTaxRate || 0
       };
     });
     setSelectedPartners(partnersWithDetails);
@@ -260,7 +272,7 @@ export default function Projects() {
   const handleDelete = async (id: string, name: string) => {
     try {
       await SupabaseStorage.deleteProject(id);
-      await loadData();
+        await loadData();
       toast({
         title: "项目删除成功",
         description: `项目"${name}"已从列表中移除`,
@@ -379,6 +391,17 @@ export default function Projects() {
         variant: "destructive",
       });
     }
+  };
+
+  // 获取合作链路显示
+  const getPartnerChain = (projectId: string) => {
+    const partners = projectPartners[projectId] || [];
+    if (partners.length === 0) return "无合作方";
+    
+    return partners
+      .sort((a, b) => a.level - b.level)
+      .map(p => `${p.partnerName}(${p.level}级,${(p.partnerTaxRate * 100).toFixed(1)}%)`)
+      .join(" → ");
   };
 
   if (isLoading) {
@@ -661,56 +684,131 @@ export default function Projects() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>项目名称</TableHead>
-                  <TableHead>开始日期</TableHead>
-                  <TableHead>结束日期</TableHead>
-                  <TableHead>项目负责人</TableHead>
-                  <TableHead>装货地址</TableHead>
-                  <TableHead>卸货地址</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead>操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projects.map((project) => (
-                  <TableRow key={project.id}>
-                    <TableCell className="font-medium">{project.name}</TableCell>
-                    <TableCell>{project.startDate}</TableCell>
-                    <TableCell>{project.endDate}</TableCell>
-                    <TableCell>{project.manager}</TableCell>
-                    <TableCell>{project.loadingAddress}</TableCell>
-                    <TableCell>{project.unloadingAddress}</TableCell>
-                    <TableCell>{new Date(project.createdAt).toLocaleDateString('zh-CN')}</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(project)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(project.id, project.name)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {projects.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      暂无项目数据，请点击"新增项目"开始添加
-                    </TableCell>
-                  </TableRow>
-                )}
+             <Table>
+               <TableHeader>
+                 <TableRow>
+                   <TableHead className="w-8"></TableHead>
+                   <TableHead>项目名称</TableHead>
+                   <TableHead>项目负责人</TableHead>
+                   <TableHead>装货地址</TableHead>
+                   <TableHead>卸货地址</TableHead>
+                   <TableHead>合作链路</TableHead>
+                   <TableHead>操作</TableHead>
+                 </TableRow>
+               </TableHeader>
+               <TableBody>
+                 {projects.map((project) => (
+                   <Collapsible 
+                     key={project.id} 
+                     open={expandedProject === project.id}
+                     onOpenChange={(open) => setExpandedProject(open ? project.id : null)}
+                   >
+                     <CollapsibleTrigger asChild>
+                       <TableRow className="cursor-pointer hover:bg-muted/50 transition-colors">
+                         <TableCell>
+                           {expandedProject === project.id ? (
+                             <ChevronDown className="h-4 w-4" />
+                           ) : (
+                             <ChevronRight className="h-4 w-4" />
+                           )}
+                         </TableCell>
+                         <TableCell className="font-medium">{project.name}</TableCell>
+                         <TableCell>{project.manager}</TableCell>
+                         <TableCell>{project.loadingAddress}</TableCell>
+                         <TableCell>{project.unloadingAddress}</TableCell>
+                         <TableCell className="text-sm">
+                           <div className="max-w-xs overflow-hidden text-ellipsis">
+                             {getPartnerChain(project.id)}
+                           </div>
+                         </TableCell>
+                         <TableCell>
+                           <div className="flex space-x-2">
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleEdit(project);
+                               }}
+                             >
+                               <Edit className="h-4 w-4" />
+                             </Button>
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleDelete(project.id, project.name);
+                               }}
+                             >
+                               <Trash2 className="h-4 w-4" />
+                             </Button>
+                           </div>
+                         </TableCell>
+                       </TableRow>
+                     </CollapsibleTrigger>
+                     <CollapsibleContent asChild>
+                       <TableRow>
+                         <TableCell colSpan={7} className="bg-muted/30">
+                           <div className="p-4 space-y-3 animate-fade-in">
+                             <h4 className="font-semibold text-sm mb-3">项目详细信息</h4>
+                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                               <div>
+                                 <span className="text-muted-foreground">开始日期：</span>
+                                 <span className="font-medium">{project.startDate}</span>
+                               </div>
+                               <div>
+                                 <span className="text-muted-foreground">结束日期：</span>
+                                 <span className="font-medium">{project.endDate}</span>
+                               </div>
+                               <div>
+                                 <span className="text-muted-foreground">创建时间：</span>
+                                 <span className="font-medium">{new Date(project.createdAt).toLocaleDateString('zh-CN')}</span>
+                               </div>
+                               <div>
+                                 <span className="text-muted-foreground">项目ID：</span>
+                                 <span className="font-mono text-xs">{project.id}</span>
+                               </div>
+                             </div>
+                             
+                             {(projectPartners[project.id] || []).length > 0 && (
+                               <div className="mt-4">
+                                 <h5 className="font-medium text-sm mb-2">合作方详情</h5>
+                                 <div className="grid gap-2">
+                                   {(projectPartners[project.id] || [])
+                                     .sort((a, b) => a.level - b.level)
+                                     .map((partner, index) => (
+                                     <div key={partner.id} className="flex items-center justify-between p-2 bg-background rounded border">
+                                       <div className="flex items-center space-x-4">
+                                         <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">
+                                           {partner.level}
+                                         </div>
+                                         <div>
+                                           <div className="font-medium">{partner.partnerName}</div>
+                                           <div className="text-xs text-muted-foreground">税点: {(partner.partnerTaxRate * 100).toFixed(2)}%</div>
+                                         </div>
+                                       </div>
+                                       {index < (projectPartners[project.id] || []).length - 1 && (
+                                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                       )}
+                                     </div>
+                                   ))}
+                                 </div>
+                               </div>
+                             )}
+                           </div>
+                         </TableCell>
+                       </TableRow>
+                     </CollapsibleContent>
+                   </Collapsible>
+                 ))}
+                 {projects.length === 0 && (
+                   <TableRow>
+                     <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                       暂无项目数据，请点击"新增项目"开始添加
+                     </TableCell>
+                   </TableRow>
+                 )}
               </TableBody>
             </Table>
           </div>

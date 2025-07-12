@@ -67,6 +67,8 @@ export interface ProjectPartner {
   partnerId: string;
   level: number;
   createdAt: string;
+  partnerName?: string;
+  partnerTaxRate?: number;
 }
 
 // 物流记录合作方费用
