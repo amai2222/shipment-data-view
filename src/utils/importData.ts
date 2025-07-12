@@ -140,7 +140,7 @@ export function clearAndImportData() {
     LocalStorage.addLogisticsRecord({
       projectId: project.id,
       projectName: project.name,
-      loadingTime,
+      loadingDate: loadingTime,
       loadingLocation: record.loadingLocation,
       unloadingLocation: record.unloadingLocation,
       driverId: driver.id,

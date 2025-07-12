@@ -144,7 +144,7 @@ export default function Home() {
     // 按日期范围过滤
     if (dateRange.startDate && dateRange.endDate) {
       filtered = filtered.filter(record => {
-        const recordDate = new Date(record.loadingTime).toISOString().split('T')[0];
+        const recordDate = new Date(record.loadingDate).toISOString().split('T')[0];
         return recordDate >= dateRange.startDate && recordDate <= dateRange.endDate;
       });
     }
@@ -180,7 +180,7 @@ export default function Home() {
         const statsMap = new Map<string, { actualTransport: number; returns: number }>();
         
         projectRecords.forEach(record => {
-          const date = new Date(record.loadingTime).toISOString().split('T')[0];
+          const date = new Date(record.loadingDate).toISOString().split('T')[0];
           const current = statsMap.get(date) || { actualTransport: 0, returns: 0 };
           
           if (record.transportType === "实际运输") {
@@ -203,7 +203,7 @@ export default function Home() {
         const statsMap = new Map<string, number>();
         
         projectRecords.forEach(record => {
-          const date = new Date(record.loadingTime).toISOString().split('T')[0];
+          const date = new Date(record.loadingDate).toISOString().split('T')[0];
           const current = statsMap.get(date) || 0;
           const cost = (record.currentFee || 0) + (record.extraFee || 0);
           statsMap.set(date, current + cost);
@@ -220,7 +220,7 @@ export default function Home() {
         const statsMap = new Map<string, number>();
         
         projectRecords.forEach(record => {
-          const date = new Date(record.loadingTime).toISOString().split('T')[0];
+          const date = new Date(record.loadingDate).toISOString().split('T')[0];
           const current = statsMap.get(date) || 0;
           statsMap.set(date, current + 1);
         });
@@ -257,7 +257,7 @@ export default function Home() {
     
     const projectRecords = recordsByProject[selectedProjectId] || [];
     return projectRecords.filter(record => {
-      const recordDate = new Date(record.loadingTime).toISOString().split('T')[0];
+      const recordDate = new Date(record.loadingDate).toISOString().split('T')[0];
       return recordDate === selectedDate;
     });
   }, [selectedDate, selectedProjectId, recordsByProject]);

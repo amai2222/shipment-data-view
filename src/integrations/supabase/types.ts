@@ -68,8 +68,8 @@ export type Database = {
           extra_cost: number | null
           id: string
           license_plate: string
+          loading_date: string
           loading_location: string
-          loading_time: string
           loading_weight: number | null
           payable_cost: number | null
           project_id: string | null
@@ -91,8 +91,8 @@ export type Database = {
           extra_cost?: number | null
           id?: string
           license_plate: string
+          loading_date: string
           loading_location: string
-          loading_time: string
           loading_weight?: number | null
           payable_cost?: number | null
           project_id?: string | null
@@ -114,8 +114,8 @@ export type Database = {
           extra_cost?: number | null
           id?: string
           license_plate?: string
+          loading_date?: string
           loading_location?: string
-          loading_time?: string
           loading_weight?: number | null
           payable_cost?: number | null
           project_id?: string | null
@@ -181,7 +181,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_auto_number: {
+        Args: { loading_date_input: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

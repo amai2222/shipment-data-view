@@ -114,7 +114,7 @@ export default function BusinessEntry() {
     const recordData = {
       projectId: formData.projectId,
       projectName: project.name,
-      loadingTime: formData.loadingTime,
+      loadingDate: formData.loadingTime,
       loadingLocation: formData.loadingLocation,
       unloadingLocation: formData.unloadingLocation,
       driverId: formData.driverId,
@@ -162,7 +162,7 @@ export default function BusinessEntry() {
   const handleEdit = (record: LogisticsRecord) => {
     setFormData({
       projectId: record.projectId,
-      loadingTime: record.loadingTime,
+      loadingTime: record.loadingDate,
       loadingLocation: record.loadingLocation,
       unloadingLocation: record.unloadingLocation,
       driverId: record.driverId,
@@ -229,7 +229,7 @@ export default function BusinessEntry() {
           const existingRecord = records.find(r => 
             r.projectId === project.id && 
             r.driverId === driver.id && 
-            r.loadingTime === row['装车时间']
+            r.loadingDate === row['装车日期']
           );
 
           if (existingRecord) {
@@ -240,7 +240,7 @@ export default function BusinessEntry() {
           const recordData = {
             projectId: project.id,
             projectName: project.name,
-            loadingTime: row['装车时间'],
+            loadingDate: row['装车日期'],
             loadingLocation: row['装车地点'],
             unloadingLocation: row['卸车地点'],
             driverId: driver.id,
@@ -291,7 +291,7 @@ export default function BusinessEntry() {
       const exportData = records.map(record => ({
         '自动编号': record.autoNumber,
         '项目名称': record.projectName,
-        '装车时间': record.loadingTime,
+        '装车日期': record.loadingDate,
         '装车地点': record.loadingLocation,
         '卸车地点': record.unloadingLocation,
         '司机姓名': record.driverName,
@@ -584,7 +584,7 @@ export default function BusinessEntry() {
                 <TableRow>
                   <TableHead>单号</TableHead>
                   <TableHead>项目</TableHead>
-                  <TableHead>装车时间</TableHead>
+                  <TableHead>装车日期</TableHead>
                   <TableHead>路线</TableHead>
                   <TableHead>司机</TableHead>
                   <TableHead>重量</TableHead>
@@ -598,7 +598,7 @@ export default function BusinessEntry() {
                   <TableRow key={record.id}>
                     <TableCell className="font-medium">{record.autoNumber}</TableCell>
                     <TableCell>{record.projectName}</TableCell>
-                    <TableCell>{new Date(record.loadingTime).toLocaleString()}</TableCell>
+                    <TableCell>{new Date(record.loadingDate).toLocaleString()}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-1 text-sm">
                         <MapPinIcon className="h-3 w-3" />
@@ -699,7 +699,7 @@ export default function BusinessEntry() {
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">装车时间</span>
                     </div>
-                    <p className="font-medium">{viewingRecord.loadingTime}</p>
+                    <p className="font-medium">{viewingRecord.loadingDate}</p>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">

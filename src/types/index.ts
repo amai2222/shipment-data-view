@@ -32,7 +32,7 @@ export interface LogisticsRecord {
   autoNumber: string;
   projectId: string;
   projectName: string;
-  loadingTime: string;
+  loadingDate: string;
   loadingLocation: string;
   unloadingLocation: string;
   driverId: string;

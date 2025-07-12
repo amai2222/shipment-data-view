@@ -75,7 +75,7 @@ export class DataMigration {
             await SupabaseStorage.addLogisticsRecord({
               projectId: project.id,
               projectName: record.projectName,
-              loadingTime: record.loadingTime,
+              loadingDate: record.loadingDate,
               loadingLocation: record.loadingLocation,
               unloadingLocation: record.unloadingLocation,
               driverId: driver.id,
