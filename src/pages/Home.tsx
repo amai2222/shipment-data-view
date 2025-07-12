@@ -426,7 +426,7 @@ export default function Home() {
                 value={selectedProjectId || "all"} 
                 onValueChange={(value) => setSelectedProjectId(value === "all" ? null : value)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="projectFilter">
                   <SelectValue placeholder="选择项目" />
                 </SelectTrigger>
                 <SelectContent>

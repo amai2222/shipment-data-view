@@ -402,7 +402,7 @@ export default function BusinessEntry() {
               <div className="space-y-2">
                 <Label htmlFor="project">项目 *</Label>
                 <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}>
-                  <SelectTrigger>
+                  <SelectTrigger id="project">
                     <SelectValue placeholder="选择项目" />
                   </SelectTrigger>
                   <SelectContent>
@@ -429,7 +429,7 @@ export default function BusinessEntry() {
               <div className="space-y-2">
                 <Label htmlFor="loadingLocation">装车地点 *</Label>
                 <Select value={formData.loadingLocation} onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}>
-                  <SelectTrigger>
+                  <SelectTrigger id="loadingLocation">
                     <SelectValue placeholder="选择装车地点" />
                   </SelectTrigger>
                   <SelectContent>
@@ -445,7 +445,7 @@ export default function BusinessEntry() {
               <div className="space-y-2">
                 <Label htmlFor="unloadingLocation">卸车地点 *</Label>
                 <Select value={formData.unloadingLocation} onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}>
-                  <SelectTrigger>
+                  <SelectTrigger id="unloadingLocation">
                     <SelectValue placeholder="选择卸车地点" />
                   </SelectTrigger>
                   <SelectContent>
@@ -461,7 +461,7 @@ export default function BusinessEntry() {
               <div className="space-y-2">
                 <Label htmlFor="driver">司机 *</Label>
                 <Select value={formData.driverId} onValueChange={(value) => setFormData(prev => ({ ...prev, driverId: value }))}>
-                  <SelectTrigger>
+                  <SelectTrigger id="driver">
                     <SelectValue placeholder="选择司机" />
                   </SelectTrigger>
                   <SelectContent>
@@ -512,7 +512,7 @@ export default function BusinessEntry() {
               <div className="space-y-2">
                 <Label htmlFor="transportType">运输类型</Label>
                 <Select value={formData.transportType} onValueChange={(value: "实际运输" | "退货") => setFormData(prev => ({ ...prev, transportType: value }))}>
-                  <SelectTrigger>
+                  <SelectTrigger id="transportType">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
