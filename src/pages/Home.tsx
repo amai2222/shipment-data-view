@@ -177,88 +177,108 @@ export default function Home() {
 
   // 按项目生成统计数据
   const projectStats = useMemo(() => {
-    return Object.keys(recordsByProject).map(projectId => {
-      const projectRecords = recordsByProject[projectId];
-      const project = projects.find(p => p.id === projectId);
+    if (selectedProjectId) {
+      // 选中了特定项目，只显示该项目
+      const projectRecords = recordsByProject[selectedProjectId] || [];
+      const project = projects.find(p => p.id === selectedProjectId);
       
-      // 每日运输量统计
-      const dailyTransportStats: DailyTransportStats[] = (() => {
-        const statsMap = new Map<string, { actualTransport: number; returns: number }>();
-        
-        projectRecords.forEach(record => {
-          const date = getValidDateString(record.loadingDate);
-          if (!date) return;
-          const current = statsMap.get(date) || { actualTransport: 0, returns: 0 };
-          
-          if (record.transportType === "实际运输") {
-            current.actualTransport += record.loadingWeight;
-          } else {
-            current.returns += record.loadingWeight;
-          }
-          
-          statsMap.set(date, current);
-        });
-        
-        return Array.from(statsMap.entries()).map(([date, stats]) => ({
-          date,
-          ...stats,
-        })).sort((a, b) => a.date.localeCompare(b.date));
-      })();
-
-      // 每日成本统计
-      const dailyCostStats: DailyCostStats[] = (() => {
-        const statsMap = new Map<string, number>();
-        
-        projectRecords.forEach(record => {
-          const date = getValidDateString(record.loadingDate);
-          if (!date) return;
-          const current = statsMap.get(date) || 0;
-          const cost = (record.currentFee || 0) + (record.extraFee || 0);
-          statsMap.set(date, current + cost);
-        });
-        
-        return Array.from(statsMap.entries()).map(([date, totalCost]) => ({
-          date,
-          totalCost,
-        })).sort((a, b) => a.date.localeCompare(b.date));
-      })();
-
-      // 每日运输次数统计
-      const dailyCountStats: DailyCountStats[] = (() => {
-        const statsMap = new Map<string, number>();
-        
-        projectRecords.forEach(record => {
-          const date = getValidDateString(record.loadingDate);
-          if (!date) return;
-          const current = statsMap.get(date) || 0;
-          statsMap.set(date, current + 1);
-        });
-        
-        return Array.from(statsMap.entries()).map(([date, count]) => ({
-          date,
-          count,
-        })).sort((a, b) => a.date.localeCompare(b.date));
-      })();
-
-      // 图例汇总数据
-      const legendTotals = {
-        actualTransportTotal: dailyTransportStats.reduce((sum, day) => sum + day.actualTransport, 0),
-        returnsTotal: dailyTransportStats.reduce((sum, day) => sum + day.returns, 0),
-        totalCostSum: dailyCostStats.reduce((sum, day) => sum + day.totalCost, 0),
-        totalTrips: dailyCountStats.reduce((sum, day) => sum + day.count, 0),
-      };
-
-      return {
-        projectId,
+      return [{
+        projectId: selectedProjectId,
         project,
         projectRecords,
-        dailyTransportStats,
-        dailyCostStats,
-        dailyCountStats,
-        legendTotals,
-      };
+        dailyTransportStats: generateDailyTransportStats(projectRecords),
+        dailyCostStats: generateDailyCostStats(projectRecords), 
+        dailyCountStats: generateDailyCountStats(projectRecords),
+        legendTotals: generateLegendTotals(projectRecords),
+        isAllProjects: false
+      }];
+    } else {
+      // 没有选择项目，显示所有项目汇总
+      return [{
+        projectId: 'all',
+        project: { name: '所有项目', manager: '全部负责人' },
+        projectRecords: filteredRecords,
+        dailyTransportStats: generateDailyTransportStats(filteredRecords),
+        dailyCostStats: generateDailyCostStats(filteredRecords),
+        dailyCountStats: generateDailyCountStats(filteredRecords), 
+        legendTotals: generateLegendTotals(filteredRecords),
+        isAllProjects: true
+      }];
+    }
+  }, [recordsByProject, projects, selectedProjectId, filteredRecords]);
+
+  // 生成每日运输量统计的辅助函数
+  const generateDailyTransportStats = (projectRecords: LogisticsRecord[]): DailyTransportStats[] => {
+    const statsMap = new Map<string, { actualTransport: number; returns: number }>();
+    
+    projectRecords.forEach(record => {
+      const date = getValidDateString(record.loadingDate);
+      if (!date) return;
+      const current = statsMap.get(date) || { actualTransport: 0, returns: 0 };
+      
+      if (record.transportType === "实际运输") {
+        current.actualTransport += record.loadingWeight;
+      } else {
+        current.returns += record.loadingWeight;
+      }
+      
+      statsMap.set(date, current);
     });
-  }, [recordsByProject, projects]);
+    
+    return Array.from(statsMap.entries()).map(([date, stats]) => ({
+      date,
+      ...stats,
+    })).sort((a, b) => a.date.localeCompare(b.date));
+  };
+
+  // 生成每日成本统计的辅助函数
+  const generateDailyCostStats = (projectRecords: LogisticsRecord[]): DailyCostStats[] => {
+    const statsMap = new Map<string, number>();
+    
+    projectRecords.forEach(record => {
+      const date = getValidDateString(record.loadingDate);
+      if (!date) return;
+      const current = statsMap.get(date) || 0;
+      const cost = (record.currentFee || 0) + (record.extraFee || 0);
+      statsMap.set(date, current + cost);
+    });
+    
+    return Array.from(statsMap.entries()).map(([date, totalCost]) => ({
+      date,
+      totalCost,
+    })).sort((a, b) => a.date.localeCompare(b.date));
+  };
+
+  // 生成每日运输次数统计的辅助函数
+  const generateDailyCountStats = (projectRecords: LogisticsRecord[]): DailyCountStats[] => {
+    const statsMap = new Map<string, number>();
+    
+    projectRecords.forEach(record => {
+      const date = getValidDateString(record.loadingDate);
+      if (!date) return;
+      const current = statsMap.get(date) || 0;
+      statsMap.set(date, current + 1);
+    });
+    
+    return Array.from(statsMap.entries()).map(([date, count]) => ({
+      date,
+      count,
+    })).sort((a, b) => a.date.localeCompare(b.date));
+  };
+
+  // 生成图例汇总数据的辅助函数
+  const generateLegendTotals = (projectRecords: LogisticsRecord[]) => {
+    const dailyTransportStats = generateDailyTransportStats(projectRecords);
+    const dailyCostStats = generateDailyCostStats(projectRecords);
+    const dailyCountStats = generateDailyCountStats(projectRecords);
+    
+    return {
+      actualTransportTotal: dailyTransportStats.reduce((sum, day) => sum + day.actualTransport, 0),
+      returnsTotal: dailyTransportStats.reduce((sum, day) => sum + day.returns, 0),
+      totalCostSum: dailyCostStats.reduce((sum, day) => sum + day.totalCost, 0),
+      totalTrips: dailyCountStats.reduce((sum, day) => sum + day.count, 0),
+    };
+  };
 
   // 获取选中日期和项目的详细记录
   const selectedRecords = useMemo(() => {
@@ -442,22 +462,22 @@ export default function Home() {
       {/* 按项目分类显示图表 */}
       {projectStats.map((projectData) => (
         <div key={projectData.projectId} className="space-y-6">
-          {/* 项目分隔标题 */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-            <h2 className="text-xl font-bold text-blue-900 mb-1">
-              {projectData.project?.name || '未知项目'}
-            </h2>
-            <p className="text-blue-700">
-              项目负责人：{projectData.project?.manager || '未指定'}
-            </p>
-          </div>
+           {/* 项目分隔标题 */}
+           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+             <h2 className="text-xl font-bold text-blue-900 mb-1">
+               {projectData.isAllProjects ? '所有项目' : (projectData.project?.name || '未知项目')}
+             </h2>
+             <p className="text-blue-700">
+               {projectData.isAllProjects ? '数据汇总统计' : `项目负责人：${projectData.project?.manager || '未指定'}`}
+             </p>
+           </div>
 
           {/* 每日运输量统计图表 */}
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>
-                每日运输量统计 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) ({dateRange.startDate} 至 {dateRange.endDate}) (吨)
-              </CardTitle>
+               <CardTitle>
+                 每日运输量统计 - {projectData.isAllProjects ? '所有项目' : (projectData.project?.name || '未知项目')} ({dateRange.startDate} 至 {dateRange.endDate}) (吨)
+               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-96">
@@ -544,9 +564,9 @@ export default function Home() {
           {/* 运输日报 - 折线图 */}
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>
-                运输日报 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) ({dateRange.startDate} 至 {dateRange.endDate})
-              </CardTitle>
+               <CardTitle>
+                 运输日报 - {projectData.isAllProjects ? '所有项目' : (projectData.project?.name || '未知项目')} ({dateRange.startDate} 至 {dateRange.endDate})
+               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -613,9 +633,9 @@ export default function Home() {
           {/* 每日运输成本分析图表 */}
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>
-                每日运输费用分析 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) ({dateRange.startDate} 至 {dateRange.endDate}) (元)
-              </CardTitle>
+               <CardTitle>
+                 每日运输费用分析 - {projectData.isAllProjects ? '所有项目' : (projectData.project?.name || '未知项目')} ({dateRange.startDate} 至 {dateRange.endDate}) (元)
+               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80">
