@@ -650,8 +650,8 @@ export default function Home() {
                       }}
                       cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
                     />
-                    <Legend 
-                      formatter={() => `总费用 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}) - 点击查看运单详情`}
+                     <Legend 
+                       formatter={() => `总费用 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) - 点击查看运单详情`}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',
@@ -664,12 +664,12 @@ export default function Home() {
                       name="totalCost"
                       radius={[2, 2, 0, 0]}
                       cursor="pointer"
-                      label={{
-                        position: 'top',
-                        fontSize: 12,
-                        fill: '#374151',
-                        formatter: (value: number) => `¥${(value/1000).toFixed(1)}k`
-                      }}
+                       label={{
+                         position: 'top',
+                         fontSize: 12,
+                         fill: '#374151',
+                         formatter: (value: number) => `¥${Number(value).toFixed(2)}`
+                       }}
                     />
                   </BarChart>
                 </ResponsiveContainer>
