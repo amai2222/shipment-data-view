@@ -32,7 +32,7 @@ export default function Projects() {
     loadingAddress: "",
     unloadingAddress: "",
   });
-  const [selectedPartners, setSelectedPartners] = useState<{partnerId: string, level: number, taxRate: number}[]>([]);
+  const [selectedPartners, setSelectedPartners] = useState<{partnerId: string, level: number, taxRate: number, partnerName?: string}[]>([]);
 
   // 加载数据
   useEffect(() => {
@@ -230,35 +230,68 @@ export default function Projects() {
 
       // 保存项目合作方关联
       if (selectedPartners.length > 0) {
-        // 先更新合作方的税点信息
+        const projectPartnersData = [];
+        
         for (const sp of selectedPartners) {
-          const { error: partnerUpdateError } = await supabase
-            .from('partners')
-            .update({ tax_rate: sp.taxRate })
-            .eq('id', sp.partnerId);
+          let partnerId = sp.partnerId;
+          
+          // 如果是新合作方（没有partnerId），先创建合作方记录
+          if (!sp.partnerId && sp.partnerName) {
+            const { data: newPartner, error: createPartnerError } = await supabase
+              .from('partners')
+              .insert({
+                name: sp.partnerName,
+                level: sp.level,
+                tax_rate: sp.taxRate
+              })
+              .select()
+              .single();
 
-          if (partnerUpdateError) {
-            console.error('Error updating partner tax rate:', partnerUpdateError);
+            if (createPartnerError) {
+              console.error('Error creating new partner:', createPartnerError);
+              toast({
+                title: "创建合作方失败",
+                description: `无法创建合作方"${sp.partnerName}"`,
+                variant: "destructive",
+              });
+              continue;
+            }
+            
+            partnerId = newPartner.id;
+          } else if (sp.partnerId) {
+            // 更新现有合作方的税点信息
+            const { error: partnerUpdateError } = await supabase
+              .from('partners')
+              .update({ tax_rate: sp.taxRate })
+              .eq('id', sp.partnerId);
+
+            if (partnerUpdateError) {
+              console.error('Error updating partner tax rate:', partnerUpdateError);
+            }
+          }
+
+          if (partnerId) {
+            projectPartnersData.push({
+              project_id: projectId,
+              partner_id: partnerId,
+              level: sp.level
+            });
           }
         }
 
-        const projectPartnersData = selectedPartners.map(sp => ({
-          project_id: projectId,
-          partner_id: sp.partnerId,
-          level: sp.level
-        }));
+        if (projectPartnersData.length > 0) {
+          const { error: partnersError } = await supabase
+            .from('project_partners')
+            .insert(projectPartnersData);
 
-        const { error: partnersError } = await supabase
-          .from('project_partners')
-          .insert(projectPartnersData);
-
-        if (partnersError) {
-          console.error('Error saving project partners:', partnersError);
-          toast({
-            title: "合作方保存失败",
-            description: "项目已保存，但合作方关联保存失败",
-            variant: "destructive",
-          });
+          if (partnersError) {
+            console.error('Error saving project partners:', partnersError);
+            toast({
+              title: "合作方关联保存失败",
+              description: "项目已保存，但合作方关联保存失败",
+              variant: "destructive",
+            });
+          }
         }
       }
 
@@ -520,23 +553,13 @@ export default function Projects() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        if (partners.length === 0) {
-                          toast({
-                            title: "无可用合作方",
-                            description: "请先在合作方管理中添加合作方",
-                            variant: "destructive",
-                          });
-                          return;
-                        }
                         const nextLevel = selectedPartners.length + 1;
-                        const availablePartner = partners.find(p => !selectedPartners.some(sp => sp.partnerId === p.id));
-                        if (availablePartner) {
-                          setSelectedPartners(prev => [...prev, {
-                            partnerId: availablePartner.id,
-                            level: nextLevel,
-                            taxRate: availablePartner.taxRate
-                          }]);
-                        }
+                        // 添加新的空合作方选项，用户可以输入新合作方名称
+                        setSelectedPartners(prev => [...prev, {
+                          partnerId: '', // 空的partnerId表示新合作方
+                          level: nextLevel,
+                          taxRate: 0.06 // 默认税点6%
+                        }]);
                       }}
                       disabled={isSubmitting}
                     >
@@ -550,34 +573,49 @@ export default function Projects() {
                       {selectedPartners.map((sp, index) => {
                         const partner = partners.find(p => p.id === sp.partnerId);
                         return (
-                          <div key={index} className="flex items-center space-x-2 p-2 border rounded">
-                            <div className="flex-1">
-                              <select
-                                value={sp.partnerId}
-                                onChange={(e) => {
-                                  const partnerId = e.target.value;
-                                  const selectedPartner = partners.find(p => p.id === partnerId);
-                                  if (selectedPartner) {
-                                    setSelectedPartners(prev => prev.map((item, i) => 
-                                      i === index ? {
-                                        ...item,
-                                        partnerId,
-                                        taxRate: selectedPartner.taxRate
-                                      } : item
-                                    ));
-                                  }
-                                }}
-                                className="w-full p-1 border rounded text-sm"
-                                disabled={isSubmitting}
-                              >
-                                <option value="">选择合作方</option>
-                                {partners.filter(p => !selectedPartners.some((sp2, i2) => i2 !== index && sp2.partnerId === p.id)).map(p => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.name} (税点: {(p.taxRate * 100).toFixed(2)}%)
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
+                           <div key={index} className="flex items-center space-x-2 p-2 border rounded">
+                             <div className="flex-1">
+                               {sp.partnerId ? (
+                                 <select
+                                   value={sp.partnerId}
+                                   onChange={(e) => {
+                                     const partnerId = e.target.value;
+                                     const selectedPartner = partners.find(p => p.id === partnerId);
+                                     if (selectedPartner) {
+                                       setSelectedPartners(prev => prev.map((item, i) => 
+                                         i === index ? {
+                                           ...item,
+                                           partnerId,
+                                           taxRate: selectedPartner.taxRate
+                                         } : item
+                                       ));
+                                     }
+                                   }}
+                                   className="w-full p-1 border rounded text-sm"
+                                   disabled={isSubmitting}
+                                 >
+                                   <option value="">选择合作方</option>
+                                   {partners.filter(p => !selectedPartners.some((sp2, i2) => i2 !== index && sp2.partnerId === p.id)).map(p => (
+                                     <option key={p.id} value={p.id}>
+                                       {p.name} (税点: {(p.taxRate * 100).toFixed(2)}%)
+                                     </option>
+                                   ))}
+                                 </select>
+                               ) : (
+                                 <input
+                                   type="text"
+                                   value={sp.partnerName || ''}
+                                   onChange={(e) => {
+                                     setSelectedPartners(prev => prev.map((item, i) => 
+                                       i === index ? { ...item, partnerName: e.target.value } : item
+                                     ));
+                                   }}
+                                   className="w-full p-1 border rounded text-sm"
+                                   placeholder="输入新合作方名称"
+                                   disabled={isSubmitting}
+                                 />
+                               )}
+                             </div>
                             <div className="w-16">
                               <input
                                 type="number"
