@@ -373,7 +373,56 @@ export default function Projects() {
           await findOrCreateLocation(projectData.loadingAddress);
           await findOrCreateLocation(projectData.unloadingAddress);
 
-          await SupabaseStorage.addProject(projectData);
+          const newProject = await SupabaseStorage.addProject(projectData);
+          
+          // 处理合作方链路信息
+          const partnerChainStr = row['合作方链路'] || '';
+          if (partnerChainStr && partnerChainStr !== '无合作方') {
+            const partnerEntries = partnerChainStr.split(' → ');
+            
+            for (let i = 0; i < partnerEntries.length; i++) {
+              const entry = partnerEntries[i].trim();
+              const match = entry.match(/^(.+?)\((\d+)级,(.+?)%\)$/);
+              
+              if (match) {
+                const [, partnerName, levelStr, taxRateStr] = match;
+                const level = parseInt(levelStr);
+                const taxRate = parseFloat(taxRateStr) / 100;
+                
+                // 查找或创建合作方
+                let partner = partners.find(p => p.name === partnerName);
+                if (!partner) {
+                  const { data: newPartner, error: createPartnerError } = await supabase
+                    .from('partners')
+                    .insert({ name: partnerName, tax_rate: taxRate })
+                    .select()
+                    .single();
+                    
+                  if (!createPartnerError && newPartner) {
+                    partner = {
+                      id: newPartner.id,
+                      name: newPartner.name,
+                      taxRate: newPartner.tax_rate,
+                      createdAt: newPartner.created_at
+                    };
+                  }
+                }
+                
+                // 创建项目合作方关联
+                if (partner) {
+                  await supabase
+                    .from('project_partners')
+                    .insert({
+                      project_id: newProject.id,
+                      partner_id: partner.id,
+                      level: level,
+                      tax_rate: taxRate
+                    });
+                }
+              }
+            }
+          }
+          
           importedCount++;
         }
 
@@ -410,6 +459,7 @@ export default function Projects() {
         '项目负责人': project.manager,
         '装货地址': project.loadingAddress,
         '卸货地址': project.unloadingAddress,
+        '合作方链路': getPartnerChain(project.id),
         '创建时间': new Date(project.createdAt).toLocaleDateString()
       }));
 
