@@ -43,9 +43,9 @@ export interface LogisticsRecord {
   unloadingDate?: string;
   unloadingWeight?: number;
   transportType: "实际运输" | "退货";
-  currentCost?: number;
-  extraCost?: number;
-  payableCost?: number;
+  currentFee?: number;
+  extraFee?: number;
+  payableFee?: number;
   remarks?: string;
   createdAt: string;
   createdByUserId: string;

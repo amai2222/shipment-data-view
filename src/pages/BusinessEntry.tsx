@@ -31,9 +31,9 @@ export default function BusinessEntry() {
     unloadingDate: "",
     unloadingWeight: "",
     transportType: "实际运输" as "实际运输" | "退货",
-    currentCost: "",
-    extraCost: "",
-    payableCost: "",
+    currentFee: "",
+    extraFee: "",
+    payableFee: "",
     remarks: "",
   });
 
@@ -74,9 +74,9 @@ export default function BusinessEntry() {
       unloadingDate: "",
       unloadingWeight: "",
       transportType: "实际运输",
-      currentCost: "",
-      extraCost: "",
-      payableCost: "",
+      currentFee: "",
+      extraFee: "",
+      payableFee: "",
       remarks: "",
     });
     setEditingRecord(null);
@@ -121,9 +121,9 @@ export default function BusinessEntry() {
       unloadingDate: formData.unloadingDate || undefined,
       unloadingWeight: formData.unloadingWeight ? parseFloat(formData.unloadingWeight) : undefined,
       transportType: formData.transportType,
-      currentCost: formData.currentCost ? parseFloat(formData.currentCost) : undefined,
-      extraCost: formData.extraCost ? parseFloat(formData.extraCost) : undefined,
-      payableCost: formData.payableCost ? parseFloat(formData.payableCost) : undefined,
+      currentFee: formData.currentFee ? parseFloat(formData.currentFee) : undefined,
+      extraFee: formData.extraFee ? parseFloat(formData.extraFee) : undefined,
+      payableFee: formData.payableFee ? parseFloat(formData.payableFee) : undefined,
       remarks: formData.remarks || undefined,
       createdByUserId: "current-user",
     };
@@ -166,9 +166,9 @@ export default function BusinessEntry() {
       unloadingDate: record.unloadingDate || "",
       unloadingWeight: record.unloadingWeight?.toString() || "",
       transportType: record.transportType,
-      currentCost: record.currentCost?.toString() || "",
-      extraCost: record.extraCost?.toString() || "",
-      payableCost: record.payableCost?.toString() || "",
+      currentFee: record.currentFee?.toString() || "",
+      extraFee: record.extraFee?.toString() || "",
+      payableFee: record.payableFee?.toString() || "",
       remarks: record.remarks || "",
     });
     setEditingRecord(record);
@@ -344,37 +344,37 @@ export default function BusinessEntry() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="currentCost">当前费用(元)</Label>
+                <Label htmlFor="currentFee">当前费用(元)</Label>
                 <Input
-                  id="currentCost"
+                  id="currentFee"
                   type="number"
                   step="0.01"
-                  value={formData.currentCost}
-                  onChange={(e) => setFormData(prev => ({ ...prev, currentCost: e.target.value }))}
+                  value={formData.currentFee}
+                  onChange={(e) => setFormData(prev => ({ ...prev, currentFee: e.target.value }))}
                   placeholder="请输入当前费用"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="extraCost">额外费用(元)</Label>
+                <Label htmlFor="extraFee">额外费用(元)</Label>
                 <Input
-                  id="extraCost"
+                  id="extraFee"
                   type="number"
                   step="0.01"
-                  value={formData.extraCost}
-                  onChange={(e) => setFormData(prev => ({ ...prev, extraCost: e.target.value }))}
+                  value={formData.extraFee}
+                  onChange={(e) => setFormData(prev => ({ ...prev, extraFee: e.target.value }))}
                   placeholder="请输入额外费用"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="payableCost">应付费用(元)</Label>
+                <Label htmlFor="payableFee">应付费用(元)</Label>
                 <Input
-                  id="payableCost"
+                  id="payableFee"
                   type="number"
                   step="0.01"
-                  value={formData.payableCost}
-                  onChange={(e) => setFormData(prev => ({ ...prev, payableCost: e.target.value }))}
+                  value={formData.payableFee}
+                  onChange={(e) => setFormData(prev => ({ ...prev, payableFee: e.target.value }))}
                   placeholder="请输入应付费用"
                 />
               </div>
@@ -461,7 +461,7 @@ export default function BusinessEntry() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {record.payableCost && `¥${record.payableCost.toFixed(2)}`}
+                      {record.payableFee && `¥${record.payableFee.toFixed(2)}`}
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-1">

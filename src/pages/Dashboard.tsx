@@ -1,11 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { BarChart3, TrendingUp, Truck, Package } from "lucide-react";
-import { LocalStorage } from "@/utils/storage";
-import { LogisticsRecord, DailyTransportStats, DailyCostStats } from "@/types";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BarChart3, TrendingUp, Truck, Package, CalendarIcon } from "lucide-react";
+import { SupabaseStorage } from "@/utils/supabase";
+import { LogisticsRecord, DailyTransportStats, DailyCostStats, Project } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+import { useToast } from "@/hooks/use-toast";
+import { format, subDays } from "date-fns";
+import { cn } from "@/lib/utils";
 
 // 每日运输次数统计
 interface DailyCountStats {
@@ -15,38 +20,64 @@ interface DailyCountStats {
 
 export default function Dashboard() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [dateRange, setDateRange] = useState({
-    startDate: "",
-    endDate: "",
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [dateRange, setDateRange] = useState<{
+    from: Date | undefined;
+    to: Date | undefined;
+  }>({
+    from: subDays(new Date(), 7),
+    to: new Date(),
   });
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   // 加载数据
   useEffect(() => {
-    const allRecords = LocalStorage.getLogisticsRecords();
-    const allProjects = LocalStorage.getProjects();
-    setRecords(allRecords);
-    setProjects(allProjects);
-    
-    // 设置默认日期范围（2024年7月，因为数据是7月的）
-    const startDate = "2024-07-01";
-    const endDate = "2024-07-31";
-    
-    setDateRange({
-      startDate,
-      endDate,
-    });
+    loadData();
   }, []);
 
-  // 根据日期范围过滤记录
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [allRecords, allProjects] = await Promise.all([
+        SupabaseStorage.getLogisticsRecords(),
+        SupabaseStorage.getProjects()
+      ]);
+      
+      setRecords(allRecords);
+      setProjects(allProjects);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast({
+        title: "数据加载失败",
+        description: "无法加载数据，请检查连接。",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 根据日期范围和项目过滤记录
   const filteredRecords = useMemo(() => {
-    if (!dateRange.startDate || !dateRange.endDate) return records;
+    let filtered = records;
     
-    return records.filter(record => {
-      const recordDate = new Date(record.loadingTime).toISOString().split('T')[0];
-      return recordDate >= dateRange.startDate && recordDate <= dateRange.endDate;
-    });
-  }, [records, dateRange]);
+    // 按日期范围过滤
+    if (dateRange.from && dateRange.to) {
+      filtered = filtered.filter(record => {
+        const recordDate = new Date(record.loadingTime);
+        return recordDate >= dateRange.from! && recordDate <= dateRange.to!;
+      });
+    }
+    
+    // 按项目过滤
+    if (selectedProjectId !== "all") {
+      filtered = filtered.filter(record => record.projectId === selectedProjectId);
+    }
+    
+    return filtered;
+  }, [records, dateRange, selectedProjectId]);
 
   // 按项目分组的记录
   const recordsByProject = useMemo(() => {
@@ -62,8 +93,12 @@ export default function Dashboard() {
 
   // 按项目生成统计数据
   const projectStats = useMemo(() => {
-    return Object.keys(recordsByProject).map(projectId => {
-      const projectRecords = recordsByProject[projectId];
+    const projectIds = selectedProjectId === "all" 
+      ? Object.keys(recordsByProject)
+      : [selectedProjectId];
+    
+    return projectIds.map(projectId => {
+      const projectRecords = recordsByProject[projectId] || [];
       const project = projects.find(p => p.id === projectId);
       
       // 每日运输量统计
@@ -89,14 +124,14 @@ export default function Dashboard() {
         })).sort((a, b) => a.date.localeCompare(b.date));
       })();
 
-      // 每日成本统计
+      // 每日费用统计
       const dailyCostStats: DailyCostStats[] = (() => {
         const statsMap = new Map<string, number>();
         
         projectRecords.forEach(record => {
           const date = new Date(record.loadingTime).toISOString().split('T')[0];
           const current = statsMap.get(date) || 0;
-          const cost = (record.currentCost || 0) + (record.extraCost || 0);
+          const cost = (record.currentFee || 0) + (record.extraFee || 0);
           statsMap.set(date, current + cost);
         });
         
@@ -140,14 +175,14 @@ export default function Dashboard() {
         legendTotals,
       };
     });
-  }, [recordsByProject, projects]);
+  }, [recordsByProject, projects, selectedProjectId]);
 
   // 统计概览
   const overviewStats = useMemo(() => {
     const totalRecords = filteredRecords.length;
     const totalWeight = filteredRecords.reduce((sum, record) => sum + record.loadingWeight, 0);
     const totalCost = filteredRecords.reduce((sum, record) => 
-      sum + (record.currentCost || 0) + (record.extraCost || 0), 0);
+      sum + (record.currentFee || 0) + (record.extraFee || 0), 0);
     const actualTransportCount = filteredRecords.filter(r => r.transportType === "实际运输").length;
     
     return {
@@ -159,6 +194,9 @@ export default function Dashboard() {
     };
   }, [filteredRecords]);
 
+  if (isLoading) {
+    return <div className="text-center py-8">加载中...</div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -171,30 +209,83 @@ export default function Dashboard() {
         <p className="opacity-90">运输数据统计分析与可视化</p>
       </div>
 
-      {/* 日期筛选器 */}
+      {/* 筛选器 */}
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle>数据筛选</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 日期范围选择器 */}
             <div className="space-y-2">
-              <Label htmlFor="startDate">开始日期</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={dateRange.startDate}
-                onChange={(e) => setDateRange(prev => ({...prev, startDate: e.target.value}))}
-              />
+              <label className="text-sm font-medium">日期范围</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "justify-start text-left font-normal",
+                        !dateRange.from && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "开始日期"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateRange.from}
+                      onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "justify-start text-left font-normal",
+                        !dateRange.to && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "结束日期"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateRange.to}
+                      onSelect={(date) => setDateRange(prev => ({ ...prev, to: date }))}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
+
+            {/* 项目选择器 */}
             <div className="space-y-2">
-              <Label htmlFor="endDate">结束日期</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={dateRange.endDate}
-                onChange={(e) => setDateRange(prev => ({...prev, endDate: e.target.value}))}
-              />
+              <label className="text-sm font-medium">项目筛选</label>
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择项目" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">所有项目</SelectItem>
+                  {projects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -232,7 +323,7 @@ export default function Dashboard() {
               <TrendingUp className="h-6 w-6 text-yellow-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">总运输成本</p>
+              <p className="text-sm font-medium text-muted-foreground">总运输费用</p>
               <p className="text-2xl font-bold">¥{overviewStats.totalCost.toFixed(2)}</p>
             </div>
           </CardContent>
@@ -353,7 +444,7 @@ export default function Dashboard() {
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle>
-                运输日报 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) ({dateRange.startDate} 至 {dateRange.endDate})
+                运输日报 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -416,11 +507,11 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* 每日运输成本分析图表 */}
+          {/* 每日运输费用分析图表 */}
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle>
-                每日运输成本分析 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) (元)
+                每日运输费用分析 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) (元)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -443,11 +534,12 @@ export default function Dashboard() {
                       interval={0}
                     />
                     <YAxis 
-                      tickFormatter={(value) => `¥${(value/1000).toFixed(1)}k`}
+                      domain={[0, 'dataMax + 100']}
+                      tickFormatter={(value) => value.toString()}
                     />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
-                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总成本']}
+                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总费用']}
                       contentStyle={{
                         backgroundColor: '#fff',
                         border: '1px solid #ccc',
@@ -455,7 +547,7 @@ export default function Dashboard() {
                       }}
                     />
                     <Legend 
-                      formatter={() => `总成本 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { maximumFractionDigits: 0 })})`}
+                      formatter={() => `总费用 (¥${projectData.legendTotals.totalCostSum.toFixed(2)})`}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',
@@ -464,14 +556,13 @@ export default function Dashboard() {
                     />
                     <Bar 
                       dataKey="totalCost" 
-                      fill="#10b981" 
-                      name="totalCost"
+                      fill="#f59e0b" 
                       radius={[2, 2, 0, 0]}
                       label={{
                         position: 'top',
                         fontSize: 12,
                         fill: '#374151',
-                        formatter: (value: number) => `¥${(value/1000).toFixed(1)}k`
+                        formatter: (value: number) => `¥${value.toFixed(0)}`
                       }}
                     />
                   </BarChart>

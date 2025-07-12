@@ -31,7 +31,7 @@ export function Layout({ children }: LayoutProps) {
                 <Truck className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">物流业务跟踪系统</h1>
+                <h1 className="text-xl font-bold text-foreground">中科物流业务跟踪系统</h1>
                 <p className="text-sm text-muted-foreground">高效管理 · 精准统计</p>
               </div>
             </div>

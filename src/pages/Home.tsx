@@ -185,7 +185,7 @@ export default function Home() {
         projectRecords.forEach(record => {
           const date = new Date(record.loadingTime).toISOString().split('T')[0];
           const current = statsMap.get(date) || 0;
-          const cost = (record.currentCost || 0) + (record.extraCost || 0);
+          const cost = (record.currentFee || 0) + (record.extraFee || 0);
           statsMap.set(date, current + cost);
         });
         
@@ -257,7 +257,7 @@ export default function Home() {
     const totalRecords = filteredRecords.length;
     const totalWeight = filteredRecords.reduce((sum, record) => sum + record.loadingWeight, 0);
     const totalCost = filteredRecords.reduce((sum, record) => 
-      sum + (record.currentCost || 0) + (record.extraCost || 0), 0);
+      sum + (record.currentFee || 0) + (record.extraFee || 0), 0);
     const actualTransportCount = filteredRecords.filter(r => r.transportType === "实际运输").length;
     
     return {
@@ -372,7 +372,7 @@ export default function Home() {
               <TrendingUp className="h-6 w-6 text-yellow-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">总运输成本</p>
+              <p className="text-sm font-medium text-muted-foreground">总运输费用</p>
               <p className="text-2xl font-bold">¥{overviewStats.totalCost.toFixed(2)}</p>
             </div>
           </CardContent>
@@ -566,7 +566,7 @@ export default function Home() {
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle>
-                每日运输成本分析 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) (元)
+                每日运输费用分析 - {projectData.project?.name || '未知项目'} (负责人：{projectData.project?.manager || '未指定'}) (元)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -594,7 +594,7 @@ export default function Home() {
                     />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
-                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总成本']}
+                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总费用']}
                       contentStyle={{
                         backgroundColor: '#fff',
                         border: '1px solid #ccc',
@@ -603,7 +603,7 @@ export default function Home() {
                       cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
                     />
                     <Legend 
-                      formatter={() => `总成本 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}) - 点击查看运单详情`}
+                      formatter={() => `总费用 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}) - 点击查看运单详情`}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',
@@ -657,9 +657,9 @@ export default function Home() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-blue-700">总成本</p>
+                    <p className="text-sm text-blue-700">总费用</p>
                     <p className="text-lg font-bold text-blue-900">
-                      ¥{selectedRecords.reduce((sum, r) => sum + (r.currentCost || 0) + (r.extraCost || 0), 0).toFixed(2)}
+                      ¥{selectedRecords.reduce((sum, r) => sum + (r.currentFee || 0) + (r.extraFee || 0), 0).toFixed(2)}
                     </p>
                   </div>
                   <div>
@@ -684,7 +684,7 @@ export default function Home() {
                       <TableHead>装货重量</TableHead>
                       <TableHead>卸货重量</TableHead>
                       <TableHead>运输类型</TableHead>
-                      <TableHead>成本</TableHead>
+                      <TableHead>费用</TableHead>
                       <TableHead>备注</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -708,7 +708,7 @@ export default function Home() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          ¥{((record.currentCost || 0) + (record.extraCost || 0)).toFixed(2)}
+                          ¥{((record.currentFee || 0) + (record.extraFee || 0)).toFixed(2)}
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate" title={record.remarks}>
                           {record.remarks || '-'}

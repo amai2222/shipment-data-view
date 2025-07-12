@@ -151,9 +151,9 @@ export function clearAndImportData() {
       unloadingDate,
       unloadingWeight: record.unloadingWeight,
       transportType: record.transportType,
-      currentCost: record.currentCost,
-      extraCost: record.extraCost,
-      payableCost: record.payableCost,
+      currentFee: record.currentCost,
+      extraFee: record.extraCost,
+      payableFee: record.payableCost,
       remarks: record.remarks,
       createdByUserId: "system_import",
     });

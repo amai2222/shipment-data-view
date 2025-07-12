@@ -86,9 +86,9 @@ export class DataMigration {
               unloadingDate: record.unloadingDate,
               unloadingWeight: record.unloadingWeight,
               transportType: record.transportType,
-              currentCost: record.currentCost,
-              extraCost: record.extraCost,
-              payableCost: record.payableCost,
+              currentFee: record.currentFee,
+              extraFee: record.extraFee,
+              payableFee: record.payableFee,
               remarks: record.remarks,
               createdByUserId: 'migrated-user', // 迁移用户标识
             });
