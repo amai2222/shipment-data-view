@@ -818,10 +818,10 @@ export default function Projects() {
                    <TableHead className="w-32">操作</TableHead>
                  </TableRow>
                </TableHeader>
-               <TableBody>
-                   {projects.map((project) => (
-                     <div key={project.id}>
-                      <TableRow 
+                <TableBody>
+                    {projects.map((project) => (
+                      <React.Fragment key={project.id}>
+                       <TableRow
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
                         onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
                       >
@@ -863,15 +863,15 @@ export default function Projects() {
                            >
                              <Trash2 className="h-4 w-4" />
                            </Button>
-                         </div>
-                       </TableCell>
-                     </TableRow>
-                     
-                     {expandedProject === project.id && (
-                       <TableRow>
-                         <TableCell colSpan={7} className="bg-muted/30 p-0">
-                           <div className="p-4 space-y-3 animate-fade-in">
-                             <h4 className="font-semibold text-sm mb-3">项目详细信息</h4>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      
+                      {expandedProject === project.id && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="bg-muted/30 p-0">
+                            <div className="p-4 space-y-3 animate-fade-in">
+                              <h4 className="font-semibold text-sm mb-3">项目详细信息</h4>
                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                <div>
                                  <span className="text-muted-foreground">开始日期：</span>
@@ -916,11 +916,11 @@ export default function Projects() {
                              )}
                            </div>
                          </TableCell>
-                       </TableRow>
-                     )}
-                   </div>
-                 ))}
-                 {projects.length === 0 && (
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  ))}
+                  {projects.length === 0 && (
                    <TableRow>
                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                        暂无项目数据，请点击"新增项目"开始添加
