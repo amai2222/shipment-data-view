@@ -294,17 +294,14 @@ export default function FinanceReconciliation() {
       </div>
 
       {/* 筛选器 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>筛选条件</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <Card className="border-muted/40">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-end gap-3">
             {/* 项目筛选 */}
-            <div className="space-y-2">
-              <Label htmlFor="projectFilter">项目筛选</Label>
+            <div className="flex flex-col gap-1 min-w-[140px]">
+              <Label htmlFor="projectFilter" className="text-xs text-muted-foreground">项目</Label>
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger id="projectFilter">
+                <SelectTrigger id="projectFilter" className="h-8 text-sm">
                   <SelectValue placeholder="选择项目" />
                 </SelectTrigger>
                 <SelectContent>
@@ -319,31 +316,33 @@ export default function FinanceReconciliation() {
             </div>
 
             {/* 装货日期范围 */}
-            <div className="space-y-2">
-              <Label htmlFor="startDate">开始日期</Label>
+            <div className="flex flex-col gap-1 min-w-[120px]">
+              <Label htmlFor="startDate" className="text-xs text-muted-foreground">开始日期</Label>
               <Input
                 id="startDate"
                 type="date"
                 value={dateRange.startDate}
                 onChange={(e) => setDateRange(prev => ({...prev, startDate: e.target.value}))}
+                className="h-8 text-sm"
               />
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="endDate">结束日期</Label>
+            <div className="flex flex-col gap-1 min-w-[120px]">
+              <Label htmlFor="endDate" className="text-xs text-muted-foreground">结束日期</Label>
               <Input
                 id="endDate"
                 type="date"
                 value={dateRange.endDate}
                 onChange={(e) => setDateRange(prev => ({...prev, endDate: e.target.value}))}
+                className="h-8 text-sm"
               />
             </div>
 
             {/* 合作方筛选 */}
-            <div className="space-y-2">
-              <Label htmlFor="partnerFilter">合作方筛选</Label>
+            <div className="flex flex-col gap-1 min-w-[140px]">
+              <Label htmlFor="partnerFilter" className="text-xs text-muted-foreground">合作方</Label>
               <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-                <SelectTrigger id="partnerFilter">
+                <SelectTrigger id="partnerFilter" className="h-8 text-sm">
                   <SelectValue placeholder="选择合作方" />
                 </SelectTrigger>
                 <SelectContent>
@@ -358,20 +357,18 @@ export default function FinanceReconciliation() {
             </div>
 
             {/* 清除筛选按钮 */}
-            <div className="space-y-2">
-              <Label>&nbsp;</Label>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSelectedProjectId("all");
-                  setDateRange({ startDate: "", endDate: "" });
-                  setSelectedPartnerId("all");
-                }}
-                className="w-full"
-              >
-                清除筛选
-              </Button>
-            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setSelectedProjectId("all");
+                setDateRange({ startDate: "", endDate: "" });
+                setSelectedPartnerId("all");
+              }}
+              className="h-8 px-3 text-sm"
+            >
+              清除筛选
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -495,6 +492,28 @@ export default function FinanceReconciliation() {
                   </TableCell>
                 </TableRow>
               ))}
+              
+              {/* 合计行 */}
+              <TableRow className="bg-muted/30 border-t-2 font-semibold">
+                <TableCell colSpan={5} className="text-right font-bold">
+                  合计 ({filteredRecords.length} 笔运单)
+                </TableCell>
+                <TableCell className="font-mono font-bold">
+                  ¥{filteredRecords.reduce((sum, record) => sum + (record.current_cost || 0), 0).toFixed(2)}
+                </TableCell>
+                {allPartners.map((partner) => {
+                  const partnerTotal = filteredRecords.reduce((sum, record) => {
+                    const partnerCost = record.partner_costs.find(cost => cost.partner_id === partner.id);
+                    return sum + (partnerCost ? partnerCost.payable_amount : 0);
+                  }, 0);
+                  return (
+                    <TableCell key={partner.id} className="font-mono text-center bg-gradient-to-r from-primary/10 to-accent/10 font-bold">
+                      ¥{partnerTotal.toFixed(2)}
+                    </TableCell>
+                  );
+                })}
+                <TableCell></TableCell>
+              </TableRow>
             </TableBody>
           </Table>
         </CardContent>
