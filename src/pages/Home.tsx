@@ -356,6 +356,17 @@ export default function Home() {
     setIsDetailDialogOpen(true);
   };
 
+  // 处理对话框关闭事件
+  const handleDialogClose = (open: boolean) => {
+    setIsDetailDialogOpen(open);
+    if (!open) {
+      // 对话框关闭时，清除选择状态，恢复到图表显示
+      setSelectedDate(null);
+      // 清除选中的项目ID，回到正常的筛选状态
+      setSelectedProjectId(null);
+    }
+  };
+
   // 统计概览
   const overviewStats = useMemo(() => {
     const totalRecords = filteredRecords.length;
@@ -761,7 +772,7 @@ export default function Home() {
       ))}
 
       {/* 详细数据对话框 */}
-      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+      <Dialog open={isDetailDialogOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" aria-describedby="dialog-description">
           <DialogHeader>
             <DialogTitle className="flex items-center">
