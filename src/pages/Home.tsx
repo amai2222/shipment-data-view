@@ -156,7 +156,7 @@ export default function Home() {
     }
     
     // 按项目过滤
-    if (selectedProjectId) {
+    if (selectedProjectId && selectedProjectId !== 'all') {
       filtered = filtered.filter(record => record.projectId === selectedProjectId);
     }
     
