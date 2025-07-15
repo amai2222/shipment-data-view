@@ -284,8 +284,8 @@ export default function Home() {
   const selectedRecords = useMemo(() => {
     console.log('Calculating selectedRecords:', { selectedDate, selectedProjectId });
     
-    if (!selectedDate || !selectedProjectId) {
-      console.log('Missing selectedDate or selectedProjectId, returning empty array');
+    if (!selectedProjectId) {
+      console.log('Missing selectedProjectId, returning empty array');
       return [];
     }
     
@@ -298,6 +298,12 @@ export default function Home() {
       // 否则获取特定项目的记录
       projectRecords = recordsByProject[selectedProjectId] || [];
       console.log('Using specific project records:', projectRecords.length);
+    }
+    
+    // 如果没有选中特定日期，返回该项目的所有记录
+    if (!selectedDate) {
+      console.log('No specific date selected, returning all project records:', projectRecords.length);
+      return projectRecords;
     }
     
     // 添加调试：显示一些记录的实际loadingDate格式
@@ -334,6 +340,15 @@ export default function Home() {
     } else {
       console.log('Chart click data invalid:', data);
     }
+  };
+
+  // 处理图例点击事件 - 显示该项目所有日期的运单
+  const handleLegendClick = (projectId: string) => {
+    console.log('Legend clicked for project:', projectId);
+    // 清除选中的日期，显示该项目所有运单
+    setSelectedDate(null);
+    setSelectedProjectId(projectId);
+    setIsDetailDialogOpen(true);
   };
 
   // 统计概览
@@ -554,15 +569,17 @@ export default function Home() {
                     <Legend 
                       formatter={(value) => {
                         if (value === 'actualTransport') {
-                          return `有效运输量 (${projectData.legendTotals.actualTransportTotal.toFixed(1)}吨) - 点击查看详情`;
+                          return `有效运输量 (${projectData.legendTotals.actualTransportTotal.toFixed(1)}吨) - 点击查看全部运单`;
                         }
-                        return `退货量 (${projectData.legendTotals.returnsTotal.toFixed(1)}吨) - 点击查看详情`;
+                        return `退货量 (${projectData.legendTotals.returnsTotal.toFixed(1)}吨) - 点击查看全部运单`;
                       }}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',
-                        fontWeight: '500'
+                        fontWeight: '500',
+                        cursor: 'pointer'
                       }}
+                      onClick={() => handleLegendClick(projectData.projectId)}
                     />
                     <Bar 
                       dataKey="actualTransport" 
@@ -638,12 +655,14 @@ export default function Home() {
                       cursor={{ stroke: 'rgba(59, 130, 246, 0.3)', strokeWidth: 2 }}
                     />
                     <Legend 
-                      formatter={() => `运输次数 (总计${projectData.legendTotals.totalTrips}次) - 点击查看运单详情`}
+                      formatter={() => `运输次数 (总计${projectData.legendTotals.totalTrips}次) - 点击查看全部运单`}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',
-                        fontWeight: '500'
+                        fontWeight: '500',
+                        cursor: 'pointer'
                       }}
+                      onClick={() => handleLegendClick(projectData.projectId)}
                     />
                     <Line 
                       type="monotone" 
@@ -706,12 +725,14 @@ export default function Home() {
                       cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
                     />
                      <Legend 
-                       formatter={() => `总费用 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) - 点击查看运单详情`}
+                       formatter={() => `总费用 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) - 点击查看全部运单`}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',
-                        fontWeight: '500'
+                        fontWeight: '500',
+                        cursor: 'pointer'
                       }}
+                      onClick={() => handleLegendClick(projectData.projectId)}
                     />
                     <Bar 
                       dataKey="totalCost" 
@@ -740,10 +761,15 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <Eye className="mr-2 h-5 w-5" />
-              {selectedDate && `${new Date(selectedDate).toLocaleDateString('zh-CN')} 详细运输记录`}
+              {selectedDate 
+                ? `${new Date(selectedDate).toLocaleDateString('zh-CN')} 详细运输记录`
+                : selectedProjectId === 'all' 
+                  ? '所有项目运输记录'
+                  : `${projects.find(p => p.id === selectedProjectId)?.name || '项目'} 全部运输记录`
+              }
             </DialogTitle>
             <div id="dialog-description" className="sr-only">
-              显示选中日期的详细运输记录信息
+              显示运输记录详细信息
             </div>
           </DialogHeader>
           
