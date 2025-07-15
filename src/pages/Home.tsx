@@ -347,7 +347,12 @@ export default function Home() {
     console.log('Legend clicked for project:', projectId);
     // 清除选中的日期，显示该项目所有运单
     setSelectedDate(null);
-    setSelectedProjectId(projectId);
+    // 如果当前显示的是所有项目汇总，保持显示所有项目
+    if (projectId === 'all' || !selectedProjectId) {
+      setSelectedProjectId('all');
+    } else {
+      setSelectedProjectId(projectId);
+    }
     setIsDetailDialogOpen(true);
   };
 
