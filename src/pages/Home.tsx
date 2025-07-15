@@ -811,48 +811,50 @@ export default function Home() {
               
               <div className="border rounded-lg">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>运单号</TableHead>
-                      <TableHead>司机</TableHead>
-                      <TableHead>车牌号</TableHead>
-                      <TableHead>装货地</TableHead>
-                      <TableHead>卸货地</TableHead>
-                      <TableHead>装货重量</TableHead>
-                      <TableHead>卸货重量</TableHead>
-                      <TableHead>运输类型</TableHead>
-                      <TableHead>费用</TableHead>
-                      <TableHead>备注</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedRecords.map((record) => (
-                      <TableRow key={record.id}>
-                        <TableCell className="font-medium">{record.autoNumber}</TableCell>
-                        <TableCell>{record.driverName}</TableCell>
-                        <TableCell>{record.licensePlate}</TableCell>
-                        <TableCell>{record.loadingLocation}</TableCell>
-                        <TableCell>{record.unloadingLocation}</TableCell>
-                        <TableCell>{record.loadingWeight.toFixed(2)}吨</TableCell>
-                        <TableCell>{record.unloadingWeight?.toFixed(2) || '-'}吨</TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            record.transportType === "实际运输" 
-                              ? "bg-green-100 text-green-800" 
-                              : "bg-red-100 text-red-800"
-                          }`}>
-                            {record.transportType}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          ¥{((record.currentFee || 0) + (record.extraFee || 0)).toFixed(2)}
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={record.remarks}>
-                          {record.remarks || '-'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
+                   <TableHeader>
+                     <TableRow>
+                       <TableHead>运单号</TableHead>
+                       <TableHead>项目名称</TableHead>
+                       <TableHead>司机</TableHead>
+                       <TableHead>车牌号</TableHead>
+                       <TableHead>装货地</TableHead>
+                       <TableHead>卸货地</TableHead>
+                       <TableHead>装货重量</TableHead>
+                       <TableHead>卸货重量</TableHead>
+                       <TableHead>运输类型</TableHead>
+                       <TableHead>费用</TableHead>
+                       <TableHead>备注</TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {selectedRecords.map((record) => (
+                       <TableRow key={record.id}>
+                         <TableCell className="font-medium">{record.autoNumber}</TableCell>
+                         <TableCell>{record.projectName || projects.find(p => p.id === record.projectId)?.name || '-'}</TableCell>
+                         <TableCell>{record.driverName}</TableCell>
+                         <TableCell>{record.licensePlate}</TableCell>
+                         <TableCell>{record.loadingLocation}</TableCell>
+                         <TableCell>{record.unloadingLocation}</TableCell>
+                         <TableCell>{record.loadingWeight.toFixed(2)}吨</TableCell>
+                         <TableCell>{record.unloadingWeight?.toFixed(2) || '-'}吨</TableCell>
+                         <TableCell>
+                           <span className={`px-2 py-1 rounded-full text-xs ${
+                             record.transportType === "实际运输" 
+                               ? "bg-green-100 text-green-800" 
+                               : "bg-red-100 text-red-800"
+                           }`}>
+                             {record.transportType}
+                           </span>
+                         </TableCell>
+                         <TableCell>
+                           ¥{((record.currentFee || 0) + (record.extraFee || 0)).toFixed(2)}
+                         </TableCell>
+                         <TableCell className="max-w-[200px] truncate" title={record.remarks}>
+                           {record.remarks || '-'}
+                         </TableCell>
+                       </TableRow>
+                     ))}
+                   </TableBody>
                 </Table>
               </div>
             </div>
