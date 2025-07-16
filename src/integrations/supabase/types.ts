@@ -191,6 +191,41 @@ export type Database = {
           },
         ]
       }
+      partner_chains: {
+        Row: {
+          chain_name: string
+          created_at: string
+          description: string | null
+          id: string
+          is_default: boolean
+          project_id: string
+        }
+        Insert: {
+          chain_name?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          project_id: string
+        }
+        Update: {
+          chain_name?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_chains_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partners: {
         Row: {
           created_at: string
@@ -214,6 +249,7 @@ export type Database = {
       }
       project_partners: {
         Row: {
+          chain_id: string
           created_at: string
           id: string
           level: number
@@ -222,6 +258,7 @@ export type Database = {
           tax_rate: number
         }
         Insert: {
+          chain_id: string
           created_at?: string
           id?: string
           level: number
@@ -230,6 +267,7 @@ export type Database = {
           tax_rate?: number
         }
         Update: {
+          chain_id?: string
           created_at?: string
           id?: string
           level?: number
@@ -238,6 +276,13 @@ export type Database = {
           tax_rate?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "project_partners_chain_id_fkey"
+            columns: ["chain_id"]
+            isOneToOne: false
+            referencedRelation: "partner_chains"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_partners_partner_id_fkey"
             columns: ["partner_id"]

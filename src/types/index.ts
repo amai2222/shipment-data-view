@@ -60,11 +60,22 @@ export interface Partner {
   createdAt: string;
 }
 
+// 合作链路配置
+export interface PartnerChain {
+  id: string;
+  projectId: string;
+  chainName: string;
+  description?: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
 // 项目合作方关联
 export interface ProjectPartner {
   id: string;
   projectId: string;
   partnerId: string;
+  chainId: string;
   level: number;
   taxRate: number;  // 项目特定税点
   createdAt: string;
