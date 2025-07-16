@@ -820,36 +820,47 @@ export default function Home() {
                 </div>
               </div>
               
-              <div className="border rounded-lg">
+               <div className="border rounded-lg overflow-x-auto">
                 <Table>
                    <TableHeader>
-                     <TableRow>
-                       <TableHead>运单号</TableHead>
-                       <TableHead>项目名称</TableHead>
-                       <TableHead>司机</TableHead>
-                       <TableHead>车牌号</TableHead>
-                       <TableHead>装货地</TableHead>
-                       <TableHead>卸货地</TableHead>
-                       <TableHead>装货重量</TableHead>
-                       <TableHead>卸货重量</TableHead>
-                       <TableHead>运输类型</TableHead>
-                       <TableHead>费用</TableHead>
-                       <TableHead>备注</TableHead>
+                     <TableRow className="text-xs">
+                       <TableHead className="px-2 py-2 text-xs">运单号</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">项目名称</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">司机</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">车牌号</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">装货地</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">卸货地</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">装货重量</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">卸货重量</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">运输类型</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">费用</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">备注</TableHead>
                      </TableRow>
                    </TableHeader>
                    <TableBody>
-                     {selectedRecords.map((record) => (
-                       <TableRow key={record.id}>
-                         <TableCell className="font-medium">{record.autoNumber}</TableCell>
-                         <TableCell>{record.projectName || projects.find(p => p.id === record.projectId)?.name || '-'}</TableCell>
-                         <TableCell>{record.driverName}</TableCell>
-                         <TableCell>{record.licensePlate}</TableCell>
-                         <TableCell>{record.loadingLocation}</TableCell>
-                         <TableCell>{record.unloadingLocation}</TableCell>
-                         <TableCell>{record.loadingWeight.toFixed(2)}吨</TableCell>
-                         <TableCell>{record.unloadingWeight?.toFixed(2) || '-'}吨</TableCell>
-                         <TableCell>
-                           <span className={`px-2 py-1 rounded-full text-xs ${
+                     {selectedRecords
+                       .sort((a, b) => {
+                         // 按项目名称降序排列
+                         const projectNameA = a.projectName || projects.find(p => p.id === a.projectId)?.name || '';
+                         const projectNameB = b.projectName || projects.find(p => p.id === b.projectId)?.name || '';
+                         const projectCompare = projectNameB.localeCompare(projectNameA, 'zh-CN');
+                         if (projectCompare !== 0) return projectCompare;
+                         
+                         // 项目名称相同时，按运单号降序排列
+                         return b.autoNumber.localeCompare(a.autoNumber, 'zh-CN');
+                       })
+                       .map((record) => (
+                       <TableRow key={record.id} className="text-xs">
+                         <TableCell className="font-medium px-2 py-2 text-xs whitespace-nowrap">{record.autoNumber}</TableCell>
+                         <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.projectName || projects.find(p => p.id === record.projectId)?.name || '-'}</TableCell>
+                         <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.driverName}</TableCell>
+                         <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.licensePlate}</TableCell>
+                         <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.loadingLocation}</TableCell>
+                         <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.unloadingLocation}</TableCell>
+                         <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.loadingWeight.toFixed(2)}吨</TableCell>
+                         <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.unloadingWeight?.toFixed(2) || '-'}吨</TableCell>
+                         <TableCell className="px-2 py-2 text-xs">
+                           <span className={`px-1 py-0.5 rounded-full text-xs whitespace-nowrap ${
                              record.transportType === "实际运输" 
                                ? "bg-green-100 text-green-800" 
                                : "bg-red-100 text-red-800"
@@ -857,10 +868,10 @@ export default function Home() {
                              {record.transportType}
                            </span>
                          </TableCell>
-                         <TableCell>
+                         <TableCell className="px-2 py-2 text-xs whitespace-nowrap">
                            ¥{((record.currentFee || 0) + (record.extraFee || 0)).toFixed(2)}
                          </TableCell>
-                         <TableCell className="max-w-[200px] truncate" title={record.remarks}>
+                         <TableCell className="px-2 py-2 text-xs max-w-[120px] truncate" title={record.remarks}>
                            {record.remarks || '-'}
                          </TableCell>
                        </TableRow>
