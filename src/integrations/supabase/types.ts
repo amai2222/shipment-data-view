@@ -357,6 +357,24 @@ export type Database = {
           tax_rate: number
         }[]
       }
+      calculate_partner_costs_v2: {
+        Args: {
+          p_base_amount: number
+          p_project_id: string
+          p_loading_weight?: number
+          p_unloading_weight?: number
+        }
+        Returns: {
+          partner_id: string
+          partner_name: string
+          level: number
+          base_amount: number
+          payable_amount: number
+          tax_rate: number
+          calculation_method: string
+          profit_rate: number
+        }[]
+      }
       generate_auto_number: {
         Args: { loading_date_input: string }
         Returns: string

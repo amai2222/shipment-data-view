@@ -279,7 +279,13 @@ export class SupabaseStorage {
 
     // 如果有运费金额，自动生成合作方成本
     if (record.currentFee && record.currentFee > 0 && record.projectId) {
-      await this.generatePartnerCosts(data.id, record.currentFee, record.projectId);
+      await this.generatePartnerCosts(
+        data.id, 
+        record.currentFee, 
+        record.projectId,
+        record.loadingWeight,
+        record.unloadingWeight
+      );
     }
     
     return newRecord;
@@ -319,7 +325,13 @@ export class SupabaseStorage {
 
     // 如果有运费金额，重新生成合作方成本
     if (updates.currentFee && updates.currentFee > 0 && updates.projectId) {
-      await this.generatePartnerCosts(id, updates.currentFee, updates.projectId);
+      await this.generatePartnerCosts(
+        id, 
+        updates.currentFee, 
+        updates.projectId,
+        updates.loadingWeight,
+        updates.unloadingWeight
+      );
     }
   }
 
@@ -389,13 +401,15 @@ export class SupabaseStorage {
   }
 
   // 生成合作方成本记录
-  static async generatePartnerCosts(logisticsRecordId: string, baseCost: number, projectId: string): Promise<void> {
+  static async generatePartnerCosts(logisticsRecordId: string, baseCost: number, projectId: string, loadingWeight?: number, unloadingWeight?: number): Promise<void> {
     try {
-      // 使用数据库函数计算合作方成本
+      // 使用新的数据库函数计算合作方成本
       const { data: partnerCosts, error } = await supabase
-        .rpc('calculate_partner_costs', {
+        .rpc('calculate_partner_costs_v2', {
           p_base_amount: baseCost,
-          p_project_id: projectId
+          p_project_id: projectId,
+          p_loading_weight: loadingWeight || null,
+          p_unloading_weight: unloadingWeight || null
         });
 
       if (error) throw error;
@@ -438,7 +452,7 @@ export class SupabaseStorage {
       // 获取所有有运费的运单
       const { data: records, error } = await supabase
         .from('logistics_records')
-        .select('id, current_cost, project_id, auto_number')
+        .select('id, current_cost, project_id, auto_number, loading_weight, unloading_weight')
         .not('current_cost', 'is', null)
         .gt('current_cost', 0);
 
@@ -448,7 +462,13 @@ export class SupabaseStorage {
 
       for (const record of records || []) {
         // 重新生成合作方成本
-        await this.generatePartnerCosts(record.id, record.current_cost, record.project_id);
+        await this.generatePartnerCosts(
+          record.id, 
+          record.current_cost, 
+          record.project_id,
+          record.loading_weight,
+          record.unloading_weight
+        );
         console.log(`为运单 ${record.auto_number} 重新生成了合作方成本`);
       }
 
