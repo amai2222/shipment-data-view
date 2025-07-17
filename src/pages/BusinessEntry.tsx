@@ -12,7 +12,7 @@ import { CalendarIcon, TruckIcon, MapPinIcon, Plus, Edit2, Trash2, Eye, Calendar
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
-import { LogisticsRecord, Project, Driver, Location } from "@/types";
+import { LogisticsRecord, Project, Driver, Location, PartnerChain } from "@/types";
 import * as XLSX from 'xlsx';
 
 export default function BusinessEntry() {
@@ -24,6 +24,7 @@ export default function BusinessEntry() {
   const [filteredRecords, setFilteredRecords] = useState<LogisticsRecord[]>([]);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
+  const [partnerChains, setPartnerChains] = useState<PartnerChain[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // 筛选器状态
@@ -32,6 +33,7 @@ export default function BusinessEntry() {
 
   const [formData, setFormData] = useState({
     projectId: "",
+    chainId: "",
     loadingTime: "",
     loadingLocation: "",
     unloadingLocation: "",
@@ -76,6 +78,7 @@ export default function BusinessEntry() {
   const resetForm = () => {
     setFormData({
       projectId: "",
+      chainId: "",
       loadingTime: "",
       loadingLocation: "",
       unloadingLocation: "",
@@ -95,7 +98,7 @@ export default function BusinessEntry() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.projectId || !formData.loadingTime || !formData.loadingLocation || 
+    if (!formData.projectId || !formData.chainId || !formData.loadingTime || !formData.loadingLocation || 
         !formData.unloadingLocation || !formData.driverId || !formData.loadingWeight) {
       toast({
         title: "错误",
@@ -169,6 +172,7 @@ export default function BusinessEntry() {
   const handleEdit = (record: LogisticsRecord) => {
     setFormData({
       projectId: record.projectId,
+      chainId: "", // 编辑时需要重新选择合作链路
       loadingTime: record.loadingDate,
       loadingLocation: record.loadingLocation,
       unloadingLocation: record.unloadingLocation,
@@ -183,6 +187,10 @@ export default function BusinessEntry() {
       remarks: record.remarks || "",
     });
     setEditingRecord(record);
+    // 加载项目的合作链路
+    if (record.projectId) {
+      loadPartnerChains(record.projectId);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -318,6 +326,38 @@ export default function BusinessEntry() {
     setFilteredRecords(filtered);
   };
 
+  // 加载项目的合作链路
+  const loadPartnerChains = async (projectId: string) => {
+    if (!projectId) {
+      setPartnerChains([]);
+      return;
+    }
+    try {
+      const chains = await SupabaseStorage.getPartnerChains(projectId);
+      setPartnerChains(chains.map(chain => ({
+        id: chain.id,
+        projectId: chain.project_id,
+        chainName: chain.chain_name,
+        description: chain.description,
+        isDefault: chain.is_default,
+        createdAt: chain.created_at,
+      })));
+    } catch (error) {
+      console.error('Error loading partner chains:', error);
+      setPartnerChains([]);
+    }
+  };
+
+  // 当项目选择变化时加载合作链路
+  useEffect(() => {
+    if (formData.projectId) {
+      loadPartnerChains(formData.projectId);
+      setFormData(prev => ({ ...prev, chainId: "" })); // 重置链路选择
+    } else {
+      setPartnerChains([]);
+    }
+  }, [formData.projectId]);
+
   // 当筛选条件变化时应用筛选
   useEffect(() => {
     applyFilters();
@@ -409,6 +449,22 @@ export default function BusinessEntry() {
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name} - {project.manager}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="chain">合作链路 *</Label>
+                <Select value={formData.chainId} onValueChange={(value) => setFormData(prev => ({ ...prev, chainId: value }))}>
+                  <SelectTrigger id="chain">
+                    <SelectValue placeholder="选择合作链路" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {partnerChains.map((chain) => (
+                      <SelectItem key={chain.id} value={chain.id}>
+                        {chain.chainName}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -745,6 +801,30 @@ export default function BusinessEntry() {
                      </TableCell>
                   </TableRow>
                 ))}
+                {/* 合计行 */}
+                {filteredRecords.length > 0 && (
+                  <TableRow className="bg-muted/30 font-medium">
+                    <TableCell colSpan={5} className="text-right">合计：</TableCell>
+                    <TableCell>
+                      <div>
+                        <div>装: {filteredRecords.reduce((sum, record) => sum + (record.loadingWeight || 0), 0).toFixed(1)}吨</div>
+                        <div className="text-sm text-muted-foreground">
+                          卸: {filteredRecords.reduce((sum, record) => sum + (record.unloadingWeight || 0), 0).toFixed(1)}吨
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {filteredRecords.filter(r => r.transportType === "实际运输").length}实际 / {filteredRecords.filter(r => r.transportType === "退货").length}退货
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div>当前: ¥{filteredRecords.reduce((sum, record) => sum + (record.currentFee || 0), 0).toFixed(2)}</div>
+                        <div className="text-sm text-muted-foreground">应付: ¥{filteredRecords.reduce((sum, record) => sum + (record.payableFee || 0), 0).toFixed(2)}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>

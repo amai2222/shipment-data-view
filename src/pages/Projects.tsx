@@ -38,7 +38,7 @@ export default function Projects() {
   const [selectedChains, setSelectedChains] = useState<{
     chainName: string;
     description?: string;
-    partners: {partnerId: string, level: number, taxRate: number, partnerName?: string}[];
+    partners: {partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
   }[]>([]);
 
   // 加载数据
@@ -412,7 +412,9 @@ export default function Projects() {
             partners: [...chain.partners, {
               partnerId: '',
               level: chain.partners.length + 1,
-              taxRate: 0.03
+              taxRate: 0.03,
+              calculationMethod: "tax" as "tax" | "profit",
+              profitRate: 0
             }]
           }
         : chain
@@ -659,29 +661,54 @@ export default function Projects() {
                                       disabled={isSubmitting}
                                     />
                                   </div>
-                                  <div className="w-20">
-                                    <input
-                                      type="number"
-                                      step="0.001"
-                                      min="0"
-                                      max="0.999"
-                                      value={partner.taxRate}
-                                      onChange={(e) => {
-                                        const taxRate = parseFloat(e.target.value) || 0;
-                                        setSelectedChains(prev => prev.map((c, ci) => 
-                                          ci === chainIndex ? {
-                                            ...c,
-                                            partners: c.partners.map((p, pi) => 
-                                              pi === partnerIndex ? { ...p, taxRate } : p
-                                            )
-                                          } : c
-                                        ));
-                                      }}
-                                      className="w-full p-1 border rounded text-sm"
-                                      placeholder="税点"
-                                      disabled={isSubmitting}
-                                    />
-                                  </div>
+                                   <div className="w-24">
+                                     <select
+                                       value={partner.calculationMethod}
+                                       onChange={(e) => {
+                                         const calculationMethod = e.target.value as "tax" | "profit";
+                                         setSelectedChains(prev => prev.map((c, ci) => 
+                                           ci === chainIndex ? {
+                                             ...c,
+                                             partners: c.partners.map((p, pi) => 
+                                               pi === partnerIndex ? { ...p, calculationMethod } : p
+                                             )
+                                           } : c
+                                         ));
+                                       }}
+                                       className="w-full p-1 border rounded text-sm"
+                                       disabled={isSubmitting}
+                                     >
+                                       <option value="tax">税点</option>
+                                       <option value="profit">利润</option>
+                                     </select>
+                                   </div>
+                                   <div className="w-20">
+                                     <input
+                                       type="number"
+                                       step="0.001"
+                                       min="0"
+                                       max={partner.calculationMethod === "tax" ? "0.999" : "999"}
+                                       value={partner.calculationMethod === "tax" ? partner.taxRate : (partner.profitRate || 0)}
+                                       onChange={(e) => {
+                                         const value = parseFloat(e.target.value) || 0;
+                                         setSelectedChains(prev => prev.map((c, ci) => 
+                                           ci === chainIndex ? {
+                                             ...c,
+                                             partners: c.partners.map((p, pi) => 
+                                               pi === partnerIndex ? 
+                                                 partner.calculationMethod === "tax" 
+                                                   ? { ...p, taxRate: value }
+                                                   : { ...p, profitRate: value }
+                                                 : p
+                                             )
+                                           } : c
+                                         ));
+                                       }}
+                                       className="w-full p-1 border rounded text-sm"
+                                       placeholder={partner.calculationMethod === "tax" ? "税点" : "利润"}
+                                       disabled={isSubmitting}
+                                     />
+                                   </div>
                                   <Button
                                     type="button"
                                     variant="outline"

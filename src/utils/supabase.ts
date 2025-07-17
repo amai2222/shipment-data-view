@@ -376,6 +376,18 @@ export class SupabaseStorage {
     return await this.addLocation({ name });
   }
 
+  // 获取项目的合作链路
+  static async getPartnerChains(projectId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('partner_chains')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
+  }
+
   // 生成合作方成本记录
   static async generatePartnerCosts(logisticsRecordId: string, baseCost: number, projectId: string): Promise<void> {
     try {
