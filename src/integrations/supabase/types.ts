@@ -249,29 +249,35 @@ export type Database = {
       }
       project_partners: {
         Row: {
+          calculation_method: string | null
           chain_id: string
           created_at: string
           id: string
           level: number
           partner_id: string
+          profit_rate: number | null
           project_id: string
           tax_rate: number
         }
         Insert: {
+          calculation_method?: string | null
           chain_id: string
           created_at?: string
           id?: string
           level: number
           partner_id: string
+          profit_rate?: number | null
           project_id: string
           tax_rate?: number
         }
         Update: {
+          calculation_method?: string | null
           chain_id?: string
           created_at?: string
           id?: string
           level?: number
           partner_id?: string
+          profit_rate?: number | null
           project_id?: string
           tax_rate?: number
         }

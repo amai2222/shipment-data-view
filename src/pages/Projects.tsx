@@ -160,6 +160,8 @@ export default function Projects() {
         chainId: item.chain_id,
         level: item.level,
         taxRate: Number(item.tax_rate),
+        calculationMethod: (item.calculation_method as "tax" | "profit") || "tax",
+        profitRate: item.profit_rate ? Number(item.profit_rate) : 0,
         createdAt: item.created_at,
         partnerName: item.partners?.name || '',
       }));
@@ -210,6 +212,8 @@ export default function Projects() {
           partnerId: pp.partnerId,
           level: pp.level,
           taxRate: pp.taxRate,
+          calculationMethod: pp.calculationMethod || "tax",
+          profitRate: pp.profitRate || 0,
           partnerName: pp.partnerName
         }))
       };
@@ -328,7 +332,9 @@ export default function Projects() {
                 partner_id: partnerId,
                 chain_id: chainData.id,
                 level: sp.level,
-                tax_rate: sp.taxRate
+                tax_rate: sp.taxRate,
+                calculation_method: sp.calculationMethod || "tax",
+                profit_rate: sp.profitRate || 0
               });
           }
         }
