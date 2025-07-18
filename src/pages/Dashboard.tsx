@@ -335,7 +335,7 @@ export default function Dashboard() {
               <TrendingUp className="h-6 w-6 text-yellow-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">司机总应收</p>
+              <p className="text-sm font-medium text-muted-foreground">司机应收汇总</p>
               <p className="text-2xl font-bold">¥{overviewStats.totalCost.toFixed(2)}</p>
             </div>
           </CardContent>
@@ -551,7 +551,7 @@ export default function Dashboard() {
                     />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
-                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '司机应收汇总']}
+                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总费用']}
                       contentStyle={{
                         backgroundColor: '#fff',
                         border: '1px solid #ccc',
