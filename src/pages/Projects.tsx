@@ -307,11 +307,14 @@ export default function Projects() {
           
           // 如果是新合作方（没有partnerId），先创建合作方记录
           if (!sp.partnerId && sp.partnerName) {
+            // 对于新合作方，使用项目中设置的税率作为默认税率
+            const defaultTaxRate = sp.calculationMethod === "tax" ? sp.taxRate : sp.profitRate || 0;
+            
             const { data: newPartner, error: createPartnerError } = await supabase
               .from('partners')
               .insert({
                 name: sp.partnerName,
-                tax_rate: sp.taxRate
+                tax_rate: defaultTaxRate
               })
               .select()
               .single();

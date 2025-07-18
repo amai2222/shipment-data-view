@@ -33,6 +33,7 @@ export interface LogisticsRecord {
   autoNumber: string;
   projectId: string;
   projectName: string;
+  chainId?: string; // 合作链路ID
   loadingDate: string;
   loadingLocation: string;
   unloadingLocation: string;

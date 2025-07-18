@@ -25,6 +25,7 @@ export default function BusinessEntry() {
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
   const [partnerChains, setPartnerChains] = useState<PartnerChain[]>([]);
+  const [viewingPartnerCosts, setViewingPartnerCosts] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // 筛选器状态
@@ -232,9 +233,23 @@ export default function BusinessEntry() {
         let duplicateCount = 0;
 
         for (const row of jsonData as any[]) {
-          // 查找项目和司机
+          // 查找项目、司机和合作链路
           const project = projects.find(p => p.name === row['项目名称']);
           const driver = drivers.find(d => d.name === row['司机姓名'] && d.licensePlate === row['车牌号']);
+          
+          // 如果有合作链路信息，查找对应的链路ID
+          let chainId = "";
+          if (project && row['合作链路']) {
+            try {
+              const chains = await SupabaseStorage.getPartnerChains(project.id);
+              const matchedChain = chains.find(c => c.chain_name === row['合作链路']);
+              if (matchedChain) {
+                chainId = matchedChain.id;
+              }
+            } catch (error) {
+              console.warn('Error loading partner chains for import:', error);
+            }
+          }
 
           if (!project || !driver) {
             console.warn(`跳过行：无法找到匹配的项目或司机`, row);
@@ -256,6 +271,7 @@ export default function BusinessEntry() {
           const recordData = {
             projectId: project.id,
             projectName: project.name,
+            chainId: chainId || undefined, // 添加合作链路ID
             loadingDate: row['装车日期'] ? (row['装车日期'].toString().includes('T') ? row['装车日期'].toString().split('T')[0] : row['装车日期'].toString()) : row['装车日期'], // 只保存日期部分
             loadingLocation: row['装车地点'],
             unloadingLocation: row['卸车地点'],
@@ -358,6 +374,104 @@ export default function BusinessEntry() {
     }
   }, [formData.projectId]);
 
+  // 下载导入模板
+  const handleTemplateDownload = () => {
+    try {
+      const templateData = [
+        {
+          '项目名称': '示例项目',
+          '合作链路': '默认链路',
+          '装车日期': '2024-01-01',
+          '装车地点': '示例装货地点',
+          '卸车地点': '示例卸货地点',
+          '司机姓名': '张三',
+          '车牌号': '京A12345',
+          '司机电话': '13800138000',
+          '装车重量': '10.5',
+          '卸车日期': '2024-01-02',
+          '卸车重量': '10.3',
+          '运输类型': '实际运输',
+          '当前费用': '1000',
+          '额外费用': '100',
+          '应付费用': '1100',
+          '备注': '示例备注'
+        }
+      ];
+
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      
+      // 设置列宽
+      const colWidths = [
+        { wch: 15 }, // 项目名称
+        { wch: 12 }, // 合作链路
+        { wch: 12 }, // 装车日期
+        { wch: 15 }, // 装车地点
+        { wch: 15 }, // 卸车地点
+        { wch: 10 }, // 司机姓名
+        { wch: 10 }, // 车牌号
+        { wch: 12 }, // 司机电话
+        { wch: 10 }, // 装车重量
+        { wch: 12 }, // 卸车日期
+        { wch: 10 }, // 卸车重量
+        { wch: 10 }, // 运输类型
+        { wch: 10 }, // 当前费用
+        { wch: 10 }, // 额外费用
+        { wch: 10 }, // 应付费用
+        { wch: 15 }  // 备注
+      ];
+      worksheet['!cols'] = colWidths;
+
+      // 添加必填项说明
+      const range = XLSX.utils.decode_range(worksheet['!ref']!);
+      
+      // 在第二行添加必填项说明
+      const requiredNote = [
+        '必填项',
+        '必填项',
+        '必填项(YYYY-MM-DD)',
+        '必填项',
+        '必填项',
+        '必填项',
+        '必填项',
+        '必填项',
+        '必填项(数字)',
+        '选填(YYYY-MM-DD)',
+        '选填(数字)',
+        '必填(实际运输/退货)',
+        '选填(数字)',
+        '选填(数字)',
+        '选填(数字)',
+        '选填'
+      ];
+
+      for (let col = 0; col < requiredNote.length; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 1, c: col });
+        worksheet[cellRef] = { v: requiredNote[col], t: 's' };
+      }
+
+      range.e.r = 1; // 扩展范围到第二行
+      worksheet['!ref'] = XLSX.utils.encode_range(range);
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, '物流记录导入模板');
+
+      const fileName = `物流记录导入模板_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      toast({
+        title: "模板下载成功",
+        description: `模板已保存为 ${fileName}，请按照模板格式填写数据后导入`,
+      });
+    } catch (error) {
+      console.error('Error downloading template:', error);
+      toast({
+        title: "模板下载失败",
+        description: "无法生成模板文件",
+        variant: "destructive",
+      });
+    }
+  };
+
   // 当筛选条件变化时应用筛选
   useEffect(() => {
     applyFilters();
@@ -375,6 +489,7 @@ export default function BusinessEntry() {
       const exportData = filteredRecords.map(record => ({
         '自动编号': record.autoNumber,
         '项目名称': record.projectName,
+        '合作链路': partnerChains.find(chain => chain.id === (record as any).chainId)?.chainName || "默认链路",
         '装车日期': record.loadingDate.includes('T') ? record.loadingDate.split('T')[0] : record.loadingDate,
         '装车地点': record.loadingLocation,
         '卸车地点': record.unloadingLocation,
@@ -667,6 +782,15 @@ export default function BusinessEntry() {
                 <Download className="h-4 w-4" />
                 <span>导出Excel</span>
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTemplateDownload}
+                className="flex items-center space-x-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>下载模板</span>
+              </Button>
               <input
                 type="file"
                 ref={fileInputRef}
@@ -733,6 +857,7 @@ export default function BusinessEntry() {
                   <TableHead>司机</TableHead>
                   <TableHead>重量</TableHead>
                   <TableHead>类型</TableHead>
+                  <TableHead>合作链路</TableHead>
                   <TableHead>费用</TableHead>
                   <TableHead>操作</TableHead>
                 </TableRow>
@@ -770,6 +895,10 @@ export default function BusinessEntry() {
                         {record.transportType}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-sm">
+                      {/* 显示合作链路信息 */}
+                      {partnerChains.find(chain => chain.id === (record as any).chainId)?.chainName || "默认链路"}
+                    </TableCell>
                     <TableCell>
                       {record.payableFee && `¥${record.payableFee.toFixed(2)}`}
                     </TableCell>
@@ -804,7 +933,7 @@ export default function BusinessEntry() {
                 {/* 合计行 */}
                 {filteredRecords.length > 0 && (
                   <TableRow className="bg-muted/30 font-medium">
-                    <TableCell colSpan={5} className="text-right">合计：</TableCell>
+                    <TableCell colSpan={6} className="text-right">合计：</TableCell>
                     <TableCell>
                       <div>
                         <div>装: {filteredRecords.reduce((sum, record) => sum + (record.loadingWeight || 0), 0).toFixed(1)}吨</div>
@@ -818,8 +947,8 @@ export default function BusinessEntry() {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <div>当前: ¥{filteredRecords.reduce((sum, record) => sum + (record.currentFee || 0), 0).toFixed(2)}</div>
-                        <div className="text-sm text-muted-foreground">应付: ¥{filteredRecords.reduce((sum, record) => sum + (record.payableFee || 0), 0).toFixed(2)}</div>
+                        <div>司机运费: ¥{filteredRecords.reduce((sum, record) => sum + (record.currentFee || 0), 0).toFixed(2)}</div>
+                        <div className="text-sm text-muted-foreground">司机应收: ¥{filteredRecords.reduce((sum, record) => sum + (record.payableFee || 0), 0).toFixed(2)}</div>
                       </div>
                     </TableCell>
                     <TableCell></TableCell>
@@ -958,13 +1087,13 @@ export default function BusinessEntry() {
               <div className="grid gap-4">
                 <h3 className="font-semibold text-lg">费用信息</h3>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">当前费用</span>
-                    </div>
-                    <p className="font-medium">{viewingRecord.currentFee ? `¥${viewingRecord.currentFee.toFixed(2)}` : "未填写"}</p>
-                  </div>
+                   <div className="space-y-2">
+                     <div className="flex items-center gap-2">
+                       <DollarSign className="h-4 w-4 text-muted-foreground" />
+                       <span className="text-sm text-muted-foreground">司机运费</span>
+                     </div>
+                     <p className="font-medium">{viewingRecord.currentFee ? `¥${viewingRecord.currentFee.toFixed(2)}` : "未填写"}</p>
+                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -972,29 +1101,45 @@ export default function BusinessEntry() {
                     </div>
                     <p className="font-medium">{viewingRecord.extraFee ? `¥${viewingRecord.extraFee.toFixed(2)}` : "未填写"}</p>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">应付费用</span>
-                    </div>
-                    <p className="font-medium">{viewingRecord.payableFee ? `¥${viewingRecord.payableFee.toFixed(2)}` : "未填写"}</p>
-                  </div>
+                   <div className="space-y-2">
+                     <div className="flex items-center gap-2">
+                       <DollarSign className="h-4 w-4 text-muted-foreground" />
+                       <span className="text-sm text-muted-foreground">司机应收</span>
+                     </div>
+                     <p className="font-medium">{viewingRecord.payableFee ? `¥${viewingRecord.payableFee.toFixed(2)}` : "未填写"}</p>
+                   </div>
                 </div>
               </div>
 
-              {/* 其他信息 */}
-              <div className="grid gap-4">
-                <h3 className="font-semibold text-lg">其他信息</h3>
-                <div className="grid gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Truck className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">运输类型</span>
-                    </div>
-                    <Badge variant={viewingRecord.transportType === "实际运输" ? "default" : "secondary"}>
-                      {viewingRecord.transportType}
-                    </Badge>
-                  </div>
+               {/* 合作链路信息 */}
+               <div className="grid gap-4">
+                 <h3 className="font-semibold text-lg">合作链路信息</h3>
+                 <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-2">
+                     <div className="flex items-center gap-2">
+                       <Truck className="h-4 w-4 text-muted-foreground" />
+                       <span className="text-sm text-muted-foreground">合作链路</span>
+                     </div>
+                     <p className="font-medium">
+                       {partnerChains.find(chain => chain.id === (viewingRecord as any).chainId)?.chainName || "默认链路"}
+                     </p>
+                   </div>
+                   <div className="space-y-2">
+                     <div className="flex items-center gap-2">
+                       <Truck className="h-4 w-4 text-muted-foreground" />
+                       <span className="text-sm text-muted-foreground">运输类型</span>
+                     </div>
+                     <Badge variant={viewingRecord.transportType === "实际运输" ? "default" : "secondary"}>
+                       {viewingRecord.transportType}
+                     </Badge>
+                   </div>
+                 </div>
+               </div>
+
+               {/* 其他信息 */}
+               <div className="grid gap-4">
+                 <h3 className="font-semibold text-lg">其他信息</h3>
+                 <div className="grid gap-4">
                   {viewingRecord.remarks && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
