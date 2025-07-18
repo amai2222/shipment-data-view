@@ -741,7 +741,7 @@ export default function Home() {
                       cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
                     />
                      <Legend 
-                       formatter={() => `总费用 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) - 点击查看全部运单`}
+                       formatter={() => `司机应收汇总 (¥${projectData.legendTotals.totalCostSum.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) - 点击查看全部运单`}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',
@@ -833,7 +833,7 @@ export default function Home() {
                        <TableHead className="px-2 py-2 text-xs">装货重量</TableHead>
                        <TableHead className="px-2 py-2 text-xs">卸货重量</TableHead>
                        <TableHead className="px-2 py-2 text-xs">运输类型</TableHead>
-                       <TableHead className="px-2 py-2 text-xs">司机应收</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">费用</TableHead>
                        <TableHead className="px-2 py-2 text-xs">备注</TableHead>
                      </TableRow>
                    </TableHeader>
