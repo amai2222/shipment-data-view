@@ -335,7 +335,7 @@ export default function Dashboard() {
               <TrendingUp className="h-6 w-6 text-yellow-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">司机应收款汇总</p>
+              <p className="text-sm font-medium text-muted-foreground">司机总应收</p>
               <p className="text-2xl font-bold">¥{overviewStats.totalCost.toFixed(2)}</p>
             </div>
           </CardContent>
@@ -559,7 +559,7 @@ export default function Dashboard() {
                       }}
                     />
                     <Legend 
-                      formatter={() => `总费用 (¥${projectData.legendTotals.totalCostSum.toFixed(2)})`}
+                      formatter={() => `司机应收汇总 (¥${projectData.legendTotals.totalCostSum.toFixed(2)})`}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',
