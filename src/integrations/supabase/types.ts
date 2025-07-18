@@ -107,6 +107,7 @@ export type Database = {
       logistics_records: {
         Row: {
           auto_number: string
+          chain_id: string | null
           created_at: string
           created_by_user_id: string
           current_cost: number | null
@@ -130,6 +131,7 @@ export type Database = {
         }
         Insert: {
           auto_number: string
+          chain_id?: string | null
           created_at?: string
           created_by_user_id: string
           current_cost?: number | null
@@ -153,6 +155,7 @@ export type Database = {
         }
         Update: {
           auto_number?: string
+          chain_id?: string | null
           created_at?: string
           created_by_user_id?: string
           current_cost?: number | null
@@ -175,6 +178,13 @@ export type Database = {
           unloading_weight?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "logistics_records_chain_id_fkey"
+            columns: ["chain_id"]
+            isOneToOne: false
+            referencedRelation: "partner_chains"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "logistics_records_driver_id_fkey"
             columns: ["driver_id"]

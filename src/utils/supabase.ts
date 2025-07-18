@@ -201,6 +201,7 @@ export class SupabaseStorage {
       autoNumber: record.auto_number,
       projectId: record.project_id,
       projectName: record.project_name,
+      chainId: record.chain_id,
       loadingDate: record.loading_date,
       loadingLocation: record.loading_location,
       unloadingLocation: record.unloading_location,
@@ -231,6 +232,7 @@ export class SupabaseStorage {
         auto_number: autoNumber,
         project_id: record.projectId,
         project_name: record.projectName,
+        chain_id: record.chainId,
         loading_date: record.loadingDate,
         loading_location: record.loadingLocation,
         unloading_location: record.unloadingLocation,
@@ -258,6 +260,7 @@ export class SupabaseStorage {
       autoNumber: data.auto_number,
       projectId: data.project_id,
       projectName: data.project_name,
+      chainId: data.chain_id,
       loadingDate: data.loading_date,
       loadingLocation: data.loading_location,
       unloadingLocation: data.unloading_location,
@@ -303,6 +306,7 @@ export class SupabaseStorage {
       .update({
         project_id: updates.projectId,
         project_name: updates.projectName,
+        chain_id: updates.chainId,
         loading_date: updates.loadingDate,
         loading_location: updates.loadingLocation,
         unloading_location: updates.unloadingLocation,
@@ -398,6 +402,31 @@ export class SupabaseStorage {
     
     if (error) throw error;
     return data || [];
+  }
+
+  // 获取项目的默认合作链路ID
+  static async getDefaultChainId(projectId: string): Promise<string | null> {
+    const { data, error } = await supabase
+      .from('partner_chains')
+      .select('id')
+      .eq('project_id', projectId)
+      .eq('is_default', true)
+      .single();
+    
+    if (error) {
+      // 如果没有默认链路，获取第一个链路
+      const { data: firstChain } = await supabase
+        .from('partner_chains')
+        .select('id')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single();
+      
+      return firstChain?.id || null;
+    }
+    
+    return data?.id || null;
   }
 
   // 生成合作方成本记录
