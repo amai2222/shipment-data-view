@@ -559,7 +559,7 @@ export default function Dashboard() {
                       }}
                     />
                     <Legend 
-                      formatter={() => `总费用 (¥${projectData.legendTotals.totalCostSum.toFixed(2)})`}
+                      formatter={() => `司机应收汇总 (¥${projectData.legendTotals.totalCostSum.toFixed(2)})`}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',
