@@ -551,7 +551,7 @@ export default function Dashboard() {
                     />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
-                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总费用']}
+                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '司机应收汇总']}
                       contentStyle={{
                         backgroundColor: '#fff',
                         border: '1px solid #ccc',
@@ -559,7 +559,7 @@ export default function Dashboard() {
                       }}
                     />
                     <Legend 
-                      formatter={() => `司机应收汇总 (¥${projectData.legendTotals.totalCostSum.toFixed(2)})`}
+                      formatter={() => `总费用 (¥${projectData.legendTotals.totalCostSum.toFixed(2)})`}
                       wrapperStyle={{ 
                         paddingTop: '20px',
                         fontSize: '14px',

@@ -732,7 +732,7 @@ export default function Home() {
                      />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')}
-                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总费用']}
+                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, '司机应收汇总']}
                       contentStyle={{
                         backgroundColor: '#fff',
                         border: '1px solid #ccc',
@@ -805,7 +805,7 @@ export default function Home() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-blue-700">总费用</p>
+                    <p className="text-sm text-blue-700">司机应收汇总</p>
                     <p className="text-lg font-bold text-blue-900">
                       ¥{selectedRecords.reduce((sum, r) => sum + (r.currentFee || 0) + (r.extraFee || 0), 0).toFixed(2)}
                     </p>
