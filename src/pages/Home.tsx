@@ -506,7 +506,7 @@ export default function Home() {
               <TrendingUp className="h-6 w-6 text-yellow-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">司机应收款汇总</p>
+              <p className="text-sm font-medium text-muted-foreground">司机总应收</p>
               <p className="text-2xl font-bold">¥{overviewStats.totalCost.toFixed(2)}</p>
             </div>
           </CardContent>
@@ -833,7 +833,7 @@ export default function Home() {
                        <TableHead className="px-2 py-2 text-xs">装货重量</TableHead>
                        <TableHead className="px-2 py-2 text-xs">卸货重量</TableHead>
                        <TableHead className="px-2 py-2 text-xs">运输类型</TableHead>
-                       <TableHead className="px-2 py-2 text-xs">费用</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">司机应收</TableHead>
                        <TableHead className="px-2 py-2 text-xs">备注</TableHead>
                      </TableRow>
                    </TableHeader>
