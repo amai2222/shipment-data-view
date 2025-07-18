@@ -506,7 +506,7 @@ export default function Home() {
               <TrendingUp className="h-6 w-6 text-yellow-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">总运输费用</p>
+              <p className="text-sm font-medium text-muted-foreground">司机总应收</p>
               <p className="text-2xl font-bold">¥{overviewStats.totalCost.toFixed(2)}</p>
             </div>
           </CardContent>
