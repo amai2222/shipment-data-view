@@ -858,7 +858,7 @@ export default function BusinessEntry() {
                   <TableHead>重量</TableHead>
                   <TableHead>类型</TableHead>
                   <TableHead>合作链路</TableHead>
-                  <TableHead>费用</TableHead>
+                  <TableHead>司机应收</TableHead>
                   <TableHead>操作</TableHead>
                 </TableRow>
               </TableHeader>
