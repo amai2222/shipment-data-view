@@ -251,6 +251,9 @@ export default function Projects() {
     try {
       setIsSubmitting(true);
       
+      console.log('开始保存项目，选择的链路数量:', selectedChains.length);
+      console.log('链路详情:', selectedChains);
+      
       // 先确保装货和卸货地址存在于地址库中
       await findOrCreateLocation(formData.loadingAddress);
       await findOrCreateLocation(formData.unloadingAddress);
@@ -282,7 +285,12 @@ export default function Projects() {
       for (let chainIndex = 0; chainIndex < selectedChains.length; chainIndex++) {
         const chain = selectedChains[chainIndex];
         
-        if (chain.partners.length === 0) continue;
+        console.log(`处理链路 ${chainIndex + 1}:`, chain);
+        
+        if (chain.partners.length === 0) {
+          console.log(`链路 ${chainIndex + 1} 没有合作方，跳过`);
+          continue;
+        }
         
         // 创建合作链路
         const { data: chainData, error: chainError } = await supabase
@@ -297,32 +305,49 @@ export default function Projects() {
           .single();
 
         if (chainError) {
-          console.error('Error creating partner chain:', chainError);
+          console.error(`创建链路 ${chainIndex + 1} 失败:`, chainError);
           continue;
         }
 
-        // 为链路添加合作方
-        for (const sp of chain.partners) {
-          // 只保存已选择现有合作方的记录
-          if (sp.partnerId) {
-            const { error: insertError } = await supabase
-              .from('project_partners')
-              .insert({
-                project_id: projectId,
-                partner_id: sp.partnerId,
-                chain_id: chainData.id,
-                level: sp.level,
-                tax_rate: sp.calculationMethod === "tax" ? sp.taxRate : 0,
-                calculation_method: sp.calculationMethod || "tax",
-                profit_rate: sp.calculationMethod === "profit" ? (sp.profitRate || 0) : 0
-              });
+        console.log(`链路 ${chainIndex + 1} 创建成功:`, chainData);
 
-            if (insertError) {
-              console.error('Error creating project partner:', insertError);
-            }
+        // 为链路添加合作方
+        for (let partnerIndex = 0; partnerIndex < chain.partners.length; partnerIndex++) {
+          const sp = chain.partners[partnerIndex];
+          
+          console.log(`处理链路 ${chainIndex + 1} 的合作方 ${partnerIndex + 1}:`, sp);
+          
+          // 检查必要的字段
+          if (!sp.partnerId) {
+            console.log(`链路 ${chainIndex + 1} 的合作方 ${partnerIndex + 1} 没有选择，跳过`);
+            continue;
+          }
+
+          const insertData = {
+            project_id: projectId,
+            partner_id: sp.partnerId,
+            chain_id: chainData.id,
+            level: sp.level,
+            tax_rate: sp.calculationMethod === "tax" ? sp.taxRate : 0,
+            calculation_method: sp.calculationMethod || "tax",
+            profit_rate: sp.calculationMethod === "profit" ? (sp.profitRate || 0) : 0
+          };
+
+          console.log(`准备插入合作方数据:`, insertData);
+
+          const { error: insertError } = await supabase
+            .from('project_partners')
+            .insert(insertData);
+
+          if (insertError) {
+            console.error(`保存链路 ${chainIndex + 1} 的合作方 ${partnerIndex + 1} 失败:`, insertError);
+          } else {
+            console.log(`链路 ${chainIndex + 1} 的合作方 ${partnerIndex + 1} 保存成功`);
           }
         }
       }
+
+      console.log('所有数据保存完成，重新加载数据');
 
       // 重新加载数据
       await loadData();
@@ -421,6 +446,45 @@ export default function Projects() {
           }
         : chain
     ));
+  };
+
+  // 更新合作方信息 - 添加详细的日志
+  const updatePartnerInChain = (chainIndex: number, partnerIndex: number, field: string, value: any) => {
+    console.log(`更新链路 ${chainIndex} 合作方 ${partnerIndex} 的 ${field} 为:`, value);
+    
+    setSelectedChains(prev => {
+      const newChains = prev.map((chain, ci) => {
+        if (ci === chainIndex) {
+          const newPartners = chain.partners.map((partner, pi) => {
+            if (pi === partnerIndex) {
+              const updatedPartner = { ...partner, [field]: value };
+              
+              // 如果是选择合作方，同时更新合作方名称和默认税率
+              if (field === 'partnerId') {
+                const selectedPartner = partners.find(p => p.id === value);
+                if (selectedPartner) {
+                  updatedPartner.partnerName = selectedPartner.name;
+                  // 如果当前是税点计算方法，更新税率为合作方的默认税率
+                  if (updatedPartner.calculationMethod === "tax") {
+                    updatedPartner.taxRate = selectedPartner.taxRate;
+                  }
+                }
+              }
+              
+              console.log(`更新后的合作方信息:`, updatedPartner);
+              return updatedPartner;
+            }
+            return partner;
+          });
+          
+          return { ...chain, partners: newPartners };
+        }
+        return chain;
+      });
+      
+      console.log(`更新后的所有链路:`, newChains);
+      return newChains;
+    });
   };
 
   if (isLoading) {
@@ -602,23 +666,7 @@ export default function Projects() {
                                   <div className="flex-1">
                                     <select
                                       value={partner.partnerId}
-                                      onChange={(e) => {
-                                        const partnerId = e.target.value;
-                                        const selectedPartner = partners.find(p => p.id === partnerId);
-                                        setSelectedChains(prev => prev.map((c, ci) => 
-                                          ci === chainIndex ? {
-                                            ...c,
-                                            partners: c.partners.map((p, pi) => 
-                                              pi === partnerIndex ? {
-                                                ...p,
-                                                partnerId,
-                                                partnerName: selectedPartner?.name || '',
-                                                taxRate: selectedPartner?.taxRate || p.taxRate
-                                              } : p
-                                            )
-                                          } : c
-                                        ));
-                                      }}
+                                      onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'partnerId', e.target.value)}
                                       className="w-full p-1 border rounded text-sm"
                                       disabled={isSubmitting}
                                     >
@@ -635,17 +683,7 @@ export default function Projects() {
                                       type="number"
                                       min="1"
                                       value={partner.level}
-                                      onChange={(e) => {
-                                        const level = parseInt(e.target.value) || 1;
-                                        setSelectedChains(prev => prev.map((c, ci) => 
-                                          ci === chainIndex ? {
-                                            ...c,
-                                            partners: c.partners.map((p, pi) => 
-                                              pi === partnerIndex ? { ...p, level } : p
-                                            )
-                                          } : c
-                                        ));
-                                      }}
+                                      onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'level', parseInt(e.target.value) || 1)}
                                       className="w-full p-1 border rounded text-sm"
                                       placeholder="级别"
                                       disabled={isSubmitting}
@@ -654,17 +692,7 @@ export default function Projects() {
                                    <div className="w-24">
                                      <select
                                        value={partner.calculationMethod}
-                                       onChange={(e) => {
-                                         const calculationMethod = e.target.value as "tax" | "profit";
-                                         setSelectedChains(prev => prev.map((c, ci) => 
-                                           ci === chainIndex ? {
-                                             ...c,
-                                             partners: c.partners.map((p, pi) => 
-                                               pi === partnerIndex ? { ...p, calculationMethod } : p
-                                             )
-                                           } : c
-                                         ));
-                                       }}
+                                       onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'calculationMethod', e.target.value)}
                                        className="w-full p-1 border rounded text-sm"
                                        disabled={isSubmitting}
                                      >
@@ -681,18 +709,8 @@ export default function Projects() {
                                        value={partner.calculationMethod === "tax" ? partner.taxRate : (partner.profitRate || 0)}
                                        onChange={(e) => {
                                          const value = parseFloat(e.target.value) || 0;
-                                         setSelectedChains(prev => prev.map((c, ci) => 
-                                           ci === chainIndex ? {
-                                             ...c,
-                                             partners: c.partners.map((p, pi) => 
-                                               pi === partnerIndex ? 
-                                                 partner.calculationMethod === "tax" 
-                                                   ? { ...p, taxRate: value }
-                                                   : { ...p, profitRate: value }
-                                                 : p
-                                             )
-                                           } : c
-                                         ));
+                                         const field = partner.calculationMethod === "tax" ? 'taxRate' : 'profitRate';
+                                         updatePartnerInChain(chainIndex, partnerIndex, field, value);
                                        }}
                                        className="w-full p-1 border rounded text-sm"
                                        placeholder={partner.calculationMethod === "tax" ? "税点" : "利润"}
@@ -840,76 +858,62 @@ export default function Projects() {
                                 <span className="text-muted-foreground">创建时间：</span>
                                 <span className="font-medium">{new Date(project.createdAt).toLocaleDateString('zh-CN')}</span>
                               </div>
-                              <div>
-                                <span className="text-muted-foreground">项目编码：</span>
-                                <span className="font-mono text-xs">{project.autoCode || '未生成'}</span>
-                              </div>
                             </div>
                             
                             {/* 合作链路详情 */}
-                            {(partnerChains[project.id] || []).length > 0 && (
-                              <div className="space-y-3">
-                                <h5 className="font-medium text-sm">合作链路详情</h5>
-                                {(partnerChains[project.id] || []).map(chain => {
-                                  const chainPartners = (projectPartners[project.id] || [])
-                                    .filter(p => p.chainId === chain.id)
-                                    .sort((a, b) => a.level - b.level);
-                                  
-                                  return (
-                                    <div key={chain.id} className="border rounded p-3 space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <h6 className="font-medium text-sm flex items-center">
-                                          <Link className="h-4 w-4 mr-1" />
-                                          {chain.chainName}
-                                          {chain.isDefault && (
-                                            <span className="ml-2 px-2 py-1 bg-primary text-primary-foreground text-xs rounded">默认</span>
-                                          )}
-                                        </h6>
-                                        {chain.description && (
-                                          <span className="text-xs text-muted-foreground">{chain.description}</span>
-                                        )}
-                                      </div>
-                                      
-                                      {chainPartners.length > 0 ? (
-                                        <div className="flex flex-wrap gap-2">
-                                          {chainPartners.map((partner, index) => (
-                                            <div key={partner.id} className="flex items-center">
-                                              <div className="flex items-center bg-background border rounded-lg p-2">
-                                                <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium mr-2">
-                                                  {partner.level}
-                                                </div>
-                                                <div className="text-sm">
-                                                  <div className="font-medium">{partner.partnerName}</div>
-                                                  <div className="text-xs text-muted-foreground">税点: {(partner.taxRate * 100).toFixed(2)}%</div>
-                                                </div>
-                                              </div>
-                                              {index < chainPartners.length - 1 && (
-                                                <ChevronRight className="h-4 w-4 text-muted-foreground mx-1" />
-                                              )}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <div className="text-sm text-muted-foreground">暂无合作方</div>
+                            <div className="space-y-3">
+                              <h5 className="font-semibold text-sm">合作链路详情</h5>
+                              {(partnerChains[project.id] || []).map((chain) => {
+                                const chainPartners = (projectPartners[project.id] || [])
+                                  .filter(p => p.chainId === chain.id)
+                                  .sort((a, b) => a.level - b.level);
+                                
+                                return (
+                                  <div key={chain.id} className="bg-background/50 rounded p-3 border">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <h6 className="font-medium text-sm">
+                                        {chain.chainName} 
+                                        {chain.isDefault && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">默认</span>}
+                                      </h6>
+                                      {chain.description && (
+                                        <span className="text-xs text-muted-foreground">{chain.description}</span>
                                       )}
                                     </div>
-                                  );
-                                })}
-                              </div>
-                            )}
+                                    {chainPartners.length > 0 ? (
+                                      <div className="grid gap-2">
+                                        {chainPartners.map((partner) => (
+                                          <div key={partner.id} className="flex items-center justify-between text-xs">
+                                            <span className="flex items-center">
+                                              <span className="w-6 h-6 bg-primary/10 text-primary rounded-full flex items-center justify-center mr-2 text-xs">
+                                                {partner.level}
+                                              </span>
+                                              {partner.partnerName}
+                                            </span>
+                                            <span className="text-muted-foreground">
+                                              {partner.calculationMethod === "tax" 
+                                                ? `税点: ${(partner.taxRate * 100).toFixed(2)}%`
+                                                : `利润: ${partner.profitRate}元`
+                                              }
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="text-xs text-muted-foreground">暂无合作方</div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              {(!partnerChains[project.id] || partnerChains[project.id].length === 0) && (
+                                <div className="text-xs text-muted-foreground">暂无合作链路配置</div>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                       </TableRow>
                     )}
                   </React.Fragment>
                 ))}
-                {projects.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      暂无项目数据，请点击"新增项目"开始添加
-                    </TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
           </div>
