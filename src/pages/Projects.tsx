@@ -303,42 +303,23 @@ export default function Projects() {
 
         // 为链路添加合作方
         for (const sp of chain.partners) {
-          let partnerId = sp.partnerId;
-          
-          // 如果是新合作方（没有partnerId），先创建合作方记录
-          if (!sp.partnerId && sp.partnerName) {
-            // 对于新合作方，使用项目中设置的税率作为默认税率
-            const defaultTaxRate = sp.calculationMethod === "tax" ? sp.taxRate : sp.profitRate || 0;
-            
-            const { data: newPartner, error: createPartnerError } = await supabase
-              .from('partners')
-              .insert({
-                name: sp.partnerName,
-                tax_rate: defaultTaxRate
-              })
-              .select()
-              .single();
-
-            if (createPartnerError) {
-              console.error('Error creating new partner:', createPartnerError);
-              continue;
-            }
-            
-            partnerId = newPartner.id;
-          }
-
-          if (partnerId) {
-            await supabase
+          // 只保存已选择现有合作方的记录
+          if (sp.partnerId) {
+            const { error: insertError } = await supabase
               .from('project_partners')
               .insert({
                 project_id: projectId,
-                partner_id: partnerId,
+                partner_id: sp.partnerId,
                 chain_id: chainData.id,
                 level: sp.level,
-                tax_rate: sp.taxRate,
+                tax_rate: sp.calculationMethod === "tax" ? sp.taxRate : 0,
                 calculation_method: sp.calculationMethod || "tax",
-                profit_rate: sp.profitRate || 0
+                profit_rate: sp.calculationMethod === "profit" ? (sp.profitRate || 0) : 0
               });
+
+            if (insertError) {
+              console.error('Error creating project partner:', insertError);
+            }
           }
         }
       }
