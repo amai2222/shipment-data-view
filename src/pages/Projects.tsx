@@ -1,7 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-
-// 生成唯一ID的辅助函数
-const generateId = () => Math.random().toString(36).substr(2, 9);
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -210,11 +207,11 @@ export default function Projects() {
     const chainsWithPartners = chains.map(chain => {
       const chainPartners = partners.filter(p => p.chainId === chain.id);
       return {
-        id: generateId(), // 为链路添加唯一ID
+        id: `chain-${Date.now()}-${chain.id}`, // 为链路添加唯一ID，避免重复
         chainName: chain.chainName,
         description: chain.description,
-        partners: chainPartners.map(pp => ({
-          id: generateId(), // 为合作方添加唯一ID
+        partners: chainPartners.map((pp, index) => ({
+          id: `partner-${Date.now()}-${chain.id}-${index}`, // 为合作方添加唯一ID
           partnerId: pp.partnerId,
           level: pp.level,
           taxRate: pp.taxRate,
@@ -414,8 +411,10 @@ export default function Projects() {
   // 添加新合作链路
   const addNewChain = () => {
     setSelectedChains(prev => [...prev, {
-      id: generateId(), // 为新链路生成唯一ID
+      // 为新链路添加一个临时的、唯一的ID
+      id: `chain-${Date.now()}`, 
       chainName: `链路${prev.length + 1}`,
+      description: '',
       partners: []
     }]);
   };
@@ -432,7 +431,8 @@ export default function Projects() {
         ? {
             ...chain,
             partners: [...chain.partners, {
-              id: generateId(), // 为新合作方生成唯一ID
+              // 为新合作方添加一个临时的、唯一的ID
+              id: `partner-${Date.now()}-${chain.partners.length}`, 
               partnerId: '',
               level: chain.partners.length + 1,
               taxRate: 0.03,
