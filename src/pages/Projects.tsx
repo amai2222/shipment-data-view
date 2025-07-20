@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+
+// 生成唯一ID的辅助函数
+const generateId = () => Math.random().toString(36).substr(2, 9);
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,9 +39,10 @@ export default function Projects() {
   
   // 合作链路配置状态
   const [selectedChains, setSelectedChains] = useState<{
+    id: string; // 添加唯一ID
     chainName: string;
     description?: string;
-    partners: {partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
+    partners: {id: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[]; // 为partners也添加唯一ID
   }[]>([]);
 
   // 加载数据
@@ -206,9 +210,11 @@ export default function Projects() {
     const chainsWithPartners = chains.map(chain => {
       const chainPartners = partners.filter(p => p.chainId === chain.id);
       return {
+        id: generateId(), // 为链路添加唯一ID
         chainName: chain.chainName,
         description: chain.description,
         partners: chainPartners.map(pp => ({
+          id: generateId(), // 为合作方添加唯一ID
           partnerId: pp.partnerId,
           level: pp.level,
           taxRate: pp.taxRate,
@@ -408,6 +414,7 @@ export default function Projects() {
   // 添加新合作链路
   const addNewChain = () => {
     setSelectedChains(prev => [...prev, {
+      id: generateId(), // 为新链路生成唯一ID
       chainName: `链路${prev.length + 1}`,
       partners: []
     }]);
@@ -425,6 +432,7 @@ export default function Projects() {
         ? {
             ...chain,
             partners: [...chain.partners, {
+              id: generateId(), // 为新合作方生成唯一ID
               partnerId: '',
               level: chain.partners.length + 1,
               taxRate: 0.03,
@@ -608,7 +616,7 @@ export default function Projects() {
                   {selectedChains.length > 0 ? (
                     <div className="space-y-4">
                       {selectedChains.map((chain, chainIndex) => (
-                        <div key={chainIndex} className="border rounded-lg p-4 space-y-3">
+                        <div key={chain.id} className="border rounded-lg p-4 space-y-3">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <Link className="h-4 w-4" />
@@ -661,8 +669,8 @@ export default function Projects() {
                           {/* 合作方列表 */}
                           {chain.partners.length > 0 ? (
                             <div className="space-y-2">
-                              {chain.partners.map((partner, partnerIndex) => (
-                                <div key={partnerIndex} className="flex items-center space-x-2 p-2 bg-muted/30 rounded">
+                               {chain.partners.map((partner, partnerIndex) => (
+                                 <div key={partner.id} className="flex items-center space-x-2 p-2 bg-muted/30 rounded">
                                   <div className="flex-1">
                                     <select
                                       value={partner.partnerId}
