@@ -778,7 +778,7 @@ export default function Projects() {
               </TableHeader>
               <TableBody>
                 {projects.map((project) => (
-                  <React.Fragment key={project.id}>
+                  <>
                     <TableRow
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
@@ -897,7 +897,7 @@ export default function Projects() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </React.Fragment>
+                  </>
                 ))}
               </TableBody>
             </Table>
