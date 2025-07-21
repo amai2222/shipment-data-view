@@ -393,6 +393,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      save_project_with_chains: {
+        Args: { project_id_in: string; project_data: Json; chains_data: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

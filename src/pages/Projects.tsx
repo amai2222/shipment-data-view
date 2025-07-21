@@ -251,6 +251,30 @@ export default function Projects() {
       return;
     }
 
+    // 验证每个链路至少有一个合作方
+    for (let i = 0; i < selectedChains.length; i++) {
+      if (selectedChains[i].partners.length === 0) {
+        toast({
+          title: `链路 ${i + 1} 缺少合作方`,
+          description: "每个链路至少需要一个合作方",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // 验证每个合作方都已选择
+      for (let j = 0; j < selectedChains[i].partners.length; j++) {
+        if (!selectedChains[i].partners[j].partnerId) {
+          toast({
+            title: `链路 ${i + 1} 第 ${j + 1} 个合作方未选择`,
+            description: "请为所有合作方选择具体的合作方",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+
     try {
       setIsSubmitting(true);
       
@@ -266,89 +290,42 @@ export default function Projects() {
       if (editingProject) {
         await SupabaseStorage.updateProject(editingProject.id, formData);
         projectId = editingProject.id;
-        
-        // 删除现有的合作链路和合作方关联
-        await supabase.from('project_partners').delete().eq('project_id', projectId);
-        await supabase.from('partner_chains').delete().eq('project_id', projectId);
-          
-        toast({
-          title: "项目更新成功",
-          description: `项目 "${formData.name}" 已更新，相关地址已自动加入地址库`,
-        });
       } else {
         const newProject = await SupabaseStorage.addProject(formData);
         projectId = newProject.id;
-        toast({
-          title: "项目创建成功",
-          description: `项目 "${formData.name}" 已创建，相关地址已自动加入地址库`,
-        });
       }
 
-      // 保存合作链路和合作方关联
-      for (let chainIndex = 0; chainIndex < selectedChains.length; chainIndex++) {
-        const chain = selectedChains[chainIndex];
-        
-        console.log(`处理链路 ${chainIndex + 1}:`, chain);
-        
-        if (chain.partners.length === 0) {
-          console.log(`链路 ${chainIndex + 1} 没有合作方，跳过`);
-          continue;
-        }
-        
-        // 创建合作链路
-        const { data: chainData, error: chainError } = await supabase
-          .from('partner_chains')
-          .insert({
-            project_id: projectId,
-            chain_name: chain.chainName || `链路${chainIndex + 1}`,
-            description: chain.description,
-            is_default: chainIndex === 0 // 第一个链路设为默认
-          })
-          .select()
-          .single();
+      // 为 RPC 准备 JSON 格式的数据
+      const chainsPayload = selectedChains.map((chain, index) => ({
+        chainName: chain.chainName || `链路${index + 1}`,
+        description: chain.description || '',
+        isDefault: index === 0, // 确保 isDefault 被明确设置
+        partners: chain.partners.map(p => ({
+          partnerId: p.partnerId,
+          level: Number(p.level),
+          taxRate: Number(p.taxRate),
+          calculationMethod: p.calculationMethod || 'tax',
+          profitRate: Number(p.profitRate || 0)
+        }))
+      }));
 
-        if (chainError) {
-          console.error(`创建链路 ${chainIndex + 1} 失败:`, chainError);
-          continue;
-        }
+      console.log('调用 RPC 保存项目数据:', { projectId, formData, chainsPayload });
 
-        console.log(`链路 ${chainIndex + 1} 创建成功:`, chainData);
+      const { error } = await supabase.rpc('save_project_with_chains', {
+        project_id_in: projectId,
+        project_data: formData,
+        chains_data: chainsPayload
+      });
 
-        // 为链路添加合作方
-        for (let partnerIndex = 0; partnerIndex < chain.partners.length; partnerIndex++) {
-          const sp = chain.partners[partnerIndex];
-          
-          console.log(`处理链路 ${chainIndex + 1} 的合作方 ${partnerIndex + 1}:`, sp);
-          
-          // 检查必要的字段
-          if (!sp.partnerId) {
-            console.log(`链路 ${chainIndex + 1} 的合作方 ${partnerIndex + 1} 没有选择，跳过`);
-            continue;
-          }
-
-          const insertData = {
-            project_id: projectId,
-            partner_id: sp.partnerId,
-            chain_id: chainData.id,
-            level: sp.level,
-            tax_rate: sp.calculationMethod === "tax" ? sp.taxRate : 0,
-            calculation_method: sp.calculationMethod || "tax",
-            profit_rate: sp.calculationMethod === "profit" ? (sp.profitRate || 0) : 0
-          };
-
-          console.log(`准备插入合作方数据:`, insertData);
-
-          const { error: insertError } = await supabase
-            .from('project_partners')
-            .insert(insertData);
-
-          if (insertError) {
-            console.error(`保存链路 ${chainIndex + 1} 的合作方 ${partnerIndex + 1} 失败:`, insertError);
-          } else {
-            console.log(`链路 ${chainIndex + 1} 的合作方 ${partnerIndex + 1} 保存成功`);
-          }
-        }
+      if (error) {
+        console.error('RPC 调用失败:', error);
+        throw error;
       }
+
+      toast({
+        title: editingProject ? "项目更新成功" : "项目创建成功",
+        description: `项目 "${formData.name}" 已成功保存，相关地址已自动加入地址库`,
+      });
 
       console.log('所有数据保存完成，重新加载数据');
 
@@ -358,10 +335,10 @@ export default function Projects() {
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
-      console.error('Error saving project:', error);
+      console.error('通过 RPC 保存项目时出错:', error);
       toast({
         title: "操作失败",
-        description: "创建或更新项目时出现错误",
+        description: "保存项目时发生错误，请重试",
         variant: "destructive",
       });
     } finally {
