@@ -37,9 +37,10 @@ export default function Projects() {
   // 合作链路配置状态
   const [selectedChains, setSelectedChains] = useState<{
     id: string; // 添加唯一ID
+    dbId?: string; // 数据库原始ID
     chainName: string;
     description?: string;
-    partners: {id: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[]; // 为partners也添加唯一ID
+    partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[]; // 为partners也添加唯一ID
   }[]>([]);
 
   // 加载数据
@@ -204,14 +205,21 @@ export default function Projects() {
     const chains = partnerChains[project.id] || [];
     const partners = projectPartners[project.id] || [];
     
+    // FIX: Preserve the original database ID for each chain and partner
     const chainsWithPartners = chains.map(chain => {
       const chainPartners = partners.filter(p => p.chainId === chain.id);
       return {
-        id: `chain-${Date.now()}-${chain.id}`, // 为链路添加唯一ID，避免重复
+        // Use a stable temporary ID for React keys
+        id: `chain-existing-${chain.id}`,
+        // ADD: Store the original database ID
+        dbId: chain.id,
         chainName: chain.chainName,
         description: chain.description,
         partners: chainPartners.map((pp, index) => ({
-          id: `partner-${Date.now()}-${chain.id}-${index}`, // 为合作方添加唯一ID
+          // Use a stable temporary ID for React keys
+          id: `partner-existing-${pp.id}`,
+          // ADD: Store the original database ID
+          dbId: pp.id,
           partnerId: pp.partnerId,
           level: pp.level,
           taxRate: pp.taxRate,
@@ -295,12 +303,17 @@ export default function Projects() {
         projectId = newProject.id;
       }
 
-      // 为 RPC 准备 JSON 格式的数据
+      // FIX: Prepare the payload for the RPC with the correct IDs
       const chainsPayload = selectedChains.map((chain, index) => ({
+        // Send the original DB ID for updates, or null for inserts
+        id: chain.dbId,
         chainName: chain.chainName || `链路${index + 1}`,
         description: chain.description || '',
-        isDefault: index === 0, // 确保 isDefault 被明确设置
+        // The first chain is the default one
+        isDefault: index === 0,
         partners: chain.partners.map(p => ({
+          // Send the original DB ID for updates, or null for inserts
+          id: p.dbId,
           partnerId: p.partnerId,
           level: Number(p.level),
           taxRate: Number(p.taxRate),
@@ -388,8 +401,10 @@ export default function Projects() {
   // 添加新合作链路
   const addNewChain = () => {
     setSelectedChains(prev => [...prev, {
-      // 为新链路添加一个临时的、唯一的ID
-      id: `chain-${Date.now()}`, 
+      // A unique temporary ID for React keys
+      id: `chain-new-${Date.now()}`,
+      // FIX: A new chain has no dbId
+      dbId: undefined,
       chainName: `链路${prev.length + 1}`,
       description: '',
       partners: []
@@ -408,8 +423,10 @@ export default function Projects() {
         ? {
             ...chain,
             partners: [...chain.partners, {
-              // 为新合作方添加一个临时的、唯一的ID
-              id: `partner-${Date.now()}-${chain.partners.length}`, 
+              // A unique temporary ID for React keys
+              id: `partner-new-${Date.now()}`,
+              // FIX: A new partner has no dbId
+              dbId: undefined,
               partnerId: '',
               level: chain.partners.length + 1,
               taxRate: 0.03,
