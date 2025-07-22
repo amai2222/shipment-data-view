@@ -17,6 +17,7 @@ export interface Driver {
   name: string;
   licensePlate: string;
   phone: string;
+  projectId?: string; // 关联项目ID
   createdAt: string;
 }
 
@@ -24,6 +25,7 @@ export interface Driver {
 export interface Location {
   id: string;
   name: string;
+  projectId?: string; // 关联项目ID
   createdAt: string;
 }
 

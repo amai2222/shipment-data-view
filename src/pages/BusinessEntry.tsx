@@ -19,7 +19,9 @@ export default function BusinessEntry() {
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([]); // 过滤后的司机
   const [locations, setLocations] = useState<Location[]>([]);
+  const [filteredLocations, setFilteredLocations] = useState<Location[]>([]); // 过滤后的地点
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<LogisticsRecord[]>([]);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
@@ -365,15 +367,27 @@ export default function BusinessEntry() {
     }
   };
 
-  // 当项目选择变化时加载合作链路
+  // 当项目选择变化时加载合作链路并过滤司机和地点
   useEffect(() => {
     if (formData.projectId) {
       loadPartnerChains(formData.projectId);
       setFormData(prev => ({ ...prev, chainId: "" })); // 重置链路选择
+      
+      // 过滤司机：优先显示该项目的司机，然后显示没有项目关联的司机
+      const projectDrivers = drivers.filter(d => d.projectId === formData.projectId);
+      const noProjectDrivers = drivers.filter(d => !d.projectId);
+      setFilteredDrivers([...projectDrivers, ...noProjectDrivers]);
+      
+      // 过滤地点：优先显示该项目的地点，然后显示没有项目关联的地点
+      const projectLocations = locations.filter(l => l.projectId === formData.projectId);
+      const noProjectLocations = locations.filter(l => !l.projectId);
+      setFilteredLocations([...projectLocations, ...noProjectLocations]);
     } else {
       setPartnerChains([]);
+      setFilteredDrivers(drivers);
+      setFilteredLocations(locations);
     }
-  }, [formData.projectId]);
+  }, [formData.projectId, drivers, locations]);
 
   // 下载导入模板
   const handleTemplateDownload = () => {
@@ -604,13 +618,13 @@ export default function BusinessEntry() {
                   <SelectTrigger id="loadingLocation">
                     <SelectValue placeholder="选择装车地点" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.name}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                   <SelectContent>
+                     {filteredLocations.map((location) => (
+                       <SelectItem key={location.id} value={location.name}>
+                         {location.name} {location.projectId && "(项目专用)"}
+                       </SelectItem>
+                     ))}
+                   </SelectContent>
                 </Select>
               </div>
 
@@ -620,13 +634,13 @@ export default function BusinessEntry() {
                   <SelectTrigger id="unloadingLocation">
                     <SelectValue placeholder="选择卸车地点" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.name}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                   <SelectContent>
+                     {filteredLocations.map((location) => (
+                       <SelectItem key={location.id} value={location.name}>
+                         {location.name} {location.projectId && "(项目专用)"}
+                       </SelectItem>
+                     ))}
+                   </SelectContent>
                 </Select>
               </div>
 
@@ -636,13 +650,13 @@ export default function BusinessEntry() {
                   <SelectTrigger id="driver">
                     <SelectValue placeholder="选择司机" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {drivers.map((driver) => (
-                      <SelectItem key={driver.id} value={driver.id}>
-                        {driver.name} - {driver.licensePlate}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                   <SelectContent>
+                     {filteredDrivers.map((driver) => (
+                       <SelectItem key={driver.id} value={driver.id}>
+                         {driver.name} - {driver.licensePlate} {driver.projectId && "(项目专用)"}
+                       </SelectItem>
+                     ))}
+                   </SelectContent>
                 </Select>
               </div>
 

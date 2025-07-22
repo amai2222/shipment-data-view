@@ -21,6 +21,7 @@ export type Database = {
           license_plate: string
           name: string
           phone: string
+          project_id: string | null
         }
         Insert: {
           created_at?: string
@@ -28,6 +29,7 @@ export type Database = {
           license_plate: string
           name: string
           phone: string
+          project_id?: string | null
         }
         Update: {
           created_at?: string
@@ -35,26 +37,46 @@ export type Database = {
           license_plate?: string
           name?: string
           phone?: string
+          project_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "drivers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       locations: {
         Row: {
           created_at: string
           id: string
           name: string
+          project_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          project_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          project_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "locations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       logistics_partner_costs: {
         Row: {
@@ -402,7 +424,21 @@ export type Database = {
       [_ in never]: never
     }
     CompositeTypes: {
-      [_ in never]: never
+      partner_chain_type: {
+        id: string | null
+        chainName: string | null
+        description: string | null
+        isDefault: boolean | null
+        partners: Json | null
+      }
+      project_partner_type: {
+        id: string | null
+        partnerId: string | null
+        level: number | null
+        taxRate: number | null
+        calculationMethod: string | null
+        profitRate: number | null
+      }
     }
   }
 }

@@ -91,6 +91,25 @@ export class SupabaseStorage {
       name: d.name,
       licensePlate: d.license_plate,
       phone: d.phone,
+      projectId: d.project_id,
+      createdAt: d.created_at,
+    })) || [];
+  }
+
+  static async getDriversByProject(projectId: string): Promise<Driver[]> {
+    const { data, error } = await supabase
+      .from('drivers')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data?.map(d => ({
+      id: d.id,
+      name: d.name,
+      licensePlate: d.license_plate,
+      phone: d.phone,
+      projectId: d.project_id,
       createdAt: d.created_at,
     })) || [];
   }
@@ -102,6 +121,7 @@ export class SupabaseStorage {
         name: driver.name,
         license_plate: driver.licensePlate,
         phone: driver.phone,
+        project_id: driver.projectId,
       }])
       .select()
       .single();
@@ -113,6 +133,7 @@ export class SupabaseStorage {
       name: data.name,
       licensePlate: data.license_plate,
       phone: data.phone,
+      projectId: data.project_id,
       createdAt: data.created_at,
     };
   }
@@ -124,6 +145,7 @@ export class SupabaseStorage {
         name: updates.name,
         license_plate: updates.licensePlate,
         phone: updates.phone,
+        project_id: updates.projectId,
       })
       .eq('id', id);
     
@@ -150,6 +172,23 @@ export class SupabaseStorage {
     return data?.map(l => ({
       id: l.id,
       name: l.name,
+      projectId: l.project_id,
+      createdAt: l.created_at,
+    })) || [];
+  }
+
+  static async getLocationsByProject(projectId: string): Promise<Location[]> {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data?.map(l => ({
+      id: l.id,
+      name: l.name,
+      projectId: l.project_id,
       createdAt: l.created_at,
     })) || [];
   }
@@ -157,7 +196,10 @@ export class SupabaseStorage {
   static async addLocation(location: Omit<Location, 'id' | 'createdAt'>): Promise<Location> {
     const { data, error } = await supabase
       .from('locations')
-      .insert([{ name: location.name }])
+      .insert([{ 
+        name: location.name,
+        project_id: location.projectId,
+      }])
       .select()
       .single();
     
@@ -166,6 +208,7 @@ export class SupabaseStorage {
     return {
       id: data.id,
       name: data.name,
+      projectId: data.project_id,
       createdAt: data.created_at,
     };
   }
@@ -173,7 +216,10 @@ export class SupabaseStorage {
   static async updateLocation(id: string, updates: Partial<Location>): Promise<void> {
     const { error } = await supabase
       .from('locations')
-      .update({ name: updates.name })
+      .update({ 
+        name: updates.name,
+        project_id: updates.projectId,
+      })
       .eq('id', id);
     
     if (error) throw error;
@@ -372,24 +418,30 @@ export class SupabaseStorage {
   }
 
   // 查找或创建地点
-  static async findOrCreateLocation(name: string): Promise<Location> {
-    // 先查找是否存在
-    const { data: existing } = await supabase
+  static async findOrCreateLocation(name: string, projectId?: string): Promise<Location> {
+    // 先查找是否存在（如果有项目ID，则在该项目内查找）
+    let query = supabase
       .from('locations')
       .select('*')
-      .eq('name', name)
-      .single();
+      .eq('name', name);
+    
+    if (projectId) {
+      query = query.eq('project_id', projectId);
+    }
+    
+    const { data: existing } = await query.single();
     
     if (existing) {
       return {
         id: existing.id,
         name: existing.name,
+        projectId: existing.project_id,
         createdAt: existing.created_at,
       };
     }
     
     // 不存在则创建
-    return await this.addLocation({ name });
+    return await this.addLocation({ name, projectId });
   }
 
   // 获取项目的合作链路

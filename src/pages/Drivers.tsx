@@ -8,12 +8,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Edit, Trash2, Truck, Upload, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
-import { Driver } from "@/types";
+import { Driver, Project } from "@/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as XLSX from 'xlsx';
 
 export default function Drivers() {
   const { toast } = useToast();
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -21,6 +23,7 @@ export default function Drivers() {
     name: "",
     licensePlate: "",
     phone: "",
+    projectId: "",
   });
 
   // 加载司机数据
@@ -30,13 +33,17 @@ export default function Drivers() {
 
   const loadData = async () => {
     try {
-      const loadedDrivers = await SupabaseStorage.getDrivers();
+      const [loadedDrivers, loadedProjects] = await Promise.all([
+        SupabaseStorage.getDrivers(),
+        SupabaseStorage.getProjects()
+      ]);
       setDrivers(loadedDrivers);
+      setProjects(loadedProjects);
     } catch (error) {
-      console.error('Error loading drivers:', error);
+      console.error('Error loading data:', error);
       toast({
         title: "加载失败",
-        description: "无法加载司机数据",
+        description: "无法加载数据",
         variant: "destructive",
       });
     }
@@ -48,6 +55,7 @@ export default function Drivers() {
       name: "",
       licensePlate: "",
       phone: "",
+      projectId: "",
     });
     setEditingDriver(null);
   };
@@ -58,6 +66,7 @@ export default function Drivers() {
       name: driver.name,
       licensePlate: driver.licensePlate,
       phone: driver.phone,
+      projectId: driver.projectId || "",
     });
     setEditingDriver(driver);
     setIsDialogOpen(true);
@@ -273,7 +282,23 @@ export default function Drivers() {
                     onChange={(e) => setFormData(prev => ({...prev, phone: e.target.value}))}
                     placeholder="请输入电话号码"
                   />
-                </div>
+                 </div>
+                 <div className="space-y-2">
+                   <Label htmlFor="projectId">关联项目</Label>
+                   <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({...prev, projectId: value}))}>
+                     <SelectTrigger>
+                       <SelectValue placeholder="选择项目（可选）" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="">无项目关联</SelectItem>
+                       {projects.map((project) => (
+                         <SelectItem key={project.id} value={project.id}>
+                           {project.name}
+                         </SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button
                     type="button"
@@ -329,20 +354,27 @@ export default function Drivers() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>司机姓名</TableHead>
-                  <TableHead>车牌号</TableHead>
-                  <TableHead>司机电话</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead>操作</TableHead>
+                   <TableHead>司机姓名</TableHead>
+                   <TableHead>车牌号</TableHead>
+                   <TableHead>司机电话</TableHead>
+                   <TableHead>关联项目</TableHead>
+                   <TableHead>创建时间</TableHead>
+                   <TableHead>操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {drivers.map((driver) => (
                   <TableRow key={driver.id}>
-                    <TableCell className="font-medium">{driver.name}</TableCell>
-                    <TableCell className="font-mono">{driver.licensePlate}</TableCell>
-                    <TableCell>{driver.phone}</TableCell>
-                    <TableCell>{new Date(driver.createdAt).toLocaleDateString()}</TableCell>
+                     <TableCell className="font-medium">{driver.name}</TableCell>
+                     <TableCell className="font-mono">{driver.licensePlate}</TableCell>
+                     <TableCell>{driver.phone}</TableCell>
+                     <TableCell>
+                       {driver.projectId ? 
+                         projects.find(p => p.id === driver.projectId)?.name || '项目不存在' : 
+                         '无项目关联'
+                       }
+                     </TableCell>
+                     <TableCell>{new Date(driver.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
                         <Button
@@ -363,13 +395,13 @@ export default function Drivers() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {drivers.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      暂无司机数据
-                    </TableCell>
-                  </TableRow>
-                )}
+                 {drivers.length === 0 && (
+                   <TableRow>
+                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                       暂无司机数据
+                     </TableCell>
+                   </TableRow>
+                 )}
               </TableBody>
             </Table>
           </div>

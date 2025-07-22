@@ -8,17 +8,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Edit, Trash2, MapPin, Upload, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
-import { Location } from "@/types";
+import { Location, Project } from "@/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as XLSX from 'xlsx';
 
 export default function Locations() {
   const { toast } = useToast();
   const [locations, setLocations] = useState<Location[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
+    projectId: "",
   });
 
   // 加载地点数据
@@ -28,13 +31,17 @@ export default function Locations() {
 
   const loadData = async () => {
     try {
-      const loadedLocations = await SupabaseStorage.getLocations();
+      const [loadedLocations, loadedProjects] = await Promise.all([
+        SupabaseStorage.getLocations(),
+        SupabaseStorage.getProjects()
+      ]);
       setLocations(loadedLocations);
+      setProjects(loadedProjects);
     } catch (error) {
-      console.error('Error loading locations:', error);
+      console.error('Error loading data:', error);
       toast({
         title: "加载失败",
-        description: "无法加载地点数据",
+        description: "无法加载数据",
         variant: "destructive",
       });
     }
@@ -44,6 +51,7 @@ export default function Locations() {
   const resetForm = () => {
     setFormData({
       name: "",
+      projectId: "",
     });
     setEditingLocation(null);
   };
@@ -52,6 +60,7 @@ export default function Locations() {
   const handleEdit = (location: Location) => {
     setFormData({
       name: location.name,
+      projectId: location.projectId || "",
     });
     setEditingLocation(location);
     setIsDialogOpen(true);
@@ -242,8 +251,24 @@ export default function Locations() {
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({...prev, name: e.target.value}))}
                     placeholder="请输入地点名称"
-                  />
-                </div>
+                   />
+                 </div>
+                 <div className="space-y-2">
+                   <Label htmlFor="projectId">关联项目</Label>
+                   <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({...prev, projectId: value}))}>
+                     <SelectTrigger>
+                       <SelectValue placeholder="选择项目（可选）" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="">无项目关联</SelectItem>
+                       {projects.map((project) => (
+                         <SelectItem key={project.id} value={project.id}>
+                           {project.name}
+                         </SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button
                     type="button"
@@ -298,17 +323,24 @@ export default function Locations() {
           <div className="rounded-md border">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>地点名称</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead>操作</TableHead>
-                </TableRow>
+                 <TableRow>
+                   <TableHead>地点名称</TableHead>
+                   <TableHead>关联项目</TableHead>
+                   <TableHead>创建时间</TableHead>
+                   <TableHead>操作</TableHead>
+                 </TableRow>
               </TableHeader>
               <TableBody>
                 {locations.map((location) => (
-                  <TableRow key={location.id}>
-                    <TableCell className="font-medium">{location.name}</TableCell>
-                    <TableCell>{new Date(location.createdAt).toLocaleDateString()}</TableCell>
+                   <TableRow key={location.id}>
+                     <TableCell className="font-medium">{location.name}</TableCell>
+                     <TableCell>
+                       {location.projectId ? 
+                         projects.find(p => p.id === location.projectId)?.name || '项目不存在' : 
+                         '无项目关联'
+                       }
+                     </TableCell>
+                     <TableCell>{new Date(location.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
                         <Button
@@ -329,13 +361,13 @@ export default function Locations() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {locations.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                      暂无地点数据
-                    </TableCell>
-                  </TableRow>
-                )}
+                 {locations.length === 0 && (
+                   <TableRow>
+                     <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                       暂无地点数据
+                     </TableCell>
+                   </TableRow>
+                 )}
               </TableBody>
             </Table>
           </div>
