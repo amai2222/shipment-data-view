@@ -124,6 +124,7 @@ export default function BusinessEntry() {
     const recordData = {
       projectId: formData.projectId,
       projectName: project.name,
+      chainId: formData.chainId, // 添加合作链路ID
       loadingDate: formData.loadingTime.split('T')[0], // 只保存日期部分
       loadingLocation: formData.loadingLocation,
       unloadingLocation: formData.unloadingLocation,
