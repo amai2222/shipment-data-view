@@ -21,7 +21,7 @@ export default function Locations() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
-    projectId: "",
+    projectId: "no-project",
   });
 
   // 加载地点数据
@@ -51,7 +51,7 @@ export default function Locations() {
   const resetForm = () => {
     setFormData({
       name: "",
-      projectId: "",
+      projectId: "no-project",
     });
     setEditingLocation(null);
   };
@@ -60,7 +60,7 @@ export default function Locations() {
   const handleEdit = (location: Location) => {
     setFormData({
       name: location.name,
-      projectId: location.projectId || "",
+      projectId: location.projectId || "no-project",
     });
     setEditingLocation(location);
     setIsDialogOpen(true);
@@ -80,14 +80,19 @@ export default function Locations() {
     }
 
     try {
+      const locationData = {
+        ...formData,
+        projectId: formData.projectId === "no-project" ? undefined : formData.projectId
+      };
+      
       if (editingLocation) {
-        await SupabaseStorage.updateLocation(editingLocation.id, formData);
+        await SupabaseStorage.updateLocation(editingLocation.id, locationData);
         toast({
           title: "更新成功",
           description: "地点信息已成功更新",
         });
       } else {
-        await SupabaseStorage.addLocation(formData);
+        await SupabaseStorage.addLocation(locationData);
         toast({
           title: "添加成功",
           description: "新地点已成功添加",
@@ -260,7 +265,7 @@ export default function Locations() {
                        <SelectValue placeholder="选择项目（可选）" />
                      </SelectTrigger>
                      <SelectContent>
-                       <SelectItem value="">无项目关联</SelectItem>
+                       <SelectItem value="no-project">无项目关联</SelectItem>
                        {projects.map((project) => (
                          <SelectItem key={project.id} value={project.id}>
                            {project.name}

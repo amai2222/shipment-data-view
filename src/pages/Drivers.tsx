@@ -23,7 +23,7 @@ export default function Drivers() {
     name: "",
     licensePlate: "",
     phone: "",
-    projectId: "",
+    projectId: "no-project",
   });
 
   // 加载司机数据
@@ -55,7 +55,7 @@ export default function Drivers() {
       name: "",
       licensePlate: "",
       phone: "",
-      projectId: "",
+      projectId: "no-project",
     });
     setEditingDriver(null);
   };
@@ -66,7 +66,7 @@ export default function Drivers() {
       name: driver.name,
       licensePlate: driver.licensePlate,
       phone: driver.phone,
-      projectId: driver.projectId || "",
+      projectId: driver.projectId || "no-project",
     });
     setEditingDriver(driver);
     setIsDialogOpen(true);
@@ -86,14 +86,19 @@ export default function Drivers() {
     }
 
     try {
+      const driverData = {
+        ...formData,
+        projectId: formData.projectId === "no-project" ? undefined : formData.projectId
+      };
+      
       if (editingDriver) {
-        await SupabaseStorage.updateDriver(editingDriver.id, formData);
+        await SupabaseStorage.updateDriver(editingDriver.id, driverData);
         toast({
           title: "更新成功",
           description: "司机信息已成功更新",
         });
       } else {
-        await SupabaseStorage.addDriver(formData);
+        await SupabaseStorage.addDriver(driverData);
         toast({
           title: "添加成功",
           description: "新司机已成功添加",
@@ -290,7 +295,7 @@ export default function Drivers() {
                        <SelectValue placeholder="选择项目（可选）" />
                      </SelectTrigger>
                      <SelectContent>
-                       <SelectItem value="">无项目关联</SelectItem>
+                       <SelectItem value="no-project">无项目关联</SelectItem>
                        {projects.map((project) => (
                          <SelectItem key={project.id} value={project.id}>
                            {project.name}
