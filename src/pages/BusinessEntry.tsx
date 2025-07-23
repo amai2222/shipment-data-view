@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CalendarIcon, TruckIcon, MapPinIcon, Plus, Edit2, Trash2, Eye, Calendar, Truck, MapPin, User, Clock, Weight, DollarSign, Upload, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Combobox } from "@/components/ui/combobox";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { LogisticsRecord, Project, Driver, Location, PartnerChain } from "@/types";
@@ -28,6 +30,11 @@ export default function BusinessEntry() {
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
   const [partnerChains, setPartnerChains] = useState<PartnerChain[]>([]);
   const [viewingPartnerCosts, setViewingPartnerCosts] = useState<any[]>([]);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [confirmDescription, setConfirmDescription] = useState("");
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // 筛选器状态
@@ -47,7 +54,7 @@ export default function BusinessEntry() {
     transportType: "实际运输" as "实际运输" | "退货",
     currentFee: "",
     extraFee: "",
-    payableFee: "",
+    driverReceivable: "",
     remarks: "",
   });
 
@@ -92,10 +99,17 @@ export default function BusinessEntry() {
       transportType: "实际运输",
       currentFee: "",
       extraFee: "",
-      payableFee: "",
+      driverReceivable: "",
       remarks: "",
     });
     setEditingRecord(null);
+  };
+
+  const showConfirm = (title: string, description: string, action: () => void) => {
+    setConfirmTitle(title);
+    setConfirmDescription(description);
+    setConfirmAction(() => action);
+    setShowConfirmDialog(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,6 +124,16 @@ export default function BusinessEntry() {
       });
       return;
     }
+
+    const action = editingRecord ? "更新" : "添加";
+    showConfirm(
+      `${action}记录确认`,
+      `确定要${action}这条物流记录吗？`,
+      () => performSubmit()
+    );
+  };
+
+  const performSubmit = async () => {
 
     const project = projects.find(p => p.id === formData.projectId);
     const driver = drivers.find(d => d.id === formData.driverId);
@@ -140,7 +164,7 @@ export default function BusinessEntry() {
       transportType: formData.transportType,
       currentFee: formData.currentFee ? parseFloat(formData.currentFee) : undefined,
       extraFee: formData.extraFee ? parseFloat(formData.extraFee) : undefined,
-      payableFee: formData.payableFee ? parseFloat(formData.payableFee) : undefined,
+      payableFee: formData.driverReceivable ? parseFloat(formData.driverReceivable) : undefined,
       remarks: formData.remarks || undefined,
       createdByUserId: "current-user",
     };
@@ -163,6 +187,7 @@ export default function BusinessEntry() {
       resetForm();
       await loadData();
       applyFilters();
+      setEditDialogOpen(false);
     } catch (error) {
         console.error('Error saving record:', error);
       toast({
@@ -176,7 +201,7 @@ export default function BusinessEntry() {
   const handleEdit = (record: LogisticsRecord) => {
     setFormData({
       projectId: record.projectId,
-      chainId: "", // 编辑时需要重新选择合作链路
+      chainId: (record as any).chainId || "", 
       loadingTime: record.loadingDate,
       loadingLocation: record.loadingLocation,
       unloadingLocation: record.unloadingLocation,
@@ -187,7 +212,7 @@ export default function BusinessEntry() {
       transportType: record.transportType,
       currentFee: record.currentFee?.toString() || "",
       extraFee: record.extraFee?.toString() || "",
-      payableFee: record.payableFee?.toString() || "",
+      driverReceivable: record.payableFee?.toString() || "",
       remarks: record.remarks || "",
     });
     setEditingRecord(record);
@@ -195,26 +220,33 @@ export default function BusinessEntry() {
     if (record.projectId) {
       loadPartnerChains(record.projectId);
     }
+    setEditDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("确定要删除这条记录吗？")) {
-      try {
-        await SupabaseStorage.deleteLogisticsRecord(id);
-        toast({
-          title: "成功",
-          description: "记录已删除",
-        });
-        await loadData();
-        applyFilters();
-      } catch (error) {
-        console.error('Error deleting record:', error);
-        toast({
-          title: "删除失败",
-          description: "无法删除记录",
-          variant: "destructive",
-        });
-      }
+    showConfirm(
+      "删除记录确认",
+      "确定要删除这条记录吗？删除后无法恢复。",
+      () => performDelete(id)
+    );
+  };
+
+  const performDelete = async (id: string) => {
+    try {
+      await SupabaseStorage.deleteLogisticsRecord(id);
+      toast({
+        title: "成功",
+        description: "记录已删除",
+      });
+      await loadData();
+      applyFilters();
+    } catch (error) {
+      console.error('Error deleting record:', error);
+      toast({
+        title: "删除失败",
+        description: "无法删除记录",
+        variant: "destructive",
+      });
     }
   };
 
@@ -288,7 +320,7 @@ export default function BusinessEntry() {
             transportType: row['运输类型'] || '实际运输',
             currentFee: row['当前费用'] ? parseFloat(row['当前费用']) : undefined,
             extraFee: row['额外费用'] ? parseFloat(row['额外费用']) : undefined,
-            payableFee: row['应付费用'] ? parseFloat(row['应付费用']) : undefined,
+            payableFee: row['司机应收'] || row['应付费用'] ? parseFloat(row['司机应收'] || row['应付费用']) : undefined,
             remarks: row['备注'] || undefined,
             createdByUserId: "current-user",
           };
@@ -416,9 +448,9 @@ export default function BusinessEntry() {
           '卸车日期': '2024-01-02',
           '卸车重量': '10.3',
           '运输类型': '实际运输',
-          '当前费用': '1000',
-          '额外费用': '100',
-          '应付费用': '1100',
+        '当前费用': '1000',
+        '额外费用': '100',
+        '司机应收': '1100',
           '备注': '示例备注'
         }
       ];
@@ -441,7 +473,7 @@ export default function BusinessEntry() {
         { wch: 10 }, // 运输类型
         { wch: 10 }, // 当前费用
         { wch: 10 }, // 额外费用
-        { wch: 10 }, // 应付费用
+        { wch: 10 }, // 司机应收
         { wch: 15 }  // 备注
       ];
       worksheet['!cols'] = colWidths;
@@ -527,7 +559,7 @@ export default function BusinessEntry() {
         '运输类型': record.transportType,
         '当前费用': record.currentFee || '',
         '额外费用': record.extraFee || '',
-        '应付费用': record.payableFee || '',
+        '司机应收': record.payableFee || '',
         '备注': record.remarks || '',
         '创建时间': new Date(record.createdAt).toLocaleDateString()
       }));
@@ -624,50 +656,86 @@ export default function BusinessEntry() {
 
               <div className="space-y-2">
                 <Label htmlFor="loadingLocation">装车地点 *</Label>
-                <Select value={formData.loadingLocation} onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}>
-                  <SelectTrigger id="loadingLocation">
-                    <SelectValue placeholder="选择装车地点" />
-                  </SelectTrigger>
-                   <SelectContent>
-                     {filteredLocations.map((location) => (
-                       <SelectItem key={location.id} value={location.name}>
-                         {location.name}
-                       </SelectItem>
-                     ))}
-                   </SelectContent>
-                </Select>
+                <Combobox
+                  value={formData.loadingLocation}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}
+                  onCreateNew={async (name) => {
+                    try {
+                      const newLocation = await SupabaseStorage.addLocation({ name, projectIds: formData.projectId ? [formData.projectId] : [] });
+                      await loadData();
+                      setFormData(prev => ({ ...prev, loadingLocation: name }));
+                      toast({ title: "成功", description: `地点 "${name}" 已创建` });
+                    } catch (error) {
+                      toast({ title: "创建失败", description: "无法创建新地点", variant: "destructive" });
+                    }
+                  }}
+                  options={filteredLocations.map(loc => ({ value: loc.name, label: loc.name }))}
+                  placeholder="选择或输入装车地点"
+                  searchPlaceholder="搜索地点..."
+                  createLabel="创建新地点"
+                  emptyMessage="未找到地点"
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="unloadingLocation">卸车地点 *</Label>
-                <Select value={formData.unloadingLocation} onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}>
-                  <SelectTrigger id="unloadingLocation">
-                    <SelectValue placeholder="选择卸车地点" />
-                  </SelectTrigger>
-                   <SelectContent>
-                     {filteredLocations.map((location) => (
-                       <SelectItem key={location.id} value={location.name}>
-                         {location.name}
-                       </SelectItem>
-                     ))}
-                   </SelectContent>
-                </Select>
+                <Combobox
+                  value={formData.unloadingLocation}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}
+                  onCreateNew={async (name) => {
+                    try {
+                      const newLocation = await SupabaseStorage.addLocation({ name, projectIds: formData.projectId ? [formData.projectId] : [] });
+                      await loadData();
+                      setFormData(prev => ({ ...prev, unloadingLocation: name }));
+                      toast({ title: "成功", description: `地点 "${name}" 已创建` });
+                    } catch (error) {
+                      toast({ title: "创建失败", description: "无法创建新地点", variant: "destructive" });
+                    }
+                  }}
+                  options={filteredLocations.map(loc => ({ value: loc.name, label: loc.name }))}
+                  placeholder="选择或输入卸车地点"
+                  searchPlaceholder="搜索地点..."
+                  createLabel="创建新地点"
+                  emptyMessage="未找到地点"
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="driver">司机 *</Label>
-                <Select value={formData.driverId} onValueChange={(value) => setFormData(prev => ({ ...prev, driverId: value }))}>
-                  <SelectTrigger id="driver">
-                    <SelectValue placeholder="选择司机" />
-                  </SelectTrigger>
-                   <SelectContent>
-                     {filteredDrivers.map((driver) => (
-                       <SelectItem key={driver.id} value={driver.id}>
-                         {driver.name} - {driver.licensePlate}
-                       </SelectItem>
-                     ))}
-                   </SelectContent>
-                </Select>
+                <Combobox
+                  value={formData.driverId}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, driverId: value }))}
+                  onCreateNew={async (searchValue) => {
+                    // 解析输入的司机信息 (格式: "姓名 - 车牌号" 或 "姓名-车牌号")
+                    const parts = searchValue.split(/\s*-\s*/);
+                    if (parts.length === 2) {
+                      const [name, licensePlate] = parts;
+                      try {
+                        const newDriver = await SupabaseStorage.addDriver({ 
+                          name: name.trim(), 
+                          licensePlate: licensePlate.trim(), 
+                          phone: "待补充",
+                          projectIds: formData.projectId ? [formData.projectId] : [] 
+                        });
+                        await loadData();
+                        setFormData(prev => ({ ...prev, driverId: newDriver.id }));
+                        toast({ title: "成功", description: `司机 "${name}" 已创建，请补充电话信息` });
+                      } catch (error) {
+                        toast({ title: "创建失败", description: "无法创建新司机", variant: "destructive" });
+                      }
+                    } else {
+                      toast({ title: "格式错误", description: "请使用格式：姓名-车牌号", variant: "destructive" });
+                    }
+                  }}
+                  options={filteredDrivers.map(driver => ({ 
+                    value: driver.id, 
+                    label: `${driver.name} - ${driver.licensePlate}` 
+                  }))}
+                  placeholder="选择或输入司机（格式：姓名-车牌号）"
+                  searchPlaceholder="搜索司机..."
+                  createLabel="创建新司机"
+                  emptyMessage="未找到司机"
+                />
               </div>
 
               <div className="space-y-2">
@@ -743,14 +811,14 @@ export default function BusinessEntry() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="payableFee">应付费用(元)</Label>
+                <Label htmlFor="driverReceivable">司机应收(元)</Label>
                 <Input
-                  id="payableFee"
+                  id="driverReceivable"
                   type="number"
                   step="0.01"
-                  value={formData.payableFee}
-                  onChange={(e) => setFormData(prev => ({ ...prev, payableFee: e.target.value }))}
-                  placeholder="请输入应付费用"
+                  value={formData.driverReceivable}
+                  onChange={(e) => setFormData(prev => ({ ...prev, driverReceivable: e.target.value }))}
+                  placeholder="请输入司机应收费用"
                 />
               </div>
             </div>
@@ -1179,6 +1247,265 @@ export default function BusinessEntry() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 编辑对话框 */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>编辑物流记录</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-project">项目 *</Label>
+                  <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}>
+                    <SelectTrigger id="edit-project">
+                      <SelectValue placeholder="选择项目" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name} - {project.manager}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-chain">合作链路 *</Label>
+                  <Select value={formData.chainId} onValueChange={(value) => setFormData(prev => ({ ...prev, chainId: value }))}>
+                    <SelectTrigger id="edit-chain">
+                      <SelectValue placeholder="选择合作链路" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {partnerChains.map((chain) => (
+                        <SelectItem key={chain.id} value={chain.id}>
+                          {chain.chainName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-loadingTime">装车时间 *</Label>
+                  <Input
+                    id="edit-loadingTime"
+                    type="datetime-local"
+                    value={formData.loadingTime}
+                    onChange={(e) => setFormData(prev => ({ ...prev, loadingTime: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-loadingLocation">装车地点 *</Label>
+                  <Combobox
+                    value={formData.loadingLocation}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}
+                    onCreateNew={async (name) => {
+                      try {
+                        await SupabaseStorage.addLocation({ name, projectIds: formData.projectId ? [formData.projectId] : [] });
+                        await loadData();
+                        setFormData(prev => ({ ...prev, loadingLocation: name }));
+                        toast({ title: "成功", description: `地点 "${name}" 已创建` });
+                      } catch (error) {
+                        toast({ title: "创建失败", description: "无法创建新地点", variant: "destructive" });
+                      }
+                    }}
+                    options={filteredLocations.map(loc => ({ value: loc.name, label: loc.name }))}
+                    placeholder="选择或输入装车地点"
+                    searchPlaceholder="搜索地点..."
+                    createLabel="创建新地点"
+                    emptyMessage="未找到地点"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-unloadingLocation">卸车地点 *</Label>
+                  <Combobox
+                    value={formData.unloadingLocation}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}
+                    onCreateNew={async (name) => {
+                      try {
+                        await SupabaseStorage.addLocation({ name, projectIds: formData.projectId ? [formData.projectId] : [] });
+                        await loadData();
+                        setFormData(prev => ({ ...prev, unloadingLocation: name }));
+                        toast({ title: "成功", description: `地点 "${name}" 已创建` });
+                      } catch (error) {
+                        toast({ title: "创建失败", description: "无法创建新地点", variant: "destructive" });
+                      }
+                    }}
+                    options={filteredLocations.map(loc => ({ value: loc.name, label: loc.name }))}
+                    placeholder="选择或输入卸车地点"
+                    searchPlaceholder="搜索地点..."
+                    createLabel="创建新地点"
+                    emptyMessage="未找到地点"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-driver">司机 *</Label>
+                  <Combobox
+                    value={formData.driverId}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, driverId: value }))}
+                    onCreateNew={async (searchValue) => {
+                      const parts = searchValue.split(/\s*-\s*/);
+                      if (parts.length === 2) {
+                        const [name, licensePlate] = parts;
+                        try {
+                          const newDriver = await SupabaseStorage.addDriver({ 
+                            name: name.trim(), 
+                            licensePlate: licensePlate.trim(), 
+                            phone: "待补充",
+                            projectIds: formData.projectId ? [formData.projectId] : [] 
+                          });
+                          await loadData();
+                          setFormData(prev => ({ ...prev, driverId: newDriver.id }));
+                          toast({ title: "成功", description: `司机 "${name}" 已创建，请补充电话信息` });
+                        } catch (error) {
+                          toast({ title: "创建失败", description: "无法创建新司机", variant: "destructive" });
+                        }
+                      } else {
+                        toast({ title: "格式错误", description: "请使用格式：姓名-车牌号", variant: "destructive" });
+                      }
+                    }}
+                    options={filteredDrivers.map(driver => ({ 
+                      value: driver.id, 
+                      label: `${driver.name} - ${driver.licensePlate}` 
+                    }))}
+                    placeholder="选择或输入司机（格式：姓名-车牌号）"
+                    searchPlaceholder="搜索司机..."
+                    createLabel="创建新司机"
+                    emptyMessage="未找到司机"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-loadingWeight">装车重量(吨) *</Label>
+                  <Input
+                    id="edit-loadingWeight"
+                    type="number"
+                    step="0.1"
+                    value={formData.loadingWeight}
+                    onChange={(e) => setFormData(prev => ({ ...prev, loadingWeight: e.target.value }))}
+                    placeholder="请输入装车重量"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-unloadingDate">卸车日期</Label>
+                  <Input
+                    id="edit-unloadingDate"
+                    type="date"
+                    value={formData.unloadingDate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, unloadingDate: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-unloadingWeight">卸车重量(吨)</Label>
+                  <Input
+                    id="edit-unloadingWeight"
+                    type="number"
+                    step="0.1"
+                    value={formData.unloadingWeight}
+                    onChange={(e) => setFormData(prev => ({ ...prev, unloadingWeight: e.target.value }))}
+                    placeholder="请输入卸车重量"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-transportType">运输类型</Label>
+                  <Select value={formData.transportType} onValueChange={(value: "实际运输" | "退货") => setFormData(prev => ({ ...prev, transportType: value }))}>
+                    <SelectTrigger id="edit-transportType">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="实际运输">实际运输</SelectItem>
+                      <SelectItem value="退货">退货</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-currentFee">当前费用(元)</Label>
+                  <Input
+                    id="edit-currentFee"
+                    type="number"
+                    step="0.01"
+                    value={formData.currentFee}
+                    onChange={(e) => setFormData(prev => ({ ...prev, currentFee: e.target.value }))}
+                    placeholder="请输入当前费用"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-extraFee">额外费用(元)</Label>
+                  <Input
+                    id="edit-extraFee"
+                    type="number"
+                    step="0.01"
+                    value={formData.extraFee}
+                    onChange={(e) => setFormData(prev => ({ ...prev, extraFee: e.target.value }))}
+                    placeholder="请输入额外费用"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-driverReceivable">司机应收(元)</Label>
+                  <Input
+                    id="edit-driverReceivable"
+                    type="number"
+                    step="0.01"
+                    value={formData.driverReceivable}
+                    onChange={(e) => setFormData(prev => ({ ...prev, driverReceivable: e.target.value }))}
+                    placeholder="请输入司机应收费用"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-remarks">备注</Label>
+                <Textarea
+                  id="edit-remarks"
+                  value={formData.remarks}
+                  onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                  placeholder="请输入备注信息"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex space-x-2 pt-4">
+                <Button type="submit">保存更改</Button>
+                <Button type="button" variant="outline" onClick={() => {
+                  resetForm();
+                  setEditDialogOpen(false);
+                }}>
+                  取消
+                </Button>
+              </div>
+            </form>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 确认对话框 */}
+      <ConfirmDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        title={confirmTitle}
+        description={confirmDescription}
+        onConfirm={() => {
+          if (confirmAction) {
+            confirmAction();
+          }
+          setShowConfirmDialog(false);
+        }}
+      />
     </div>
   );
 }
