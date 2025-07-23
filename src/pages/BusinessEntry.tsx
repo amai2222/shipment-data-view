@@ -374,13 +374,13 @@ export default function BusinessEntry() {
       setFormData(prev => ({ ...prev, chainId: "" })); // 重置链路选择
       
       // 过滤司机：优先显示该项目的司机，然后显示没有项目关联的司机
-      const projectDrivers = drivers.filter(d => d.projectId === formData.projectId);
-      const noProjectDrivers = drivers.filter(d => !d.projectId);
+      const projectDrivers = drivers.filter(d => d.projectIds?.includes(formData.projectId));
+      const noProjectDrivers = drivers.filter(d => !d.projectIds || d.projectIds.length === 0);
       setFilteredDrivers([...projectDrivers, ...noProjectDrivers]);
       
       // 过滤地点：优先显示该项目的地点，然后显示没有项目关联的地点
-      const projectLocations = locations.filter(l => l.projectId === formData.projectId);
-      const noProjectLocations = locations.filter(l => !l.projectId);
+      const projectLocations = locations.filter(l => l.projectIds?.includes(formData.projectId));
+      const noProjectLocations = locations.filter(l => !l.projectIds || l.projectIds.length === 0);
       setFilteredLocations([...projectLocations, ...noProjectLocations]);
     } else {
       setPartnerChains([]);
@@ -388,6 +388,16 @@ export default function BusinessEntry() {
       setFilteredLocations(locations);
     }
   }, [formData.projectId, drivers, locations]);
+
+  // 当项目和链路都选择后，自动选择默认链路
+  useEffect(() => {
+    if (formData.projectId && partnerChains.length > 0 && !formData.chainId) {
+      const defaultChain = partnerChains.find(chain => chain.isDefault);
+      if (defaultChain) {
+        setFormData(prev => ({ ...prev, chainId: defaultChain.id }));
+      }
+    }
+  }, [formData.projectId, partnerChains, formData.chainId]);
 
   // 下载导入模板
   const handleTemplateDownload = () => {
@@ -621,7 +631,7 @@ export default function BusinessEntry() {
                    <SelectContent>
                      {filteredLocations.map((location) => (
                        <SelectItem key={location.id} value={location.name}>
-                         {location.name} {location.projectId && "(项目专用)"}
+                         {location.name}
                        </SelectItem>
                      ))}
                    </SelectContent>
@@ -637,7 +647,7 @@ export default function BusinessEntry() {
                    <SelectContent>
                      {filteredLocations.map((location) => (
                        <SelectItem key={location.id} value={location.name}>
-                         {location.name} {location.projectId && "(项目专用)"}
+                         {location.name}
                        </SelectItem>
                      ))}
                    </SelectContent>
@@ -653,7 +663,7 @@ export default function BusinessEntry() {
                    <SelectContent>
                      {filteredDrivers.map((driver) => (
                        <SelectItem key={driver.id} value={driver.id}>
-                         {driver.name} - {driver.licensePlate} {driver.projectId && "(项目专用)"}
+                         {driver.name} - {driver.licensePlate}
                        </SelectItem>
                      ))}
                    </SelectContent>

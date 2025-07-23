@@ -21,7 +21,7 @@ export default function Locations() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
-    projectId: "no-project",
+    projectIds: [] as string[],
   });
 
   // 加载地点数据
@@ -51,7 +51,7 @@ export default function Locations() {
   const resetForm = () => {
     setFormData({
       name: "",
-      projectId: "no-project",
+      projectIds: [],
     });
     setEditingLocation(null);
   };
@@ -60,7 +60,7 @@ export default function Locations() {
   const handleEdit = (location: Location) => {
     setFormData({
       name: location.name,
-      projectId: location.projectId || "no-project",
+      projectIds: location.projectIds || [],
     });
     setEditingLocation(location);
     setIsDialogOpen(true);
@@ -80,19 +80,14 @@ export default function Locations() {
     }
 
     try {
-      const locationData = {
-        ...formData,
-        projectId: formData.projectId === "no-project" ? undefined : formData.projectId
-      };
-      
       if (editingLocation) {
-        await SupabaseStorage.updateLocation(editingLocation.id, locationData);
+        await SupabaseStorage.updateLocation(editingLocation.id, formData);
         toast({
           title: "更新成功",
           description: "地点信息已成功更新",
         });
       } else {
-        await SupabaseStorage.addLocation(locationData);
+        await SupabaseStorage.addLocation(formData);
         toast({
           title: "添加成功",
           description: "新地点已成功添加",
@@ -259,20 +254,38 @@ export default function Locations() {
                    />
                  </div>
                  <div className="space-y-2">
-                   <Label htmlFor="projectId">关联项目</Label>
-                   <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({...prev, projectId: value}))}>
-                     <SelectTrigger>
-                       <SelectValue placeholder="选择项目（可选）" />
-                     </SelectTrigger>
-                     <SelectContent>
-                       <SelectItem value="no-project">无项目关联</SelectItem>
-                       {projects.map((project) => (
-                         <SelectItem key={project.id} value={project.id}>
+                   <Label htmlFor="projectIds">关联项目</Label>
+                   <div className="max-h-40 overflow-y-auto border rounded-md p-2">
+                     {projects.map((project) => (
+                       <div key={project.id} className="flex items-center space-x-2 py-1">
+                         <input
+                           type="checkbox"
+                           id={`project-${project.id}`}
+                           checked={formData.projectIds.includes(project.id)}
+                           onChange={(e) => {
+                             if (e.target.checked) {
+                               setFormData(prev => ({
+                                 ...prev,
+                                 projectIds: [...prev.projectIds, project.id]
+                               }));
+                             } else {
+                               setFormData(prev => ({
+                                 ...prev,
+                                 projectIds: prev.projectIds.filter(id => id !== project.id)
+                               }));
+                             }
+                           }}
+                           className="rounded"
+                         />
+                         <Label htmlFor={`project-${project.id}`} className="text-sm">
                            {project.name}
-                         </SelectItem>
-                       ))}
-                     </SelectContent>
-                   </Select>
+                         </Label>
+                       </div>
+                     ))}
+                   </div>
+                   <p className="text-xs text-muted-foreground">
+                     选择地点可用于的项目，不选择则可用于所有项目
+                   </p>
                  </div>
                 <div className="flex justify-end space-x-2">
                   <Button
@@ -340,9 +353,9 @@ export default function Locations() {
                    <TableRow key={location.id}>
                      <TableCell className="font-medium">{location.name}</TableCell>
                      <TableCell>
-                       {location.projectId ? 
-                         projects.find(p => p.id === location.projectId)?.name || '项目不存在' : 
-                         '无项目关联'
+                       {location.projectIds && location.projectIds.length > 0 ? 
+                         location.projectIds.map(id => projects.find(p => p.id === id)?.name).filter(Boolean).join(', ') : 
+                         '可用于所有项目'
                        }
                      </TableCell>
                      <TableCell>{new Date(location.createdAt).toLocaleDateString()}</TableCell>

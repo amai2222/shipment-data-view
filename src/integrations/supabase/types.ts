@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      driver_projects: {
+        Row: {
+          created_at: string
+          driver_id: string
+          id: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          id?: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_projects_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_projects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           created_at: string
@@ -21,7 +57,6 @@ export type Database = {
           license_plate: string
           name: string
           phone: string
-          project_id: string | null
         }
         Insert: {
           created_at?: string
@@ -29,7 +64,6 @@ export type Database = {
           license_plate: string
           name: string
           phone: string
-          project_id?: string | null
         }
         Update: {
           created_at?: string
@@ -37,11 +71,38 @@ export type Database = {
           license_plate?: string
           name?: string
           phone?: string
-          project_id?: string | null
+        }
+        Relationships: []
+      }
+      location_projects: {
+        Row: {
+          created_at: string
+          id: string
+          location_id: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_id: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_id?: string
+          project_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "drivers_project_id_fkey"
+            foreignKeyName: "location_projects_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_projects_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -54,29 +115,18 @@ export type Database = {
           created_at: string
           id: string
           name: string
-          project_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
-          project_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
-          project_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "locations_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       logistics_partner_costs: {
         Row: {

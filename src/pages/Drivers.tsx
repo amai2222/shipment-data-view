@@ -23,7 +23,7 @@ export default function Drivers() {
     name: "",
     licensePlate: "",
     phone: "",
-    projectId: "no-project",
+    projectIds: [] as string[],
   });
 
   // 加载司机数据
@@ -55,7 +55,7 @@ export default function Drivers() {
       name: "",
       licensePlate: "",
       phone: "",
-      projectId: "no-project",
+      projectIds: [],
     });
     setEditingDriver(null);
   };
@@ -66,7 +66,7 @@ export default function Drivers() {
       name: driver.name,
       licensePlate: driver.licensePlate,
       phone: driver.phone,
-      projectId: driver.projectId || "no-project",
+      projectIds: driver.projectIds || [],
     });
     setEditingDriver(driver);
     setIsDialogOpen(true);
@@ -86,19 +86,14 @@ export default function Drivers() {
     }
 
     try {
-      const driverData = {
-        ...formData,
-        projectId: formData.projectId === "no-project" ? undefined : formData.projectId
-      };
-      
       if (editingDriver) {
-        await SupabaseStorage.updateDriver(editingDriver.id, driverData);
+        await SupabaseStorage.updateDriver(editingDriver.id, formData);
         toast({
           title: "更新成功",
           description: "司机信息已成功更新",
         });
       } else {
-        await SupabaseStorage.addDriver(driverData);
+        await SupabaseStorage.addDriver(formData);
         toast({
           title: "添加成功",
           description: "新司机已成功添加",
@@ -289,20 +284,38 @@ export default function Drivers() {
                   />
                  </div>
                  <div className="space-y-2">
-                   <Label htmlFor="projectId">关联项目</Label>
-                   <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({...prev, projectId: value}))}>
-                     <SelectTrigger>
-                       <SelectValue placeholder="选择项目（可选）" />
-                     </SelectTrigger>
-                     <SelectContent>
-                       <SelectItem value="no-project">无项目关联</SelectItem>
-                       {projects.map((project) => (
-                         <SelectItem key={project.id} value={project.id}>
+                   <Label htmlFor="projectIds">关联项目</Label>
+                   <div className="max-h-40 overflow-y-auto border rounded-md p-2">
+                     {projects.map((project) => (
+                       <div key={project.id} className="flex items-center space-x-2 py-1">
+                         <input
+                           type="checkbox"
+                           id={`project-${project.id}`}
+                           checked={formData.projectIds.includes(project.id)}
+                           onChange={(e) => {
+                             if (e.target.checked) {
+                               setFormData(prev => ({
+                                 ...prev,
+                                 projectIds: [...prev.projectIds, project.id]
+                               }));
+                             } else {
+                               setFormData(prev => ({
+                                 ...prev,
+                                 projectIds: prev.projectIds.filter(id => id !== project.id)
+                               }));
+                             }
+                           }}
+                           className="rounded"
+                         />
+                         <Label htmlFor={`project-${project.id}`} className="text-sm">
                            {project.name}
-                         </SelectItem>
-                       ))}
-                     </SelectContent>
-                   </Select>
+                         </Label>
+                       </div>
+                     ))}
+                   </div>
+                   <p className="text-xs text-muted-foreground">
+                     选择司机可以参与的项目，不选择则可参与所有项目
+                   </p>
                  </div>
                 <div className="flex justify-end space-x-2">
                   <Button
@@ -374,9 +387,9 @@ export default function Drivers() {
                      <TableCell className="font-mono">{driver.licensePlate}</TableCell>
                      <TableCell>{driver.phone}</TableCell>
                      <TableCell>
-                       {driver.projectId ? 
-                         projects.find(p => p.id === driver.projectId)?.name || '项目不存在' : 
-                         '无项目关联'
+                       {driver.projectIds && driver.projectIds.length > 0 ? 
+                         driver.projectIds.map(id => projects.find(p => p.id === id)?.name).filter(Boolean).join(', ') : 
+                         '可参与所有项目'
                        }
                      </TableCell>
                      <TableCell>{new Date(driver.createdAt).toLocaleDateString()}</TableCell>
