@@ -12,14 +12,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import {
-  FileDown, FileUp, PlusCircle, Edit, Trash2, Download
+  Download, FileDown, FileUp, PlusCircle, Edit, Trash2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
-// 类型定义，与您的数据库结构完全匹配
+// 类型定义
 interface LogisticsRecord {
   id: string;
   auto_number: string;
@@ -40,10 +40,8 @@ interface LogisticsRecord {
 
 interface Project { id: string; name:string; }
 interface Driver { id: string; name: string; }
-interface Location { id: string; name: string; }
 interface PartnerChain { id: string; chain_name: string; }
 
-// 空表单的初始状态
 const BLANK_FORM_DATA = {
   project_id: "",
   chain_id: "",
@@ -60,7 +58,6 @@ export default function BusinessEntry() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [partnerChains, setPartnerChains] = useState<PartnerChain[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -74,7 +71,6 @@ export default function BusinessEntry() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      // 直接从我们创建的视图中查询，可以方便地获取 chain_name
       const { data: recordsData, error: recordsError } = await supabase.from('logistics_records_view').select('*').order('loading_date', { ascending: false });
       if (recordsError) throw recordsError;
       setRecords(recordsData as LogisticsRecord[] || []);
@@ -86,11 +82,6 @@ export default function BusinessEntry() {
       const { data: driversData, error: driversError } = await supabase.from('drivers').select('id, name');
       if (driversError) throw driversError;
       setDrivers(driversData || []);
-      
-      // 注意：地点现在是直接录入的文本，所以我们不再需要从数据库加载地点列表
-      // const { data: locationsData, error: locationsError } = await supabase.from('locations').select('id, name');
-      // if (locationsError) throw locationsError;
-      // setLocations(locationsData || []);
     } catch (error) {
       toast({ title: "错误", description: "数据加载失败", variant: "destructive" });
     } finally {
@@ -103,6 +94,8 @@ export default function BusinessEntry() {
   }, [loadData]);
 
   useEffect(() => {
+    // 当选择一个新项目时，清空旧的链路选择
+    handleInputChange('chain_id', ''); 
     if (formData.project_id) {
       const fetchChains = async () => {
         const { data, error } = await supabase.from('partner_chains').select('id, chain_name').eq('project_id', formData.project_id);
@@ -117,6 +110,7 @@ export default function BusinessEntry() {
     } else {
       setPartnerChains([]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.project_id, toast]);
 
   const handleInputChange = (field: string, value: any) => {
@@ -169,12 +163,10 @@ export default function BusinessEntry() {
     
     try {
       if (editingRecord) {
-        // 调用我们创建的“更新”函数
         const { error } = await supabase.rpc('update_logistics_record_with_costs', { p_record_id: editingRecord.id, ...recordData });
         if (error) throw error;
         toast({ title: "成功", description: "运单记录已更新" });
       } else {
-        // 调用我们创建的“新增”函数
         const { error } = await supabase.rpc('add_logistics_record_with_costs', recordData);
         if (error) throw error;
         toast({ title: "成功", description: "新运单已添加" });
@@ -300,7 +292,7 @@ export default function BusinessEntry() {
           <DialogHeader><DialogTitle>{editingRecord ? "编辑运单" : "新增运单"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-1"><Label>项目名称 *</Label><Select value={formData.project_id} onValueChange={(v) => handleInputChange('project_id', v)}><SelectTrigger><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1"><Label>合作链路 *</Label><Select value={formData.chain_id} onValueChange={(v) => handleInputChange('chain_id', v)} disabled={!formData.project_id}><SelectTrigger><SelectValue placeholder="选择合作链路" /></SelectTrigger><SelectContent><SelectItem value="">默认链路</SelectItem>{partnerChains.map(c => <SelectItem key={c.id} value={c.id}>{c.chain_name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1"><Label>合作链路</Label><Select value={formData.chain_id} onValueChange={(v) => handleInputChange('chain_id', v)} disabled={!formData.project_id}><SelectTrigger><SelectValue placeholder="选择合作链路 (默认为空)" /></SelectTrigger><SelectContent>{partnerChains.map(c => <SelectItem key={c.id} value={c.id}>{c.chain_name}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1"><Label>司机 *</Label><Select value={formData.driver_id} onValueChange={(v) => handleInputChange('driver_id', v)}><SelectTrigger><SelectValue placeholder="选择司机" /></SelectTrigger><SelectContent>{drivers.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1"><Label htmlFor="loading-location">装货地点 *</Label><Input id="loading-location" value={formData.loading_location || ''} onChange={(e) => handleInputChange('loading_location', e.target.value)} /></div>
             <div className="space-y-1"><Label htmlFor="unloading-location">卸货地点 *</Label><Input id="unloading-location" value={formData.unloading_location || ''} onChange={(e) => handleInputChange('unloading_location', e.target.value)} /></div>
