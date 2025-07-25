@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Projects.tsx
-import React, { useState, useEffect, useRef, useCallback } from "react"; // 【已修复】添加了 useCallback
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { SupabaseStorage } from "@/utils/supabase";
 import { Project, Location, Partner, ProjectPartner, PartnerChain } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 
-// 【已美化】用于美化合作链路的横向展示
+// 【全新组件】用于美化合作链路的横向展示
 const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
   if (!partners || partners.length === 0) {
     return <div className="text-xs text-muted-foreground">暂无合作方</div>;
@@ -172,6 +172,7 @@ export default function Projects() {
     return await SupabaseStorage.findOrCreateLocation(address);
   };
 
+  // 【已修复】使用全新的、更简洁和正确的保存逻辑
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -199,24 +200,34 @@ export default function Projects() {
 
       const projectId = editingProject ? editingProject.id : null;
 
+      // 【核心修复】将前端的驼峰命名转换为数据库期望的下划线命名
+      const projectPayloadForDb = {
+        name: formData.name,
+        start_date: formData.startDate,
+        end_date: formData.endDate,
+        manager: formData.manager,
+        loading_address: formData.loadingAddress,
+        unloading_address: formData.unloadingAddress,
+      };
+
       const chainsPayload = selectedChains.map((chain, index) => ({
         id: chain.dbId,
-        chainName: chain.chainName || `链路${index + 1}`,
+        chain_name: chain.chainName || `链路${index + 1}`,
         description: chain.description || '',
-        isDefault: index === 0,
+        is_default: index === 0,
         partners: chain.partners.map(p => ({
           id: p.dbId,
-          partnerId: p.partnerId,
+          partner_id: p.partnerId,
           level: Number(p.level),
-          taxRate: Number(p.taxRate),
-          calculationMethod: p.calculationMethod || 'tax',
-          profitRate: Number(p.profitRate || 0)
+          tax_rate: Number(p.taxRate),
+          calculation_method: p.calculationMethod || 'tax',
+          profit_rate: Number(p.profitRate || 0)
         }))
       }));
 
       const { error } = await supabase.rpc('save_project_with_chains', {
         project_id_in: projectId,
-        project_data: formData,
+        project_data: projectPayloadForDb,
         chains_data: chainsPayload
       });
 
