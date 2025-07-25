@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Projects.tsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react"; // 【已修复】添加了 useCallback
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,6 @@ const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
     <div className="flex flex-wrap items-center gap-2">
       {partners.map((partner, index) => (
         <React.Fragment key={partner.id}>
-          {/* 【核心改动】应用了蓝底白字的样式 */}
           <div className="flex flex-col items-center p-2 border rounded-md bg-primary text-primary-foreground shadow-sm">
             <span className="text-sm font-semibold">{partner.partnerName}</span>
             <span className="text-xs text-primary-foreground/80">
@@ -321,7 +320,7 @@ export default function Projects() {
             <DialogTrigger asChild><Button variant="secondary" onClick={resetForm}><Plus className="h-4 w-4 mr-2" />新增项目</Button></DialogTrigger>
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editingProject ? "编辑项目" : "新增项目"}</DialogTitle></DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6 p-1">
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">项目基本信息</h3>
                   <div className="grid grid-cols-2 gap-4">
