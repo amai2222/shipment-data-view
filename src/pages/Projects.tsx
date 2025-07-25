@@ -6,14 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Package, Loader2, Upload, Download, ChevronDown, ChevronRight, Link } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Loader2, ChevronDown, ChevronRight, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Project, Location, Partner, ProjectPartner, PartnerChain } from "@/types";
-import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 
-// 【全新组件】用于美化合作链路的横向展示
+// 【已美化】用于美化合作链路的横向展示
 const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
   if (!partners || partners.length === 0) {
     return <div className="text-xs text-muted-foreground">暂无合作方</div>;
@@ -23,9 +22,10 @@ const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
     <div className="flex flex-wrap items-center gap-2">
       {partners.map((partner, index) => (
         <React.Fragment key={partner.id}>
-          <div className="flex flex-col items-center p-2 border rounded-md bg-background shadow-sm">
-            <span className="text-sm font-medium">{partner.partnerName}</span>
-            <span className="text-xs text-muted-foreground">
+          {/* 【核心改动】应用了蓝底白字的样式 */}
+          <div className="flex flex-col items-center p-2 border rounded-md bg-primary text-primary-foreground shadow-sm">
+            <span className="text-sm font-semibold">{partner.partnerName}</span>
+            <span className="text-xs text-primary-foreground/80">
               {partner.calculationMethod === "tax" 
                 ? `税点: ${(partner.taxRate * 100).toFixed(1)}%`
                 : `利润: ${partner.profitRate}元`
@@ -54,14 +54,8 @@ export default function Projects() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
-    name: "",
-    startDate: "",
-    endDate: "",
-    manager: "",
-    loadingAddress: "",
-    unloadingAddress: "",
+    name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "",
   });
   
   const [selectedChains, setSelectedChains] = useState<{
@@ -69,11 +63,7 @@ export default function Projects() {
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
   }[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
       const [loadedProjects, loadedLocations, loadedPartners] = await Promise.all([
@@ -98,12 +88,13 @@ export default function Projects() {
       setProjectPartners(allProjectPartners);
       
     } catch (error) {
-      console.error('Error loading data:', error);
       toast({ title: "数据加载失败", description: "无法从数据库加载数据，请重试。", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const loadPartners = async () => {
     try {
@@ -121,26 +112,24 @@ export default function Projects() {
     try {
       const { data, error } = await supabase.from('partner_chains').select('*').eq('project_id', projectId).order('is_default', { ascending: false });
       if (error) throw error;
-      const formattedData: PartnerChain[] = data.map(item => ({
+      return data.map(item => ({
         id: item.id, projectId: item.project_id, chainName: item.chain_name,
         description: item.description, isDefault: item.is_default, createdAt: item.created_at,
       }));
-      return formattedData;
     } catch (error) { console.error('Error loading partner chains:', error); return []; }
   };
 
   const loadProjectPartners = async (projectId: string) => {
     try {
-      const { data, error } = await supabase.from('project_partners').select(`*, partners:partner_id(id, name), partner_chains:chain_id(id, chain_name)`).eq('project_id', projectId).order('level', { ascending: true });
+      const { data, error } = await supabase.from('project_partners').select(`*, partners:partner_id(id, name)`).eq('project_id', projectId).order('level', { ascending: true });
       if (error) throw error;
-      const formattedData: ProjectPartner[] = data.map(item => ({
+      return data.map(item => ({
         id: item.id, projectId: item.project_id, partnerId: item.partner_id, chainId: item.chain_id,
         level: item.level, taxRate: Number(item.tax_rate),
         calculationMethod: (item.calculation_method as "tax" | "profit") || "tax",
         profitRate: item.profit_rate ? Number(item.profit_rate) : 0,
         createdAt: item.created_at, partnerName: item.partners?.name || '',
       }));
-      return formattedData;
     } catch (error) { console.error('Error loading project partners:', error); return []; }
   };
 
@@ -150,7 +139,7 @@ export default function Projects() {
     setEditingProject(null);
   };
 
-  const handleEdit = async (project: Project) => {
+  const handleEdit = (project: Project) => {
     setFormData({
       name: project.name, startDate: project.startDate, endDate: project.endDate,
       manager: project.manager, loadingAddress: project.loadingAddress, unloadingAddress: project.unloadingAddress,
@@ -186,54 +175,62 @@ export default function Projects() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!formData.name || !formData.startDate || !formData.endDate || !formData.manager || !formData.loadingAddress || !formData.unloadingAddress) {
-      toast({ title: "请填写所有字段", description: "所有字段都是必填的", variant: "destructive" });
+      toast({ title: "请填写所有基本信息字段", variant: "destructive" });
       return;
     }
-    for (let i = 0; i < selectedChains.length; i++) {
-      if (selectedChains[i].partners.length === 0) {
-        toast({ title: `链路 ${i + 1} 缺少合作方`, description: "每个链路至少需要一个合作方", variant: "destructive" });
+    for (const chain of selectedChains) {
+      if (chain.partners.length === 0) {
+        toast({ title: `链路 "${chain.chainName}" 缺少合作方`, description: "每个链路至少需要一个合作方", variant: "destructive" });
         return;
       }
-      for (let j = 0; j < selectedChains[i].partners.length; j++) {
-        if (!selectedChains[i].partners[j].partnerId) {
-          toast({ title: `链路 ${i + 1} 第 ${j + 1} 个合作方未选择`, description: "请为所有合作方选择具体的合作方", variant: "destructive" });
+      for (const partner of chain.partners) {
+        if (!partner.partnerId) {
+          toast({ title: `链路 "${chain.chainName}" 中有未选择的合作方`, variant: "destructive" });
           return;
         }
       }
     }
+
     try {
       setIsSubmitting(true);
       await findOrCreateLocation(formData.loadingAddress);
       await findOrCreateLocation(formData.unloadingAddress);
-      let projectId: string;
-      if (editingProject) {
-        await SupabaseStorage.updateProject(editingProject.id, formData);
-        projectId = editingProject.id;
-      } else {
-        const newProject = await SupabaseStorage.addProject(formData);
-        projectId = newProject.id;
-      }
+
+      const projectId = editingProject ? editingProject.id : null;
+
       const chainsPayload = selectedChains.map((chain, index) => ({
-        id: chain.dbId, chainName: chain.chainName || `链路${index + 1}`,
-        description: chain.description || '', isDefault: index === 0,
+        id: chain.dbId,
+        chainName: chain.chainName || `链路${index + 1}`,
+        description: chain.description || '',
+        isDefault: index === 0,
         partners: chain.partners.map(p => ({
-          id: p.dbId, partnerId: p.partnerId, level: Number(p.level),
-          taxRate: Number(p.taxRate), calculationMethod: p.calculationMethod || 'tax',
+          id: p.dbId,
+          partnerId: p.partnerId,
+          level: Number(p.level),
+          taxRate: Number(p.taxRate),
+          calculationMethod: p.calculationMethod || 'tax',
           profitRate: Number(p.profitRate || 0)
         }))
       }));
+
       const { error } = await supabase.rpc('save_project_with_chains', {
-        project_id_in: projectId, project_data: formData, chains_data: chainsPayload
+        project_id_in: projectId,
+        project_data: formData,
+        chains_data: chainsPayload
       });
+
       if (error) throw error;
-      toast({ title: editingProject ? "项目更新成功" : "项目创建成功", description: `项目 "${formData.name}" 已成功保存` });
+
+      toast({ title: editingProject ? "项目更新成功" : "项目创建成功", description: `项目 "${formData.name}" 已成功保存。` });
+
       await loadData();
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
       console.error('通过 RPC 保存项目时出错:', error);
-      toast({ title: "操作失败", description: "保存项目时发生错误，请重试", variant: "destructive" });
+      toast({ title: "操作失败", description: "保存项目时发生错误，请检查控制台日志。", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -245,7 +242,6 @@ export default function Projects() {
       await loadData();
       toast({ title: "项目删除成功", description: `项目"${name}"已从列表中移除` });
     } catch (error) {
-      console.error('Error deleting project:', error);
       toast({ title: "删除失败", description: "删除项目时出现错误", variant: "destructive" });
     }
   };
@@ -280,30 +276,28 @@ export default function Projects() {
   };
 
   const updatePartnerInChain = (chainIndex: number, partnerIndex: number, field: string, value: any) => {
-    setSelectedChains(prev => {
-      return prev.map((chain, ci) => {
-        if (ci === chainIndex) {
-          const newPartners = chain.partners.map((partner, pi) => {
-            if (pi === partnerIndex) {
-              const updatedPartner = { ...partner, [field]: value };
-              if (field === 'partnerId') {
-                const selectedPartner = partners.find(p => p.id === value);
-                if (selectedPartner) {
-                  updatedPartner.partnerName = selectedPartner.name;
-                  if (updatedPartner.calculationMethod === "tax") {
-                    updatedPartner.taxRate = selectedPartner.taxRate;
-                  }
+    setSelectedChains(prev => prev.map((chain, ci) => {
+      if (ci === chainIndex) {
+        const newPartners = chain.partners.map((partner, pi) => {
+          if (pi === partnerIndex) {
+            const updatedPartner = { ...partner, [field]: value };
+            if (field === 'partnerId') {
+              const selectedPartner = partners.find(p => p.id === value);
+              if (selectedPartner) {
+                updatedPartner.partnerName = selectedPartner.name;
+                if (updatedPartner.calculationMethod === "tax") {
+                  updatedPartner.taxRate = selectedPartner.taxRate;
                 }
               }
-              return updatedPartner;
             }
-            return partner;
-          });
-          return { ...chain, partners: newPartners };
-        }
-        return chain;
-      });
-    });
+            return updatedPartner;
+          }
+          return partner;
+        });
+        return { ...chain, partners: newPartners };
+      }
+      return chain;
+    }));
   };
 
   if (isLoading) {
@@ -317,7 +311,6 @@ export default function Projects() {
 
   return (
     <div className="space-y-8">
-      {/* 页面标题 */}
       <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
         <div className="flex items-center justify-between">
           <div>
@@ -329,14 +322,52 @@ export default function Projects() {
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editingProject ? "编辑项目" : "新增项目"}</DialogTitle></DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* ... 表单内容保持不变 ... */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">项目基本信息</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label htmlFor="name">项目名称 *</Label><Input id="name" value={formData.name} onChange={(e) => setFormData(prev => ({...prev, name: e.target.value}))} placeholder="请输入项目名称" disabled={isSubmitting}/></div>
+                    <div className="space-y-2"><Label htmlFor="manager">项目负责人 *</Label><Input id="manager" value={formData.manager} onChange={(e) => setFormData(prev => ({...prev, manager: e.target.value}))} placeholder="请输入负责人姓名" disabled={isSubmitting}/></div>
+                    <div className="space-y-2"><Label htmlFor="startDate">开始日期 *</Label><Input id="startDate" type="date" value={formData.startDate} onChange={(e) => setFormData(prev => ({...prev, startDate: e.target.value}))} disabled={isSubmitting}/></div>
+                    <div className="space-y-2"><Label htmlFor="endDate">结束日期 *</Label><Input id="endDate" type="date" value={formData.endDate} onChange={(e) => setFormData(prev => ({...prev, endDate: e.target.value}))} disabled={isSubmitting}/></div>
+                    <div className="space-y-2"><Label htmlFor="loadingAddress">装货地址 *</Label><Input id="loadingAddress" value={formData.loadingAddress} onChange={(e) => setFormData(prev => ({...prev, loadingAddress: e.target.value}))} placeholder="请输入装货地址" disabled={isSubmitting}/></div>
+                    <div className="space-y-2"><Label htmlFor="unloadingAddress">卸货地址 *</Label><Input id="unloadingAddress" value={formData.unloadingAddress} onChange={(e) => setFormData(prev => ({...prev, unloadingAddress: e.target.value}))} placeholder="请输入卸货地址" disabled={isSubmitting}/></div>
+                  </div>
+                </div>
+                <div className="space-y-4 border-t pt-4">
+                  <div className="flex items-center justify-between"><h3 className="text-lg font-medium">合作链路配置</h3><Button type="button" variant="outline" size="sm" onClick={addNewChain} disabled={isSubmitting}><Plus className="h-4 w-4 mr-1" />添加链路</Button></div>
+                  {selectedChains.length > 0 ? (
+                    <div className="space-y-4">
+                      {selectedChains.map((chain, chainIndex) => (
+                        <div key={chain.id} className="border rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2"><Link className="h-4 w-4" /><Input value={chain.chainName} onChange={(e) => setSelectedChains(prev => prev.map((c, i) => i === chainIndex ? { ...c, chainName: e.target.value } : c))} placeholder="链路名称" className="w-40" disabled={isSubmitting}/></div>
+                            <div className="flex space-x-2"><Button type="button" variant="outline" size="sm" onClick={() => addPartnerToChain(chainIndex)} disabled={isSubmitting}><Plus className="h-4 w-4 mr-1" />添加合作方</Button><Button type="button" variant="outline" size="sm" onClick={() => removeChain(chainIndex)} disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button></div>
+                          </div>
+                          {chain.partners.length > 0 ? (
+                            <div className="space-y-2">
+                               {chain.partners.map((partner, partnerIndex) => (
+                                <div key={partner.id} className="flex items-center space-x-2 p-2 bg-muted/30 rounded">
+                                  <div className="flex-1"><select value={partner.partnerId} onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'partnerId', e.target.value)} className="w-full p-1 border rounded text-sm" disabled={isSubmitting}><option value="">请选择合作方</option>{partners.map(p => (<option key={p.id} value={p.id}>{p.name} (默认税点: {(p.taxRate * 100).toFixed(2)}%)</option>))}</select></div>
+                                  <div className="w-16"><input type="number" min="1" value={partner.level} onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'level', parseInt(e.target.value) || 1)} className="w-full p-1 border rounded text-sm" placeholder="级别" disabled={isSubmitting}/></div>
+                                  <div className="w-24"><select value={partner.calculationMethod} onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'calculationMethod', e.target.value)} className="w-full p-1 border rounded text-sm" disabled={isSubmitting}><option value="tax">税点</option><option value="profit">利润</option></select></div>
+                                  <div className="w-20"><input type="number" step="0.001" min="0" max={partner.calculationMethod === "tax" ? "0.999" : "999"} value={partner.calculationMethod === "tax" ? partner.taxRate : (partner.profitRate || 0)} onChange={(e) => { const value = parseFloat(e.target.value) || 0; const field = partner.calculationMethod === "tax" ? 'taxRate' : 'profitRate'; updatePartnerInChain(chainIndex, partnerIndex, field, value); }} className="w-full p-1 border rounded text-sm" placeholder={partner.calculationMethod === "tax" ? "税点" : "利润"} disabled={isSubmitting}/></div>
+                                  <Button type="button" variant="outline" size="sm" onClick={() => removePartnerFromChain(chainIndex, partnerIndex)} disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : ( <div className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded">暂无合作方，点击"添加合作方"开始配置</div> )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : ( <div className="text-sm text-muted-foreground text-center py-8 border border-dashed rounded">暂无合作链路，点击"添加链路"开始配置多种合作方案</div> )}
+                </div>
+                <div className="flex justify-end space-x-2"><Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>取消</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />{editingProject ? "更新中..." : "添加中..."}</>) : (editingProject ? "更新" : "添加")}</Button></div>
               </form>
             </DialogContent>
           </Dialog>
         </div>
       </div>
 
-      {/* 项目列表 */}
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between"><CardTitle>项目列表 ({projects.length} 个项目)</CardTitle></div>
@@ -358,7 +389,7 @@ export default function Projects() {
                 {projects.map((project) => (
                   <React.Fragment key={project.id}>
                     <TableRow className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}>
-                      <TableCell className="w-8">{expandedProject === project.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</TableCell>
+                      <TableCell>{expandedProject === project.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</TableCell>
                       <TableCell className="font-medium">{project.name}</TableCell>
                       <TableCell>{project.manager}</TableCell>
                       <TableCell>{project.loadingAddress}</TableCell>
@@ -382,7 +413,6 @@ export default function Projects() {
                               <div><span className="text-muted-foreground">创建时间：</span><span className="font-medium">{new Date(project.createdAt).toLocaleDateString('zh-CN')}</span></div>
                             </div>
                             
-                            {/* 【已修改】合作链路详情 */}
                             <div className="space-y-4 pt-4 border-t">
                               <h5 className="font-semibold text-sm">合作链路详情</h5>
                               {(partnerChains[project.id] || []).map((chain) => {
@@ -397,7 +427,6 @@ export default function Projects() {
                                       </h6>
                                       {chain.description && (<span className="text-xs text-muted-foreground">{chain.description}</span>)}
                                     </div>
-                                    {/* 使用新的横向展示组件 */}
                                     <PartnerChainDisplay partners={chainPartners} />
                                   </div>
                                 );
