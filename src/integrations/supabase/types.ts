@@ -465,6 +465,26 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_finance_reconciliation_data: {
+        Args: {
+          p_project_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_partner_id?: string
+        }
+        Returns: {
+          record_id: string
+          auto_number: string
+          project_name: string
+          driver_name: string
+          loading_location: string
+          unloading_location: string
+          loading_date: string
+          current_cost: number
+          payable_cost: number
+          partner_costs: Json
+        }[]
+      }
       save_project_with_chains: {
         Args: { project_id_in: string; project_data: Json; chains_data: Json }
         Returns: undefined
