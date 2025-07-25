@@ -42,7 +42,6 @@ interface LogisticsRecordWithPartners extends LogisticsRecord {
 
 export default function FinanceReconciliation() {
   const [logisticsRecords, setLogisticsRecords] = useState<LogisticsRecordWithPartners[]>([]);
-  const [partnerPayables, setPartnerPayables] = useState<PartnerPayable[]>([]);
   const [allPartners, setAllPartners] = useState<{id: string, name: string, level: number}[]>([]);
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +62,7 @@ export default function FinanceReconciliation() {
 
   const loadData = async () => {
     try {
+      setLoading(true);
       // 加载项目数据
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
@@ -79,8 +79,7 @@ export default function FinanceReconciliation() {
           partner_id,
           level,
           partners!inner(name)
-        `)
-        .order('level', { ascending: true });
+        `);
 
       if (partnersError) throw partnersError;
 
@@ -118,7 +117,7 @@ export default function FinanceReconciliation() {
       // 处理运单数据，添加合作方成本信息
       const recordsWithPartners: LogisticsRecordWithPartners[] = (records || []).map(record => ({
         ...record,
-        partner_costs: (record.logistics_partner_costs || []).map(cost => ({
+        partner_costs: (record.logistics_partner_costs || []).map((cost: any) => ({ // Add 'any' type for cost
           partner_id: cost.partner_id,
           partner_name: (cost.partners as any).name,
           level: cost.level,
@@ -128,8 +127,6 @@ export default function FinanceReconciliation() {
 
       setLogisticsRecords(recordsWithPartners);
 
-      // 汇总合作方应付金额（基于所有数据）
-      calculatePartnerPayables(recordsWithPartners);
     } catch (error) {
       console.error('加载财务对账数据失败:', error);
       toast({
@@ -142,50 +139,16 @@ export default function FinanceReconciliation() {
     }
   };
 
-  // 计算合作方应付金额的独立函数
-  const calculatePartnerPayables = (records: LogisticsRecordWithPartners[]) => {
-    const payableMap = new Map<string, { name: string; level: number; total: number; count: number }>();
-    
-    records.forEach(record => {
-      (record.partner_costs || []).forEach(cost => {
-        const partnerId = cost.partner_id;
-        
-        if (payableMap.has(partnerId)) {
-          const existing = payableMap.get(partnerId)!;
-          existing.total += cost.payable_amount;
-          existing.count += 1;
-        } else {
-          payableMap.set(partnerId, {
-            name: cost.partner_name,
-            level: cost.level,
-            total: cost.payable_amount,
-            count: 1
-          });
-        }
-      });
-    });
-
-    const payables: PartnerPayable[] = Array.from(payableMap.entries()).map(([partnerId, data]) => ({
-      partner_id: partnerId,
-      partner_name: data.name,
-      level: data.level,
-      total_payable: data.total,
-      records_count: data.count
-    })).sort((a, b) => a.level - b.level);
-
-    setPartnerPayables(payables);
-  };
-
   // 筛选后的数据
   const filteredRecords = useMemo(() => {
     let filtered = logisticsRecords;
 
     // 项目筛选
     if (selectedProjectId && selectedProjectId !== "all") {
-      const selectedProject = projects.find(p => p.id === selectedProjectId);
-      if (selectedProject) {
-        filtered = filtered.filter(record => record.project_name === selectedProject.name);
-      }
+        const selectedProject = projects.find(p => p.id === selectedProjectId);
+        if (selectedProject) {
+            filtered = filtered.filter(record => record.project_name === selectedProject.name);
+        }
     }
 
     // 日期范围筛选
@@ -262,7 +225,6 @@ export default function FinanceReconciliation() {
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     
-    // 运单财务数据（使用筛选后的数据）
     const recordsData = filteredRecords.map(record => ({
       '运单编号': record.auto_number,
       '项目名称': record.project_name,
@@ -277,7 +239,6 @@ export default function FinanceReconciliation() {
     const recordsWs = XLSX.utils.json_to_sheet(recordsData);
     XLSX.utils.book_append_sheet(wb, recordsWs, '运单财务');
     
-    // 合作方应付数据（使用筛选后的数据）
     const partnersData = filteredPartnerPayables.map(partner => ({
       '合作方名称': partner.partner_name,
       '运单数量': partner.records_count,
@@ -312,11 +273,9 @@ export default function FinanceReconciliation() {
         </Button>
       </div>
 
-      {/* 筛选器 */}
       <Card className="border-muted/40">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-end gap-3">
-            {/* 项目筛选 */}
             <div className="flex flex-col gap-1 min-w-[140px]">
               <Label htmlFor="projectFilter" className="text-xs text-muted-foreground">项目</Label>
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
@@ -334,7 +293,6 @@ export default function FinanceReconciliation() {
               </Select>
             </div>
 
-            {/* 装货日期范围 */}
             <div className="flex flex-col gap-1 min-w-[120px]">
               <Label htmlFor="startDate" className="text-xs text-muted-foreground">开始日期</Label>
               <Input
@@ -357,7 +315,6 @@ export default function FinanceReconciliation() {
               />
             </div>
 
-            {/* 合作方筛选 */}
             <div className="flex flex-col gap-1 min-w-[140px]">
               <Label htmlFor="partnerFilter" className="text-xs text-muted-foreground">合作方</Label>
               <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
@@ -375,7 +332,6 @@ export default function FinanceReconciliation() {
               </Select>
             </div>
 
-            {/* 清除筛选按钮 */}
             <Button 
               variant="outline" 
               size="sm"
@@ -392,7 +348,6 @@ export default function FinanceReconciliation() {
         </CardContent>
       </Card>
 
-      {/* 统计卡片 */}
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader>
@@ -429,7 +384,6 @@ export default function FinanceReconciliation() {
         </Card>
       </div>
 
-      {/* 合作方应付汇总 */}
       <Card>
         <CardHeader>
           <CardTitle>合作方应付汇总</CardTitle>
@@ -456,7 +410,6 @@ export default function FinanceReconciliation() {
         </CardContent>
       </Card>
 
-      {/* 运单财务明细 */}
       <Card>
         <CardHeader>
           <CardTitle>运单财务明细</CardTitle>
@@ -512,7 +465,6 @@ export default function FinanceReconciliation() {
                 </TableRow>
               ))}
               
-              {/* 合计行 */}
               <TableRow className="bg-muted/30 border-t-2 font-semibold">
                 <TableCell colSpan={5} className="text-right font-bold">
                   合计 ({filteredRecords.length} 笔运单)
@@ -527,3 +479,16 @@ export default function FinanceReconciliation() {
                   }, 0);
                   return (
                     <TableCell key={partner.id} className="font-mono text-center bg-gradient-to-r from-primary/10 to-accent/10 font-bold">
+                      ¥{partnerTotal.toFixed(2)}
+                    </TableCell>
+                  );
+                })}
+                <TableCell></TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
