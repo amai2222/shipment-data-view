@@ -465,6 +465,41 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_filtered_logistics_records: {
+        Args: {
+          p_project_id?: string
+          p_driver_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: {
+          id: string
+          auto_number: string
+          project_id: string
+          project_name: string
+          chain_id: string
+          loading_date: string
+          loading_location: string
+          unloading_location: string
+          driver_id: string
+          driver_name: string
+          license_plate: string
+          driver_phone: string
+          loading_weight: number
+          unloading_date: string
+          unloading_weight: number
+          transport_type: string
+          current_cost: number
+          extra_cost: number
+          payable_cost: number
+          remarks: string
+          created_at: string
+          created_by_user_id: string
+          total_count: number
+        }[]
+      }
       get_finance_reconciliation_data: {
         Args: {
           p_project_id?: string

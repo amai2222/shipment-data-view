@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CalendarIcon, TruckIcon, MapPinIcon, Plus, Edit2, Trash2, Eye, Calendar, Truck, MapPin, User, Clock, Weight, DollarSign, Upload, Download } from "lucide-react";
+import { CalendarIcon, TruckIcon, MapPinIcon, Plus, Edit2, Trash2, Eye, Calendar, Truck, MapPin, User, Clock, Weight, DollarSign, Upload, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LogisticsForm } from "@/components/LogisticsForm";
@@ -21,6 +21,10 @@ export default function BusinessEntry() {
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(50); // 每页显示50条记录
   const [filteredRecords, setFilteredRecords] = useState<LogisticsRecord[]>([]);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
@@ -34,6 +38,8 @@ export default function BusinessEntry() {
   
   // 筛选器状态
   const [filterDriver, setFilterDriver] = useState<string>("");
+  const [filterProjectId, setFilterProjectId] = useState<string>("all");
+  const [filterDriverId, setFilterDriverId] = useState<string>("all");
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
 
@@ -74,27 +80,101 @@ export default function BusinessEntry() {
   });
 
   useEffect(() => {
-    loadData();
+    loadBasicData();
   }, []);
 
-  const loadData = async () => {
+  useEffect(() => {
+    loadRecords();
+  }, [currentPage, filterStartDate, filterEndDate, filterProjectId, filterDriverId]);
+
+  const loadBasicData = async () => {
     try {
-      const [loadedProjects, loadedRecords] = await Promise.all([
-        SupabaseStorage.getProjects(),
-        SupabaseStorage.getLogisticsRecords()
+      // 加载项目、司机、地点数据
+      const [projectsResult] = await Promise.all([
+        SupabaseStorage.getProjects()
       ]);
-      setProjects(loadedProjects);
-      setRecords(loadedRecords);
-      setFilteredRecords(loadedRecords);
+
+      setProjects(projectsResult);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('加载基础数据失败:', error);
       toast({
-        title: "加载失败",
-        description: "无法加载数据",
+        title: "错误",
+        description: "加载基础数据失败",
         variant: "destructive",
       });
     }
   };
+
+  const loadRecords = async () => {
+    setLoading(true);
+    try {
+      // 使用数据库函数获取分页和筛选后的运单数据
+      const projectId = filterProjectId === "all" ? null : filterProjectId;
+      const driverId = filterDriverId === "all" ? null : filterDriverId;
+      const startDate = filterStartDate || null;
+      const endDate = filterEndDate || null;
+      const offset = (currentPage - 1) * pageSize;
+
+      const { data, error } = await supabase
+        .rpc('get_filtered_logistics_records', {
+          p_project_id: projectId,
+          p_driver_id: driverId,
+          p_start_date: startDate,
+          p_end_date: endDate,
+          p_limit: pageSize,
+          p_offset: offset
+        });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const totalCount = data[0].total_count;
+        setTotalRecords(Number(totalCount));
+        
+        const recordsWithoutCount = data.map(record => ({
+          id: record.id,
+          autoNumber: record.auto_number,
+          projectId: record.project_id,
+          projectName: record.project_name,
+          chainId: record.chain_id,
+          loadingDate: record.loading_date,
+          loadingLocation: record.loading_location,
+          unloadingLocation: record.unloading_location,
+          driverId: record.driver_id,
+          driverName: record.driver_name,
+          licensePlate: record.license_plate,
+          driverPhone: record.driver_phone,
+          loadingWeight: record.loading_weight,
+          unloadingDate: record.unloading_date,
+          unloadingWeight: record.unloading_weight,
+          transportType: record.transport_type as "实际运输" | "退货",
+          currentFee: record.current_cost,
+          extraFee: record.extra_cost,
+          payableFee: record.payable_cost,
+          remarks: record.remarks,
+          createdAt: record.created_at,
+          createdByUserId: record.created_by_user_id,
+        }));
+        
+        setRecords(recordsWithoutCount);
+        setFilteredRecords(recordsWithoutCount);
+      } else {
+        setRecords([]);
+        setFilteredRecords([]);
+        setTotalRecords(0);
+      }
+    } catch (error) {
+      console.error('加载运单数据失败:', error);
+      toast({
+        title: "错误",
+        description: "加载运单数据失败",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const resetForm = () => {
     setFormData({
@@ -188,6 +268,7 @@ export default function BusinessEntry() {
           title: "成功",
           description: "物流记录已更新",
         });
+        setEditDialogOpen(false);
       } else {
         await SupabaseStorage.addLogisticsRecord(recordData);
         toast({
@@ -197,11 +278,7 @@ export default function BusinessEntry() {
       }
 
       resetForm();
-      const loadedRecords = await SupabaseStorage.getLogisticsRecords();
-      setRecords(loadedRecords);
-      setFilteredRecords(loadedRecords);
-      applyFilters();
-      setEditDialogOpen(false);
+      loadRecords(); // 使用新的分页加载函数
     } catch (error) {
         console.error('Error saving record:', error);
       toast({
@@ -248,10 +325,7 @@ export default function BusinessEntry() {
         title: "成功",
         description: "记录已删除",
       });
-      const loadedRecords = await SupabaseStorage.getLogisticsRecords();
-      setRecords(loadedRecords);
-      setFilteredRecords(loadedRecords);
-      applyFilters();
+      loadRecords(); // 使用新的分页加载函数
     } catch (error) {
       console.error('Error deleting record:', error);
       toast({
@@ -418,10 +492,7 @@ export default function BusinessEntry() {
           variant: failedRows.length > 0 ? "destructive" : "default",
         });
 
-        const loadedRecords = await SupabaseStorage.getLogisticsRecords();
-        setRecords(loadedRecords);
-        setFilteredRecords(loadedRecords);
-        applyFilters();
+        loadRecords(); // 使用新的分页加载函数
       } catch (error) {
         console.error('Error importing Excel:', error);
         toast({
@@ -438,40 +509,15 @@ export default function BusinessEntry() {
     }
   };
 
-  // 筛选功能 - 支持日期区间筛选
-  const applyFilters = () => {
-    let filtered = [...records];
-
-    if (filterStartDate || filterEndDate) {
-      filtered = filtered.filter(record => {
-        let recordDate = record.loadingDate;
-        if (recordDate.includes('T')) {
-          recordDate = recordDate.split('T')[0];
-        }
-        
-        const recordDateObj = new Date(recordDate);
-        const startDateObj = filterStartDate ? new Date(filterStartDate) : null;
-        const endDateObj = filterEndDate ? new Date(filterEndDate) : null;
-        
-        if (startDateObj && endDateObj) {
-          return recordDateObj >= startDateObj && recordDateObj <= endDateObj;
-        } else if (startDateObj) {
-          return recordDateObj >= startDateObj;
-        } else if (endDateObj) {
-          return recordDateObj <= endDateObj;
-        }
-        
-        return true;
-      });
-    }
-
-    setFilteredRecords(filtered);
+  // 重置筛选条件时回到第一页
+  const resetFilters = () => {
+    setFilterDriver("");
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setFilterProjectId("all");
+    setFilterDriverId("all");
+    setCurrentPage(1);
   };
-
-  // 当筛选条件变化时自动应用筛选
-  useEffect(() => {
-    applyFilters();
-  }, [filterDriver, filterStartDate, filterEndDate, records]);
 
   // 下载导入模板
   const handleTemplateDownload = () => {
@@ -605,9 +651,9 @@ export default function BusinessEntry() {
   };
 
   // 计算合计
-  const totalWeight = filteredRecords.reduce((sum, record) => sum + record.loadingWeight, 0);
-  const totalCurrentFee = filteredRecords.reduce((sum, record) => sum + (record.currentFee || 0), 0);
-  const totalDriverReceivable = filteredRecords.reduce((sum, record) => sum + (record.payableFee || 0), 0);
+  const totalWeight = records.reduce((sum, record) => sum + record.loadingWeight, 0);
+  const totalCurrentFee = records.reduce((sum, record) => sum + (record.currentFee || 0), 0);
+  const totalDriverReceivable = records.reduce((sum, record) => sum + (record.payableFee || 0), 0);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -698,12 +744,7 @@ export default function BusinessEntry() {
                   />
                 </div>
 
-                <Button onClick={() => {
-                  setFilterDriver("");
-                  setFilterStartDate("");
-                  setFilterEndDate("");
-                  setFilteredRecords(records);
-                }} variant="outline" size="sm">
+                <Button onClick={resetFilters} variant="outline" size="sm">
                   重置
                 </Button>
               </div>
@@ -714,7 +755,7 @@ export default function BusinessEntry() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>运单记录</span>
-                <Badge variant="secondary">{filteredRecords.length} 条记录</Badge>
+                <Badge variant="secondary">{totalRecords} 条记录</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -733,7 +774,7 @@ export default function BusinessEntry() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRecords.map((record) => (
+                    {records.map((record) => (
                       <TableRow key={record.id}>
                         <TableCell className="font-mono text-sm">{record.autoNumber}</TableCell>
                         <TableCell>{record.projectName}</TableCell>
@@ -787,8 +828,8 @@ export default function BusinessEntry() {
                 </Table>
               </div>
 
-              {filteredRecords.length > 0 && (
-                <div className="mt-4 pt-4 border-t">
+              {records.length > 0 && (
+                <div className="mt-4 pt-4 border-t space-y-4">
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="font-medium">总重量: </span>
@@ -803,6 +844,38 @@ export default function BusinessEntry() {
                       <span className="text-lg font-bold">¥{totalDriverReceivable.toFixed(2)}</span>
                     </div>
                   </div>
+                  
+                  {/* 分页控制 */}
+                  {totalRecords > pageSize && (
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        显示第 {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, totalRecords)} 条，共 {totalRecords} 条记录
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          disabled={currentPage <= 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          上一页
+                        </Button>
+                        <span className="text-sm">
+                          第 {currentPage} 页，共 {Math.ceil(totalRecords / pageSize)} 页
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(Math.min(Math.ceil(totalRecords / pageSize), currentPage + 1))}
+                          disabled={currentPage >= Math.ceil(totalRecords / pageSize)}
+                        >
+                          下一页
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

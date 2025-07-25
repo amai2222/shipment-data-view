@@ -316,15 +316,39 @@ export class SupabaseStorage {
     if (error) throw error;
   }
 
-  // 物流记录相关
+  // 物流记录相关 - 兼容性方法
   static async getLogisticsRecords(): Promise<LogisticsRecord[]> {
+    const result = await this.getFilteredLogisticsRecords(undefined, undefined, undefined, undefined, 1000, 0);
+    return result.records;
+  }
+
+  // 使用数据库函数获取筛选后的物流记录
+  static async getFilteredLogisticsRecords(
+    projectId?: string, 
+    driverId?: string, 
+    startDate?: string, 
+    endDate?: string,
+    limit: number = 100,
+    offset: number = 0
+  ): Promise<{records: LogisticsRecord[], totalCount: number}> {
     const { data, error } = await supabase
-      .from('logistics_records')
-      .select('*')
-      .order('auto_number', { ascending: false });
+      .rpc('get_filtered_logistics_records', {
+        p_project_id: projectId || null,
+        p_driver_id: driverId || null,
+        p_start_date: startDate || null,
+        p_end_date: endDate || null,
+        p_limit: limit,
+        p_offset: offset
+      });
     
     if (error) throw error;
-    return data?.map(record => ({
+    
+    if (!data || data.length === 0) {
+      return { records: [], totalCount: 0 };
+    }
+    
+    const totalCount = Number(data[0].total_count);
+    const records = data.map(record => ({
       id: record.id,
       autoNumber: record.auto_number,
       projectId: record.project_id,
@@ -347,7 +371,9 @@ export class SupabaseStorage {
       remarks: record.remarks,
       createdAt: record.created_at,
       createdByUserId: record.created_by_user_id,
-    })) || [];
+    }));
+    
+    return { records, totalCount };
   }
 
   static async addLogisticsRecord(record: Omit<LogisticsRecord, 'id' | 'autoNumber' | 'createdAt'>): Promise<LogisticsRecord> {
