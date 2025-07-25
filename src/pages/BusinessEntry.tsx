@@ -1,3 +1,4 @@
+// 文件路径: src/pages/BusinessEntry.tsx
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { CreatableCombobox } from "@/components/CreatableCombobox";
 interface LogisticsRecord {
   id: string; auto_number: string; project_id: string; project_name: string; chain_id: string | null; chain_name: string | null;
   driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string;
+  unloading_date: string | null;
   loading_weight: number | null; unloading_weight: number | null; current_cost: number | null; payable_cost: number | null;
   license_plate: string | null; driver_phone: string | null; transport_type: string | null;
   extra_cost: number | null; driver_payable_cost: number | null; remarks: string | null;
@@ -28,9 +30,9 @@ interface PartnerChain { id: string; chain_name: string; }
 
 const BLANK_FORM_DATA = {
   project_id: "", chain_id: "", driver_id: "", driver_name: "", loading_location: "", unloading_location: "",
-  loading_date: new Date().toISOString().split('T')[0], loading_weight: null, unloading_weight: null,
-  current_cost: null, license_plate: "", driver_phone: "", transport_type: "整车", extra_cost: null,
-  driver_payable_cost: null, remarks: ""
+  loading_date: new Date().toISOString().split('T')[0], unloading_date: "",
+  loading_weight: null, unloading_weight: null, current_cost: null, license_plate: "", driver_phone: "",
+  transport_type: "整车", extra_cost: null, driver_payable_cost: null, remarks: ""
 };
 
 export default function BusinessEntry() {
@@ -62,6 +64,9 @@ export default function BusinessEntry() {
   }, [toast]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  
+  const handleInputChange = (field: string, value: any) => { setFormData((prev: any) => ({ ...prev, [field]: value })); };
+
   useEffect(() => {
     handleInputChange('chain_id', '');
     if (formData.project_id) {
@@ -73,19 +78,27 @@ export default function BusinessEntry() {
     } else { setPartnerChains([]); }
   }, [formData.project_id]);
 
-  const handleInputChange = (field: string, value: any) => { setFormData((prev: any) => ({ ...prev, [field]: value })); };
-  
   useEffect(() => {
-    const selectedDriver = drivers.find(d => d.id === formData.driver_id || d.name === formData.driver_name);
-    if (selectedDriver) {
+    const isUuid = /^[0-9a-fA-F-]{36}$/.test(formData.driver_id);
+    const selectedDriver = drivers.find(d => d.id === formData.driver_id);
+    if (isUuid && selectedDriver) {
       setFormData((prev: any) => ({
         ...prev,
-        driver_id: selectedDriver.id, driver_name: selectedDriver.name,
+        driver_name: selectedDriver.name,
         license_plate: selectedDriver.license_plate || prev.license_plate || '',
         driver_phone: selectedDriver.phone || prev.driver_phone || '',
       }));
+    } else {
+        setFormData((prev: any) => ({ ...prev, driver_name: formData.driver_id }));
     }
-  }, [formData.driver_id, formData.driver_name, drivers]);
+  }, [formData.driver_id, drivers]);
+
+  useEffect(() => {
+    const currentCost = parseFloat(formData.current_cost) || 0;
+    const extraCost = parseFloat(formData.extra_cost) || 0;
+    const driverPayable = currentCost + extraCost;
+    handleInputChange('driver_payable_cost', driverPayable > 0 ? driverPayable.toFixed(2) : null);
+  }, [formData.current_cost, formData.extra_cost]);
 
   const handleOpenModal = (record: LogisticsRecord | null = null) => {
     if (record) {
@@ -93,6 +106,7 @@ export default function BusinessEntry() {
       setFormData({
         project_id: record.project_id, chain_id: record.chain_id || "", driver_id: record.driver_id, driver_name: record.driver_name,
         loading_location: record.loading_location, unloading_location: record.unloading_location, loading_date: record.loading_date,
+        unloading_date: record.unloading_date || "",
         loading_weight: record.loading_weight, unloading_weight: record.unloading_weight, current_cost: record.current_cost,
         license_plate: record.license_plate, driver_phone: record.driver_phone, transport_type: record.transport_type,
         extra_cost: record.extra_cost, driver_payable_cost: record.driver_payable_cost, remarks: record.remarks
@@ -110,7 +124,7 @@ export default function BusinessEntry() {
     const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', {
       p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone
     });
-    if (driverError || !driverResult) { toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); return; }
+    if (driverError || !driverResult || driverResult.length === 0) { toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); return; }
     const finalDriver = driverResult[0];
 
     await supabase.rpc('get_or_create_location', { p_location_name: formData.loading_location });
@@ -120,7 +134,7 @@ export default function BusinessEntry() {
       p_project_id: formData.project_id, p_project_name: projectName, p_chain_id: formData.chain_id || null,
       p_driver_id: finalDriver.driver_id, p_driver_name: finalDriver.driver_name,
       p_loading_location: formData.loading_location, p_unloading_location: formData.unloading_location,
-      p_loading_date: formData.loading_date,
+      p_loading_date: formData.loading_date, p_unloading_date: formData.unloading_date || null,
       p_loading_weight: formData.loading_weight ? parseFloat(formData.loading_weight) : null,
       p_unloading_weight: formData.unloading_weight ? parseFloat(formData.unloading_weight) : null,
       p_current_cost: formData.current_cost ? parseFloat(formData.current_cost) : null,
@@ -145,15 +159,11 @@ export default function BusinessEntry() {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase.from('logistics_records').delete().eq('id', id);
-      if (error) throw error;
+      await supabase.from('logistics_records').delete().eq('id', id);
       toast({ title: "成功", description: "运单记录已删除" });
       loadData();
-    } catch (error: any) {
-      toast({ title: "删除失败", description: error.message, variant: "destructive" });
-    }
+    } catch (error: any) { toast({ title: "删除失败", description: error.message, variant: "destructive" }); }
   };
-
   const filteredRecords = useMemo(() => {
     return records.filter(record => {
         const startDateMatch = !filters.startDate || record.loading_date >= filters.startDate;
@@ -168,12 +178,11 @@ export default function BusinessEntry() {
         return startDateMatch && endDateMatch && searchMatch;
     });
   }, [records, filters]);
-
   const exportToExcel = () => {
     const dataToExport = filteredRecords.map(r => ({
       '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认',
       '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone,
-      '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date,
+      '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date,
       '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight,
       '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.driver_payable_cost, '备注': r.remarks,
     }));
@@ -183,7 +192,7 @@ export default function BusinessEntry() {
     XLSX.writeFile(wb, "运单记录.xlsx");
   };
   const handleTemplateDownload = () => {
-    const templateData = [{'项目名称': '', '合作链路': '', '司机姓名': '', '车牌号': '', '司机电话': '', '装货地点': '', '卸货地点': '', '装货日期': '', '运输类型': '', '装货重量': '', '卸货重量': '', '运费金额': '', '额外费用': '', '司机应收': '', '备注': ''}];
+    const templateData = [{'项目名称': '', '合作链路': '', '司机姓名': '', '车牌号': '', '司机电话': '', '装货地点': '', '卸货地点': '', '装货日期': '', '卸货日期': '', '运输类型': '', '装货重量': '', '卸货重量': '', '运费金额': '', '额外费用': '', '司机应收': '', '备注': ''}];
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "模板");
@@ -204,42 +213,16 @@ export default function BusinessEntry() {
         </div>
       </div>
       
-      {/* 筛选区域 */}
-      <div className="flex items-end gap-4 p-4 border rounded-lg">
-        <div className="grid w-full max-w-sm items-center gap-1.5">
-            <Label htmlFor="search-query">快速搜索</Label>
-            <Input type="text" id="search-query" placeholder="搜索运单号、项目、司机..." value={filters.searchQuery} onChange={e => setFilters(f => ({...f, searchQuery: e.target.value}))}/>
-        </div>
-        <div className="grid items-center gap-1.5">
-            <Label htmlFor="start-date">开始日期</Label>
-            <Input type="date" id="start-date" value={filters.startDate} onChange={e => setFilters(f => ({...f, startDate: e.target.value}))} />
-        </div>
-        <div className="grid items-center gap-1.5">
-            <Label htmlFor="end-date">结束日期</Label>
-            <Input type="date" id="end-date" value={filters.endDate} onChange={e => setFilters(f => ({...f, endDate: e.target.value}))}/>
-        </div>
-        <Button variant="outline" onClick={() => setFilters({startDate: "", endDate: "", searchQuery: ""})}>清除筛选</Button>
-      </div>
-
-      {/* 【已恢复】表格区域 */}
+      {/* 表格区域 */}
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>运单编号</TableHead>
-              <TableHead>项目名称</TableHead>
-              <TableHead>合作链路</TableHead>
-              <TableHead>司机</TableHead>
-              <TableHead>路线</TableHead>
-              <TableHead>装货日期</TableHead>
-              <TableHead>运费</TableHead>
-              <TableHead className="text-right">操作</TableHead>
+              <TableHead>运单编号</TableHead><TableHead>项目名称</TableHead><TableHead>合作链路</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>装货日期</TableHead><TableHead>运费</TableHead><TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={8} className="text-center">加载中...</TableCell></TableRow>
-            ) : filteredRecords.map((record) => (
+            {loading ? <TableRow><TableCell colSpan={8} className="text-center">加载中...</TableCell></TableRow> : filteredRecords.map((record) => (
               <TableRow key={record.id}>
                 <TableCell className="font-mono">{record.auto_number}</TableCell>
                 <TableCell>{record.project_name}</TableCell>
@@ -265,24 +248,31 @@ export default function BusinessEntry() {
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader><DialogTitle>{editingRecord ? "编辑运单" : "新增运单"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-4 gap-4 py-4">
+            {/* 第一行 */}
             <div className="space-y-1"><Label>项目 *</Label><Select value={formData.project_id} onValueChange={(v) => handleInputChange('project_id', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1"><Label>合作链路</Label><Select value={formData.chain_id} onValueChange={(v) => handleInputChange('chain_id', v)} disabled={!formData.project_id}><SelectTrigger><SelectValue placeholder="默认链路"/></SelectTrigger><SelectContent>{partnerChains.map(c => <SelectItem key={c.id} value={c.id}>{c.chain_name}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
-            <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="整车">整车</SelectItem><SelectItem value="零担">零担</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
             
-            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={drivers.map(d => ({ value: d.id, label: d.name }))} value={formData.driver_id || formData.driver_name} onChange={(v) => {handleInputChange('driver_id', v); handleInputChange('driver_name', v);}} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:"/></div>
+            {/* 第二行 */}
+            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={drivers.map(d => ({ value: d.id, label: d.name }))} value={formData.driver_id} onChange={(v) => handleInputChange('driver_id', v)} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:"/></div>
             <div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
             <div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
-            <div className="space-y-1"><Label>司机应收</Label><Input type="number" value={formData.driver_payable_cost || ''} onChange={(e) => handleInputChange('driver_payable_cost', e.target.value)} /></div>
+            <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="整车">整车</SelectItem><SelectItem value="零担">零担</SelectItem></SelectContent></Select></div>
             
+            {/* 第三行 */}
             <div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={locations.map(l => ({ value: l.name, label: l.name }))} value={formData.loading_location} onChange={(v) => handleInputChange('loading_location', v)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." createPlaceholder="创建新地点:"/></div>
             <div className="space-y-1"><Label>装货重量</Label><Input type="number" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value)} /></div>
             <div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={locations.map(l => ({ value: l.name, label: l.name }))} value={formData.unloading_location} onChange={(v) => handleInputChange('unloading_location', v)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." createPlaceholder="创建新地点:"/></div>
             <div className="space-y-1"><Label>卸货重量</Label><Input type="number" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value)} /></div>
             
+            {/* 第四行 */}
             <div className="space-y-1"><Label>运费金额 (元)</Label><Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value)} /></div>
             <div className="space-y-1"><Label>额外费用 (元)</Label><Input type="number" value={formData.extra_cost || ''} onChange={(e) => handleInputChange('extra_cost', e.target.value)} /></div>
             <div className="space-y-1 col-span-2"><Label>备注</Label><Textarea value={formData.remarks || ''} onChange={(e) => handleInputChange('remarks', e.target.value)} /></div>
+            
+            {/* 第五行: 自动计算 */}
+            <div className="space-y-1 col-start-4"><Label>司机应收 (自动计算)</Label><Input type="number" value={formData.driver_payable_cost || ''} disabled className="font-bold text-primary" /></div>
           </div>
           <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setIsModalOpen(false)}>取消</Button><Button onClick={handleSubmit}>保存</Button></div>
         </DialogContent>
