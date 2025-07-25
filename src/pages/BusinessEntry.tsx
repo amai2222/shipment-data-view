@@ -30,7 +30,7 @@ interface PartnerChain { id: string; chain_name: string; }
 
 const BLANK_FORM_DATA = {
   project_id: "", chain_id: "", driver_id: "", driver_name: "", loading_location: "", unloading_location: "",
-  loading_date: new Date().toISOString().split('T')[0], unloading_date: "",
+  loading_date: new Date().toISOString().split('T')[0], unloading_date: new Date().toISOString().split('T')[0],
   loading_weight: null, unloading_weight: null, current_cost: null, license_plate: "", driver_phone: "",
   transport_type: "实际运输", extra_cost: null, driver_payable_cost: null, remarks: ""
 };
@@ -50,6 +50,9 @@ export default function BusinessEntry() {
   
   const [formData, setFormData] = useState<any>(BLANK_FORM_DATA);
   const [filters, setFilters] = useState({ startDate: "", endDate: "", searchQuery: "" });
+  
+  const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([]);
+  const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
   
   const loadData = useCallback(async () => {
     try {
@@ -73,13 +76,23 @@ export default function BusinessEntry() {
   useEffect(() => {
     handleInputChange('chain_id', '');
     if (formData.project_id) {
-      const fetchChains = async () => {
-        const { data } = await supabase.from('partner_chains').select('id, chain_name').eq('project_id', formData.project_id);
-        setPartnerChains(data as PartnerChain[] || []);
+      const fetchRelatedData = async () => {
+        const { data: chainsData } = await supabase.from('partner_chains').select('id, chain_name').eq('project_id', formData.project_id);
+        setPartnerChains(chainsData as PartnerChain[] || []);
+        const { data: driverLinks } = await supabase.from('driver_projects').select('driver_id').eq('project_id', formData.project_id);
+        const driverIds = driverLinks?.map(link => link.driver_id) || [];
+        setFilteredDrivers(drivers.filter(driver => driverIds.includes(driver.id)));
+        const { data: locationLinks } = await supabase.from('location_projects').select('location_id').eq('project_id', formData.project_id);
+        const locationIds = locationLinks?.map(link => link.location_id) || [];
+        setFilteredLocations(locations.filter(location => locationIds.includes(location.id)));
       };
-      fetchChains();
-    } else { setPartnerChains([]); }
-  }, [formData.project_id]);
+      fetchRelatedData();
+    } else {
+      setPartnerChains([]);
+      setFilteredDrivers([]);
+      setFilteredLocations([]);
+    }
+  }, [formData.project_id, drivers, locations]);
 
   useEffect(() => {
     const isUuid = /^[0-9a-fA-F-]{36}$/.test(formData.driver_id);
@@ -102,6 +115,12 @@ export default function BusinessEntry() {
     const driverPayable = currentCost + extraCost;
     handleInputChange('driver_payable_cost', driverPayable > 0 ? driverPayable.toFixed(2) : null);
   }, [formData.current_cost, formData.extra_cost]);
+  
+  useEffect(() => {
+    if (formData.loading_date) {
+      handleInputChange('unloading_date', formData.loading_date);
+    }
+  }, [formData.loading_date]);
 
   const handleOpenModal = (record: LogisticsRecord | null = null) => {
     if (record) {
@@ -109,7 +128,7 @@ export default function BusinessEntry() {
       setFormData({
         project_id: record.project_id, chain_id: record.chain_id || "", driver_id: record.driver_id, driver_name: record.driver_name,
         loading_location: record.loading_location, unloading_location: record.unloading_location, loading_date: record.loading_date,
-        unloading_date: record.unloading_date || "",
+        unloading_date: record.unloading_date || record.loading_date,
         loading_weight: record.loading_weight, unloading_weight: record.unloading_weight, current_cost: record.current_cost,
         license_plate: record.license_plate, driver_phone: record.driver_phone, transport_type: record.transport_type || '实际运输',
         extra_cost: record.extra_cost, driver_payable_cost: record.driver_payable_cost, remarks: record.remarks
@@ -129,13 +148,13 @@ export default function BusinessEntry() {
     }
     
     const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', {
-      p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone
+      p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone, p_project_id: formData.project_id
     });
     if (driverError || !driverResult || driverResult.length === 0) { toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); return; }
     const finalDriver = driverResult[0];
 
-    await supabase.rpc('get_or_create_location', { p_location_name: formData.loading_location });
-    await supabase.rpc('get_or_create_location', { p_location_name: formData.unloading_location });
+    await supabase.rpc('get_or_create_location', { p_location_name: formData.loading_location, p_project_id: formData.project_id });
+    await supabase.rpc('get_or_create_location', { p_location_name: formData.unloading_location, p_project_id: formData.project_id });
 
     const recordData = {
       p_project_id: formData.project_id, p_project_name: projectName, p_chain_id: formData.chain_id || null,
@@ -293,14 +312,14 @@ export default function BusinessEntry() {
             <div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
             <div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
             
-            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={drivers.map(d => ({ value: d.id, label: d.name }))} value={formData.driver_id} onValueChange={(id, name) => { handleInputChange('driver_id', id); handleInputChange('driver_name', name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:"/></div>
+            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: d.name }))} value={formData.driver_id} onValueChange={(id, name) => { handleInputChange('driver_id', id); handleInputChange('driver_name', name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:"/></div>
             <div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
             <div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
             <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div>
             
-            <div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={locations.map(l => ({ value: l.name, label: l.name }))} value={formData.loading_location} onValueChange={(_, label) => handleInputChange('loading_location', label)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." createPlaceholder="创建新地点:"/></div>
+            <div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.loading_location} onValueChange={(_, label) => handleInputChange('loading_location', label)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." createPlaceholder="创建新地点:"/></div>
             <div className="space-y-1"><Label>装货重量</Label><Input type="number" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value)} /></div>
-            <div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={locations.map(l => ({ value: l.name, label: l.name }))} value={formData.unloading_location} onValueChange={(_, label) => handleInputChange('unloading_location', label)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." createPlaceholder="创建新地点:"/></div>
+            <div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.unloading_location} onValueChange={(_, label) => handleInputChange('unloading_location', label)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." createPlaceholder="创建新地点:"/></div>
             <div className="space-y-1"><Label>卸货重量</Label><Input type="number" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value)} /></div>
             
             <div className="space-y-1"><Label>运费金额 (元)</Label><Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value)} /></div>
