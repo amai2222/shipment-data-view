@@ -3,6 +3,7 @@
 
 import * as React from "react"
 import { format } from "date-fns"
+import { zhCN } from "date-fns/locale" // 引入中文语言包
 import { Calendar as CalendarIcon } from "lucide-react"
 import { DateRange } from "react-day-picker"
 
@@ -37,11 +38,11 @@ export function DateRangePicker({ className, date, onDateChange }: DateRangePick
             {date?.from ? (
               date.to ? (
                 <>
-                  {format(date.from, "LLL dd, y")} -{" "}
-                  {format(date.to, "LLL dd, y")}
+                  {format(date.from, "y年 LLL do", { locale: zhCN })} -{" "}
+                  {format(date.to, "y年 LLL do", { locale: zhCN })}
                 </>
               ) : (
-                format(date.from, "LLL dd, y")
+                format(date.from, "y年 LLL do", { locale: zhCN })
               )
             ) : (
               <span>选择日期范围</span>
@@ -56,6 +57,7 @@ export function DateRangePicker({ className, date, onDateChange }: DateRangePick
             selected={date}
             onSelect={onDateChange}
             numberOfMonths={2}
+            locale={zhCN} // 【核心改动】应用中文语言包
           />
         </PopoverContent>
       </Popover>
