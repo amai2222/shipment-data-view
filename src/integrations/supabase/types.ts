@@ -485,6 +485,21 @@ export type Database = {
           partner_costs: Json
         }[]
       }
+      get_partner_payables_summary: {
+        Args: {
+          p_project_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_partner_id?: string
+        }
+        Returns: {
+          partner_id: string
+          partner_name: string
+          level: number
+          total_payable: number
+          records_count: number
+        }[]
+      }
       save_project_with_chains: {
         Args: { project_id_in: string; project_data: Json; chains_data: Json }
         Returns: undefined
