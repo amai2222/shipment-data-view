@@ -13,15 +13,15 @@ interface ComboboxOption {
 
 interface CreatableComboboxProps {
   options: ComboboxOption[];
-  value: string;
-  onChange: (value: string) => void;
+  value: string; // value 应该始终是ID或唯一的标识符
+  onValueChange: (value: string, label: string) => void; // 返回ID和名称
   placeholder?: string;
   searchPlaceholder?: string;
   createPlaceholder?: string;
 }
 
 export function CreatableCombobox({
-  options, value, onChange, placeholder, searchPlaceholder, createPlaceholder
+  options, value, onValueChange, placeholder, searchPlaceholder, createPlaceholder
 }: CreatableComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState("");
@@ -29,28 +29,28 @@ export function CreatableCombobox({
   // 当外部传入的value变化时，同步更新内部显示的文本
   React.useEffect(() => {
     const selectedOption = options.find(option => option.value === value);
-    setInputValue(selectedOption?.label || value);
+    setInputValue(selectedOption?.label || "");
   }, [value, options]);
 
-  const handleSelect = (currentValue: string) => {
-    // 优先从选项中查找匹配项。`currentValue` 此时是 label。
-    const selectedOption = options.find(option => option.label.toLowerCase() === currentValue.toLowerCase());
+  const handleSelect = (currentLabel: string) => {
+    const selectedOption = options.find(option => option.label.toLowerCase() === currentLabel.toLowerCase());
     
-    // 如果找到了匹配的选项，则把它的 value (通常是ID) 传出去
-    // 如果没找到，说明是用户输入的新内容，直接把这个新内容的文本传出去
-    const finalValue = selectedOption ? selectedOption.value : currentValue;
+    // 如果找到了匹配的选项，则把它的 value (ID) 和 label (名称) 传出去
+    // 如果没找到，说明是用户输入的新内容，value传空字符串，label传新名称
+    const finalValue = selectedOption ? selectedOption.value : "";
+    const finalLabel = currentLabel;
     
-    onChange(finalValue);
+    onValueChange(finalValue, finalLabel);
     setOpen(false);
   };
   
-  const currentLabel = options.find(option => option.value === value)?.label || value;
+  const currentLabel = options.find(option => option.value === value)?.label || "";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-          {value ? currentLabel : <span className="text-muted-foreground">{placeholder}</span>}
+          {currentLabel ? currentLabel : <span className="text-muted-foreground">{placeholder}</span>}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
