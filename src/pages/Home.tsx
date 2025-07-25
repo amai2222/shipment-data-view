@@ -833,7 +833,7 @@ export default function Home() {
                        <TableHead className="px-2 py-2 text-xs">装货重量</TableHead>
                        <TableHead className="px-2 py-2 text-xs">卸货重量</TableHead>
                        <TableHead className="px-2 py-2 text-xs">运输类型</TableHead>
-                       <TableHead className="px-2 py-2 text-xs">费用</TableHead>
+                       <TableHead className="px-2 py-2 text-xs">司机应收</TableHead>
                        <TableHead className="px-2 py-2 text-xs">备注</TableHead>
                      </TableRow>
                    </TableHeader>
@@ -869,7 +869,7 @@ export default function Home() {
                            </span>
                          </TableCell>
                          <TableCell className="px-2 py-2 text-xs whitespace-nowrap">
-                           ¥{((record.currentFee || 0) + (record.extraFee || 0)).toFixed(2)}
+                           {record.payableFee ? `¥${(record.payableFee).toFixed(2)}` : '-'} 
                          </TableCell>
                          <TableCell className="px-2 py-2 text-xs max-w-[120px] truncate" title={record.remarks}>
                            {record.remarks || '-'}
