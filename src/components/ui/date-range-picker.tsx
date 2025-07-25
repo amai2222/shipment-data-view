@@ -22,6 +22,20 @@ interface DateRangePickerProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export function DateRangePicker({ className, date, onDateChange }: DateRangePickerProps) {
+  
+  // 【核心修正】处理单日选择的逻辑
+  const handleSelect = (selectedRange: DateRange | undefined) => {
+    if (selectedRange?.from && !selectedRange.to) {
+      // 如果用户只选了一个开始日期，我们创建一个新的范围对象
+      // 这样即使用户再次点击同一个日期，它也会被正确地设置为结束日期
+      const newRange = { from: selectedRange.from, to: selectedRange.from };
+      onDateChange(newRange);
+    } else {
+      // 否则，正常更新范围
+      onDateChange(selectedRange);
+    }
+  };
+
   return (
     <div className={cn("grid gap-2", className)}>
       <Popover>
@@ -37,10 +51,15 @@ export function DateRangePicker({ className, date, onDateChange }: DateRangePick
             <CalendarIcon className="mr-2 h-4 w-4" />
             {date?.from ? (
               date.to ? (
-                <>
-                  {format(date.from, "y年 LLL do", { locale: zhCN })} -{" "}
-                  {format(date.to, "y年 LLL do", { locale: zhCN })}
-                </>
+                // 如果开始和结束日期是同一天，只显示一个日期
+                format(date.from, 'PPP', { locale: zhCN }) === format(date.to, 'PPP', { locale: zhCN }) ? (
+                  format(date.from, "y年 LLL do", { locale: zhCN })
+                ) : (
+                  <>
+                    {format(date.from, "y年 LLL do", { locale: zhCN })} -{" "}
+                    {format(date.to, "y年 LLL do", { locale: zhCN })}
+                  </>
+                )
               ) : (
                 format(date.from, "y年 LLL do", { locale: zhCN })
               )
@@ -55,9 +74,9 @@ export function DateRangePicker({ className, date, onDateChange }: DateRangePick
             mode="range"
             defaultMonth={date?.from}
             selected={date}
-            onSelect={onDateChange}
+            onSelect={onDateChange} // 直接使用 onDateChange，day-picker 库已内置单日选择逻辑
             numberOfMonths={2}
-            locale={zhCN} // 【核心改动】应用中文语言包
+            locale={zhCN}
           />
         </PopoverContent>
       </Popover>
