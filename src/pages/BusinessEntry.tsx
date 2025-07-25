@@ -1,4 +1,3 @@
-// 文件路径: src/pages/BusinessEntry.tsx
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -144,7 +143,17 @@ export default function BusinessEntry() {
     } catch (error: any) { toast({ title: "操作失败", description: error.message, variant: "destructive" }); }
   };
 
-  const handleDelete = async (id: string) => { /* ... */ };
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase.from('logistics_records').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: "成功", description: "运单记录已删除" });
+      loadData();
+    } catch (error: any) {
+      toast({ title: "删除失败", description: error.message, variant: "destructive" });
+    }
+  };
+
   const filteredRecords = useMemo(() => {
     return records.filter(record => {
         const startDateMatch = !filters.startDate || record.loading_date >= filters.startDate;
@@ -195,8 +204,61 @@ export default function BusinessEntry() {
         </div>
       </div>
       
-      {/* 表格区域 */}
-      {/* ... */}
+      {/* 筛选区域 */}
+      <div className="flex items-end gap-4 p-4 border rounded-lg">
+        <div className="grid w-full max-w-sm items-center gap-1.5">
+            <Label htmlFor="search-query">快速搜索</Label>
+            <Input type="text" id="search-query" placeholder="搜索运单号、项目、司机..." value={filters.searchQuery} onChange={e => setFilters(f => ({...f, searchQuery: e.target.value}))}/>
+        </div>
+        <div className="grid items-center gap-1.5">
+            <Label htmlFor="start-date">开始日期</Label>
+            <Input type="date" id="start-date" value={filters.startDate} onChange={e => setFilters(f => ({...f, startDate: e.target.value}))} />
+        </div>
+        <div className="grid items-center gap-1.5">
+            <Label htmlFor="end-date">结束日期</Label>
+            <Input type="date" id="end-date" value={filters.endDate} onChange={e => setFilters(f => ({...f, endDate: e.target.value}))}/>
+        </div>
+        <Button variant="outline" onClick={() => setFilters({startDate: "", endDate: "", searchQuery: ""})}>清除筛选</Button>
+      </div>
+
+      {/* 【已恢复】表格区域 */}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>运单编号</TableHead>
+              <TableHead>项目名称</TableHead>
+              <TableHead>合作链路</TableHead>
+              <TableHead>司机</TableHead>
+              <TableHead>路线</TableHead>
+              <TableHead>装货日期</TableHead>
+              <TableHead>运费</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={8} className="text-center">加载中...</TableCell></TableRow>
+            ) : filteredRecords.map((record) => (
+              <TableRow key={record.id}>
+                <TableCell className="font-mono">{record.auto_number}</TableCell>
+                <TableCell>{record.project_name}</TableCell>
+                <TableCell>{record.chain_name || '默认'}</TableCell>
+                <TableCell>{record.driver_name}</TableCell>
+                <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
+                <TableCell>{record.loading_date}</TableCell>
+                <TableCell className="font-mono">{record.current_cost ? `¥${record.current_cost.toFixed(2)}` : '-'}</TableCell>
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="icon" onClick={() => handleOpenModal(record)}><Edit className="h-4 w-4" /></Button>
+                  <ConfirmDialog title="确认删除" description={`您确定要删除运单 ${record.auto_number} 吗？`} onConfirm={() => handleDelete(record.id)}>
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                  </ConfirmDialog>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
       {/* 弹窗 */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
