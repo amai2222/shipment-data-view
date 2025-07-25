@@ -17,7 +17,9 @@ import { DateRange } from "react-day-picker";
 interface LogisticsRecord {
   id: string; auto_number: string; project_name: string; driver_name: string;
   loading_location: string; unloading_location: string; loading_date: string;
-  current_cost: number | null; payable_cost: number | null; extra_cost: number | null;
+  current_cost: number | null; 
+  payable_cost: number | null; // payable_cost 现在代表“司机应收”
+  extra_cost: number | null;
 }
 interface PartnerPayable {
   partner_id: string; partner_name: string; level: number;
@@ -136,11 +138,24 @@ export default function FinanceReconciliation() {
         </CardContent>
       </Card>
 
+      {/* 【已修改】统计卡片 */}
       <div className="grid gap-6 md:grid-cols-4">
-        <Card><CardHeader><CardTitle className="text-sm font-medium">运单总数</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{filteredRecords.length}</div></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">总运费收入</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">¥{filteredRecords.reduce((s, r) => s + (r.current_cost || 0), 0).toFixed(2)}</div></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">总额外费用</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-orange-600">¥{filteredRecords.reduce((s, r) => s + (r.extra_cost || 0), 0).toFixed(2)}</div></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">合作方应付总额</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">¥{filteredPartnerPayables.reduce((s, p) => s + p.total_payable, 0).toFixed(2)}</div></CardContent></Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm font-medium">运单总数</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold">{filteredRecords.length}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm font-medium">总运费</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold">¥{filteredRecords.reduce((s, r) => s + (r.current_cost || 0), 0).toFixed(2)}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm font-medium">总额外费用</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold text-orange-600">¥{filteredRecords.reduce((s, r) => s + (r.extra_cost || 0), 0).toFixed(2)}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm font-medium">司机应收汇总</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold text-green-600">¥{filteredRecords.reduce((s, r) => s + (r.payable_cost || 0), 0).toFixed(2)}</div></CardContent>
+        </Card>
       </div>
 
       <Card>
