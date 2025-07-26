@@ -441,6 +441,7 @@ export type Database = {
           chain_id: string | null
           chain_name: string | null
           created_at: string | null
+          created_by_user_id: string | null
           current_cost: number | null
           driver_id: string | null
           driver_name: string | null
