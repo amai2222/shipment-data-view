@@ -156,9 +156,11 @@ export default function FinanceReconciliation() {
           <Table>
             <TableHeader><TableRow><TableHead>合作方名称</TableHead><TableHead>相关运单数</TableHead><TableHead>应付总金额</TableHead></TableRow></TableHeader>
             <TableBody>
-              {!loading && (!reportData?.partner_payables || reportData.partner_payables.length === 0) ? (
+              {loading ? (
+                <TableRow><TableCell colSpan={3} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin inline-block"/></TableCell></TableRow>
+              ) : (!reportData?.partner_payables || reportData.partner_payables.length === 0) ? (
                 <TableRow><TableCell colSpan={3} className="text-center">没有找到匹配的数据</TableCell></TableRow>
-              ) : (reportData?.partner_payables || []).map((partner: any) => (
+              ) : (reportData.partner_payables).map((partner: any) => (
                 <TableRow key={partner.partner_id}>
                   <TableCell className="font-medium">{partner.partner_name}</TableCell>
                   <TableCell>{partner.records_count}</TableCell>
