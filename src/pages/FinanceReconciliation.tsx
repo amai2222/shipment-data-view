@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 // 类型定义
 interface LogisticsRecord {
@@ -44,6 +45,9 @@ export default function FinanceReconciliation() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>("all");
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecordWithPartners | null>(null);
+  
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
+  const [isRecalculating, setIsRecalculating] = useState(false);
   
   const { toast } = useToast();
 
@@ -126,10 +130,59 @@ export default function FinanceReconciliation() {
     toast({ title: "成功", description: "财务明细数据已导出到Excel" });
   };
 
+  const handleRecordSelect = (recordId: string) => {
+    setSelectedRecordIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(recordId)) {
+        newSet.delete(recordId);
+      } else {
+        newSet.add(recordId);
+      }
+      return newSet;
+    });
+  };
+  
+  const handleSelectAll = (isChecked: boolean) => {
+    if (isChecked) {
+      const allIds = reportData?.records?.map((r: any) => r.id) || [];
+      setSelectedRecordIds(new Set(allIds));
+    } else {
+      setSelectedRecordIds(new Set());
+    }
+  };
+
+  const handleBatchRecalculate = async () => {
+    setIsRecalculating(true);
+    try {
+      const idsToRecalculate = Array.from(selectedRecordIds);
+      const { error } = await supabase.rpc('batch_recalculate_costs', { p_record_ids: idsToRecalculate });
+      if (error) throw error;
+      
+      toast({ title: "成功", description: `已为 ${idsToRecalculate.length} 条运单重新计算合作方应付。` });
+      setSelectedRecordIds(new Set());
+      fetchReportData();
+    } catch (error) {
+      console.error("批量重算失败:", error);
+      toast({ title: "错误", description: "批量重算失败，请重试。", variant: "destructive" });
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div><h1 className="text-3xl font-bold text-foreground">财务对账</h1><p className="text-muted-foreground">运费收入与合作方应付金额统计</p></div>
+        <ConfirmDialog
+          title="确认批量重算"
+          description={`您确定要为选中的 ${selectedRecordIds.size} 条运单重新计算所有合作方的应付金额吗？此操作会根据最新的项目合作链路配置覆盖现有数据。`}
+          onConfirm={handleBatchRecalculate}
+        >
+          <Button variant="destructive" disabled={selectedRecordIds.size === 0 || isRecalculating}>
+            {isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            一键重算已选运单 ({selectedRecordIds.size})
+          </Button>
+        </ConfirmDialog>
       </div>
 
       <Card className="border-muted/40">
@@ -184,6 +237,7 @@ export default function FinanceReconciliation() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12"><Checkbox checked={selectedRecordIds.size > 0 && selectedRecordIds.size === (reportData?.records?.length || 0)} onCheckedChange={handleSelectAll}/></TableHead>
                 <TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>日期</TableHead>
                 <TableHead>运费</TableHead><TableHead className="text-orange-600">额外费</TableHead>
                 {displayedPartners.map(p => <TableHead key={p.id} className="text-center">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}
@@ -192,17 +246,21 @@ export default function FinanceReconciliation() {
             </TableHeader>
             <TableBody>
               {reportData?.records?.map((r: any) => (
-                <TableRow key={r.id} onClick={() => setViewingRecord(r)} className="cursor-pointer">
-                  <TableCell className="font-mono">{r.auto_number}</TableCell><TableCell>{r.project_name}</TableCell><TableCell>{r.driver_name}</TableCell>
-                  <TableCell className="text-sm">{r.loading_location}→{r.unloading_location}</TableCell><TableCell>{r.loading_date}</TableCell>
-                  <TableCell className="font-mono">¥{r.current_cost?.toFixed(2)}</TableCell>
-                  <TableCell className="font-mono text-orange-600">{r.extra_cost ? `¥${r.extra_cost.toFixed(2)}` : '-'}</TableCell>
-                  {displayedPartners.map(p => { const cost = (r.partner_costs || []).find((c:any) => c.partner_id === p.id); return <TableCell key={p.id} className="font-mono text-center">{cost ? `¥${cost.payable_amount.toFixed(2)}` : '-'}</TableCell>; })}
-                  <TableCell><Badge variant={r.current_cost ? "default" : "secondary"}>{r.current_cost ? "已计费" : "待计费"}</Badge></TableCell>
+                <TableRow key={r.id}>
+                  <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedRecordIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)}/></TableCell>
+                  <TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{r.auto_number}</TableCell>
+                  <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell>
+                  <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell>
+                  <TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_location}→{r.unloading_location}</TableCell>
+                  <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell>
+                  <TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>¥{r.current_cost?.toFixed(2)}</TableCell>
+                  <TableCell className="font-mono text-orange-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{r.extra_cost ? `¥${r.extra_cost.toFixed(2)}` : '-'}</TableCell>
+                  {displayedPartners.map(p => { const cost = (r.partner_costs || []).find((c:any) => c.partner_id === p.id); return <TableCell key={p.id} className="font-mono text-center cursor-pointer" onClick={() => setViewingRecord(r)}>{cost ? `¥${cost.payable_amount.toFixed(2)}` : '-'}</TableCell>; })}
+                  <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}><Badge variant={r.current_cost ? "default" : "secondary"}>{r.current_cost ? "已计费" : "待计费"}</Badge></TableCell>
                 </TableRow>
               ))}
               <TableRow className="bg-muted/30 font-semibold border-t-2">
-                <TableCell colSpan={5} className="text-right font-bold">合计</TableCell>
+                <TableCell colSpan={6} className="text-right font-bold">合计</TableCell>
                 <TableCell className="font-mono font-bold text-center">
                   <div>¥{(reportData?.overview?.total_current_cost || 0).toFixed(2)}</div>
                   <div className="text-xs text-muted-foreground font-normal">(运费)</div>
