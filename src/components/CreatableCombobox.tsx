@@ -1,83 +1,66 @@
 // 文件路径: src/components/CreatableCombobox.tsx
 import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface ComboboxOption {
-  value: string; // Typically the ID
-  label: string; // The display name
+  value: string;
+  label: string;
 }
 
 interface CreatableComboboxProps {
   options: ComboboxOption[];
-  value: string; // The ID of the selected item
-  onValueChange: (value: string, label: string) => void; // Returns both ID and label
+  value: string;
+  onValueChange: (value: string) => void;
+  onCreateNew?: () => void; // 【核心改动】新增一个专门用于“创建”的回调函数
   placeholder?: string;
   searchPlaceholder?: string;
-  createPlaceholder?: string;
+  emptyPlaceholder?: string;
 }
 
 export function CreatableCombobox({
-  options,
-  value,
-  onValueChange,
-  placeholder,
-  searchPlaceholder,
-  createPlaceholder,
+  options, value, onValueChange, onCreateNew,
+  placeholder, searchPlaceholder, emptyPlaceholder
 }: CreatableComboboxProps) {
   const [open, setOpen] = React.useState(false);
-  const [inputValue, setInputValue] = React.useState("");
-
-  // Find the label corresponding to the current value (ID)
-  const currentLabel = React.useMemo(() => {
-    return options.find(option => option.value === value)?.label || '';
-  }, [value, options]);
-
-  const handleSelect = (selectedLabel: string) => {
-    const selectedOption = options.find(option => option.label.toLowerCase() === selectedLabel.toLowerCase());
-    
-    if (selectedOption) {
-      // User selected an existing item
-      onValueChange(selectedOption.value, selectedOption.label);
-    } else {
-      // User is creating a new item
-      onValueChange(selectedLabel, selectedLabel); // Pass the new name as both value and label temporarily
-    }
-    setOpen(false);
-  };
+  const currentLabel = options.find(option => option.value === value)?.label || "";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          className="w-full justify-between font-normal"
-        >
-          {currentLabel || <span className="text-muted-foreground">{placeholder}</span>}
+        <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+          {value ? currentLabel : <span className="text-muted-foreground">{placeholder}</span>}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-          <CommandInput
-            placeholder={searchPlaceholder}
-            value={inputValue}
-            onValueChange={setInputValue}
-          />
+          <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
-            <CommandEmpty onSelect={() => handleSelect(inputValue)}>
-              <div className="cursor-pointer p-2">{createPlaceholder || "创建"} "{inputValue}"</div>
+            <CommandEmpty>
+              <div className="text-center text-sm text-muted-foreground py-4 px-2">
+                {emptyPlaceholder || "未找到结果。"}
+                {/* 【核心改动】如果传入了 onCreateNew 函数，就显示这个按钮 */}
+                {onCreateNew && (
+                  <Button variant="link" className="p-0 h-auto mt-1" onClick={onCreateNew}>
+                    <PlusCircle className="mr-1 h-4 w-4" />
+                    去管理页面新增
+                  </Button>
+                )}
+              </div>
             </CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.label}
-                  onSelect={handleSelect}
+                  onSelect={() => {
+                    onValueChange(option.value);
+                    setOpen(false);
+                  }}
                 >
                   <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
                   {option.label}
