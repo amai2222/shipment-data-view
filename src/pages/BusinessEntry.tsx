@@ -110,20 +110,36 @@ export default function BusinessEntry() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-        if (currentPage !== 1) setCurrentPage(1);
-        else loadPaginatedRecords();
-    }, 500); // 500ms debounce
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        loadPaginatedRecords();
+      }
+    }, 500);
     return () => clearTimeout(timer);
-  }, [filters]);
+  }, [filters, loadPaginatedRecords]);
 
   const handleInputChange = (field: string, value: any) => { setFormData((prev: any) => ({ ...prev, [field]: value })); };
 
   useEffect(() => {
     handleInputChange('chain_id', '');
     if (formData.project_id) {
-      const fetchRelatedData = async () => { /* ... */ };
+      const fetchRelatedData = async () => {
+        const { data: chainsData } = await supabase.from('partner_chains').select('id, chain_name').eq('project_id', formData.project_id);
+        setPartnerChains(chainsData as PartnerChain[] || []);
+        const { data: driverLinks } = await supabase.from('driver_projects').select('driver_id').eq('project_id', formData.project_id);
+        const driverIds = driverLinks?.map(link => link.driver_id) || [];
+        setFilteredDrivers(drivers.filter(driver => driverIds.includes(driver.id)));
+        const { data: locationLinks } = await supabase.from('location_projects').select('location_id').eq('project_id', formData.project_id);
+        const locationIds = locationLinks?.map(link => link.location_id) || [];
+        setFilteredLocations(locations.filter(location => locationIds.includes(location.id)));
+      };
       fetchRelatedData();
-    } else { /* ... */ }
+    } else {
+      setPartnerChains([]);
+      setFilteredDrivers([]);
+      setFilteredLocations([]);
+    }
   }, [formData.project_id, drivers, locations]);
 
   useEffect(() => {
@@ -131,11 +147,14 @@ export default function BusinessEntry() {
     const selectedDriver = drivers.find(d => d.id === formData.driver_id);
     if (isUuid && selectedDriver) {
       setFormData((prev: any) => ({
-        ...prev, driver_name: selectedDriver.name,
+        ...prev,
+        driver_name: selectedDriver.name,
         license_plate: selectedDriver.license_plate || prev.license_plate || '',
         driver_phone: selectedDriver.phone || prev.driver_phone || '',
       }));
-    } else { setFormData((prev: any) => ({ ...prev, driver_name: formData.driver_id })); }
+    } else {
+        setFormData((prev: any) => ({ ...prev, driver_name: formData.driver_id }));
+    }
   }, [formData.driver_id, drivers]);
 
   useEffect(() => {
@@ -153,7 +172,16 @@ export default function BusinessEntry() {
   const handleOpenModal = (record: LogisticsRecord | null = null) => {
     if (record) {
       setEditingRecord(record);
-      setFormData({ /* ... */ });
+      setFormData({
+        project_id: record.project_id, chain_id: record.chain_id || "", driver_id: record.driver_id, driver_name: record.driver_name,
+        loading_location: record.loading_location, unloading_location: record.unloading_location, loading_date: record.loading_date,
+        unloading_date: record.unloading_date || record.loading_date,
+        loading_weight: record.loading_weight, unloading_weight: record.unloading_weight, current_cost: record.current_cost,
+        license_plate: record.license_plate, driver_phone: record.driver_phone, transport_type: record.transport_type || '实际运输',
+        extra_cost: record.extra_cost, 
+        payable_cost: record.payable_cost,
+        remarks: record.remarks
+      });
     } else {
       const latestProject = [...projects].sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))[0];
       setEditingRecord(null);
@@ -162,8 +190,56 @@ export default function BusinessEntry() {
     setIsEditModalOpen(true);
   };
   
-  const handleSubmit = async () => { /* ... */ };
-  const handleDelete = async (id: string) => { /* ... */ };
+  const handleSubmit = async () => {
+    const projectName = projects.find(p => p.id === formData.project_id)?.name;
+    if (!projectName || !formData.driver_name || !formData.loading_location || !formData.unloading_location) {
+      toast({ title: "错误", description: "项目、司机和地点为必填项", variant: "destructive" }); return;
+    }
+    
+    const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', {
+      p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone, p_project_id: formData.project_id
+    });
+    if (driverError || !driverResult || driverResult.length === 0) { toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); return; }
+    const finalDriver = driverResult[0];
+
+    await supabase.rpc('get_or_create_location', { p_location_name: formData.loading_location, p_project_id: formData.project_id });
+    await supabase.rpc('get_or_create_location', { p_location_name: formData.unloading_location, p_project_id: formData.project_id });
+
+    const recordData = {
+      p_project_id: formData.project_id, p_project_name: projectName, p_chain_id: formData.chain_id || null,
+      p_driver_id: finalDriver.driver_id, p_driver_name: finalDriver.driver_name,
+      p_loading_location: formData.loading_location, p_unloading_location: formData.unloading_location,
+      p_loading_date: formData.loading_date, p_unloading_date: formData.unloading_date || null,
+      p_loading_weight: formData.loading_weight ? parseFloat(formData.loading_weight) : null,
+      p_unloading_weight: formData.unloading_weight ? parseFloat(formData.unloading_weight) : null,
+      p_current_cost: formData.current_cost ? parseFloat(formData.current_cost) : null,
+      p_license_plate: formData.license_plate, p_driver_phone: formData.driver_phone,
+      p_transport_type: formData.transport_type,
+      p_extra_cost: formData.extra_cost ? parseFloat(formData.extra_cost) : null,
+      p_remarks: formData.remarks
+    };
+    
+    try {
+      if (editingRecord) {
+        await supabase.rpc('update_logistics_record_with_costs', { p_record_id: editingRecord.id, ...recordData });
+        toast({ title: "成功", description: "运单记录已更新" });
+      } else {
+        await supabase.rpc('add_logistics_record_with_costs', recordData);
+        toast({ title: "成功", description: "新运单已添加" });
+      }
+      setIsEditModalOpen(false); 
+      loadPaginatedRecords();
+      loadInitialOptions();
+    } catch (error: any) { toast({ title: "操作失败", description: error.message, variant: "destructive" }); }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await supabase.from('logistics_records').delete().eq('id', id);
+      toast({ title: "成功", description: "运单记录已删除" });
+      loadPaginatedRecords();
+    } catch (error: any) { toast({ title: "删除失败", description: error.message, variant: "destructive" }); }
+  };
 
   const summary = useMemo(() => {
     return records.reduce((acc, record) => {
@@ -184,14 +260,22 @@ export default function BusinessEntry() {
     toast.info("正在准备导出全部筛选结果...");
     try {
         const { data, error } = await supabase.rpc('get_paginated_logistics_records', {
-            p_page_size: 99999, p_offset: 0, // 获取所有数据
+            p_page_size: 99999, p_offset: 0,
             p_start_date: filters.startDate || null,
             p_end_date: filters.endDate || null,
             p_search_query: filters.searchQuery || null,
         });
         if (error) throw error;
         
-        const dataToExport = data.records.map((r: LogisticsRecord) => ({ /* ... */ }));
+        const dataToExport = data.records.map((r: LogisticsRecord) => ({
+          '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认',
+          '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone,
+          '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date,
+          '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight,
+          '运费金额': r.current_cost, '额外费用': r.extra_cost, 
+          '司机应收': r.payable_cost,
+          '备注': r.remarks,
+        }));
         const ws = XLSX.utils.json_to_sheet(dataToExport);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "运单记录");
