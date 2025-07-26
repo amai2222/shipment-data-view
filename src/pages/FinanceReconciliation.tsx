@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox"; // 【已修复】引入了复选框组件
 import { Download, Loader2, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -169,10 +170,14 @@ export default function FinanceReconciliation() {
     }
   };
 
+
+  if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div><h1 className="text-3xl font-bold text-foreground">财务对账</h1><p className="text-muted-foreground">运费收入与合作方应付金额统计</p></div>
+        
         <ConfirmDialog
           title="确认批量重算"
           description={`您确定要为选中的 ${selectedRecordIds.size} 条运单重新计算所有合作方的应付金额吗？此操作会根据最新的项目合作链路配置覆盖现有数据。`}
@@ -237,7 +242,12 @@ export default function FinanceReconciliation() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-12"><Checkbox checked={selectedRecordIds.size > 0 && selectedRecordIds.size === (reportData?.records?.length || 0)} onCheckedChange={handleSelectAll}/></TableHead>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedRecordIds.size > 0 && selectedRecordIds.size === (reportData?.records?.length || 0)}
+                    onCheckedChange={handleSelectAll}
+                  />
+                </TableHead>
                 <TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>日期</TableHead>
                 <TableHead>运费</TableHead><TableHead className="text-orange-600">额外费</TableHead>
                 {displayedPartners.map(p => <TableHead key={p.id} className="text-center">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}
@@ -247,7 +257,12 @@ export default function FinanceReconciliation() {
             <TableBody>
               {reportData?.records?.map((r: any) => (
                 <TableRow key={r.id}>
-                  <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedRecordIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)}/></TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedRecordIds.has(r.id)}
+                      onCheckedChange={() => handleRecordSelect(r.id)}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{r.auto_number}</TableCell>
                   <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell>
                   <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell>
