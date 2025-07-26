@@ -40,7 +40,6 @@ const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
   );
 };
 
-
 export default function Projects() {
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -172,7 +171,6 @@ export default function Projects() {
     return await SupabaseStorage.findOrCreateLocation(address);
   };
 
-  // 【已修复】使用全新的、更简洁和正确的保存逻辑
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -200,7 +198,6 @@ export default function Projects() {
 
       const projectId = editingProject ? editingProject.id : null;
 
-      // 【核心修复】将前端的驼峰命名转换为数据库期望的下划线命名
       const projectPayloadForDb = {
         name: formData.name,
         start_date: formData.startDate,
@@ -210,6 +207,7 @@ export default function Projects() {
         unloading_address: formData.unloadingAddress,
       };
 
+      // 【核心修复】将所有前端的驼峰命名转换为数据库期望的下划线命名
       const chainsPayload = selectedChains.map((chain, index) => ({
         id: chain.dbId,
         chain_name: chain.chainName || `链路${index + 1}`,
