@@ -168,6 +168,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "logistics_partner_costs_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "logistics_partner_costs_partner_id_fkey"
             columns: ["partner_id"]
             isOneToOne: false
@@ -185,6 +192,7 @@ export type Database = {
           current_cost: number | null
           driver_id: string | null
           driver_name: string
+          driver_payable_cost: number | null
           driver_phone: string
           extra_cost: number | null
           id: string
@@ -209,6 +217,7 @@ export type Database = {
           current_cost?: number | null
           driver_id?: string | null
           driver_name: string
+          driver_payable_cost?: number | null
           driver_phone: string
           extra_cost?: number | null
           id?: string
@@ -233,6 +242,7 @@ export type Database = {
           current_cost?: number | null
           driver_id?: string | null
           driver_name?: string
+          driver_payable_cost?: number | null
           driver_phone?: string
           extra_cost?: number | null
           id?: string
@@ -425,9 +435,100 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      logistics_records_view: {
+        Row: {
+          auto_number: string | null
+          chain_id: string | null
+          chain_name: string | null
+          created_at: string | null
+          current_cost: number | null
+          driver_id: string | null
+          driver_name: string | null
+          driver_payable_cost: number | null
+          driver_phone: string | null
+          extra_cost: number | null
+          id: string | null
+          license_plate: string | null
+          loading_date: string | null
+          loading_location: string | null
+          loading_weight: number | null
+          payable_cost: number | null
+          project_id: string | null
+          project_name: string | null
+          remarks: string | null
+          transport_type: string | null
+          unloading_date: string | null
+          unloading_location: string | null
+          unloading_weight: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logistics_records_chain_id_fkey"
+            columns: ["chain_id"]
+            isOneToOne: false
+            referencedRelation: "partner_chains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logistics_records_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logistics_records_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      add_logistics_record_with_costs: {
+        Args:
+          | {
+              p_project_id: string
+              p_project_name: string
+              p_chain_id: string
+              p_driver_id: string
+              p_driver_name: string
+              p_loading_location: string
+              p_unloading_location: string
+              p_loading_date: string
+              p_loading_weight: number
+              p_unloading_weight: number
+              p_current_cost: number
+              p_license_plate: string
+              p_driver_phone: string
+              p_transport_type: string
+              p_extra_cost: number
+              p_driver_payable_cost: number
+              p_remarks: string
+            }
+          | {
+              p_project_id: string
+              p_project_name: string
+              p_chain_id: string
+              p_driver_id: string
+              p_driver_name: string
+              p_loading_location: string
+              p_unloading_location: string
+              p_loading_date: string
+              p_loading_weight: number
+              p_unloading_weight: number
+              p_current_cost: number
+              p_license_plate: string
+              p_driver_phone: string
+              p_transport_type: string
+              p_extra_cost: number
+              p_remarks: string
+              p_unloading_date: string
+            }
+        Returns: undefined
+      }
       calculate_partner_costs: {
         Args: { p_base_amount: number; p_project_id: string }
         Returns: {
@@ -440,12 +541,20 @@ export type Database = {
         }[]
       }
       calculate_partner_costs_v2: {
-        Args: {
-          p_base_amount: number
-          p_project_id: string
-          p_loading_weight?: number
-          p_unloading_weight?: number
-        }
+        Args:
+          | {
+              p_base_amount: number
+              p_project_id: string
+              p_chain_id: string
+              p_loading_weight: number
+              p_unloading_weight: number
+            }
+          | {
+              p_base_amount: number
+              p_project_id: string
+              p_loading_weight?: number
+              p_unloading_weight?: number
+            }
         Returns: {
           partner_id: string
           partner_name: string
@@ -520,6 +629,21 @@ export type Database = {
           partner_costs: Json
         }[]
       }
+      get_or_create_driver: {
+        Args: {
+          p_driver_name: string
+          p_license_plate: string
+          p_phone: string
+        }
+        Returns: {
+          driver_id: string
+          driver_name: string
+        }[]
+      }
+      get_or_create_location: {
+        Args: { p_location_name: string }
+        Returns: string
+      }
       get_partner_payables_summary: {
         Args: {
           p_project_id?: string
@@ -537,6 +661,50 @@ export type Database = {
       }
       save_project_with_chains: {
         Args: { project_id_in: string; project_data: Json; chains_data: Json }
+        Returns: undefined
+      }
+      update_logistics_record_with_costs: {
+        Args:
+          | {
+              p_record_id: string
+              p_project_id: string
+              p_project_name: string
+              p_chain_id: string
+              p_driver_id: string
+              p_driver_name: string
+              p_loading_location: string
+              p_unloading_location: string
+              p_loading_date: string
+              p_loading_weight: number
+              p_unloading_weight: number
+              p_current_cost: number
+              p_license_plate: string
+              p_driver_phone: string
+              p_transport_type: string
+              p_extra_cost: number
+              p_driver_payable_cost: number
+              p_remarks: string
+            }
+          | {
+              p_record_id: string
+              p_project_id: string
+              p_project_name: string
+              p_chain_id: string
+              p_driver_id: string
+              p_driver_name: string
+              p_loading_location: string
+              p_unloading_location: string
+              p_loading_date: string
+              p_loading_weight: number
+              p_unloading_weight: number
+              p_current_cost: number
+              p_license_plate: string
+              p_driver_phone: string
+              p_transport_type: string
+              p_extra_cost: number
+              p_remarks: string
+              p_unloading_date: string
+            }
         Returns: undefined
       }
     }
