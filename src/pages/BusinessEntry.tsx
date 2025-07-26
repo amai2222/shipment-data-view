@@ -244,20 +244,18 @@ export default function BusinessEntry() {
     } catch (error: any) { toast({ title: "删除失败", description: error.message, variant: "destructive" }); }
   };
 
-  // 【已修复】增加了 totalExtraCost 的计算和初始化
   const summary = useMemo(() => {
     return records.reduce((acc, record) => {
       acc.totalLoadingWeight += record.loading_weight || 0;
       acc.totalUnloadingWeight += record.unloading_weight || 0;
       acc.totalCurrentCost += record.current_cost || 0;
-      acc.totalExtraCost += record.extra_cost || 0;
       acc.totalDriverPayableCost += record.payable_cost || 0;
       if (record.transport_type === '实际运输') acc.actualCount += 1;
       else if (record.transport_type === '退货') acc.returnCount += 1;
       return acc;
     }, {
       totalLoadingWeight: 0, totalUnloadingWeight: 0, totalCurrentCost: 0,
-      totalExtraCost: 0, totalDriverPayableCost: 0, actualCount: 0, returnCount: 0,
+      totalDriverPayableCost: 0, actualCount: 0, returnCount: 0,
     });
   }, [records]);
 
@@ -322,10 +320,10 @@ export default function BusinessEntry() {
 
       <div className="border rounded-lg">
         <Table>
-          <TableHeader><TableRow><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>合作链路</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>装货日期</TableHead><TableHead>运费</TableHead><TableHead>额外费</TableHead><TableHead>司机应收</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>合作链路</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>装货日期</TableHead><TableHead>运费</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={10} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin"/></TableCell></TableRow> 
-            : records.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center">没有找到匹配的记录</TableCell></TableRow>
+            {loading ? <TableRow><TableCell colSpan={8} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin"/></TableCell></TableRow> 
+            : records.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center">没有找到匹配的记录</TableCell></TableRow>
             : records.map((record) => (
               <TableRow key={record.id} onClick={() => setViewingRecord(record)} className="cursor-pointer">
                 <TableCell className="font-mono">{record.auto_number}</TableCell>
@@ -335,8 +333,6 @@ export default function BusinessEntry() {
                 <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
                 <TableCell>{record.loading_date}</TableCell>
                 <TableCell className="font-mono">{record.current_cost ? `¥${record.current_cost.toFixed(2)}` : '-'}</TableCell>
-                <TableCell className="font-mono text-orange-600">{record.extra_cost ? `¥${record.extra_cost.toFixed(2)}` : '-'}</TableCell>
-                <TableCell className="font-mono text-green-600 font-semibold">{record.payable_cost ? `¥${record.payable_cost.toFixed(2)}` : '-'}</TableCell>
                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="icon" onClick={() => handleOpenModal(record)}><Edit className="h-4 w-4" /></Button>
                   <ConfirmDialog title="确认删除" description={`您确定要删除运单 ${record.auto_number} 吗？`} onConfirm={() => handleDelete(record.id)}>
@@ -363,8 +359,7 @@ export default function BusinessEntry() {
         <span className="font-bold">卸: <span className="text-primary">{summary.totalUnloadingWeight.toFixed(1)}吨</span></span>
         <span className="font-bold">{summary.actualCount}实际 / {summary.returnCount}退货</span>
         <span>司机运费: <span className="font-bold text-primary">¥{summary.totalCurrentCost.toFixed(2)}</span></span>
-        <span>额外费用: <span className="font-bold text-orange-600">¥{summary.totalExtraCost.toFixed(2)}</span></span>
-        <span>司机应收: <span className="font-bold text-green-600">¥{summary.totalDriverPayableCost.toFixed(2)}</span></span>
+        <span>司机应收: <span className="font-bold text-primary">¥{summary.totalDriverPayableCost.toFixed(2)}</span></span>
       </div>
 
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
