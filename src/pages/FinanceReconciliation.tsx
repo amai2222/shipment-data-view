@@ -15,8 +15,24 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 
-// 类型定义...
-// ... (与您项目中的 types 文件保持一致)
+// 类型定义
+interface LogisticsRecord {
+  id: string; auto_number: string; project_name: string; driver_name: string;
+  loading_location: string; unloading_location: string; loading_date: string;
+  unloading_date: string | null; loading_weight: number | null; unloading_weight: number | null;
+  current_cost: number | null; payable_cost: number | null; extra_cost: number | null;
+  license_plate: string | null; driver_phone: string | null; transport_type: string | null;
+  remarks: string | null; chain_name: string | null;
+}
+interface PartnerPayable {
+  partner_id: string; partner_name: string; level: number;
+  total_payable: number; records_count: number;
+}
+interface LogisticsRecordWithPartners extends LogisticsRecord {
+  partner_costs: {
+    partner_id: string; partner_name: string; level: number; payable_amount: number;
+  }[];
+}
 
 export default function FinanceReconciliation() {
   const [reportData, setReportData] = useState<any>(null);
@@ -27,7 +43,7 @@ export default function FinanceReconciliation() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>("all");
-  const [viewingRecord, setViewingRecord] = useState<any | null>(null);
+  const [viewingRecord, setViewingRecord] = useState<LogisticsRecordWithPartners | null>(null);
   
   const { toast } = useToast();
 
@@ -84,7 +100,31 @@ export default function FinanceReconciliation() {
     return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
   }, [reportData, allPartners, selectedPartnerId]);
 
-  const exportDetailsToExcel = () => { /* ... */ };
+  const exportDetailsToExcel = () => {
+    if (!reportData?.records || reportData.records.length === 0) {
+        toast({ title: "提示", description: "没有可导出的数据" });
+        return;
+    }
+    const headers = ['运单编号', '项目名称', '司机姓名', '路线', '装货日期', '运费金额', '额外费用', '司机应收'];
+    displayedPartners.forEach(p => headers.push(`${p.name}(应付)`));
+    const dataToExport = reportData.records.map((record: any) => {
+      const row: {[key: string]: any} = {
+        '运单编号': record.auto_number, '项目名称': record.project_name, '司机姓名': record.driver_name,
+        '路线': `${record.loading_location} → ${record.unloading_location}`, '装货日期': record.loading_date,
+        '运费金额': record.current_cost || 0, '额外费用': record.extra_cost || 0, '司机应收': record.payable_cost || 0,
+      };
+      displayedPartners.forEach(p => {
+        const cost = (record.partner_costs || []).find((c: any) => c.partner_id === p.id);
+        row[`${p.name}(应付)`] = cost ? cost.payable_amount : 0;
+      });
+      return row;
+    });
+    const ws = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "运单财务明细");
+    XLSX.writeFile(wb, `运单财务明细_${new Date().toLocaleDateString()}.xlsx`);
+    toast({ title: "成功", description: "财务明细数据已导出到Excel" });
+  };
 
   return (
     <div className="space-y-6">
@@ -132,8 +172,8 @@ export default function FinanceReconciliation() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <div><CardTitle>运单财务明细</CardTitle><p className="text-sm text-muted-foreground">各合作方应付金额按级别从左到右排列</p></div>
-          <Button variant="outline" size="sm" onClick={exportDetailsToExcel} disabled={!reportData?.records || reportData.records.length === 0}><Download className="mr-2 h-4 w-4" />导出明细</Button>
+            <div><CardTitle>运单财务明细</CardTitle><p className="text-sm text-muted-foreground">各合作方应付金额按级别从左到右排列</p></div>
+            <Button variant="outline" size="sm" onClick={exportDetailsToExcel} disabled={!reportData?.records || reportData.records.length === 0}><Download className="mr-2 h-4 w-4" />导出明细</Button>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -159,12 +199,65 @@ export default function FinanceReconciliation() {
                   <TableCell><Badge variant={r.current_cost ? "default" : "secondary"}>{r.current_cost ? "已计费" : "待计费"}</Badge></TableCell>
                 </TableRow>
               ))}
+              <TableRow className="bg-muted/30 font-semibold border-t-2">
+                <TableCell colSpan={5} className="text-right font-bold">合计</TableCell>
+                <TableCell className="font-mono font-bold text-center">
+                  <div>¥{(reportData?.overview?.total_current_cost || 0).toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground font-normal">(运费)</div>
+                </TableCell>
+                <TableCell className="font-mono font-bold text-orange-600 text-center">
+                  <div>¥{(reportData?.overview?.total_extra_cost || 0).toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground font-normal">(额外费)</div>
+                </TableCell>
+                {displayedPartners.map(p => {
+                  const total = (reportData?.records || []).reduce((s: number, r: any) => s + ((r.partner_costs || []).find((c: any) => c.partner_id === p.id)?.payable_amount || 0), 0);
+                  return (
+                    <TableCell key={p.id} className="text-center font-bold font-mono">
+                      <div>¥{total.toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground font-normal">({p.name})</div>
+                    </TableCell>
+                  );
+                })}
+                <TableCell></TableCell>
+              </TableRow>
             </TableBody>
           </Table>
           )}
         </CardContent>
       </Card>
-      {/* ... 查看详情弹窗的 JSX ... */}
+      
+      <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
+          {viewingRecord && (
+            <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
+              <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date || '未填写'}</p></div>
+
+              <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{viewingRecord.transport_type}</p></div>
+
+              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
+
+              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono">{viewingRecord.extra_cost ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.payable_cost ? `¥${viewingRecord.payable_cost.toFixed(2)}` : '-'}</p></div>
+              
+              <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{viewingRecord.remarks || '无'}</p></div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
