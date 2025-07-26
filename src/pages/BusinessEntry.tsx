@@ -114,7 +114,7 @@ export default function BusinessEntry() {
       else loadPaginatedRecords();
     }, 500);
     return () => clearTimeout(timer);
-  }, [filters]);
+  }, [filters, currentPage, loadPaginatedRecords]);
 
   const handleInputChange = (field: string, value: any) => { setFormData((prev: any) => ({ ...prev, [field]: value })); };
 
@@ -355,7 +355,7 @@ export default function BusinessEntry() {
             <div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
             <div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
             
-            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: d.name }))} value={formData.driver_id} onValueChange={(id, name) => { handleInputChange('driver_id', id || name); handleInputChange('driver_name', name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:"/></div>
+            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: d.name }))} value={formData.driver_id} onValueChange={(value, label) => { handleInputChange('driver_id', value); handleInputChange('driver_name', label); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:"/></div>
             <div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
             <div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
             <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div>
