@@ -117,7 +117,7 @@ export default function BusinessEntry() {
       else loadPaginatedRecords();
     }, 500);
     return () => clearTimeout(timer);
-  }, [filters, currentPage, loadPaginatedRecords]);
+  }, [filters]);
 
   const handleInputChange = (field: string, value: any) => { setFormData((prev: any) => ({ ...prev, [field]: value })); };
 
@@ -244,18 +244,20 @@ export default function BusinessEntry() {
     } catch (error: any) { toast({ title: "删除失败", description: error.message, variant: "destructive" }); }
   };
 
+  // 【已修复】增加了 totalExtraCost 的计算和初始化
   const summary = useMemo(() => {
     return records.reduce((acc, record) => {
       acc.totalLoadingWeight += record.loading_weight || 0;
       acc.totalUnloadingWeight += record.unloading_weight || 0;
       acc.totalCurrentCost += record.current_cost || 0;
+      acc.totalExtraCost += record.extra_cost || 0;
       acc.totalDriverPayableCost += record.payable_cost || 0;
       if (record.transport_type === '实际运输') acc.actualCount += 1;
       else if (record.transport_type === '退货') acc.returnCount += 1;
       return acc;
     }, {
       totalLoadingWeight: 0, totalUnloadingWeight: 0, totalCurrentCost: 0,
-      totalDriverPayableCost: 0, actualCount: 0, returnCount: 0,
+      totalExtraCost: 0, totalDriverPayableCost: 0, actualCount: 0, returnCount: 0,
     });
   }, [records]);
 
