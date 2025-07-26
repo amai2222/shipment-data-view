@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox"; // 【已修复】引入了复选框组件
+import { Checkbox } from "@/components/ui/checkbox";
 import { Download, Loader2, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -156,6 +156,7 @@ export default function FinanceReconciliation() {
     setIsRecalculating(true);
     try {
       const idsToRecalculate = Array.from(selectedRecordIds);
+      // 【核心修复】使用正确的格式调用 RPC 函数
       const { error } = await supabase.rpc('batch_recalculate_costs', { p_record_ids: idsToRecalculate });
       if (error) throw error;
       
@@ -242,12 +243,7 @@ export default function FinanceReconciliation() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={selectedRecordIds.size > 0 && selectedRecordIds.size === (reportData?.records?.length || 0)}
-                    onCheckedChange={handleSelectAll}
-                  />
-                </TableHead>
+                <TableHead className="w-12"><Checkbox checked={selectedRecordIds.size > 0 && selectedRecordIds.size === (reportData?.records?.length || 0)} onCheckedChange={handleSelectAll}/></TableHead>
                 <TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>日期</TableHead>
                 <TableHead>运费</TableHead><TableHead className="text-orange-600">额外费</TableHead>
                 {displayedPartners.map(p => <TableHead key={p.id} className="text-center">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}
@@ -257,12 +253,7 @@ export default function FinanceReconciliation() {
             <TableBody>
               {reportData?.records?.map((r: any) => (
                 <TableRow key={r.id}>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selectedRecordIds.has(r.id)}
-                      onCheckedChange={() => handleRecordSelect(r.id)}
-                    />
-                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedRecordIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)}/></TableCell>
                   <TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{r.auto_number}</TableCell>
                   <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell>
                   <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell>
