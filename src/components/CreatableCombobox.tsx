@@ -7,50 +7,57 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface ComboboxOption {
-  value: string;
-  label: string;
+  value: string; // Typically the ID
+  label: string; // The display name
 }
 
 interface CreatableComboboxProps {
   options: ComboboxOption[];
-  value: string; // value 应该始终是ID或唯一的标识符
-  onValueChange: (value: string, label: string) => void; // 返回ID和名称
+  value: string; // The ID of the selected item
+  onValueChange: (value: string, label: string) => void; // Returns both ID and label
   placeholder?: string;
   searchPlaceholder?: string;
   createPlaceholder?: string;
 }
 
 export function CreatableCombobox({
-  options, value, onValueChange, placeholder, searchPlaceholder, createPlaceholder
+  options,
+  value,
+  onValueChange,
+  placeholder,
+  searchPlaceholder,
+  createPlaceholder,
 }: CreatableComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState("");
 
-  // 当外部传入的value变化时，同步更新内部显示的文本
-  React.useEffect(() => {
-    const selectedOption = options.find(option => option.value === value);
-    setInputValue(selectedOption?.label || "");
+  // Find the label corresponding to the current value (ID)
+  const currentLabel = React.useMemo(() => {
+    return options.find(option => option.value === value)?.label || '';
   }, [value, options]);
 
-  const handleSelect = (currentLabel: string) => {
-    const selectedOption = options.find(option => option.label.toLowerCase() === currentLabel.toLowerCase());
+  const handleSelect = (selectedLabel: string) => {
+    const selectedOption = options.find(option => option.label.toLowerCase() === selectedLabel.toLowerCase());
     
-    // 如果找到了匹配的选项，则把它的 value (ID) 和 label (名称) 传出去
-    // 如果没找到，说明是用户输入的新内容，value传空字符串，label传新名称
-    const finalValue = selectedOption ? selectedOption.value : "";
-    const finalLabel = currentLabel;
-    
-    onValueChange(finalValue, finalLabel);
+    if (selectedOption) {
+      // User selected an existing item
+      onValueChange(selectedOption.value, selectedOption.label);
+    } else {
+      // User is creating a new item
+      onValueChange(selectedLabel, selectedLabel); // Pass the new name as both value and label temporarily
+    }
     setOpen(false);
   };
-  
-  const currentLabel = options.find(option => option.value === value)?.label || "";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-          {currentLabel ? currentLabel : <span className="text-muted-foreground">{placeholder}</span>}
+        <Button
+          variant="outline"
+          role="combobox"
+          className="w-full justify-between font-normal"
+        >
+          {currentLabel || <span className="text-muted-foreground">{placeholder}</span>}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -69,7 +76,7 @@ export function CreatableCombobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label} // CommandItem 的 value 应该是用来搜索和显示的 label
+                  value={option.label}
                   onSelect={handleSelect}
                 >
                   <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
