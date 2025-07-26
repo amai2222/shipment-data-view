@@ -60,8 +60,21 @@ export default function BusinessEntry() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: recordsData } = await supabase.from('logistics_records_view').select('*').order('created_at', { ascending: false });
-      setRecords(recordsData as LogisticsRecord[] || []);
+      // 使用数据库函数加载记录
+      const { data: recordsData } = await supabase.rpc('get_filtered_logistics_records', {
+        p_project_id: null,
+        p_driver_id: null,
+        p_start_date: null,
+        p_end_date: null,
+        p_limit: 1000,
+        p_offset: 0
+      });
+      // 添加 chain_name 字段以匹配 LogisticsRecord 接口
+      const recordsWithChainName = (recordsData || []).map((record: any) => ({
+        ...record,
+        chain_name: record.chain_name || '默认'
+      }));
+      setRecords(recordsWithChainName);
       const { data: projectsData } = await supabase.from('projects').select('id, name, start_date');
       setProjects(projectsData as Project[] || []);
       const { data: driversData } = await supabase.from('drivers').select('id, name, license_plate, phone');
@@ -150,13 +163,13 @@ export default function BusinessEntry() {
     }
     
     const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', {
-      p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone, p_project_id: formData.project_id
+      p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone
     });
     if (driverError || !driverResult || driverResult.length === 0) { toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); return; }
     const finalDriver = driverResult[0];
 
-    await supabase.rpc('get_or_create_location', { p_location_name: formData.loading_location, p_project_id: formData.project_id });
-    await supabase.rpc('get_or_create_location', { p_location_name: formData.unloading_location, p_project_id: formData.project_id });
+    await supabase.rpc('get_or_create_location', { p_location_name: formData.loading_location });
+    await supabase.rpc('get_or_create_location', { p_location_name: formData.unloading_location });
 
     const recordData = {
       p_project_id: formData.project_id, p_project_name: projectName, p_chain_id: formData.chain_id || null,
@@ -169,6 +182,7 @@ export default function BusinessEntry() {
       p_license_plate: formData.license_plate, p_driver_phone: formData.driver_phone,
       p_transport_type: formData.transport_type,
       p_extra_cost: formData.extra_cost ? parseFloat(formData.extra_cost) : null,
+      p_driver_payable_cost: formData.payable_cost ? parseFloat(formData.payable_cost) : null,
       p_remarks: formData.remarks
     };
     

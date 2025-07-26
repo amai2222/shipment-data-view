@@ -56,13 +56,34 @@ export default function FinanceReconciliation() {
       const { data: partnersData } = await supabase.from('project_partners').select(`partner_id, level, partners!inner(name)`);
       const uniquePartners = Array.from(new Map(partnersData?.map(p => [ p.partner_id, { id: p.partner_id, name: (p.partners as any).name, level: p.level } ]) || []).values()).sort((a, b) => a.level - b.level);
       setAllPartners(uniquePartners);
-      const { data: records, error: recordsError } = await supabase.from('logistics_records_view').select(`*, logistics_partner_costs(*, partners!inner(name))`).order('created_at', { ascending: false });
+      // 使用函数获取财务对账数据
+      const { data: records, error: recordsError } = await supabase.rpc('get_finance_reconciliation_data', {
+        p_project_id: null,
+        p_start_date: null,
+        p_end_date: null,
+        p_partner_id: null
+      });
       if (recordsError) throw recordsError;
       const recordsWithPartners: LogisticsRecordWithPartners[] = (records || []).map((record: any) => ({
-        ...record,
-        partner_costs: (record.logistics_partner_costs || []).map((cost: any) => ({
-          partner_id: cost.partner_id, partner_name: cost.partners.name, level: cost.level, payable_amount: cost.payable_amount
-        })).sort((a, b) => a.level - b.level)
+        id: record.record_id,
+        auto_number: record.auto_number,
+        project_name: record.project_name,
+        driver_name: record.driver_name,
+        loading_location: record.loading_location,
+        unloading_location: record.unloading_location,
+        loading_date: record.loading_date,
+        unloading_date: null,
+        loading_weight: null,
+        unloading_weight: null,
+        current_cost: record.current_cost,
+        payable_cost: record.payable_cost,
+        extra_cost: null,
+        license_plate: null,
+        driver_phone: null,
+        transport_type: null,
+        remarks: null,
+        chain_name: null,
+        partner_costs: (record.partner_costs ? JSON.parse(record.partner_costs) : []).sort((a: any, b: any) => a.level - b.level)
       }));
       setLogisticsRecords(recordsWithPartners);
     } catch (error) { toast({ title: "错误", description: "加载财务对账数据失败", variant: "destructive" });
