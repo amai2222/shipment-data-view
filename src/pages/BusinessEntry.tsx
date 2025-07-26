@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CreatableCombobox } from "@/components/CreatableCombobox";
+import { useNavigate } from "react-router-dom";
 
 // 类型定义
 interface LogisticsRecord {
@@ -72,6 +73,8 @@ export default function BusinessEntry() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const PAGE_SIZE = 15;
+
+  const navigate = useNavigate();
 
   const loadInitialOptions = useCallback(async () => {
     try {
@@ -140,17 +143,14 @@ export default function BusinessEntry() {
   }, [formData.project_id, drivers, locations]);
 
   useEffect(() => {
-    const isUuid = /^[0-9a-fA-F-]{36}$/.test(formData.driver_id);
     const selectedDriver = drivers.find(d => d.id === formData.driver_id);
-    if (isUuid && selectedDriver) {
+    if (selectedDriver) {
       setFormData((prev: any) => ({
         ...prev,
         driver_name: selectedDriver.name,
         license_plate: selectedDriver.license_plate || prev.license_plate || '',
         driver_phone: selectedDriver.phone || prev.driver_phone || '',
       }));
-    } else {
-        setFormData((prev: any) => ({ ...prev, driver_name: formData.driver_id }));
     }
   }, [formData.driver_id, drivers]);
 
@@ -193,18 +193,24 @@ export default function BusinessEntry() {
       toast({ title: "错误", description: "项目、司机和地点为必填项", variant: "destructive" }); return;
     }
     
-    const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', {
-      p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone, p_project_id: formData.project_id
-    });
-    if (driverError || !driverResult || driverResult.length === 0) { toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); return; }
-    const finalDriver = driverResult[0];
+    let finalDriverId = formData.driver_id;
+    let finalDriverName = formData.driver_name;
+    const isUuid = /^[0-9a-fA-F-]{36}$/.test(formData.driver_id);
+    if (!isUuid) {
+        const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', {
+            p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone, p_project_id: formData.project_id
+        });
+        if (driverError || !driverResult || driverResult.length === 0) { toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); return; }
+        finalDriverId = driverResult[0].driver_id;
+        finalDriverName = driverResult[0].driver_name;
+    }
 
     await supabase.rpc('get_or_create_location', { p_location_name: formData.loading_location, p_project_id: formData.project_id });
     await supabase.rpc('get_or_create_location', { p_location_name: formData.unloading_location, p_project_id: formData.project_id });
 
     const recordData = {
       p_project_id: formData.project_id, p_project_name: projectName, p_chain_id: formData.chain_id || null,
-      p_driver_id: finalDriver.driver_id, p_driver_name: finalDriver.driver_name,
+      p_driver_id: finalDriverId, p_driver_name: finalDriverName,
       p_loading_location: formData.loading_location, p_unloading_location: formData.unloading_location,
       p_loading_date: formData.loading_date, p_unloading_date: formData.unloading_date || null,
       p_loading_weight: formData.loading_weight ? parseFloat(formData.loading_weight) : null,
@@ -238,11 +244,6 @@ export default function BusinessEntry() {
     } catch (error: any) { toast({ title: "删除失败", description: error.message, variant: "destructive" }); }
   };
 
-  // 【已修复】对所有可能为空的字段进行安全检查，防止程序崩溃
-  const filteredRecords = useMemo(() => {
-    return records; // 后端已完成筛选，前端不再需要此逻辑
-  }, [records]);
-  
   const summary = useMemo(() => {
     return records.reduce((acc, record) => {
       acc.totalLoadingWeight += record.loading_weight || 0;
@@ -370,7 +371,7 @@ export default function BusinessEntry() {
             <div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
             <div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
             
-            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: d.name }))} value={formData.driver_id} onValueChange={(id, name) => { handleInputChange('driver_id', id); handleInputChange('driver_name', name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:"/></div>
+            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: d.name }))} value={formData.driver_id} onValueChange={(id, name) => { handleInputChange('driver_id', id || name); handleInputChange('driver_name', name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:"/></div>
             <div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
             <div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
             <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div>
