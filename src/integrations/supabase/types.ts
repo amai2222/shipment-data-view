@@ -530,6 +530,10 @@ export type Database = {
             }
         Returns: undefined
       }
+      batch_recalculate_partner_costs: {
+        Args: { p_record_ids: string[] }
+        Returns: undefined
+      }
       calculate_partner_costs: {
         Args: { p_base_amount: number; p_project_id: string }
         Returns: {
@@ -617,18 +621,7 @@ export type Database = {
           p_end_date?: string
           p_partner_id?: string
         }
-        Returns: {
-          record_id: string
-          auto_number: string
-          project_name: string
-          driver_name: string
-          loading_location: string
-          unloading_location: string
-          loading_date: string
-          current_cost: number
-          payable_cost: number
-          partner_costs: Json
-        }[]
+        Returns: Json
       }
       get_or_create_driver: {
         Args: {
@@ -641,9 +634,46 @@ export type Database = {
           driver_name: string
         }[]
       }
+      get_or_create_driver_with_project: {
+        Args: {
+          p_driver_name: string
+          p_license_plate: string
+          p_phone: string
+          p_project_id: string
+        }
+        Returns: {
+          driver_id: string
+          driver_name: string
+        }[]
+      }
       get_or_create_location: {
         Args: { p_location_name: string }
         Returns: string
+      }
+      get_or_create_location_with_project: {
+        Args: { p_location_name: string; p_project_id: string }
+        Returns: string
+      }
+      get_paginated_logistics_records: {
+        Args: {
+          p_page_size: number
+          p_offset: number
+          p_start_date?: string
+          p_end_date?: string
+          p_search_query?: string
+        }
+        Returns: Json
+      }
+      get_paginated_logistics_records_with_filters: {
+        Args: {
+          p_page_size: number
+          p_offset: number
+          p_start_date?: string
+          p_end_date?: string
+          p_search_query?: string
+          p_project_id?: string
+        }
+        Returns: Json
       }
       get_partner_payables_summary: {
         Args: {
@@ -659,6 +689,19 @@ export type Database = {
           total_payable: number
           records_count: number
         }[]
+      }
+      get_project_drivers_with_details: {
+        Args: { p_project_id: string }
+        Returns: {
+          driver_id: string
+          driver_name: string
+          license_plate: string
+          phone: string
+        }[]
+      }
+      recalculate_and_update_costs_for_record: {
+        Args: { p_record_id: string }
+        Returns: undefined
       }
       save_project_with_chains: {
         Args: { project_id_in: string; project_data: Json; chains_data: Json }

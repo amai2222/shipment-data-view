@@ -157,7 +157,7 @@ export default function FinanceReconciliation() {
     try {
       const idsToRecalculate = Array.from(selectedRecordIds);
       // 【核心修复】使用正确的格式调用 RPC 函数
-      const { error } = await supabase.rpc('batch_recalculate_costs', { p_record_ids: idsToRecalculate });
+      const { error } = await supabase.rpc('batch_recalculate_partner_costs', { p_record_ids: idsToRecalculate });
       if (error) throw error;
       
       toast({ title: "成功", description: `已为 ${idsToRecalculate.length} 条运单重新计算合作方应付。` });
