@@ -25,7 +25,7 @@ const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
           <div className="flex flex-col items-center p-2 border rounded-md bg-primary text-primary-foreground shadow-sm">
             <span className="text-sm font-semibold">{partner.partnerName}</span>
             <span className="text-xs text-primary-foreground/80">
-              {partner.calculationMethod === "tax" 
+              {partner.calculationMethod === "tax"
                 ? `税点: ${(partner.taxRate * 100).toFixed(1)}%`
                 : `利润: ${partner.profitRate}元`
               }
@@ -55,7 +55,7 @@ export default function Projects() {
   const [formData, setFormData] = useState({
     name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "",
   });
-  
+
   const [selectedChains, setSelectedChains] = useState<{
     id: string; dbId?: string; chainName: string; description?: string;
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
@@ -70,31 +70,21 @@ export default function Projects() {
         loadPartners()
       ]);
       setProjects(loadedProjects);
-      
-      // ====================================================================
-      // 【核心修复】高亮开始
-      // 原因：这里增加了一个安全保障 (|| [])，确保 `locations` 状态永远是一个数组，
-      // 即使在极端情况下 `loadedLocations` 返回了 `null` 或 `undefined`。
-      // 这是解决“保存失败”时，页面崩溃BUG的关键。
-      // ====================================================================
-      setLocations(loadedLocations || []);
-      // ====================================================================
-      // 【核心修复】高亮结束
-      // ====================================================================
+      setLocations(loadedLocations);
 
       const allPartnerChains: {[key: string]: PartnerChain[]} = {};
       const allProjectPartners: {[key: string]: ProjectPartner[]} = {};
-      
+
       for (const project of loadedProjects) {
         const chains = await loadPartnerChains(project.id);
         const partners = await loadProjectPartners(project.id);
         allPartnerChains[project.id] = chains;
         allProjectPartners[project.id] = partners;
       }
-      
+
       setPartnerChains(allPartnerChains);
       setProjectPartners(allProjectPartners);
-      
+
     } catch (error) {
       toast({ title: "数据加载失败", description: "无法从数据库加载数据，请重试。", variant: "destructive" });
     } finally {
@@ -153,10 +143,10 @@ export default function Projects() {
       manager: project.manager, loadingAddress: project.loadingAddress, unloadingAddress: project.unloadingAddress,
     });
     setEditingProject(project);
-    
+
     const chains = partnerChains[project.id] || [];
     const partners = projectPartners[project.id] || [];
-    
+
     const chainsWithPartners = chains.map(chain => {
       const chainPartners = partners.filter(p => p.chainId === chain.id);
       return {
@@ -170,7 +160,7 @@ export default function Projects() {
         }))
       };
     });
-    
+
     setSelectedChains(chainsWithPartners);
     setIsDialogOpen(true);
   };
@@ -183,7 +173,7 @@ export default function Projects() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.startDate || !formData.endDate || !formData.manager || !formData.loadingAddress || !formData.unloadingAddress) {
       toast({ title: "请填写所有基本信息字段", variant: "destructive" });
       return;
@@ -208,6 +198,11 @@ export default function Projects() {
 
       const projectId = editingProject ? editingProject.id : null;
 
+      // ====================================================================
+      // 【核心修复】高亮开始
+      // 原因：这里将所有前端的驼峰命名（如startDate）转换为数据库期望的下划线命名（如start_date）
+      // 这是解决“保存失败”BUG的关键。
+      // ====================================================================
       const projectPayloadForDb = {
         name: formData.name,
         start_date: formData.startDate,
@@ -231,6 +226,9 @@ export default function Projects() {
           profit_rate: Number(p.profitRate) || 0
         }))
       }));
+      // ====================================================================
+      // 【核心修复】高亮结束
+      // ====================================================================
 
       const { error } = await supabase.rpc('save_project_with_chains', {
         project_id_in: projectId,
@@ -262,7 +260,7 @@ export default function Projects() {
       toast({ title: "删除失败", description: "删除项目时出现错误", variant: "destructive" });
     }
   };
-  
+
   const addNewChain = () => {
     setSelectedChains(prev => [...prev, {
       id: `chain-new-${Date.now()}`, dbId: undefined,
@@ -273,8 +271,8 @@ export default function Projects() {
   const removeChain = (chainIndex: number) => { setSelectedChains(prev => prev.filter((_, i) => i !== chainIndex)); };
 
   const addPartnerToChain = (chainIndex: number) => {
-    setSelectedChains(prev => prev.map((chain, i) => 
-      i === chainIndex 
+    setSelectedChains(prev => prev.map((chain, i) =>
+      i === chainIndex
         ? { ...chain, partners: [...chain.partners, {
             id: `partner-new-${Date.now()}`, dbId: undefined, partnerId: '',
             level: chain.partners.length + 1, taxRate: 0.03,
@@ -285,8 +283,8 @@ export default function Projects() {
   };
 
   const removePartnerFromChain = (chainIndex: number, partnerIndex: number) => {
-    setSelectedChains(prev => prev.map((chain, i) => 
-      i === chainIndex 
+    setSelectedChains(prev => prev.map((chain, i) =>
+      i === chainIndex
         ? { ...chain, partners: chain.partners.filter((_, pi) => pi !== partnerIndex) }
         : chain
     ));
