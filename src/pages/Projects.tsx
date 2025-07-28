@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Projects.tsx
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,12 +12,16 @@ import { SupabaseStorage } from "@/utils/supabase";
 import { Project, Location, Partner, ProjectPartner, PartnerChain } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 
-// 【已美化】用于美化合作链路的横向展示
+// 【核心类型】扩展 Project 类型，使其可以直接包含从后端一次性获取的嵌套数据
+interface ProjectWithDetails extends Project {
+  partnerChains: (PartnerChain & { partners: ProjectPartner[] })[];
+}
+
+// 【美化组件】用于美化合作链路的横向展示
 const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
   if (!partners || partners.length === 0) {
     return <div className="text-xs text-muted-foreground">暂无合作方</div>;
   }
-
   return (
     <div className="flex flex-wrap items-center gap-2">
       {partners.map((partner, index) => (
@@ -25,32 +29,24 @@ const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
           <div className="flex flex-col items-center p-2 border rounded-md bg-primary text-primary-foreground shadow-sm">
             <span className="text-sm font-semibold">{partner.partnerName}</span>
             <span className="text-xs text-primary-foreground/80">
-              {partner.calculationMethod === "tax" 
-                ? `税点: ${(partner.taxRate * 100).toFixed(1)}%`
-                : `利润: ${partner.profitRate}元`
-              }
+              {partner.calculationMethod === "tax" ? `税点: ${(partner.taxRate * 100).toFixed(1)}%` : `利润: ${partner.profitRate}元`}
             </span>
           </div>
-          {index < partners.length - 1 && (
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          )}
+          {index < partners.length - 1 && (<ChevronRight className="h-5 w-5 text-muted-foreground" />)}
         </React.Fragment>
       ))}
     </div>
   );
 };
 
-
 export default function Projects() {
   const { toast } = useToast();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<ProjectWithDetails[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
-  const [partnerChains, setPartnerChains] = useState<{[key: string]: PartnerChain[]}>({});
-  const [projectPartners, setProjectPartners] = useState<{[key: string]: ProjectPartner[]}>({});
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingProject, setEditingProject] = useState<ProjectWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -62,31 +58,30 @@ export default function Projects() {
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
   }[]>([]);
 
+  // 【核心修复】重构 loadData 函数，彻底解决 N+1 查询问题
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      
-      // Use optimized function for better performance
-      const { data, error } = await supabase.rpc('get_projects_with_details_optimized');
-      if (error) throw error;
-      
-      const projectsData = (data as any)?.projects || [];
-      const chainsData = (data as any)?.chains || {};
-      const partnersData = (data as any)?.partners || {};
-      
-      setProjects(projectsData);
-      setPartnerChains(chainsData);
-      setProjectPartners(partnersData);
-      
-      // Still load locations and partners separately
-      const [loadedLocations, loadedPartners] = await Promise.all([
+      // 并行加载所有需要的数据
+      const [projectsResponse, locationsResponse, partnersResponse] = await Promise.all([
+        supabase.rpc('get_projects_with_details'), // 只调用一次，获取所有项目及其嵌套数据
         SupabaseStorage.getLocations(),
-        loadPartners()
+        supabase.from('partners').select('*').order('name', { ascending: true })
       ]);
-      setLocations(loadedLocations);
+
+      const { data: projectsData, error: projectsError } = projectsResponse;
+      if (projectsError) throw projectsError;
+      setProjects(projectsData || []);
+
+      const { data: locationsData } = locationsResponse;
+      setLocations(locationsData);
       
+      const { data: partnersData, error: partnersError } = partnersResponse;
+      if(partnersError) throw partnersError;
+      setPartners(partnersData.map(p => ({...p, taxRate: Number(p.tax_rate)})));
+
     } catch (error) {
-      console.error('Error loading projects:', error);
+      console.error("数据加载失败:", error);
       toast({ title: "数据加载失败", description: "无法从数据库加载数据，请重试。", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -95,81 +90,42 @@ export default function Projects() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const loadPartners = async () => {
-    try {
-      const { data, error } = await supabase.from('partners').select('*').order('name', { ascending: true });
-      if (error) throw error;
-      const formattedData: Partner[] = data.map(item => ({
-        id: item.id, name: item.name, taxRate: Number(item.tax_rate), createdAt: item.created_at,
-      }));
-      setPartners(formattedData);
-      return formattedData;
-    } catch (error) { console.error('Error loading partners:', error); return []; }
-  };
-
-  const loadPartnerChains = async (projectId: string) => {
-    try {
-      const { data, error } = await supabase.from('partner_chains').select('*').eq('project_id', projectId).order('is_default', { ascending: false });
-      if (error) throw error;
-      return data.map(item => ({
-        id: item.id, projectId: item.project_id, chainName: item.chain_name,
-        description: item.description, isDefault: item.is_default, createdAt: item.created_at,
-      }));
-    } catch (error) { console.error('Error loading partner chains:', error); return []; }
-  };
-
-  const loadProjectPartners = async (projectId: string) => {
-    try {
-      const { data, error } = await supabase.from('project_partners').select(`*, partners:partner_id(id, name)`).eq('project_id', projectId).order('level', { ascending: true });
-      if (error) throw error;
-      return data.map(item => ({
-        id: item.id, projectId: item.project_id, partnerId: item.partner_id, chainId: item.chain_id,
-        level: item.level, taxRate: Number(item.tax_rate),
-        calculationMethod: (item.calculation_method as "tax" | "profit") || "tax",
-        profitRate: item.profit_rate ? Number(item.profit_rate) : 0,
-        createdAt: item.created_at, partnerName: item.partners?.name || '',
-      }));
-    } catch (error) { console.error('Error loading project partners:', error); return []; }
-  };
-
   const resetForm = () => {
     setFormData({ name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "" });
     setSelectedChains([]);
     setEditingProject(null);
   };
 
-  const handleEdit = (project: Project) => {
+  const handleEdit = (project: ProjectWithDetails) => {
     setFormData({
       name: project.name, startDate: project.startDate, endDate: project.endDate,
       manager: project.manager, loadingAddress: project.loadingAddress, unloadingAddress: project.unloadingAddress,
     });
     setEditingProject(project);
     
-    const chains = partnerChains[project.id] || [];
-    const partners = projectPartners[project.id] || [];
-    
-    const chainsWithPartners = chains.map(chain => {
-      const chainPartners = partners.filter(p => p.chainId === chain.id);
-      return {
-        id: `chain-existing-${chain.id}`, dbId: chain.id, chainName: chain.chainName,
-        description: chain.description,
-        partners: chainPartners.map((pp) => ({
-          id: `partner-existing-${pp.id}`, dbId: pp.id, partnerId: pp.partnerId,
-          level: pp.level, taxRate: pp.taxRate,
-          calculationMethod: pp.calculationMethod || "tax",
-          profitRate: pp.profitRate || 0, partnerName: pp.partnerName
-        }))
-      };
-    });
+    // 从已经加载好的 project 对象中直接获取链路和合作方信息，不再需要额外查询
+    const chainsWithPartners = (project.partnerChains || []).map(chain => ({
+      id: `chain-existing-${chain.id}`, dbId: chain.id, chainName: chain.chainName,
+      description: chain.description,
+      partners: (chain.partners || []).map((pp) => ({
+        id: `partner-existing-${pp.id}`, dbId: pp.id, partnerId: pp.partnerId,
+        level: pp.level, taxRate: pp.taxRate,
+        calculationMethod: pp.calculationMethod || "tax",
+        profitRate: pp.profitRate || 0, partnerName: pp.partnerName
+      }))
+    }));
     
     setSelectedChains(chainsWithPartners);
     setIsDialogOpen(true);
   };
 
   const findOrCreateLocation = async (address: string) => {
+    if (!address) return null;
     const existingLocation = locations.find(loc => loc.name === address);
     if (existingLocation) return existingLocation;
-    return await SupabaseStorage.findOrCreateLocation(address);
+    const newLocation = await SupabaseStorage.findOrCreateLocation(address);
+    setLocations(prev => [...prev, newLocation]);
+    return newLocation;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -198,40 +154,27 @@ export default function Projects() {
       await findOrCreateLocation(formData.unloadingAddress);
 
       const projectId = editingProject ? editingProject.id : null;
-
       const projectPayloadForDb = {
-        name: formData.name,
-        start_date: formData.startDate,
-        end_date: formData.endDate,
-        manager: formData.manager,
-        loading_address: formData.loadingAddress,
-        unloading_address: formData.unloadingAddress,
+        name: formData.name, start_date: formData.startDate, end_date: formData.endDate,
+        manager: formData.manager, loading_address: formData.loadingAddress, unloading_address: formData.unloadingAddress,
       };
 
       const chainsPayload = selectedChains.map((chain, index) => ({
-        id: chain.dbId,
-        chain_name: chain.chainName || `链路${index + 1}`,
-        description: chain.description || '',
-        is_default: index === 0,
+        id: chain.dbId, chain_name: chain.chainName || `链路${index + 1}`,
+        description: chain.description || '', is_default: index === 0,
         partners: chain.partners.map(p => ({
-          id: p.dbId,
-          partner_id: p.partnerId,
-          level: Number(p.level),
-          tax_rate: Number(p.taxRate),
-          calculation_method: p.calculationMethod || 'tax',
+          id: p.dbId, partner_id: p.partnerId, level: Number(p.level),
+          tax_rate: Number(p.taxRate), calculation_method: p.calculationMethod || 'tax',
           profit_rate: Number(p.profitRate || 0)
         }))
       }));
 
-      const { data, error } = await supabase.rpc('save_project_with_chains', {
-        project_id_in: projectId,
-        project_data: projectPayloadForDb,
-        chains_data: chainsPayload
+      const { error } = await supabase.rpc('save_project_with_chains', {
+        project_id_in: projectId, project_data: projectPayloadForDb, chains_data: chainsPayload
       });
 
       if (error) throw error;
-
-      toast({ title: editingProject ? "项目更新成功" : "项目创建成功", description: `项目 "${formData.name}" 已成功保存，地址已自动保存到地址库。` });
+      toast({ title: editingProject ? "项目更新成功" : "项目创建成功", description: `项目 "${formData.name}" 已成功保存。` });
 
       await loadData();
       setIsDialogOpen(false);
@@ -253,7 +196,7 @@ export default function Projects() {
       toast({ title: "删除失败", description: "删除项目时出现错误", variant: "destructive" });
     }
   };
-
+  
   const addNewChain = () => {
     setSelectedChains(prev => [...prev, {
       id: `chain-new-${Date.now()}`, dbId: undefined,
@@ -311,8 +254,7 @@ export default function Projects() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">加载项目数据中...</span>
+        <Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">加载项目数据中...</span>
       </div>
     );
   }
@@ -329,7 +271,6 @@ export default function Projects() {
             <DialogTrigger asChild><Button variant="secondary" onClick={resetForm}><Plus className="h-4 w-4 mr-2" />新增项目</Button></DialogTrigger>
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editingProject ? "编辑项目" : "新增项目"}</DialogTitle></DialogHeader>
-              {/* 【已修复】将所有表单内容放回 form 标签内 */}
               <form onSubmit={handleSubmit} className="space-y-6 p-1">
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">项目基本信息</h3>
@@ -384,16 +325,7 @@ export default function Projects() {
         <CardContent>
           <div className="rounded-md border">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8"></TableHead>
-                  <TableHead className="w-48">项目名称</TableHead>
-                  <TableHead className="w-32">项目负责人</TableHead>
-                  <TableHead className="w-40">装货地址</TableHead>
-                  <TableHead className="w-40">卸货地址</TableHead>
-                  <TableHead className="w-32">操作</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead className="w-8"></TableHead><TableHead className="w-48">项目名称</TableHead><TableHead className="w-32">项目负责人</TableHead><TableHead className="w-40">装货地址</TableHead><TableHead className="w-40">卸货地址</TableHead><TableHead className="w-32">操作</TableHead></TableRow></TableHeader>
               <TableBody>
                 {projects.map((project) => (
                   <React.Fragment key={project.id}>
@@ -403,12 +335,7 @@ export default function Projects() {
                       <TableCell>{project.manager}</TableCell>
                       <TableCell>{project.loadingAddress}</TableCell>
                       <TableCell>{project.unloadingAddress}</TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleEdit(project); }}><Edit className="h-4 w-4" /></Button>
-                          <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(project.id, project.name); }}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                      </TableCell>
+                      <TableCell><div className="flex space-x-2"><Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleEdit(project); }}><Edit className="h-4 w-4" /></Button><Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(project.id, project.name); }}><Trash2 className="h-4 w-4" /></Button></div></TableCell>
                     </TableRow>
                     
                     {expandedProject === project.id && (
@@ -424,23 +351,19 @@ export default function Projects() {
                             
                             <div className="space-y-4 pt-4 border-t">
                               <h5 className="font-semibold text-sm">合作链路详情</h5>
-                              {(partnerChains[project.id] || []).map((chain) => {
-                                const chainPartners = (projectPartners[project.id] || []).filter(p => p.chainId === chain.id).sort((a, b) => a.level - b.level);
+                              {(project.partnerChains || []).map((chain) => {
+                                const sortedPartners = [...(chain.partners || [])].sort((a, b) => a.level - b.level);
                                 return (
                                   <div key={chain.id} className="bg-background/50 rounded p-3 border">
                                     <div className="flex items-center justify-between mb-3">
-                                      <h6 className="font-medium text-sm flex items-center">
-                                        <Link className="h-4 w-4 mr-2 text-muted-foreground"/>
-                                        {chain.chainName} 
-                                        {chain.isDefault && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">默认</span>}
-                                      </h6>
+                                      <h6 className="font-medium text-sm flex items-center"><Link className="h-4 w-4 mr-2 text-muted-foreground"/>{chain.chainName} {chain.isDefault && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">默认</span>}</h6>
                                       {chain.description && (<span className="text-xs text-muted-foreground">{chain.description}</span>)}
                                     </div>
-                                    <PartnerChainDisplay partners={chainPartners} />
+                                    <PartnerChainDisplay partners={sortedPartners} />
                                   </div>
                                 );
                               })}
-                              {(!partnerChains[project.id] || partnerChains[project.id].length === 0) && (
+                              {(!project.partnerChains || project.partnerChains.length === 0) && (
                                 <div className="text-xs text-muted-foreground text-center py-4 border border-dashed rounded">暂无合作链路配置</div>
                               )}
                             </div>
