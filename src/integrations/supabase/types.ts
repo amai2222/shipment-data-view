@@ -699,6 +699,10 @@ export type Database = {
           phone: string
         }[]
       }
+      get_projects_with_details: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       recalculate_and_update_costs_for_record: {
         Args: { p_record_id: string }
         Returns: undefined
