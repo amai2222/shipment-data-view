@@ -249,13 +249,19 @@ export default function BusinessEntry() {
       acc.totalLoadingWeight += record.loading_weight || 0;
       acc.totalUnloadingWeight += record.unloading_weight || 0;
       acc.totalCurrentCost += record.current_cost || 0;
+      acc.totalExtraCost += record.extra_cost || 0;
       acc.totalDriverPayableCost += record.payable_cost || 0;
       if (record.transport_type === '实际运输') acc.actualCount += 1;
       else if (record.transport_type === '退货') acc.returnCount += 1;
       return acc;
     }, {
-      totalLoadingWeight: 0, totalUnloadingWeight: 0, totalCurrentCost: 0,
-      totalDriverPayableCost: 0, actualCount: 0, returnCount: 0,
+      totalLoadingWeight: 0,
+      totalUnloadingWeight: 0,
+      totalCurrentCost: 0,
+      totalExtraCost: 0,
+      totalDriverPayableCost: 0,
+      actualCount: 0,
+      returnCount: 0,
     });
   }, [records]);
 
