@@ -154,20 +154,37 @@ export default function Projects() {
       await findOrCreateLocation(formData.unloadingAddress);
 
       const projectId = editingProject ? editingProject.id : null;
+      // ====================================================================
+      // 【核心修复】高亮开始
+      // 原因：这里将所有前端的驼峰命名（如startDate）转换为数据库期望的下划线命名（如start_date）
+      // 这是解决“保存失败”BUG的关键。
+      // ====================================================================
       const projectPayloadForDb = {
-        name: formData.name, start_date: formData.startDate, end_date: formData.endDate,
-        manager: formData.manager, loading_address: formData.loadingAddress, unloading_address: formData.unloadingAddress,
+        name: formData.name,
+        start_date: formData.startDate,
+        end_date: formData.endDate,
+        manager: formData.manager,
+        loading_address: formData.loadingAddress,
+        unloading_address: formData.unloadingAddress,
       };
 
       const chainsPayload = selectedChains.map((chain, index) => ({
-        id: chain.dbId, chain_name: chain.chainName || `链路${index + 1}`,
-        description: chain.description || '', is_default: index === 0,
+        id: chain.dbId,
+        chain_name: chain.chainName || `链路${index + 1}`,
+        description: chain.description || '',
+        is_default: index === 0,
         partners: chain.partners.map(p => ({
-          id: p.dbId, partner_id: p.partnerId, level: Number(p.level),
-          tax_rate: Number(p.taxRate), calculation_method: p.calculationMethod || 'tax',
+          id: p.dbId,
+          partner_id: p.partnerId,
+          level: Number(p.level),
+          tax_rate: Number(p.taxRate),
+          calculation_method: p.calculationMethod || 'tax',
           profit_rate: Number(p.profitRate || 0)
         }))
       }));
+      // ====================================================================
+      // 【核心修复】高亮结束
+      // ====================================================================
 
       const { error } = await supabase.rpc('save_project_with_chains', {
         project_id_in: projectId, project_data: projectPayloadForDb, chains_data: chainsPayload
