@@ -42,7 +42,6 @@ const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
 export default function Projects() {
   const { toast } = useToast();
   const [projects, setProjects] = useState<ProjectWithDetails[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -58,27 +57,19 @@ export default function Projects() {
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
   }[]>([]);
 
-  // ====================================================================
-  // 【核心修复】高亮开始
-  // 原因：重构 loadData 函数，彻底解决 N+1 查询问题。
-  // 现在，它只会调用一次强大的后端函数 `get_projects_with_details`，
-  // 并行加载其他辅助数据，加载速度将得到质的飞跃。
-  // ====================================================================
+  // 【核心修复与性能优化】重构 loadData 函数，彻底解决 N+1 查询问题
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [projectsResponse, locationsResponse, partnersResponse] = await Promise.all([
-        supabase.rpc('get_projects_with_details'),
-        SupabaseStorage.getLocations(),
+      // 并行加载所有需要的数据
+      const [projectsResponse, partnersResponse] = await Promise.all([
+        supabase.rpc('get_projects_with_details'), // 只调用一次，获取所有项目及其嵌套数据
         supabase.from('partners').select('*').order('name', { ascending: true })
       ]);
 
       const { data: projectsData, error: projectsError } = projectsResponse;
       if (projectsError) throw projectsError;
       setProjects(projectsData || []);
-
-      const { data: locationsData } = locationsResponse;
-      setLocations(locationsData || []);
       
       const { data: partnersData, error: partnersError } = partnersResponse;
       if(partnersError) throw partnersError;
@@ -91,9 +82,6 @@ export default function Projects() {
       setIsLoading(false);
     }
   }, [toast]);
-  // ====================================================================
-  // 【核心修复】高亮结束
-  // ====================================================================
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -125,15 +113,6 @@ export default function Projects() {
     setIsDialogOpen(true);
   };
 
-  const findOrCreateLocation = async (address: string) => {
-    if (!address) return null;
-    const existingLocation = locations.find(loc => loc.name === address);
-    if (existingLocation) return existingLocation;
-    const newLocation = await SupabaseStorage.findOrCreateLocation(address);
-    setLocations(prev => [...prev, newLocation]);
-    return newLocation;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -158,12 +137,7 @@ export default function Projects() {
       setIsSubmitting(true);
       
       const projectId = editingProject ? editingProject.id : null;
-
-      // ====================================================================
-      // 【核心修复】高亮开始
-      // 原因：这里将所有前端的驼峰命名（如startDate）转换为数据库期望的下划线命名（如start_date）
-      // 这是解决“保存失败”BUG的关键。
-      // ====================================================================
+      
       const projectPayloadForDb = {
         name: formData.name,
         start_date: formData.startDate,
@@ -187,9 +161,6 @@ export default function Projects() {
           profit_rate: Number(p.profitRate) || 0
         }))
       }));
-      // ====================================================================
-      // 【核心修复】高亮结束
-      // ====================================================================
 
       const { error } = await supabase.rpc('save_project_with_chains', {
         project_id_in: projectId,
