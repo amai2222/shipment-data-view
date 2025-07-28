@@ -703,13 +703,25 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      get_projects_with_details_optimized: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       recalculate_and_update_costs_for_record: {
         Args: { p_record_id: string }
         Returns: undefined
       }
+      save_project_addresses_to_locations: {
+        Args: {
+          p_project_id: string
+          p_loading_address: string
+          p_unloading_address: string
+        }
+        Returns: undefined
+      }
       save_project_with_chains: {
         Args: { project_id_in: string; project_data: Json; chains_data: Json }
-        Returns: undefined
+        Returns: Json
       }
       update_logistics_record_with_costs: {
         Args:

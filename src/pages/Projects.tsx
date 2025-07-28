@@ -65,28 +65,28 @@ export default function Projects() {
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [loadedProjects, loadedLocations, loadedPartners] = await Promise.all([
-        SupabaseStorage.getProjects(),
+      
+      // Use optimized function for better performance
+      const { data, error } = await supabase.rpc('get_projects_with_details_optimized');
+      if (error) throw error;
+      
+      const projectsData = (data as any)?.projects || [];
+      const chainsData = (data as any)?.chains || {};
+      const partnersData = (data as any)?.partners || {};
+      
+      setProjects(projectsData);
+      setPartnerChains(chainsData);
+      setProjectPartners(partnersData);
+      
+      // Still load locations and partners separately
+      const [loadedLocations, loadedPartners] = await Promise.all([
         SupabaseStorage.getLocations(),
         loadPartners()
       ]);
-      setProjects(loadedProjects);
       setLocations(loadedLocations);
       
-      const allPartnerChains: {[key: string]: PartnerChain[]} = {};
-      const allProjectPartners: {[key: string]: ProjectPartner[]} = {};
-      
-      for (const project of loadedProjects) {
-        const chains = await loadPartnerChains(project.id);
-        const partners = await loadProjectPartners(project.id);
-        allPartnerChains[project.id] = chains;
-        allProjectPartners[project.id] = partners;
-      }
-      
-      setPartnerChains(allPartnerChains);
-      setProjectPartners(allProjectPartners);
-      
     } catch (error) {
+      console.error('Error loading projects:', error);
       toast({ title: "数据加载失败", description: "无法从数据库加载数据，请重试。", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -223,7 +223,7 @@ export default function Projects() {
         }))
       }));
 
-      const { error } = await supabase.rpc('save_project_with_chains', {
+      const { data, error } = await supabase.rpc('save_project_with_chains', {
         project_id_in: projectId,
         project_data: projectPayloadForDb,
         chains_data: chainsPayload
@@ -231,7 +231,7 @@ export default function Projects() {
 
       if (error) throw error;
 
-      toast({ title: editingProject ? "项目更新成功" : "项目创建成功", description: `项目 "${formData.name}" 已成功保存。` });
+      toast({ title: editingProject ? "项目更新成功" : "项目创建成功", description: `项目 "${formData.name}" 已成功保存，地址已自动保存到地址库。` });
 
       await loadData();
       setIsDialogOpen(false);

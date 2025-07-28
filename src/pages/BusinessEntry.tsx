@@ -229,10 +229,12 @@ export default function BusinessEntry() {
     try {
       if (editingRecord) {
         await supabase.rpc('update_logistics_record_with_costs', { p_record_id: editingRecord.id, ...recordData });
-        toast({ title: "成功", description: "运单记录已更新" });
+        // Trigger partner cost recalculation after update
+        await supabase.rpc('recalculate_and_update_costs_for_record', { p_record_id: editingRecord.id });
+        toast({ title: "成功", description: "运单记录已更新，合作方运费已重新计算" });
       } else {
         await supabase.rpc('add_logistics_record_with_costs', recordData);
-        toast({ title: "成功", description: "新运单已添加" });
+        toast({ title: "成功", description: "新运单已添加，合作方运费已自动计算" });
       }
       setIsEditModalOpen(false); 
       loadPaginatedRecords();
@@ -325,19 +327,32 @@ export default function BusinessEntry() {
 
       <div className="border rounded-lg">
         <Table>
-          <TableHeader><TableRow><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>合作链路</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>装货日期</TableHead><TableHead>运费</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>合作链路</TableHead><TableHead>司机信息</TableHead><TableHead>路线</TableHead><TableHead>装货日期</TableHead><TableHead>运输类型</TableHead><TableHead>运费</TableHead><TableHead>额外费用</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={8} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin"/></TableCell></TableRow> 
-            : records.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center">没有找到匹配的记录</TableCell></TableRow>
+             {loading ? <TableRow><TableCell colSpan={10} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin"/></TableCell></TableRow> 
+            : records.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center">没有找到匹配的记录</TableCell></TableRow>
             : records.map((record) => (
               <TableRow key={record.id} onClick={() => setViewingRecord(record)} className="cursor-pointer">
                 <TableCell className="font-mono">{record.auto_number}</TableCell>
                 <TableCell>{record.project_name}</TableCell>
                 <TableCell>{record.chain_name || '默认'}</TableCell>
-                <TableCell>{record.driver_name}</TableCell>
+                <TableCell>
+                  <div>
+                    <div className="font-medium">{record.driver_name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {record.license_plate && `车牌: ${record.license_plate}`}
+                      {record.license_plate && record.driver_phone && " | "}
+                      {record.driver_phone && `电话: ${record.driver_phone}`}
+                    </div>
+                  </div>
+                </TableCell>
                 <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
                 <TableCell>{record.loading_date}</TableCell>
+                <TableCell>
+                  <span className={record.transport_type === '退货' ? 'text-destructive' : ''}>{record.transport_type}</span>
+                </TableCell>
                 <TableCell className="font-mono">{record.current_cost ? `¥${record.current_cost.toFixed(2)}` : '-'}</TableCell>
+                <TableCell className="font-mono">{record.extra_cost ? `¥${record.extra_cost.toFixed(2)}` : '-'}</TableCell>
                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="icon" onClick={() => handleOpenModal(record)}><Edit className="h-4 w-4" /></Button>
                   <ConfirmDialog title="确认删除" description={`您确定要删除运单 ${record.auto_number} 吗？`} onConfirm={() => handleDelete(record.id)}>
@@ -376,14 +391,14 @@ export default function BusinessEntry() {
             <div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
             <div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
             
-            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} value={formData.driver_id} onValueChange={(value) => { handleInputChange('driver_id', value); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." onCreateNew={() => navigate('/drivers')}/></div>
+            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'}) ${d.phone || ''}` }))} value={formData.driver_id} onValueChange={(value) => { if (!filteredDrivers.find(d => d.id === value)) { handleInputChange('driver_name', value); handleInputChange('driver_id', value); } else { handleInputChange('driver_id', value); } }} placeholder="选择司机或输入新司机姓名" searchPlaceholder="搜索司机..." onCreateNew={(newName) => { handleInputChange('driver_name', newName); handleInputChange('driver_id', newName); }}/></div>
             <div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
             <div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
             <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div>
             
-            <div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.loading_location} onValueChange={(value) => handleInputChange('loading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={() => navigate('/locations')}/></div>
+            <div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.loading_location} onValueChange={(value) => handleInputChange('loading_location', value)} placeholder="选择地点或输入新地址" searchPlaceholder="搜索地点..." onCreateNew={(newLocation) => handleInputChange('loading_location', newLocation)}/></div>
             <div className="space-y-1"><Label>装货重量</Label><Input type="number" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value)} /></div>
-            <div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.unloading_location} onValueChange={(value) => handleInputChange('unloading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={() => navigate('/locations')}/></div>
+            <div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.unloading_location} onValueChange={(value) => handleInputChange('unloading_location', value)} placeholder="选择地点或输入新地址" searchPlaceholder="搜索地点..." onCreateNew={(newLocation) => handleInputChange('unloading_location', newLocation)}/></div>
             <div className="space-y-1"><Label>卸货重量</Label><Input type="number" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value)} /></div>
             
             <div className="space-y-1"><Label>运费金额 (元)</Label><Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value)} /></div>
