@@ -14,7 +14,7 @@ interface CreatableComboboxProps {
   options: ComboboxOption[];
   value: string;
   onValueChange: (value: string) => void;
-  onCreateNew?: (value: string) => void; // Accept value parameter for creating new items
+  onCreateNew?: (value: string) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyPlaceholder?: string;
@@ -27,7 +27,8 @@ export function CreatableCombobox({
   const [open, setOpen] = React.useState(false);
   const [searchValue, setSearchValue] = React.useState("");
 
-  const selectedOption = options.find((option) => option.value === value);
+  const selectedOption = options.find((option) => option.value === value) || 
+    (value && !options.some(opt => opt.value === value) ? { value, label: value } : null);
 
   const handleCreateNew = () => {
     if (onCreateNew && searchValue.trim()) {
@@ -35,6 +36,12 @@ export function CreatableCombobox({
       setOpen(false);
       setSearchValue("");
     }
+  };
+
+  const handleSelectOption = (optionValue: string) => {
+    onValueChange(optionValue);
+    setOpen(false);
+    setSearchValue("");
   };
 
   return (
@@ -68,10 +75,7 @@ export function CreatableCombobox({
               <CommandItem
                 key={option.value}
                 value={option.label}
-                onSelect={() => {
-                  onValueChange(option.value);
-                  setOpen(false);
-                }}
+                onSelect={() => handleSelectOption(option.value)}
               >
                 <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
                 {option.label}

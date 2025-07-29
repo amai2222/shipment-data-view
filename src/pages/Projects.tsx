@@ -69,11 +69,11 @@ export default function Projects() {
 
       const { data: projectsData, error: projectsError } = projectsResponse;
       if (projectsError) throw projectsError;
-      setProjects(projectsData || []);
+      setProjects((projectsData as unknown as ProjectWithDetails[]) || []);
       
       const { data: partnersData, error: partnersError } = partnersResponse;
       if(partnersError) throw partnersError;
-      setPartners(partnersData.map(p => ({...p, taxRate: Number(p.tax_rate)})));
+      setPartners(partnersData?.map(p => ({...p, taxRate: Number(p.tax_rate), createdAt: p.created_at})) || []);
 
     } catch (error) {
       console.error("数据加载失败:", error);
@@ -318,58 +318,96 @@ export default function Projects() {
           <div className="flex items-center justify-between"><CardTitle>项目列表 ({projects.length} 个项目)</CardTitle></div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader><TableRow><TableHead className="w-8"></TableHead><TableHead className="w-48">项目名称</TableHead><TableHead className="w-32">项目负责人</TableHead><TableHead className="w-40">装货地址</TableHead><TableHead className="w-40">卸货地址</TableHead><TableHead className="w-32">操作</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {projects.map((project) => (
-                  <tbody key={project.id}>
-                    <TableRow className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}>
-                      <TableCell>{expandedProject === project.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</TableCell>
-                      <TableCell className="font-medium">{project.name}</TableCell>
-                      <TableCell>{project.manager}</TableCell>
-                      <TableCell>{project.loadingAddress}</TableCell>
-                      <TableCell>{project.unloadingAddress}</TableCell>
-                      <TableCell><div className="flex space-x-2"><Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleEdit(project); }}><Edit className="h-4 w-4" /></Button><Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(project.id, project.name); }}><Trash2 className="h-4 w-4" /></Button></div></TableCell>
-                    </TableRow>
-                    
-                    {expandedProject === project.id && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="bg-muted/30 p-0">
-                          <div className="p-4 space-y-4">
-                            <h4 className="font-semibold text-sm mb-3">项目详细信息</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div><span className="text-muted-foreground">开始日期：</span><span className="font-medium">{project.startDate}</span></div>
-                              <div><span className="text-muted-foreground">结束日期：</span><span className="font-medium">{project.endDate}</span></div>
-                              <div><span className="text-muted-foreground">创建时间：</span><span className="font-medium">{new Date(project.createdAt).toLocaleDateString('zh-CN')}</span></div>
+          <div className="space-y-4">
+            {projects.map((project) => (
+              <Card key={project.id} className="border shadow-sm">
+                <CardHeader 
+                  className="cursor-pointer hover:bg-muted/50 transition-colors pb-3" 
+                  onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      {expandedProject === project.id ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+                      <div>
+                        <CardTitle className="text-lg">{project.name}</CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">负责人: {project.manager}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{project.loadingAddress}</p>
+                        <p className="text-xs text-muted-foreground">装货地址</p>
+                      </div>
+                      <div className="text-muted-foreground">→</div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{project.unloadingAddress}</p>
+                        <p className="text-xs text-muted-foreground">卸货地址</p>
+                      </div>
+                      <div className="flex space-x-2 ml-4">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={(e) => { e.stopPropagation(); handleEdit(project); }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={(e) => { e.stopPropagation(); handleDelete(project.id, project.name); }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                
+                {expandedProject === project.id && (
+                  <CardContent className="pt-0">
+                    <div className="border-t pt-4 space-y-4">
+                      <h4 className="font-semibold text-sm mb-3">项目详细信息</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-muted/30 p-3 rounded">
+                        <div><span className="text-muted-foreground">开始日期：</span><span className="font-medium">{project.startDate}</span></div>
+                        <div><span className="text-muted-foreground">结束日期：</span><span className="font-medium">{project.endDate}</span></div>
+                        <div><span className="text-muted-foreground">创建时间：</span><span className="font-medium">{new Date(project.createdAt).toLocaleDateString('zh-CN')}</span></div>
+                        <div><span className="text-muted-foreground">项目编号：</span><span className="font-medium font-mono">{project.autoCode || '未生成'}</span></div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <h5 className="font-semibold text-sm">合作链路详情</h5>
+                        {(project.partnerChains || []).map((chain) => {
+                          const sortedPartners = [...(chain.partners || [])].sort((a, b) => a.level - b.level);
+                          return (
+                            <div key={chain.id} className="bg-background border rounded-lg p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <h6 className="font-medium text-sm flex items-center">
+                                  <Link className="h-4 w-4 mr-2 text-muted-foreground"/>
+                                  {chain.chainName} 
+                                  {chain.isDefault && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">默认</span>}
+                                </h6>
+                                {chain.description && (<span className="text-xs text-muted-foreground">{chain.description}</span>)}
+                              </div>
+                              <PartnerChainDisplay partners={sortedPartners} />
                             </div>
-                            
-                            <div className="space-y-4 pt-4 border-t">
-                              <h5 className="font-semibold text-sm">合作链路详情</h5>
-                              {(project.partnerChains || []).map((chain) => {
-                                const sortedPartners = [...(chain.partners || [])].sort((a, b) => a.level - b.level);
-                                return (
-                                  <div key={chain.id} className="bg-background/50 rounded p-3 border">
-                                    <div className="flex items-center justify-between mb-3">
-                                      <h6 className="font-medium text-sm flex items-center"><Link className="h-4 w-4 mr-2 text-muted-foreground"/>{chain.chainName} {chain.isDefault && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">默认</span>}</h6>
-                                      {chain.description && (<span className="text-xs text-muted-foreground">{chain.description}</span>)}
-                                    </div>
-                                    <PartnerChainDisplay partners={sortedPartners} />
-                                  </div>
-                                );
-                              })}
-                              {(!project.partnerChains || project.partnerChains.length === 0) && (
-                                <div className="text-xs text-muted-foreground text-center py-4 border border-dashed rounded">暂无合作链路配置</div>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </tbody>
-                ))}
-              </TableBody>
-            </Table>
+                          );
+                        })}
+                        {(!project.partnerChains || project.partnerChains.length === 0) && (
+                          <div className="text-xs text-muted-foreground text-center py-8 border border-dashed rounded">暂无合作链路配置</div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            ))}
+            
+            {projects.length === 0 && (
+              <div className="text-center py-12">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">暂无项目，点击"新增项目"开始创建</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

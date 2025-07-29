@@ -99,8 +99,9 @@ export default function BusinessEntry() {
         p_search_query: filters.searchQuery || null,
       });
       if (error) throw error;
-      setRecords(data.records || []);
-      setTotalPages(Math.ceil(data.total_count / PAGE_SIZE) || 1);
+      const result = data as any;
+      setRecords(result?.records || []);
+      setTotalPages(Math.ceil(result?.total_count / PAGE_SIZE) || 1);
     } catch (error) {
       toast({ title: "错误", description: "加载运单记录失败", variant: "destructive" });
     } finally {
@@ -197,7 +198,7 @@ export default function BusinessEntry() {
     let finalDriverName = formData.driver_name;
     const isUuid = /^[0-9a-fA-F-]{36}$/.test(formData.driver_id);
     if (!isUuid) {
-        const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', {
+        const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver_with_project', {
             p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone, p_project_id: formData.project_id
         });
         if (driverError || !driverResult || driverResult.length === 0) { toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); return; }
@@ -205,8 +206,8 @@ export default function BusinessEntry() {
         finalDriverName = driverResult[0].driver_name;
     }
 
-    await supabase.rpc('get_or_create_location', { p_location_name: formData.loading_location, p_project_id: formData.project_id });
-    await supabase.rpc('get_or_create_location', { p_location_name: formData.unloading_location, p_project_id: formData.project_id });
+    await supabase.rpc('get_or_create_location_with_project', { p_location_name: formData.loading_location, p_project_id: formData.project_id });
+    await supabase.rpc('get_or_create_location_with_project', { p_location_name: formData.unloading_location, p_project_id: formData.project_id });
 
     const recordData = {
       p_project_id: formData.project_id, p_project_name: projectName, p_chain_id: formData.chain_id || null,
@@ -266,7 +267,7 @@ export default function BusinessEntry() {
   }, [records]);
 
   const exportToExcel = async () => {
-    toast.info("正在准备导出全部筛选结果...");
+    toast({ title: "提示", description: "正在准备导出全部筛选结果..." });
     try {
         const { data, error } = await supabase.rpc('get_paginated_logistics_records', {
             p_page_size: 99999, p_offset: 0,
@@ -275,8 +276,8 @@ export default function BusinessEntry() {
             p_search_query: filters.searchQuery || null,
         });
         if (error) throw error;
-        
-        const dataToExport = data.records.map((r: LogisticsRecord) => ({
+        const result = data as any;
+        const dataToExport = result?.records?.map((r: LogisticsRecord) => ({
           '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认',
           '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone,
           '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date,
@@ -289,9 +290,9 @@ export default function BusinessEntry() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "运单记录");
         XLSX.writeFile(wb, "运单记录.xlsx");
-        toast.success("全部筛选结果已成功导出！");
+        toast({ title: "成功", description: "全部筛选结果已成功导出！" });
     } catch(e) {
-        toast.error("导出失败，请重试。");
+        toast({ title: "错误", description: "导出失败，请重试。", variant: "destructive" });
     }
   };
   
@@ -303,7 +304,158 @@ export default function BusinessEntry() {
     XLSX.writeFile(wb, "运单导入模板.xlsx");
   };
   
-  const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => { toast({ title: "提示", description: "导入功能正在开发中！" }); };
+  const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (jsonData.length === 0) {
+        toast({ title: "错误", description: "Excel文件为空或格式不正确", variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "提示", description: `开始导入 ${jsonData.length} 条记录...` });
+      
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      for (const [index, row] of jsonData.entries()) {
+        const rowData = row as any;
+        try {
+          // 验证必填字段
+          const projectName = rowData['项目名称'];
+          const driverName = rowData['司机姓名'];
+          const loadingLocation = rowData['装货地点'];
+          const unloadingLocation = rowData['卸货地点'];
+          const loadingDate = rowData['装货日期'];
+
+          if (!projectName || !driverName || !loadingLocation || !unloadingLocation || !loadingDate) {
+            errors.push(`第${index + 2}行：缺少必填字段（项目名称、司机姓名、装货地点、卸货地点、装货日期）`);
+            errorCount++;
+            continue;
+          }
+
+          // 查找项目ID
+          const project = projects.find(p => p.name === projectName);
+          if (!project) {
+            errors.push(`第${index + 2}行：项目"${projectName}"不存在`);
+            errorCount++;
+            continue;
+          }
+
+          // 处理日期格式
+          let formattedDate = '';
+          if (typeof loadingDate === 'number') {
+            // Excel日期序列号转换
+            const excelDate = new Date((loadingDate - 25569) * 86400 * 1000);
+            formattedDate = excelDate.toISOString().split('T')[0];
+          } else if (typeof loadingDate === 'string') {
+            // 尝试解析字符串日期
+            const parsedDate = new Date(loadingDate);
+            if (isNaN(parsedDate.getTime())) {
+              errors.push(`第${index + 2}行：装货日期格式不正确`);
+              errorCount++;
+              continue;
+            }
+            formattedDate = parsedDate.toISOString().split('T')[0];
+          }
+
+          // 创建或查找司机
+          const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver_with_project', {
+            p_driver_name: driverName,
+            p_license_plate: rowData['车牌号'] || '',
+            p_phone: rowData['司机电话'] || '',
+            p_project_id: project.id
+          });
+
+          if (driverError || !driverResult || driverResult.length === 0) {
+            errors.push(`第${index + 2}行：处理司机信息失败`);
+            errorCount++;
+            continue;
+          }
+
+          // 创建或查找地点
+          await supabase.rpc('get_or_create_location_with_project', { 
+            p_location_name: loadingLocation, 
+            p_project_id: project.id 
+          });
+          await supabase.rpc('get_or_create_location_with_project', { 
+            p_location_name: unloadingLocation, 
+            p_project_id: project.id 
+          });
+
+          // 准备运单数据
+          const recordData = {
+            p_project_id: project.id,
+            p_project_name: projectName,
+            p_chain_id: null,
+            p_driver_id: driverResult[0].driver_id,
+            p_driver_name: driverResult[0].driver_name,
+            p_loading_location: loadingLocation,
+            p_unloading_location: unloadingLocation,
+            p_loading_date: formattedDate,
+            p_loading_weight: rowData['装货重量'] ? parseFloat(rowData['装货重量']) : null,
+            p_unloading_weight: rowData['卸货重量'] ? parseFloat(rowData['卸货重量']) : null,
+            p_current_cost: rowData['运费金额'] ? parseFloat(rowData['运费金额']) : null,
+            p_license_plate: rowData['车牌号'] || '',
+            p_driver_phone: rowData['司机电话'] || '',
+            p_transport_type: rowData['运输类型'] || '实际运输',
+            p_extra_cost: rowData['额外费用'] ? parseFloat(rowData['额外费用']) : null,
+            p_driver_payable_cost: rowData['司机应收'] ? parseFloat(rowData['司机应收']) : null,
+            p_remarks: rowData['备注'] || ''
+          };
+
+          // 保存运单
+          const { error: saveError } = await supabase.rpc('add_logistics_record_with_costs', recordData);
+          if (saveError) {
+            errors.push(`第${index + 2}行：保存运单失败 - ${saveError.message}`);
+            errorCount++;
+          } else {
+            successCount++;
+          }
+
+        } catch (error: any) {
+          errors.push(`第${index + 2}行：处理失败 - ${error.message}`);
+          errorCount++;
+        }
+      }
+
+      // 重新加载数据
+      await loadPaginatedRecords();
+      await loadInitialOptions();
+
+      // 显示导入结果
+      if (successCount > 0) {
+        toast({ 
+          title: "导入完成", 
+          description: `成功导入 ${successCount} 条记录${errorCount > 0 ? `，${errorCount} 条失败` : ''}` 
+        });
+      }
+
+      if (errors.length > 0) {
+        // 显示前5个错误
+        const errorMessage = errors.slice(0, 5).join('\n') + (errors.length > 5 ? `\n...还有${errors.length - 5}个错误` : '');
+        toast({ 
+          title: "导入错误详情", 
+          description: errorMessage, 
+          variant: "destructive" 
+        });
+      }
+
+    } catch (error: any) {
+      toast({ title: "导入失败", description: error.message, variant: "destructive" });
+    } finally {
+      // 清空文件输入
+      event.target.value = '';
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -391,14 +543,14 @@ export default function BusinessEntry() {
             <div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
             <div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
             
-            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} value={formData.driver_id} onValueChange={(id, name) => { handleInputChange('driver_id', id); handleInputChange('driver_name', name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:" onCreateNew={() => navigate('/drivers')}/></div>
+            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} value={formData.driver_id} onValueChange={(id) => { handleInputChange('driver_id', id); const driver = filteredDrivers.find(d => d.id === id); if (driver) handleInputChange('driver_name', driver.name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." onCreateNew={(name) => { handleInputChange('driver_id', name); handleInputChange('driver_name', name); }}/></div>
             <div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
             <div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
             <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div>
             
-            <div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.loading_location} onValueChange={(_, label) => handleInputChange('loading_location', label)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." createPlaceholder="创建新地点:" onCreateNew={() => navigate('/locations')}/></div>
+            <div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.loading_location} onValueChange={(value) => handleInputChange('loading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={(name) => handleInputChange('loading_location', name)}/></div>
             <div className="space-y-1"><Label>装货重量</Label><Input type="number" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value)} /></div>
-            <div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.unloading_location} onValueChange={(_, label) => handleInputChange('unloading_location', label)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." createPlaceholder="创建新地点:" onCreateNew={() => navigate('/locations')}/></div>
+            <div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.unloading_location} onValueChange={(value) => handleInputChange('unloading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={(name) => handleInputChange('unloading_location', name)}/></div>
             <div className="space-y-1"><Label>卸货重量</Label><Input type="number" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value)} /></div>
             
             <div className="space-y-1"><Label>运费金额 (元)</Label><Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value)} /></div>
