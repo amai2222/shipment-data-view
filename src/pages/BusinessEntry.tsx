@@ -15,7 +15,7 @@ import { Download, FileDown, FileUp, PlusCircle, Edit, Trash2, Loader2, AlertCir
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CreatableCombobox } from "@/components/CreatableCombobox";
 import { Progress } from "@/components/ui/progress";
@@ -124,7 +124,7 @@ export default function BusinessEntry() {
 
   // 7. 副作用管理 (useEffect)
   useEffect(() => { loadInitialOptions(); }, [loadInitialOptions]);
-  useEffect(() => { loadPaginatedRecords(); }, [loadPaginatedRecords]);
+  useEffect(() => { loadPaginatedRecords(); }, [currentPage, loadPaginatedRecords]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -316,7 +316,6 @@ export default function BusinessEntry() {
     XLSX.writeFile(wb, "运单导入模板.xlsx");
   };
   
-  // 【核心功能实现】处理Excel文件导入
   const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -351,7 +350,7 @@ export default function BusinessEntry() {
                     if (!projectName || !driverName || !loadingLocation || !unloadingLocation || !loadingDateRaw) {
                         throw new Error("缺少必填字段（项目/司机/地点/装货日期）");
                     }
-                    if (!(loadingDateRaw instanceof Date && !isNaN(loadingDateRaw.getTime()))) {
+                    if (!(loadingDateRaw instanceof Date && isValid(loadingDateRaw))) {
                         throw new Error("“装货日期”格式不正确");
                     }
                     if (!projects.some(p => p.name === projectName)) {
@@ -549,7 +548,7 @@ export default function BusinessEntry() {
             <div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
             <div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
             
-            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} value={formData.driver_id} onValueChange={(id, name) => { handleInputChange('driver_id', id); handleInputChange('driver_name', name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:" onCreateNew={() => navigate('/drivers')}/></div>
+            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} value={formData.driver_id} onValueChange={(id, name) => { handleInputChange('driver_id', id || name); handleInputChange('driver_name', name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:" onCreateNew={() => navigate('/drivers')}/></div>
             <div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
             <div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
             <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div>
