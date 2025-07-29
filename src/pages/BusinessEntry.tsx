@@ -163,7 +163,7 @@ export default function BusinessEntry() {
       }
     }, 500); // 延迟500毫秒执行，避免用户快速输入时频繁请求
     return () => clearTimeout(timer); // 组件卸载或依赖变化时，清除上一个计时器
-  }, [filters, currentPage, loadPaginatedRecords]);
+  }, [filters]);
   
   // 实时滚动日志到底部
   useEffect(() => {
@@ -370,7 +370,7 @@ export default function BusinessEntry() {
   };
   
   // 【核心功能实现】处理Excel文件导入
-  const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -611,7 +611,7 @@ export default function BusinessEntry() {
             <div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
             <div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
             
-            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} value={formData.driver_id} onValueChange={(id, name) => { handleInputChange('driver_id', id); handleInputChange('driver_name', name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:" onCreateNew={() => navigate('/drivers')}/></div>
+            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} value={formData.driver_id} onValueChange={(id, name) => { handleInputChange('driver_id', id || name); handleInputChange('driver_name', name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:" onCreateNew={() => navigate('/drivers')}/></div>
             <div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
             <div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
             <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div>
@@ -670,10 +670,15 @@ export default function BusinessEntry() {
           <DialogHeader><DialogTitle>导入预览与确认</DialogTitle></DialogHeader>
           {isProcessingImport ? (
             <div className="py-8 text-center space-y-4">
-              <h3 className="font-semibold">正在导入数据...</h3>
+              <h3 className="font-semibold">正在逐条导入数据...</h3>
               <div ref={importLogRef} className="h-64 overflow-y-auto bg-gray-900 text-white font-mono text-xs p-4 rounded-md">
                 {importLogs.map((log, i) => <p key={i} className={log.includes('[错误]') ? 'text-red-400' : 'text-green-400'}>{log}</p>)}
               </div>
+              {importProgress === 100 && (
+                <div className="text-center pt-4">
+                  <Button onClick={closeImportModal}>关闭</Button>
+                </div>
+              )}
             </div>
           ) : (
             <div>
