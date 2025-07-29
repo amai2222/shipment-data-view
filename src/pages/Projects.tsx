@@ -357,7 +357,7 @@ export default function Projects() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <DeleteConfirmButton 
+                        <ConfirmDialog 
                           projectId={project.id}
                           projectName={project.name}
                           onConfirm={(id) => handleDelete(id, project.name)}
