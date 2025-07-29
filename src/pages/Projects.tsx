@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2, Package, Loader2, ChevronDown, ChevronRight, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Project, Location, Partner, ProjectPartner, PartnerChain } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -356,13 +357,12 @@ export default function Projects() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={(e) => { e.stopPropagation(); handleDelete(project.id, project.name); }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <DeleteConfirmButton 
+                          projectId={project.id}
+                          projectName={project.name}
+                          onConfirm={(id) => handleDelete(id, project.name)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
                       </div>
                     </div>
                   </div>

@@ -1,5 +1,5 @@
 // 文件路径: src/pages/BusinessEntry.tsx
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { Download, FileDown, FileUp, PlusCircle, Edit, Trash2, Loader2 } from "l
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
-import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CreatableCombobox } from "@/components/CreatableCombobox";
 import { useNavigate } from "react-router-dom";
 
@@ -304,12 +304,45 @@ export default function BusinessEntry() {
     XLSX.writeFile(wb, "运单导入模板.xlsx");
   };
   
-  const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const [importFile, setImportFile] = React.useState<File | null>(null);
+  const [showImportConfirm, setShowImportConfirm] = React.useState(false);
+
+  // 删除确认组件
+  const DeleteConfirmButton = ({ recordId, recordNumber, onConfirm }: { recordId: string, recordNumber: string, onConfirm: (id: string) => void }) => {
+    const [open, setOpen] = React.useState(false);
+    
+    return (
+      <>
+        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setOpen(true)}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+        <ConfirmDialog 
+          open={open}
+          onOpenChange={setOpen}
+          title="确认删除" 
+          description={`您确定要删除运单 ${recordNumber} 吗？`} 
+          onConfirm={() => {
+            onConfirm(recordId);
+            setOpen(false);
+          }}
+          variant="destructive"
+        />
+      </>
+    );
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    setImportFile(file);
+    setShowImportConfirm(true);
+  };
+
+  const handleExcelImport = async () => {
+    if (!importFile) return;
 
     try {
-      const data = await file.arrayBuffer();
+      const data = await importFile.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
@@ -449,11 +482,15 @@ export default function BusinessEntry() {
         });
       }
 
+      // 清理状态
+      setImportFile(null);
+      setShowImportConfirm(false);
+
     } catch (error: any) {
       toast({ title: "导入失败", description: error.message, variant: "destructive" });
     } finally {
-      // 清空文件输入
-      event.target.value = '';
+      setImportFile(null);
+      setShowImportConfirm(false);
     }
   };
 
@@ -463,7 +500,8 @@ export default function BusinessEntry() {
         <div><h1 className="text-3xl font-bold text-foreground">运单管理</h1><p className="text-muted-foreground">录入、查询和管理所有运单记录</p></div>
         <div className="flex gap-2">
             <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
-            <Button variant="outline" asChild><Label htmlFor="excel-upload" className="cursor-pointer flex items-center"><FileUp className="mr-2 h-4 w-4" /> 导入Excel<Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" /></Label></Button>
+            <Button variant="outline" asChild><Label htmlFor="excel-import" className="cursor-pointer flex items-center"><FileUp className="mr-2 h-4 w-4" /> 导入Excel</Label></Button>
+            <input type="file" accept=".xlsx,.xls" onChange={handleFileSelect} className="hidden" id="excel-import" />
             <Button onClick={exportToExcel}><Download className="mr-2 h-4 w-4" />导出数据</Button>
             <Button onClick={() => handleOpenModal()}><PlusCircle className="mr-2 h-4 w-4" />新增运单</Button>
         </div>
@@ -506,9 +544,11 @@ export default function BusinessEntry() {
                 <TableCell className="font-mono text-green-600 font-semibold">{record.payable_cost ? `¥${record.payable_cost.toFixed(2)}` : '-'}</TableCell>
                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="icon" onClick={() => handleOpenModal(record)}><Edit className="h-4 w-4" /></Button>
-                  <ConfirmDialog title="确认删除" description={`您确定要删除运单 ${record.auto_number} 吗？`} onConfirm={() => handleDelete(record.id)}>
-                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                  </ConfirmDialog>
+                  <DeleteConfirmButton 
+                    recordId={record.id}
+                    recordNumber={record.auto_number}
+                    onConfirm={handleDelete}
+                  />
                 </TableCell>
               </TableRow>
             ))}
@@ -533,6 +573,17 @@ export default function BusinessEntry() {
         <span>额外费用: <span className="font-bold text-orange-600">¥{summary.totalExtraCost.toFixed(2)}</span></span>
         <span>司机应收: <span className="font-bold text-green-600">¥{summary.totalDriverPayableCost.toFixed(2)}</span></span>
       </div>
+
+      {/* 导入确认对话框 */}
+      <ConfirmDialog
+        open={showImportConfirm}
+        onOpenChange={setShowImportConfirm}
+        title="确认导入数据"
+        description={`您确定要导入文件 "${importFile?.name}" 中的数据吗？这将会自动创建不存在的司机和地点信息。`}
+        onConfirm={handleExcelImport}
+        confirmLabel="确认导入"
+        cancelLabel="取消"
+      />
 
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="sm:max-w-4xl">

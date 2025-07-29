@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Partners.tsx
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { supabase } from '@/integrations/supabase/client';
 import { Partner } from '@/types';
 import { Trash2, Edit, Plus, Download, Upload } from 'lucide-react';
@@ -22,6 +23,30 @@ interface PartnerWithProjects extends Partner {
     taxRate: number;
   }[];
 }
+
+// 删除确认组件
+const DeleteConfirmButton = ({ partnerId, partnerName, onConfirm }: { partnerId: string, partnerName: string, onConfirm: (id: string) => void }) => {
+  const [open, setOpen] = React.useState(false);
+  
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Trash2 className="h-4 w-4" />
+      </Button>
+      <ConfirmDialog 
+        open={open}
+        onOpenChange={setOpen}
+        title="确认删除" 
+        description={`您确定要删除合作方 "${partnerName}" 吗？相关的项目合作链路也会被影响，这个操作无法撤销。`} 
+        onConfirm={() => {
+          onConfirm(partnerId);
+          setOpen(false);
+        }}
+        variant="destructive"
+      />
+    </>
+  );
+};
 
 export default function Partners() {
   const [partners, setPartners] = useState<PartnerWithProjects[]>([]);
@@ -103,7 +128,6 @@ export default function Partners() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这个合作方吗？相关的项目合作链路也会被影响。')) return;
     try {
       const { error } = await supabase.from('partners').delete().eq('id', id);
       if (error) throw error;
@@ -245,7 +269,11 @@ export default function Partners() {
                   <TableCell>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => handleEdit(partner)}><Edit className="h-4 w-4" /></Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDelete(partner.id)}><Trash2 className="h-4 w-4" /></Button>
+                      <DeleteConfirmButton 
+                        partnerId={partner.id}
+                        partnerName={partner.name}
+                        onConfirm={handleDelete}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>

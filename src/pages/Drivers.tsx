@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2, Truck, Upload, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Driver, Project } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
