@@ -369,7 +369,7 @@ export default function Locations() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <DeleteConfirmButton 
+                        <ConfirmDialog 
                           locationId={location.id}
                           locationName={location.name}
                           onConfirm={handleDelete}
