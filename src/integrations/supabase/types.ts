@@ -628,6 +628,7 @@ export type Database = {
           p_driver_name: string
           p_license_plate: string
           p_phone: string
+          p_project_id: string
         }
         Returns: {
           driver_id: string
@@ -647,7 +648,7 @@ export type Database = {
         }[]
       }
       get_or_create_location: {
-        Args: { p_location_name: string }
+        Args: { p_location_name: string; p_project_id: string }
         Returns: string
       }
       get_or_create_location_with_project: {
@@ -721,7 +722,7 @@ export type Database = {
       }
       save_project_with_chains: {
         Args: { project_id_in: string; project_data: Json; chains_data: Json }
-        Returns: Json
+        Returns: undefined
       }
       update_logistics_record_with_costs: {
         Args:
