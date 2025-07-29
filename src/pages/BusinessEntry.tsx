@@ -111,6 +111,14 @@ export default function BusinessEntry() {
   
   const navigate = useNavigate(); // 初始化页面跳转功能
 
+  // 【核心改动】导入功能的状态
+  const [importStep, setImportStep] = useState<'idle' | 'preprocessing' | 'preview' | 'processing'>('idle');
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importData, setImportData] = useState<{valid: any[], invalid: any[], duplicateCount: number}>({ valid: [], invalid: [], duplicateCount: 0 });
+  const [preprocessingProgress, setPreprocessingProgress] = useState(0);
+  const [importLogs, setImportLogs] = useState<string[]>([]);
+  const importLogRef = useRef<HTMLDivElement>(null);
+
   // 6. 数据加载逻辑 (useCallback & useEffect)
   // 加载下拉框选项（项目、司机、地点）
   const loadInitialOptions = useCallback(async () => {
