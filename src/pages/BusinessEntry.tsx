@@ -519,6 +519,7 @@ export default function BusinessEntry() {
   // 11. 渲染UI (return)
   return (
     <div className="space-y-4">
+      {/* 页面标题和按钮 */}
       <div className="flex justify-between items-center">
         <div><h1 className="text-3xl font-bold text-foreground">运单管理</h1><p className="text-muted-foreground">录入、查询和管理所有运单记录</p></div>
         <div className="flex gap-2">
@@ -535,6 +536,7 @@ export default function BusinessEntry() {
         </div>
       </div>
       
+      {/* 筛选区域 */}
       <div className="flex items-end gap-4 p-4 border rounded-lg">
         <div className="grid w-full max-w-sm items-center gap-1.5"><Label htmlFor="search-query">快速搜索</Label><Input type="text" id="search-query" placeholder="搜索运单号、项目、司机..." value={filters.searchQuery} onChange={e => setFilters(f => ({...f, searchQuery: e.target.value}))}/></div>
         <div className="grid items-center gap-1.5"><Label htmlFor="start-date">开始日期</Label><Input type="date" id="start-date" value={filters.startDate} onChange={e => setFilters(f => ({...f, startDate: e.target.value}))} /></div>
@@ -542,6 +544,7 @@ export default function BusinessEntry() {
         <Button variant="outline" onClick={() => setFilters({startDate: getInitialDefaultDates().startDate, endDate: getInitialDefaultDates().endDate, searchQuery: ""})}>清除筛选</Button>
       </div>
 
+      {/* 表格区域 */}
       <div className="border rounded-lg">
         <Table>
           <TableHeader><TableRow><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>合作链路</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>装货日期</TableHead><TableHead>运费</TableHead><TableHead>额外费</TableHead><TableHead>司机应收</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
@@ -571,6 +574,7 @@ export default function BusinessEntry() {
         </Table>
       </div>
 
+      {/* 分页组件 */}
       <Pagination>
         <PaginationContent>
           <PaginationItem><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1}>上一页</Button></PaginationItem>
@@ -579,6 +583,7 @@ export default function BusinessEntry() {
         </PaginationContent>
       </Pagination>
 
+      {/* 数据汇总栏 */}
       <div className="flex items-center justify-end space-x-6 rounded-lg border p-4 text-sm font-medium">
         <span>当前页合计:</span>
         <span className="font-bold">装: <span className="text-primary">{summary.totalLoadingWeight.toFixed(1)}吨</span></span>
@@ -589,6 +594,7 @@ export default function BusinessEntry() {
         <span>司机应收: <span className="font-bold text-green-600">¥{summary.totalDriverPayableCost.toFixed(2)}</span></span>
       </div>
 
+      {/* 新增/编辑弹窗 */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader><DialogTitle>{editingRecord ? "编辑运单" : "新增运单"}</DialogTitle></DialogHeader>
@@ -618,6 +624,7 @@ export default function BusinessEntry() {
         </DialogContent>
       </Dialog>
       
+      {/* 查看详情弹窗 */}
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
@@ -651,7 +658,7 @@ export default function BusinessEntry() {
           </div>
         </DialogContent>
       </Dialog>
-
+      
       {/* 【全新交互】导入弹窗 */}
       <Dialog open={isImportModalOpen} onOpenChange={(isOpen) => !isOpen && closeImportModal()}>
         <DialogContent className="max-w-4xl">
