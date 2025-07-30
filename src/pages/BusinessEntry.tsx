@@ -305,8 +305,8 @@ export default function BusinessEntry() {
     // 【核心修复】高亮开始
     // 原因：这里我们用全新的“日期校准器”来处理日期，彻底解决“时差”问题。
     // ====================================================================
-      p_loading_date: safeFormatExcelDate(rowData['装货日期']),
-      p_unloading_date: safeFormatExcelDate(rowData['卸货日期']) || safeFormatExcelDate(rowData['装货日期']),
+      p_loading_date: safeFormatExcelDate(formData.loading_date),
+      p_unloading_date: safeFormatExcelDate(formData.unloading_date) || safeFormatExcelDate(formData.loading_date),
     // ====================================================================
     // 【核心修复】高亮结束
     // ====================================================================
