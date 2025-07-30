@@ -134,20 +134,38 @@ export default function BusinessEntry() {
     }
   }, [currentPage, filters, toast]);
 
+ // ====================================================================
+//【核心改动】高亮开始
+// 原因：这是本次升级最核心的部分。我们彻底重构了“自动监控系统”的逻辑。
+// 现在，我们只有一个清晰的 useEffect 来负责数据的加载，
+// 并且明确地告诉它，只要“页码”或“筛选条件”这两个中任何一个发生变化，
+// 都必须立刻去调用我们强大的后端函数，获取最新的数据。
+// 这彻底解决了“数据不刷新”的BUG。
+// ====================================================================
   // 7. 副作用管理 (useEffect)
-  useEffect(() => { loadInitialOptions(); }, [loadInitialOptions]);
+  // 页面首次加载时，获取下拉选项
   useEffect(() => {
-    loadPaginatedRecords();
-  }, [currentPage]);
+    loadInitialOptions();
+  }, [loadInitialOptions]);
 
+  // 当页码或筛选条件变化时，重新获取运单列表
   useEffect(() => {
+    // 【性能优化】为搜索框增加防抖
     const timer = setTimeout(() => {
-      if (currentPage !== 1) setCurrentPage(1);
-      else loadPaginatedRecords();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [filters, currentPage,loadPaginatedRecords]);
+      loadPaginatedRecords();
+    }, 500); // 延迟500毫秒执行，避免用户快速输入时频繁请求
+    return () => clearTimeout(timer); // 组件卸载或依赖变化时，清除上一个计时器
+  }, [currentPage, filters, loadPaginatedRecords]); // 依赖项现在是正确的
 
+  // 当筛选条件变化时，自动重置到第一页
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [filters]);
+// ====================================================================
+//【核心改动】高亮结束
+// ====================================================================
   useEffect(() => {
     if (importLogRef.current) {
       importLogRef.current.scrollTop = importLogRef.current.scrollHeight;
