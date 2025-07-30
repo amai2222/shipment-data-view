@@ -52,6 +52,41 @@ const BLANK_FORM_DATA = {
   remarks: ""
 };
 
+// ====================================================================
+// 【核心改动】高亮开始
+// 原因：增加这个全新的“日期校准”辅助函数。
+// 它会智能地处理从Excel中读取的日期，忽略掉所有讨厌的时区问题，
+// 确保“2025-1-14”在任何情况下，都被正确地理解为“2025-01-14”。
+// ====================================================================
+const safeFormatExcelDate = (excelDate: any): string | null => {
+  if (!excelDate) return null;
+
+  // 检查是否是有效的日期对象
+  if (excelDate instanceof Date && isValid(excelDate)) {
+    // 为了防止时区问题，我们手动从日期对象中提取年、月、日，然后自己拼接成字符串
+    const year = excelDate.getFullYear();
+    const month = excelDate.getMonth() + 1; // getMonth() 是从0开始的 (0=一月, 1=二月, ...)
+    const day = excelDate.getDate();
+    
+    // 确保月份和日期是两位数 (例如：01, 09)
+    const monthStr = String(month).padStart(2, '0');
+    const dayStr = String(day).padStart(2, '0');
+    
+    return `${year}-${monthStr}-${dayStr}`;
+  }
+  
+  // 如果它本身就是一个符合格式的字符串，直接返回
+  if (typeof excelDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(excelDate)) {
+    return excelDate;
+  }
+
+  // 如果以上都不是，说明格式有问题，返回null
+  return null;
+}
+// ====================================================================
+// 【核心改动】高亮结束
+// ====================================================================
+
 // 4. 主组件定义
 export default function BusinessEntry() {
   // 5. 状态管理 (useState)
@@ -266,7 +301,7 @@ export default function BusinessEntry() {
       p_project_id: formData.project_id, p_project_name: projectName, p_chain_id: formData.chain_id || null,
       p_driver_id: finalDriverId, p_driver_name: finalDriverName,
       p_loading_location: formData.loading_location, p_unloading_location: formData.unloading_location,
-      p_loading_date: formData.loading_date, p_unloading_date: formData.unloading_date || null,
+      p_loading_date: format(new Date(rowData['装货日期']), 'yyyy-MM-dd'), p_unloading_date: rowData['卸货日期'] ? format(new Date(rowData['卸货日期']), 'yyyy-MM-dd') : format(new Date(rowData['装货日期']), 'yyyy-MM-dd'),
       p_loading_weight: formData.loading_weight ? parseFloat(formData.loading_weight) : null,
       p_unloading_weight: formData.unloading_weight ? parseFloat(formData.unloading_weight) : null,
       p_current_cost: formData.current_cost ? parseFloat(formData.current_cost) : null,
