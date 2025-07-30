@@ -429,82 +429,67 @@ export default function BusinessEntry() {
   const startActualImport = async () => {
     setImportStep('processing');
     setImportLogs([]);
-    let successCount = 0;
-    let errorCount = 0;
 
     const addLog = (message: string) => setImportLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
 
-    addLog(`开始导入... 共 ${importData.valid.length} 条有效记录。`);
+    addLog(`开始批量导入... 共 ${importData.valid.length} 条有效记录。`);
 
-    for (const [index, rowData] of importData.valid.entries()) {
-      const rowNum = rowData.originalRow;
-      addLog(`[${index + 1}/${importData.valid.length}] 正在处理 Excel 第 ${rowNum} 行...`);
-      try {
-        const project = projects.find(p => p.name === rowData['项目名称'].trim())!;
+    try {
+      // 准备批量导入的数据
+      const batchRecords = importData.valid.map(rowData => ({
+        project_name: rowData['项目名称']?.trim(),
+        chain_name: rowData['合作链路']?.trim() || null,
+        driver_name: rowData['司机姓名']?.trim(),
+        license_plate: rowData['车牌号']?.toString().trim() || null,
+        driver_phone: rowData['司机电话']?.toString().trim() || null,
+        loading_location: rowData['装货地点']?.trim(),
+        unloading_location: rowData['卸货地点']?.trim(),
+        loading_date: format(new Date(rowData['装货日期']), 'yyyy-MM-dd'),
+        unloading_date: rowData['卸货日期'] ? format(new Date(rowData['卸货日期']), 'yyyy-MM-dd') : format(new Date(rowData['装货日期']), 'yyyy-MM-dd'),
+        loading_weight: rowData['装货重量'] ? parseFloat(rowData['装货重量']).toString() : null,
+        unloading_weight: rowData['卸货重量'] ? parseFloat(rowData['卸货重量']).toString() : null,
+        current_cost: rowData['运费金额'] ? parseFloat(rowData['运费金额']).toString() : '0',
+        extra_cost: rowData['额外费用'] ? parseFloat(rowData['额外费用']).toString() : '0',
+        transport_type: rowData['运输类型']?.trim() || '实际运输',
+        remarks: rowData['备注']?.toString().trim() || null
+      }));
 
-        const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', {
-            p_driver_name: rowData['司机姓名'].trim(),
-            p_license_plate: rowData['车牌号']?.toString().trim() || null,
-            p_phone: rowData['司机电话']?.toString().trim() || null,
-            p_project_id: project.id
-        });
-        if (driverError || !driverResult || driverResult.length === 0) throw new Error("处理司机信息失败");
-        const finalDriver = driverResult[0];
-        addLog(`  -> [成功] 司机 "${finalDriver.driver_name}" 信息已确认/创建。`);
+      addLog('准备批量导入数据...');
 
-        await supabase.rpc('get_or_create_location', { p_location_name: rowData['装货地点'].trim(), p_project_id: project.id });
-        addLog(`  -> [成功] 地点 "${rowData['装货地点'].trim()}" 信息已确认/创建。`);
-        await supabase.rpc('get_or_create_location', { p_location_name: rowData['卸货地点'].trim(), p_project_id: project.id });
-        addLog(`  -> [成功] 地点 "${rowData['卸货地点'].trim()}" 信息已确认/创建。`);
+      // 调用批量导入RPC函数
+      const { data: result, error: batchError } = await supabase.rpc('batch_import_logistics_records', {
+        p_records: batchRecords
+      });
 
-        let chainId = null;
-        const chainName = rowData['合作链路']?.trim();
-        if(chainName){
-            const {data: chainData} = await supabase.from('partner_chains').select('id').eq('project_id', project.id).eq('chain_name', chainName).single();
-            if(chainData) chainId = chainData.id;
-        }
-
-        const recordData = {
-            p_project_id: project.id,
-            p_project_name: project.name,
-            p_chain_id: chainId,
-            p_driver_id: finalDriver.driver_id,
-            p_driver_name: finalDriver.driver_name,
-            p_loading_location: rowData['装货地点'].trim(),
-            p_unloading_location: rowData['卸货地点'].trim(),
-            p_loading_date: format(new Date(rowData['装货日期']), 'yyyy-MM-dd'),
-            p_unloading_date: rowData['卸货日期'] ? format(new Date(rowData['卸货日期']), 'yyyy-MM-dd') : format(new Date(rowData['装货日期']), 'yyyy-MM-dd'),
-            p_loading_weight: parseFloat(rowData['装货重量']) || null,
-            p_unloading_weight: parseFloat(rowData['卸货重量']) || null,
-            p_current_cost: parseFloat(rowData['运费金额']) || 0,
-            p_extra_cost: parseFloat(rowData['额外费用']) || 0,
-            p_license_plate: rowData['车牌号']?.toString().trim() || null,
-            p_driver_phone: rowData['司机电话']?.toString().trim() || null,
-            p_transport_type: rowData['运输类型']?.trim() || '实际运输',
-            p_remarks: rowData['备注']?.toString().trim() || null
-        };
-
-        const { error: insertError } = await supabase.rpc('add_logistics_record_with_costs', recordData);
-        if(insertError) throw insertError;
-
-        addLog(`  -> [成功] 第 ${rowNum} 行运单已成功存入数据库。`);
-        successCount++;
-      } catch (err: any) {
-        errorCount++;
-        addLog(`  -> [错误] 第 ${rowNum} 行导入失败: ${err.message}`);
+      if (batchError) {
+        throw batchError;
       }
-    }
 
-    addLog(`--------------------`);
-    addLog(`导入流程已完成！`);
-    addLog(`成功: ${successCount}条, 失败: ${errorCount}条。`);
+      const successCount = (result as any).success_count || 0;
+      const errorCount = (result as any).error_count || 0;
+      const errors = (result as any).errors || [];
 
-    if (successCount > 0) {
-      toast({ title: "成功", description: `成功导入 ${successCount} 条运单记录！` });
-      loadPaginatedRecords();
-    }
-    if (errorCount > 0) {
-      toast({ title: "错误", description: `有 ${errorCount} 条记录导入失败，详情请查看导入日志。`, variant: "destructive" });
+      addLog(`批量导入完成: 成功 ${successCount} 条，失败 ${errorCount} 条`);
+
+      if (errorCount > 0) {
+        addLog(`错误详情: ${JSON.stringify(errors.slice(0, 5))}`);
+      }
+
+      addLog(`--------------------`);
+      addLog(`批量导入流程已完成！`);
+      addLog(`成功: ${successCount}条, 失败: ${errorCount}条。`);
+
+      if (successCount > 0) {
+        toast({ title: "成功", description: `批量导入成功 ${successCount} 条运单记录！` });
+        loadPaginatedRecords();
+      }
+      if (errorCount > 0) {
+        toast({ title: "错误", description: `有 ${errorCount} 条记录导入失败，详情请查看导入日志。`, variant: "destructive" });
+      }
+
+    } catch (error: any) {
+      addLog(`批量导入发生错误: ${error.message}`);
+      toast({ title: "错误", description: `批量导入失败: ${error.message}`, variant: "destructive" });
     }
   };
 

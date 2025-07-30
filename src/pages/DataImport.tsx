@@ -63,7 +63,7 @@ export default function DataImport() {
     XLSX.writeFile(wb, "运单导入模板.xlsx");
   };
 
-  // 处理Excel文件导入
+  // 处理Excel文件导入 - 使用批量处理RPC
   const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -75,21 +75,16 @@ export default function DataImport() {
     reader.onload = async (e) => {
         try {
             const data = e.target?.result;
-            // 使用 `cellDates: true` 来确保日期被正确解析为Date对象
             const workbook = XLSX.read(data, { type: 'array', cellDates: true });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-            let successCount = 0;
-            let errorCount = 0;
-            const errors: string[] = [];
+            toast({ title: "处理", description: `文件读取成功，共 ${jsonData.length} 条记录，开始批量导入...` });
 
-            toast({ title: "处理", description: `文件读取成功，共 ${jsonData.length} 条记录，开始逐条导入...` });
-
-            // 逐行遍历Excel数据
+            // 准备批量导入的数据
+            const batchRecords = [];
             for (const [index, row] of jsonData.entries()) {
-                const rowNum = index + 2; // 计算在Excel中的实际行号
                 const rowData: any = row;
                 
                 try {
@@ -101,88 +96,65 @@ export default function DataImport() {
                     const loadingDateRaw = rowData['装货日期'];
 
                     if (!projectName || !driverName || !loadingLocation || !unloadingLocation || !loadingDateRaw) {
-                        throw new Error("缺少必填字段（项目/司机/地点/装货日期）");
-                    }
-                    
-                    // 匹配项目ID
-                    const project = projects.find(p => p.name === projectName);
-                    if (!project) {
-                        throw new Error(`未找到匹配的项目 "${projectName}"`);
+                        continue; // 跳过无效记录，让后端处理错误
                     }
 
-                    // 智能处理司机：如果不存在，则创建并关联到当前项目
-                    const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', {
-                        p_driver_name: driverName,
-                        p_license_plate: rowData['车牌号']?.toString().trim() || null,
-                        p_phone: rowData['司机电话']?.toString().trim() || null,
-                        p_project_id: project.id
-                    });
-                    if (driverError || !driverResult || driverResult.length === 0) throw new Error("处理司机信息失败");
-                    const finalDriver = driverResult[0];
-
-                    // 智能处理地点：如果不存在，则创建并关联到当前项目
-                    await supabase.rpc('get_or_create_location', { p_location_name: loadingLocation, p_project_id: project.id });
-                    await supabase.rpc('get_or_create_location', { p_location_name: unloadingLocation, p_project_id: project.id });
-
-                    // 查找合作链路ID（如果提供了的话）
-                    let chainId = null;
-                    const chainName = rowData['合作链路']?.trim();
-                    if(chainName){
-                        const {data: chainData} = await supabase.from('partner_chains').select('id').eq('project_id', project.id).eq('chain_name', chainName).single();
-                        if(chainData) chainId = chainData.id;
-                    }
-
-                    // 准备要插入数据库的最终数据
+                    // 准备批量导入的记录数据
                     const recordData = {
-                        p_project_id: project.id,
-                        p_project_name: projectName,
-                        p_chain_id: chainId,
-                        p_driver_id: finalDriver.driver_id,
-                        p_driver_name: finalDriver.driver_name,
-                        p_loading_location: loadingLocation,
-                        p_unloading_location: unloadingLocation,
-                        p_loading_date: format(new Date(loadingDateRaw), 'yyyy-MM-dd'),
-                        p_unloading_date: rowData['卸货日期'] ? format(new Date(rowData['卸货日期']), 'yyyy-MM-dd') : format(new Date(loadingDateRaw), 'yyyy-MM-dd'),
-                        p_loading_weight: parseFloat(rowData['装货重量']) || null,
-                        p_unloading_weight: parseFloat(rowData['卸货重量']) || null,
-                        p_current_cost: parseFloat(rowData['运费金额']) || 0,
-                        p_extra_cost: parseFloat(rowData['额外费用']) || 0,
-                        p_license_plate: rowData['车牌号']?.toString().trim() || null,
-                        p_driver_phone: rowData['司机电话']?.toString().trim() || null,
-                        p_transport_type: rowData['运输类型']?.trim() || '实际运输',
-                        p_remarks: rowData['备注']?.toString().trim() || null
+                        project_name: projectName,
+                        chain_name: rowData['合作链路']?.trim() || null,
+                        driver_name: driverName,
+                        license_plate: rowData['车牌号']?.toString().trim() || null,
+                        driver_phone: rowData['司机电话']?.toString().trim() || null,
+                        loading_location: loadingLocation,
+                        unloading_location: unloadingLocation,
+                        loading_date: format(new Date(loadingDateRaw), 'yyyy-MM-dd'),
+                        unloading_date: rowData['卸货日期'] ? format(new Date(rowData['卸货日期']), 'yyyy-MM-dd') : format(new Date(loadingDateRaw), 'yyyy-MM-dd'),
+                        loading_weight: rowData['装货重量'] ? parseFloat(rowData['装货重量']).toString() : null,
+                        unloading_weight: rowData['卸货重量'] ? parseFloat(rowData['卸货重量']).toString() : null,
+                        current_cost: rowData['运费金额'] ? parseFloat(rowData['运费金额']).toString() : '0',
+                        extra_cost: rowData['额外费用'] ? parseFloat(rowData['额外费用']).toString() : '0',
+                        transport_type: rowData['运输类型']?.trim() || '实际运输',
+                        remarks: rowData['备注']?.toString().trim() || null
                     };
                     
-                    // 调用我们之前创建的、功能强大的“新增运单”函数
-                    const { error: insertError } = await supabase.rpc('add_logistics_record_with_costs', recordData);
-                    if(insertError) throw insertError;
-
-                    successCount++;
+                    batchRecords.push(recordData);
                 } catch (err: any) {
-                    errorCount++;
-                    errors.push(`第 ${rowNum} 行: ${err.message}`);
+                    console.warn(`第 ${index + 2} 行数据格式错误: ${err.message}`);
                 }
             }
 
-            // 最终的结果反馈
-            if(errorCount > 0){
+            // 调用批量导入RPC函数
+            const { data: result, error: batchError } = await supabase.rpc('batch_import_logistics_records', {
+                p_records: batchRecords
+            });
+
+            if (batchError) {
+                throw batchError;
+            }
+
+            // 处理批量导入结果
+            const successCount = (result as any).success_count || 0;
+            const errorCount = (result as any).error_count || 0;
+            const errors = (result as any).errors || [];
+
+            if (errorCount > 0) {
                 console.error("导入失败的详细信息:", errors);
                 toast({ 
                     title: "导入完成", 
-                    description: `导入完成，但有 ${errorCount} 条记录失败。前几条错误: ${errors.slice(0, 3).join('; ')}...`,
-                    variant: "destructive"
+                    description: `批量导入完成，成功 ${successCount} 条，失败 ${errorCount} 条。`,
+                    variant: errorCount > successCount ? "destructive" : "default"
                 });
-            }
-            if(successCount > 0){
-                toast({ title: "成功", description: `成功导入 ${successCount} 条运单记录！` });
-                // 可以在这里增加一个跳转到运单管理页面的按钮
+            } else {
+                toast({ title: "成功", description: `批量导入成功完成！共导入 ${successCount} 条运单记录。` });
             }
 
-        } catch (error) {
-            toast({ title: "错误", description: "文件处理失败，请检查文件格式是否与模板一致。", variant: "destructive" });
+        } catch (error: any) {
+            console.error("批量导入错误:", error);
+            toast({ title: "错误", description: `批量导入失败: ${error.message}`, variant: "destructive" });
         } finally {
             setIsImporting(false);
-            event.target.value = ''; // 清空文件选择，以便可以再次选择同一个文件
+            event.target.value = '';
         }
     };
     reader.readAsArrayBuffer(file);
@@ -206,6 +178,7 @@ export default function DataImport() {
                 <li>系统会根据**项目名称**、**司机姓名**和**地点名称**自动匹配或创建新记录。</li>
                 <li>请确保Excel中的**项目名称**与系统中已有的项目名称完全一致。</li>
                 <li>如果司机或地点不存在，系统将**自动为您创建**并关联到对应的项目中。</li>
+                <li>新版本使用**批量处理**，导入速度更快，自动生成运单编号。</li>
               </ul>
             </div>
             
@@ -242,7 +215,7 @@ export default function DataImport() {
                     <li>**司机姓名**: 如果系统中不存在，将自动创建新司机。</li>
                     <li>**装/卸货地点**: 如果系统中不存在，将自动创建新地点。</li>
                     <li>**装货日期**: 格式为 YYYY-MM-DD。</li>
-                    <li>**运输类型**: 填写“实际运输”或“退货”。</li>
+                    <li>**运输类型**: 填写"实际运输"或"退货"。</li>
                     <li>**运费金额 / 额外费用**: 只填写数字即可。</li>
                 </ul>
             </div>

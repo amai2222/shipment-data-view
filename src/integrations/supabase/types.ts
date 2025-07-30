@@ -530,6 +530,10 @@ export type Database = {
             }
         Returns: undefined
       }
+      batch_import_logistics_records: {
+        Args: { p_records: Json }
+        Returns: Json
+      }
       batch_recalculate_partner_costs: {
         Args: { p_record_ids: string[] }
         Returns: undefined
