@@ -123,9 +123,10 @@ export default function BusinessEntry() {
         p_search_query: filters.searchQuery || null,
       });
       if (error) throw error;
-      const result = data as any;
+      const result = data as { records: LogisticsRecord[], total_count: number };
       setRecords(result?.records || []);
       setTotalPages(Math.ceil((result?.total_count || 0) / PAGE_SIZE) || 1);
+
     } catch (error) {
       toast({ title: "错误", description: "加载运单记录失败", variant: "destructive" });
     } finally {
@@ -135,7 +136,9 @@ export default function BusinessEntry() {
 
   // 7. 副作用管理 (useEffect)
   useEffect(() => { loadInitialOptions(); }, [loadInitialOptions]);
-  useEffect(() => { loadPaginatedRecords(); }, [currentPage, loadPaginatedRecords]);
+  useEffect(() => {
+    loadPaginatedRecords();
+  }, [currentPage]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -143,7 +146,7 @@ export default function BusinessEntry() {
       else loadPaginatedRecords();
     }, 500);
     return () => clearTimeout(timer);
-  }, [filters]);
+  }, [filters, loadPaginatedRecords]);
 
   useEffect(() => {
     if (importLogRef.current) {
