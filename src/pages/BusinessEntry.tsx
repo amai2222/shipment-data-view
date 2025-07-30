@@ -146,7 +146,7 @@ export default function BusinessEntry() {
       else loadPaginatedRecords();
     }, 500);
     return () => clearTimeout(timer);
-  }, [filters, loadPaginatedRecords]);
+  }, [filters, currentPage,loadPaginatedRecords]);
 
   useEffect(() => {
     if (importLogRef.current) {
