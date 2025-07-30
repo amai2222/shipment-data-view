@@ -53,7 +53,7 @@ const BLANK_FORM_DATA = {
 };
 
 // ====================================================================
-// 【核心改动】高亮开始
+// 【核心修复】高亮开始
 // 原因：增加这个全新的“日期校准”辅助函数。
 // 它会智能地处理从Excel中读取的日期，忽略掉所有讨厌的时区问题，
 // 确保“2025-1-14”在任何情况下，都被正确地理解为“2025-01-14”。
@@ -84,7 +84,7 @@ const safeFormatExcelDate = (excelDate: any): string | null => {
   return null;
 }
 // ====================================================================
-// 【核心改动】高亮结束
+// 【核心修复】高亮结束
 // ====================================================================
 
 // 4. 主组件定义
@@ -301,7 +301,15 @@ export default function BusinessEntry() {
       p_project_id: formData.project_id, p_project_name: projectName, p_chain_id: formData.chain_id || null,
       p_driver_id: finalDriverId, p_driver_name: finalDriverName,
       p_loading_location: formData.loading_location, p_unloading_location: formData.unloading_location,
-      p_loading_date: safeFormatExcelDate(rowData['装货日期']), p_unloading_date: safeFormatExcelDate(rowData['卸货日期']) || safeFormatExcelDate(rowData['装货日期']),
+    // ====================================================================
+    // 【核心修复】高亮开始
+    // 原因：这里我们用全新的“日期校准器”来处理日期，彻底解决“时差”问题。
+    // ====================================================================
+      p_loading_date: safeFormatExcelDate(rowData['装货日期']),
+      p_unloading_date: safeFormatExcelDate(rowData['卸货日期']) || safeFormatExcelDate(rowData['装货日期']),
+    // ====================================================================
+    // 【核心修复】高亮结束
+    // ====================================================================
       p_loading_weight: formData.loading_weight ? parseFloat(formData.loading_weight) : null,
       p_unloading_weight: formData.unloading_weight ? parseFloat(formData.unloading_weight) : null,
       p_current_cost: formData.current_cost ? parseFloat(formData.current_cost) : null,
