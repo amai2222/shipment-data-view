@@ -360,6 +360,7 @@ export default function BusinessEntry() {
     XLSX.writeFile(wb, "运单导入模板.xlsx");
   };
 
+  // 【核心功能实现】处理Excel文件导入
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -413,18 +414,25 @@ export default function BusinessEntry() {
             const loadingLocation = rowData['装货地点']?.trim();
             const unloadingLocation = rowData['卸货地点']?.trim();
             const loadingDateRaw = rowData['装货日期'];
+            const loadingWeight = parseFloat(rowData['装货重量']) || 0;
+            const unloadingWeight = parseFloat(rowData['卸货重量']) || 0;
 
             if (!projectName || !driverName || !loadingLocation || !unloadingLocation || !loadingDateRaw) {
-                throw new Error("缺少必填字段");
+                throw new Error("缺少必填字段（项目/司机/地点/装货日期）");
             }
             if (!(loadingDateRaw instanceof Date && isValid(loadingDateRaw))) {
                 throw new Error("“装货日期”格式不正确");
             }
             if (!projects.some(p => p.name === projectName)) {
                 throw new Error(`项目 "${projectName}" 不存在`);
-            }
+                    }
 
-            const uniqueKey = `${projectName}-${driverName}-${loadingLocation}-${unloadingLocation}-${format(loadingDateRaw, 'yyyy-MM-dd')}`;
+            const uniqueKey = `${projectName}-${driverName}-${loadingLocation}-${unloadingLocation}-${format(loadingDateRaw, 'yyyy-MM-dd')}-${loadingWeight}-${unloadingWeight}`;
+            // ====================================================================
+            // 【核心修复】高亮结束
+            // ====================================================================
+
+            
             if (uniqueKeys.has(uniqueKey)) {
                 rowData.error = "重复数据";
                 duplicateCount++;
