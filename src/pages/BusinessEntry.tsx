@@ -123,8 +123,9 @@ export default function BusinessEntry() {
         p_search_query: filters.searchQuery || null,
       });
       if (error) throw error;
-      setRecords(data.records || []);
-      setTotalPages(Math.ceil(data.total_count / PAGE_SIZE) || 1);
+      const result = data as any;
+      setRecords(result?.records || []);
+      setTotalPages(Math.ceil((result?.total_count || 0) / PAGE_SIZE) || 1);
     } catch (error) {
       toast({ title: "错误", description: "加载运单记录失败", variant: "destructive" });
     } finally {
@@ -300,7 +301,7 @@ export default function BusinessEntry() {
 
   // 10. 辅助功能函数
   const exportToExcel = async () => {
-    toast.info("正在准备导出全部筛选结果...");
+    toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
     try {
         const { data, error } = await supabase.rpc('get_paginated_logistics_records', {
             p_page_size: 99999, p_offset: 0,
@@ -310,7 +311,8 @@ export default function BusinessEntry() {
         });
         if (error) throw error;
 
-        const dataToExport = data.records.map((r: LogisticsRecord) => ({
+        const records = (data as any)?.records || [];
+        const dataToExport = records.map((r: LogisticsRecord) => ({
           '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认',
           '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone,
           '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date,
@@ -323,9 +325,9 @@ export default function BusinessEntry() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "运单记录");
         XLSX.writeFile(wb, "运单记录.xlsx");
-        toast.success("全部筛选结果已成功导出！");
+        toast({ title: "成功", description: "全部筛选结果已成功导出！" });
     } catch(e) {
-        toast.error("导出失败，请重试。");
+        toast({ title: "错误", description: "导出失败，请重试。", variant: "destructive" });
     }
   };
 
@@ -356,9 +358,7 @@ export default function BusinessEntry() {
         await processDataInChunks(jsonData);
 
       } catch (error) {
-        toast.error("文件读取失败，请检查文件格式是否与模板一致。");
-      } finally {
-        if(event.target) event.target.value = '';
+        toast({ title: "错误", description: "文件读取失败，请检查文件格式是否与模板一致。", variant: "destructive" });
       }
     };
     reader.readAsArrayBuffer(file);
@@ -378,7 +378,7 @@ export default function BusinessEntry() {
         if (chunk.length === 0) {
           setImportData({ valid: validRows, invalid: invalidRows, duplicateCount });
           setImportStep('preview');
-          toast.success("文件预处理完成，请确认导入数据。");
+          toast({ title: "完成", description: "文件预处理完成，请确认导入数据。" });
           resolve();
           return;
         }
@@ -500,11 +500,11 @@ export default function BusinessEntry() {
     addLog(`成功: ${successCount}条, 失败: ${errorCount}条。`);
 
     if (successCount > 0) {
-      toast.success(`成功导入 ${successCount} 条运单记录！`);
+      toast({ title: "成功", description: `成功导入 ${successCount} 条运单记录！` });
       loadPaginatedRecords();
     }
     if (errorCount > 0) {
-      toast.error(`有 ${errorCount} 条记录导入失败，详情请查看导入日志。`);
+      toast({ title: "错误", description: `有 ${errorCount} 条记录导入失败，详情请查看导入日志。`, variant: "destructive" });
     }
   };
 
@@ -604,14 +604,14 @@ export default function BusinessEntry() {
             <div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
             <div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
             
-            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} value={formData.driver_id} onValueChange={(id, name) => { handleInputChange('driver_id', id || name); handleInputChange('driver_name', name); }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." createPlaceholder="创建新司机:" onCreateNew={() => navigate('/drivers')}/></div>
+            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} value={formData.driver_id} onValueChange={(value) => { const driver = filteredDrivers.find(d => d.id === value); if (driver) { handleInputChange('driver_id', value); handleInputChange('driver_name', driver.name); } else { handleInputChange('driver_id', value); handleInputChange('driver_name', value); } }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." onCreateNew={() => navigate('/drivers')}/></div>
             <div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
             <div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
             <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div>
             
-            <div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.loading_location} onValueChange={(_, label) => handleInputChange('loading_location', label)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." createPlaceholder="创建新地点:" onCreateNew={() => navigate('/locations')}/></div>
+            <div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.loading_location} onValueChange={(value) => handleInputChange('loading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={() => navigate('/locations')}/></div>
             <div className="space-y-1"><Label>装货重量</Label><Input type="number" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value)} /></div>
-            <div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.unloading_location} onValueChange={(_, label) => handleInputChange('unloading_location', label)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." createPlaceholder="创建新地点:" onCreateNew={() => navigate('/locations')}/></div>
+            <div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.unloading_location} onValueChange={(value) => handleInputChange('unloading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={() => navigate('/locations')}/></div>
             <div className="space-y-1"><Label>卸货重量</Label><Input type="number" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value)} /></div>
             
             <div className="space-y-1"><Label>运费金额 (元)</Label><Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value)} /></div>
@@ -717,11 +717,9 @@ export default function BusinessEntry() {
               <div ref={importLogRef} className="h-64 overflow-y-auto bg-gray-900 text-white font-mono text-xs p-4 rounded-md">
                 {importLogs.map((log, i) => <p key={i} className={log.includes('[错误]') ? 'text-red-400' : 'text-green-400'}>{log}</p>)}
               </div>
-              {isProcessingImport === false && (
-                <div className="text-center pt-4">
-                  <Button onClick={closeImportModal}>关闭</Button>
-                </div>
-              )}
+              <div className="text-center pt-4">
+                <Button onClick={closeImportModal}>关闭</Button>
+              </div>
             </div>
           )}
         </DialogContent>

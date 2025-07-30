@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2, MapPin, Upload, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Location, Project } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -370,10 +370,14 @@ export default function Locations() {
                           <Edit className="h-4 w-4" />
                         </Button>
                         <ConfirmDialog 
-                          locationId={location.id}
-                          locationName={location.name}
-                          onConfirm={handleDelete}
-                        />
+                          title="确认删除"
+                          description={`您确定要删除地点 "${location.name}" 吗？`}
+                          onConfirm={() => handleDelete(location.id)}
+                        >
+                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </ConfirmDialog>
                       </div>
                     </TableCell>
                   </TableRow>

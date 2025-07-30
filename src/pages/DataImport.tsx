@@ -69,7 +69,7 @@ export default function DataImport() {
     if (!file) return;
 
     setIsImporting(true);
-    toast.info("正在读取并处理Excel文件...");
+    toast({ title: "加载", description: "正在读取并处理Excel文件..." });
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -85,7 +85,7 @@ export default function DataImport() {
             let errorCount = 0;
             const errors: string[] = [];
 
-            toast.info(`文件读取成功，共 ${jsonData.length} 条记录，开始逐条导入...`);
+            toast({ title: "处理", description: `文件读取成功，共 ${jsonData.length} 条记录，开始逐条导入...` });
 
             // 逐行遍历Excel数据
             for (const [index, row] of jsonData.entries()) {
@@ -167,17 +167,19 @@ export default function DataImport() {
             // 最终的结果反馈
             if(errorCount > 0){
                 console.error("导入失败的详细信息:", errors);
-                toast.error(`导入完成，但有 ${errorCount} 条记录失败。`, { 
-                    description: `前几条错误: ${errors.slice(0, 3).join('; ')}... 更多详情请查看浏览器控制台。`
+                toast({ 
+                    title: "导入完成", 
+                    description: `导入完成，但有 ${errorCount} 条记录失败。前几条错误: ${errors.slice(0, 3).join('; ')}...`,
+                    variant: "destructive"
                 });
             }
             if(successCount > 0){
-                toast.success(`成功导入 ${successCount} 条运单记录！`);
+                toast({ title: "成功", description: `成功导入 ${successCount} 条运单记录！` });
                 // 可以在这里增加一个跳转到运单管理页面的按钮
             }
 
         } catch (error) {
-            toast.error("文件处理失败，请检查文件格式是否与模板一致。");
+            toast({ title: "错误", description: "文件处理失败，请检查文件格式是否与模板一致。", variant: "destructive" });
         } finally {
             setIsImporting(false);
             event.target.value = ''; // 清空文件选择，以便可以再次选择同一个文件
