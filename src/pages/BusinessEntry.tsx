@@ -11,11 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination";
-import { Download, FileDown, FileUp, PlusCircle, Edit, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Download, FileDown, FileUp, PlusCircle, Edit, Trash2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
-import { format, isValid } from 'date-fns';
+import { format } from 'date-fns';
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CreatableCombobox } from "@/components/CreatableCombobox";
 import { Progress } from "@/components/ui/progress";
@@ -30,39 +30,31 @@ interface LogisticsRecord {
   license_plate: string | null; driver_phone: string | null; transport_type: string | null;
   extra_cost: number | null; remarks: string | null;
 }
-interface Project { id: string; name:string; start_date: string; }
+
+interface Project { id: string; name: string; start_date: string; }
 interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 interface Location { id: string; name: string; }
 interface PartnerChain { id: string; chain_name: string; }
 
 // 3. 辅助函数和常量定义
 const getInitialDefaultDates = () => {
-    const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const formatDate = (date: Date) => date.toISOString().split('T')[0];
-    return { startDate: formatDate(firstDayOfMonth), endDate: formatDate(today) };
+  const today = new Date();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const formatDate = (date: Date) => date.toISOString().split('T')[0];
+  return { startDate: formatDate(firstDayOfMonth), endDate: formatDate(today) };
 };
 
 const BLANK_FORM_DATA = {
   project_id: "", chain_id: "", driver_id: "", driver_name: "", loading_location: "", unloading_location: "",
   loading_date: new Date().toISOString().split('T')[0], unloading_date: new Date().toISOString().split('T')[0],
   loading_weight: null, unloading_weight: null, current_cost: null, license_plate: "", driver_phone: "",
-  transport_type: "实际运输", extra_cost: null,
-  payable_cost: null,
-  remarks: ""
+  transport_type: "实际运输", extra_cost: null, payable_cost: null, remarks: ""
 };
 
-// ====================================================================
-// 【核心修复】高亮开始
-// 原因：增加这个全新的“日期校准”辅助函数。
-// 它会智能地处理从Excel中读取的日期，忽略掉所有讨厌的时区问题，
-// 确保“2025-1-14”在任何情况下，都被正确地理解为“2025-01-14”。
-// ====================================================================
-// 添加到常量定义区域
 const parseExcelDate = (excelDate: any): string | null => {
   if (!excelDate) return null;
   
-  // 处理字符串类型的日期（直接从Excel读取的可能格式）
+  // 处理字符串类型的日期
   if (typeof excelDate === 'string') {
     // 处理形如 '2023-05-20' 的格式
     if (/^\d{4}-\d{2}-\d{2}$/.test(excelDate)) {
@@ -74,18 +66,17 @@ const parseExcelDate = (excelDate: any): string | null => {
     }
   }
  
-  // 处理Excel数字序列值（Excel内部存储方式）
+  // 处理Excel数字序列值
   if (typeof excelDate === 'number') {
     const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
  
-  // 处理Date对象（xlsx库自动转换的结果）
+  // 处理Date对象
   if (excelDate instanceof Date) {
-    // 采用UTC时间绕过时区问题
     const year = excelDate.getUTCFullYear();
     const month = String(excelDate.getUTCMonth() + 1).padStart(2, '0');
     const day = String(excelDate.getUTCDate()).padStart(2, '0');
@@ -94,13 +85,10 @@ const parseExcelDate = (excelDate: any): string | null => {
  
   return null;
 };
-// ====================================================================
-// 【核心修复】高亮结束
-// ====================================================================
 
 // 4. 主组件定义
 export default function BusinessEntry() {
-  // 5. 状态管理 (useState)
+  // 状态管理
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -112,7 +100,6 @@ export default function BusinessEntry() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
-
   const [formData, setFormData] = useState<any>(BLANK_FORM_DATA);
   const [filters, setFilters] = useState({
     startDate: getInitialDefaultDates().startDate,
@@ -122,30 +109,26 @@ export default function BusinessEntry() {
 
   const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([]);
   const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
-
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const PAGE_SIZE = 15;
 
-  // ====================================================================
-  // 【核心修复】高亮开始
-  // 原因：这里完整地声明了所有与“导入”功能相关的状态变量。
-  // 之前的代码遗漏了这些声明，导致了 `importStep is not defined` 的错误。
-  // ====================================================================
+  // 导入相关状态
   const [isImporting, setIsImporting] = useState(false);
   const [importStep, setImportStep] = useState<'idle' | 'preprocessing' | 'preview' | 'processing'>('idle');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importData, setImportData] = useState<{valid: any[], invalid: any[], duplicateCount: number}>({ valid: [], invalid: [], duplicateCount: 0 });
+  const [importData, setImportData] = useState<{valid: any[], invalid: any[], duplicateCount: number}>({ 
+    valid: [], 
+    invalid: [], 
+    duplicateCount: 0 
+  });
   const [preprocessingProgress, setPreprocessingProgress] = useState(0);
   const [importLogs, setImportLogs] = useState<string[]>([]);
   const importLogRef = useRef<HTMLDivElement>(null);
-  // ====================================================================
-  // 【核心修复】高亮结束
-  // ====================================================================
 
   const navigate = useNavigate();
 
-  // 6. 数据加载逻辑 (useCallback & useEffect)
+  // 数据加载逻辑
   const loadInitialOptions = useCallback(async () => {
     try {
       const { data: projectsData } = await supabase.from('projects').select('id, name, start_date');
@@ -154,7 +137,9 @@ export default function BusinessEntry() {
       setDrivers(driversData as Driver[] || []);
       const { data: locationsData } = await supabase.from('locations').select('id, name');
       setLocations(locationsData || []);
-    } catch (error) { toast({ title: "错误", description: "加载筛选选项失败", variant: "destructive" }); }
+    } catch (error) { 
+      toast({ title: "错误", description: "加载筛选选项失败", variant: "destructive" }); 
+    }
   }, [toast]);
 
   const loadPaginatedRecords = useCallback(async () => {
@@ -180,56 +165,52 @@ export default function BusinessEntry() {
     }
   }, [currentPage, filters, toast]);
 
- // ====================================================================
-//【核心改动】高亮开始
-// 原因：这是本次升级最核心的部分。我们彻底重构了“自动监控系统”的逻辑。
-// 现在，我们只有一个清晰的 useEffect 来负责数据的加载，
-// 并且明确地告诉它，只要“页码”或“筛选条件”这两个中任何一个发生变化，
-// 都必须立刻去调用我们强大的后端函数，获取最新的数据。
-// 这彻底解决了“数据不刷新”的BUG。
-// ====================================================================
-  // 7. 副作用管理 (useEffect)
-  // 页面首次加载时，获取下拉选项
+  // 副作用管理
   useEffect(() => {
     loadInitialOptions();
   }, [loadInitialOptions]);
 
-  // 当页码或筛选条件变化时，重新获取运单列表
   useEffect(() => {
-    // 【性能优化】为搜索框增加防抖
     const timer = setTimeout(() => {
       loadPaginatedRecords();
-    }, 500); // 延迟500毫秒执行，避免用户快速输入时频繁请求
-    return () => clearTimeout(timer); // 组件卸载或依赖变化时，清除上一个计时器
-  }, [currentPage, filters, loadPaginatedRecords]); // 依赖项现在是正确的
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [currentPage, filters, loadPaginatedRecords]);
 
-  // 当筛选条件变化时，自动重置到第一页
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
   }, [filters]);
-// ====================================================================
-//【核心改动】高亮结束
-// ====================================================================
+
   useEffect(() => {
     if (importLogRef.current) {
       importLogRef.current.scrollTop = importLogRef.current.scrollHeight;
     }
   }, [importLogs]);
 
-  const handleInputChange = (field: string, value: any) => { setFormData((prev: any) => ({ ...prev, [field]: value })); };
+  const handleInputChange = (field: string, value: any) => { 
+    setFormData((prev: any) => ({ ...prev, [field]: value })); 
+  };
 
   useEffect(() => {
     handleInputChange('chain_id', '');
     if (formData.project_id) {
       const fetchRelatedData = async () => {
-        const { data: chainsData } = await supabase.from('partner_chains').select('id, chain_name').eq('project_id', formData.project_id);
+        const { data: chainsData } = await supabase.from('partner_chains')
+          .select('id, chain_name')
+          .eq('project_id', formData.project_id);
         setPartnerChains(chainsData as PartnerChain[] || []);
-        const { data: driverLinks } = await supabase.from('driver_projects').select('driver_id').eq('project_id', formData.project_id);
+
+        const { data: driverLinks } = await supabase.from('driver_projects')
+          .select('driver_id')
+          .eq('project_id', formData.project_id);
         const driverIds = driverLinks?.map(link => link.driver_id) || [];
         setFilteredDrivers(drivers.filter(driver => driverIds.includes(driver.id)));
-        const { data: locationLinks } = await supabase.from('location_projects').select('location_id').eq('project_id', formData.project_id);
+
+        const { data: locationLinks } = await supabase.from('location_projects')
+          .select('location_id')
+          .eq('project_id', formData.project_id);
         const locationIds = locationLinks?.map(link => link.location_id) || [];
         setFilteredLocations(locations.filter(location => locationIds.includes(location.id)));
       };
@@ -265,16 +246,25 @@ export default function BusinessEntry() {
     }
   }, [formData.loading_date]);
 
-  // 8. 事件处理器 (Handlers)
+  // 事件处理器
   const handleOpenModal = (record: LogisticsRecord | null = null) => {
     if (record) {
       setEditingRecord(record);
       setFormData({
-        project_id: record.project_id, chain_id: record.chain_id || "", driver_id: record.driver_id, driver_name: record.driver_name,
-        loading_location: record.loading_location, unloading_location: record.unloading_location, loading_date: record.loading_date,
+        project_id: record.project_id, 
+        chain_id: record.chain_id || "", 
+        driver_id: record.driver_id, 
+        driver_name: record.driver_name,
+        loading_location: record.loading_location, 
+        unloading_location: record.unloading_location, 
+        loading_date: record.loading_date,
         unloading_date: record.unloading_date || record.loading_date,
-        loading_weight: record.loading_weight, unloading_weight: record.unloading_weight, current_cost: record.current_cost,
-        license_plate: record.license_plate, driver_phone: record.driver_phone, transport_type: record.transport_type || '实际运输',
+        loading_weight: record.loading_weight, 
+        unloading_weight: record.unloading_weight, 
+        current_cost: record.current_cost,
+        license_plate: record.license_plate, 
+        driver_phone: record.driver_phone, 
+        transport_type: record.transport_type || '实际运输',
         extra_cost: record.extra_cost,
         payable_cost: record.payable_cost,
         remarks: record.remarks
@@ -290,41 +280,54 @@ export default function BusinessEntry() {
   const handleSubmit = async () => {
     const projectName = projects.find(p => p.id === formData.project_id)?.name;
     if (!projectName || !formData.driver_name || !formData.loading_location || !formData.unloading_location) {
-      toast({ title: "错误", description: "项目、司机和地点为必填项", variant: "destructive" }); return;
+      toast({ title: "错误", description: "项目、司机和地点为必填项", variant: "destructive" }); 
+      return;
     }
 
     let finalDriverId = formData.driver_id;
     let finalDriverName = formData.driver_name;
     const isUuid = /^[0-9a-fA-F-]{36}$/.test(formData.driver_id);
+    
     if (!isUuid) {
-        const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', {
-            p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone, p_project_id: formData.project_id
-        });
-        if (driverError || !driverResult || driverResult.length === 0) { toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); return; }
-        finalDriverId = driverResult[0].driver_id;
-        finalDriverName = driverResult[0].driver_name;
+      const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', {
+        p_driver_name: formData.driver_name, 
+        p_license_plate: formData.license_plate, 
+        p_phone: formData.driver_phone, 
+        p_project_id: formData.project_id
+      });
+      
+      if (driverError || !driverResult || driverResult.length === 0) { 
+        toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); 
+        return; 
+      }
+      finalDriverId = driverResult[0].driver_id;
+      finalDriverName = driverResult[0].driver_name;
     }
 
-    await supabase.rpc('get_or_create_location', { p_location_name: formData.loading_location, p_project_id: formData.project_id });
-    await supabase.rpc('get_or_create_location', { p_location_name: formData.unloading_location, p_project_id: formData.project_id });
+    await supabase.rpc('get_or_create_location', { 
+      p_location_name: formData.loading_location, 
+      p_project_id: formData.project_id 
+    });
+    await supabase.rpc('get_or_create_location', { 
+      p_location_name: formData.unloading_location, 
+      p_project_id: formData.project_id 
+    });
 
     const recordData = {
-      p_project_id: formData.project_id, p_project_name: projectName, p_chain_id: formData.chain_id || null,
-      p_driver_id: finalDriverId, p_driver_name: finalDriverName,
-      p_loading_location: formData.loading_location, p_unloading_location: formData.unloading_location,
-    // ====================================================================
-    // 【核心修复】高亮开始
-    // 原因：这里我们用全新的“日期校准器”来处理日期，彻底解决“时差”问题。
-    // ====================================================================
-      p_loading_date: safeFormatExcelDatesafeFormatExcelDate(formData.loading_date),
-      p_unloading_date: safeFormatExcelDate(formData.unloading_date) || safeFormatExcelDate(formData.loading_date),
-    // ====================================================================
-    // 【核心修复】高亮结束
-    // ====================================================================
+      p_project_id: formData.project_id, 
+      p_project_name: projectName, 
+      p_chain_id: formData.chain_id || null,
+      p_driver_id: finalDriverId, 
+      p_driver_name: finalDriverName,
+      p_loading_location: formData.loading_location, 
+      p_unloading_location: formData.unloading_location,
+      p_loading_date: parseExcelDate(formData.loading_date),
+      p_unloading_date: parseExcelDate(formData.unloading_date) || parseExcelDate(formData.loading_date),
       p_loading_weight: formData.loading_weight ? parseFloat(formData.loading_weight) : null,
       p_unloading_weight: formData.unloading_weight ? parseFloat(formData.unloading_weight) : null,
       p_current_cost: formData.current_cost ? parseFloat(formData.current_cost) : null,
-      p_license_plate: formData.license_plate, p_driver_phone: formData.driver_phone,
+      p_license_plate: formData.license_plate, 
+      p_driver_phone: formData.driver_phone,
       p_transport_type: formData.transport_type,
       p_extra_cost: formData.extra_cost ? parseFloat(formData.extra_cost) : null,
       p_remarks: formData.remarks
@@ -332,7 +335,10 @@ export default function BusinessEntry() {
 
     try {
       if (editingRecord) {
-        await supabase.rpc('update_logistics_record_with_costs', { p_record_id: editingRecord.id, ...recordData });
+        await supabase.rpc('update_logistics_record_with_costs', { 
+          p_record_id: editingRecord.id, 
+          ...recordData 
+        });
         toast({ title: "成功", description: "运单记录已更新" });
       } else {
         await supabase.rpc('add_logistics_record_with_costs', recordData);
@@ -341,7 +347,9 @@ export default function BusinessEntry() {
       setIsEditModalOpen(false);
       loadPaginatedRecords();
       loadInitialOptions();
-    } catch (error: any) { toast({ title: "操作失败", description: error.message, variant: "destructive" }); }
+    } catch (error: any) { 
+      toast({ title: "操作失败", description: error.message, variant: "destructive" }); 
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -349,10 +357,12 @@ export default function BusinessEntry() {
       await supabase.from('logistics_records').delete().eq('id', id);
       toast({ title: "成功", description: "运单记录已删除" });
       loadPaginatedRecords();
-    } catch (error: any) { toast({ title: "删除失败", description: error.message, variant: "destructive" }); }
+    } catch (error: any) { 
+      toast({ title: "删除失败", description: error.message, variant: "destructive" }); 
+    }
   };
 
-  // 9. 计算属性 (useMemo)
+  // 计算属性
   const summary = useMemo(() => {
     return (records || []).reduce((acc, record) => {
       acc.totalLoadingWeight += record.loading_weight || 0;
@@ -374,47 +384,76 @@ export default function BusinessEntry() {
     });
   }, [records]);
 
-  // 10. 辅助功能函数
+  // 导出功能
   const exportToExcel = async () => {
     toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
     try {
-        const { data, error } = await supabase.rpc('get_paginated_logistics_records', {
-            p_page_size: 99999, p_offset: 0,
-            p_start_date: filters.startDate || null,
-            p_end_date: filters.endDate || null,
-            p_search_query: filters.searchQuery || null,
-        });
-        if (error) throw error;
+      const { data, error } = await supabase.rpc('get_paginated_logistics_records', {
+        p_page_size: 99999, 
+        p_offset: 0,
+        p_start_date: filters.startDate || null,
+        p_end_date: filters.endDate || null,
+        p_search_query: filters.searchQuery || null,
+      });
+      if (error) throw error;
 
-        const records = (data as any)?.records || [];
-        const dataToExport = records.map((r: LogisticsRecord) => ({
-          '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认',
-          '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone,
-          '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date,
-          '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight,
-          '运费金额': r.current_cost, '额外费用': r.extra_cost,
-          '司机应收': r.payable_cost,
-          '备注': r.remarks,
-        }));
-        const ws = XLSX.utils.json_to_sheet(dataToExport);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "运单记录");
-        XLSX.writeFile(wb, "运单记录.xlsx");
-        toast({ title: "成功", description: "全部筛选结果已成功导出！" });
+      const records = (data as any)?.records || [];
+      const dataToExport = records.map((r: LogisticsRecord) => ({
+        '运单编号': r.auto_number, 
+        '项目名称': r.project_name, 
+        '合作链路': r.chain_name || '默认',
+        '司机姓名': r.driver_name, 
+        '车牌号': r.license_plate, 
+        '司机电话': r.driver_phone,
+        '装货地点': r.loading_location, 
+        '卸货地点': r.unloading_location, 
+        '装货日期': r.loading_date, 
+        '卸货日期': r.unloading_date,
+        '运输类型': r.transport_type, 
+        '装货重量': r.loading_weight, 
+        '卸货重量': r.unloading_weight,
+        '运费金额': r.current_cost, 
+        '额外费用': r.extra_cost,
+        '司机应收': r.payable_cost,
+        '备注': r.remarks,
+      }));
+      
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "运单记录");
+      XLSX.writeFile(wb, "运单记录.xlsx");
+      toast({ title: "成功", description: "全部筛选结果已成功导出！" });
     } catch(e) {
-        toast({ title: "错误", description: "导出失败，请重试。", variant: "destructive" });
+      toast({ title: "错误", description: "导出失败，请重试。", variant: "destructive" });
     }
   };
 
   const handleTemplateDownload = () => {
-    const templateData = [{'项目名称': '', '合作链路': '', '司机姓名': '', '车牌号': '', '司机电话': '', '装货地点': '', '卸货地点': '', '装货日期': '', '卸货日期': '', '运输类型': '实际运输', '装货重量': '', '卸货重量': '', '运费金额': '', '额外费用': '', '备注': ''}];
+    const templateData = [{
+      '项目名称': '', 
+      '合作链路': '', 
+      '司机姓名': '', 
+      '车牌号': '', 
+      '司机电话': '', 
+      '装货地点': '', 
+      '卸货地点': '', 
+      '装货日期': '', 
+      '卸货日期': '', 
+      '运输类型': '实际运输', 
+      '装货重量': '', 
+      '卸货重量': '', 
+      '运费金额': '', 
+      '额外费用': '', 
+      '备注': ''
+    }];
+    
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "模板");
     XLSX.writeFile(wb, "运单导入模板.xlsx");
   };
 
-  // 【核心功能实现】处理Excel文件导入
+  // 导入功能
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -430,17 +469,20 @@ export default function BusinessEntry() {
 
         setIsImportModalOpen(true);
         setImportStep('preprocessing');
-
         await processDataInChunks(jsonData);
 
       } catch (error) {
-        toast({ title: "错误", description: "文件读取失败，请检查文件格式是否与模板一致。", variant: "destructive" });
+        toast({ 
+          title: "错误", 
+          description: "文件读取失败，请检查文件格式是否与模板一致。", 
+          variant: "destructive" 
+        });
       }
     };
     reader.readAsArrayBuffer(file);
   };
 
-  const processDataInChunks = (data: any[]) => {
+  const processDataInChunks = async (data: any[]) => {
     return new Promise<void>((resolve) => {
       let currentIndex = 0;
       const chunkSize = 50;
@@ -449,7 +491,7 @@ export default function BusinessEntry() {
       const uniqueKeys = new Set<string>();
       let duplicateCount = 0;
 
-      function processChunk() {
+      const processChunk = () => {
         const chunk = data.slice(currentIndex, currentIndex + chunkSize);
         if (chunk.length === 0) {
           setImportData({ valid: validRows, invalid: invalidRows, duplicateCount });
@@ -462,60 +504,61 @@ export default function BusinessEntry() {
         for (const row of chunk) {
           const rowData = { ...row, originalRow: currentIndex + 2, error: '' };
           currentIndex++;
+          
           try {
             const projectName = rowData['项目名称']?.trim();
             const driverName = rowData['司机姓名']?.trim();
             const loadingLocation = rowData['装货地点']?.trim();
             const unloadingLocation = rowData['卸货地点']?.trim();
+            const loadingDateFormatted = parseExcelDate(rowData['装货日期']);
             
-            const loadingWeight = parseFloat(rowData['装货重量']) || 0;
-            const unloadingWeight = parseFloat(rowData['卸货重量']) || 0;
-
-            if (!projectName || !driverName || !loadingLocation || !unloadingLocation || !loadingDateFormatted) {
-                throw new Error("缺少必填字段（项目/司机/地点/装货日期）");
+            if (!projectName || !driverName || !loadingLocation || !unloadingLocation) {
+              throw new Error("缺少必填字段（项目/司机/地点）");
             }
-			
-			const loadingDateFormatted = parseExcelDate(rowData['装货日期']);
+            
             if (!loadingDateFormatted) {
-                throw new Error("无效的装货日期格式");
-}
- 
-            const unloadingDateFormatted = rowData['卸货日期'] ? 
-                parseExcelDate(rowData['卸货日期']) : 
-                loadingDateFormatted;
- 
-             // 验证日期格式
-			 
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(loadingDateFormatted)) {
-                throw new Error("装货日期格式不正确，应为YYYY-MM-DD");
+              throw new Error("无效的装货日期格式（请使用YYYY-MM-DD或YYYY/MM/DD）");
             }
+
             if (!projects.some(p => p.name === projectName)) {
-                throw new Error(`项目 "${projectName}" 不存在`);
-                    }
+              throw new Error(`项目 "${projectName}" 不存在`);
+            }
 
-            const uniqueKey = `${projectName}-${driverName}-${loadingLocation}-${unloadingLocation}-${format(loadingDateFormatted, 'yyyy-MM-dd')}-${loadingWeight}-${unloadingWeight}`;
-            // ====================================================================
-            // 【核心修复】高亮结束
-            // ====================================================================
+            const unloadingDateFormatted = rowData['卸货日期'] ? 
+              parseExcelDate(rowData['卸货日期']) : 
+              loadingDateFormatted;
 
-            
+            const uniqueKey = [
+              projectName,
+              driverName,
+              loadingLocation,
+              unloadingLocation,
+              loadingDateFormatted,
+              rowData['装货重量'],
+              rowData['卸货重量']
+            ].join('-');
+
             if (uniqueKeys.has(uniqueKey)) {
-                rowData.error = "重复数据";
-                duplicateCount++;
-                invalidRows.push(rowData);
+              rowData.error = "重复数据（根据项目、司机、路线和日期判断）";
+              duplicateCount++;
+              invalidRows.push(rowData);
             } else {
-                uniqueKeys.add(uniqueKey);
-                validRows.push(rowData);
+              uniqueKeys.add(uniqueKey);
+              validRows.push({
+                ...rowData,
+                loading_date: loadingDateFormatted,
+                unloading_date: unloadingDateFormatted
+              });
             }
           } catch (err: any) {
-              rowData.error = err.message;
-              invalidRows.push(rowData);
+            rowData.error = err.message;
+            invalidRows.push(rowData);
           }
         }
 
         setPreprocessingProgress((currentIndex / data.length) * 100);
         setTimeout(processChunk, 0);
-      }
+      };
 
       processChunk();
     });
@@ -525,12 +568,12 @@ export default function BusinessEntry() {
     setImportStep('processing');
     setImportLogs([]);
 
-    const addLog = (message: string) => setImportLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
+    const addLog = (message: string) => 
+      setImportLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
 
     addLog(`开始批量导入... 共 ${importData.valid.length} 条有效记录。`);
 
     try {
-      // 准备批量导入的数据
       const batchRecords = importData.valid.map(rowData => ({
         project_name: rowData['项目名称']?.trim(),
         chain_name: rowData['合作链路']?.trim() || null,
@@ -541,8 +584,8 @@ export default function BusinessEntry() {
         unloading_location: rowData['卸货地点']?.trim(),
         loading_date: parseExcelDate(rowData['装货日期']),
         unloading_date: rowData['卸货日期'] ? 
-            parseExcelDate(rowData['卸货日期']) : 
-            parseExcelDate(rowData['装货日期']),
+          parseExcelDate(rowData['卸货日期']) : 
+          parseExcelDate(rowData['装货日期']),
         loading_weight: rowData['装货重量'] ? parseFloat(rowData['装货重量']).toString() : null,
         unloading_weight: rowData['卸货重量'] ? parseFloat(rowData['卸货重量']).toString() : null,
         current_cost: rowData['运费金额'] ? parseFloat(rowData['运费金额']).toString() : '0',
@@ -552,22 +595,17 @@ export default function BusinessEntry() {
       }));
 
       addLog('准备批量导入数据...');
-
-      // 调用批量导入RPC函数
       const { data: result, error: batchError } = await supabase.rpc('batch_import_logistics_records', {
         p_records: batchRecords
       });
 
-      if (batchError) {
-        throw batchError;
-      }
+      if (batchError) throw batchError;
 
       const successCount = (result as any).success_count || 0;
       const errorCount = (result as any).error_count || 0;
       const errors = (result as any).errors || [];
 
       addLog(`批量导入完成: 成功 ${successCount} 条，失败 ${errorCount} 条`);
-
       if (errorCount > 0) {
         addLog(`错误详情: ${JSON.stringify(errors.slice(0, 5))}`);
       }
@@ -577,16 +615,27 @@ export default function BusinessEntry() {
       addLog(`成功: ${successCount}条, 失败: ${errorCount}条。`);
 
       if (successCount > 0) {
-        toast({ title: "成功", description: `批量导入成功 ${successCount} 条运单记录！` });
+        toast({ 
+          title: "成功", 
+          description: `批量导入成功 ${successCount} 条运单记录！` 
+        });
         loadPaginatedRecords();
       }
       if (errorCount > 0) {
-        toast({ title: "错误", description: `有 ${errorCount} 条记录导入失败，详情请查看导入日志。`, variant: "destructive" });
+        toast({ 
+          title: "注意", 
+          description: `有 ${errorCount} 条记录导入失败，详情请查看导入日志。`,
+          variant: "destructive" 
+        });
       }
 
     } catch (error: any) {
       addLog(`批量导入发生错误: ${error.message}`);
-      toast({ title: "错误", description: `批量导入失败: ${error.message}`, variant: "destructive" });
+      toast({ 
+        title: "错误", 
+        description: `批量导入失败: ${error.message}`, 
+        variant: "destructive" 
+      });
     }
   };
 
@@ -598,60 +647,149 @@ export default function BusinessEntry() {
     setImportLogs([]);
   }
 
-  // 11. 渲染UI (return)
+  // UI渲染
   return (
     <div className="space-y-4">
       {/* 页面标题和按钮 */}
       <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-foreground">运单管理</h1><p className="text-muted-foreground">录入、查询和管理所有运单记录</p></div>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">运单管理</h1>
+          <p className="text-muted-foreground">录入、查询和管理所有运单记录</p>
+        </div>
         <div className="flex gap-2">
-            <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
-            <Button variant="outline" asChild disabled={isImporting}>
-              <Label htmlFor="excel-upload" className="cursor-pointer flex items-center">
-                {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
-                导入Excel
-                <Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={isImporting}/>
-              </Label>
-            </Button>
-            <Button onClick={exportToExcel}><Download className="mr-2 h-4 w-4" />导出数据</Button>
-            <Button onClick={() => handleOpenModal()}><PlusCircle className="mr-2 h-4 w-4" />新增运单</Button>
+          <Button variant="outline" onClick={handleTemplateDownload}>
+            <FileDown className="mr-2 h-4 w-4" />下载模板
+          </Button>
+          <Button variant="outline" asChild disabled={isImporting}>
+            <Label htmlFor="excel-upload" className="cursor-pointer flex items-center">
+              {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+              导入Excel
+              <Input 
+                id="excel-upload" 
+                type="file" 
+                className="hidden" 
+                onChange={handleExcelImport} 
+                accept=".xlsx, .xls" 
+                disabled={isImporting}
+              />
+            </Label>
+          </Button>
+          <Button onClick={exportToExcel}>
+            <Download className="mr-2 h-4 w-4" />导出数据
+          </Button>
+          <Button onClick={() => handleOpenModal()}>
+            <PlusCircle className="mr-2 h-4 w-4" />新增运单
+          </Button>
         </div>
       </div>
       
       {/* 筛选区域 */}
       <div className="flex items-end gap-4 p-4 border rounded-lg">
-        <div className="grid w-full max-w-sm items-center gap-1.5"><Label htmlFor="search-query">快速搜索</Label><Input type="text" id="search-query" placeholder="搜索运单号、项目、司机..." value={filters.searchQuery} onChange={e => setFilters(f => ({...f, searchQuery: e.target.value}))}/></div>
-        <div className="grid items-center gap-1.5"><Label htmlFor="start-date">开始日期</Label><Input type="date" id="start-date" value={filters.startDate} onChange={e => setFilters(f => ({...f, startDate: e.target.value}))} /></div>
-        <div className="grid items-center gap-1.5"><Label htmlFor="end-date">结束日期</Label><Input type="date" id="end-date" value={filters.endDate} onChange={e => setFilters(f => ({...f, endDate: e.target.value}))}/></div>
-        <Button variant="outline" onClick={() => setFilters({startDate: getInitialDefaultDates().startDate, endDate: getInitialDefaultDates().endDate, searchQuery: ""})}>清除筛选</Button>
+        <div className="grid w-full max-w-sm items-center gap-1.5">
+          <Label htmlFor="search-query">快速搜索</Label>
+          <Input 
+            type="text" 
+            id="search-query" 
+            placeholder="搜索运单号、项目、司机..." 
+            value={filters.searchQuery} 
+            onChange={e => setFilters(f => ({...f, searchQuery: e.target.value}))}
+          />
+        </div>
+        <div className="grid items-center gap-1.5">
+          <Label htmlFor="start-date">开始日期</Label>
+          <Input 
+            type="date" 
+            id="start-date" 
+            value={filters.startDate} 
+            onChange={e => setFilters(f => ({...f, startDate: e.target.value}))} 
+          />
+        </div>
+        <div className="grid items-center gap-1.5">
+          <Label htmlFor="end-date">结束日期</Label>
+          <Input 
+            type="date" 
+            id="end-date" 
+            value={filters.endDate} 
+            onChange={e => setFilters(f => ({...f, endDate: e.target.value}))}
+          />
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={() => setFilters({
+            startDate: getInitialDefaultDates().startDate, 
+            endDate: getInitialDefaultDates().endDate, 
+            searchQuery: ""
+          })}
+        >
+          清除筛选
+        </Button>
       </div>
 
       {/* 表格区域 */}
       <div className="border rounded-lg">
         <Table>
-          <TableHeader><TableRow><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>合作链路</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>装货日期</TableHead><TableHead>运费</TableHead><TableHead>额外费</TableHead><TableHead>司机应收</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
+          <TableHeader>
+            <TableRow>
+              <TableHead>运单编号</TableHead>
+              <TableHead>项目</TableHead>
+              <TableHead>合作链路</TableHead>
+              <TableHead>司机</TableHead>
+              <TableHead>路线</TableHead>
+              <TableHead>装货日期</TableHead>
+              <TableHead>运费</TableHead>
+              <TableHead>额外费</TableHead>
+              <TableHead>司机应收</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={10} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin"/></TableCell></TableRow> 
-            : records.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center">没有找到匹配的记录</TableCell></TableRow>
-            : records.map((record) => (
-              <TableRow key={record.id} onClick={() => setViewingRecord(record)} className="cursor-pointer">
-                <TableCell className="font-mono">{record.auto_number}</TableCell>
-                <TableCell>{record.project_name}</TableCell>
-                <TableCell>{record.chain_name || '默认'}</TableCell>
-                <TableCell>{record.driver_name}</TableCell>
-                <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
-                <TableCell>{record.loading_date}</TableCell>
-                <TableCell className="font-mono">{record.current_cost ? `¥${record.current_cost.toFixed(2)}` : '-'}</TableCell>
-                <TableCell className="font-mono text-orange-600">{record.extra_cost ? `¥${record.extra_cost.toFixed(2)}` : '-'}</TableCell>
-                <TableCell className="font-mono text-green-600 font-semibold">{record.payable_cost ? `¥${record.payable_cost.toFixed(2)}` : '-'}</TableCell>
-                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenModal(record)}><Edit className="h-4 w-4" /></Button>
-                  <ConfirmDialog title="确认删除" description={`您确定要删除运单 ${record.auto_number} 吗？`} onConfirm={() => handleDelete(record.id)}>
-                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                  </ConfirmDialog>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={10} className="text-center h-24">
+                  <Loader2 className="h-6 w-6 animate-spin"/>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : records.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={10} className="text-center">
+                  没有找到匹配的记录
+                </TableCell>
+              </TableRow>
+            ) : (
+              records.map((record) => (
+                <TableRow key={record.id} onClick={() => setViewingRecord(record)} className="cursor-pointer">
+                  <TableCell className="font-mono">{record.auto_number}</TableCell>
+                  <TableCell>{record.project_name}</TableCell>
+                  <TableCell>{record.chain_name || '默认'}</TableCell>
+                  <TableCell>{record.driver_name}</TableCell>
+                  <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
+                  <TableCell>{record.loading_date}</TableCell>
+                  <TableCell className="font-mono">
+                    {record.current_cost ? `¥${record.current_cost.toFixed(2)}` : '-'}
+                  </TableCell>
+                  <TableCell className="font-mono text-orange-600">
+                    {record.extra_cost ? `¥${record.extra_cost.toFixed(2)}` : '-'}
+                  </TableCell>
+                  <TableCell className="font-mono text-green-600 font-semibold">
+                    {record.payable_cost ? `¥${record.payable_cost.toFixed(2)}` : '-'}
+                  </TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" onClick={() => handleOpenModal(record)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <ConfirmDialog 
+                      title="确认删除" 
+                      description={`您确定要删除运单 ${record.auto_number} 吗？`} 
+                      onConfirm={() => handleDelete(record.id)}
+                    >
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </ConfirmDialog>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -659,9 +797,31 @@ export default function BusinessEntry() {
       {/* 分页组件 */}
       <Pagination>
         <PaginationContent>
-          <PaginationItem><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1}>上一页</Button></PaginationItem>
-          <PaginationItem><span className="p-2 text-sm">第 {currentPage} 页 / 共 {totalPages} 页</span></PaginationItem>
-          <PaginationItem><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages}>下一页</Button></PaginationItem>
+          <PaginationItem>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+              disabled={currentPage <= 1}
+            >
+              上一页
+            </Button>
+          </PaginationItem>
+          <PaginationItem>
+            <span className="p-2 text-sm">
+              第 {currentPage} 页 / 共 {totalPages} 页
+            </span>
+          </PaginationItem>
+          <PaginationItem>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+              disabled={currentPage >= totalPages}
+            >
+              下一页
+            </Button>
+          </PaginationItem>
         </PaginationContent>
       </Pagination>
 
@@ -679,37 +839,197 @@ export default function BusinessEntry() {
       {/* 新增/编辑弹窗 */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="sm:max-w-4xl">
-          <DialogHeader><DialogTitle>{editingRecord ? "编辑运单" : "新增运单"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingRecord ? "编辑运单" : "新增运单"}</DialogTitle>
+          </DialogHeader>
           <div className="grid grid-cols-4 gap-4 py-4">
-            <div className="space-y-1"><Label>项目 *</Label><Select value={formData.project_id} onValueChange={(v) => handleInputChange('project_id', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1"><Label>合作链路</Label><Select value={formData.chain_id} onValueChange={(v) => handleInputChange('chain_id', v)} disabled={!formData.project_id}><SelectTrigger><SelectValue placeholder="默认链路"/></SelectTrigger><SelectContent>{partnerChains.map(c => <SelectItem key={c.id} value={c.id}>{c.chain_name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
-            <div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
+            <div className="space-y-1">
+              <Label>项目 *</Label>
+              <Select value={formData.project_id} onValueChange={(v) => handleInputChange('project_id', v)}>
+                <SelectTrigger>
+                  <SelectValue/>
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>合作链路</Label>
+              <Select 
+                value={formData.chain_id} 
+                onValueChange={(v) => handleInputChange('chain_id', v)} 
+                disabled={!formData.project_id}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="默认链路"/>
+                </SelectTrigger>
+                <SelectContent>
+                  {partnerChains.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.chain_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+                        <div className="space-y-1">
+              <Label>装货日期 *</Label>
+              <Input 
+                type="date" 
+                value={formData.loading_date} 
+                onChange={(e) => handleInputChange('loading_date', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>卸货日期</Label>
+              <Input 
+                type="date" 
+                value={formData.unloading_date} 
+                onChange={(e) => handleInputChange('unloading_date', e.target.value)} 
+              />
+            </div>
             
-            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} value={formData.driver_id} onValueChange={(value) => { const driver = filteredDrivers.find(d => d.id === value); if (driver) { handleInputChange('driver_id', value); handleInputChange('driver_name', driver.name); } else { handleInputChange('driver_id', value); handleInputChange('driver_name', value); } }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." onCreateNew={() => navigate('/drivers')}/></div>
-            <div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
-            <div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
-            <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1">
+              <Label>司机 *</Label>
+              <CreatableCombobox 
+                options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} 
+                value={formData.driver_id} 
+                onValueChange={(value) => { 
+                  const driver = filteredDrivers.find(d => d.id === value); 
+                  if (driver) { 
+                    handleInputChange('driver_id', value); 
+                    handleInputChange('driver_name', driver.name); 
+                  } else { 
+                    handleInputChange('driver_id', value); 
+                    handleInputChange('driver_name', value); 
+                  } 
+                }} 
+                placeholder="选择或创建司机" 
+                searchPlaceholder="搜索或输入新司机..." 
+                onCreateNew={() => navigate('/drivers')}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>车牌号</Label>
+              <Input 
+                value={formData.license_plate || ''} 
+                onChange={(e) => handleInputChange('license_plate', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>司机电话</Label>
+              <Input 
+                value={formData.driver_phone || ''} 
+                onChange={(e) => handleInputChange('driver_phone', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>运输类型</Label>
+              <Select 
+                value={formData.transport_type} 
+                onValueChange={(v) => handleInputChange('transport_type', v)}
+              >
+                <SelectTrigger>
+                  <SelectValue/>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="实际运输">实际运输</SelectItem>
+                  <SelectItem value="退货">退货</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             
-            <div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.loading_location} onValueChange={(value) => handleInputChange('loading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={() => navigate('/locations')}/></div>
-            <div className="space-y-1"><Label>装货重量</Label><Input type="number" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value)} /></div>
-            <div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.unloading_location} onValueChange={(value) => handleInputChange('unloading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={() => navigate('/locations')}/></div>
-            <div className="space-y-1"><Label>卸货重量</Label><Input type="number" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value)} /></div>
+            <div className="space-y-1">
+              <Label>装货地点 *</Label>
+              <CreatableCombobox 
+                options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} 
+                value={formData.loading_location} 
+                onValueChange={(value) => handleInputChange('loading_location', value)} 
+                placeholder="选择或创建地点" 
+                searchPlaceholder="搜索或输入新地点..." 
+                onCreateNew={() => navigate('/locations')}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>装货重量</Label>
+              <Input 
+                type="number" 
+                value={formData.loading_weight || ''} 
+                onChange={(e) => handleInputChange('loading_weight', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>卸货地点 *</Label>
+              <CreatableCombobox 
+                options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} 
+                value={formData.unloading_location} 
+                onValueChange={(value) => handleInputChange('unloading_location', value)} 
+                placeholder="选择或创建地点" 
+                searchPlaceholder="搜索或输入新地点..." 
+                onCreateNew={() => navigate('/locations')}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>卸货重量</Label>
+              <Input 
+                type="number" 
+                value={formData.unloading_weight || ''} 
+                onChange={(e) => handleInputChange('unloading_weight', e.target.value)} 
+              />
+            </div>
             
-            <div className="space-y-1"><Label>运费金额 (元)</Label><Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value)} /></div>
-            <div className="space-y-1"><Label>额外费用 (元)</Label><Input type="number" value={formData.extra_cost || ''} onChange={(e) => handleInputChange('extra_cost', e.target.value)} /></div>
-            <div className="space-y-1 col-span-2"><Label>备注</Label><Textarea value={formData.remarks || ''} onChange={(e) => handleInputChange('remarks', e.target.value)} /></div>
+            <div className="space-y-1">
+              <Label>运费金额 (元)</Label>
+              <Input 
+                type="number" 
+                value={formData.current_cost || ''} 
+                onChange={(e) => handleInputChange('current_cost', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>额外费用 (元)</Label>
+              <Input 
+                type="number" 
+                value={formData.extra_cost || ''} 
+                onChange={(e) => handleInputChange('extra_cost', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1 col-span-2">
+              <Label>备注</Label>
+              <Textarea 
+                value={formData.remarks || ''} 
+                onChange={(e) => handleInputChange('remarks', e.target.value)} 
+              />
+            </div>
             
-            <div className="space-y-1 col-start-4"><Label>司机应收 (自动计算)</Label><Input type="number" value={formData.payable_cost || ''} disabled className="font-bold text-primary" /></div>
+            <div className="space-y-1 col-start-4">
+              <Label>司机应收 (自动计算)</Label>
+              <Input 
+                type="number" 
+                value={formData.payable_cost || ''} 
+                disabled 
+                className="font-bold text-primary" 
+              />
+            </div>
           </div>
-          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setIsEditModalOpen(false)}>取消</Button><Button type="submit" onClick={handleSubmit}>保存</Button></div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)}>取消</Button>
+            <Button type="submit" onClick={handleSubmit}>保存</Button>
+          </div>
         </DialogContent>
       </Dialog>
       
       {/* 查看详情弹窗 */}
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
         <DialogContent className="sm:max-w-4xl">
-          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle>
+          </DialogHeader>
           {viewingRecord && (
             <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
               <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
@@ -741,10 +1061,12 @@ export default function BusinessEntry() {
         </DialogContent>
       </Dialog>
       
-      {/* 【全新交互】导入弹窗 */}
+      {/* 导入弹窗 */}
       <Dialog open={isImportModalOpen} onOpenChange={(isOpen) => !isOpen && closeImportModal()}>
         <DialogContent className="max-w-4xl">
-          <DialogHeader><DialogTitle>导入运单数据</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>导入运单数据</DialogTitle>
+          </DialogHeader>
           
           {importStep === 'preprocessing' && (
             <div className="py-8 text-center space-y-4">
@@ -761,7 +1083,7 @@ export default function BusinessEntry() {
                   <p>共发现 <strong>{importData.valid.length + importData.invalid.length}</strong> 条记录</p>
                   <p className="text-green-600"><strong>{importData.valid.length}</strong> 条记录格式正确，可以导入</p>
                   {importData.duplicateCount > 0 && <p className="text-yellow-600"><strong>{importData.duplicateCount}</strong> 条重复记录将被自动忽略</p>}
-                  {importData.invalid.length > 0 && <p className="text-red-600"><strong>{importData.invalid.length - importData.duplicateCount}</strong> 条记录存在格式错误，将被忽略</p>}
+                  {importData.invalid.length - importData.duplicateCount > 0 && <p className="text-red-600"><strong>{importData.invalid.length - importData.duplicateCount}</strong> 条记录存在格式错误，将被忽略</p>}
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={closeImportModal}>取消</Button>
@@ -770,21 +1092,16 @@ export default function BusinessEntry() {
                   </Button>
                 </div>
               </div>
-			  #开始
-          {(importData.invalid.length > 0) && (
-            <div className="mb-4">
-              <h4 className="font-semibold mb-2">
-                错误记录（共 {importData.invalid.length} 条）
-                <span className="text-sm text-muted-foreground ml-2 block mt-1">
-                正确日期格式示例: 2023-05-20 或 2023/05/20
-                </span>
-              </h4>
-            <div 
-              className="border rounded-md max-h-40 overflow-y-auto"
-              style={{ minHeight: '100px' }}
-            >
 
-				  #结束
+              {((importData.invalid.length > 0)) && (
+                <div className="mb-4">
+                  <h4 className="font-semibold mb-2">
+                    错误或重复记录（前 5 条）
+                    <span className="text-sm text-muted-foreground ml-2 block mt-1">
+                      正确日期格式示例: 2023-05-20 或 2023/05/20
+                    </span>
+                  </h4>
+                  <div className="border rounded-md max-h-40 overflow-y-auto" style={{ minHeight: '100px' }}>
                     <Table>
                       <TableHeader><TableRow><TableHead>行号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>错误原因</TableHead></TableRow></TableHeader>
                       <TableBody>
@@ -808,7 +1125,7 @@ export default function BusinessEntry() {
             <div className="py-4 space-y-4">
               <h3 className="font-semibold">正在逐条导入数据...</h3>
               <div ref={importLogRef} className="h-64 overflow-y-auto bg-gray-900 text-white font-mono text-xs p-4 rounded-md">
-                {importLogs.map((log, i) => <p key={i} className={log.includes('[错误]') ? 'text-red-400' : 'text-green-400'}>{log}</p>)}
+                {importLogs.map((log, i) => <p key={i} className={log.includes('错误') ? 'text-red-400' : 'text-green-400'}>{log}</p>)}
               </div>
               <div className="text-center pt-4">
                 <Button onClick={closeImportModal}>关闭</Button>
@@ -820,3 +1137,4 @@ export default function BusinessEntry() {
     </div>
   );
 }
+
