@@ -15,7 +15,6 @@ import { Download, FileDown, FileUp, PlusCircle, Edit, Trash2, Loader2 } from "l
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
-import { format } from 'date-fns';
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CreatableCombobox } from "@/components/CreatableCombobox";
 import { Progress } from "@/components/ui/progress";
@@ -51,40 +50,61 @@ const BLANK_FORM_DATA = {
   transport_type: "实际运输", extra_cost: null, payable_cost: null, remarks: ""
 };
 
+// ==============================================================================
+//  ** 关键修复：重写日期解析函数以强制忽略时区 **
+// ==============================================================================
 const parseExcelDate = (excelDate: any): string | null => {
-  if (!excelDate) return null;
-  
-  // 处理字符串类型的日期
-  if (typeof excelDate === 'string') {
-    // 处理形如 '2023-05-20' 的格式
-    if (/^\d{4}-\d{2}-\d{2}$/.test(excelDate)) {
-      return excelDate;
-    }
-    // 处理形如 '2023/05/20' 的格式
-    if (/^\d{4}\/\d{2}\/\d{2}$/.test(excelDate)) {
-      return excelDate.replace(/\//g, '-');
-    }
-  }
+  if (excelDate === null || excelDate === undefined || excelDate === '') return null;
  
-  // 处理Excel数字序列值
-  if (typeof excelDate === 'number') {
+  // **情况1：处理Excel的数字序列日期（如 45671）**
+  // 这是从Excel导入时的主要情况。
+  if (typeof excelDate === 'number' && excelDate > 0) {
+    // 这个公式将Excel的序列号转为JS的毫秒数。这个转换本身是基于UTC的，所以是安全的。
     const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+    // **关键：** 必须使用 getUTC* 系列方法来提取年月日，这样可以完全忽略本地时区的影响。
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     const day = String(date.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
  
-  // 处理Date对象
+  // **情况2：处理JavaScript的Date对象**
+  // 当使用了 `cellDates:true` 或者某些UI组件返回Date对象时，会进入这里。
+  // 这是一个主要的“时区陷阱”。
   if (excelDate instanceof Date) {
-    const year = excelDate.getUTCFullYear();
-    const month = String(excelDate.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(excelDate.getUTCDate()).padStart(2, '0');
+     // 为了修正时区问题，我们获取本地的年月日，因为这才是用户在日历上看到的真实日期。
+    const year = excelDate.getFullYear();
+    const month = String(excelDate.getMonth() + 1).padStart(2, '0');
+    const day = String(excelDate.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
  
+  // **情况3：处理字符串日期**
+  // 来自于手动输入或者已经格式化好的数据。
+  if (typeof excelDate === 'string') {
+    const dateStr = excelDate.split(' ')[0]; // 去掉可能存在的时间部分
+    // 如果是 YYYY-MM-DD 格式，直接返回
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr;
+    }
+    // 如果是 YYYY/MM/DD 格式，替换后返回
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr)) {
+      const parts = dateStr.split('/');
+      const year = parts[0];
+      const month = parts[1].padStart(2, '0');
+      const day = parts[2].padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  }
+ 
+  // 如果所有情况都不匹配，返回null
+  console.warn("无法解析的日期格式:", excelDate);
   return null;
 };
+// ==============================================================================
+// ** 修复结束 **
+// ==============================================================================
+
 
 // 4. 主组件定义
 export default function BusinessEntry() {
@@ -437,8 +457,8 @@ export default function BusinessEntry() {
       '司机电话': '', 
       '装货地点': '', 
       '卸货地点': '', 
-      '装货日期': '', 
-      '卸货日期': '', 
+      '装货日期': '2025/01/14', // 示例格式
+      '卸货日期': '2025/01/14', // 示例格式
       '运输类型': '实际运输', 
       '装货重量': '', 
       '卸货重量': '', 
@@ -462,10 +482,12 @@ export default function BusinessEntry() {
     reader.onload = async (e) => {
       try {
         const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        // **重要：设置`cellDates: false`，确保我们得到原始的数字或字符串，而不是被时区污染的Date对象**
+        const workbook = XLSX.read(data, { type: 'array', cellDates: false });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        // **重要：设置 `raw: false` 可以让库帮我们格式化一些值，但日期我们自己处理**
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
         setIsImportModalOpen(true);
         setImportStep('preprocessing');
@@ -480,6 +502,8 @@ export default function BusinessEntry() {
       }
     };
     reader.readAsArrayBuffer(file);
+    // 重置input，这样可以重复上传同一个文件
+    event.target.value = '';
   };
 
   const processDataInChunks = async (data: any[]) => {
@@ -502,7 +526,8 @@ export default function BusinessEntry() {
         }
 
         for (const row of chunk) {
-          const rowData = { ...row, originalRow: currentIndex + 2, error: '' };
+          const originalIndex = currentIndex;
+          const rowData = { ...row, originalRow: originalIndex + 2, error: '' };
           currentIndex++;
           
           try {
@@ -517,7 +542,7 @@ export default function BusinessEntry() {
             }
             
             if (!loadingDateFormatted) {
-              throw new Error("无效的装货日期格式（请使用YYYY-MM-DD或YYYY/MM/DD）");
+              throw new Error("无效的装货日期格式 (请使用 YYYY-MM-DD 或 YYYY/MM/DD)");
             }
 
             if (!projects.some(p => p.name === projectName)) {
@@ -546,8 +571,8 @@ export default function BusinessEntry() {
               uniqueKeys.add(uniqueKey);
               validRows.push({
                 ...rowData,
-                loading_date: loadingDateFormatted,
-                unloading_date: unloadingDateFormatted
+                loading_date_parsed: loadingDateFormatted,
+                unloading_date_parsed: unloadingDateFormatted
               });
             }
           } catch (err: any) {
@@ -582,10 +607,8 @@ export default function BusinessEntry() {
         driver_phone: rowData['司机电话']?.toString().trim() || null,
         loading_location: rowData['装货地点']?.trim(),
         unloading_location: rowData['卸货地点']?.trim(),
-        loading_date: parseExcelDate(rowData['装货日期']),
-        unloading_date: rowData['卸货日期'] ? 
-          parseExcelDate(rowData['卸货日期']) : 
-          parseExcelDate(rowData['装货日期']),
+        loading_date: rowData.loading_date_parsed,
+        unloading_date: rowData.unloading_date_parsed,
         loading_weight: rowData['装货重量'] ? parseFloat(rowData['装货重量']).toString() : null,
         unloading_weight: rowData['卸货重量'] ? parseFloat(rowData['卸货重量']).toString() : null,
         current_cost: rowData['运费金额'] ? parseFloat(rowData['运费金额']).toString() : '0',
@@ -746,18 +769,18 @@ export default function BusinessEntry() {
             {loading ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center h-24">
-                  <Loader2 className="h-6 w-6 animate-spin"/>
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto"/>
                 </TableCell>
               </TableRow>
             ) : records.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center">
+                <TableCell colSpan={10} className="text-center h-24">
                   没有找到匹配的记录
                 </TableCell>
               </TableRow>
             ) : (
               records.map((record) => (
-                <TableRow key={record.id} onClick={() => setViewingRecord(record)} className="cursor-pointer">
+                <TableRow key={record.id} onClick={() => setViewingRecord(record)} className="cursor-pointer hover:bg-muted/50">
                   <TableCell className="font-mono">{record.auto_number}</TableCell>
                   <TableCell>{record.project_name}</TableCell>
                   <TableCell>{record.chain_name || '默认'}</TableCell>
@@ -765,13 +788,13 @@ export default function BusinessEntry() {
                   <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
                   <TableCell>{record.loading_date}</TableCell>
                   <TableCell className="font-mono">
-                    {record.current_cost ? `¥${record.current_cost.toFixed(2)}` : '-'}
+                    {record.current_cost != null ? `¥${record.current_cost.toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell className="font-mono text-orange-600">
-                    {record.extra_cost ? `¥${record.extra_cost.toFixed(2)}` : '-'}
+                    {record.extra_cost != null ? `¥${record.extra_cost.toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell className="font-mono text-green-600 font-semibold">
-                    {record.payable_cost ? `¥${record.payable_cost.toFixed(2)}` : '-'}
+                    {record.payable_cost != null ? `¥${record.payable_cost.toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" size="icon" onClick={() => handleOpenModal(record)}>
@@ -779,7 +802,7 @@ export default function BusinessEntry() {
                     </Button>
                     <ConfirmDialog 
                       title="确认删除" 
-                      description={`您确定要删除运单 ${record.auto_number} 吗？`} 
+                      description={`您确定要删除运单 ${record.auto_number} 吗？此操作不可恢复。`} 
                       onConfirm={() => handleDelete(record.id)}
                     >
                       <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
@@ -802,7 +825,7 @@ export default function BusinessEntry() {
               variant="outline" 
               size="sm" 
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
-              disabled={currentPage <= 1}
+              disabled={currentPage <= 1 || loading}
             >
               上一页
             </Button>
@@ -817,7 +840,7 @@ export default function BusinessEntry() {
               variant="outline" 
               size="sm" 
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
-              disabled={currentPage >= totalPages}
+              disabled={currentPage >= totalPages || loading}
             >
               下一页
             </Button>
@@ -828,8 +851,8 @@ export default function BusinessEntry() {
       {/* 数据汇总栏 */}
       <div className="flex items-center justify-end space-x-6 rounded-lg border p-4 text-sm font-medium">
         <span>当前页合计:</span>
-        <span className="font-bold">装: <span className="text-primary">{summary.totalLoadingWeight.toFixed(1)}吨</span></span>
-        <span className="font-bold">卸: <span className="text-primary">{summary.totalUnloadingWeight.toFixed(1)}吨</span></span>
+        <span className="font-bold">装: <span className="text-primary">{summary.totalLoadingWeight.toFixed(2)}吨</span></span>
+        <span className="font-bold">卸: <span className="text-primary">{summary.totalUnloadingWeight.toFixed(2)}吨</span></span>
         <span className="font-bold">{summary.actualCount}实际 / {summary.returnCount}退货</span>
         <span>司机运费: <span className="font-bold text-primary">¥{summary.totalCurrentCost.toFixed(2)}</span></span>
         <span>额外费用: <span className="font-bold text-orange-600">¥{summary.totalExtraCost.toFixed(2)}</span></span>
@@ -847,7 +870,7 @@ export default function BusinessEntry() {
               <Label>项目 *</Label>
               <Select value={formData.project_id} onValueChange={(v) => handleInputChange('project_id', v)}>
                 <SelectTrigger>
-                  <SelectValue/>
+                  <SelectValue placeholder="请选择项目"/>
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map(p => (
@@ -877,7 +900,8 @@ export default function BusinessEntry() {
                 </SelectContent>
               </Select>
             </div>
-                        <div className="space-y-1">
+            
+            <div className="space-y-1">
               <Label>装货日期 *</Label>
               <Input 
                 type="date" 
@@ -1047,11 +1071,11 @@ export default function BusinessEntry() {
               <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
 
-              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono">{viewingRecord.extra_cost ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div>
-              <div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.payable_cost ? `¥${viewingRecord.payable_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost != null ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono text-orange-600">{viewingRecord.extra_cost != null ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.payable_cost != null ? `¥${viewingRecord.payable_cost.toFixed(2)}` : '-'}</p></div>
               
-              <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{viewingRecord.remarks || '无'}</p></div>
+              <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px] whitespace-pre-wrap">{viewingRecord.remarks || '无'}</p></div>
             </div>
           )}
           <div className="flex justify-end gap-2">
@@ -1098,7 +1122,7 @@ export default function BusinessEntry() {
                   <h4 className="font-semibold mb-2">
                     错误或重复记录（前 5 条）
                     <span className="text-sm text-muted-foreground ml-2 block mt-1">
-                      正确日期格式示例: 2023-05-20 或 2023/05/20
+                      正确日期格式示例: 2025-01-14 或 2025/01/14
                     </span>
                   </h4>
                   <div className="border rounded-md max-h-40 overflow-y-auto" style={{ minHeight: '100px' }}>
@@ -1106,11 +1130,11 @@ export default function BusinessEntry() {
                       <TableHeader><TableRow><TableHead>行号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>错误原因</TableHead></TableRow></TableHeader>
                       <TableBody>
                         {importData.invalid.slice(0, 5).map(row => (
-                          <TableRow key={row.originalRow} className="bg-red-50">
+                          <TableRow key={row.originalRow} className="bg-red-50 dark:bg-red-900/20">
                             <TableCell>{row.originalRow}</TableCell>
                             <TableCell>{row['项目名称']}</TableCell>
                             <TableCell>{row['司机姓名']}</TableCell>
-                            <TableCell className="text-red-700">{row.error}</TableCell>
+                            <TableCell className="text-red-700 dark:text-red-400">{row.error}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1125,7 +1149,7 @@ export default function BusinessEntry() {
             <div className="py-4 space-y-4">
               <h3 className="font-semibold">正在逐条导入数据...</h3>
               <div ref={importLogRef} className="h-64 overflow-y-auto bg-gray-900 text-white font-mono text-xs p-4 rounded-md">
-                {importLogs.map((log, i) => <p key={i} className={log.includes('错误') ? 'text-red-400' : 'text-green-400'}>{log}</p>)}
+                {importLogs.map((log, i) => <p key={i} className={log.includes('错误') ? 'text-red-400' : (log.includes('完成') ? 'text-blue-400' : 'text-green-400')}>{log}</p>)}
               </div>
               <div className="text-center pt-4">
                 <Button onClick={closeImportModal}>关闭</Button>
@@ -1137,4 +1161,3 @@ export default function BusinessEntry() {
     </div>
   );
 }
-
