@@ -1,15 +1,13 @@
-// --- 文件: src/pages/BusinessEntry.tsx (已修正) ---
+// --- 文件: src/pages/BusinessEntry.tsx (已全面修正依赖项) ---
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react"; // 引入 useCallback
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getColumns } from "@/components/columns";
 import { ShipmentTable } from "@/components/ShipmentTable";
 import { AddShipmentDialog } from "@/components/AddShipmentDialog";
 import { EditShipmentDialog } from "@/components/EditShipmentDialog";
-// 修正前: import { ConfirmDialog } from "@/components/ConfirmationDialog";
-// 修正后:
-import { ConfirmationDialog } from "@/components/ConfirmationDialog"; 
+import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { ShipmentDetailSheet } from "@/components/ShipmentDetailSheet";
 import { PlusCircle, ChevronsUpDown, Upload, Download, Trash2, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -20,8 +18,10 @@ import { RowSelectionState } from "@tanstack/react-table";
 import { ImportDataDialog } from "@/components/ImportDataDialog";
 
 export default function BusinessEntryPage() {
+  // =================================================================
+  // 1. 状态管理中心 (State Hub)
+  // =================================================================
   const [shipments, setShipments] = useState<LogisticsRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [filterText, setFilterText] = useState("");
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -34,11 +34,12 @@ export default function BusinessEntryPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedShipmentDetails, setSelectedShipmentDetails] = useState<FullShipmentDetails | null>(null);
 
+  // =================================================================
+  // 2. 数据处理与派生 (Data Processing & Derived State)
+  // =================================================================
   useEffect(() => {
-    setIsLoading(true);
     const data = getMockData(50);
     setShipments(data);
-    setIsLoading(false);
   }, []);
 
   const filteredData = useMemo(() => {
@@ -52,7 +53,11 @@ export default function BusinessEntryPage() {
 
   const selectedRowCount = Object.keys(rowSelection).length;
 
-  const handleSaveShipment = (newData: Partial<LogisticsRecord>) => {
+  // =================================================================
+  // 3. 核心业务逻辑处理 (使用 useCallback 优化)
+  // =================================================================
+
+  const handleSaveShipment = useCallback((newData: Partial<LogisticsRecord>) => {
     const newRecord: LogisticsRecord = {
         id: `SHIP_${Date.now()}`,
         transport_type: '公路',
@@ -64,9 +69,9 @@ export default function BusinessEntryPage() {
     } as LogisticsRecord;
     setShipments(prev => [newRecord, ...prev]);
     setIsAddDialogOpen(false);
-  };
+  }, []);
   
-  const handleConfirmImport = (importedData: Partial<LogisticsRecord>[]) => {
+  const handleConfirmImport = useCallback((importedData: Partial<LogisticsRecord>[]) => {
     const newRecords = importedData.map(item => ({
         id: `SHIP_${Date.now()}_${Math.random()}`,
         transport_type: '公路',
@@ -76,18 +81,17 @@ export default function BusinessEntryPage() {
         created_at: new Date().toISOString(),
         ...item
     })) as LogisticsRecord[];
-
     setShipments(prev => [...newRecords, ...prev]);
     setIsImportDialogOpen(false);
-  };
+  }, []);
 
-  const handleUpdateShipment = (updatedShipment: LogisticsRecord) => {
+  const handleUpdateShipment = useCallback((updatedShipment: LogisticsRecord) => {
     setShipments(prev => prev.map(s => s.id === updatedShipment.id ? updatedShipment : s));
     setIsEditDialogOpen(false);
     setEditingShipment(null);
-  };
+  }, []);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (deletingId) {
         setShipments(prev => prev.filter(s => s.id !== deletingId));
     }
@@ -98,15 +102,15 @@ export default function BusinessEntryPage() {
     }
     setIsConfirmDeleteDialogOpen(false);
     setDeletingId(null);
-  };
+  }, [deletingId, rowSelection, selectedRowCount]);
   
-  const openDeleteConfirmation = (id?: string) => {
+  const openDeleteConfirmation = useCallback((id?: string) => {
     if (id) setDeletingId(id);
     else setDeletingId(null);
     setIsConfirmDeleteDialogOpen(true);
-  };
+  }, []);
   
-  const handleViewDetails = async (shipment: LogisticsRecord) => {
+  const handleViewDetails = useCallback(async (shipment: LogisticsRecord) => {
     setIsDetailSheetOpen(true);
     setIsDetailLoading(true);
     setSelectedShipmentDetails(null);
@@ -118,17 +122,25 @@ export default function BusinessEntryPage() {
     } finally {
       setIsDetailLoading(false);
     }
-  };
+  }, []);
 
-  const columns = useMemo(() => getColumns({
-    onViewDetails: handleViewDetails,
-    onEdit: (shipment) => {
+  const handleEdit = useCallback((shipment: LogisticsRecord) => {
       setEditingShipment(shipment);
       setIsEditDialogOpen(true);
-    },
-    onDelete: (id) => openDeleteConfirmation(id),
-  }), []);
+  }, []);
 
+  // =================================================================
+  // 4. 列定义 (使用修正后的依赖项)
+  // =================================================================
+  const columns = useMemo(() => getColumns({
+    onViewDetails: handleViewDetails,
+    onEdit: handleEdit,
+    onDelete: openDeleteConfirmation,
+  }), [handleViewDetails, handleEdit, openDeleteConfirmation]);
+
+  // =================================================================
+  // 5. 渲染中心 (JSX Rendering)
+  // =================================================================
   return (
     <>
       <div className="container mx-auto py-10">
@@ -171,8 +183,6 @@ export default function BusinessEntryPage() {
       <EditShipmentDialog isOpen={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} onSave={handleUpdateShipment} shipment={editingShipment} />
       <ImportDataDialog isOpen={isImportDialogOpen} onClose={() => setIsImportDialogOpen(false)} onConfirmImport={handleConfirmImport} />
       <ShipmentDetailSheet isOpen={isDetailSheetOpen} onClose={() => setIsDetailSheetOpen(false)} shipmentDetails={selectedShipmentDetails} isLoading={isDetailLoading} />
-      {/* 修正前: <ConfirmDialog ... /> */}
-      {/* 修正后: */}
       <ConfirmationDialog
         isOpen={isConfirmDeleteDialogOpen}
         onClose={() => setIsConfirmDeleteDialogOpen(false)}
