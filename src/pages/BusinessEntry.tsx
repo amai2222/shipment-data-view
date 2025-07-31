@@ -1,4 +1,4 @@
-// --- 文件: src/pages/BusinessEntry.tsx ---
+// --- 文件: src/pages/BusinessEntry.tsx (已修正) ---
 
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,9 @@ import { getColumns } from "@/components/columns";
 import { ShipmentTable } from "@/components/ShipmentTable";
 import { AddShipmentDialog } from "@/components/AddShipmentDialog";
 import { EditShipmentDialog } from "@/components/EditShipmentDialog";
-import { ConfirmationDialog } from "@/components/ConfirmationDialog";
+// 修正前: import { ConfirmDialog } from "@/components/ConfirmationDialog";
+// 修正后:
+import { ConfirmationDialog } from "@/components/ConfirmationDialog"; 
 import { ShipmentDetailSheet } from "@/components/ShipmentDetailSheet";
 import { PlusCircle, ChevronsUpDown, Upload, Download, Trash2, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -18,30 +20,20 @@ import { RowSelectionState } from "@tanstack/react-table";
 import { ImportDataDialog } from "@/components/ImportDataDialog";
 
 export default function BusinessEntryPage() {
-  // =================================================================
-  // 1. 状态管理中心 (State Hub)
-  // =================================================================
   const [shipments, setShipments] = useState<LogisticsRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filterText, setFilterText] = useState("");
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-
-  // 对话框与抽屉面板状态
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isConfirmDeleteDialogOpen, setIsConfirmDeleteDialogOpen] = useState(false);
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
-
-  // 操作目标状态
   const [editingShipment, setEditingShipment] = useState<LogisticsRecord | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedShipmentDetails, setSelectedShipmentDetails] = useState<FullShipmentDetails | null>(null);
 
-  // =================================================================
-  // 2. 数据处理与派生 (Data Processing & Derived State)
-  // =================================================================
   useEffect(() => {
     setIsLoading(true);
     const data = getMockData(50);
@@ -59,10 +51,6 @@ export default function BusinessEntryPage() {
   }, [shipments, filterText]);
 
   const selectedRowCount = Object.keys(rowSelection).length;
-
-  // =================================================================
-  // 3. 核心业务逻辑处理 (Business Logic Handlers)
-  // =================================================================
 
   const handleSaveShipment = (newData: Partial<LogisticsRecord>) => {
     const newRecord: LogisticsRecord = {
@@ -132,9 +120,6 @@ export default function BusinessEntryPage() {
     }
   };
 
-  // =================================================================
-  // 4. 列定义 (Column Definitions)
-  // =================================================================
   const columns = useMemo(() => getColumns({
     onViewDetails: handleViewDetails,
     onEdit: (shipment) => {
@@ -144,9 +129,6 @@ export default function BusinessEntryPage() {
     onDelete: (id) => openDeleteConfirmation(id),
   }), []);
 
-  // =================================================================
-  // 5. 渲染中心 (JSX Rendering)
-  // =================================================================
   return (
     <>
       <div className="container mx-auto py-10">
@@ -189,6 +171,8 @@ export default function BusinessEntryPage() {
       <EditShipmentDialog isOpen={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} onSave={handleUpdateShipment} shipment={editingShipment} />
       <ImportDataDialog isOpen={isImportDialogOpen} onClose={() => setIsImportDialogOpen(false)} onConfirmImport={handleConfirmImport} />
       <ShipmentDetailSheet isOpen={isDetailSheetOpen} onClose={() => setIsDetailSheetOpen(false)} shipmentDetails={selectedShipmentDetails} isLoading={isDetailLoading} />
+      {/* 修正前: <ConfirmDialog ... /> */}
+      {/* 修正后: */}
       <ConfirmationDialog
         isOpen={isConfirmDeleteDialogOpen}
         onClose={() => setIsConfirmDeleteDialogOpen(false)}
