@@ -11,7 +11,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { supabase } from '@/integrations/supabase/client';
 import { Partner } from '@/types';
 import { Trash2, Edit, Plus, Download, Upload } from 'lucide-react';
-import { FilterableDataTable } from "@/components/FilterableDataTable";
 import * as XLSX from 'xlsx';
 
 // 扩展 Partner 类型，使其可以直接包含项目列表
