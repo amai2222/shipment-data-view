@@ -58,31 +58,42 @@ const BLANK_FORM_DATA = {
 // 它会智能地处理从Excel中读取的日期，忽略掉所有讨厌的时区问题，
 // 确保“2025-1-14”在任何情况下，都被正确地理解为“2025-01-14”。
 // ====================================================================
-const safeFormatExcelDate = (excelDate: any): string | null => {
+// 添加到常量定义区域
+const parseExcelDate = (excelDate: any): string | null => {
   if (!excelDate) return null;
-
-  // 检查是否是有效的日期对象
-  if (excelDate instanceof Date && isValid(excelDate)) {
-    // 为了防止时区问题，我们手动从日期对象中提取年、月、日，然后自己拼接成字符串
-    const year = excelDate.getFullYear();
-    const month = excelDate.getMonth() + 1; // getMonth() 是从0开始的 (0=一月, 1=二月, ...)
-    const day = excelDate.getDate();
-    
-    // 确保月份和日期是两位数 (例如：01, 09)
-    const monthStr = String(month).padStart(2, '0');
-    const dayStr = String(day).padStart(2, '0');
-    
-    return `${year}-${monthStr}-${dayStr}`;
-  }
   
-  // 如果它本身就是一个符合格式的字符串，直接返回
-  if (typeof excelDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(excelDate)) {
-    return excelDate;
+  // 处理字符串类型的日期（直接从Excel读取的可能格式）
+  if (typeof excelDate === 'string') {
+    // 处理形如 '2023-05-20' 的格式
+    if (/^\d{4}-\d{2}-\d{2}$/.test(excelDate)) {
+      return excelDate;
+    }
+    // 处理形如 '2023/05/20' 的格式
+    if (/^\d{4}\/\d{2}\/\d{2}$/.test(excelDate)) {
+      return excelDate.replace(/\//g, '-');
+    }
   }
-
-  // 如果以上都不是，说明格式有问题，返回null
+ 
+  // 处理Excel数字序列值（Excel内部存储方式）
+  if (typeof excelDate === 'number') {
+    const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+ 
+  // 处理Date对象（xlsx库自动转换的结果）
+  if (excelDate instanceof Date) {
+    // 采用UTC时间绕过时区问题
+    const year = excelDate.getUTCFullYear();
+    const month = String(excelDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(excelDate.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+ 
   return null;
-}
+};
 // ====================================================================
 // 【核心修复】高亮结束
 // ====================================================================
@@ -305,7 +316,7 @@ export default function BusinessEntry() {
     // 【核心修复】高亮开始
     // 原因：这里我们用全新的“日期校准器”来处理日期，彻底解决“时差”问题。
     // ====================================================================
-      p_loading_date: safeFormatExcelDate(formData.loading_date),
+      p_loading_date: safeFormatExcelDatesafeFormatExcelDate(formData.loading_date),
       p_unloading_date: safeFormatExcelDate(formData.unloading_date) || safeFormatExcelDate(formData.loading_date),
     // ====================================================================
     // 【核心修复】高亮结束
@@ -456,15 +467,27 @@ export default function BusinessEntry() {
             const driverName = rowData['司机姓名']?.trim();
             const loadingLocation = rowData['装货地点']?.trim();
             const unloadingLocation = rowData['卸货地点']?.trim();
-            const loadingDateRaw = rowData['装货日期'];
+            
             const loadingWeight = parseFloat(rowData['装货重量']) || 0;
             const unloadingWeight = parseFloat(rowData['卸货重量']) || 0;
 
             if (!projectName || !driverName || !loadingLocation || !unloadingLocation || !loadingDateRaw) {
                 throw new Error("缺少必填字段（项目/司机/地点/装货日期）");
             }
-            if (!(loadingDateRaw instanceof Date && isValid(loadingDateRaw))) {
-                throw new Error("“装货日期”格式不正确");
+			
+			const loadingDateFormatted = parseExcelDate(rowData['装货日期']);
+            if (!loadingDateFormatted) {
+                throw new Error("无效的装货日期格式");
+}
+ 
+            const unloadingDateFormatted = rowData['卸货日期'] ? 
+                parseExcelDate(rowData['卸货日期']) : 
+                loadingDateFormatted;
+ 
+             // 验证日期格式
+			 
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(loadingDateFormatted)) {
+                throw new Error("装货日期格式不正确，应为YYYY-MM-DD");
             }
             if (!projects.some(p => p.name === projectName)) {
                 throw new Error(`项目 "${projectName}" 不存在`);
@@ -516,8 +539,10 @@ export default function BusinessEntry() {
         driver_phone: rowData['司机电话']?.toString().trim() || null,
         loading_location: rowData['装货地点']?.trim(),
         unloading_location: rowData['卸货地点']?.trim(),
-        loading_date: format(new Date(rowData['装货日期']), 'yyyy-MM-dd'),
-        unloading_date: rowData['卸货日期'] ? format(new Date(rowData['卸货日期']), 'yyyy-MM-dd') : format(new Date(rowData['装货日期']), 'yyyy-MM-dd'),
+        loading_date: parseExcelDate(rowData['装货日期']),
+        unloading_date: rowData['卸货日期'] ? 
+            parseExcelDate(rowData['卸货日期']) : 
+            parseExcelDate(rowData['装货日期']),
         loading_weight: rowData['装货重量'] ? parseFloat(rowData['装货重量']).toString() : null,
         unloading_weight: rowData['卸货重量'] ? parseFloat(rowData['卸货重量']).toString() : null,
         current_cost: rowData['运费金额'] ? parseFloat(rowData['运费金额']).toString() : '0',
@@ -745,10 +770,21 @@ export default function BusinessEntry() {
                   </Button>
                 </div>
               </div>
-              {(importData.invalid.length > 0) && (
-                <div className="mb-4">
-                  <h4 className="font-semibold mb-2">错误与重复记录预览 (最多显示5条)</h4>
-                  <div className="border rounded-md max-h-40 overflow-y-auto">
+			  #开始
+          {(importData.invalid.length > 0) && (
+            <div className="mb-4">
+              <h4 className="font-semibold mb-2">
+                错误记录（共 {importData.invalid.length} 条）
+                <span className="text-sm text-muted-foreground ml-2 block mt-1">
+                正确日期格式示例: 2023-05-20 或 2023/05/20
+                </span>
+              </h4>
+            <div 
+              className="border rounded-md max-h-40 overflow-y-auto"
+              style={{ minHeight: '100px' }}
+            >
+
+				  #结束
                     <Table>
                       <TableHeader><TableRow><TableHead>行号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>错误原因</TableHead></TableRow></TableHeader>
                       <TableBody>
