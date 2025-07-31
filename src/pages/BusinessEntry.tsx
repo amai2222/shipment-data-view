@@ -471,7 +471,7 @@ export default function BusinessEntry() {
             const loadingWeight = parseFloat(rowData['装货重量']) || 0;
             const unloadingWeight = parseFloat(rowData['卸货重量']) || 0;
 
-            if (!projectName || !driverName || !loadingLocation || !unloadingLocation || !loadingDateRaw) {
+            if (!projectName || !driverName || !loadingLocation || !unloadingLocation || !loadingDateFormatted) {
                 throw new Error("缺少必填字段（项目/司机/地点/装货日期）");
             }
 			
@@ -493,7 +493,7 @@ export default function BusinessEntry() {
                 throw new Error(`项目 "${projectName}" 不存在`);
                     }
 
-            const uniqueKey = `${projectName}-${driverName}-${loadingLocation}-${unloadingLocation}-${format(loadingDateRaw, 'yyyy-MM-dd')}-${loadingWeight}-${unloadingWeight}`;
+            const uniqueKey = `${projectName}-${driverName}-${loadingLocation}-${unloadingLocation}-${format(loadingDateFormatted, 'yyyy-MM-dd')}-${loadingWeight}-${unloadingWeight}`;
             // ====================================================================
             // 【核心修复】高亮结束
             // ====================================================================
