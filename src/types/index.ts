@@ -120,3 +120,30 @@ export interface DailyCostStats {
   date: string;
   totalCost: number;
 }
+
+//新增
+
+export type FinancialEntry = {
+    id: string;
+    type: '运费' | '加急费' | '压车费' | '保险费';
+    amount: number;
+    status: '待支付' | '已支付' | '审核中';
+    transaction_date: string;
+};
+
+export type ShipmentEvent = {
+    id: string;
+    timestamp: string;
+    status: '已创建' | '已派车' | '运输中' | '已送达' | '异常';
+    description: string;
+};
+
+export type FullShipmentDetails = {
+    baseInfo: LogisticsRecord;
+    financials: FinancialEntry[];
+    events: ShipmentEvent[];
+    documents?: {
+        podUrl?: string;
+        invoiceUrl?: string;
+    }
+};

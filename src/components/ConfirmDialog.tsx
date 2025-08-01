@@ -1,40 +1,37 @@
+// --- 文件: src/components/ConfirmationDialog.tsx ---
+
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
-import React from "react";
+import { Button } from "./ui/button";
 
-interface ConfirmDialogProps {
-  children: React.ReactNode;
+interface ConfirmationDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
   title: string;
   description: string;
-  onConfirm: () => void;
 }
 
-export function ConfirmDialog({
-  children,
-  title,
-  description,
-  onConfirm,
-}: ConfirmDialogProps) {
+export function ConfirmationDialog({ isOpen, onClose, onConfirm, title, description }: ConfirmationDialogProps) {
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+    <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>确认</AlertDialogAction>
+          <AlertDialogCancel onClick={onClose}>取消</AlertDialogCancel>
+          <Button variant="destructive" onClick={onConfirm}>
+            确认删除
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
