@@ -1,8 +1,10 @@
+// 文件路径: src/components/business/BusinessEntryImportModal.tsx
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, FileUp, AlertCircle, CheckCircle } from "lucide-react";
-//【关键改动 1/4】导入 useRef 和 RefObject
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, FileUp, AlertCircle, CheckCircle, AlertTriangle } from "lucide-react";
 import { useRef, RefObject } from "react";
 
 interface BusinessEntryImportModalProps {
@@ -13,13 +15,15 @@ interface BusinessEntryImportModalProps {
   importData: {
     valid: any[];
     invalid: any[];
-    duplicateCount: number;
+    duplicates: any[];
   };
   importLogs: string[];
   importLogRef: RefObject<HTMLDivElement>;
   onFileUpload: (file: File) => void;
   onStartImport: () => void;
   isImporting: boolean;
+  forceImportDuplicates: boolean;
+  onForceImportDuplicatesChange: (checked: boolean) => void;
 }
 
 export function BusinessEntryImportModal({
@@ -32,27 +36,25 @@ export function BusinessEntryImportModal({
   importLogRef,
   onFileUpload,
   onStartImport,
-  isImporting
+  isImporting,
+  forceImportDuplicates,
+  onForceImportDuplicatesChange
 }: BusinessEntryImportModalProps) {
-  //【关键改动 2/4】创建对隐藏文件输入框的引用(Ref)
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       onFileUpload(file);
-      // 清空值，以便下次可以上传同一个文件
-      if(e.target) {
-        e.target.value = '';
-      }
+      if(e.target) e.target.value = '';
     }
   };
 
-  //【关键改动 3/4】创建一个新的点击处理函数，用于我们的可见按钮
   const handleSelectFileClick = () => {
-    // 这行代码会以编程方式“点击”那个被我们隐藏的输入框
     fileInputRef.current?.click();
   };
+
+  const totalToImport = importData.valid.length + (forceImportDuplicates ? importData.duplicates.length : 0);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -61,15 +63,12 @@ export function BusinessEntryImportModal({
           <DialogTitle>数据导入</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 py-4">
           {importStep === 'idle' && (
             <div className="text-center space-y-4">
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8">
                 <FileUp className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-4">选择要导入的Excel文件</p>
-                
-                {/*【关键改动 4/4】修改 JSX 结构 */}
-                {/* 1. 将 Ref 附加到 input 元素上。使用 style 隐藏它比 className 更可靠。 */}
                 <input
                   type="file"
                   accept=".xlsx,.xls"
@@ -77,7 +76,6 @@ export function BusinessEntryImportModal({
                   ref={fileInputRef}
                   style={{ display: 'none' }} 
                 />
-                {/* 2. 移除 <label> 包装器，直接将新的点击处理函数绑定到 Button 上。 */}
                 <Button type="button" onClick={handleSelectFileClick}>
                   选择文件
                 </Button>
@@ -89,71 +87,83 @@ export function BusinessEntryImportModal({
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>正在预处理数据与解析文件...</span>
+                <span>正在安全解析文件并与数据库预校验...</span>
               </div>
               <Progress value={preprocessingProgress} className="w-full" />
             </div>
           )}
-          
-          {/* preview 和 processing 部分没有变化 */}
+
           {importStep === 'preview' && (
-              <div className="space-y-4">
+            <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-green-50 p-4 rounded-lg">
+                <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
                   <div className="flex items-center space-x-2">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                      <span className="font-semibold text-green-800">有效记录</span>
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <span className="font-semibold text-green-800">新记录</span>
                   </div>
                   <div className="text-2xl font-bold text-green-600">{importData.valid.length}</div>
-                  </div>
-                  
-                  <div className="bg-red-50 p-4 rounded-lg">
+                  <p className="text-xs text-green-700">可直接导入</p>
+                </div>
+                
+                <div className="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500">
                   <div className="flex items-center space-x-2">
-                      <AlertCircle className="h-5 w-5 text-red-600" />
-                      <span className="font-semibold text-red-800">无效/错误记录</span>
+                    <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                    <span className="font-semibold text-yellow-800">数据库已存在</span>
+                  </div>
+                  <div className="text-2xl font-bold text-yellow-600">{importData.duplicates.length}</div>
+                   <p className="text-xs text-yellow-700">可选择性强制导入</p>
+                </div>
+
+                <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
+                  <div className="flex items-center space-x-2">
+                    <AlertCircle className="h-5 w-5 text-red-600" />
+                    <span className="font-semibold text-red-800">格式错误</span>
                   </div>
                   <div className="text-2xl font-bold text-red-600">{importData.invalid.length}</div>
-                  </div>
-                  
-                  <div className="bg-orange-50 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                      <AlertCircle className="h-5 w-5 text-orange-600" />
-                      <span className="font-semibold text-orange-800">文件内重复</span>
-                  </div>
-                  <div className="text-2xl font-bold text-orange-600">{importData.duplicateCount}</div>
-                  </div>
+                  <p className="text-xs text-red-700">将被忽略，无法导入</p>
+                </div>
               </div>
 
-              {importData.invalid.length > 0 && (
-                  <div className="space-y-2">
-                  <h4 className="font-semibold text-red-800">错误记录详情 (仅显示部分):</h4>
-                  <div className="max-h-40 overflow-y-auto border rounded p-2 bg-red-50 text-xs font-mono">
-                      {importData.invalid.slice(0, 10).map((row, index) => (
-                      <div key={index}>
-                          原表格第 {row.originalRow} 行: {row.error}
-                      </div>
-                      ))}
-                  </div>
-                  </div>
+              {importData.duplicates.length > 0 && (
+                <div className="flex items-center space-x-3 my-4 p-4 bg-yellow-50/50 border border-yellow-200 rounded-lg">
+                  <Checkbox
+                    id="force-import"
+                    checked={forceImportDuplicates}
+                    onCheckedChange={onForceImportDuplicatesChange}
+                  />
+                  <label htmlFor="force-import" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    同时导入这 {importData.duplicates.length} 条已存在的记录（不推荐）
+                  </label>
+                </div>
               )}
 
-              <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={onClose} disabled={isImporting}>取消</Button>
-                  <Button 
+              {importData.invalid.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-red-800">格式错误详情 (仅显示前 10 条):</h4>
+                  <div className="max-h-40 overflow-y-auto border rounded p-2 bg-red-50/50 font-mono text-xs">
+                    {importData.invalid.slice(0, 10).map((item, index) => (
+                      <div key={index} className="text-red-700">
+                        文件第 {item.originalRow} 行: {item.error}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={onClose}>取消</Button>
+                <Button 
                   onClick={onStartImport}
-                  disabled={importData.valid.length === 0 || isImporting}
-                  >
+                  disabled={totalToImport === 0 || isImporting}
+                >
                   {isImporting ? (
-                      <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      导入中...
-                      </>
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> 导入中...</>
                   ) : (
-                      `确认导入 ${importData.valid.length} 条记录`
+                    `确认导入 ${totalToImport} 条记录`
                   )}
-                  </Button>
+                </Button>
               </div>
-              </div>
+            </div>
           )}
 
           {importStep === 'processing' && (
@@ -162,17 +172,15 @@ export function BusinessEntryImportModal({
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>正在执行批量导入...</span>
               </div>
-              
               <div 
                 ref={importLogRef}
                 className="bg-gray-900 text-white p-4 rounded-lg max-h-60 overflow-y-auto font-mono text-xs"
               >
                 {importLogs.map((log, index) => (
-                  <div key={index} className="whitespace-pre-wrap">
-                    {log}
-                  </div>
+                  <div key={index} className="whitespace-pre-wrap">{log}</div>
                 ))}
               </div>
+              <Button onClick={onClose} className="w-full">完成</Button>
             </div>
           )}
         </div>
@@ -180,3 +188,4 @@ export function BusinessEntryImportModal({
     </Dialog>
   );
 }
+
