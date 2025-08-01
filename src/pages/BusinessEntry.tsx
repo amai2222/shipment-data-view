@@ -696,7 +696,7 @@ export default function BusinessEntry() {
         importData={importData}
         importLogs={importLogs}
         importLogRef={importLogRef}
-        onFileUpload={handleFileUpload}
+        onFileUpload={handleExcelImport}
         onStartImport={startActualImport}
         isImporting={isImporting}
       />
