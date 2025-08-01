@@ -49,6 +49,7 @@ export default function Projects() {
   const [editingProject, setEditingProject] = useState<ProjectWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({
     name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "",
   });
@@ -83,6 +84,19 @@ export default function Projects() {
       setIsLoading(false);
     }
   }, [toast]);
+
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return projects;
+    
+    const query = searchQuery.toLowerCase();
+    return projects.filter(project => 
+      project.name.toLowerCase().includes(query) ||
+      project.manager.toLowerCase().includes(query) ||
+      project.loadingAddress.toLowerCase().includes(query) ||
+      project.unloadingAddress.toLowerCase().includes(query) ||
+      (project.autoCode && project.autoCode.toLowerCase().includes(query))
+    );
+  }, [projects, searchQuery]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -255,20 +269,6 @@ export default function Projects() {
     );
   }
 
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const filteredProjects = useMemo(() => {
-    if (!searchQuery.trim()) return projects;
-    
-    const query = searchQuery.toLowerCase();
-    return projects.filter(project => 
-      project.name.toLowerCase().includes(query) ||
-      project.manager.toLowerCase().includes(query) ||
-      project.loadingAddress.toLowerCase().includes(query) ||
-      project.unloadingAddress.toLowerCase().includes(query) ||
-      (project.autoCode && project.autoCode.toLowerCase().includes(query))
-    );
-  }, [projects, searchQuery]);
 
   return (
     <div className="space-y-8">
