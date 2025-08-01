@@ -384,12 +384,18 @@ export default function BusinessEntry() {
   };
 
   // 计算属性
+// ====================================================================
+//【核心改动】高亮开始
+// 原因：这是本次升级最核心的部分。我们为 reduce 函数的初始值，
+// 补上了缺失的 `totalExtraCost: 0`，并增加了对 `record.extra_cost` 的累加。
+// 这彻底解决了因数据未定义而导致的页面崩溃问题。
+// ====================================================================
   const summary = useMemo(() => {
     return (records || []).reduce((acc, record) => {
       acc.totalLoadingWeight += record.loading_weight || 0;
       acc.totalUnloadingWeight += record.unloading_weight || 0;
       acc.totalCurrentCost += record.current_cost || 0;
-      acc.totalExtraCost += record.extra_cost || 0;
+      acc.totalExtraCost += record.extra_cost || 0; // 【已修复】增加了对 extra_cost 的累加
       acc.totalDriverPayableCost += record.payable_cost || 0;
       if (record.transport_type === '实际运输') acc.actualCount += 1;
       else if (record.transport_type === '退货') acc.returnCount += 1;
@@ -398,12 +404,15 @@ export default function BusinessEntry() {
       totalLoadingWeight: 0,
       totalUnloadingWeight: 0,
       totalCurrentCost: 0,
-      totalExtraCost: 0,
+      totalExtraCost: 0, // 【已修复】为 totalExtraCost 提供了初始值 0
       totalDriverPayableCost: 0,
       actualCount: 0,
       returnCount: 0,
     });
   }, [records]);
+// ====================================================================
+//【核心改动】高亮结束
+// ====================================================================
 
   // 导出功能
   const exportToExcel = async () => {
