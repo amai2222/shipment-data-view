@@ -27,6 +27,7 @@ import { format, isValid } from 'date-fns';
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CreatableCombobox } from "@/components/CreatableCombobox";
 import { Progress } from "@/components/ui/progress";
+import { BusinessEntryImportModal } from "@/components/business-entry/BusinessEntryImportModal"; // 【核心修复】引入了全新的导入组件
 
 // 2. TypeScript 类型定义，确保数据安全
 // 运单记录的完整结构
