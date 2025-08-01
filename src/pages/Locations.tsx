@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, MapPin, Upload, Download, Search } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, Upload, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SupabaseStorage } from "@/utils/supabase";
@@ -19,7 +19,6 @@ export default function Locations() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -220,15 +219,6 @@ export default function Locations() {
     }
   };
 
-  const filteredLocations = useMemo(() => {
-    if (!searchQuery.trim()) return locations;
-    
-    const query = searchQuery.toLowerCase();
-    return locations.filter(location => 
-      location.name.toLowerCase().includes(query)
-    );
-  }, [locations, searchQuery]);
-
   return (
     <div className="space-y-8">
       {/* 页面标题 */}
@@ -320,18 +310,7 @@ export default function Locations() {
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <CardTitle>地点列表 ({filteredLocations.length} / {locations.length})</CardTitle>
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="搜索地点名称..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
+            <CardTitle>地点列表 ({locations.length} 个地点)</CardTitle>
             <div className="flex space-x-2">
               <input
                 ref={fileInputRef}
@@ -370,8 +349,8 @@ export default function Locations() {
                    <TableHead>操作</TableHead>
                  </TableRow>
               </TableHeader>
-               <TableBody>
-                 {filteredLocations.map((location) => (
+              <TableBody>
+                {locations.map((location) => (
                    <TableRow key={location.id}>
                      <TableCell className="font-medium">{location.name}</TableCell>
                      <TableCell>
@@ -401,22 +380,15 @@ export default function Locations() {
                         </ConfirmDialog>
                       </div>
                     </TableCell>
+                  </TableRow>
+                ))}
+                 {locations.length === 0 && (
+                   <TableRow>
+                     <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                       暂无地点数据
+                     </TableCell>
                    </TableRow>
-                 ))}
-                  {filteredLocations.length === 0 && locations.length > 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                        未找到匹配的地点
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {locations.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                        暂无地点数据
-                      </TableCell>
-                    </TableRow>
-                  )}
+                 )}
               </TableBody>
             </Table>
           </div>
