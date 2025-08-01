@@ -52,31 +52,42 @@ const BLANK_FORM_DATA = {
 
 // ==============================================================================
 //  ** 关键修复：重写日期解析函数以强制忽略时区 **
-//  这个函数用于处理导入的Excel数据，非常重要，保持不变。
 // ==============================================================================
 const parseExcelDate = (excelDate: any): string | null => {
   if (excelDate === null || excelDate === undefined || excelDate === '') return null;
  
+  // **情况1：处理Excel的数字序列日期（如 45671）**
+  // 这是从Excel导入时的主要情况。
   if (typeof excelDate === 'number' && excelDate > 0) {
+    // 这个公式将Excel的序列号转为JS的毫秒数。这个转换本身是基于UTC的，所以是安全的。
     const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+    // **关键：** 必须使用 getUTC* 系列方法来提取年月日，这样可以完全忽略本地时区的影响。
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     const day = String(date.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
  
+  // **情况2：处理JavaScript的Date对象**
+  // 当使用了 `cellDates:true` 或者某些UI组件返回Date对象时，会进入这里。
+  // 这是一个主要的“时区陷阱”。
   if (excelDate instanceof Date) {
+     // 为了修正时区问题，我们获取本地的年月日，因为这才是用户在日历上看到的真实日期。
     const year = excelDate.getFullYear();
     const month = String(excelDate.getMonth() + 1).padStart(2, '0');
     const day = String(excelDate.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
  
+  // **情况3：处理字符串日期**
+  // 来自于手动输入或者已经格式化好的数据。
   if (typeof excelDate === 'string') {
-    const dateStr = excelDate.split(' ')[0];
+    const dateStr = excelDate.split(' ')[0]; // 去掉可能存在的时间部分
+    // 如果是 YYYY-MM-DD 格式，直接返回
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       return dateStr;
     }
+    // 如果是 YYYY/MM/DD 格式，替换后返回
     if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr)) {
       const parts = dateStr.split('/');
       const year = parts[0];
@@ -86,25 +97,13 @@ const parseExcelDate = (excelDate: any): string | null => {
     }
   }
  
+  // 如果所有情况都不匹配，返回null
   console.warn("无法解析的日期格式:", excelDate);
   return null;
 };
-
 // ==============================================================================
-//  ** [新增] 用于显示的日期格式化函数 **
-//  这个函数负责将从数据库获取的完整时间戳字符串（如 '2023-10-27T15:30:00+08:00'），
-//  格式化为用户友好的 YYYY-MM-DD 格式。这是解决显示问题的核心。
+// ** 修复结束 **
 // ==============================================================================
-const formatDateForDisplay = (dateString: string | null | undefined): string => {
-  // 如果日期不存在或为空，返回一个统一的占位符，增强UI一致性。
-  if (!dateString) {
-    return '未填写';
-  }
-  // 数据库返回的格式为 'YYYY-MM-DDTHH:mm:ss...'，我们只需要日期部分。
-  // 使用 split('T') 是最安全、最简单的方式，它能精确截取日期，
-  // 完美避免了使用 new Date() 可能带来的、复杂的时区转换问题。
-  return dateString.split('T')[0];
-};
 
 
 // 4. 主组件定义
@@ -483,9 +482,11 @@ export default function BusinessEntry() {
     reader.onload = async (e) => {
       try {
         const data = e.target?.result;
+        // **重要：设置`cellDates: false`，确保我们得到原始的数字或字符串，而不是被时区污染的Date对象**
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
+        // **重要：设置 `raw: false` 可以让库帮我们格式化一些值，但日期我们自己处理**
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
         setIsImportModalOpen(true);
@@ -501,6 +502,7 @@ export default function BusinessEntry() {
       }
     };
     reader.readAsArrayBuffer(file);
+    // 重置input，这样可以重复上传同一个文件
     event.target.value = '';
   };
 
@@ -784,14 +786,7 @@ export default function BusinessEntry() {
                   <TableCell>{record.chain_name || '默认'}</TableCell>
                   <TableCell>{record.driver_name}</TableCell>
                   <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
-                  <TableCell>
-                    {/* 
-                      [修改] 原代码: {record.loading_date} 
-                      这会直接显示数据库返回的完整ISO字符串（如 2023-10-27T10:00:00+00:00），
-                      用户体验不佳。现在我们使用新增的 formatDateForDisplay 函数进行格式化。
-                    */}
-                    {formatDateForDisplay(record.loading_date)}
-                  </TableCell>
+                  <TableCell>{record.loading_date}</TableCell>
                   <TableCell className="font-mono">
                     {record.current_cost != null ? `¥${record.current_cost.toFixed(2)}` : '-'}
                   </TableCell>
@@ -1063,19 +1058,8 @@ export default function BusinessEntry() {
             <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
               <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">装货日期</Label>
-                {/* 
-                  [修改] 同样地，在详情弹窗中也应用格式化函数，
-                  以保证整个应用中日期显示风格的一致性。
-                */}
-                <p>{formatDateForDisplay(viewingRecord.loading_date)}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">卸货日期</Label>
-                {/* [修改] 应用格式化函数 */}
-                <p>{formatDateForDisplay(viewingRecord.unloading_date)}</p>
-              </div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date || '未填写'}</p></div>
 
               <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
