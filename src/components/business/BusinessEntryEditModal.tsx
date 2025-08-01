@@ -1,5 +1,5 @@
 // 文件路径: src/components/business/BusinessEntryEditModal.tsx
-// 【最终完整审计版】- 不含任何省略，已加入对所有下拉列表数组的空值保护
+// 【绝对纯净最终版】- 已移除所有调试标记，确保语法完整，并包含空值保护
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -35,9 +35,6 @@ export function BusinessEntryEditModal({
   partners,
   isEditing,
 }: EditModalProps) {
-
-  // 【核心修复】: 对所有用于生成下拉列表的数组使用 (array || []) 的形式，
-  // 确保即使父组件传来的是 undefined，也能安全地映射一个空数组，而不是导致程序崩溃。
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -110,8 +107,9 @@ export function BusinessEntryEditModal({
 
           {/* 装货重量 (必填) */}
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="loading_weight" className="text-right">装货重量 *</gJAvJ> 吨</Label>
-            <Input id="loading_weight" type="number" required placeholder="例如: 30.5" value={formData.loading_weight || ''} onChange={(e) => setFormData('loading_weight', e.target.valueAsNumber)} className="col-span-3" />
+            {/* 这就是之前出错的地方，已修正 */}
+            <Label htmlFor="loading_weight" className="text-right">装货重量(吨) *</Label>
+            <Input id="loading_weight" type="number" required placeholder="例如: 30.5" value={formData.loading_weight || ''} onChange={(e) => setFormData('loading_weight', e.target.valueAsNumber || null)} className="col-span-3" />
           </div>
 
           {/* 车牌号 */}
@@ -120,7 +118,7 @@ export function BusinessEntryEditModal({
             <Input id="license_plate" placeholder="例如: 京A88888" value={formData.license_plate || ''} onChange={(e) => setFormData('license_plate', e.target.value)} className="col-span-3" />
           </div>
 
-          {/* 合作链路 (即合作方) */}
+          {/* 合作方 */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="cooperative_partner" className="text-right">合作方</Label>
             <Select value={formData.cooperative_partner || ''} onValueChange={(value) => setFormData('cooperative_partner', value)}>
@@ -140,15 +138,15 @@ export function BusinessEntryEditModal({
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="unloading_weight" className="text-right">卸货重量(吨)</Label>
-            <Input id="unloading_weight" type="number" placeholder="例如: 29.8" value={formData.unloading_weight || ''} onChange={(e) => setFormData('unloading_weight', e.target.valueAsNumber)} className="col-span-3" />
+            <Input id="unloading_weight" type="number" placeholder="例如: 29.8" value={formData.unloading_weight || ''} onChange={(e) => setFormData('unloading_weight', e.target.valueAsNumber || null)} className="col-span-3" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="current_cost" className="text-right">现付成本(元)</Label>
-            <Input id="current_cost" type="number" placeholder="输入金额" value={formData.current_cost || ''} onChange={(e) => setFormData('current_cost', e.target.valueAsNumber)} className="col-span-3" />
+            <Input id="current_cost" type="number" placeholder="输入金额" value={formData.current_cost || ''} onChange={(e) => setFormData('current_cost', e.target.valueAsNumber || null)} className="col-span-3" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="payable_cost" className="text-right">应付成本(元)</Label>
-            <Input id="payable_cost" type="number" placeholder="输入金额" value={formData.payable_cost || ''} onChange={(e) => setFormData('payable_cost', e.target.valueAsNumber)} className="col-span-3" />
+            <Input id="payable_cost" type="number" placeholder="输入金额" value={formData.payable_cost || ''} onChange={(e) => setFormData('payable_cost', e.target.valueAsNumber || null)} className="col-span-3" />
           </div>
 
           {/* 备注 */}
