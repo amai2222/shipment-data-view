@@ -174,7 +174,7 @@ export default function BusinessEntry() {
         p_search_query: filters.searchQuery || null,
       });
       if (error) throw error;
-      const result = data as { records: LogisticsRecord[], total_count: number };
+      const result = data as unknown as { records: LogisticsRecord[], total_count: number };
       setRecords(result?.records || []);
       setTotalPages(Math.ceil((result?.total_count || 0) / PAGE_SIZE) || 1);
 

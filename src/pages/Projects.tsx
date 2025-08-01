@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Projects.tsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -255,6 +255,21 @@ export default function Projects() {
     );
   }
 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return projects;
+    
+    const query = searchQuery.toLowerCase();
+    return projects.filter(project => 
+      project.name.toLowerCase().includes(query) ||
+      project.manager.toLowerCase().includes(query) ||
+      project.loadingAddress.toLowerCase().includes(query) ||
+      project.unloadingAddress.toLowerCase().includes(query) ||
+      (project.autoCode && project.autoCode.toLowerCase().includes(query))
+    );
+  }, [projects, searchQuery]);
+
   return (
     <div className="space-y-8">
       <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
@@ -321,11 +336,22 @@ export default function Projects() {
 
       <Card className="shadow-card">
         <CardHeader>
-          <div className="flex items-center justify-between"><CardTitle>项目列表 ({projects.length} 个项目)</CardTitle></div>
+          <div className="flex items-center justify-between">
+            <CardTitle>项目列表 ({filteredProjects.length} / {projects.length})</CardTitle>
+            <div className="relative w-64">
+              <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="搜索项目名称、负责人、地址或编号..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {projects.map((project) => (
+            {filteredProjects.map((project) => (
               <Card key={project.id} className="border shadow-sm">
                 <CardHeader 
                   className="cursor-pointer hover:bg-muted/50 transition-colors pb-3" 
@@ -409,6 +435,13 @@ export default function Projects() {
                 )}
               </Card>
             ))}
+            
+            {filteredProjects.length === 0 && projects.length > 0 && (
+              <div className="text-center py-12">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">未找到匹配的项目</p>
+              </div>
+            )}
             
             {projects.length === 0 && (
               <div className="text-center py-12">
