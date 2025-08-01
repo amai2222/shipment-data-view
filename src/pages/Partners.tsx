@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Partners.tsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { supabase } from '@/integrations/supabase/client';
 import { Partner } from '@/types';
-import { Trash2, Edit, Plus, Download, Upload, Search } from 'lucide-react';
+import { Trash2, Edit, Plus, Download, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // 扩展 Partner 类型，使其可以直接包含项目列表
@@ -52,7 +52,6 @@ export default function Partners() {
   const [partners, setPartners] = useState<PartnerWithProjects[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({ name: '', taxRate: 0 });
 
   const fetchPartners = useCallback(async () => {
@@ -193,34 +192,10 @@ export default function Partners() {
     setFormData({ name: '', taxRate: 0 });
   };
 
-  const filteredPartners = useMemo(() => {
-    if (!searchQuery.trim()) return partners;
-    
-    const query = searchQuery.toLowerCase();
-    return partners.filter(partner => 
-      partner.name.toLowerCase().includes(query) ||
-      partner.projects.some(project => 
-        project.projectName.toLowerCase().includes(query) ||
-        project.projectCode?.toLowerCase().includes(query)
-      )
-    );
-  }, [partners, searchQuery]);
-
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center space-x-4">
-          <h1 className="text-3xl font-bold">合作方管理</h1>
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="搜索合作方名称或项目..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
+        <h1 className="text-3xl font-bold">合作方管理</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportToExcel}><Download className="h-4 w-4 mr-2" />导出</Button>
           <label className="cursor-pointer">
@@ -251,7 +226,7 @@ export default function Partners() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>合作方列表 ({filteredPartners.length} / {partners.length})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>合作方列表</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -264,7 +239,7 @@ export default function Partners() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPartners.map((partner) => (
+              {partners.map((partner) => (
                 <TableRow key={partner.id}>
                   <TableCell className="font-medium">{partner.name}</TableCell>
                   <TableCell>{(partner.taxRate * 100).toFixed(2)}%</TableCell>
@@ -303,20 +278,6 @@ export default function Partners() {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredPartners.length === 0 && partners.length > 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    未找到匹配的合作方
-                  </TableCell>
-                </TableRow>
-              )}
-              {partners.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    暂无合作方数据
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </CardContent>

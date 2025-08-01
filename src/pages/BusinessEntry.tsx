@@ -3,22 +3,21 @@
 // 1. 导入所有需要的工具和组件
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination";
+import { Download, FileDown, FileUp, PlusCircle, Edit, Trash2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Progress } from "@/components/ui/progress";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { BusinessEntryHeader } from "@/components/business/BusinessEntryHeader";
-import { BusinessEntryFilters } from "@/components/business/BusinessEntryFilters";
-import { BusinessEntryTable } from "@/components/business/BusinessEntryTable";
-import { BusinessEntryPagination } from "@/components/business/BusinessEntryPagination";
-import { BusinessEntrySummary } from "@/components/business/BusinessEntrySummary";
-import { BusinessEntryEditModal } from "@/components/business/BusinessEntryEditModal";
-import { BusinessEntryImportModal } from "@/components/business/BusinessEntryImportModal";
+import { CreatableCombobox } from "@/components/CreatableCombobox";
+import { Progress } from "@/components/ui/progress";
 
 // 2. TypeScript 类型定义
 interface LogisticsRecord {
@@ -175,7 +174,7 @@ export default function BusinessEntry() {
         p_search_query: filters.searchQuery || null,
       });
       if (error) throw error;
-      const result = data as unknown as { records: LogisticsRecord[], total_count: number };
+      const result = data as { records: LogisticsRecord[], total_count: number };
       setRecords(result?.records || []);
       setTotalPages(Math.ceil((result?.total_count || 0) / PAGE_SIZE) || 1);
 
@@ -384,18 +383,12 @@ export default function BusinessEntry() {
   };
 
   // 计算属性
-// ====================================================================
-//【核心改动】高亮开始
-// 原因：这是本次升级最核心的部分。我们为 reduce 函数的初始值，
-// 补上了缺失的 `totalExtraCost: 0`，并增加了对 `record.extra_cost` 的累加。
-// 这彻底解决了因数据未定义而导致的页面崩溃问题。
-// ====================================================================
   const summary = useMemo(() => {
     return (records || []).reduce((acc, record) => {
       acc.totalLoadingWeight += record.loading_weight || 0;
       acc.totalUnloadingWeight += record.unloading_weight || 0;
       acc.totalCurrentCost += record.current_cost || 0;
-      acc.totalExtraCost += record.extra_cost || 0; // 【已修复】增加了对 extra_cost 的累加
+      acc.totalExtraCost += record.extra_cost || 0;
       acc.totalDriverPayableCost += record.payable_cost || 0;
       if (record.transport_type === '实际运输') acc.actualCount += 1;
       else if (record.transport_type === '退货') acc.returnCount += 1;
@@ -404,15 +397,12 @@ export default function BusinessEntry() {
       totalLoadingWeight: 0,
       totalUnloadingWeight: 0,
       totalCurrentCost: 0,
-      totalExtraCost: 0, // 【已修复】为 totalExtraCost 提供了初始值 0
+      totalExtraCost: 0,
       totalDriverPayableCost: 0,
       actualCount: 0,
       returnCount: 0,
     });
   }, [records]);
-// ====================================================================
-//【核心改动】高亮结束
-// ====================================================================
 
   // 导出功能
   const exportToExcel = async () => {
@@ -680,67 +670,383 @@ export default function BusinessEntry() {
     setImportLogs([]);
   }
 
-  // Helper functions for the new component structure
-  const handleFiltersChange = (newFilters: typeof filters) => {
-    setFilters(newFilters);
-  };
-
-  const handleViewDetails = (record: LogisticsRecord) => {
-    setViewingRecord(record);
-  };
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  const handleFileUpload = (file: File) => {
-    handleExcelImport({ target: { files: [file] } } as any);
-  };
-
   // UI渲染
   return (
-    <div className="space-y-6">
-      <BusinessEntryHeader
-        onAddNew={() => handleOpenModal()}
-        onImport={() => setIsImportModalOpen(true)}
-        onExport={exportToExcel}
-        onTemplateDownload={handleTemplateDownload}
-      />
+    <div className="space-y-4">
+      {/* 页面标题和按钮 */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">运单管理</h1>
+          <p className="text-muted-foreground">录入、查询和管理所有运单记录</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleTemplateDownload}>
+            <FileDown className="mr-2 h-4 w-4" />下载模板
+          </Button>
+          <Button variant="outline" asChild disabled={isImporting}>
+            <Label htmlFor="excel-upload" className="cursor-pointer flex items-center">
+              {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+              导入Excel
+              <Input 
+                id="excel-upload" 
+                type="file" 
+                className="hidden" 
+                onChange={handleExcelImport} 
+                accept=".xlsx, .xls" 
+                disabled={isImporting}
+              />
+            </Label>
+          </Button>
+          <Button onClick={exportToExcel}>
+            <Download className="mr-2 h-4 w-4" />导出数据
+          </Button>
+          <Button onClick={() => handleOpenModal()}>
+            <PlusCircle className="mr-2 h-4 w-4" />新增运单
+          </Button>
+        </div>
+      </div>
+      
+      {/* 筛选区域 */}
+      <div className="flex items-end gap-4 p-4 border rounded-lg">
+        <div className="grid w-full max-w-sm items-center gap-1.5">
+          <Label htmlFor="search-query">快速搜索</Label>
+          <Input 
+            type="text" 
+            id="search-query" 
+            placeholder="搜索运单号、项目、司机..." 
+            value={filters.searchQuery} 
+            onChange={e => setFilters(f => ({...f, searchQuery: e.target.value}))}
+          />
+        </div>
+        <div className="grid items-center gap-1.5">
+          <Label htmlFor="start-date">开始日期</Label>
+          <Input 
+            type="date" 
+            id="start-date" 
+            value={filters.startDate} 
+            onChange={e => setFilters(f => ({...f, startDate: e.target.value}))} 
+          />
+        </div>
+        <div className="grid items-center gap-1.5">
+          <Label htmlFor="end-date">结束日期</Label>
+          <Input 
+            type="date" 
+            id="end-date" 
+            value={filters.endDate} 
+            onChange={e => setFilters(f => ({...f, endDate: e.target.value}))}
+          />
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={() => setFilters({
+            startDate: getInitialDefaultDates().startDate, 
+            endDate: getInitialDefaultDates().endDate, 
+            searchQuery: ""
+          })}
+        >
+          清除筛选
+        </Button>
+      </div>
 
-      <BusinessEntryFilters
-        filters={filters}
-        onFiltersChange={handleFiltersChange}
-      />
+      {/* 表格区域 */}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>运单编号</TableHead>
+              <TableHead>项目</TableHead>
+              <TableHead>合作链路</TableHead>
+              <TableHead>司机</TableHead>
+              <TableHead>路线</TableHead>
+              <TableHead>装货日期</TableHead>
+              <TableHead>运费</TableHead>
+              <TableHead>额外费</TableHead>
+              <TableHead>司机应收</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={10} className="text-center h-24">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto"/>
+                </TableCell>
+              </TableRow>
+            ) : records.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={10} className="text-center h-24">
+                  没有找到匹配的记录
+                </TableCell>
+              </TableRow>
+            ) : (
+              records.map((record) => (
+                <TableRow key={record.id} onClick={() => setViewingRecord(record)} className="cursor-pointer hover:bg-muted/50">
+                  <TableCell className="font-mono">{record.auto_number}</TableCell>
+                  <TableCell>{record.project_name}</TableCell>
+                  <TableCell>{record.chain_name || '默认'}</TableCell>
+                  <TableCell>{record.driver_name}</TableCell>
+                  <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
+                  <TableCell>{record.loading_date}</TableCell>
+                  <TableCell className="font-mono">
+                    {record.current_cost != null ? `¥${record.current_cost.toFixed(2)}` : '-'}
+                  </TableCell>
+                  <TableCell className="font-mono text-orange-600">
+                    {record.extra_cost != null ? `¥${record.extra_cost.toFixed(2)}` : '-'}
+                  </TableCell>
+                  <TableCell className="font-mono text-green-600 font-semibold">
+                    {record.payable_cost != null ? `¥${record.payable_cost.toFixed(2)}` : '-'}
+                  </TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" onClick={() => handleOpenModal(record)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <ConfirmDialog 
+                      title="确认删除" 
+                      description={`您确定要删除运单 ${record.auto_number} 吗？此操作不可恢复。`} 
+                      onConfirm={() => handleDelete(record.id)}
+                    >
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </ConfirmDialog>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
-      <BusinessEntryTable
-        records={records}
-        loading={loading}
-        onEdit={handleOpenModal}
-        onDelete={handleDelete}
-        onViewDetails={handleViewDetails}
-      />
+      {/* 分页组件 */}
+      <Pagination>
+        <PaginationContent>
+          <PaginationItem>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+              disabled={currentPage <= 1 || loading}
+            >
+              上一页
+            </Button>
+          </PaginationItem>
+          <PaginationItem>
+            <span className="p-2 text-sm">
+              第 {currentPage} 页 / 共 {totalPages} 页
+            </span>
+          </PaginationItem>
+          <PaginationItem>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+              disabled={currentPage >= totalPages || loading}
+            >
+              下一页
+            </Button>
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
 
-      <BusinessEntryPagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={handlePageChange}
-      />
+      {/* 数据汇总栏 */}
+      <div className="flex items-center justify-end space-x-6 rounded-lg border p-4 text-sm font-medium">
+        <span>当前页合计:</span>
+        <span className="font-bold">装: <span className="text-primary">{summary.totalLoadingWeight.toFixed(2)}吨</span></span>
+        <span className="font-bold">卸: <span className="text-primary">{summary.totalUnloadingWeight.toFixed(2)}吨</span></span>
+        <span className="font-bold">{summary.actualCount}实际 / {summary.returnCount}退货</span>
+        <span>司机运费: <span className="font-bold text-primary">¥{summary.totalCurrentCost.toFixed(2)}</span></span>
+        <span>额外费用: <span className="font-bold text-orange-600">¥{summary.totalExtraCost.toFixed(2)}</span></span>
+        <span>司机应收: <span className="font-bold text-green-600">¥{summary.totalDriverPayableCost.toFixed(2)}</span></span>
+      </div>
 
-      <BusinessEntrySummary summary={summary} />
-
-      <BusinessEntryEditModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onSubmit={handleSubmit}
-        formData={formData}
-        onInputChange={handleInputChange}
-        projects={projects}
-        filteredDrivers={filteredDrivers}
-        filteredLocations={filteredLocations}
-        partnerChains={partnerChains}
-        editingRecord={editingRecord}
-        viewingRecord={viewingRecord}
-      />
+      {/* 新增/编辑弹窗 */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{editingRecord ? "编辑运单" : "新增运单"}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-4 gap-4 py-4">
+            <div className="space-y-1">
+              <Label>项目 *</Label>
+              <Select value={formData.project_id} onValueChange={(v) => handleInputChange('project_id', v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择项目"/>
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>合作链路</Label>
+              <Select 
+                value={formData.chain_id} 
+                onValueChange={(v) => handleInputChange('chain_id', v)} 
+                disabled={!formData.project_id}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="默认链路"/>
+                </SelectTrigger>
+                <SelectContent>
+                  {partnerChains.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.chain_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-1">
+              <Label>装货日期 *</Label>
+              <Input 
+                type="date" 
+                value={formData.loading_date} 
+                onChange={(e) => handleInputChange('loading_date', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>卸货日期</Label>
+              <Input 
+                type="date" 
+                value={formData.unloading_date} 
+                onChange={(e) => handleInputChange('unloading_date', e.target.value)} 
+              />
+            </div>
+            
+            <div className="space-y-1">
+              <Label>司机 *</Label>
+              <CreatableCombobox 
+                options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} 
+                value={formData.driver_id} 
+                onValueChange={(value) => { 
+                  const driver = filteredDrivers.find(d => d.id === value); 
+                  if (driver) { 
+                    handleInputChange('driver_id', value); 
+                    handleInputChange('driver_name', driver.name); 
+                  } else { 
+                    handleInputChange('driver_id', value); 
+                    handleInputChange('driver_name', value); 
+                  } 
+                }} 
+                placeholder="选择或创建司机" 
+                searchPlaceholder="搜索或输入新司机..." 
+                onCreateNew={() => navigate('/drivers')}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>车牌号</Label>
+              <Input 
+                value={formData.license_plate || ''} 
+                onChange={(e) => handleInputChange('license_plate', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>司机电话</Label>
+              <Input 
+                value={formData.driver_phone || ''} 
+                onChange={(e) => handleInputChange('driver_phone', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>运输类型</Label>
+              <Select 
+                value={formData.transport_type} 
+                onValueChange={(v) => handleInputChange('transport_type', v)}
+              >
+                <SelectTrigger>
+                  <SelectValue/>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="实际运输">实际运输</SelectItem>
+                  <SelectItem value="退货">退货</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-1">
+              <Label>装货地点 *</Label>
+              <CreatableCombobox 
+                options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} 
+                value={formData.loading_location} 
+                onValueChange={(value) => handleInputChange('loading_location', value)} 
+                placeholder="选择或创建地点" 
+                searchPlaceholder="搜索或输入新地点..." 
+                onCreateNew={() => navigate('/locations')}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>装货重量</Label>
+              <Input 
+                type="number" 
+                value={formData.loading_weight || ''} 
+                onChange={(e) => handleInputChange('loading_weight', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>卸货地点 *</Label>
+              <CreatableCombobox 
+                options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} 
+                value={formData.unloading_location} 
+                onValueChange={(value) => handleInputChange('unloading_location', value)} 
+                placeholder="选择或创建地点" 
+                searchPlaceholder="搜索或输入新地点..." 
+                onCreateNew={() => navigate('/locations')}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>卸货重量</Label>
+              <Input 
+                type="number" 
+                value={formData.unloading_weight || ''} 
+                onChange={(e) => handleInputChange('unloading_weight', e.target.value)} 
+              />
+            </div>
+            
+            <div className="space-y-1">
+              <Label>运费金额 (元)</Label>
+              <Input 
+                type="number" 
+                value={formData.current_cost || ''} 
+                onChange={(e) => handleInputChange('current_cost', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>额外费用 (元)</Label>
+              <Input 
+                type="number" 
+                value={formData.extra_cost || ''} 
+                onChange={(e) => handleInputChange('extra_cost', e.target.value)} 
+              />
+            </div>
+            <div className="space-y-1 col-span-2">
+              <Label>备注</Label>
+              <Textarea 
+                value={formData.remarks || ''} 
+                onChange={(e) => handleInputChange('remarks', e.target.value)} 
+              />
+            </div>
+            
+            <div className="space-y-1 col-start-4">
+              <Label>司机应收 (自动计算)</Label>
+              <Input 
+                type="number" 
+                value={formData.payable_cost || ''} 
+                disabled 
+                className="font-bold text-primary" 
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)}>取消</Button>
+            <Button type="submit" onClick={handleSubmit}>保存</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       
       {/* 查看详情弹窗 */}
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
@@ -779,18 +1085,79 @@ export default function BusinessEntry() {
         </DialogContent>
       </Dialog>
       
-      <BusinessEntryImportModal
-        isOpen={isImportModalOpen}
-        onClose={closeImportModal}
-        importStep={importStep}
-        preprocessingProgress={preprocessingProgress}
-        importData={importData}
-        importLogs={importLogs}
-        importLogRef={importLogRef}
-        onFileUpload={handleFileUpload}
-        onStartImport={startActualImport}
-        isImporting={isImporting}
-      />
+      {/* 导入弹窗 */}
+      <Dialog open={isImportModalOpen} onOpenChange={(isOpen) => !isOpen && closeImportModal()}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>导入运单数据</DialogTitle>
+          </DialogHeader>
+          
+          {importStep === 'preprocessing' && (
+            <div className="py-8 text-center space-y-4">
+              <h3 className="font-semibold">正在预处理文件...</h3>
+              <Progress value={preprocessingProgress} className="w-full" />
+              <p className="text-sm text-muted-foreground">已校验 {Math.round(preprocessingProgress)}%</p>
+            </div>
+          )}
+
+          {importStep === 'preview' && (
+            <div>
+              <div className="flex justify-between items-center bg-muted p-4 rounded-md mb-4">
+                <div className="space-y-1">
+                  <p>共发现 <strong>{importData.valid.length + importData.invalid.length}</strong> 条记录</p>
+                  <p className="text-green-600"><strong>{importData.valid.length}</strong> 条记录格式正确，可以导入</p>
+                  {importData.duplicateCount > 0 && <p className="text-yellow-600"><strong>{importData.duplicateCount}</strong> 条重复记录将被自动忽略</p>}
+                  {importData.invalid.length - importData.duplicateCount > 0 && <p className="text-red-600"><strong>{importData.invalid.length - importData.duplicateCount}</strong> 条记录存在格式错误，将被忽略</p>}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={closeImportModal}>取消</Button>
+                  <Button onClick={startActualImport} disabled={importData.valid.length === 0}>
+                    确认并开始导入 ({importData.valid.length})
+                  </Button>
+                </div>
+              </div>
+
+              {((importData.invalid.length > 0)) && (
+                <div className="mb-4">
+                  <h4 className="font-semibold mb-2">
+                    错误或重复记录（前 5 条）
+                    <span className="text-sm text-muted-foreground ml-2 block mt-1">
+                      正确日期格式示例: 2025-01-14 或 2025/01/14
+                    </span>
+                  </h4>
+                  <div className="border rounded-md max-h-40 overflow-y-auto" style={{ minHeight: '100px' }}>
+                    <Table>
+                      <TableHeader><TableRow><TableHead>行号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>错误原因</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {importData.invalid.slice(0, 5).map(row => (
+                          <TableRow key={row.originalRow} className="bg-red-50 dark:bg-red-900/20">
+                            <TableCell>{row.originalRow}</TableCell>
+                            <TableCell>{row['项目名称']}</TableCell>
+                            <TableCell>{row['司机姓名']}</TableCell>
+                            <TableCell className="text-red-700 dark:text-red-400">{row.error}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {importStep === 'processing' && (
+            <div className="py-4 space-y-4">
+              <h3 className="font-semibold">正在逐条导入数据...</h3>
+              <div ref={importLogRef} className="h-64 overflow-y-auto bg-gray-900 text-white font-mono text-xs p-4 rounded-md">
+                {importLogs.map((log, i) => <p key={i} className={log.includes('错误') ? 'text-red-400' : (log.includes('完成') ? 'text-blue-400' : 'text-green-400')}>{log}</p>)}
+              </div>
+              <div className="text-center pt-4">
+                <Button onClick={closeImportModal}>关闭</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
