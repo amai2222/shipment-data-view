@@ -102,66 +102,55 @@ export default function BusinessEntry() {
 
   const handleInputChange = (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value }));
 
-  // 数据加载逻辑
-    const loadPaginatedRecords = useCallback(async (page: number, currentFilters: { startDate: string, endDate: string }, currentSearchQuery: string) => {
-        setLoading(true);
-        try {
-            const offset = (page - 1) * PAGE_SIZE;
-            
-            // 使用新的 logistics_records_view 和 any_text 列
-            const { data, error, count } = await supabase
-                .from('logistics_records_view')
-                .select('*', { count: 'exact' })
-                .ilike('any_text', `%${currentSearchQuery}%`)
-                .gte('loading_date', currentFilters.startDate)
-                .lte('loading_date', currentFilters.endDate)
-                .order('loading_date', { ascending: false })
-                .order('created_at', { ascending: false })
-                .range(offset, offset + PAGE_SIZE - 1);
-            
-            if (error) throw error;
-
-            setRecords(data || []);
-            setTotalPages(Math.ceil((count || 0) / PAGE_SIZE) || 1);
-        } catch (error: any) {
-            toast({ title: "错误", description: `加载运单记录失败: ${error.message}`, variant: "destructive" });
-        } finally {
-            setLoading(false);
-        }
-    }, [toast]);
-
-
-  const loadInitialOptions = useCallback(async () => {
-    try {
-      const { data: projectsData } = await supabase.from('projects').select('id, name, start_date');
-      setProjects(projectsData as Project[] || []);
-      const { data: driversData } = await supabase.from('drivers').select('id, name, license_plate, phone');
-      setDrivers(driversData as Driver[] || []);
-      const { data: locationsData } = await supabase.from('locations').select('id, name');
-      setLocations(locationsData || []);
-    } catch (error: any) {
-      toast({ title: "错误", description: `加载基础数据失败: ${error.message}`, variant: "destructive" });
-    }
-  }, [toast]);
-
- useEffect(() => {
+  const loadData = useCallback(async () => {
     setLoading(true);
-    setCurrentPage(1); // 确保筛选时返回第一页
-    
-    const initialLoad = async () => {
-        await loadInitialOptions();
-        await loadPaginatedRecords(1, filters, searchQuery);
-    };
+    try {
+      // 同时获取所有数据
+      const [projectsRes, driversRes, locationsRes, recordsRes] = await Promise.all([
+        supabase.from('projects').select('id, name, start_date'),
+        supabase.from('drivers').select('id, name, license_plate, phone'),
+        supabase.from('locations').select('id, name'),
+        supabase.from('logistics_records_view')
+          .select('*', { count: 'exact' })
+          .ilike('any_text', `%${searchQuery}%`)
+          .gte('loading_date', filters.startDate)
+          .lte('loading_date', filters.endDate)
+          .order('loading_date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE - 1)
+      ]);
+      
+      // 检查每个请求的错误
+      if (projectsRes.error) throw projectsRes.error;
+      if (driversRes.error) throw driversRes.error;
+      if (locationsRes.error) throw locationsRes.error;
+      if (recordsRes.error) throw recordsRes.error;
 
-    initialLoad();
-}, [filters, searchQuery, loadInitialOptions, loadPaginatedRecords]);
+      // 设置状态
+      setProjects(projectsRes.data || []);
+      setDrivers(driversRes.data || []);
+      setLocations(locationsRes.data || []);
+      setRecords(recordsRes.data || []);
+      setTotalPages(Math.ceil((recordsRes.count || 0) / PAGE_SIZE) || 1);
 
-useEffect(() => {
-    // 这个 effect 只处理翻页
-    if (currentPage > 1) {
-        loadPaginatedRecords(currentPage, filters, searchQuery);
+    } catch (error: any) {
+      toast({ title: "错误", description: `数据加载失败: ${error.message}`, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-}, [currentPage]);
+  }, [currentPage, filters.startDate, filters.endDate, searchQuery, toast]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+
+    useEffect(() => {
+        if (currentPage !== 1) {
+            // 当筛选条件变化时，强制回到第一页
+            setCurrentPage(1);
+        }
+    }, [filters, searchQuery]);
 
 
   useEffect(() => { if (importLogRef.current) importLogRef.current.scrollTop = importLogRef.current.scrollHeight; }, [importLogs]);
@@ -219,11 +208,9 @@ useEffect(() => {
   const handleSubmit = async () => { /* ... */ };
   const handleDelete = async (id: string) => { /* ... */ };
   const summary = useMemo(() => {
-        return (records || []).reduce((acc, record) => {
-      acc.totalLoadingWeight += record.loading_weight || 0;
-      acc.totalUnloadingWeight += record.unloading_weight || 0;
-      acc.totalCurrentCost += record.current_cost || 0;
-      acc.totalExtraCost += record.extra_cost || 0;
+    return (records || []).reduce((acc, record) => {
+      acc.totalLoadingWeight += record.loading_weight || 0; acc.totalUnloadingWeight += record.unloading_weight || 0;
+      acc.totalCurrentCost += record.current_cost || 0; acc.totalExtraCost += record.extra_cost || 0;
       acc.totalDriverPayableCost += record.payable_cost || 0;
       if (record.transport_type === '实际运输') acc.actualCount += 1;
       else if (record.transport_type === '退货') acc.returnCount += 1;
@@ -236,22 +223,51 @@ useEffect(() => {
   const exportToExcel = async () => { /* ... */ };
   const handleTemplateDownload = () => { /* ... */ };
 
-  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => { /* ... */ };
+  // ===================================
+  // 导入核心逻辑区
+  // ===================================
+  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]; if (!file) return;
+    setIsImporting(true); // 开始时禁用按钮
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'array', cellDates: false });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+        setIsImportModalOpen(true);
+        setImportStep('preprocessing');
+        const validRows: any[] = [];
+        jsonData.forEach(row => {
+            const loadingDateFormatted = parseExcelDate(row['装货日期']);
+            if (loadingDateFormatted) { validRows.push({ ...row, loading_date_parsed: loadingDateFormatted, unloading_date_parsed: row['卸货日期'] ? parseExcelDate(row['卸货日期']) : loadingDateFormatted }); }
+        });
+        getImportPreview(validRows);
+      } catch (error) {
+        toast({ title: "错误", description: "文件读取失败，请检查文件格式。", variant: "destructive" });
+        closeImportModal(); // [关键修复] 确保在文件读取错误时也重置状态
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = '';
+  };
+  
   const getImportPreview = async (validRows: any[]) => { /* ... */ };
   const executeFinalImport = async () => { /* ... */ };
   const handleToggleDuplicateApproval = (index: number) => { /* ... */ };
   const handleToggleAllDuplicates = () => { /* ... */ };
-  const closeImportModal = () => { /* ... */ };
+  const closeImportModal = () => {
+    setIsImporting(false); setIsImportModalOpen(false); setImportStep('idle');
+    setImportPreview(null); setApprovedDuplicates(new Set()); setImportLogs([]);
+  };
   
   // UI渲染
     return (
     <div className="space-y-4">
       {/* 页面标题和按钮 */}
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">运单管理</h1>
-          <p className="text-muted-foreground">录入、查询和管理所有运单记录</p>
-        </div>
+        <div><h1 className="text-3xl font-bold text-foreground">运单管理</h1><p className="text-muted-foreground">录入、查询和管理所有运单记录</p></div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
           <Button variant="outline" asChild disabled={isImporting}><Label htmlFor="excel-upload" className="cursor-pointer flex items-center">{isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}导入Excel<Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={isImporting}/></Label></Button>
@@ -262,10 +278,7 @@ useEffect(() => {
       
       {/* 筛选区域 */}
       <div className="flex items-end gap-4 p-4 border rounded-lg">
-        <div className="grid w-full max-w-sm items-center gap-1.5">
-          <Label htmlFor="search-query">快速搜索</Label>
-          <Input type="text" id="search-query" placeholder="搜索运单号、项目、司机..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-        </div>
+        <div className="grid w-full max-w-sm items-center gap-1.5"><Label htmlFor="search-query">快速搜索</Label><Input type="text" id="search-query" placeholder="搜索运单号、项目、司机..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
         <div className="grid items-center gap-1.5"><Label htmlFor="start-date">开始日期</Label><Input type="date" id="start-date" value={filters.startDate} onChange={e => setFilters(f => ({...f, startDate: e.target.value}))} /></div>
         <div className="grid items-center gap-1.5"><Label htmlFor="end-date">结束日期</Label><Input type="date" id="end-date" value={filters.endDate} onChange={e => setFilters(f => ({...f, endDate: e.target.value}))}/></div>
         <Button variant="outline" onClick={() => { setFilters(getInitialDefaultDates()); setSearchQuery(""); }}>清除筛选</Button>
