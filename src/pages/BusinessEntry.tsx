@@ -51,44 +51,29 @@ const BLANK_FORM_DATA = {
   transport_type: "实际运输", extra_cost: null, payable_cost: null, remarks: ""
 };
 
-// ==============================================================================
-//  ** 关键修复：重写日期解析函数以强制忽略时区 **
-// ==============================================================================
 const parseExcelDate = (excelDate: any): string | null => {
   if (excelDate === null || excelDate === undefined || excelDate === '') return null;
  
-  // **情况1：处理Excel的数字序列日期（如 45671）**
-  // 这是从Excel导入时的主要情况。
   if (typeof excelDate === 'number' && excelDate > 0) {
-    // 这个公式将Excel的序列号转为JS的毫秒数。这个转换本身是基于UTC的，所以是安全的。
     const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
-    // **关键：** 必须使用 getUTC* 系列方法来提取年月日，这样可以完全忽略本地时区的影响。
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     const day = String(date.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
  
-  // **情况2：处理JavaScript的Date对象**
-  // 当使用了 `cellDates:true` 或者某些UI组件返回Date对象时，会进入这里。
-  // 这是一个主要的“时区陷阱”。
   if (excelDate instanceof Date) {
-     // 为了修正时区问题，我们获取本地的年月日，因为这才是用户在日历上看到的真实日期。
     const year = excelDate.getFullYear();
     const month = String(excelDate.getMonth() + 1).padStart(2, '0');
     const day = String(excelDate.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
  
-  // **情况3：处理字符串日期**
-  // 来自于手动输入或者已经格式化好的数据。
   if (typeof excelDate === 'string') {
-    const dateStr = excelDate.split(' ')[0]; // 去掉可能存在的时间部分
-    // 如果是 YYYY-MM-DD 格式，直接返回
+    const dateStr = excelDate.split(' ')[0];
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       return dateStr;
     }
-    // 如果是 YYYY/MM/DD 格式，替换后返回
     if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr)) {
       const parts = dateStr.split('/');
       const year = parts[0];
@@ -98,14 +83,9 @@ const parseExcelDate = (excelDate: any): string | null => {
     }
   }
  
-  // 如果所有情况都不匹配，返回null
   console.warn("无法解析的日期格式:", excelDate);
   return null;
 };
-// ==============================================================================
-// ** 修复结束 **
-// ==============================================================================
-
 
 // 4. 主组件定义
 export default function BusinessEntry() {
@@ -485,11 +465,9 @@ export default function BusinessEntry() {
     reader.onload = async (e) => {
       try {
         const data = e.target?.result;
-        // **重要：设置`cellDates: false`，确保我们得到原始的数字或字符串，而不是被时区污染的Date对象**
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        // **重要：设置 `raw: false` 可以让库帮我们格式化一些值，但日期我们自己处理**
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
         setIsImportModalOpen(true);
@@ -505,7 +483,6 @@ export default function BusinessEntry() {
       }
     };
     reader.readAsArrayBuffer(file);
-    // 重置input，这样可以重复上传同一个文件
     event.target.value = '';
   };
 
@@ -591,8 +568,6 @@ export default function BusinessEntry() {
       processChunk();
     });
   };
-#修改
-// 在您的 BusinessEntry.tsx 文件中，找到 startActualImport 函数并用下面的代码完整替换它
 
   const startActualImport = async () => {
     setImportStep('processing');
@@ -622,26 +597,9 @@ export default function BusinessEntry() {
         remarks: rowData['备注']?.toString().trim() || null
       }));
 
-      // ==============================================================================
-      // [核心修改 1/2]: 获取当前登录的用户信息
-      // ==============================================================================
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // 如果获取不到用户，则中止操作，并给出明确提示
-      if (!user) {
-        const errorMsg = "无法获取当前用户信息，请重新登录后尝试。";
-        addLog(`错误: ${errorMsg}`);
-        toast({ title: "操作中止", description: errorMsg, variant: "destructive" });
-        return; // 关键：中止函数执行
-      }
-      
       addLog('准备批量导入数据...');
-      // ==============================================================================
-      // [核心修改 2/2]: 调用 RPC 函数时，将用户ID作为参数传递
-      // ==============================================================================
       const { data: result, error: batchError } = await supabase.rpc('batch_import_logistics_records', {
-        p_records: batchRecords, // 运单记录
-        p_user_id: user.id      // 当前登录用户的ID
+        p_records: batchRecords
       });
 
       if (batchError) throw batchError;
@@ -652,8 +610,7 @@ export default function BusinessEntry() {
 
       addLog(`批量导入完成: 成功 ${successCount} 条，失败 ${errorCount} 条`);
       if (errorCount > 0) {
-        const simplifiedErrors = errors.slice(0, 5).map((e: any) => ({ error: e.error }));
-        addLog(`错误详情: ${JSON.stringify(simplifiedErrors)}`);
+        addLog(`错误详情: ${JSON.stringify(errors.slice(0, 5))}`);
       }
 
       addLog(`--------------------`);
@@ -684,8 +641,6 @@ export default function BusinessEntry() {
       });
     }
   };
-
-  #函数结束
 
   const closeImportModal = () => {
     setIsImportModalOpen(false);
