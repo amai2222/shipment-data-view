@@ -100,9 +100,34 @@ export default function BusinessEntry() {
   const [importPreview, setImportPreview] = useState<{ new_records: any[], duplicate_records: any[], error_records: any[] } | null>(null);
   const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
 
+  const handleInputChange = (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value }));
+
   // 数据加载逻辑
-  const loadInitialData = useCallback(async () => {
+  const loadPaginatedRecords = useCallback(async (currentFilters, currentSearchQuery, page) => {
     setLoading(true);
+    try {
+      const offset = (page - 1) * PAGE_SIZE;
+      const { data, error, count } = await supabase
+        .from('logistics_records_view')
+        .select('*', { count: 'exact' })
+        .ilike('any_text', `%${currentSearchQuery}%`)
+        .gte('loading_date', currentFilters.startDate)
+        .lte('loading_date', currentFilters.endDate)
+        .order('loading_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+      
+      if (error) throw error;
+      setRecords(data || []);
+      setTotalPages(Math.ceil((count || 0) / PAGE_SIZE) || 1);
+    } catch (error: any) {
+      toast({ title: "错误", description: `加载运单记录失败: ${error.message}`, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  const loadInitialOptions = useCallback(async () => {
     try {
       const [projectsRes, driversRes, locationsRes] = await Promise.all([
         supabase.from('projects').select('id, name, start_date'),
@@ -117,28 +142,30 @@ export default function BusinessEntry() {
       setProjects(projectsRes.data || []);
       setDrivers(driversRes.data || []);
       setLocations(locationsRes.data || []);
-      
-      // 只有在基础数据加载成功后，才加载依赖这些数据的运单记录
-      const offset = (currentPage - 1) * PAGE_SIZE;
-      const { data: recordsData, error: recordsError } = await supabase.rpc('get_paginated_logistics_records', {
-        p_page_size: PAGE_SIZE, p_offset: offset, p_start_date: filters.startDate,
-        p_end_date: filters.endDate, p_search_query: searchQuery
-      });
-      if (recordsError) throw recordsError;
-      
-      const result = recordsData as any;
-      setRecords(result?.records || []);
-      setTotalPages(Math.ceil((result?.total_count || 0) / PAGE_SIZE) || 1);
-
     } catch (error: any) {
-      toast({ title: "错误", description: `数据加载失败: ${error.message}`, variant: "destructive" });
-    } finally {
-      setLoading(false);
+      toast({ title: "错误", description: `加载基础数据失败: ${error.message}`, variant: "destructive" });
     }
-  }, [currentPage, filters.startDate, filters.endDate, searchQuery, toast]);
+  }, [toast]);
 
  // 副作用管理
-  useEffect(() => { loadInitialData(); }, [loadInitialData]);
+  useEffect(() => {
+    setLoading(true);
+    // 先加载基础数据，再加载运单
+    loadInitialOptions().then(() => {
+      loadPaginatedRecords(filters, searchQuery, 1);
+    });
+  }, [loadInitialOptions, loadPaginatedRecords, filters, searchQuery]);
+
+  useEffect(() => {
+    if (currentPage > 1) {
+      loadPaginatedRecords(filters, searchQuery, currentPage);
+    }
+  }, [currentPage, filters, searchQuery, loadPaginatedRecords]);
+
+  useEffect(() => {
+    if (currentPage !== 1) setCurrentPage(1);
+  },[filters, searchQuery])
+
   useEffect(() => { if (importLogRef.current) importLogRef.current.scrollTop = importLogRef.current.scrollHeight; }, [importLogs]);
   useEffect(() => {
     handleInputChange('chain_id', '');
@@ -172,13 +199,19 @@ export default function BusinessEntry() {
   }, [formData.loading_date]);
 
   // 事件处理器
-  const handleInputChange = (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value }));
   const handleOpenModal = (record: LogisticsRecord | null = null) => {
     if (record) {
       setEditingRecord(record);
-      setFormData({ /* ... */ });
+       setFormData({
+        project_id: record.project_id, chain_id: record.chain_id || "", driver_id: record.driver_id, driver_name: record.driver_name,
+        loading_location: record.loading_location, unloading_location: record.unloading_location, 
+        loading_date: record.loading_date ? record.loading_date.split('T')[0] : new Date().toISOString().split('T')[0],
+        unloading_date: record.unloading_date ? record.unloading_date.split('T')[0] : record.loading_date ? record.loading_date.split('T')[0] : new Date().toISOString().split('T')[0],
+        loading_weight: record.loading_weight, unloading_weight: record.unloading_weight, current_cost: record.current_cost,
+        license_plate: record.license_plate, driver_phone: record.driver_phone, transport_type: record.transport_type || '实际运输',
+        extra_cost: record.extra_cost, payable_cost: record.payable_cost, remarks: record.remarks
+      });
     } else {
-      // [防御性修复] 确保在设置默认项目前, projects数组不为空
       const latestProject = projects.length > 0 ? [...projects].sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))[0] : null;
       setEditingRecord(null);
       setFormData({ ...BLANK_FORM_DATA, project_id: latestProject ? latestProject.id : "" });
@@ -187,11 +220,10 @@ export default function BusinessEntry() {
   };
   const handleSubmit = async () => { /* ... */ };
   const handleDelete = async (id: string) => { /* ... */ };
-  const summary = useMemo(() => { /* ... */ }, [records]);
+  const summary = useMemo(() => { return (records || []).reduce((acc, record) => { /* ... */ }, { /* ... */ }); }, [records]);
   const exportToExcel = async () => { /* ... */ };
   const handleTemplateDownload = () => { /* ... */ };
 
-  // 导入核心逻辑区
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => { /* ... */ };
   const getImportPreview = async (validRows: any[]) => { /* ... */ };
   const executeFinalImport = async () => { /* ... */ };
@@ -203,28 +235,77 @@ export default function BusinessEntry() {
   return (
     <div className="space-y-4">
       {/* 页面标题和按钮 */}
-      <div className="flex justify-between items-center">{/* ... */}</div>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">运单管理</h1>
+          <p className="text-muted-foreground">录入、查询和管理所有运单记录</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
+          <Button variant="outline" asChild disabled={isImporting}><Label htmlFor="excel-upload" className="cursor-pointer flex items-center">{isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}导入Excel<Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={isImporting}/></Label></Button>
+          <Button onClick={exportToExcel}><Download className="mr-2 h-4 w-4" />导出数据</Button>
+          <Button onClick={() => handleOpenModal()}><PlusCircle className="mr-2 h-4 w-4" />新增运单</Button>
+        </div>
+      </div>
+      
       {/* 筛选区域 */}
-      <div className="flex items-end gap-4 p-4 border rounded-lg">{/* ... */}</div>
+      <div className="flex items-end gap-4 p-4 border rounded-lg">
+        <div className="grid w-full max-w-sm items-center gap-1.5">
+          <Label htmlFor="search-query">快速搜索</Label>
+          <Input type="text" id="search-query" placeholder="搜索运单号、项目、司机..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+        </div>
+        <div className="grid items-center gap-1.5"><Label htmlFor="start-date">开始日期</Label><Input type="date" id="start-date" value={filters.startDate} onChange={e => setFilters(f => ({...f, startDate: e.target.value}))} /></div>
+        <div className="grid items-center gap-1.5"><Label htmlFor="end-date">结束日期</Label><Input type="date" id="end-date" value={filters.endDate} onChange={e => setFilters(f => ({...f, endDate: e.target.value}))}/></div>
+        <Button variant="outline" onClick={() => { setFilters(getInitialDefaultDates()); setSearchQuery(""); }}>清除筛选</Button>
+      </div>
+
       {/* 表格区域 */}
       <div className="border rounded-lg">
         <Table>
-          <TableHeader>{/* ... */}</TableHeader>
+          <TableHeader>
+            <TableRow>
+              <TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>合作链路</TableHead><TableHead>司机</TableHead>
+              <TableHead>路线</TableHead><TableHead>装货日期</TableHead><TableHead>运费</TableHead><TableHead>额外费</TableHead>
+              <TableHead>司机应收</TableHead><TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {loading ? ( <TableRow><TableCell colSpan={10} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></TableCell></TableRow> ) 
             : records.length === 0 ? ( <TableRow><TableCell colSpan={10} className="text-center h-24">在当前筛选条件下没有找到记录</TableCell></TableRow> ) 
-            : ( records.map((record) => ( <TableRow key={record.id} onClick={() => setViewingRecord(record)} className="cursor-pointer hover:bg-muted/50">{/* ... */}</TableRow> )) )}
+            : ( records.map((record) => ( <TableRow key={record.id} onClick={() => setViewingRecord(record)} className="cursor-pointer hover:bg-muted/50">
+                <TableCell className="font-mono">{record.auto_number}</TableCell><TableCell>{record.project_name}</TableCell>
+                <TableCell>{record.chain_name || '默认'}</TableCell><TableCell>{record.driver_name}</TableCell>
+                <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
+                <TableCell>{record.loading_date ? record.loading_date.split('T')[0] : '-'}</TableCell>
+                <TableCell className="font-mono">{record.current_cost != null ? `¥${record.current_cost.toFixed(2)}` : '-'}</TableCell>
+                <TableCell className="font-mono text-orange-600">{record.extra_cost != null ? `¥${record.extra_cost.toFixed(2)}` : '-'}</TableCell>
+                <TableCell className="font-mono text-green-600 font-semibold">{record.payable_cost != null ? `¥${record.payable_cost.toFixed(2)}` : '-'}</TableCell>
+                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" onClick={() => handleOpenModal(record)}><Edit className="h-4 w-4" /></Button>
+                  <ConfirmDialog title="确认删除" description={`您确定要删除运单 ${record.auto_number} 吗？此操作不可恢复。`} onConfirm={() => handleDelete(record.id)}>
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                  </ConfirmDialog>
+                </TableCell>
+              </TableRow> )) )}
           </TableBody>
         </Table>
       </div>
+
       {/* 分页组件 */}
-      <Pagination>{/* ... */}</Pagination>
+      <Pagination>
+        <PaginationContent>
+          <PaginationItem><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1 || loading}>上一页</Button></PaginationItem>
+          <PaginationItem><span className="p-2 text-sm">第 {currentPage} 页 / 共 {totalPages} 页</span></PaginationItem>
+          <PaginationItem><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages || loading}>下一页</Button></PaginationItem>
+        </PaginationContent>
+      </Pagination>
+
       {/* 数据汇总栏 */}
       <div className="flex items-center justify-end space-x-6 rounded-lg border p-4 text-sm font-medium">{/* ... */}</div>
       {/* 新增/编辑/查看弹窗 */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>{/* ... */}</Dialog>
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>{/* ... */}</Dialog>
-      {/* 全新的批量导入流程弹窗 */}
+      {/* 导入流程弹窗 */}
       <Dialog open={isImportModalOpen} onOpenChange={(isOpen) => !isOpen && closeImportModal()}>
         <DialogContent className="max-w-4xl">{/* ... */}</DialogContent>
       </Dialog>
