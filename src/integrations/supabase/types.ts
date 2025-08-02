@@ -402,10 +402,12 @@ export type Database = {
           auto_code: string | null
           created_at: string
           end_date: string
+          finance_manager: string | null
           id: string
           loading_address: string
           manager: string
           name: string
+          project_status: string
           start_date: string
           unloading_address: string
         }
@@ -413,10 +415,12 @@ export type Database = {
           auto_code?: string | null
           created_at?: string
           end_date: string
+          finance_manager?: string | null
           id?: string
           loading_address: string
           manager: string
           name: string
+          project_status?: string
           start_date: string
           unloading_address: string
         }
@@ -424,10 +428,12 @@ export type Database = {
           auto_code?: string | null
           created_at?: string
           end_date?: string
+          finance_manager?: string | null
           id?: string
           loading_address?: string
           manager?: string
           name?: string
+          project_status?: string
           start_date?: string
           unloading_address?: string
         }
@@ -489,45 +495,25 @@ export type Database = {
     }
     Functions: {
       add_logistics_record_with_costs: {
-        Args:
-          | {
-              p_project_id: string
-              p_project_name: string
-              p_chain_id: string
-              p_driver_id: string
-              p_driver_name: string
-              p_loading_location: string
-              p_unloading_location: string
-              p_loading_date: string
-              p_loading_weight: number
-              p_unloading_weight: number
-              p_current_cost: number
-              p_license_plate: string
-              p_driver_phone: string
-              p_transport_type: string
-              p_extra_cost: number
-              p_driver_payable_cost: number
-              p_remarks: string
-            }
-          | {
-              p_project_id: string
-              p_project_name: string
-              p_chain_id: string
-              p_driver_id: string
-              p_driver_name: string
-              p_loading_location: string
-              p_unloading_location: string
-              p_loading_date: string
-              p_loading_weight: number
-              p_unloading_weight: number
-              p_current_cost: number
-              p_license_plate: string
-              p_driver_phone: string
-              p_transport_type: string
-              p_extra_cost: number
-              p_remarks: string
-              p_unloading_date: string
-            }
+        Args: {
+          p_project_id: string
+          p_project_name: string
+          p_chain_id: string
+          p_driver_id: string
+          p_driver_name: string
+          p_loading_location: string
+          p_unloading_location: string
+          p_loading_date: string
+          p_loading_weight: number
+          p_unloading_weight: number
+          p_current_cost: number
+          p_license_plate: string
+          p_driver_phone: string
+          p_transport_type: string
+          p_extra_cost: number
+          p_remarks: string
+          p_unloading_date: string
+        }
         Returns: undefined
       }
       batch_import_logistics_records: {
@@ -574,6 +560,28 @@ export type Database = {
           calculation_method: string
           profit_rate: number
         }[]
+      }
+      check_existing_waybills: {
+        Args: {
+          p_fingerprints: Database["public"]["CompositeTypes"]["waybill_fingerprint"][]
+        }
+        Returns: Database["public"]["CompositeTypes"]["waybill_fingerprint"][]
+      }
+      create_waybill_with_check: {
+        Args: {
+          p_project_name: string
+          p_driver_name: string
+          p_cooperative_partner: string
+          p_license_plate: string
+          p_loading_location: string
+          p_unloading_location: string
+          p_loading_date: string
+          p_loading_weight: number
+          p_unloading_weight: number
+          p_freight_cost: number
+          p_force_create?: boolean
+        }
+        Returns: Json
       }
       generate_auto_number: {
         Args: { loading_date_input: string }
@@ -626,6 +634,33 @@ export type Database = {
           p_partner_id?: string
         }
         Returns: Json
+      }
+      get_logistics_records_paginated: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_project_name: string
+          p_search_term: string
+          p_page_number: number
+          p_page_size: number
+        }
+        Returns: {
+          id: string
+          auto_number: string
+          project_name: string
+          driver_name: string
+          loading_location: string
+          unloading_location: string
+          loading_date: string
+          unloading_date: string
+          loading_weight: number
+          unloading_weight: number
+          current_cost: number
+          payable_cost: number
+          license_plate: string
+          cooperative_partner: string
+          remarks: string
+        }[]
       }
       get_or_create_driver: {
         Args: {
@@ -791,6 +826,14 @@ export type Database = {
         taxRate: number | null
         calculationMethod: string | null
         profitRate: number | null
+      }
+      waybill_fingerprint: {
+        project_name_check: string | null
+        driver_name_check: string | null
+        loading_location_check: string | null
+        unloading_location_check: string | null
+        loading_date_check: string | null
+        loading_weight_check: number | null
       }
     }
   }
