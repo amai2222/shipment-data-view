@@ -28,6 +28,7 @@ interface LogisticsRecord {
   payable_cost: number | null;
   license_plate: string | null; driver_phone: string | null; transport_type: string | null;
   extra_cost: number | null; remarks: string | null;
+  created_at?: string;
 }
 
 interface Project { id: string; name: string; start_date: string; }
@@ -174,9 +175,11 @@ export default function BusinessEntry() {
         p_search_query: filters.searchQuery || null,
       });
       if (error) throw error;
-      const result = data as { records: LogisticsRecord[], total_count: number };
-      setRecords(result?.records || []);
-      setTotalPages(Math.ceil((result?.total_count || 0) / PAGE_SIZE) || 1);
+      const result = data as any;
+      const records = result?.records || [];
+      const totalCount = result?.total_count || 0;
+      setRecords(records);
+      setTotalPages(Math.ceil(totalCount / PAGE_SIZE) || 1);
 
     } catch (error) {
       toast({ title: "错误", description: "加载运单记录失败", variant: "destructive" });
@@ -277,8 +280,8 @@ export default function BusinessEntry() {
         driver_name: record.driver_name,
         loading_location: record.loading_location, 
         unloading_location: record.unloading_location, 
-        loading_date: record.loading_date,
-        unloading_date: record.unloading_date || record.loading_date,
+        loading_date: record.loading_date ? record.loading_date.split('T')[0] : new Date().toISOString().split('T')[0],
+        unloading_date: record.unloading_date ? record.unloading_date.split('T')[0] : record.loading_date ? record.loading_date.split('T')[0] : new Date().toISOString().split('T')[0],
         loading_weight: record.loading_weight, 
         unloading_weight: record.unloading_weight, 
         current_cost: record.current_cost,
@@ -341,8 +344,8 @@ export default function BusinessEntry() {
       p_driver_name: finalDriverName,
       p_loading_location: formData.loading_location, 
       p_unloading_location: formData.unloading_location,
-      p_loading_date: parseExcelDate(formData.loading_date),
-      p_unloading_date: parseExcelDate(formData.unloading_date) || parseExcelDate(formData.loading_date),
+      p_loading_date: formData.loading_date,
+      p_unloading_date: formData.unloading_date || formData.loading_date,
       p_loading_weight: formData.loading_weight ? parseFloat(formData.loading_weight) : null,
       p_unloading_weight: formData.unloading_weight ? parseFloat(formData.unloading_weight) : null,
       p_current_cost: formData.current_cost ? parseFloat(formData.current_cost) : null,
@@ -786,7 +789,7 @@ export default function BusinessEntry() {
                   <TableCell>{record.chain_name || '默认'}</TableCell>
                   <TableCell>{record.driver_name}</TableCell>
                   <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
-                  <TableCell>{record.loading_date}</TableCell>
+                  <TableCell>{record.loading_date ? record.loading_date.split('T')[0] : '-'}</TableCell>
                   <TableCell className="font-mono">
                     {record.current_cost != null ? `¥${record.current_cost.toFixed(2)}` : '-'}
                   </TableCell>
@@ -1058,8 +1061,8 @@ export default function BusinessEntry() {
             <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
               <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date || '未填写'}</p></div>
+               <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date ? viewingRecord.loading_date.split('T')[0] : '未填写'}</p></div>
+               <div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date ? viewingRecord.unloading_date.split('T')[0] : '未填写'}</p></div>
 
               <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
