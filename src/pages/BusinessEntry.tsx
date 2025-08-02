@@ -44,30 +44,28 @@ const getInitialDefaultDates = () => {
   const formatDate = (date: Date) => date.toISOString().split('T')[0];
   return { startDate: formatDate(firstDayOfMonth), endDate: formatDate(today) };
 };
-
 const BLANK_FORM_DATA = {
   project_id: "", chain_id: "", driver_id: "", driver_name: "", loading_location: "", unloading_location: "",
   loading_date: new Date().toISOString().split('T')[0], unloading_date: new Date().toISOString().split('T')[0],
   loading_weight: null, unloading_weight: null, current_cost: null, license_plate: "", driver_phone: "",
   transport_type: "实际运输", extra_cost: null, payable_cost: null, remarks: ""
 };
-
 const parseExcelDate = (excelDate: any): string | null => {
-  if (excelDate === null || excelDate === undefined || excelDate === '') return null;
-  if (typeof excelDate === 'number' && excelDate > 0) {
-    const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
-    return date.toISOString().split('T')[0];
-  }
-  if (excelDate instanceof Date) { return excelDate.toISOString().split('T')[0]; }
-  if (typeof excelDate === 'string') {
-    const dateStr = excelDate.split(' ')[0];
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr)) {
-        const parts = dateStr.split('/');
-        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+    if (excelDate === null || excelDate === undefined || excelDate === '') return null;
+    if (typeof excelDate === 'number' && excelDate > 0) {
+        const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+        return date.toISOString().split('T')[0];
     }
-  }
-  return null;
+    if (excelDate instanceof Date) { return excelDate.toISOString().split('T')[0]; }
+    if (typeof excelDate === 'string') {
+        const dateStr = excelDate.split(' ')[0];
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+        if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr)) {
+            const parts = dateStr.split('/');
+            return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+        }
+    }
+    return null;
 };
 
 // 4. 主组件定义
@@ -90,12 +88,14 @@ export default function BusinessEntry() {
   const [totalPages, setTotalPages] = useState(1);
   const PAGE_SIZE = 15;
   const navigate = useNavigate();
+  // 恢复完整的导入状态
   const [isImporting, setIsImporting] = useState(false);
   const importLogRef = useRef<HTMLDivElement>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importStep, setImportStep] = useState<'idle' | 'preprocessing' | 'preview' | 'confirmation' | 'processing'>('idle');
   const [importPreview, setImportPreview] = useState<{ new_records: any[], duplicate_records: any[], error_records: any[] } | null>(null);
   const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
+  const [importLogs, setImportLogs] = useState<string[]>([]); // [修复] 这是导致崩溃的根源，现在已恢复
 
   const loadInitialOptions = useCallback(async () => {
     try {
@@ -114,31 +114,26 @@ export default function BusinessEntry() {
       const offset = (currentPage - 1) * PAGE_SIZE;
       const { data, error, count } = await supabase.from('logistics_records_view')
         .select('*', { count: 'exact' })
-        .ilike('any_text', `%${filters.searchQuery}%`)
-        .gte('loading_date', filters.startDate)
-        .lte('loading_date', filters.endDate)
-        .order('loading_date', { ascending: false }).order('created_at', { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1);
+        .ilike('any_text', `%${filters.searchQuery}%`).gte('loading_date', filters.startDate).lte('loading_date', filters.endDate)
+        .order('loading_date', { ascending: false }).order('created_at', { ascending: false }).range(offset, offset + PAGE_SIZE - 1);
       if (error) throw error;
       setRecords(data || []);
       setTotalPages(Math.ceil((count || 0) / PAGE_SIZE) || 1);
     } catch (error: any) {
       toast({ title: "错误", description: `加载运单记录失败: ${error.message}`, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [currentPage, filters, toast]);
 
-  useEffect(() => { loadInitialOptions(); }, [loadInitialOptions]);
-  useEffect(() => {
+    useEffect(() => { loadInitialOptions(); }, [loadInitialOptions]);
+    useEffect(() => {
     const timer = setTimeout(() => { loadPaginatedRecords(); }, 500);
     return () => clearTimeout(timer);
-  }, [currentPage, filters, loadPaginatedRecords]);
-  useEffect(() => { if (currentPage !== 1) { setCurrentPage(1); } }, [filters]);
-  useEffect(() => { if (importLogRef.current) { importLogRef.current.scrollTop = importLogRef.current.scrollHeight; } }, [importLogs]);
-  
+    }, [currentPage, filters, loadPaginatedRecords]);
+    useEffect(() => { if (currentPage !== 1) { setCurrentPage(1); } }, [filters]);
+    useEffect(() => { if (importLogRef.current) { importLogRef.current.scrollTop = importLogRef.current.scrollHeight; } }, [importLogs]);
+
   const handleInputChange = (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value })); 
-  useEffect(() => {
+    useEffect(() => {
     handleInputChange('chain_id', '');
     if (formData.project_id) {
        const fetchRelatedData = async () => {
@@ -153,20 +148,19 @@ export default function BusinessEntry() {
       };
       fetchRelatedData();
     } else { setPartnerChains([]); setFilteredDrivers([]); setFilteredLocations([]); }
-  }, [formData.project_id, drivers, locations]);
-  useEffect(() => {
+    }, [formData.project_id, drivers, locations]);
+    useEffect(() => {
     const selectedDriver = drivers.find(d => d.id === formData.driver_id);
     if (selectedDriver) setFormData((prev: any) => ({ ...prev, driver_name: selectedDriver.name, license_plate: selectedDriver.license_plate, driver_phone: selectedDriver.phone }));
-  }, [formData.driver_id, drivers]);
-  useEffect(() => {
+    }, [formData.driver_id, drivers]);
+    useEffect(() => {
     const currentCost = parseFloat(formData.current_cost) || 0; const extraCost = parseFloat(formData.extra_cost) || 0;
     handleInputChange('payable_cost', (currentCost + extraCost > 0) ? (currentCost + extraCost).toFixed(2) : null);
-  }, [formData.current_cost, formData.extra_cost]);
-  useEffect(() => {
+    }, [formData.current_cost, formData.extra_cost]);
+    useEffect(() => {
     if (formData.loading_date && !formData.unloading_date) handleInputChange('unloading_date', formData.loading_date);
-  }, [formData.loading_date]);
-
-  const handleOpenModal = (record: LogisticsRecord | null = null) => {
+    }, [formData.loading_date]);
+    const handleOpenModal = (record: LogisticsRecord | null = null) => {
     if (record) {
       setEditingRecord(record);
       setFormData({
@@ -184,8 +178,8 @@ export default function BusinessEntry() {
       setFormData({ ...BLANK_FORM_DATA, project_id: latestProject ? latestProject.id : "" });
     }
     setIsEditModalOpen(true);
-  };
-  const handleSubmit = async () => {
+    };
+    const handleSubmit = async () => {
     const projectName = projects.find(p => p.id === formData.project_id)?.name;
     if (!projectName || !formData.driver_name || !formData.loading_location || !formData.unloading_location) {
       toast({ title: "错误", description: "项目、司机和地点为必填项", variant: "destructive" }); return;
@@ -216,14 +210,14 @@ export default function BusinessEntry() {
       }
       setIsEditModalOpen(false); await loadPaginatedRecords(); await loadInitialOptions();
     } catch (error: any) { toast({ title: "操作失败", description: error.message, variant: "destructive" }); }
-  };
+    };
     const handleDelete = async (id: string) => {
     try {
       await supabase.from('logistics_records').delete().eq('id', id);
       toast({ title: "成功", description: "运单记录已删除" });
       await loadPaginatedRecords();
     } catch (error: any) { toast({ title: "删除失败", description: error.message, variant: "destructive" }); }
-  };
+    };
     const summary = useMemo(() => {
     return (records || []).reduce((acc, record) => {
       acc.totalLoadingWeight += record.loading_weight || 0; acc.totalUnloadingWeight += record.unloading_weight || 0;
@@ -233,60 +227,44 @@ export default function BusinessEntry() {
       else if (record.transport_type === '退货') acc.returnCount += 1;
       return acc;
     }, { totalLoadingWeight: 0, totalUnloadingWeight: 0, totalCurrentCost: 0, totalExtraCost: 0, totalDriverPayableCost: 0, actualCount: 0, returnCount: 0 });
-  }, [records]);
+    }, [records]);
     const exportToExcel = async () => {
     toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
     try {
         const { data, error } = await supabase.from('logistics_records_view')
-            .select('*')
-            .ilike('any_text', `%${filters.searchQuery}%`).gte('loading_date', filters.startDate).lte('loading_date', filters.endDate)
+            .select('*').ilike('any_text', `%${filters.searchQuery}%`).gte('loading_date', filters.startDate).lte('loading_date', filters.endDate)
             .order('loading_date', { ascending: false }).limit(10000);
         if (error) throw error;
-      const dataToExport = (data || []).map((r: LogisticsRecord) => ({
-        '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认', '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone,
-        '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date, '运输类型': r.transport_type, 
-        '装货重量': r.loading_weight, '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.payable_cost, '备注': r.remarks,
-      }));
+      const dataToExport = (data || []).map((r: LogisticsRecord) => ({ '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认', '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone,'装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date.split('T')[0], '卸货日期': r.unloading_date ? r.unloading_date.split('T')[0] : '', '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.payable_cost, '备注': r.remarks, }));
       const ws = XLSX.utils.json_to_sheet(dataToExport); const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "运单记录"); XLSX.writeFile(wb, "运单记录.xlsx");
       toast({ title: "成功", description: "全部筛选结果已成功导出！" });
     } catch(e) { toast({ title: "错误", description: "导出失败，请重试。", variant: "destructive" }); }
-  };
+    };
     const handleTemplateDownload = () => {
     const templateData = [{ '项目名称': '', '合作链路': '', '司机姓名': '', '车牌号': '', '司机电话': '', '装货地点': '', '卸货地点': '', '装货日期': '2025/01/14', '卸货日期': '2025/01/14', '运输类型': '实际运输', '装货重量': '', '卸货重量': '', '运费金额': '', '额外费用': '', '备注': '' }];
     const ws = XLSX.utils.json_to_sheet(templateData); const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "模板"); XLSX.writeFile(wb, "运单导入模板.xlsx");
-  };
-
-  const closeImportModal = () => {
+    };
+    const closeImportModal = () => {
     setIsImportModalOpen(false); setIsImporting(false); setImportStep('idle');
     setImportPreview(null); setApprovedDuplicates(new Set()); setImportLogs([]);
-  };
-  const handleToggleDuplicateApproval = (index: number) => {
-    setApprovedDuplicates(prev => { const newSet = new Set(prev); if (newSet.has(index)) newSet.delete(index); else newSet.add(index); return newSet; });
-  };
-  const handleToggleAllDuplicates = (checked: boolean | 'indeterminate') => {
+    };
+    const handleToggleDuplicateApproval = (index: number) => setApprovedDuplicates(prev => { const newSet = new Set(prev); if (newSet.has(index)) newSet.delete(index); else newSet.add(index); return newSet; });
+    const handleToggleAllDuplicates = (checked: boolean | 'indeterminate') => {
     if (!importPreview) return;
     if (checked === true) { setApprovedDuplicates(new Set(importPreview.duplicate_records.map((_, i) => i))); } else { setApprovedDuplicates(new Set()); }
-  };
-  const getImportPreview = async (validRows: any[]) => {
+    };
+    const getImportPreview = async (validRows: any[]) => {
     setImportStep('preview');
     try {
-      const recordsToPreview = validRows.map(rowData => ({
-        project_name: rowData['项目名称']?.trim(), chain_name: rowData['合作链路']?.trim() || null,
-        driver_name: rowData['司机姓名']?.trim(), license_plate: rowData['车牌号']?.toString().trim() || null,
-        driver_phone: rowData['司机电话']?.toString().trim() || null, loading_location: rowData['装货地点']?.trim(),
-        unloading_location: rowData['卸货地点']?.trim(), loading_date: rowData.loading_date_parsed,
-        unloading_date: rowData.unloading_date_parsed, loading_weight: rowData['装货重量'] ? parseFloat(rowData['装货重量']).toString() : null, unloading_weight: rowData['卸货重量'] ? parseFloat(rowData['卸货重量']).toString() : null,
-        current_cost: rowData['运费金额'] ? parseFloat(rowData['运费金额']).toString() : '0', extra_cost: rowData['额外费用'] ? parseFloat(rowData['额外费用']).toString() : '0',
-        transport_type: rowData['运输类型']?.trim() || '实际运输', remarks: rowData['备注']?.toString().trim() || null
-      }));
+      const recordsToPreview = validRows.map(rowData => ({ project_name: rowData['项目名称']?.trim(), chain_name: rowData['合作链路']?.trim() || null, driver_name: rowData['司机姓名']?.trim(), license_plate: rowData['车牌号']?.toString().trim() || null, driver_phone: rowData['司机电话']?.toString().trim() || null, loading_location: rowData['装货地点']?.trim(), unloading_location: rowData['卸货地点']?.trim(), loading_date: rowData.loading_date_parsed, unloading_date: rowData.unloading_date_parsed, loading_weight: rowData['装货重量'] ? parseFloat(rowData['装货重量']).toString() : null, unloading_weight: rowData['卸货重量'] ? parseFloat(rowData['卸货重量']).toString() : null, current_cost: rowData['运费金额'] ? parseFloat(rowData['运费金额']).toString() : '0', extra_cost: rowData['额外费用'] ? parseFloat(rowData['额外费用']).toString() : '0', transport_type: rowData['运输类型']?.trim() || '实际运输', remarks: rowData['备注']?.toString().trim() || null }));
       const { data: previewResult, error } = await supabase.rpc('preview_import_with_duplicates_check', { p_records: recordsToPreview });
       if (error) throw error;
       setImportPreview(previewResult); setApprovedDuplicates(new Set()); setImportStep('confirmation');
     } catch (error: any) { toast({ title: "预览失败", description: error.message, variant: "destructive" }); closeImportModal(); }
-  };
-  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    };
+    const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return; setIsImporting(true);
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -302,8 +280,8 @@ export default function BusinessEntry() {
       } catch (error) { toast({ title: "错误", description: "文件读取失败，请检查文件格式。", variant: "destructive" }); closeImportModal(); }
     };
     reader.readAsArrayBuffer(file); event.target.value = '';
-  };
-  const executeFinalImport = async () => {
+    };
+    const executeFinalImport = async () => {
     if (!importPreview) return; setImportStep('processing'); setImportLogs([]);
     const addLog = (message: string) => setImportLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
     const finalRecordsToImport = [ ...importPreview.new_records.map(item => item.record), ...importPreview.duplicate_records.filter((_, index) => approvedDuplicates.has(index)).map(item => item.record) ];
@@ -317,7 +295,7 @@ export default function BusinessEntry() {
       toast({ title: "导入成功", description: `共导入 ${result.success_count} 条记录。` });
       if (result.success_count > 0) { await loadPaginatedRecords(); }
     } catch (error: any) { addLog(`导入失败: ${error.message}`); toast({ title: "导入失败", description: error.message, variant: "destructive" }); }
-  };
+    };
 
   return (
     <div className="space-y-4">
