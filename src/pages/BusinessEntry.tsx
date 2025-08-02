@@ -11,15 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination";
-import { Download, FileDown, FileUp, PlusCircle, Edit, Trash2, Loader2, Siren } from "lucide-react";
+import { Download, FileDown, FileUp, PlusCircle, Edit, Trash2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CreatableCombobox } from "@/components/CreatableCombobox";
 import { Progress } from "@/components/ui/progress";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // 2. TypeScript 类型定义
 interface LogisticsRecord {
@@ -32,6 +30,7 @@ interface LogisticsRecord {
   extra_cost: number | null; remarks: string | null;
   created_at?: string;
 }
+
 interface Project { id: string; name: string; start_date: string; }
 interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 interface Location { id: string; name: string; }
@@ -53,21 +52,36 @@ const BLANK_FORM_DATA = {
 };
 
 const parseExcelDate = (excelDate: any): string | null => {
-    if (excelDate === null || excelDate === undefined || excelDate === '') return null;
-    if (typeof excelDate === 'number' && excelDate > 0) {
-        const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
-        return date.toISOString().split('T')[0];
+  if (excelDate === null || excelDate === undefined || excelDate === '') return null;
+ 
+  if (typeof excelDate === 'number' && excelDate > 0) {
+    const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+ 
+  if (excelDate instanceof Date) {
+    const year = excelDate.getFullYear();
+    const month = String(excelDate.getMonth() + 1).padStart(2, '0');
+    const day = String(excelDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+ 
+  if (typeof excelDate === 'string') {
+    const dateStr = excelDate.split(' ')[0];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr;
     }
-    if (excelDate instanceof Date) { return excelDate.toISOString().split('T')[0]; }
-    if (typeof excelDate === 'string') {
-        const dateStr = excelDate.split(' ')[0];
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-        if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr)) {
-            const parts = dateStr.split('/');
-            return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-        }
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr)) {
+      const parts = dateStr.split('/');
+      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
     }
-    return null;
+  }
+ 
+  console.warn("无法解析的日期格式:", excelDate);
+  return null;
 };
 
 // 4. 主组件定义
@@ -83,7 +97,7 @@ export default function BusinessEntry() {
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
   const [formData, setFormData] = useState<any>(BLANK_FORM_DATA);
-  const [filters, setFilters] = useState(() => getInitialDefaultDates());
+  const [filters, setFilters] = useState(() => getInitialDefaultDates()); // 使用惰性初始化
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([]);
   const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
@@ -93,77 +107,100 @@ export default function BusinessEntry() {
   const navigate = useNavigate();
   const [isImporting, setIsImporting] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importStep, setImportStep] = useState<'idle' | 'preprocessing' | 'preview' | 'processing'>('idle');
+  const [importData, setImportData] = useState<{valid: any[], invalid: any[], duplicateCount: number}>({ valid: [], invalid: [], duplicateCount: 0 });
+  const [preprocessingProgress, setPreprocessingProgress] = useState(0);
   const [importLogs, setImportLogs] = useState<string[]>([]);
   const importLogRef = useRef<HTMLDivElement>(null);
-  const [importStep, setImportStep] = useState<'idle' | 'preprocessing' | 'preview' | 'confirmation' | 'processing'>('idle');
-  const [importPreview, setImportPreview] = useState<{ new_records: any[], duplicate_records: any[], error_records: any[] } | null>(null);
-  const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
 
-  const handleInputChange = (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value }));
-
-  const loadData = useCallback(async (page: number) => {
+  // [第一处手术] 升级数据加载逻辑
+  const loadData = useCallback(async (page: number, search: string, dateFilters: { startDate: string, endDate: string }) => {
     setLoading(true);
     try {
+      // 优化：一次性获取所有需要的数据
       const offset = (page - 1) * PAGE_SIZE;
 
-      const [projectsRes, driversRes, locationsRes, recordsRes] = await Promise.all([
+      // [核心升级] 使用新的 logistics_records_view 和 any_text 列进行查询
+      const recordsPromise = supabase.from('logistics_records_view')
+        .select('*', { count: 'exact' })
+        .ilike('any_text', `%${search}%`)
+        .gte('loading_date', dateFilters.startDate)
+        .lte('loading_date', dateFilters.endDate)
+        .order('loading_date', { ascending: false }).order('created_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+      
+      // 只有在首次加载时才获取基础选项，避免重复获取
+      const optionsPromise = projects.length === 0 ? Promise.all([
         supabase.from('projects').select('id, name, start_date'),
         supabase.from('drivers').select('id, name, license_plate, phone'),
-        supabase.from('locations').select('id, name'),
-        supabase.from('logistics_records_view')
-          .select('*', { count: 'exact' })
-          .ilike('any_text', `%${searchQuery}%`)
-          .gte('loading_date', filters.startDate)
-          .lte('loading_date', filters.endDate)
-          .order('loading_date', { ascending: false }).order('created_at', { ascending: false })
-          .range(offset, offset + PAGE_SIZE - 1)
-      ]);
+        supabase.from('locations').select('id, name')
+      ]) : Promise.resolve(null);
 
-      if (projectsRes.error) throw projectsRes.error;
-      if (driversRes.error) throw driversRes.error;
-      if (locationsRes.error) throw locationsRes.error;
+      const [recordsRes, optionsRes] = await Promise.all([recordsPromise, optionsPromise]);
+      
       if (recordsRes.error) throw recordsRes.error;
-
-      setProjects(projectsRes.data || []);
-      setDrivers(driversRes.data || []);
-      setLocations(locationsRes.data || []);
+      
       setRecords(recordsRes.data || []);
       setTotalPages(Math.ceil((recordsRes.count || 0) / PAGE_SIZE) || 1);
+
+      if (optionsRes) {
+        const [projectsRes, driversRes, locationsRes] = optionsRes;
+        if (projectsRes.error) throw projectsRes.error;
+        if (driversRes.error) throw driversRes.error;
+        if (locationsRes.error) throw locationsRes.error;
+        setProjects(projectsRes.data || []);
+        setDrivers(driversRes.data || []);
+        setLocations(locationsRes.data || []);
+      }
     } catch (error: any) {
       toast({ title: "错误", description: `数据加载失败: ${error.message}`, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [filters.startDate, filters.endDate, searchQuery, toast]);
+  }, [toast, projects.length]); // 依赖中移除可变状态，使其更稳定
+
+  // [第二处手术] 强化 useEffect 数据流
+  useEffect(() => {
+    // 效果1： 当筛选条件变化时，重置到第一页并加载数据
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        loadData(1, searchQuery, filters);
+      }
+    }, 500); // 添加防抖，避免用户快速输入时频繁请求
+    return () => clearTimeout(timer);
+  }, [filters, searchQuery]); // 依赖筛选条件和搜索词
 
   useEffect(() => {
-    // 当筛选条件或搜索词变化时，重置到第一页并加载数据
-    setCurrentPage(1);
-    loadData(1);
-  }, [filters, searchQuery, loadData]);
-
-  useEffect(() => {
-    // 仅当页码变化时（且不是第一页），才加载数据
-    // 避免与上面的 effect 重复加载
-    if (currentPage > 1) {
-      loadData(currentPage);
-    }
-  }, [currentPage, loadData]);
+     // 效果2：当页码变化时（且不是因为筛选变化），加载新一页的数据
+      loadData(currentPage, searchQuery, filters);
+  }, [currentPage]); // 只依赖页码
 
 
   useEffect(() => { if (importLogRef.current) importLogRef.current.scrollTop = importLogRef.current.scrollHeight; }, [importLogs]);
+  const handleInputChange = (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value }));
   useEffect(() => {
     handleInputChange('chain_id', '');
-    if (formData.project_id && projects.length > 0) {
-      const fetchRelatedData = async () => { /* ... */ };
+    if (formData.project_id) {
+      const fetchRelatedData = async () => {
+        const { data: chainsData } = await supabase.from('partner_chains').select('id, chain_name').eq('project_id', formData.project_id);
+        setPartnerChains(chainsData as PartnerChain[] || []);
+        const { data: driverLinks } = await supabase.from('driver_projects').select('driver_id').eq('project_id', formData.project_id);
+        const driverIds = driverLinks?.map(link => link.driver_id) || [];
+        setFilteredDrivers(drivers.filter(driver => driverIds.includes(driver.id)));
+        const { data: locationLinks } = await supabase.from('location_projects').select('location_id').eq('project_id', formData.project_id);
+        const locationIds = locationLinks?.map(link => link.location_id) || [];
+        setFilteredLocations(locations.filter(location => locationIds.includes(location.id)));
+      };
       fetchRelatedData();
     } else {
       setPartnerChains([]); setFilteredDrivers([]); setFilteredLocations([]);
     }
-  }, [formData.project_id, projects, drivers, locations]);
+  }, [formData.project_id, drivers, locations]);
   useEffect(() => {
     const selectedDriver = drivers.find(d => d.id === formData.driver_id);
-    if (selectedDriver) setFormData((p: any) => ({ ...p, driver_name: selectedDriver.name, license_plate: selectedDriver.license_plate || p.license_plate || '', driver_phone: selectedDriver.phone || p.driver_phone || ''}));
+    if (selectedDriver) setFormData((prev: any) => ({ ...prev, driver_name: selectedDriver.name, license_plate: selectedDriver.license_plate || prev.license_plate || '', driver_phone: selectedDriver.phone || prev.driver_phone || '' }));
   }, [formData.driver_id, drivers]);
   useEffect(() => {
     const currentCost = parseFloat(formData.current_cost) || 0;
@@ -177,11 +214,11 @@ export default function BusinessEntry() {
   const handleOpenModal = (record: LogisticsRecord | null = null) => {
     if (record) {
       setEditingRecord(record);
-       setFormData({
+      setFormData({
         project_id: record.project_id, chain_id: record.chain_id || "", driver_id: record.driver_id, driver_name: record.driver_name,
         loading_location: record.loading_location, unloading_location: record.unloading_location, 
         loading_date: record.loading_date ? record.loading_date.split('T')[0] : new Date().toISOString().split('T')[0],
-        unloading_date: record.unloading_date ? record.unloading_date.split('T')[0] : record.loading_date ? record.loading_date.split('T')[0] : new Date().toISOString().split('T')[0],
+        unloading_date: record.unloading_date ? record.unloading_date.split('T')[0] : (record.loading_date ? record.loading_date.split('T')[0] : new Date().toISOString().split('T')[0]),
         loading_weight: record.loading_weight, unloading_weight: record.unloading_weight, current_cost: record.current_cost,
         license_plate: record.license_plate, driver_phone: record.driver_phone, transport_type: record.transport_type || '实际运输',
         extra_cost: record.extra_cost, payable_cost: record.payable_cost, remarks: record.remarks
@@ -193,9 +230,47 @@ export default function BusinessEntry() {
     }
     setIsEditModalOpen(true);
   };
-  const handleSubmit = async () => { /* ... */ };
-  const handleDelete = async (id: string) => { /* ... */ };
-  const summary = useMemo(() => {
+  const handleSubmit = async () => {
+    const projectName = projects.find(p => p.id === formData.project_id)?.name;
+    if (!projectName || !formData.driver_name || !formData.loading_location || !formData.unloading_location) {
+      toast({ title: "错误", description: "项目、司机和地点为必填项", variant: "destructive" }); return;
+    }
+    let finalDriverId = formData.driver_id; let finalDriverName = formData.driver_name;
+    const isUuid = /^[0-9a-fA-F-]{36}$/.test(formData.driver_id);
+    if (!isUuid && formData.driver_name) {
+      const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', { p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone, p_project_id: formData.project_id });
+      if (driverError || !driverResult || driverResult.length === 0) { toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); return; }
+      finalDriverId = driverResult[0].driver_id; finalDriverName = driverResult[0].driver_name;
+    }
+    await supabase.rpc('get_or_create_location', { p_location_name: formData.loading_location, p_project_id: formData.project_id });
+    await supabase.rpc('get_or_create_location', { p_location_name: formData.unloading_location, p_project_id: formData.project_id });
+    const recordData = {
+      p_project_id: formData.project_id, p_project_name: projectName, p_chain_id: formData.chain_id || null, p_driver_id: finalDriverId, p_driver_name: finalDriverName,
+      p_loading_location: formData.loading_location, p_unloading_location: formData.unloading_location, p_loading_date: formData.loading_date, p_unloading_date: formData.unloading_date || formData.loading_date,
+      p_loading_weight: formData.loading_weight ? parseFloat(formData.loading_weight) : null, p_unloading_weight: formData.unloading_weight ? parseFloat(formData.unloading_weight) : null,
+      p_current_cost: formData.current_cost ? parseFloat(formData.current_cost) : null, p_license_plate: formData.license_plate, p_driver_phone: formData.driver_phone, p_transport_type: formData.transport_type,
+      p_extra_cost: formData.extra_cost ? parseFloat(formData.extra_cost) : null, p_remarks: formData.remarks
+    };
+    try {
+      if (editingRecord) {
+        await supabase.rpc('update_logistics_record_with_costs', { p_record_id: editingRecord.id, ...recordData });
+        toast({ title: "成功", description: "运单记录已更新" });
+      } else {
+        await supabase.rpc('add_logistics_record_with_costs', recordData);
+        toast({ title: "成功", description: "新运单已添加" });
+      }
+      setIsEditModalOpen(false);
+      await loadData(currentPage, searchQuery, filters); // 刷新当前页
+    } catch (error: any) { toast({ title: "操作失败", description: error.message, variant: "destructive" }); }
+  };
+  const handleDelete = async (id: string) => {
+    try {
+      await supabase.from('logistics_records').delete().eq('id', id);
+      toast({ title: "成功", description: "运单记录已删除" });
+      await loadData(currentPage, searchQuery, filters); // 刷新当前页
+    } catch (error: any) { toast({ title: "删除失败", description: error.message, variant: "destructive" }); }
+  };
+    const summary = useMemo(() => {
     return (records || []).reduce((acc, record) => {
       acc.totalLoadingWeight += record.loading_weight || 0; acc.totalUnloadingWeight += record.unloading_weight || 0;
       acc.totalCurrentCost += record.current_cost || 0; acc.totalExtraCost += record.extra_cost || 0;
@@ -203,28 +278,35 @@ export default function BusinessEntry() {
       if (record.transport_type === '实际运输') acc.actualCount += 1;
       else if (record.transport_type === '退货') acc.returnCount += 1;
       return acc;
-    }, {
-      totalLoadingWeight: 0, totalUnloadingWeight: 0, totalCurrentCost: 0,
-      totalExtraCost: 0, totalDriverPayableCost: 0, actualCount: 0, returnCount: 0,
-    });
+    }, { totalLoadingWeight: 0, totalUnloadingWeight: 0, totalCurrentCost: 0, totalExtraCost: 0, totalDriverPayableCost: 0, actualCount: 0, returnCount: 0 });
   }, [records]);
-  const exportToExcel = async () => { /* ... */ };
-  const handleTemplateDownload = () => { /* ... */ };
-
-  const closeImportModal = () => {
-    setIsImporting(false); setIsImportModalOpen(false); setImportStep('idle');
-    setImportPreview(null); setApprovedDuplicates(new Set()); setImportLogs([]);
-  };
-  const getImportPreview = async (validRows: any[]) => {
-    setImportStep('preview');
+  const exportToExcel = async () => {
+    toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
     try {
-      const recordsToPreview = validRows.map(rowData => ({ /* ... */ }));
-      const { data: previewResult, error } = await supabase.rpc('preview_import_with_duplicates_check', { p_records: recordsToPreview });
-      if (error) throw error;
-      setImportPreview(previewResult);
-      setApprovedDuplicates(new Set(previewResult.duplicate_records.map((_: any, i: number) => i)));
-      setImportStep('confirmation');
-    } catch (error: any) { toast({ title: "预览失败", description: error.message, variant: "destructive" }); closeImportModal(); }
+        const { data, error } = await supabase.from('logistics_records_view')
+            .select('*')
+            .ilike('any_text', `%${searchQuery}%`)
+            .gte('loading_date', filters.startDate)
+            .lte('loading_date', filters.endDate)
+            .order('loading_date', { ascending: false })
+            .limit(10000); // 导出上限
+        if (error) throw error;
+      const dataToExport = (data || []).map((r: LogisticsRecord) => ({
+        '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认', '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone,
+        '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date, '运输类型': r.transport_type, 
+        '装货重量': r.loading_weight, '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.payable_cost, '备注': r.remarks,
+      }));
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "运单记录");
+      XLSX.writeFile(wb, "运单记录.xlsx");
+      toast({ title: "成功", description: "全部筛选结果已成功导出！" });
+    } catch(e) { toast({ title: "错误", description: "导出失败，请重试。", variant: "destructive" }); }
+  };
+  const handleTemplateDownload = () => {
+    const templateData = [{ '项目名称': '', '合作链路': '', '司机姓名': '', '车牌号': '', '司机电话': '', '装货地点': '', '卸货地点': '', '装货日期': '2025/01/14', '卸货日期': '2025/01/14', '运输类型': '实际运输', '装货重量': '', '卸货重量': '', '运费金额': '', '额外费用': '', '备注': '' }];
+    const ws = XLSX.utils.json_to_sheet(templateData); const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "模板"); XLSX.writeFile(wb, "运单导入模板.xlsx");
   };
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return;
@@ -236,24 +318,74 @@ export default function BusinessEntry() {
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
-        setIsImportModalOpen(true);
-        setImportStep('preprocessing');
-        const validRows: any[] = [];
-        jsonData.forEach(row => {
-            const loadingDate = parseExcelDate(row['装货日期']);
-            if (loadingDate) { validRows.push({ ...row, loading_date_parsed: loadingDate, unloading_date_parsed: row['卸货日期'] ? parseExcelDate(row['卸货日期']) : loadingDate }); }
-        });
-        await getImportPreview(validRows);
-      } catch (error) { toast({ title: "错误", description: "文件读取失败", variant: "destructive" }); closeImportModal(); }
+        setIsImportModalOpen(true); setImportStep('preprocessing');
+        await processDataInChunks(jsonData);
+      } catch (error) { toast({ title: "错误", description: "文件读取失败，请检查文件格式。", variant: "destructive" }); closeImportModal(); }
     };
     reader.readAsArrayBuffer(file);
     event.target.value = '';
   };
-  const executeFinalImport = async () => { /* ... */ };
-  const handleToggleDuplicateApproval = (index: number) => { /* ... */ };
-  const handleToggleAllDuplicates = () => { /* ... */ };
-  
-    return (
+  const processDataInChunks = async (data: any[]) => {
+    return new Promise<void>((resolve) => {
+      let currentIndex = 0; const chunkSize = 50; const validRows: any[] = []; const invalidRows: any[] = [];
+      const uniqueKeys = new Set<string>(); let duplicateCount = 0;
+      const processChunk = () => {
+        const chunk = data.slice(currentIndex, currentIndex + chunkSize);
+        if (chunk.length === 0) {
+          setImportData({ valid: validRows, invalid: invalidRows, duplicateCount }); setImportStep('preview');
+          toast({ title: "完成", description: "文件预处理完成。" }); resolve(); return;
+        }
+        for (const row of chunk) {
+          const originalIndex = currentIndex; const rowData = { ...row, originalRow: originalIndex + 2, error: '' }; currentIndex++;
+          try {
+            const projectName = rowData['项目名称']?.trim(); const driverName = rowData['司机姓名']?.trim(); const loadingLocation = rowData['装货地点']?.trim(); const unloadingLocation = rowData['卸货地点']?.trim();
+            const loadingDateFormatted = parseExcelDate(rowData['装货日期']);
+            if (!projectName || !driverName || !loadingLocation || !unloadingLocation) throw new Error("缺少必填字段");
+            if (!loadingDateFormatted) throw new Error("无效的装货日期格式");
+            if (!projects.some(p => p.name === projectName)) throw new Error(`项目 "${projectName}" 不存在`);
+            const unloadingDateFormatted = rowData['卸货日期'] ? parseExcelDate(rowData['卸货日期']) : loadingDateFormatted;
+            const uniqueKey = [projectName, driverName, loadingLocation, unloadingLocation, loadingDateFormatted, rowData['装货重量'], rowData['卸货重量']].join('-');
+            if (uniqueKeys.has(uniqueKey)) { rowData.error = "文件内重复数据"; duplicateCount++; invalidRows.push(rowData); } 
+            else { uniqueKeys.add(uniqueKey); validRows.push({ ...rowData, loading_date_parsed: loadingDateFormatted, unloading_date_parsed: unloadingDateFormatted }); }
+          } catch (err: any) { rowData.error = err.message; invalidRows.push(rowData); }
+        }
+        setPreprocessingProgress((currentIndex / data.length) * 100);
+        setTimeout(processChunk, 0);
+      };
+      processChunk();
+    });
+  };
+  const startActualImport = async () => {
+    setImportStep('processing'); setImportLogs([]);
+    const addLog = (message: string) => setImportLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
+    addLog(`开始批量导入... 共 ${importData.valid.length} 条有效记录。`);
+    try {
+      const batchRecords = importData.valid.map(row => ({
+        project_name: row['项目名称']?.trim(), chain_name: row['合作链路']?.trim() || null, driver_name: row['司机姓名']?.trim(), license_plate: row['车牌号']?.toString().trim() || null,
+        driver_phone: row['司机电话']?.toString().trim() || null, loading_location: row['装货地点']?.trim(), unloading_location: row['卸货地点']?.trim(),
+        loading_date: row.loading_date_parsed, unloading_date: row.unloading_date_parsed,
+        loading_weight: row['装货重量'] ? parseFloat(row['装货重量']).toString() : null, unloading_weight: row['卸货重量'] ? parseFloat(row['卸货重量']).toString() : null,
+        current_cost: row['运费金额'] ? parseFloat(row['运费金额']).toString() : '0', extra_cost: row['额外费用'] ? parseFloat(row['额外费用']).toString() : '0',
+        transport_type: row['运输类型']?.trim() || '实际运输', remarks: row['备注']?.toString().trim() || null
+      }));
+      addLog('准备批量导入数据...');
+      const { data: result, error: batchError } = await supabase.rpc('batch_import_logistics_records', { p_records: batchRecords });
+      if (batchError) throw batchError;
+      const { success_count = 0, error_count = 0, errors = [] } = result as any || {};
+      addLog(`批量导入完成: 成功 ${success_count} 条，失败 ${error_count} 条`);
+      if (error_count > 0) addLog(`错误详情: ${JSON.stringify(errors.slice(0, 5))}`);
+      addLog(`--------------------`); addLog(`批量导入流程已完成！`);
+      if (success_count > 0) { toast({ title: "成功", description: `批量导入成功 ${success_count} 条！` }); await loadData(1, "", filters); setCurrentPage(1); }
+      if (error_count > 0) toast({ title: "注意", description: `有 ${error_count} 条记录导入失败。`, variant: "destructive" });
+    } catch (error: any) { addLog(`批量导入发生错误: ${error.message}`); toast({ title: "错误", description: `批量导入失败: ${error.message}`, variant: "destructive" }); }
+  };
+  const closeImportModal = () => {
+    setIsImportModalOpen(false); setIsImporting(false); // 确保在关闭时重置 isImporting
+    setImportStep('idle'); setImportData({ valid: [], invalid: [], duplicateCount: 0 });
+    setPreprocessingProgress(0); setImportLogs([]);
+  };
+
+  return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div><h1 className="text-3xl font-bold text-foreground">运单管理</h1><p className="text-muted-foreground">录入、查询和管理所有运单记录</p></div>
@@ -268,6 +400,7 @@ export default function BusinessEntry() {
         <div className="grid w-full max-w-sm items-center gap-1.5"><Label htmlFor="search-query">快速搜索</Label><Input type="text" id="search-query" placeholder="搜索运单号、项目、司机..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} disabled={loading}/></div>
         <div className="grid items-center gap-1.5"><Label htmlFor="start-date">开始日期</Label><Input type="date" id="start-date" value={filters.startDate} onChange={e => setFilters(f => ({...f, startDate: e.target.value}))} disabled={loading}/></div>
         <div className="grid items-center gap-1.5"><Label htmlFor="end-date">结束日期</Label><Input type="date" id="end-date" value={filters.endDate} onChange={e => setFilters(f => ({...f, endDate: e.target.value}))} disabled={loading}/></div>
+        <Button variant="outline" onClick={() => { setSearchQuery(""); setFilters(getInitialDefaultDates()); }} disabled={loading}>清除筛选</Button>
       </div>
       <div className="border rounded-lg">
         <Table>
@@ -307,27 +440,57 @@ export default function BusinessEntry() {
         <span>额外费用: <span className="font-bold text-orange-600">¥{summary.totalExtraCost.toFixed(2)}</span></span>
         <span>司机应收: <span className="font-bold text-green-600">¥{summary.totalDriverPayableCost.toFixed(2)}</span></span>
       </div>
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>...</Dialog>
-      <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>...</Dialog>
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader><DialogTitle>{editingRecord ? "编辑运单" : "新增运单"}</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-4 gap-4 py-4">
+            <div className="space-y-1"><Label>项目 *</Label><Select value={formData.project_id} onValueChange={(v) => handleInputChange('project_id', v)}><SelectTrigger><SelectValue placeholder="请选择项目"/></SelectTrigger><SelectContent>{projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
+            <div className="space-y-1"><Label>合作链路</Label><Select value={formData.chain_id} onValueChange={(v) => handleInputChange('chain_id', v)} disabled={!formData.project_id}><SelectTrigger><SelectValue placeholder="默认链路"/></SelectTrigger><SelectContent>{partnerChains.map(c => (<SelectItem key={c.id} value={c.id}>{c.chain_name}</SelectItem>))}</SelectContent></Select></div>
+            <div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
+            <div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
+            <div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))} value={formData.driver_id} onValueChange={(v) => handleInputChange('driver_id', v)} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." onCreateNew={(value) => handleInputChange('driver_id', value)} /></div>
+            <div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
+            <div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
+            <div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.loading_location} onValueChange={(v) => handleInputChange('loading_location', v)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={(value) => handleInputChange('loading_location', value)} /></div>
+            <div className="space-y-1"><Label>装货重量</Label><Input type="number" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value)} /></div>
+            <div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))} value={formData.unloading_location} onValueChange={(v) => handleInputChange('unloading_location', v)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={(value) => handleInputChange('unloading_location', value)} /></div>
+            <div className="space-y-1"><Label>卸货重量</Label><Input type="number" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value)} /></div>
+            <div className="space-y-1"><Label>运费金额 (元)</Label><Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value)} /></div>
+            <div className="space-y-1"><Label>额外费用 (元)</Label><Input type="number" value={formData.extra_cost || ''} onChange={(e) => handleInputChange('extra_cost', e.target.value)} /></div>
+            <div className="space-y-1 col-span-2"><Label>备注</Label><Textarea value={formData.remarks || ''} onChange={(e) => handleInputChange('remarks', e.target.value)} /></div>
+            <div className="space-y-1 col-start-4"><Label>司机应收 (自动计算)</Label><Input type="number" value={formData.payable_cost || ''} disabled className="font-bold text-primary" /></div>
+          </div>
+          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setIsEditModalOpen(false)}>取消</Button><Button type="submit" onClick={handleSubmit}>保存</Button></div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
+          {viewingRecord && ( <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm"><div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date ? viewingRecord.loading_date.split('T')[0] : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date ? viewingRecord.unloading_date.split('T')[0] : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{viewingRecord.transport_type}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost?.toFixed(2) || '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono text-orange-600">{viewingRecord.extra_cost?.toFixed(2) || '-'}</p></div><div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.payable_cost?.toFixed(2) || '-'}</p></div><div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px] whitespace-pre-wrap">{viewingRecord.remarks || '无'}</p></div></div> )}
+          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button><Button onClick={() => { if (viewingRecord) { handleOpenModal(viewingRecord); setViewingRecord(null); } }}>编辑此记录</Button></div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={isImportModalOpen} onOpenChange={(isOpen) => !isOpen && closeImportModal()}>
-       <DialogContent className="max-w-4xl">
-           <DialogHeader><DialogTitle>导入运单数据</DialogTitle></DialogHeader>
-           {(importStep === 'preprocessing' || importStep === 'preview') && ( <div className="py-8 text-center space-y-4"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary"/><p className="text-muted-foreground">{importStep === 'preprocessing' ? '正在检查文件内容...' : '正在获取导入预览，请稍候...'}</p></div> )}
-           {importStep === 'confirmation' && importPreview && (
-             <div>
-               <Alert className="mb-4"><Siren className="h-4 w-4" /><AlertTitle>请确认导入操作</AlertTitle><AlertDescription>系统已完成预检查。</AlertDescription></Alert>
-               <div className="mb-4 p-4 border rounded-md"><h4 className="font-semibold">{importPreview.new_records.length} 条新记录</h4></div>
-               {importPreview.duplicate_records.length > 0 && (
-                 <div className="mb-4 p-4 border rounded-md">
-                   <h4 className="font-semibold">{importPreview.duplicate_records.length} 条疑似重复记录</h4>
-                   <div className="flex items-center space-x-2"><Checkbox id="select-all" onCheckedChange={handleToggleAllDuplicates} /><label htmlFor="select-all">全选</label></div>
-                   <div>{importPreview.duplicate_records.map((item, index) => (<div key={index}><Checkbox onCheckedChange={() => handleToggleDuplicateApproval(index)} />...</div>))}</div>
-                 </div>
-               )}
-               <div className="flex justify-end gap-2"><Button variant="outline" onClick={closeImportModal}>取消</Button><Button onClick={executeFinalImport}>确认导入</Button></div>
-             </div>
-           )}
-           {importStep === 'processing' && ( <div className="py-4 space-y-4"><h3 className="font-semibold">正在导入...</h3><div ref={importLogRef}>{importLogs.map((log, i) => <p key={i}>{log}</p>)}</div><Button onClick={closeImportModal}>关闭</Button></div>)}
+        <DialogContent className="max-w-4xl">
+          <DialogHeader><DialogTitle>导入运单数据</DialogTitle></DialogHeader>
+          {importStep === 'preprocessing' && ( <div className="py-8 text-center space-y-4"><h3 className="font-semibold">正在预处理文件...</h3><Progress value={preprocessingProgress} className="w-full" /><p className="text-sm text-muted-foreground">已校验 {Math.round(preprocessingProgress)}%</p></div> )}
+          {importStep === 'preview' && (
+            <div>
+              <div className="flex justify-between items-center bg-muted p-4 rounded-md mb-4">
+                <div className="space-y-1"><p>共发现 <strong>{importData.valid.length + importData.invalid.length}</strong> 条记录</p><p className="text-green-600"><strong>{importData.valid.length}</strong> 条记录格式正确</p>{importData.invalid.length > 0 && <p className="text-red-600"><strong>{importData.invalid.length}</strong> 条错误/重复记录将被忽略</p>}</div>
+                <div className="flex gap-2"><Button variant="outline" onClick={closeImportModal}>取消</Button><Button onClick={startActualImport} disabled={importData.valid.length === 0}>确认并开始导入 ({importData.valid.length})</Button></div>
+              </div>
+              {importData.invalid.length > 0 && (
+                <div className="mb-4"><h4 className="font-semibold mb-2">错误或重复记录（前 10 条）</h4>
+                  <div className="border rounded-md max-h-48 overflow-y-auto"><Table><TableHeader><TableRow><TableHead>行号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>错误原因</TableHead></TableRow></TableHeader><TableBody>{importData.invalid.slice(0, 10).map(row => ( <TableRow key={row.originalRow} className="bg-red-50 dark:bg-red-900/20"><TableCell>{row.originalRow}</TableCell><TableCell>{row['项目名称']}</TableCell><TableCell>{row['司机姓名']}</TableCell><TableCell className="text-red-700 dark:text-red-400">{row.error}</TableCell></TableRow>))}</TableBody></Table></div>
+                </div>
+              )}
+            </div>
+          )}
+          {importStep === 'processing' && (
+            <div className="py-4 space-y-4"><h3 className="font-semibold">正在逐条导入数据...</h3><div ref={importLogRef} className="h-64 overflow-y-auto bg-gray-900 text-white font-mono text-xs p-4 rounded-md">{importLogs.map((log, i) => <p key={i} className={log.includes('错误') ? 'text-red-400' : (log.includes('完成') ? 'text-blue-400' : 'text-green-400')}>{log}</p>)}</div><div className="text-center pt-4"><Button onClick={closeImportModal}>关闭</Button></div></div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
