@@ -88,14 +88,13 @@ export default function BusinessEntry() {
   const [totalPages, setTotalPages] = useState(1);
   const PAGE_SIZE = 15;
   const navigate = useNavigate();
-  // 恢复完整的导入状态
   const [isImporting, setIsImporting] = useState(false);
   const importLogRef = useRef<HTMLDivElement>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importStep, setImportStep] = useState<'idle' | 'preprocessing' | 'preview' | 'confirmation' | 'processing'>('idle');
   const [importPreview, setImportPreview] = useState<{ new_records: any[], duplicate_records: any[], error_records: any[] } | null>(null);
   const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
-  const [importLogs, setImportLogs] = useState<string[]>([]); // [修复] 这是导致崩溃的根源，现在已恢复
+  const [importLogs, setImportLogs] = useState<string[]>([]);
 
   const loadInitialOptions = useCallback(async () => {
     try {
@@ -135,10 +134,10 @@ export default function BusinessEntry() {
   const handleInputChange = (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value })); 
     useEffect(() => {
     handleInputChange('chain_id', '');
-    if (formData.project_id) {
+    if (formData.project_id && projects.length > 0) {
        const fetchRelatedData = async () => {
         const { data: chainsData } = await supabase.from('partner_chains').select('id, chain_name').eq('project_id', formData.project_id);
-        setPartnerChains(chainsData as PartnerChain[] || []);
+        if (chainsData) setPartnerChains(chainsData as PartnerChain[]);
         const { data: driverLinks } = await supabase.from('driver_projects').select('driver_id').eq('project_id', formData.project_id);
         const driverIds = driverLinks?.map(link => link.driver_id) || [];
         setFilteredDrivers(drivers.filter(driver => driverIds.includes(driver.id)));
@@ -148,10 +147,17 @@ export default function BusinessEntry() {
       };
       fetchRelatedData();
     } else { setPartnerChains([]); setFilteredDrivers([]); setFilteredLocations([]); }
-    }, [formData.project_id, drivers, locations]);
+    }, [formData.project_id, projects, drivers, locations]);
     useEffect(() => {
-    const selectedDriver = drivers.find(d => d.id === formData.driver_id);
-    if (selectedDriver) setFormData((prev: any) => ({ ...prev, driver_name: selectedDriver.name, license_plate: selectedDriver.license_plate, driver_phone: selectedDriver.phone }));
+        const selectedDriver = drivers.find(d => d.id === formData.driver_id);
+        if (selectedDriver) {
+          setFormData((prev: any) => ({
+            ...prev,
+            driver_name: selectedDriver.name,
+            license_plate: selectedDriver.license_plate || prev.license_plate || '',
+            driver_phone: selectedDriver.phone || prev.driver_phone || '',
+          }));
+        }
     }, [formData.driver_id, drivers]);
     useEffect(() => {
     const currentCost = parseFloat(formData.current_cost) || 0; const extraCost = parseFloat(formData.extra_cost) || 0;
@@ -160,6 +166,8 @@ export default function BusinessEntry() {
     useEffect(() => {
     if (formData.loading_date && !formData.unloading_date) handleInputChange('unloading_date', formData.loading_date);
     }, [formData.loading_date]);
+  
+    // [最终修复] 完整恢复您【蓝图】中用于打开弹窗和预设新运单数据的`handleOpenModal`函数
     const handleOpenModal = (record: LogisticsRecord | null = null) => {
     if (record) {
       setEditingRecord(record);
@@ -179,6 +187,8 @@ export default function BusinessEntry() {
     }
     setIsEditModalOpen(true);
     };
+
+    // [最终修复] 完整恢复您【蓝图】中用于处理新增和编辑逻辑的`handleSubmit`函数
     const handleSubmit = async () => {
     const projectName = projects.find(p => p.id === formData.project_id)?.name;
     if (!projectName || !formData.driver_name || !formData.loading_location || !formData.unloading_location) {
@@ -211,6 +221,7 @@ export default function BusinessEntry() {
       setIsEditModalOpen(false); await loadPaginatedRecords(); await loadInitialOptions();
     } catch (error: any) { toast({ title: "操作失败", description: error.message, variant: "destructive" }); }
     };
+    
     const handleDelete = async (id: string) => {
     try {
       await supabase.from('logistics_records').delete().eq('id', id);
@@ -246,6 +257,7 @@ export default function BusinessEntry() {
     const ws = XLSX.utils.json_to_sheet(templateData); const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "模板"); XLSX.writeFile(wb, "运单导入模板.xlsx");
     };
+  
     const closeImportModal = () => {
     setIsImportModalOpen(false); setIsImporting(false); setImportStep('idle');
     setImportPreview(null); setApprovedDuplicates(new Set()); setImportLogs([]);
@@ -351,7 +363,7 @@ export default function BusinessEntry() {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader><DialogTitle>{editingRecord ? "编辑运单" : "新增运单"}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-4 gap-4 py-4"><div className="space-y-1"><Label>项目 *</Label><Select value={formData.project_id} onValueChange={(v) => handleInputChange('project_id', v)}><SelectTrigger><SelectValue placeholder="请选择项目"/></SelectTrigger><SelectContent>{projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div><div className="space-y-1"><Label>合作链路</Label><Select value={formData.chain_id} onValueChange={(v) => handleInputChange('chain_id', v)} disabled={!formData.project_id}><SelectTrigger><SelectValue placeholder="默认链路"/></SelectTrigger><SelectContent>{partnerChains.map(c => (<SelectItem key={c.id} value={c.id}>{c.chain_name}</SelectItem>))}</SelectContent></Select></div><div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div><div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div><div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))}  value={formData.driver_id} onValueChange={(value) => handleInputChange('driver_id', value)} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." onCreateNew={(value) => handleInputChange('driver_id', value)} /></div><div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div><div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div><div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div><div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))}  value={formData.loading_location} onValueChange={(value) => handleInputChange('loading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={(value) => handleInputChange('loading_location', value)} /></div><div className="space-y-1"><Label>装货重量</Label><Input type="number" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value)} /></div><div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))}  value={formData.unloading_location} onValueChange={(value) => handleInputChange('unloading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={(value) => handleInputChange('unloading_location', value)} /></div><div className="space-y-1"><Label>卸货重量</Label><Input type="number" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value)} /></div><div className="space-y-1"><Label>运费金额 (元)</Label><Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value)} /></div><div className="space-y-1"><Label>额外费用 (元)</Label><Input type="number" value={formData.extra_cost || ''} onChange={(e) => handleInputChange('extra_cost', e.target.value)} /></div><div className="space-y-1 col-span-2"><Label>备注</Label><Textarea value={formData.remarks || ''} onChange={(e) => handleInputChange('remarks', e.target.value)} /></div><div className="space-y-1 col-start-4"><Label>司机应收 (自动计算)</Label><Input type="number" value={formData.payable_cost || ''} disabled className="font-bold text-primary" /></div></div>
+          <div className="grid grid-cols-4 gap-4 py-4"><div className="space-y-1"><Label>项目 *</Label><Select value={formData.project_id} onValueChange={(v) => handleInputChange('project_id', v)}><SelectTrigger><SelectValue placeholder="请选择项目"/></SelectTrigger><SelectContent>{projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div><div className="space-y-1"><Label>合作链路</Label><Select value={formData.chain_id} onValueChange={(v) => handleInputChange('chain_id', v)} disabled={!formData.project_id}><SelectTrigger><SelectValue placeholder="默认链路"/></SelectTrigger><SelectContent>{partnerChains.map(c => (<SelectItem key={c.id} value={c.id}>{c.chain_name}</SelectItem>))}</SelectContent></Select></div><div className="space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div><div className="space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div><div className="space-y-1"><Label>司机 *</Label><CreatableCombobox options={filteredDrivers.map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }))}  value={formData.driver_id} onValueChange={(value) => {const driver = filteredDrivers.find(d => d.id === value); if (driver) {handleInputChange('driver_id', value); handleInputChange('driver_name', driver.name);} else {handleInputChange('driver_id', value); handleInputChange('driver_name', value);}}} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." onCreateNew={() => navigate('/drivers')} /></div><div className="space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div><div className="space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div><div className="space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div><div className="space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))}  value={formData.loading_location} onValueChange={(value) => handleInputChange('loading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={() => navigate('/locations')} /></div><div className="space-y-1"><Label>装货重量</Label><Input type="number" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value)} /></div><div className="space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={filteredLocations.map(l => ({ value: l.name, label: l.name }))}  value={formData.unloading_location} onValueChange={(value) => handleInputChange('unloading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={() => navigate('/locations')} /></div><div className="space-y-1"><Label>卸货重量</Label><Input type="number" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value)} /></div><div className="space-y-1"><Label>运费金额 (元)</Label><Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value)} /></div><div className="space-y-1"><Label>额外费用 (元)</Label><Input type="number" value={formData.extra_cost || ''} onChange={(e) => handleInputChange('extra_cost', e.target.value)} /></div><div className="space-y-1 col-span-2"><Label>备注</Label><Textarea value={formData.remarks || ''} onChange={(e) => handleInputChange('remarks', e.target.value)} /></div><div className="space-y-1 col-start-4"><Label>司机应收 (自动计算)</Label><Input type="number" value={formData.payable_cost || ''} disabled className="font-bold text-primary" /></div></div>
           <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setIsEditModalOpen(false)}>取消</Button><Button type="submit" onClick={handleSubmit}>保存</Button></div>
         </DialogContent>
       </Dialog>
