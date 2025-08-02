@@ -591,6 +591,8 @@ export default function BusinessEntry() {
       processChunk();
     });
   };
+#修改
+// 在您的 BusinessEntry.tsx 文件中，找到 startActualImport 函数并用下面的代码完整替换它
 
   const startActualImport = async () => {
     setImportStep('processing');
@@ -620,9 +622,26 @@ export default function BusinessEntry() {
         remarks: rowData['备注']?.toString().trim() || null
       }));
 
+      // ==============================================================================
+      // [核心修改 1/2]: 获取当前登录的用户信息
+      // ==============================================================================
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // 如果获取不到用户，则中止操作，并给出明确提示
+      if (!user) {
+        const errorMsg = "无法获取当前用户信息，请重新登录后尝试。";
+        addLog(`错误: ${errorMsg}`);
+        toast({ title: "操作中止", description: errorMsg, variant: "destructive" });
+        return; // 关键：中止函数执行
+      }
+      
       addLog('准备批量导入数据...');
+      // ==============================================================================
+      // [核心修改 2/2]: 调用 RPC 函数时，将用户ID作为参数传递
+      // ==============================================================================
       const { data: result, error: batchError } = await supabase.rpc('batch_import_logistics_records', {
-        p_records: batchRecords
+        p_records: batchRecords, // 运单记录
+        p_user_id: user.id      // 当前登录用户的ID
       });
 
       if (batchError) throw batchError;
@@ -633,7 +652,8 @@ export default function BusinessEntry() {
 
       addLog(`批量导入完成: 成功 ${successCount} 条，失败 ${errorCount} 条`);
       if (errorCount > 0) {
-        addLog(`错误详情: ${JSON.stringify(errors.slice(0, 5))}`);
+        const simplifiedErrors = errors.slice(0, 5).map((e: any) => ({ error: e.error }));
+        addLog(`错误详情: ${JSON.stringify(simplifiedErrors)}`);
       }
 
       addLog(`--------------------`);
@@ -664,6 +684,8 @@ export default function BusinessEntry() {
       });
     }
   };
+
+  #函数结束
 
   const closeImportModal = () => {
     setIsImportModalOpen(false);
