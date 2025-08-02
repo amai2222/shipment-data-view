@@ -103,68 +103,66 @@ export default function BusinessEntry() {
   const handleInputChange = (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value }));
 
   // 数据加载逻辑
-  const loadPaginatedRecords = useCallback(async (currentFilters, currentSearchQuery, page) => {
-    setLoading(true);
-    try {
-      const offset = (page - 1) * PAGE_SIZE;
-      const { data, error, count } = await supabase
-        .from('logistics_records_view')
-        .select('*', { count: 'exact' })
-        .ilike('any_text', `%${currentSearchQuery}%`)
-        .gte('loading_date', currentFilters.startDate)
-        .lte('loading_date', currentFilters.endDate)
-        .order('loading_date', { ascending: false })
-        .order('created_at', { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1);
-      
-      if (error) throw error;
-      setRecords(data || []);
-      setTotalPages(Math.ceil((count || 0) / PAGE_SIZE) || 1);
-    } catch (error: any) {
-      toast({ title: "错误", description: `加载运单记录失败: ${error.message}`, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+    const loadPaginatedRecords = useCallback(async (page: number, currentFilters: { startDate: string, endDate: string }, currentSearchQuery: string) => {
+        setLoading(true);
+        try {
+            const offset = (page - 1) * PAGE_SIZE;
+            
+            // 使用新的 logistics_records_view 和 any_text 列
+            const { data, error, count } = await supabase
+                .from('logistics_records_view')
+                .select('*', { count: 'exact' })
+                .ilike('any_text', `%${currentSearchQuery}%`)
+                .gte('loading_date', currentFilters.startDate)
+                .lte('loading_date', currentFilters.endDate)
+                .order('loading_date', { ascending: false })
+                .order('created_at', { ascending: false })
+                .range(offset, offset + PAGE_SIZE - 1);
+            
+            if (error) throw error;
+
+            setRecords(data || []);
+            setTotalPages(Math.ceil((count || 0) / PAGE_SIZE) || 1);
+        } catch (error: any) {
+            toast({ title: "错误", description: `加载运单记录失败: ${error.message}`, variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    }, [toast]);
+
 
   const loadInitialOptions = useCallback(async () => {
     try {
-      const [projectsRes, driversRes, locationsRes] = await Promise.all([
-        supabase.from('projects').select('id, name, start_date'),
-        supabase.from('drivers').select('id, name, license_plate, phone'),
-        supabase.from('locations').select('id, name')
-      ]);
-
-      if (projectsRes.error) throw projectsRes.error;
-      if (driversRes.error) throw driversRes.error;
-      if (locationsRes.error) throw locationsRes.error;
-
-      setProjects(projectsRes.data || []);
-      setDrivers(driversRes.data || []);
-      setLocations(locationsRes.data || []);
+      const { data: projectsData } = await supabase.from('projects').select('id, name, start_date');
+      setProjects(projectsData as Project[] || []);
+      const { data: driversData } = await supabase.from('drivers').select('id, name, license_plate, phone');
+      setDrivers(driversData as Driver[] || []);
+      const { data: locationsData } = await supabase.from('locations').select('id, name');
+      setLocations(locationsData || []);
     } catch (error: any) {
       toast({ title: "错误", description: `加载基础数据失败: ${error.message}`, variant: "destructive" });
     }
   }, [toast]);
 
- // 副作用管理
-  useEffect(() => {
+ useEffect(() => {
     setLoading(true);
-    // 先加载基础数据，再加载运单
-    loadInitialOptions().then(() => {
-      loadPaginatedRecords(filters, searchQuery, 1);
-    });
-  }, [loadInitialOptions, loadPaginatedRecords, filters, searchQuery]);
+    setCurrentPage(1); // 确保筛选时返回第一页
+    
+    const initialLoad = async () => {
+        await loadInitialOptions();
+        await loadPaginatedRecords(1, filters, searchQuery);
+    };
 
-  useEffect(() => {
+    initialLoad();
+}, [filters, searchQuery, loadInitialOptions, loadPaginatedRecords]);
+
+useEffect(() => {
+    // 这个 effect 只处理翻页
     if (currentPage > 1) {
-      loadPaginatedRecords(filters, searchQuery, currentPage);
+        loadPaginatedRecords(currentPage, filters, searchQuery);
     }
-  }, [currentPage, filters, searchQuery, loadPaginatedRecords]);
+}, [currentPage]);
 
-  useEffect(() => {
-    if (currentPage !== 1) setCurrentPage(1);
-  },[filters, searchQuery])
 
   useEffect(() => { if (importLogRef.current) importLogRef.current.scrollTop = importLogRef.current.scrollHeight; }, [importLogs]);
   useEffect(() => {
@@ -220,7 +218,21 @@ export default function BusinessEntry() {
   };
   const handleSubmit = async () => { /* ... */ };
   const handleDelete = async (id: string) => { /* ... */ };
-  const summary = useMemo(() => { return (records || []).reduce((acc, record) => { /* ... */ }, { /* ... */ }); }, [records]);
+  const summary = useMemo(() => {
+        return (records || []).reduce((acc, record) => {
+      acc.totalLoadingWeight += record.loading_weight || 0;
+      acc.totalUnloadingWeight += record.unloading_weight || 0;
+      acc.totalCurrentCost += record.current_cost || 0;
+      acc.totalExtraCost += record.extra_cost || 0;
+      acc.totalDriverPayableCost += record.payable_cost || 0;
+      if (record.transport_type === '实际运输') acc.actualCount += 1;
+      else if (record.transport_type === '退货') acc.returnCount += 1;
+      return acc;
+    }, {
+      totalLoadingWeight: 0, totalUnloadingWeight: 0, totalCurrentCost: 0,
+      totalExtraCost: 0, totalDriverPayableCost: 0, actualCount: 0, returnCount: 0,
+    });
+  }, [records]);
   const exportToExcel = async () => { /* ... */ };
   const handleTemplateDownload = () => { /* ... */ };
 
@@ -232,7 +244,7 @@ export default function BusinessEntry() {
   const closeImportModal = () => { /* ... */ };
   
   // UI渲染
-  return (
+    return (
     <div className="space-y-4">
       {/* 页面标题和按钮 */}
       <div className="flex justify-between items-center">
