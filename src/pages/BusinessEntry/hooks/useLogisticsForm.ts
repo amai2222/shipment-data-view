@@ -61,8 +61,16 @@ export function useLogisticsForm(projects: Project[], drivers: Driver[], locatio
   const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([]);
   const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
 
+  // Effect for cascading dropdowns and resetting dependent fields
   useEffect(() => {
+    // This is the key fix: When project changes, reset all dependent fields immediately.
+    // This prevents the state mismatch where a value exists for an option list that no longer contains it.
     dispatch({ type: 'SET_FIELD', field: 'chain_id', payload: null });
+    dispatch({ type: 'SET_FIELD', field: 'driver_id', payload: '' });
+    dispatch({ type: 'SET_FIELD', field: 'driver_name', payload: '' });
+    dispatch({ type: 'SET_FIELD', field: 'loading_location', payload: '' });
+    dispatch({ type: 'SET_FIELD', field: 'unloading_location', payload: '' });
+
     if (formData.project_id) {
       const fetchRelatedData = async () => {
         const { data: chainsData } = await supabase.from('partner_chains').select('id, chain_name').eq('project_id', formData.project_id);
@@ -76,10 +84,13 @@ export function useLogisticsForm(projects: Project[], drivers: Driver[], locatio
       };
       fetchRelatedData();
     } else {
-      setPartnerChains([]); setFilteredDrivers([]); setFilteredLocations([]);
+      setPartnerChains([]);
+      setFilteredDrivers([]);
+      setFilteredLocations([]);
     }
-  }, [formData.project_id, drivers, locations]);
+  }, [formData.project_id, drivers, locations]); // Dependencies are correct, as we need the full lists to filter from.
 
+  // Effect for auto-filling driver info
   useEffect(() => {
     const selectedDriver = drivers.find(d => d.id === formData.driver_id);
     if (selectedDriver) {
@@ -87,10 +98,12 @@ export function useLogisticsForm(projects: Project[], drivers: Driver[], locatio
     }
   }, [formData.driver_id, drivers]);
 
+  // Effect for calculating payable cost
   useEffect(() => {
     dispatch({ type: 'CALCULATE_PAYABLE' });
   }, [formData.current_cost, formData.extra_cost]);
   
+  // Effect for defaulting unloading date
   useEffect(() => {
     if (formData.loading_date && !formData.unloading_date) {
       dispatch({ type: 'SET_FIELD', field: 'unloading_date', payload: formData.loading_date });
