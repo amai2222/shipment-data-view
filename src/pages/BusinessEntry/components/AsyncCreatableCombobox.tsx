@@ -17,12 +17,13 @@ export interface Option {
 
 interface AsyncCreatableComboboxProps {
   value: string;
-  onValueChange: (option: Option | null, rawValue: string) => void;
+  onValue-change: (option: Option | null, rawValue: string) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyResultText?: string;
   tableName: 'drivers' | 'locations';
   searchColumn: string;
+  projectId: string | null; // [核心重写] - 接收项目ID
   disabled?: boolean;
 }
 
@@ -34,6 +35,7 @@ export function AsyncCreatableCombobox({
   emptyResultText = "No results found. Type to create.",
   tableName,
   searchColumn,
+  projectId, // [核心重写]
   disabled = false
 }: AsyncCreatableComboboxProps) {
   const [open, setOpen] = React.useState(false);
@@ -45,27 +47,26 @@ export function AsyncCreatableCombobox({
   const selectedOption = options.find(opt => opt.label === value) || (value ? { value: value, label: value } : null);
 
   React.useEffect(() => {
-    // 当没有搜索词或下拉框关闭时，不执行搜索
-    if (!debouncedSearchTerm || !open) {
+    // [核心重写] - 只有在项目ID存在、有搜索词、且下拉框打开时才搜索
+    if (!projectId || !debouncedSearchTerm || !open) {
       setOptions([]);
       return;
     }
 
     setIsLoading(true);
     const fetchOptions = async () => {
-      const { data, error } = await supabase
-        .from(tableName)
-        .select(`id, ${searchColumn}, license_plate, phone`)
-        .ilike(searchColumn, `%${debouncedSearchTerm}%`)
-        .limit(10);
+      // [核心重写] - 调用新的RPC函数
+      const { data, error } = await supabase.rpc('search_project_linked_items', {
+        p_project_id: projectId,
+        p_item_type: tableName,
+        p_search_term: debouncedSearchTerm
+      });
       
       if (error) {
         console.error("Error fetching options:", error);
         setOptions([]);
       } else {
-        // [核心修复] - 无论data是什么，都确保我们是在一个数组上调用.map
-        // (data || []) 确保了即使data是null或undefined，我们也能安全地执行操作。
-        const formattedOptions = (data || []).map(item => ({
+        const formattedOptions = (data || []).map((item: any) => ({
           value: item.id,
           label: tableName === 'drivers' ? `${item[searchColumn]} (${item.license_plate || '无车牌'})` : item[searchColumn],
           ...item
@@ -75,7 +76,7 @@ export function AsyncCreatableCombobox({
       setIsLoading(false);
     };
     fetchOptions();
-  }, [debouncedSearchTerm, tableName, searchColumn, open]);
+  }, [debouncedSearchTerm, tableName, searchColumn, open, projectId]);
 
   const handleSelect = (currentValue: string) => {
     const option = options.find(opt => opt.value === currentValue);
@@ -99,7 +100,8 @@ export function AsyncCreatableCombobox({
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between"
-          disabled={disabled}
+          // [核心重写] - 如果没有项目ID，则禁用
+          disabled={!projectId || disabled}
         >
           <span className="truncate">{displayValue}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -112,27 +114,20 @@ export function AsyncCreatableCombobox({
             value={searchTerm}
             onValueChange={handleInputChange}
           />
-          <CommandEmpty>
-            {isLoading ? (
-              <div className="flex items-center justify-center p-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-              </div>
-            ) : (
-              <div className="p-2 text-sm">{emptyResultText}</div>
-            )}
-          </CommandEmpty>
-          <CommandGroup>
-            {options.map((option) => (
-              <CommandItem
-                key={option.value}
-                value={option.value}
-                onSelect={handleSelect}
-              >
-                <Check className={cn("mr-2 h-4 w-4", selectedOption?.value === option.value ? "opacity-100" : "opacity-0")} />
-                {option.label}
-              </CommandItem>
-            ))}
-          </CommandGroup>
+          
+          {!isLoading && options.length === 0 && (<CommandEmpty>{emptyResultText}</CommandEmpty>)}
+          {isLoading && (<div className="p-2 flex justify-center items-center"><Loader2 className="h-4 w-4 animate-spin" /></div>)}
+
+          {options.length > 0 && (
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandItem key={option.value} value={option.value} onSelect={handleSelect}>
+                  <Check className={cn("mr-2 h-4 w-4", selectedOption?.value === option.value ? "opacity-100" : "opacity-0")} />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
         </Command>
       </PopoverContent>
     </Popover>
