@@ -4,6 +4,7 @@
 
 import * as React from "react"
 import { format, subDays, subMonths, subYears } from "date-fns"
+import { zhCN } from "date-fns/locale" // [核心修复] - 引入中文语言包
 import { Calendar as CalendarIcon } from "lucide-react"
 import { DateRange } from "react-day-picker"
 
@@ -44,6 +45,18 @@ export function DateRangePicker({
     setOpen(false);
   };
 
+  const handleDateSelect = (range: DateRange | undefined) => {
+    if (range?.from && !range.to) {
+      setDate({ from: range.from, to: range.from });
+      setOpen(false);
+    } else {
+      setDate(range);
+      if (range?.from && range?.to) {
+        setOpen(false);
+      }
+    }
+  };
+
   return (
     <div className={cn("grid gap-2", className)}>
       <Popover open={open} onOpenChange={setOpen}>
@@ -60,10 +73,14 @@ export function DateRangePicker({
             <CalendarIcon className="mr-2 h-4 w-4" />
             {date?.from ? (
               date.to ? (
-                <>
-                  {format(date.from, "yyyy-MM-dd")} -{" "}
-                  {format(date.to, "yyyy-MM-dd")}
-                </>
+                format(date.from, "yyyy-MM-dd") === format(date.to, "yyyy-MM-dd") ? (
+                  format(date.from, "yyyy-MM-dd")
+                ) : (
+                  <>
+                    {format(date.from, "yyyy-MM-dd")} -{" "}
+                    {format(date.to, "yyyy-MM-dd")}
+                  </>
+                )
               ) : (
                 format(date.from, "yyyy-MM-dd")
               )
@@ -85,8 +102,9 @@ export function DateRangePicker({
             mode="range"
             defaultMonth={date?.from}
             selected={date}
-            onSelect={setDate}
+            onSelect={handleDateSelect}
             numberOfMonths={2}
+            locale={zhCN} // [核心修复] - 将中文语言包应用到日历组件
           />
         </PopoverContent>
       </Popover>
