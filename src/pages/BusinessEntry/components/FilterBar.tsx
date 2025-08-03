@@ -28,62 +28,53 @@ export function FilterBar({ onSearch, onClear, loading, projects }: FilterBarPro
     setLocalFilters(prev => ({ ...prev, dateRange }));
   };
 
-  const handleSearch = () => {
-    onSearch(localFilters);
-  };
-
-  const handleClear = () => {
-    setLocalFilters(INITIAL_FILTERS);
-    onClear();
-  };
+  const handleSearch = () => { onSearch(localFilters); };
+  const handleClear = () => { setLocalFilters(INITIAL_FILTERS); onClear(); };
 
   return (
-    <div className="space-y-4 p-4 border rounded-lg">
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
-        <div className="grid items-center gap-1.5 col-span-2">
-          <Label>日期范围</Label>
-          <DateRangePicker
-            date={localFilters.dateRange}
-            setDate={handleDateChange}
-            disabled={loading}
-          />
-        </div>
-        
-        <div className="grid items-center gap-1.5">
-          <Label htmlFor="project-name">项目名称</Label>
-          <Select
-            value={localFilters.projectName || 'all'}
-            onValueChange={(value) => handleInputChange('projectName', value === 'all' ? '' : value)}
-            disabled={loading || projects.length === 0}
-          >
-            <SelectTrigger id="project-name">
-              <SelectValue placeholder="选择项目..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">所有项目</SelectItem>
-              {(projects || []).map(project => (
-                <SelectItem key={project.id} value={project.name}>
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid items-center gap-1.5">
-          <Label htmlFor="driver-name">司机</Label>
-          <Input type="text" id="driver-name" placeholder="输入司机姓名..." value={localFilters.driverName} onChange={e => handleInputChange('driverName', e.target.value)} disabled={loading} />
-        </div>
-        <div className="grid items-center gap-1.5">
-          <Label htmlFor="license-plate">车牌号</Label>
-          <Input type="text" id="license-plate" placeholder="输入车牌号..." value={localFilters.licensePlate} onChange={e => handleInputChange('licensePlate', e.target.value)} disabled={loading} />
-        </div>
-        <div className="grid items-center gap-1.5">
-          <Label htmlFor="driver-phone">司机电话</Label>
-          <Input type="text" id="driver-phone" placeholder="输入司机电话..." value={localFilters.driverPhone} onChange={e => handleInputChange('driverPhone', e.target.value)} disabled={loading} />
-        </div>
+    // [核心重构] - 使用 Flexbox 实现单行布局
+    <div className="flex items-end gap-2 p-4 border rounded-lg">
+      <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
+        <Label htmlFor="project-name">项目名称</Label>
+        <Select
+          value={localFilters.projectName || 'all'}
+          onValueChange={(value) => handleInputChange('projectName', value === 'all' ? '' : value)}
+          disabled={loading || projects.length === 0}
+        >
+          <SelectTrigger id="project-name"><SelectValue placeholder="选择项目..." /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">所有项目</SelectItem>
+            {(projects || []).map(project => (<SelectItem key={project.id} value={project.name}>{project.name}</SelectItem>))}
+          </SelectContent>
+        </Select>
       </div>
-      <div className="flex justify-end gap-2">
+
+      <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
+        <Label htmlFor="driver-name">司机</Label>
+        <Input type="text" id="driver-name" placeholder="司机姓名..." value={localFilters.driverName} onChange={e => handleInputChange('driverName', e.target.value)} disabled={loading} />
+      </div>
+
+      <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
+        <Label htmlFor="license-plate">车牌号</Label>
+        <Input type="text" id="license-plate" placeholder="车牌号..." value={localFilters.licensePlate} onChange={e => handleInputChange('licensePlate', e.target.value)} disabled={loading} />
+      </div>
+
+      <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
+        <Label htmlFor="driver-phone">司机电话</Label>
+        <Input type="text" id="driver-phone" placeholder="司机电话..." value={localFilters.driverPhone} onChange={e => handleInputChange('driverPhone', e.target.value)} disabled={loading} />
+      </div>
+
+      <div className="grid items-center gap-1.5 flex-1 min-w-[280px]">
+        <Label>日期范围</Label>
+        <DateRangePicker
+          date={localFilters.dateRange}
+          setDate={handleDateChange}
+          disabled={loading}
+        />
+      </div>
+
+      {/* 按钮组 */}
+      <div className="flex gap-2">
         <Button variant="outline" onClick={handleClear} disabled={loading}>
           清除筛选
         </Button>
