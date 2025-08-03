@@ -21,14 +21,17 @@ interface CreatableComboboxProps {
 }
 
 export function CreatableCombobox({
-  options, value, onValueChange, onCreateNew,
+  options = [], value, onValueChange, onCreateNew,
   placeholder = "选择选项...", searchPlaceholder = "搜索选项...", emptyPlaceholder = "未找到结果。"
 }: CreatableComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [searchValue, setSearchValue] = React.useState("");
 
-  const selectedOption = options.find((option) => option.value === value) || 
-    (value && !options.some(opt => opt.value === value) ? { value, label: value } : null);
+  // Ensure options is always an array
+  const safeOptions = Array.isArray(options) ? options : [];
+  
+  const selectedOption = safeOptions.find((option) => option.value === value) || 
+    (value && !safeOptions.some(opt => opt.value === value) ? { value, label: value } : null);
 
   const handleCreateNew = () => {
     if (onCreateNew && searchValue.trim()) {
@@ -71,7 +74,7 @@ export function CreatableCombobox({
             </div>
           </CommandEmpty>
           <CommandGroup>
-            {options && Array.isArray(options) ? options.map((option) => (
+            {safeOptions.map((option) => (
               <CommandItem
                 key={option.value}
                 value={option.label}
@@ -80,7 +83,7 @@ export function CreatableCombobox({
                 <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
                 {option.label}
               </CommandItem>
-            )) : null}
+            ))}
           </CommandGroup>
         </Command>
       </PopoverContent>
