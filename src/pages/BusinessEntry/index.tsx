@@ -11,24 +11,20 @@ import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 
 import { Project, LogisticsRecord } from './types';
-// [已修改] 导入我们统一后的 LogisticsFilters 类型，以确保整个应用类型一致
 import { useLogisticsData, INITIAL_FILTERS, TotalSummary, LogisticsFilters } from './hooks/useLogisticsData';
 import { useExcelImport } from './hooks/useExcelImport';
 import { FilterBar } from './components/FilterBar';
 import { LogisticsTable } from './components/LogisticsTable';
 import { ImportDialog } from './components/ImportDialog';
 
-// [已修改] 将 activeFilters 的类型更新为 LogisticsFilters
 const SummaryDisplay = ({ totalSummary, activeFilters, projects }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters, projects: Project[] }) => {
-  
   const summaryTitle = useMemo(() => {
     const parts: string[] = [];
-    if (activeFilters.projectId) {
-      const projectName = projects.find(p => p.id === activeFilters.projectId)?.name || activeFilters.projectId;
-      parts.push(`项目: ${projectName}`);
-    }
+    // [最终修复] 1. 摘要标题逻辑使用 projectName
+    if (activeFilters.projectName) { parts.push(`项目: ${activeFilters.projectName}`); }
     if (activeFilters.driverName) { parts.push(`司机: ${activeFilters.driverName}`); }
     if (activeFilters.licensePlate) { parts.push(`车牌: ${activeFilters.licensePlate}`); }
+    if (activeFilters.driverPhone) { parts.push(`电话: ${activeFilters.driverPhone}`); }
     if (activeFilters.startDate && activeFilters.endDate) { parts.push(`日期: ${activeFilters.startDate} 至 ${activeFilters.endDate}`); }
     else if (activeFilters.startDate) { parts.push(`日期: 从 ${activeFilters.startDate}`); }
     else if (activeFilters.endDate) { parts.push(`日期: 截至 ${activeFilters.endDate}`); }
@@ -59,70 +55,51 @@ const StaleDataPrompt = () => (
 
 export default function BusinessEntry() {
   const { toast } = useToast();
-  
   const [projects, setProjects] = useState<Project[]>([]);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
   const [uiFilters, setUiFilters] = useState(INITIAL_FILTERS);
-
   const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch } = useLogisticsData();
-  const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates } = useExcelImport(() => {
-    refetch();
-  });
-
-  const isSummaryStale = useMemo(() => {
-    return JSON.stringify(uiFilters) !== JSON.stringify(activeFilters);
-  }, [uiFilters, activeFilters]);
+  const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates } = useExcelImport(() => { refetch(); });
+  const isSummaryStale = useMemo(() => JSON.stringify(uiFilters) !== JSON.stringify(activeFilters), [uiFilters, activeFilters]);
 
   const loadInitialOptions = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('projects').select('id, name');
       if (error) throw error;
       setProjects(data || []);
-    } catch (error) { 
-      toast({ title: "错误", description: "加载项目列表失败", variant: "destructive" }); 
-    }
+    } catch (error) { toast({ title: "错误", description: "加载项目列表失败", variant: "destructive" }); }
   }, [toast]);
 
-  useEffect(() => {
-    loadInitialOptions();
-  }, [loadInitialOptions]);
+  useEffect(() => { loadInitialOptions(); }, [loadInitialOptions]);
 
   const handleSearch = () => {
     setActiveFilters(uiFilters);
-    if (pagination.currentPage !== 1) {
-      setPagination(p => ({ ...p, currentPage: 1 }));
-    }
+    if (pagination.currentPage !== 1) { setPagination(p => ({ ...p, currentPage: 1 })); }
   };
 
   const handleClearSearch = () => {
     setUiFilters(INITIAL_FILTERS);
     setActiveFilters(INITIAL_FILTERS);
-    if (pagination.currentPage !== 1) {
-      setPagination(p => ({ ...p, currentPage: 1 }));
-    }
+    if (pagination.currentPage !== 1) { setPagination(p => ({ ...p, currentPage: 1 })); }
   };
 
   const exportToExcel = async () => {
     toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
     try {
       let query = supabase.from('logistics_records_view').select('*');
-      if (activeFilters.projectId) query = query.eq('project_id', activeFilters.projectId);
+      // [最终修复] 2. 导出逻辑与您的 SQL 函数逻辑完全匹配
+      if (activeFilters.projectName) query = query.eq('project_name', activeFilters.projectName);
       if (activeFilters.driverName) query = query.ilike('driver_name', `%${activeFilters.driverName}%`);
       if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
+      if (activeFilters.driverPhone) query = query.ilike('driver_phone', `%${activeFilters.driverPhone}%`);
       if (activeFilters.startDate) query = query.gte('loading_date', activeFilters.startDate);
       if (activeFilters.endDate) query = query.lte('loading_date', activeFilters.endDate);
       
       const { data, error } = await query.order('created_at', { ascending: false }).limit(10000);
-
       if (error) throw error;
 
-      const dataToExport = data.map((r: LogisticsRecord) => ({
-        '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认',
-        '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone,
-        '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, 
-        '卸货日期': r.unloading_date, '运输类型': r.transport_type, '装货重量': r.loading_weight, 
-        '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost,
-        '司机应收': r.driver_payable_cost, '备注': r.remarks,
+      const dataToExport = data.map((r: any) => ({
+        '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认', '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone, '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date, '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.driver_payable_cost, '备注': r.remarks,
       }));
       
       const ws = XLSX.utils.json_to_sheet(dataToExport);
@@ -136,13 +113,7 @@ export default function BusinessEntry() {
   };
 
   const handleTemplateDownload = () => {
-    const templateData = [{
-      '项目名称': '', '合作链路': '', '司机姓名': '', '车牌号': '', '司机电话': '', 
-      '装货地点': '', '卸货地点': '', '装货日期': '2025-01-14', '卸货日期': '2025-01-14',
-      '运输类型': '实际运输', '装货重量': '', '卸货重量': '', '运费金额': '', 
-      '额外费用': '', '备注': ''
-    }];
-    
+    const templateData = [{'项目名称': '', '合作链路': '', '司机姓名': '', '车牌号': '', '司机电话': '', '装货地点': '', '卸货地点': '', '装货日期': '2025-01-14', '卸货日期': '2025-01-14', '运输类型': '实际运输', '装货重量': '', '卸货重量': '', '运费金额': '', '额外费用': '', '备注': ''}];
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "模板");
@@ -162,71 +133,34 @@ export default function BusinessEntry() {
           <Button onClick={exportToExcel} disabled={loading}><Download className="mr-2 h-4 w-4" />导出数据</Button>
         </div>
       </div>
-
-      <FilterBar
-        filters={uiFilters}
-        onFiltersChange={setUiFilters}
-        onSearch={handleSearch}
-        onClear={handleClearSearch}
-        loading={loading}
-        projects={projects}
-      />
-
-      {!isSummaryStale && !loading && (
-        <SummaryDisplay 
-          totalSummary={totalSummary} 
-          activeFilters={activeFilters} 
-          projects={projects} 
-        />
-      )}
-
-      {isSummaryStale ? (
-        <StaleDataPrompt />
-      ) : (
-        <LogisticsTable
-          records={records}
-          loading={loading}
-          pagination={pagination}
-          setPagination={setPagination}
-          onDelete={handleDelete}
-          onView={setViewingRecord}
-        />
-      )}
-      
+      <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
+      {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} projects={projects} />)}
+      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} />)}
       <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />
-      
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
         <DialogContent className="sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
           {viewingRecord && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
               <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date ? viewingRecord.loading_date.split('T')[0] : '未填写'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date ? viewingRecord.unloading_date.split('T')[0] : '未填写'}</p></div>
-
               <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{viewingRecord.transport_type}</p></div>
-
               <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
-
               <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost != null ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono text-orange-600">{viewingRecord.extra_cost != null ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div>
               <div className="space-y-1 col-span-1 md:col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.driver_payable_cost != null ? `¥${viewingRecord.driver_payable_cost.toFixed(2)}` : '-'}</p></div>
-              
               <div className="col-span-1 md:col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px] whitespace-pre-wrap">{viewingRecord.remarks || '无'}</p></div>
             </div>
           )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button>
-          </div>
+          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button></div>
         </DialogContent>
       </Dialog>
     </div>
