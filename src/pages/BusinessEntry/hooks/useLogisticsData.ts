@@ -1,26 +1,26 @@
-// 正确路径: src/pages/BusinessEntry/hooks/useLogisticsData.ts
+// 最终文件路径: src/pages/BusinessEntry/hooks/useLogisticsData.ts
 
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogisticsRecord } from '../types';
-import { DateRange } from 'react-day-picker';
-import { format } from 'date-fns';
 
+// [核心修复] 1. 统一整个应用的数据筛选接口
 export interface LogisticsFilters {
-  dateRange: DateRange | undefined;
-  projectName: string;
+  startDate: string;
+  endDate: string;
+  projectId: string;
   driverName: string;
   licensePlate: string;
-  driverPhone: string;
 }
 
+// [核心修复] 2. 更新初始筛选器以匹配新接口
 export const INITIAL_FILTERS: LogisticsFilters = {
-  dateRange: undefined,
-  projectName: "",
+  startDate: "",
+  endDate: "",
+  projectId: "",
   driverName: "",
   licensePlate: "",
-  driverPhone: "",
 };
 
 const PAGE_SIZE = 25;
@@ -56,22 +56,24 @@ export function useLogisticsData() {
   const loadPaginatedRecords = useCallback(async (page: number, filters: LogisticsFilters) => {
     setLoading(true);
     try {
+      // [核心修复] 3. 在调用数据库函数时，直接使用 filters 中的 startDate 和 endDate
       const { data, error } = await supabase.rpc('get_logistics_summary_and_records', {
-        p_start_date: filters.dateRange?.from ? format(filters.dateRange.from, 'yyyy-MM-dd') : null,
-        p_end_date: filters.dateRange?.to ? format(filters.dateRange.to, 'yyyy-MM-dd') : null,
-        p_project_name: filters.projectName || null,
+        p_start_date: filters.startDate || null,
+        p_end_date: filters.endDate || null,
+        p_project_id: filters.projectId || null,
         p_driver_name: filters.driverName || null,
         p_license_plate: filters.licensePlate || null,
-        p_driver_phone: filters.driverPhone || null,
         p_page_number: page,
         p_page_size: PAGE_SIZE,
       });
 
       if (error) throw error;
-
-      setRecords(data.records || []);
-      setTotalSummary(data.summary || INITIAL_SUMMARY);
-      setPagination(prev => ({ ...prev, totalPages: Math.ceil((data.count || 0) / PAGE_SIZE) || 1 }));
+      
+      const responseData = data[0] || {};
+      
+      setRecords(responseData.records || []);
+      setTotalSummary(responseData.summary || INITIAL_SUMMARY);
+      setPagination(prev => ({ ...prev, totalPages: Math.ceil((responseData.total_count || 0) / PAGE_SIZE) || 1 }));
 
     } catch (error: any) {
       toast({ title: "错误", description: `加载运单记录失败: ${error.message}`, variant: "destructive" });
@@ -88,13 +90,22 @@ export function useLogisticsData() {
 
   const handleDelete = useCallback(async (id: string) => {
     try {
-      await supabase.from('logistics_records').delete().eq('id', id);
+      const { error } = await supabase.from('logistics_records').delete().eq('id', id);
+      if (error) throw error;
       toast({ title: "成功", description: "运单记录已删除" });
       await loadPaginatedRecords(pagination.currentPage, activeFilters);
     } catch (error: any) {
       toast({ title: "删除失败", description: error.message, variant: "destructive" });
     }
   }, [toast, loadPaginatedRecords, pagination.currentPage, activeFilters]);
+
+  const refetch = useCallback(() => {
+    if (pagination.currentPage !== 1) {
+      setPagination(p => ({ ...p, currentPage: 1 }));
+    } else {
+      loadPaginatedRecords(1, activeFilters);
+    }
+  }, [loadPaginatedRecords, activeFilters, pagination.currentPage]);
 
   return {
     records,
@@ -105,6 +116,6 @@ export function useLogisticsData() {
     setPagination,
     totalSummary,
     handleDelete,
-    refetch: () => loadPaginatedRecords(pagination.currentPage, activeFilters),
+    refetch,
   };
 }
