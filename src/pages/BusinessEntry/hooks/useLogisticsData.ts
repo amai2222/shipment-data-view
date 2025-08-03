@@ -28,6 +28,7 @@ export function useLogisticsData() {
     totalPages: 1,
   });
 
+  // The single source of truth for fetching data.
   const loadPaginatedRecords = useCallback(async (page: number, currentFilters: typeof filters) => {
     setLoading(true);
     try {
@@ -43,35 +44,43 @@ export function useLogisticsData() {
         .range(offset, offset + PAGE_SIZE - 1);
 
       if (error) throw error;
+      
       setRecords(data || []);
       setPagination(prev => ({ ...prev, totalPages: Math.ceil((count || 0) / PAGE_SIZE) || 1 }));
     } catch (error: any) {
       toast({ title: "错误", description: `加载运单记录失败: ${error.message}`, variant: "destructive" });
+      setRecords([]); // On error, clear records to avoid showing stale data
     } finally {
       setLoading(false);
     }
   }, [toast]);
 
+  // Effect 1: Reset to page 1 when filters change.
+  // We use a ref to prevent this from running on the initial mount.
+  const isInitialMount = useRef(true);
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (pagination.currentPage === 1) {
-        loadPaginatedRecords(1, filters);
-      } else {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+    } else {
+      if (pagination.currentPage !== 1) {
         setPagination(p => ({ ...p, currentPage: 1 }));
       }
-    }, 500);
-    return () => clearTimeout(timer);
+    }
   }, [filters]);
 
+  // Effect 2: The ONLY effect that triggers data loading.
+  // It runs when the page changes OR when the filters change (which will eventually lead to a page change or already be on page 1).
   useEffect(() => {
     loadPaginatedRecords(pagination.currentPage, filters);
-  }, [pagination.currentPage, loadPaginatedRecords]);
+  }, [pagination.currentPage, filters, loadPaginatedRecords]);
+
 
   const handleDelete = async (id: string) => {
     try {
       await supabase.from('logistics_records').delete().eq('id', id);
       toast({ title: "成功", description: "运单记录已删除" });
-      loadPaginatedRecords(pagination.currentPage, filters); // Refresh current page
+      // After deletion, refetch the current page
+      loadPaginatedRecords(pagination.currentPage, filters);
     } catch (error: any) {
       toast({ title: "删除失败", description: error.message, variant: "destructive" });
     }
