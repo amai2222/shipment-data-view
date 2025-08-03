@@ -23,24 +23,21 @@ import { ImportDialog } from './components/ImportDialog';
 export default function BusinessEntry() {
   const { toast } = useToast();
   
-  // State for dropdown options
   const [projects, setProjects] = useState<Project[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
 
-  // Custom Hooks - The new core of our logic
   const { records, loading, filters, setFilters, pagination, setPagination, summary, handleDelete, refetch } = useLogisticsData();
-  const { isModalOpen, editingRecord, formData, dispatch, partnerChains, filteredDrivers, filteredLocations, handleOpenModal, handleCloseModal, handleSubmit } = useLogisticsForm(projects, drivers, locations, () => {
+  const { isModalOpen, setIsModalOpen, editingRecord, formData, dispatch, partnerChains, filteredDrivers, filteredLocations, handleOpenModal, handleSubmit } = useLogisticsForm(projects, drivers, locations, () => {
     refetch();
-    loadInitialOptions(); // Refresh options in case new drivers/locations were created
+    loadInitialOptions();
   });
   const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates } = useExcelImport(() => {
     refetch();
     loadInitialOptions();
   });
 
-  // Load initial dropdown options
   const loadInitialOptions = useCallback(async () => {
     try {
       const { data: projectsData } = await supabase.from('projects').select('id, name, start_date'); setProjects(projectsData as Project[] || []);
@@ -53,7 +50,6 @@ export default function BusinessEntry() {
     loadInitialOptions();
   }, [loadInitialOptions]);
 
-  // Export logic remains here as it's a page-level action
   const exportToExcel = async () => {
     toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
     try {
@@ -112,7 +108,7 @@ export default function BusinessEntry() {
 
       <LogisticsFormDialog
         isOpen={isModalOpen}
-        onClose={handleCloseModal}
+        onOpenChange={setIsModalOpen}
         onSubmit={handleSubmit}
         editingRecord={editingRecord}
         formData={formData}
@@ -135,7 +131,6 @@ export default function BusinessEntry() {
         onExecuteImport={executeFinalImport}
       />
       
-      {/* Viewing Dialog remains simple and can stay in the main component */}
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
