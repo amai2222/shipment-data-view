@@ -1,4 +1,6 @@
 // 文件路径: src/pages/Projects.tsx
+// 描述: [功能升级版] 增加了合作方筛选器，允许用户按合作方筛选项目列表。
+
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Package, Loader2, ChevronDown, ChevronRight, Link } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // 新增 Select 导入
+import { Plus, Edit, Trash2, Package, Loader2, ChevronDown, ChevronRight, Link, Filter } from "lucide-react"; // 新增 Filter 图标
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SupabaseStorage } from "@/utils/supabase";
@@ -49,6 +52,11 @@ export default function Projects() {
   const [editingProject, setEditingProject] = useState<ProjectWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // --- [新增] 状态管理 ---
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('all');
+  // --- 结束 ---
+
   const [formData, setFormData] = useState({
     name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "",
   });
@@ -58,23 +66,24 @@ export default function Projects() {
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
   }[]>([]);
 
-  // 【核心修复与性能优化】重构 loadData 函数，彻底解决 N+1 查询问题
+  // --- [修改] 数据加载函数 ---
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      // 并行加载所有需要的数据
-      const [projectsResponse, partnersResponse] = await Promise.all([
-        supabase.rpc('get_projects_with_details'), // 只调用一次，获取所有项目及其嵌套数据
-        supabase.from('partners').select('*').order('name', { ascending: true })
-      ]);
-
-      const { data: projectsData, error: projectsError } = projectsResponse;
-      if (projectsError) throw projectsError;
-      setProjects((projectsData as unknown as ProjectWithDetails[]) || []);
       
-      const { data: partnersData, error: partnersError } = partnersResponse;
+      // 并行加载合作方列表
+      const { data: partnersData, error: partnersError } = await supabase
+        .from('partners')
+        .select('*')
+        .order('name', { ascending: true });
       if(partnersError) throw partnersError;
       setPartners(partnersData?.map(p => ({...p, taxRate: Number(p.tax_rate), createdAt: p.created_at})) || []);
+
+      // 根据筛选器加载项目列表
+      const rpcParams = selectedPartnerId === 'all' ? {} : { partner_id_filter: selectedPartnerId };
+      const { data: projectsData, error: projectsError } = await supabase.rpc('get_projects_with_details', rpcParams);
+      if (projectsError) throw projectsError;
+      setProjects((projectsData as unknown as ProjectWithDetails[]) || []);
 
     } catch (error) {
       console.error("数据加载失败:", error);
@@ -82,9 +91,10 @@ export default function Projects() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, selectedPartnerId]); // 新增 selectedPartnerId 作为依赖
 
   useEffect(() => { loadData(); }, [loadData]);
+  // --- 结束 ---
 
   const resetForm = () => {
     setFormData({ name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "" });
@@ -247,7 +257,7 @@ export default function Projects() {
     }));
   };
 
-  if (isLoading) {
+  if (isLoading && projects.length === 0) { // 优化加载状态，避免筛选时全屏加载
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">加载项目数据中...</span>
@@ -321,7 +331,29 @@ export default function Projects() {
 
       <Card className="shadow-card">
         <CardHeader>
-          <div className="flex items-center justify-between"><CardTitle>项目列表 ({projects.length} 个项目)</CardTitle></div>
+          {/* --- [新增] 筛选器UI --- */}
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center">
+              项目列表 
+              {isLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+              {!isLoading && <span className="text-base font-normal text-muted-foreground ml-2">({projects.length} 个项目)</span>}
+            </CardTitle>
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="按合作方筛选..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">所有合作方</SelectItem>
+                  {partners.map(partner => (
+                    <SelectItem key={partner.id} value={partner.id}>{partner.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {/* --- 结束 --- */}
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -410,10 +442,12 @@ export default function Projects() {
               </Card>
             ))}
             
-            {projects.length === 0 && (
+            {projects.length === 0 && !isLoading && (
               <div className="text-center py-12">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">暂无项目，点击"新增项目"开始创建</p>
+                <p className="text-muted-foreground">
+                  {selectedPartnerId === 'all' ? '暂无项目，点击"新增项目"开始创建' : '没有找到与该合作方相关的项目'}
+                </p>
               </div>
             )}
           </div>
