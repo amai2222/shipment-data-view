@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [后端驱动重构版] 1. 所有运算逻辑已转移到后端 get_dashboard_stats 函数。 2. 前端只负责请求和展示。 3. 添加搜索按钮，实现按需加载。
+// 描述: [最终正确版] 1. 通过已有的 SupabaseStorage 调用后端函数。 2. 移除了所有错误引用和前端计算。
 
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,51 +10,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { BarChart3, TrendingUp, Truck, Package, Eye, Database, RefreshCw, CheckCircle, Search } from "lucide-react";
-import { SupabaseStorage } from "@/utils/supabase";
+import { SupabaseStorage } from "@/utils/supabase"; // [修正] 使用您已有的正确 import
 import { DataMigration } from "@/utils/migration";
-import { LogisticsRecord, DailyTransportStats, DailyCostStats, Project } from "@/types";
+import { Project } from "@/types"; // [修正] 只需引入 Project 类型
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase"; // 引入supabase实例
 
-// [后端驱动] 每日运输次数统计接口
-interface DailyCountStats {
-  date: string;
-  count: number;
-}
-
-// [后端驱动] 总览统计数据接口
-interface OverviewStats {
-  totalRecords: number;
-  totalWeight: number;
-  totalCost: number;
-  actualTransportCount: number;
-  returnCount: number;
-}
-
-// [后端驱动] 后端返回的记录类型（注意蛇形命名法）
-interface BackendLogisticsRecord {
-    id: string;
-    project_id: string;
-    project_name: string;
-    loading_date: string;
-    loading_weight: number;
-    unloading_weight: number | null;
-    transport_type: string;
-    current_fee: number;
-    extra_fee: number;
-    payable_fee: number;
-    auto_number: string;
-    driver_name: string;
-    license_plate: string;
-    loading_location: string;
-    unloading_location: string;
-    remarks: string | null;
-}
-
+// [后端驱动] 定义后端返回的数据结构
+interface DailyTransportStats { date: string; actualTransport: number; returns: number; }
+interface DailyCostStats { date: string; totalCost: number; }
+interface DailyCountStats { date: string; count: number; }
+interface OverviewStats { totalRecords: number; totalWeight: number; totalCost: number; actualTransportCount: number; returnCount: number; }
+interface BackendLogisticsRecord { id: string; project_id: string; project_name: string; loading_date: string; loading_weight: number; unloading_weight: number | null; transport_type: string; current_fee: number; extra_fee: number; payable_fee: number; auto_number: string; driver_name: string; license_plate: string; loading_location: string; unloading_location: string; remarks: string | null; }
 
 export default function Home() {
-  // [后端驱动] 状态管理重构，直接存储后端计算好的结果
+  // [后端驱动] 状态管理重构
   const [overviewStats, setOverviewStats] = useState<OverviewStats | null>(null);
   const [dailyTransportStats, setDailyTransportStats] = useState<DailyTransportStats[]>([]);
   const [dailyCostStats, setDailyCostStats] = useState<DailyCostStats[]>([]);
@@ -65,30 +35,19 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [migrationStatus, setMigrationStatus] = useState<{
-    supabaseCount: number;
-    localCount: number;
-    isMigrated: boolean;
-  } | null>(null);
+  const [migrationStatus, setMigrationStatus] = useState<{ supabaseCount: number; localCount: number; isMigrated: boolean; } | null>(null);
   
   const getDefaultDateRange = () => {
     const today = new Date();
     const year = today.getFullYear();
-    return {
-      startDate: `${year}-01-01`,
-      endDate: today.toISOString().split('T')[0],
-    };
+    return { startDate: `${year}-01-01`, endDate: today.toISOString().split('T')[0] };
   };
 
-  const [filterInputs, setFilterInputs] = useState({
-    ...getDefaultDateRange(),
-    projectId: 'all',
-  });
-
+  const [filterInputs, setFilterInputs] = useState({ ...getDefaultDateRange(), projectId: 'all' });
   const { toast } = useToast();
 
   useEffect(() => {
-    handleSearch(); // 首次加载时自动搜索
+    handleSearch();
     loadProjects();
     checkMigrationStatus();
   }, []);
@@ -102,19 +61,16 @@ export default function Home() {
     }
   };
 
-  // [后端驱动] 核心函数，调用后端的RPC
+  // [后端驱动] 核心函数，通过 SupabaseStorage 调用后端的RPC
   const handleSearch = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_dashboard_stats', {
-        start_date_param: filterInputs.startDate,
-        end_date_param: filterInputs.endDate,
-        project_id_param: filterInputs.projectId === 'all' ? null : filterInputs.projectId,
+      const data = await SupabaseStorage.getDashboardStats({
+        startDate: filterInputs.startDate,
+        endDate: filterInputs.endDate,
+        projectId: filterInputs.projectId,
       });
 
-      if (error) throw error;
-
-      // 使用后端返回的数据更新所有状态
       setOverviewStats(data.overview);
       setDailyTransportStats(data.dailyTransportStats || []);
       setDailyCostStats(data.dailyCostStats || []);
@@ -123,11 +79,7 @@ export default function Home() {
 
     } catch (err) {
       console.error('获取看板数据失败:', err);
-      toast({
-        title: "数据加载失败",
-        description: "无法从数据库获取统计数据，请检查网络或联系管理员。",
-        variant: "destructive",
-      });
+      toast({ title: "数据加载失败", description: "无法从数据库获取统计数据。", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -140,12 +92,12 @@ export default function Home() {
 
   const handleMigrateData = async () => {
     try {
-      toast({ title: "开始数据迁移", description: "正在将本地数据迁移到Supabase..." });
+      toast({ title: "开始数据迁移" });
       const success = await DataMigration.migrateAllData();
       if (success) {
         await handleSearch();
         await checkMigrationStatus();
-        toast({ title: "数据迁移完成", description: "所有本地数据已成功迁移到Supabase！" });
+        toast({ title: "数据迁移完成" });
       } else {
         toast({ title: "迁移失败", variant: "destructive" });
       }
@@ -154,16 +106,12 @@ export default function Home() {
     }
   };
 
-  // [移除] 所有前端计算函数 (generate... , useMemo for filtering) 已被删除，因为后端完成了所有工作。
-
-  const legendTotals = useMemo(() => {
-    return {
-      actualTransportTotal: dailyTransportStats.reduce((sum, day) => sum + (day.actualTransport || 0), 0),
-      returnsTotal: dailyTransportStats.reduce((sum, day) => sum + (day.returns || 0), 0),
-      totalCostSum: dailyCostStats.reduce((sum, day) => sum + (day.totalCost || 0), 0),
-      totalTrips: dailyCountStats.reduce((sum, day) => sum + (day.count || 0), 0),
-    };
-  }, [dailyTransportStats, dailyCostStats, dailyCountStats]);
+  const legendTotals = useMemo(() => ({
+    actualTransportTotal: dailyTransportStats.reduce((sum, day) => sum + (day.actualTransport || 0), 0),
+    returnsTotal: dailyTransportStats.reduce((sum, day) => sum + (day.returns || 0), 0),
+    totalCostSum: dailyCostStats.reduce((sum, day) => sum + (day.totalCost || 0), 0),
+    totalTrips: dailyCountStats.reduce((sum, day) => sum + (day.count || 0), 0),
+  }), [dailyTransportStats, dailyCostStats, dailyCountStats]);
 
   const selectedRecordsForDialog = useMemo(() => {
     if (!selectedDate) return filteredRecords;
@@ -171,9 +119,8 @@ export default function Home() {
   }, [selectedDate, filteredRecords]);
 
   const handleChartClick = (data: any) => {
-    if (data && data.activePayload && data.activePayload[0]) {
-      const clickedDate = data.activePayload[0].payload.date;
-      setSelectedDate(clickedDate);
+    if (data?.activePayload?.[0]) {
+      setSelectedDate(data.activePayload[0].payload.date);
       setIsDetailDialogOpen(true);
     }
   };
