@@ -1,6 +1,6 @@
-// src/pages/BusinessEntry/hooks/useLogisticsData.ts
+// 正确路径: src/pages/BusinessEntry/hooks/useLogisticsData.ts
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react'; // THE FIX IS HERE
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogisticsRecord } from '../types';
@@ -12,35 +12,71 @@ const getInitialDefaultDates = () => {
   return { startDate: formatDate(firstDayOfMonth), endDate: formatDate(today) };
 };
 
+// [核心重构] - 定义新的、结构化的筛选器类型
+export interface LogisticsFilters {
+  startDate: string;
+  endDate: string;
+  projectName: string;
+  driverName: string;
+  licensePlate: string;
+  driverPhone: string;
+}
+
+// [核心重构] - 初始筛选器现在为空，以实现默认加载所有数据
+const INITIAL_FILTERS: LogisticsFilters = {
+  ...getInitialDefaultDates(),
+  projectName: "",
+  driverName: "",
+  licensePlate: "",
+  driverPhone: "",
+};
+
 const PAGE_SIZE = 15;
 
 export function useLogisticsData() {
   const { toast } = useToast();
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    startDate: getInitialDefaultDates().startDate,
-    endDate: getInitialDefaultDates().endDate,
-    searchQuery: ""
-  });
+  
+  const [activeFilters, setActiveFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
+  
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
   });
 
-  const loadPaginatedRecords = useCallback(async (page: number, currentFilters: typeof filters) => {
+  const loadPaginatedRecords = useCallback(async (page: number, filters: LogisticsFilters) => {
     setLoading(true);
     try {
       const offset = (page - 1) * PAGE_SIZE;
-      const { data, error, count } = await supabase
-        .from('logistics_records_view')
-        .select('*', { count: 'exact' })
-        .ilike('any_text', `%${currentFilters.searchQuery}%`)
-        .gte('loading_date', currentFilters.startDate)
-        .lte('loading_date', currentFilters.endDate)
+      
+      let query = supabase
+        .from('logistics_records')
+        .select('*', { count: 'exact' });
+
+      // [核心重构] - 根据新的筛选器动态构建查询
+      query = query.gte('loading_date', filters.startDate);
+      query = query.lte('loading_date', filters.endDate);
+
+      if (filters.projectName) {
+        query = query.eq('project_name', filters.projectName); // 使用精确匹配
+      }
+      if (filters.driverName) {
+        query = query.ilike('driver_name', `%${filters.driverName}%`);
+      }
+      if (filters.licensePlate) {
+        query = query.ilike('license_plate', `%${filters.licensePlate}%`);
+      }
+      if (filters.driverPhone) {
+        query = query.ilike('driver_phone', `%${filters.driverPhone}%`);
+      }
+
+      query = query
         .order('loading_date', { ascending: false })
         .order('created_at', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
+
+      const { data, error, count } = await query;
 
       if (error) throw error;
       
@@ -54,31 +90,19 @@ export function useLogisticsData() {
     }
   }, [toast]);
 
-  const isInitialMount = useRef(true);
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-    } else {
-      if (pagination.currentPage !== 1) {
-        setPagination(p => ({ ...p, currentPage: 1 }));
-      }
-    }
-  }, [filters]);
+    loadPaginatedRecords(pagination.currentPage, activeFilters);
+  }, [pagination.currentPage, activeFilters, loadPaginatedRecords]);
 
-  useEffect(() => {
-    loadPaginatedRecords(pagination.currentPage, filters);
-  }, [pagination.currentPage, filters, loadPaginatedRecords]);
-
-
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     try {
       await supabase.from('logistics_records').delete().eq('id', id);
       toast({ title: "成功", description: "运单记录已删除" });
-      loadPaginatedRecords(pagination.currentPage, filters);
+      await loadPaginatedRecords(pagination.currentPage, activeFilters);
     } catch (error: any) {
       toast({ title: "删除失败", description: error.message, variant: "destructive" });
     }
-  };
+  }, [toast, loadPaginatedRecords, pagination.currentPage, activeFilters]);
 
   const summary = useMemo(() => {
     return (records || []).reduce((acc, record) => {
@@ -96,12 +120,13 @@ export function useLogisticsData() {
   return {
     records,
     loading,
-    filters,
-    setFilters,
+    activeFilters,
+    setActiveFilters,
     pagination,
     setPagination,
     summary,
     handleDelete,
-    refetch: () => loadPaginatedRecords(pagination.currentPage, filters),
+    refetch: () => loadPaginatedRecords(pagination.currentPage, activeFilters),
+    INITIAL_FILTERS,
   };
 }
