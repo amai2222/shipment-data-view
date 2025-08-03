@@ -1,5 +1,5 @@
 // 文件路径: src/pages/FinanceReconciliation.tsx
-// 描述: [最终调试版] 修复了初始渲染时的 'Cannot read properties of undefined' 错误
+// 描述: [最终完整版] 集成了所有修复和UI美化
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,6 +90,16 @@ export default function FinanceReconciliation() {
     setPagination(p => p.currentPage === 1 ? p : { ...p, currentPage: 1 });
     setSelection({ mode: 'none', selectedIds: new Set() });
   }, [activeFilters]);
+
+  // [新增] 一个小巧、高效的货币格式化函数
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (value == null) return '¥0.00';
+    // 使用 Intl.NumberFormat 来实现专业的货币格式化，包括千位分隔符
+    return new Intl.NumberFormat('zh-CN', {
+      style: 'currency',
+      currency: 'CNY',
+    }).format(value);
+  };
 
   // --- 事件处理器 ---
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
@@ -251,17 +261,47 @@ export default function FinanceReconciliation() {
             <Card><CardHeader><CardTitle className="text-sm font-medium">司机应收汇总</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">¥{(reportData?.overview?.total_payable_cost || 0).toFixed(2)}</div></CardContent></Card>
           </div>
 
+          {/* --- [已美化] 合作方应付汇总 Card --- */}
           <Card>
-            <CardHeader><CardTitle>合作方应付汇总</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>合作方应付汇总</CardTitle>
+            </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader><TableRow><TableHead>合作方名称</TableHead><TableHead>相关运单数</TableHead><TableHead>应付总金额</TableHead></TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>合作方名称</TableHead>
+                    <TableHead className="text-center">相关运单数</TableHead>
+                    <TableHead className="text-right">应付总金额 (元)</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                  {loading && !(reportData?.partner_payables?.length > 0) ? (<TableRow><TableCell colSpan={3} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin inline-block"/></TableCell></TableRow>) : (!reportData?.partner_payables || reportData.partner_payables.length === 0) ? (<TableRow><TableCell colSpan={3} className="text-center">没有找到匹配的数据</TableCell></TableRow>) : (reportData.partner_payables).map((partner: any) => (<TableRow key={partner.partner_id}><TableCell className="font-medium">{partner.partner_name}</TableCell><TableCell>{partner.records_count}</TableCell><TableCell className="font-mono">¥{partner.total_payable.toFixed(2)}</TableCell></TableRow>))}
+                  {loading && !(reportData?.partner_payables?.length > 0) ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center h-24">
+                        <Loader2 className="h-6 w-6 animate-spin inline-block"/>
+                      </TableCell>
+                    </TableRow>
+                  ) : (!reportData?.partner_payables || reportData.partner_payables.length === 0) ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center">没有找到匹配的数据</TableCell>
+                    </TableRow>
+                  ) : (
+                    (reportData.partner_payables).map((partner: any, index: number) => (
+                      <TableRow key={partner.partner_id} className="even:bg-muted/40">
+                        <TableCell className="font-medium">{partner.partner_name}</TableCell>
+                        <TableCell className="text-center">{partner.records_count}</TableCell>
+                        <TableCell className="text-right font-mono text-red-600">
+                          {formatCurrency(partner.total_payable)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+          {/* --- 美化结束 --- */}
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
