@@ -1,5 +1,5 @@
 // 文件路径: src/pages/BusinessEntry/components/LogisticsTable.tsx
-// 描述: [k4wOtn 修复版] 增加了对可能为 null 的数值字段的健壮性处理，防止 'toFixed' 错误。
+// 描述: [G05VZ 最终复原版] 严格按照您的全部要求修改。已恢复所有原始列，并精确添加新功能。
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import { MoreHorizontal, Eye, Trash2, Loader2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogisticsRecord, PaginationState } from '../types';
 
-// 定义组件接收的属性
 interface LogisticsTableProps {
   records: LogisticsRecord[];
   loading: boolean;
@@ -30,6 +29,12 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
     return `${start} → ${end}`;
   };
 
+  // [健壮性修复] 统一格式化金额，优雅处理 null 值
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value == null) return '-'; // 如果是 null 或 undefined，显示 '-'
+    return `¥${value.toFixed(2)}`;
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-md border">
@@ -39,11 +44,15 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               <TableHead className="w-[120px]">运单编号</TableHead>
               <TableHead>项目</TableHead>
               <TableHead>司机</TableHead>
+              {/* [遵从指令] 增加车牌号和司机电话的表头 */}
               <TableHead className="w-[120px]">车牌号</TableHead>
               <TableHead className="w-[130px]">司机电话</TableHead>
               <TableHead className="w-[120px]">路线</TableHead>
               <TableHead>装/卸重量 (吨)</TableHead>
-              <TableHead>司机应收 (元)</TableHead>
+              {/* [最终复原] 恢复您原有的财务列 */}
+              <TableHead>运费 (元)</TableHead>
+              <TableHead>额外费 (元)</TableHead>
+              <TableHead className="font-bold">司机应收 (元)</TableHead>
               <TableHead className="w-[100px]">状态</TableHead>
               <TableHead className="w-[80px] text-right">操作</TableHead>
             </TableRow>
@@ -51,7 +60,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center">
+                <TableCell colSpan={12} className="h-24 text-center">
                   <div className="flex justify-center items-center">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     正在加载数据...
@@ -60,18 +69,22 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               </TableRow>
             ) : records.length > 0 ? (
               records.map((record) => (
-                <TableRow key={record.id}>
+                <TableRow 
+                  key={record.id} 
+                  onClick={() => onView(record)}
+                  className="cursor-pointer hover:bg-muted/50"
+                >
                   <TableCell className="font-mono">{record.auto_number}</TableCell>
                   <TableCell>{record.project_name}</TableCell>
                   <TableCell>{record.driver_name}</TableCell>
                   <TableCell>{record.license_plate || '未填写'}</TableCell>
                   <TableCell className="font-mono">{record.driver_phone || '未填写'}</TableCell>
                   <TableCell>{formatRoute(record.loading_location, record.unloading_location)}</TableCell>
-                  <TableCell>{record.loading_weight} / {record.unloading_weight}</TableCell>
-                  <TableCell className="font-semibold text-primary font-mono">
-                    {/* [最终修复] 增加对 driver_payable_cost 的空值检查，防止 toFixed 错误 */}
-                    {record.driver_payable_cost != null ? `¥${record.driver_payable_cost.toFixed(2)}` : '未计算'}
-                  </TableCell>
+                  <TableCell>{record.loading_weight || '-'} / {record.unloading_weight || '-'}</TableCell>
+                  {/* [最终复原] 渲染您原有的财务列，并确保健壮性 */}
+                  <TableCell className="font-mono">{formatCurrency(record.current_cost)}</TableCell>
+                  <TableCell className="font-mono text-orange-600">{formatCurrency(record.extra_cost)}</TableCell>
+                  <TableCell className="font-mono font-bold text-primary">{formatCurrency(record.driver_payable_cost)}</TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 text-xs rounded-full ${record.transport_type === '退货运输' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
                       {record.transport_type}
@@ -80,12 +93,16 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button 
+                          variant="ghost" 
+                          className="h-8 w-8 p-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <span className="sr-only">打开菜单</span>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenuItem onClick={() => onView(record)}>
                           <Eye className="mr-2 h-4 w-4" />
                           查看详情
@@ -107,7 +124,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center">
+                <TableCell colSpan={12} className="h-24 text-center">
                   没有找到匹配的记录。
                 </TableCell>
               </TableRow>
@@ -119,22 +136,8 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
         <div className="flex-1 text-sm text-muted-foreground">
           第 {pagination.currentPage} 页 / 共 {Math.ceil(pagination.totalCount / pagination.pageSize)} 页 (总计 {pagination.totalCount} 条记录)
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(pagination.currentPage - 1)}
-          disabled={pagination.currentPage <= 1}
-        >
-          上一页
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(pagination.currentPage + 1)}
-          disabled={pagination.currentPage >= Math.ceil(pagination.totalCount / pagination.pageSize)}
-        >
-          下一页
-        </Button>
+        <Button variant="outline" size="sm" onClick={() => handlePageChange(pagination.currentPage - 1)} disabled={pagination.currentPage <= 1}>上一页</Button>
+        <Button variant="outline" size="sm" onClick={() => handlePageChange(pagination.currentPage + 1)} disabled={pagination.currentPage >= Math.ceil(pagination.totalCount / pagination.pageSize)}>下一页</Button>
       </div>
     </div>
   );
