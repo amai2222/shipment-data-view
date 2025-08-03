@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [最终修复版] 1. 完整保留了所有原始功能，包括关键的 Supabase/LocalStorage 容错回退逻辑。 2. 移除了导致性能瓶颈的 .find() 循环，彻底解决UI卡顿问题。
+// 描述: [最终体验优化版] 1. 实现“本地优先，后台同步”策略，页面瞬间加载无白屏。 2. 保留所有原始功能和数据库性能优化。
 
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { BarChart3, TrendingUp, Truck, Package, Eye, Database, RefreshCw } from "lucide-react";
+import { BarChart3, TrendingUp, Truck, Package, Eye, Database, RefreshCw, CheckCircle } from "lucide-react";
 import { SupabaseStorage } from "@/utils/supabase";
 import { DataMigration } from "@/utils/migration";
 import { LogisticsRecord, DailyTransportStats, DailyCostStats, Project } from "@/types";
@@ -56,43 +56,46 @@ export default function Home() {
   }, []);
 
   const loadData = async () => {
+    // [核心体验优化] Phase 1: 立即从本地加载数据，消除加载白屏
     try {
-      setIsLoading(true);
-      // [功能复原] 恢复了关键的 try...catch 容错机制
-      try {
-        const [allRecords, allProjects] = await Promise.all([
-          SupabaseStorage.getLogisticsRecords(),
-          SupabaseStorage.getProjects()
-        ]);
-        
-        setRecords(allRecords);
-        setProjects(allProjects as Project[]);
-      } catch (supabaseError) {
-        console.warn('Supabase数据加载失败，使用本地数据:', supabaseError);
-        // [功能复原] 恢复了优雅回退到 LocalStorage 的逻辑
-        const { LocalStorage } = await import('@/utils/storage');
-        const localRecords = LocalStorage.getLogisticsRecords();
-        const localProjects = LocalStorage.getProjects();
-        
-        setRecords(localRecords);
-        setProjects(localProjects);
-        
-        toast({
-          title: "使用本地数据",
-          description: "Supabase连接失败，正在使用本地存储的数据。",
-          variant: "default",
-        });
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
+      const { LocalStorage } = await import('@/utils/storage');
+      const localRecords = LocalStorage.getLogisticsRecords();
+      const localProjects = LocalStorage.getProjects();
+      
+      setRecords(localRecords);
+      setProjects(localProjects);
+    } catch (localError) {
+      console.warn('本地数据加载失败:', localError);
+      // 即使本地加载失败，也要继续尝试从网络加载
+    } finally {
+      // 无论本地数据是否存在，都立即取消加载状态，让页面显示出来
+      setIsLoading(false);
+    }
+
+    // [核心体验优化] Phase 2: 在后台静默同步Supabase的最新数据
+    try {
+      const [allRecords, allProjects] = await Promise.all([
+        SupabaseStorage.getLogisticsRecords(),
+        SupabaseStorage.getProjects()
+      ]);
+      
+      // 用最新数据更新UI
+      setRecords(allRecords);
+      setProjects(allProjects as Project[]);
+
       toast({
-        title: "数据加载失败",
-        description: "无法加载数据，请检查连接。",
+        title: "数据已更新",
+        description: "已从数据库同步最新数据。",
+        action: <CheckCircle className="h-5 w-5 text-green-500" />,
+      });
+
+    } catch (supabaseError) {
+      console.error('Supabase数据同步失败:', supabaseError);
+      toast({
+        title: "数据同步失败",
+        description: "无法连接到数据库，当前显示为本地缓存数据。",
         variant: "destructive",
       });
-    } finally {
-      // 确保 isLoading 总是会被设置为 false
-      setIsLoading(false);
     }
   };
 
@@ -324,7 +327,7 @@ export default function Home() {
     return (
       <div className="flex items-center justify-center h-screen">
         <RefreshCw className="h-8 w-8 animate-spin" />
-        <span className="ml-2">正在连接数据库并加载数据...</span>
+        <span className="ml-2">正在加载应用...</span>
       </div>
     );
   }
@@ -716,19 +719,16 @@ export default function Home() {
                    <TableBody>
                      {selectedRecords
                        .sort((a, b) => {
-                         // [核心优化] 直接使用后端返回的 projectName 进行排序，移除昂贵的 .find() 操作
                          const projectNameA = a.projectName || '';
                          const projectNameB = b.projectName || '';
                          const projectCompare = projectNameB.localeCompare(projectNameA, 'zh-CN');
                          if (projectCompare !== 0) return projectCompare;
                          
-                         // 项目名称相同时，按运单号降序排列
                          return b.autoNumber.localeCompare(a.autoNumber, 'zh-CN');
                        })
                        .map((record) => (
                        <TableRow key={record.id} className="text-xs">
                          <TableCell className="font-medium px-2 py-2 text-xs whitespace-nowrap">{record.autoNumber}</TableCell>
-                         {/* [核心优化] 直接使用后端返回的 projectName，移除昂贵的 .find() 操作 */}
                          <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.projectName || '-'}</TableCell>
                          <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.driverName}</TableCell>
                          <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.licensePlate}</TableCell>
