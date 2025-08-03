@@ -1,11 +1,18 @@
-import * as React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker } from "react-day-picker";
+// 正确路径: src/components/ui/calendar.tsx
 
-import { cn } from "@/lib/utils";
-import { buttonVariants } from "@/components/ui/button";
+"use client"
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+import * as React from "react"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react" // [核心修复] - 引入年份选择图标
+import { DayPicker, CaptionProps } from "react-day-picker"
+import { zhCN } from "date-fns/locale" // [核心修复] - 引入中文语言包
+import { addYears, subYears } from "date-fns" // [核心修复] - 引入年份计算函数
+
+import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
+import { useNavigation } from "react-day-picker" // [核心修复] - 引入 useNavigation 钩子
+
+export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
 function Calendar({
   className,
@@ -34,31 +41,86 @@ function Calendar({
         head_cell:
           "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
         row: "flex w-full mt-2",
-        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
           "h-9 w-9 p-0 font-normal aria-selected:opacity-100"
         ),
-        day_range_end: "day-range-end",
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
         day_today: "bg-accent text-accent-foreground",
-        day_outside:
-          "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
+        day_outside: "text-muted-foreground opacity-50",
         day_disabled: "text-muted-foreground opacity-50",
         day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         ...classNames,
       }}
+      // [核心修复] - 使用我们自定义的带年份选择的标题组件
       components={{
-        IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
+        Caption: CalendarCaption,
       }}
+      // [核心修复] - 确保日历本身也是中文
+      locale={zhCN}
       {...props}
     />
+  )
+}
+Calendar.displayName = "Calendar"
+
+// [核心修复] - 全新的、功能更强大的日历标题组件
+function CalendarCaption({ displayMonth }: CaptionProps) {
+  const { goToMonth, nextMonth, previousMonth } = useNavigation();
+
+  return (
+    <div className="flex justify-center pt-1 relative items-center">
+      <span className="text-sm font-medium">
+        {format(displayMonth, "yyyy年 LLLL", { locale: zhCN })}
+      </span>
+      <div className="flex items-center gap-1 absolute right-1">
+        <Button
+          onClick={() => goToMonth(subYears(displayMonth, 1))}
+          disabled={!previousMonth}
+          variant="outline"
+          size="icon"
+          className="h-7 w-7"
+        >
+          <span className="sr-only">Go to previous year</span>
+          <ChevronsLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          onClick={() => previousMonth && goToMonth(previousMonth)}
+          disabled={!previousMonth}
+          variant="outline"
+          size="icon"
+          className="h-7 w-7"
+        >
+          <span className="sr-only">Go to previous month</span>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          onClick={() => nextMonth && goToMonth(nextMonth)}
+          disabled={!nextMonth}
+          variant="outline"
+          size="icon"
+          className="h-7 w-7"
+        >
+          <span className="sr-only">Go to next month</span>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          onClick={() => goToMonth(addYears(displayMonth, 1))}
+          disabled={!nextMonth}
+          variant="outline"
+          size="icon"
+          className="h-7 w-7"
+        >
+          <span className="sr-only">Go to next year</span>
+          <ChevronsRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
-Calendar.displayName = "Calendar";
 
-export { Calendar };
+export { Calendar }
