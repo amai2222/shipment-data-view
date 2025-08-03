@@ -1,43 +1,46 @@
 // 正确路径: src/pages/BusinessEntry/components/FilterBar.tsx
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { LogisticsFilters, INITIAL_FILTERS } from '../hooks/useLogisticsData';
+import { LogisticsFilters } from '../hooks/useLogisticsData';
 import { Project } from '../types';
 import { DateRange } from "react-day-picker";
 
 interface FilterBarProps {
-  onSearch: (filters: LogisticsFilters) => void;
+  filters: LogisticsFilters; // [核心重构] - 接收父组件的筛选器状态
+  onFiltersChange: (filters: LogisticsFilters) => void; // [核心重构] - 接收父组件的状态更新函数
+  onSearch: () => void;
   onClear: () => void;
   loading: boolean;
   projects: Project[];
 }
 
-export function FilterBar({ onSearch, onClear, loading, projects }: FilterBarProps) {
-  const [localFilters, setLocalFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
+export function FilterBar({
+  filters,
+  onFiltersChange,
+  onSearch,
+  onClear,
+  loading,
+  projects
+}: FilterBarProps) {
 
   const handleInputChange = (field: keyof Omit<LogisticsFilters, 'dateRange'>, value: string) => {
-    setLocalFilters(prev => ({ ...prev, [field]: value }));
+    onFiltersChange({ ...filters, [field]: value });
   };
 
   const handleDateChange = (dateRange: DateRange | undefined) => {
-    setLocalFilters(prev => ({ ...prev, dateRange }));
+    onFiltersChange({ ...filters, dateRange });
   };
 
-  const handleSearch = () => { onSearch(localFilters); };
-  const handleClear = () => { setLocalFilters(INITIAL_FILTERS); onClear(); };
-
   return (
-    // [核心重构] - 使用 Flexbox 实现单行布局
     <div className="flex items-end gap-2 p-4 border rounded-lg">
       <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
         <Label htmlFor="project-name">项目名称</Label>
         <Select
-          value={localFilters.projectName || 'all'}
+          value={filters.projectName || 'all'}
           onValueChange={(value) => handleInputChange('projectName', value === 'all' ? '' : value)}
           disabled={loading || projects.length === 0}
         >
@@ -51,34 +54,33 @@ export function FilterBar({ onSearch, onClear, loading, projects }: FilterBarPro
 
       <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
         <Label htmlFor="driver-name">司机</Label>
-        <Input type="text" id="driver-name" placeholder="司机姓名..." value={localFilters.driverName} onChange={e => handleInputChange('driverName', e.target.value)} disabled={loading} />
+        <Input type="text" id="driver-name" placeholder="司机姓名..." value={filters.driverName} onChange={e => handleInputChange('driverName', e.target.value)} disabled={loading} />
       </div>
 
       <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
         <Label htmlFor="license-plate">车牌号</Label>
-        <Input type="text" id="license-plate" placeholder="车牌号..." value={localFilters.licensePlate} onChange={e => handleInputChange('licensePlate', e.target.value)} disabled={loading} />
+        <Input type="text" id="license-plate" placeholder="车牌号..." value={filters.licensePlate} onChange={e => handleInputChange('licensePlate', e.target.value)} disabled={loading} />
       </div>
 
       <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
         <Label htmlFor="driver-phone">司机电话</Label>
-        <Input type="text" id="driver-phone" placeholder="司机电话..." value={localFilters.driverPhone} onChange={e => handleInputChange('driverPhone', e.target.value)} disabled={loading} />
+        <Input type="text" id="driver-phone" placeholder="司机电话..." value={filters.driverPhone} onChange={e => handleInputChange('driverPhone', e.target.value)} disabled={loading} />
       </div>
 
       <div className="grid items-center gap-1.5 flex-1 min-w-[280px]">
         <Label>日期范围</Label>
         <DateRangePicker
-          date={localFilters.dateRange}
+          date={filters.dateRange}
           setDate={handleDateChange}
           disabled={loading}
         />
       </div>
 
-      {/* 按钮组 */}
       <div className="flex gap-2">
-        <Button variant="outline" onClick={handleClear} disabled={loading}>
+        <Button variant="outline" onClick={onClear} disabled={loading}>
           清除筛选
         </Button>
-        <Button onClick={handleSearch} disabled={loading}>
+        <Button onClick={onSearch} disabled={loading}>
           搜索
         </Button>
       </div>
