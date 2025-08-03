@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [最终优化版] 完整保留了所有现有业务逻辑，仅移除了导致性能瓶颈的 .find() 循环，直接使用后端已提供的 projectName，彻底解决UI卡顿问题。
+// 描述: [最终修复版] 1. 完整保留了所有原始功能，包括关键的 Supabase/LocalStorage 容错回退逻辑。 2. 移除了导致性能瓶颈的 .find() 循环，彻底解决UI卡顿问题。
 
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,31 +58,40 @@ export default function Home() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      // 您的 loadData 函数已经是高效的，无需修改
-      const [allRecords, allProjects] = await Promise.all([
-        SupabaseStorage.getLogisticsRecords(),
-        SupabaseStorage.getProjects()
-      ]);
-      
-      setRecords(allRecords);
-      setProjects(allProjects as Project[]);
-      
-    } catch (supabaseError) {
-      console.warn('Supabase数据加载失败，使用本地数据:', supabaseError);
-      // 回退到本地存储
-      const { LocalStorage } = await import('@/utils/storage');
-      const localRecords = LocalStorage.getLogisticsRecords();
-      const localProjects = LocalStorage.getProjects();
-      
-      setRecords(localRecords);
-      setProjects(localProjects);
-      
+      // [功能复原] 恢复了关键的 try...catch 容错机制
+      try {
+        const [allRecords, allProjects] = await Promise.all([
+          SupabaseStorage.getLogisticsRecords(),
+          SupabaseStorage.getProjects()
+        ]);
+        
+        setRecords(allRecords);
+        setProjects(allProjects as Project[]);
+      } catch (supabaseError) {
+        console.warn('Supabase数据加载失败，使用本地数据:', supabaseError);
+        // [功能复原] 恢复了优雅回退到 LocalStorage 的逻辑
+        const { LocalStorage } = await import('@/utils/storage');
+        const localRecords = LocalStorage.getLogisticsRecords();
+        const localProjects = LocalStorage.getProjects();
+        
+        setRecords(localRecords);
+        setProjects(localProjects);
+        
+        toast({
+          title: "使用本地数据",
+          description: "Supabase连接失败，正在使用本地存储的数据。",
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
       toast({
-        title: "使用本地数据",
-        description: "Supabase连接失败，正在使用本地存储的数据。",
-        variant: "default",
+        title: "数据加载失败",
+        description: "无法加载数据，请检查连接。",
+        variant: "destructive",
       });
     } finally {
+      // 确保 isLoading 总是会被设置为 false
       setIsLoading(false);
     }
   };
@@ -313,16 +322,15 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-screen">
         <RefreshCw className="h-8 w-8 animate-spin" />
-        <span className="ml-2">加载数据中...</span>
+        <span className="ml-2">正在连接数据库并加载数据...</span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* 数据迁移状态 */}
+    <div className="space-y-8 p-4 md:p-8">
       {migrationStatus && !migrationStatus.isMigrated && migrationStatus.localCount > 0 && (
         <Card className="border-orange-200 bg-orange-50">
           <CardContent className="p-4">
@@ -344,7 +352,6 @@ export default function Home() {
         </Card>
       )}
 
-      {/* 页面标题 */}
       <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
         <h1 className="text-2xl font-bold mb-2 flex items-center">
           <BarChart3 className="mr-2" />
@@ -353,7 +360,6 @@ export default function Home() {
         <p className="opacity-90">运输数据统计分析与可视化（Supabase数据库）</p>
       </div>
 
-      {/* 日期筛选器 */}
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle>数据筛选</CardTitle>
@@ -401,7 +407,6 @@ export default function Home() {
         </CardContent>
       </Card>
 
-      {/* 统计概览 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="shadow-card">
           <CardContent className="flex items-center p-6">
@@ -452,7 +457,6 @@ export default function Home() {
         </Card>
       </div>
 
-      {/* 按项目分类显示图表 */}
       {projectStats.map((projectData) => (
         <div key={projectData.projectId} className="space-y-6">
            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
@@ -644,7 +648,6 @@ export default function Home() {
         </div>
       ))}
 
-      {/* 详细数据对话框 */}
       <Dialog open={isDetailDialogOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" aria-describedby="dialog-description">
           <DialogHeader>
@@ -713,7 +716,7 @@ export default function Home() {
                    <TableBody>
                      {selectedRecords
                        .sort((a, b) => {
-                         // 按项目名称降序排列
+                         // [核心优化] 直接使用后端返回的 projectName 进行排序，移除昂贵的 .find() 操作
                          const projectNameA = a.projectName || '';
                          const projectNameB = b.projectName || '';
                          const projectCompare = projectNameB.localeCompare(projectNameA, 'zh-CN');
@@ -725,6 +728,7 @@ export default function Home() {
                        .map((record) => (
                        <TableRow key={record.id} className="text-xs">
                          <TableCell className="font-medium px-2 py-2 text-xs whitespace-nowrap">{record.autoNumber}</TableCell>
+                         {/* [核心优化] 直接使用后端返回的 projectName，移除昂贵的 .find() 操作 */}
                          <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.projectName || '-'}</TableCell>
                          <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.driverName}</TableCell>
                          <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.licensePlate}</TableCell>
