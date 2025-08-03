@@ -6,10 +6,10 @@ import * as React from "react"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { DayPicker, CaptionProps } from "react-day-picker"
 import { zhCN } from "date-fns/locale"
-import { format, addYears, subYears } from "date-fns" // [核心修复] - 引入 format 函数
+import { format, addYears, subYears } from "date-fns"
 
 import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button" // [核心修复] - 引入 Button 组件
 import { useNavigation } from "react-day-picker"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
