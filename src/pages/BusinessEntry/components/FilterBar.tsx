@@ -10,6 +10,7 @@ import { Project } from '../types';
 import { DateRange } from "react-day-picker";
 import { Search } from "lucide-react";
 
+// [核心修复] 1. 定义与整个应用统一的 props 接口
 interface FilterBarProps {
   filters: LogisticsFilters;
   onFiltersChange: (newFilters: LogisticsFilters) => void;
@@ -19,6 +20,7 @@ interface FilterBarProps {
   projects: Project[];
 }
 
+// [核心修复] 2. 使其成为一个完全受控的组件，没有自己的内部状态
 export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading, projects }: FilterBarProps) {
 
   const handleInputChange = (field: keyof Omit<LogisticsFilters, 'startDate' | 'endDate'>, value: string) => {
@@ -71,7 +73,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
         <Label>日期范围</Label>
         <DateRangePicker
           date={dateRangeValue}
-          setDate={handleDateChange} // [已修复] 使用了正确的 prop 名称 "setDate"
+          setDate={handleDateChange} // [核心修复] 3. 使用正确的 prop "setDate"
           disabled={loading}
         />
       </div>
