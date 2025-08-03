@@ -57,6 +57,7 @@ export type Database = {
           license_plate: string
           name: string
           phone: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -64,6 +65,7 @@ export type Database = {
           license_plate: string
           name: string
           phone: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -71,6 +73,7 @@ export type Database = {
           license_plate?: string
           name?: string
           phone?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -115,16 +118,19 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -208,6 +214,7 @@ export type Database = {
           unloading_date: string | null
           unloading_location: string
           unloading_weight: number | null
+          user_id: string | null
         }
         Insert: {
           auto_number: string
@@ -233,6 +240,7 @@ export type Database = {
           unloading_date?: string | null
           unloading_location: string
           unloading_weight?: number | null
+          user_id?: string | null
         }
         Update: {
           auto_number?: string
@@ -258,6 +266,7 @@ export type Database = {
           unloading_date?: string | null
           unloading_location?: string
           unloading_weight?: number | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -324,18 +333,48 @@ export type Database = {
           id: string
           name: string
           tax_rate: number
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
           tax_rate: number
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
           tax_rate?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          role: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          role?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -410,6 +449,7 @@ export type Database = {
           project_status: string
           start_date: string
           unloading_address: string
+          user_id: string | null
         }
         Insert: {
           auto_code?: string | null
@@ -423,6 +463,7 @@ export type Database = {
           project_status?: string
           start_date: string
           unloading_address: string
+          user_id?: string | null
         }
         Update: {
           auto_code?: string | null
@@ -436,6 +477,7 @@ export type Database = {
           project_status?: string
           start_date?: string
           unloading_address?: string
+          user_id?: string | null
         }
         Relationships: []
       }
