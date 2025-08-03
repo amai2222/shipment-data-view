@@ -1,53 +1,38 @@
 // 正确路径: src/pages/BusinessEntry/components/FilterBar.tsx
 
-import { useState, useEffect } from "react"; // [核心修复] - 重新引入 useEffect
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { LogisticsFilters } from '../hooks/useLogisticsData';
+import { LogisticsFilters, INITIAL_FILTERS } from '../hooks/useLogisticsData';
 import { Project } from '../types';
 import { DateRange } from "react-day-picker";
 
 interface FilterBarProps {
-  filters: LogisticsFilters;
-  onFiltersChange: (filters: LogisticsFilters) => void;
-  onSearch: () => void;
+  onSearch: (filters: LogisticsFilters) => void;
   onClear: () => void;
   loading: boolean;
   projects: Project[];
 }
 
-export function FilterBar({
-  filters,
-  onFiltersChange,
-  onSearch,
-  onClear,
-  loading,
-  projects
-}: FilterBarProps) {
-
-  // [核心修复] - 我们需要一个本地状态来与父组件同步，以避免不必要的渲染循环
-  const [localFilters, setLocalFilters] = useState(filters);
-
-  useEffect(() => {
-    setLocalFilters(filters);
-  }, [filters]);
+export function FilterBar({ onSearch, onClear, loading, projects }: FilterBarProps) {
+  const [localFilters, setLocalFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
 
   const handleInputChange = (field: keyof Omit<LogisticsFilters, 'dateRange'>, value: string) => {
-    const newFilters = { ...localFilters, [field]: value };
-    setLocalFilters(newFilters);
-    onFiltersChange(newFilters);
+    setLocalFilters(prev => ({ ...prev, [field]: value }));
   };
 
   const handleDateChange = (dateRange: DateRange | undefined) => {
-    const newFilters = { ...localFilters, dateRange };
-    setLocalFilters(newFilters);
-    onFiltersChange(newFilters);
+    setLocalFilters(prev => ({ ...prev, dateRange }));
   };
 
+  const handleSearch = () => { onSearch(localFilters); };
+  const handleClear = () => { setLocalFilters(INITIAL_FILTERS); onClear(); };
+
   return (
+    // [核心重构] - 使用 Flexbox 实现单行布局
     <div className="flex items-end gap-2 p-4 border rounded-lg">
       <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
         <Label htmlFor="project-name">项目名称</Label>
@@ -88,11 +73,12 @@ export function FilterBar({
         />
       </div>
 
+      {/* 按钮组 */}
       <div className="flex gap-2">
-        <Button variant="outline" onClick={onClear} disabled={loading}>
+        <Button variant="outline" onClick={handleClear} disabled={loading}>
           清除筛选
         </Button>
-        <Button onClick={onSearch} disabled={loading}>
+        <Button onClick={handleSearch} disabled={loading}>
           搜索
         </Button>
       </div>
