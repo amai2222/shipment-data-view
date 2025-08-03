@@ -58,8 +58,6 @@ export default function FinanceReconciliation() {
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
   const [isRecalculating, setIsRecalculating] = useState(false);
   const { toast } = useToast();
-
-  // 使用 useFilterState Hook 管理所有筛选逻辑
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_FINANCE_FILTERS);
 
   const fetchInitialOptions = useCallback(async () => {
@@ -74,7 +72,6 @@ export default function FinanceReconciliation() {
     }
   }, [toast]);
 
-  // 数据获取函数现在依赖于 activeFilters
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     try {
@@ -98,7 +95,6 @@ export default function FinanceReconciliation() {
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
   useEffect(() => { fetchReportData(); }, [fetchReportData]);
 
-  // 更新筛选器状态的处理器
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => {
     setUiFilters(prev => ({ ...prev, [field]: value }));
   };
@@ -211,17 +207,17 @@ export default function FinanceReconciliation() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-4">
-        <Card><CardHeader><CardTitle className="text-sm font-medium">运单总数</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{reportData?.overview?.total_records || 0}</div></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">总运费</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">¥{(reportData?.overview?.total_current_cost || 0).toFixed(2)}</div></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">总额外费用</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-orange-600">¥{(reportData?.overview?.total_extra_cost || 0).toFixed(2)}</div></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">司机应收汇总</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">¥{(reportData?.overview?.total_payable_cost || 0).toFixed(2)}</div></CardContent></Card>
-      </div>
-
       {isStale ? (
         <StaleDataPrompt />
       ) : (
         <>
+          <div className="grid gap-6 md:grid-cols-4">
+            <Card><CardHeader><CardTitle className="text-sm font-medium">运单总数</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{reportData?.overview?.total_records || 0}</div></CardContent></Card>
+            <Card><CardHeader><CardTitle className="text-sm font-medium">总运费</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">¥{(reportData?.overview?.total_current_cost || 0).toFixed(2)}</div></CardContent></Card>
+            <Card><CardHeader><CardTitle className="text-sm font-medium">总额外费用</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-orange-600">¥{(reportData?.overview?.total_extra_cost || 0).toFixed(2)}</div></CardContent></Card>
+            <Card><CardHeader><CardTitle className="text-sm font-medium">司机应收汇总</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">¥{(reportData?.overview?.total_payable_cost || 0).toFixed(2)}</div></CardContent></Card>
+          </div>
+
           <Card>
             <CardHeader><CardTitle>合作方应付汇总</CardTitle></CardHeader>
             <CardContent>
