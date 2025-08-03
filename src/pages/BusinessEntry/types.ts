@@ -26,44 +26,25 @@ export interface LogisticsRecord {
   created_at?: string;
 }
 
-// [核心修复] - 根据您提供的完整结构图，更新 Project 类型
+// [核心移除] - LogisticsFormData 类型已不再需要
+// export type LogisticsFormData = { ... };
+
+// 根据您提供的完整结构图，更新 Project 类型
 export interface Project {
   id: string;
   name: string;
-  start_date: string; // 保持为 string 以匹配 text 类型
+  start_date: string;
   end_date: string | null;
   manager: string | null;
   loading_address: string | null;
   unloading_address: string | null;
   project_status: string | null;
-  // ...可以根据需要添加其他字段
 }
 
 // 其他类型保持不变
 export interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 export interface Location { id: string; name: string; }
 export interface PartnerChain { id: string; project_id: string; chain_name: string; }
-
-// 表单数据专用类型
-export type LogisticsFormData = {
-  project_id: string;
-  chain_id: string | null;
-  driver_id: string;
-  driver_name: string;
-  loading_location: string;
-  unloading_location: string;
-  loading_date: string;
-  unloading_date: string;
-  loading_weight: string | null;
-  unloading_weight: string | null;
-  current_cost: string | null;
-  license_plate: string | null;
-  driver_phone: string | null;
-  transport_type: string;
-  extra_cost: string | null;
-  payable_cost: string | null;
-  remarks: string | null;
-};
 
 // 导入预览的类型
 export interface ImportPreviewResult {
