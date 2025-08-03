@@ -1,6 +1,6 @@
 // src/pages/BusinessEntry/hooks/useLogisticsForm.ts
 
-import { useState, useReducer, useCallback } from 'react';
+import { useState, useReducer, useEffect, useCallback, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogisticsRecord, LogisticsFormData, Project, Driver } from '../types';
@@ -51,13 +51,34 @@ const formReducer = (state: LogisticsFormData, action: FormAction): LogisticsFor
   }
 };
 
-// The hook is now much simpler. It only manages the form's state object.
-// It no longer fetches or filters data.
 export function useLogisticsForm(projects: Project[], onFormSuccess: () => void) {
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const [formData, dispatch] = useReducer(formReducer, BLANK_FORM_DATA);
+  
+  const [isConfirmingDuplicate, setIsConfirmingDuplicate] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const prevProjectId = useRef(formData.project_id);
+  useEffect(() => {
+    if (prevProjectId.current !== formData.project_id) {
+      dispatch({ type: 'SET_FIELD', field: 'chain_id', payload: null });
+      dispatch({ type: 'SET_FIELD', field: 'driver_id', payload: '' });
+      dispatch({ type: 'SET_FIELD', field: 'driver_name', payload: '' });
+      prevProjectId.current = formData.project_id;
+    }
+  }, [formData.project_id]);
+
+  useEffect(() => {
+    dispatch({ type: 'CALCULATE_PAYABLE' });
+  }, [formData.current_cost, formData.extra_cost]);
+  
+  useEffect(() => {
+    if (formData.loading_date && !formData.unloading_date) {
+      dispatch({ type: 'SET_FIELD', field: 'unloading_date', payload: formData.loading_date });
+    }
+  }, [formData.loading_date, formData.unloading_date]);
 
   const handleOpenModal = useCallback((record: LogisticsRecord | null = null) => {
     if (record) {
@@ -71,12 +92,35 @@ export function useLogisticsForm(projects: Project[], onFormSuccess: () => void)
     setIsModalOpen(true);
   }, [projects]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (forceCreate = false) => {
+    setIsSubmitting(true);
     const projectName = projects.find(p => p.id === formData.project_id)?.name;
     if (!projectName || !formData.driver_name || !formData.loading_location || !formData.unloading_location) {
       toast({ title: "错误", description: "项目、司机和地点为必填项", variant: "destructive" });
+      setIsSubmitting(false);
       return;
     }
+
+    if (!forceCreate && !editingRecord) {
+      try {
+        const { data: checkResult, error: checkError } = await supabase.rpc('check_single_waybill_duplicate', {
+          p_project_id: formData.project_id, p_driver_id: formData.driver_id, p_loading_location: formData.loading_location,
+          p_loading_date: formData.loading_date, p_loading_weight: formData.loading_weight ? parseFloat(formData.loading_weight) : null
+        });
+        if (checkError) throw checkError;
+        if (checkResult.is_duplicate) {
+          setIsConfirmingDuplicate(true);
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (error: any) {
+        toast({ title: "重复检查失败", description: error.message, variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    setIsConfirmingDuplicate(false);
 
     let finalDriverId = formData.driver_id;
     let finalDriverName = formData.driver_name;
@@ -84,7 +128,7 @@ export function useLogisticsForm(projects: Project[], onFormSuccess: () => void)
     if (!isUuid && formData.driver_name) {
       const { data: driverResult, error: driverError } = await supabase.rpc('get_or_create_driver', { p_driver_name: formData.driver_name, p_license_plate: formData.license_plate, p_phone: formData.driver_phone, p_project_id: formData.project_id });
       if (driverError || !driverResult || driverResult.length === 0) {
-        toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); return;
+        toast({ title: "错误", description: "处理司机信息失败", variant: "destructive" }); setIsSubmitting(false); return;
       }
       finalDriverId = driverResult[0].driver_id;
       finalDriverName = driverResult[0].driver_name;
@@ -118,16 +162,13 @@ export function useLogisticsForm(projects: Project[], onFormSuccess: () => void)
       onFormSuccess();
     } catch (error: any) {
       toast({ title: "操作失败", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return {
-    isModalOpen,
-    editingRecord,
-    formData,
-    dispatch,
-    handleOpenModal,
-    setIsModalOpen,
-    handleSubmit,
+    isModalOpen, editingRecord, formData, dispatch, handleOpenModal, setIsModalOpen,
+    handleSubmit, isConfirmingDuplicate, setIsConfirmingDuplicate, isSubmitting,
   };
 }
