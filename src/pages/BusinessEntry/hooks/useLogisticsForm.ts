@@ -1,9 +1,9 @@
 // src/pages/BusinessEntry/hooks/useLogisticsForm.ts
 
-import { useState, useReducer, useEffect, useCallback } from 'react';
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useReducer, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { LogisticsRecord, LogisticsFormData, Project, Driver, Location, PartnerChain } from '../types';
+import { supabase } from "@/integrations/supabase/client";
+import { LogisticsRecord, LogisticsFormData, Project, Driver } from '../types';
 
 const BLANK_FORM_DATA: LogisticsFormData = {
   project_id: "", chain_id: null, driver_id: "", driver_name: "", loading_location: "", unloading_location: "",
@@ -51,64 +51,13 @@ const formReducer = (state: LogisticsFormData, action: FormAction): LogisticsFor
   }
 };
 
-export function useLogisticsForm(projects: Project[], drivers: Driver[], locations: Location[], onFormSuccess: () => void) {
+// The hook is now much simpler. It only manages the form's state object.
+// It no longer fetches or filters data.
+export function useLogisticsForm(projects: Project[], onFormSuccess: () => void) {
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const [formData, dispatch] = useReducer(formReducer, BLANK_FORM_DATA);
-
-  const [partnerChains, setPartnerChains] = useState<PartnerChain[]>([]);
-  const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([]);
-  const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
-
-  // Effect for cascading dropdowns and resetting dependent fields
-  useEffect(() => {
-    // This is the key fix: When project changes, reset all dependent fields immediately.
-    // This prevents the state mismatch where a value exists for an option list that no longer contains it.
-    dispatch({ type: 'SET_FIELD', field: 'chain_id', payload: null });
-    dispatch({ type: 'SET_FIELD', field: 'driver_id', payload: '' });
-    dispatch({ type: 'SET_FIELD', field: 'driver_name', payload: '' });
-    dispatch({ type: 'SET_FIELD', field: 'loading_location', payload: '' });
-    dispatch({ type: 'SET_FIELD', field: 'unloading_location', payload: '' });
-
-    if (formData.project_id) {
-      const fetchRelatedData = async () => {
-        const { data: chainsData } = await supabase.from('partner_chains').select('id, chain_name').eq('project_id', formData.project_id);
-        setPartnerChains(chainsData || []);
-        const { data: driverLinks } = await supabase.from('driver_projects').select('driver_id').eq('project_id', formData.project_id);
-        const driverIds = driverLinks?.map(link => link.driver_id) || [];
-        setFilteredDrivers(drivers.filter(driver => driverIds.includes(driver.id)));
-        const { data: locationLinks } = await supabase.from('location_projects').select('location_id').eq('project_id', formData.project_id);
-        const locationIds = locationLinks?.map(link => link.location_id) || [];
-        setFilteredLocations(locations.filter(location => locationIds.includes(location.id)));
-      };
-      fetchRelatedData();
-    } else {
-      setPartnerChains([]);
-      setFilteredDrivers([]);
-      setFilteredLocations([]);
-    }
-  }, [formData.project_id, drivers, locations]); // Dependencies are correct, as we need the full lists to filter from.
-
-  // Effect for auto-filling driver info
-  useEffect(() => {
-    const selectedDriver = drivers.find(d => d.id === formData.driver_id);
-    if (selectedDriver) {
-      dispatch({ type: 'SET_DRIVER', payload: selectedDriver });
-    }
-  }, [formData.driver_id, drivers]);
-
-  // Effect for calculating payable cost
-  useEffect(() => {
-    dispatch({ type: 'CALCULATE_PAYABLE' });
-  }, [formData.current_cost, formData.extra_cost]);
-  
-  // Effect for defaulting unloading date
-  useEffect(() => {
-    if (formData.loading_date && !formData.unloading_date) {
-      dispatch({ type: 'SET_FIELD', field: 'unloading_date', payload: formData.loading_date });
-    }
-  }, [formData.loading_date, formData.unloading_date]);
 
   const handleOpenModal = useCallback((record: LogisticsRecord | null = null) => {
     if (record) {
@@ -177,9 +126,6 @@ export function useLogisticsForm(projects: Project[], drivers: Driver[], locatio
     editingRecord,
     formData,
     dispatch,
-    partnerChains,
-    filteredDrivers,
-    filteredLocations,
     handleOpenModal,
     setIsModalOpen,
     handleSubmit,
