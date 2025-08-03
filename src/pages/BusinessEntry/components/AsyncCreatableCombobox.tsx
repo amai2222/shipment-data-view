@@ -1,4 +1,4 @@
-// src/components/AsyncCreatableCombobox.tsx
+// 正确路径: src/pages/BusinessEntry/components/AsyncCreatableCombobox.tsx
 
 import * as React from "react";
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
-import { useDebounce } from "@/hooks/use-debounce"; // 确保这个钩子存在
+import { useDebounce } from '../hooks/use-debounce'; // [核心修复] - 修正了导入路径
 
 export interface Option {
   value: string;
@@ -42,7 +42,6 @@ export function AsyncCreatableCombobox({
   const [options, setOptions] = React.useState<Option[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   
-  // 从传入的 value 中找到或创建一个临时的 selectedOption
   const selectedOption = options.find(opt => opt.label === value) || (value ? { value: value, label: value } : null);
 
   React.useEffect(() => {
