@@ -61,7 +61,6 @@ export function useLogisticsForm(projects: Project[], drivers: Driver[], locatio
   const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([]);
   const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
 
-  // Effect for cascading dropdowns based on project
   useEffect(() => {
     dispatch({ type: 'SET_FIELD', field: 'chain_id', payload: null });
     if (formData.project_id) {
@@ -81,7 +80,6 @@ export function useLogisticsForm(projects: Project[], drivers: Driver[], locatio
     }
   }, [formData.project_id, drivers, locations]);
 
-  // Effect for auto-filling driver info
   useEffect(() => {
     const selectedDriver = drivers.find(d => d.id === formData.driver_id);
     if (selectedDriver) {
@@ -89,12 +87,10 @@ export function useLogisticsForm(projects: Project[], drivers: Driver[], locatio
     }
   }, [formData.driver_id, drivers]);
 
-  // Effect for calculating payable cost
   useEffect(() => {
     dispatch({ type: 'CALCULATE_PAYABLE' });
   }, [formData.current_cost, formData.extra_cost]);
   
-  // Effect for defaulting unloading date
   useEffect(() => {
     if (formData.loading_date && !formData.unloading_date) {
       dispatch({ type: 'SET_FIELD', field: 'unloading_date', payload: formData.loading_date });
@@ -112,8 +108,6 @@ export function useLogisticsForm(projects: Project[], drivers: Driver[], locatio
     }
     setIsModalOpen(true);
   }, [projects]);
-
-  const handleCloseModal = () => setIsModalOpen(false);
 
   const handleSubmit = async () => {
     const projectName = projects.find(p => p.id === formData.project_id)?.name;
@@ -174,7 +168,7 @@ export function useLogisticsForm(projects: Project[], drivers: Driver[], locatio
     filteredDrivers,
     filteredLocations,
     handleOpenModal,
-    handleCloseModal,
+    setIsModalOpen,
     handleSubmit,
   };
 }
