@@ -1,4 +1,5 @@
 // 正确路径: src/pages/BusinessEntry/components/ReactSelectCreatable.tsx
+
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import AsyncCreatableSelect from 'react-select/async-creatable';
@@ -25,13 +26,9 @@ const selectStyles = {
 };
 
 export function ReactSelectCreatable({ value, onChange, placeholder = "选择或输入...", tableName, projectId, disabled = false }: ReactSelectCreatableProps) {
-  const [debouncedInputValue, setDebouncedInputValue] = React.useState('');
-  const debouncedValue = useDebounce(debouncedInputValue, 500);
-
   const loadOptions = async (inputValue: string): Promise<SelectOption[]> => {
     if (!projectId) return [];
-    const searchTerm = inputValue || ''; // 确保即使是空输入也能触发初始列表加载
-    const { data, error } = await supabase.rpc('search_project_linked_items', { p_project_id: projectId, p_item_type: tableName, p_search_term: searchTerm });
+    const { data, error } = await supabase.rpc('search_project_linked_items', { p_project_id: projectId, p_item_type: tableName, p_search_term: inputValue });
     if (error) { console.error("Error fetching options:", error); return []; }
     return (data || []).map((item: any) => ({ value: item.id, label: tableName === 'drivers' ? `${item.name} (${item.license_plate || '无车牌'})` : item.name, ...item }));
   };
@@ -49,7 +46,6 @@ export function ReactSelectCreatable({ value, onChange, placeholder = "选择或
       formatCreateLabel={(inputValue) => `创建 "${inputValue}"`}
       noOptionsMessage={({ inputValue }) => inputValue ? '未找到结果' : '请输入以搜索...'}
       loadingMessage={() => '加载中...'}
-      onInputChange={(value) => setDebouncedInputValue(value)}
     />
   );
 }
