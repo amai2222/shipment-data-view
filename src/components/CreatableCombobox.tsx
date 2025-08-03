@@ -73,18 +73,20 @@ export function CreatableCombobox({
               )}
             </div>
           </CommandEmpty>
-          <CommandGroup>
-            {safeOptions.map((option) => (
-              <CommandItem
-                key={option.value}
-                value={option.label}
-                onSelect={() => handleSelectOption(option.value)}
-              >
-                <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
-                {option.label}
-              </CommandItem>
-            ))}
-          </CommandGroup>
+          {safeOptions.length > 0 && (
+            <CommandGroup>
+              {safeOptions.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.label}
+                  onSelect={() => handleSelectOption(option.value)}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
         </Command>
       </PopoverContent>
     </Popover>
