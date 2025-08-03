@@ -30,7 +30,7 @@ export interface LogisticsRecord {
 export interface Project { id: string; name: string; start_date: string; }
 export interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 export interface Location { id: string; name: string; }
-export interface PartnerChain { id: string; chain_name: string; }
+export interface PartnerChain { id: string; project_id: string; chain_name: string; }
 
 // 表单数据专用类型，所有可输入字段都用 string | null 以匹配 input value
 export type LogisticsFormData = {

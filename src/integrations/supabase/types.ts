@@ -443,15 +443,14 @@ export type Database = {
     Views: {
       logistics_records_view: {
         Row: {
+          any_text: string | null
           auto_number: string | null
           chain_id: string | null
           chain_name: string | null
           created_at: string | null
-          created_by_user_id: string | null
           current_cost: number | null
           driver_id: string | null
           driver_name: string | null
-          driver_payable_cost: number | null
           driver_phone: string | null
           extra_cost: number | null
           id: string | null
@@ -583,6 +582,10 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_records_by_project_name: {
+        Args: { p_project_name: string }
+        Returns: string
+      }
       generate_auto_number: {
         Args: { loading_date_input: string }
         Returns: string
@@ -628,10 +631,10 @@ export type Database = {
       }
       get_finance_reconciliation_data: {
         Args: {
-          p_project_id?: string
-          p_start_date?: string
-          p_end_date?: string
-          p_partner_id?: string
+          p_project_id: string
+          p_start_date: string
+          p_end_date: string
+          p_partner_id: string
         }
         Returns: Json
       }
@@ -745,6 +748,10 @@ export type Database = {
       }
       get_projects_with_details_optimized: {
         Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      preview_import_with_duplicates_check: {
+        Args: { p_records: Json }
         Returns: Json
       }
       recalculate_and_update_costs_for_record: {

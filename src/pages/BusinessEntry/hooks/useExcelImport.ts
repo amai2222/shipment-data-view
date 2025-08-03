@@ -56,7 +56,14 @@ export function useExcelImport(onImportSuccess: () => void) {
       }));
       const { data: previewResult, error } = await supabase.rpc('preview_import_with_duplicates_check', { p_records: recordsToPreview });
       if (error) throw error;
-      setImportPreview(previewResult);
+      
+      // Handle the response safely
+      if (previewResult && typeof previewResult === 'object' && !Array.isArray(previewResult)) {
+        const safePreview = previewResult as unknown as ImportPreviewResult;
+        setImportPreview(safePreview);
+      } else {
+        throw new Error('预览数据格式错误');
+      }
       setApprovedDuplicates(new Set());
       setImportStep('confirmation');
     } catch (error: any) {
@@ -114,11 +121,18 @@ export function useExcelImport(onImportSuccess: () => void) {
     try {
       const { data: result, error } = await supabase.rpc('batch_import_logistics_records', { p_records: finalRecordsToImport });
       if (error) throw error;
-      addLog(`导入完成！成功: ${result.success_count}, 失败: ${result.error_count}`);
-      if (result.error_count > 0) addLog(`失败详情: ${JSON.stringify(result.errors.slice(0, 5))}`);
-      toast({ title: "导入成功", description: `共导入 ${result.success_count} 条记录。` });
-      if (result.success_count > 0) {
-        onImportSuccess();
+      
+      // Handle the response safely
+      if (result && typeof result === 'object') {
+        const safeResult = result as { success_count: number; error_count: number; errors: any[] };
+        addLog(`导入完成！成功: ${safeResult.success_count}, 失败: ${safeResult.error_count}`);
+        if (safeResult.error_count > 0) addLog(`失败详情: ${JSON.stringify(safeResult.errors.slice(0, 5))}`);
+        toast({ title: "导入成功", description: `共导入 ${safeResult.success_count} 条记录。` });
+        if (safeResult.success_count > 0) {
+          onImportSuccess();
+        }
+      } else {
+        throw new Error('导入结果格式错误');
       }
     } catch (error: any) {
       addLog(`导入失败: ${error.message}`);

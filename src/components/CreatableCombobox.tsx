@@ -71,7 +71,7 @@ export function CreatableCombobox({
             </div>
           </CommandEmpty>
           <CommandGroup>
-            {options.map((option) => (
+            {options && Array.isArray(options) ? options.map((option) => (
               <CommandItem
                 key={option.value}
                 value={option.label}
@@ -80,7 +80,7 @@ export function CreatableCombobox({
                 <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
                 {option.label}
               </CommandItem>
-            ))}
+            )) : null}
           </CommandGroup>
         </Command>
       </PopoverContent>
