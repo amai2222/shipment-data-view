@@ -3,14 +3,14 @@
 "use client"
 
 import * as React from "react"
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react" // [核心修复] - 引入年份选择图标
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { DayPicker, CaptionProps } from "react-day-picker"
-import { zhCN } from "date-fns/locale" // [核心修复] - 引入中文语言包
-import { addYears, subYears } from "date-fns" // [核心修复] - 引入年份计算函数
+import { zhCN } from "date-fns/locale"
+import { format, addYears, subYears } from "date-fns" // [核心修复] - 引入 format 函数
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
-import { useNavigation } from "react-day-picker" // [核心修复] - 引入 useNavigation 钩子
+import { useNavigation } from "react-day-picker"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
@@ -56,11 +56,9 @@ function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
-      // [核心修复] - 使用我们自定义的带年份选择的标题组件
       components={{
         Caption: CalendarCaption,
       }}
-      // [核心修复] - 确保日历本身也是中文
       locale={zhCN}
       {...props}
     />
@@ -68,7 +66,6 @@ function Calendar({
 }
 Calendar.displayName = "Calendar"
 
-// [核心修复] - 全新的、功能更强大的日历标题组件
 function CalendarCaption({ displayMonth }: CaptionProps) {
   const { goToMonth, nextMonth, previousMonth } = useNavigation();
 
