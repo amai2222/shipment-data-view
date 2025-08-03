@@ -17,10 +17,8 @@ import { FilterBar } from './components/FilterBar';
 import { LogisticsTable } from './components/LogisticsTable';
 import { ImportDialog } from './components/ImportDialog';
 
-// [已修改] 1. 增强 SummaryDisplay 组件，使其能够接收筛选条件和项目列表
 const SummaryDisplay = ({ totalSummary, activeFilters, projects }: { totalSummary: TotalSummary, activeFilters: typeof INITIAL_FILTERS, projects: Project[] }) => {
   
-  // [已新增] 2. 创建动态标题逻辑
   const summaryTitle = useMemo(() => {
     const parts: string[] = [];
     
@@ -51,7 +49,6 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects }: { totalSummar
   }, [activeFilters, projects]);
 
   return (
-    // [已修改] 3. 调整布局为 justify-start 并替换静态标题
     <div className="flex items-center justify-start flex-wrap gap-x-6 gap-y-2 rounded-lg border p-4 text-sm font-medium">
       <span className="font-bold">{summaryTitle}:</span>
       <span>装: <span className="font-bold text-primary">{totalSummary.totalLoadingWeight.toFixed(2)}吨</span></span>
@@ -135,7 +132,6 @@ export default function BusinessEntry() {
         projects={projects}
       />
 
-      {/* [已修改] 4. 将 SummaryDisplay 移出条件渲染，并传递新 props */}
       {!isSummaryStale && !loading && (
         <SummaryDisplay 
           totalSummary={totalSummary} 
@@ -159,8 +155,40 @@ export default function BusinessEntry() {
       
       <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />
       
+      {/* [已集成] 使用从原始代码移植过来的、功能完整的详情对话框 */}
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
-        {/* ... Viewing Dialog JSX ... */}
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle>
+          </DialogHeader>
+          {viewingRecord && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
+              <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date ? viewingRecord.loading_date.split('T')[0] : '未填写'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date ? viewingRecord.unloading_date.split('T')[0] : '未填写'}</p></div>
+
+              <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{viewingRecord.transport_type}</p></div>
+
+              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
+
+              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost != null ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono text-orange-600">{viewingRecord.extra_cost != null ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1 col-span-1 md:col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.driver_payable_cost != null ? `¥${viewingRecord.driver_payable_cost.toFixed(2)}` : '-'}</p></div>
+              
+              <div className="col-span-1 md:col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px] whitespace-pre-wrap">{viewingRecord.remarks || '无'}</p></div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button>
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );
