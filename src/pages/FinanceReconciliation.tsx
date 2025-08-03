@@ -1,5 +1,5 @@
 // 文件路径: src/pages/FinanceReconciliation.tsx
-// 描述: [最终完整版] 集成了所有修复和UI美化
+// 描述: [最终完整版 v2] 优化了“合作方应付汇总”表格的列宽，使其更紧凑美观
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -270,9 +270,12 @@ export default function FinanceReconciliation() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {/* [修改] 未设置宽度，使其自适应剩余空间 */}
                     <TableHead>合作方名称</TableHead>
-                    <TableHead className="text-center">相关运单数</TableHead>
-                    <TableHead className="text-right">应付总金额 (元)</TableHead>
+                    {/* [修改] 设置固定宽度，使其更紧凑 */}
+                    <TableHead className="w-[150px] text-center">相关运单数</TableHead>
+                    {/* [修改] 设置固定宽度，使其更紧凑 */}
+                    <TableHead className="w-[200px] text-right">应付总金额 (元)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
