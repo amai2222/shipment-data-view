@@ -1,5 +1,8 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [完整无省略][性能优化版] 1. 默认加载最近30天数据。 2. 优化useEffect加载顺序。
+// 描述: [最终性能版] 此版本与最新的 get_dashboard_stats 函数完全匹配。
+//       1. 默认日期为当年1月1日。
+//       2. 看板首次加载只获取轻量级的聚合数据。
+//       3. 详情对话框按需、独立地加载原始运单记录。
 
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,16 +15,15 @@ import { Button } from "@/components/ui/button";
 import { BarChart3, TrendingUp, Truck, Package, Eye, Database, RefreshCw, CheckCircle, Search } from "lucide-react";
 import { SupabaseStorage } from "@/utils/supabase";
 import { DataMigration } from "@/utils/migration";
-import { Project } from "@/types";
+import { Project, LogisticsRecord } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 
-// [后端驱动] 定义后端返回的数据结构
+// 定义后端返回的聚合数据结构
 interface DailyTransportStats { date: string; actualTransport: number; returns: number; }
 interface DailyCostStats { date: string; totalCost: number; }
 interface DailyCountStats { date: string; count: number; }
 interface OverviewStats { totalRecords: number; totalWeight: number; totalCost: number; actualTransportCount: number; returnCount: number; }
-interface BackendLogisticsRecord { id: string; project_id: string; project_name: string; loading_date: string; loading_weight: number; unloading_weight: number | null; transport_type: string; current_fee: number; extra_fee: number; payable_fee: number; auto_number: string; driver_name: string; license_plate: string; loading_location: string; unloading_location: string; remarks: string | null; }
 
 export default function Home() {
   // 状态管理
@@ -29,85 +31,100 @@ export default function Home() {
   const [dailyTransportStats, setDailyTransportStats] = useState<DailyTransportStats[]>([]);
   const [dailyCostStats, setDailyCostStats] = useState<DailyCostStats[]>([]);
   const [dailyCountStats, setDailyCountStats] = useState<DailyCountStats[]>([]);
-  const [filteredRecords, setFilteredRecords] = useState<BackendLogisticsRecord[]>([]);
   
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // 页面首次加载状态
-  const [isSearching, setIsSearching] = useState(false); // 用于搜索按钮的加载状态
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
   const [migrationStatus, setMigrationStatus] = useState<{ supabaseCount: number; localCount: number; isMigrated: boolean; } | null>(null);
   
-  // [性能优化] 默认加载最近30天的数据，而不是一整年
+  // [按需加载] 状态
+  const [dialogRecords, setDialogRecords] = useState<LogisticsRecord[]>([]);
+  const [isDialogLoading, setIsDialogLoading] = useState(false);
+  const [dialogFilter, setDialogFilter] = useState<{projectId: string | null, date: string | null}>({ projectId: null, date: null });
+
+  // [需求修正] 默认开始日期为当年1月1日
   const getDefaultDateRange = () => {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - 30);
+    const today = new Date();
+    const year = today.getFullYear();
     return { 
-      startDate: startDate.toISOString().split('T')[0], 
-      endDate: endDate.toISOString().split('T')[0] 
+      startDate: `${year}-01-01`, 
+      endDate: today.toISOString().split('T')[0] 
     };
   };
 
   const [filterInputs, setFilterInputs] = useState({ ...getDefaultDateRange(), projectId: 'all' });
   const { toast } = useToast();
 
-  // [性能优化] 优化加载逻辑
   useEffect(() => {
     const initialLoad = async () => {
       setIsLoading(true);
-      // 并行加载轻量级数据
-      await Promise.all([
-        loadProjects(),
-        checkMigrationStatus()
-      ]);
-      // 然后加载重量级的数据
-      await handleSearch(true); // 传入一个标志，表示这是首次加载
+      await Promise.all([loadProjects(), checkMigrationStatus()]);
+      await handleSearch(true);
       setIsLoading(false);
     };
     initialLoad();
   }, []);
 
+  // [按需加载] 当对话框打开时，获取详细数据
+  useEffect(() => {
+    if (isDetailDialogOpen) {
+      fetchDialogRecords();
+    }
+  }, [isDetailDialogOpen, dialogFilter]);
+
+  const fetchDialogRecords = async () => {
+    setIsDialogLoading(true);
+    try {
+      const projectId = dialogFilter.projectId === 'all' ? undefined : dialogFilter.projectId;
+      const startDate = dialogFilter.date ? dialogFilter.date : filterInputs.startDate;
+      const endDate = dialogFilter.date ? dialogFilter.date : filterInputs.endDate;
+
+      // 复用您已有的、高效的、分页的函数来获取原始记录
+      const { records } = await SupabaseStorage.getFilteredLogisticsRecords(
+        projectId,
+        undefined, // driverId
+        startDate,
+        endDate,
+        1000, // 获取最多1000条记录在弹窗中显示
+        0
+      );
+      setDialogRecords(records);
+    } catch (error) {
+      console.error("获取详细记录失败:", error);
+      toast({ title: "获取详细记录失败", variant: "destructive" });
+    } finally {
+      setIsDialogLoading(false);
+    }
+  };
+
   const loadProjects = async () => {
     try {
-      const allProjects = await SupabaseStorage.getProjects();
-      setProjects(allProjects as Project[]);
+      setProjects(await SupabaseStorage.getProjects() as Project[]);
     } catch (error) {
       console.error("加载项目列表失败:", error);
-      toast({ title: "项目列表加载失败", variant: "destructive" });
     }
   };
 
   const handleSearch = async (isInitialLoad = false) => {
-    if (!isInitialLoad) {
-      setIsSearching(true);
-    }
+    if (!isInitialLoad) setIsSearching(true);
     try {
-      const data = await SupabaseStorage.getDashboardStats({
-        startDate: filterInputs.startDate,
-        endDate: filterInputs.endDate,
-        projectId: filterInputs.projectId,
-      });
-
+      // 这个调用现在只会返回轻量级的聚合数据
+      const data = await SupabaseStorage.getDashboardStats(filterInputs);
       setOverviewStats(data.overview);
       setDailyTransportStats(data.dailyTransportStats || []);
       setDailyCostStats(data.dailyCostStats || []);
       setDailyCountStats(data.dailyCountStats || []);
-      setFilteredRecords(data.records || []);
-
     } catch (err) {
       console.error('获取看板数据失败:', err);
-      toast({ title: "数据加载失败", description: "无法从数据库获取统计数据。", variant: "destructive" });
+      toast({ title: "数据加载失败", variant: "destructive" });
     } finally {
-      if (!isInitialLoad) {
-        setIsSearching(false);
-      }
+      if (!isInitialLoad) setIsSearching(false);
     }
   };
 
   const checkMigrationStatus = async () => {
-    const status = await DataMigration.checkMigrationStatus();
-    setMigrationStatus(status);
+    setMigrationStatus(await DataMigration.checkMigrationStatus());
   };
 
   const handleMigrateData = async () => {
@@ -126,34 +143,25 @@ export default function Home() {
     }
   };
 
+  const handleChartClick = (data: any) => {
+    if (data?.activePayload?.[0]) {
+      const clickedDate = data.activePayload[0].payload.date;
+      setDialogFilter({ projectId: filterInputs.projectId, date: clickedDate });
+      setIsDetailDialogOpen(true);
+    }
+  };
+
+  const handleLegendClick = () => {
+    setDialogFilter({ projectId: filterInputs.projectId, date: null }); // date: null 表示获取整个时间范围
+    setIsDetailDialogOpen(true);
+  };
+
   const legendTotals = useMemo(() => ({
     actualTransportTotal: dailyTransportStats.reduce((sum, day) => sum + (day.actualTransport || 0), 0),
     returnsTotal: dailyTransportStats.reduce((sum, day) => sum + (day.returns || 0), 0),
     totalCostSum: dailyCostStats.reduce((sum, day) => sum + (day.totalCost || 0), 0),
     totalTrips: dailyCountStats.reduce((sum, day) => sum + (day.count || 0), 0),
   }), [dailyTransportStats, dailyCostStats, dailyCountStats]);
-
-  const selectedRecordsForDialog = useMemo(() => {
-    if (!selectedDate) return filteredRecords;
-    return filteredRecords.filter(record => record.loading_date.startsWith(selectedDate));
-  }, [selectedDate, filteredRecords]);
-
-  const handleChartClick = (data: any) => {
-    if (data?.activePayload?.[0]) {
-      setSelectedDate(data.activePayload[0].payload.date);
-      setIsDetailDialogOpen(true);
-    }
-  };
-
-  const handleLegendClick = () => {
-    setSelectedDate(null);
-    setIsDetailDialogOpen(true);
-  };
-
-  const handleDialogClose = (open: boolean) => {
-    setIsDetailDialogOpen(open);
-    if (!open) setSelectedDate(null);
-  };
 
   if (isLoading) {
     return (
@@ -240,32 +248,36 @@ export default function Home() {
         </Card>
       </div>
 
-      <Dialog open={isDetailDialogOpen} onOpenChange={handleDialogClose}>
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" aria-describedby="dialog-description">
           <DialogHeader>
-            <DialogTitle className="flex items-center"><Eye className="mr-2 h-5 w-5" />{selectedDate ? `${new Date(selectedDate).toLocaleDateString('zh-CN')} 详细运输记录` : `全部筛选结果记录`}</DialogTitle>
+            <DialogTitle className="flex items-center"><Eye className="mr-2 h-5 w-5" />{dialogFilter.date ? `${new Date(dialogFilter.date).toLocaleDateString('zh-CN')} 详细运输记录` : `全部筛选结果记录`}</DialogTitle>
             <div id="dialog-description" className="sr-only">显示运输记录详细信息</div>
           </DialogHeader>
-          {selectedRecordsForDialog.length > 0 ? (
+          {isDialogLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin" />
+              <span className="ml-2">正在加载详细记录...</span>
+            </div>
+          ) : dialogRecords.length > 0 ? (
             <div className="space-y-4">
-              <div className="bg-blue-50 p-4 rounded-lg"><h3 className="font-semibold text-blue-900">数据概览</h3><div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2"><div><p className="text-sm text-blue-700">运输次数</p><p className="text-lg font-bold text-blue-900">{selectedRecordsForDialog.length}</p></div><div><p className="text-sm text-blue-700">总重量</p><p className="text-lg font-bold text-blue-900">{selectedRecordsForDialog.reduce((sum, r) => sum + r.loading_weight, 0).toFixed(1)}吨</p></div><div><p className="text-sm text-blue-700">总费用</p><p className="text-lg font-bold text-blue-900">¥{selectedRecordsForDialog.reduce((sum, r) => sum + (r.current_fee || 0) + (r.extra_fee || 0), 0).toFixed(2)}</p></div><div><p className="text-sm text-blue-700">实际运输/退货</p><p className="text-lg font-bold text-blue-900">{selectedRecordsForDialog.filter(r => r.transport_type === "实际运输").length}/{selectedRecordsForDialog.filter(r => r.transport_type === "退货").length}</p></div></div></div>
               <div className="border rounded-lg overflow-x-auto">
                 <Table>
-                  <TableHeader><TableRow className="text-xs"><TableHead className="px-2 py-2 text-xs">运单号</TableHead><TableHead className="px-2 py-2 text-xs">项目名称</TableHead><TableHead className="px-2 py-2 text-xs">司机</TableHead><TableHead className="px-2 py-2 text-xs">车牌号</TableHead><TableHead className="px-2 py-2 text-xs">装货地</TableHead><TableHead className="px-2 py-2 text-xs">卸货地</TableHead><TableHead className="px-2 py-2 text-xs">装货重量</TableHead><TableHead className="px-2 py-2 text-xs">卸货重量</TableHead><TableHead className="px-2 py-2 text-xs">运输类型</TableHead><TableHead className="px-2 py-2 text-xs">司机应收</TableHead><TableHead className="px-2 py-2 text-xs">备注</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow className="text-xs"><TableHead>运单号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>车牌</TableHead><TableHead>装货地</TableHead><TableHead>卸货地</TableHead><TableHead>装货重</TableHead><TableHead>卸货重</TableHead><TableHead>类型</TableHead><TableHead>司机应收</TableHead><TableHead>备注</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {selectedRecordsForDialog.sort((a, b) => { const projectNameA = a.project_name || ''; const projectNameB = b.project_name || ''; const projectCompare = projectNameB.localeCompare(projectNameA, 'zh-CN'); if (projectCompare !== 0) return projectCompare; return b.auto_number.localeCompare(a.auto_number, 'zh-CN'); }).map((record) => (
+                    {dialogRecords.map((record) => (
                       <TableRow key={record.id} className="text-xs">
-                        <TableCell className="font-medium px-2 py-2 text-xs whitespace-nowrap">{record.auto_number}</TableCell>
-                        <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.project_name || '-'}</TableCell>
-                        <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.driver_name}</TableCell>
-                        <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.license_plate}</TableCell>
-                        <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.loading_location}</TableCell>
-                        <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.unloading_location}</TableCell>
-                        <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.loading_weight.toFixed(2)}吨</TableCell>
-                        <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.unloading_weight?.toFixed(2) || '-'}吨</TableCell>
-                        <TableCell className="px-2 py-2 text-xs"><span className={`px-1 py-0.5 rounded-full text-xs whitespace-nowrap ${record.transport_type === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transport_type}</span></TableCell>
-                        <TableCell className="px-2 py-2 text-xs whitespace-nowrap">{record.payable_fee ? `¥${(record.payable_fee).toFixed(2)}` : '-'} </TableCell>
-                        <TableCell className="px-2 py-2 text-xs max-w-[120px] truncate" title={record.remarks}>{record.remarks || '-'}</TableCell>
+                        <TableCell className="font-medium whitespace-nowrap">{record.autoNumber}</TableCell>
+                        <TableCell className="whitespace-nowrap">{record.projectName || '-'}</TableCell>
+                        <TableCell className="whitespace-nowrap">{record.driverName}</TableCell>
+                        <TableCell className="whitespace-nowrap">{record.licensePlate}</TableCell>
+                        <TableCell className="whitespace-nowrap">{record.loadingLocation}</TableCell>
+                        <TableCell className="whitespace-nowrap">{record.unloadingLocation}</TableCell>
+                        <TableCell className="whitespace-nowrap">{record.loadingWeight.toFixed(2)}吨</TableCell>
+                        <TableCell className="whitespace-nowrap">{record.unloadingWeight?.toFixed(2) || '-'}吨</TableCell>
+                        <TableCell><span className={`px-1 py-0.5 rounded-full text-xs whitespace-nowrap ${record.transportType === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transportType}</span></TableCell>
+                        <TableCell className="whitespace-nowrap">{record.payableFee ? `¥${(record.payableFee).toFixed(2)}` : '-'} </TableCell>
+                        <TableCell className="max-w-[120px] truncate" title={record.remarks}>{record.remarks || '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
