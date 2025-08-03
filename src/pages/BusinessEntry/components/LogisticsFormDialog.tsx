@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
-import { AsyncCreatableCombobox, Option } from './AsyncCreatableCombobox';
+import { ReactSelectCreatable, SelectOption } from './ReactSelectCreatable'; // [验证] - 确保导入的是这个新组件
 import { LogisticsFormData, Project, PartnerChain, Driver } from '../types';
 
 interface LogisticsFormDialogProps {
@@ -27,12 +27,25 @@ export function LogisticsFormDialog({ isOpen, onOpenChange, onSubmit, isSubmitti
     dispatch({ type: 'SET_FIELD', field, payload: value });
   };
 
-  const handleDriverChange = (option: Option | null, rawValue: string) => {
+  const handleDriverChange = (option: SelectOption | null) => {
     if (option) {
-      dispatch({ type: 'SET_DRIVER', payload: option as unknown as Driver });
+      if (option.__isNew__) {
+        dispatch({ type: 'SET_FIELD', field: 'driver_name', payload: option.label.replace('创建 "', '').replace('"', '') });
+        dispatch({ type: 'SET_FIELD', field: 'driver_id', payload: option.value });
+      } else {
+        dispatch({ type: 'SET_DRIVER', payload: option as unknown as Driver });
+      }
     } else {
-      dispatch({ type: 'SET_FIELD', field: 'driver_name', payload: rawValue });
-      dispatch({ type: 'SET_FIELD', field: 'driver_id', payload: rawValue });
+      dispatch({ type: 'SET_FIELD', field: 'driver_name', payload: '' });
+      dispatch({ type: 'SET_FIELD', field: 'driver_id', payload: '' });
+    }
+  };
+
+  const handleLocationChange = (field: 'loading_location' | 'unloading_location', option: SelectOption | null) => {
+    if (option) {
+      dispatch({ type: 'SET_FIELD', field, payload: option.label.replace('创建 "', '').replace('"', '') });
+    } else {
+      dispatch({ type: 'SET_FIELD', field, payload: '' });
     }
   };
 
@@ -48,8 +61,7 @@ export function LogisticsFormDialog({ isOpen, onOpenChange, onSubmit, isSubmitti
           
           <div className="col-span-1 space-y-1">
             <Label>司机 *</Label>
-            {/* [核心重写] - 传递 projectId */}
-            <AsyncCreatableCombobox value={formData.driver_name} onValueChange={handleDriverChange} tableName="drivers" searchColumn="name" placeholder="选择或创建司机" searchPlaceholder="搜索司机..." projectId={formData.project_id} disabled={isSubmitting} />
+            <ReactSelectCreatable value={formData.driver_name ? { value: formData.driver_id, label: formData.driver_name } : null} onChange={handleDriverChange} tableName="drivers" projectId={formData.project_id} disabled={isSubmitting} />
           </div>
           <div className="col-span-1 space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} disabled={isSubmitting} /></div>
           <div className="col-span-1 space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} disabled={isSubmitting} /></div>
@@ -57,15 +69,13 @@ export function LogisticsFormDialog({ isOpen, onOpenChange, onSubmit, isSubmitti
           
           <div className="col-span-1 space-y-1">
             <Label>装货地点 *</Label>
-            {/* [核心重写] - 传递 projectId */}
-            <AsyncCreatableCombobox value={formData.loading_location} onValueChange={(_, rawValue) => handleInputChange('loading_location', rawValue)} tableName="locations" searchColumn="name" placeholder="选择或创建地点" searchPlaceholder="搜索地点..." projectId={formData.project_id} disabled={isSubmitting} />
+            <ReactSelectCreatable value={formData.loading_location ? { value: formData.loading_location, label: formData.loading_location } : null} onChange={(opt) => handleLocationChange('loading_location', opt)} tableName="locations" projectId={formData.project_id} disabled={isSubmitting} />
           </div>
           <div className="col-span-1 space-y-1"><Label>装货重量</Label><Input type="number" placeholder="吨" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value)} disabled={isSubmitting} /></div>
           
           <div className="col-span-1 space-y-1">
             <Label>卸货地点 *</Label>
-            {/* [核心重写] - 传递 projectId */}
-            <AsyncCreatableCombobox value={formData.unloading_location} onValueChange={(_, rawValue) => handleInputChange('unloading_location', rawValue)} tableName="locations" searchColumn="name" placeholder="选择或创建地点" searchPlaceholder="搜索地点..." projectId={formData.project_id} disabled={isSubmitting} />
+            <ReactSelectCreatable value={formData.unloading_location ? { value: formData.unloading_location, label: formData.unloading_location } : null} onChange={(opt) => handleLocationChange('unloading_location', opt)} tableName="locations" projectId={formData.project_id} disabled={isSubmitting} />
           </div>
           <div className="col-span-1 space-y-1"><Label>卸货重量</Label><Input type="number" placeholder="吨" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value)} disabled={isSubmitting} /></div>
           <div className="col-span-1 space-y-1"><Label>运费金额 (元)</Label><Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value)} disabled={isSubmitting} /></div>
