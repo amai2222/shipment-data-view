@@ -1,5 +1,5 @@
 // 文件路径: src/pages/FinanceReconciliation.tsx
-// 描述: [最终完整版] 支持后端分页和跨页选择
+// 描述: [最终调试版] 修复了初始渲染时的 'Cannot read properties of undefined' 错误
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,7 +85,7 @@ export default function FinanceReconciliation() {
 
   // --- Effects ---
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
-  useEffect(() => { if (!isStale) { fetchReportData(); } }, [fetchReportData, isStale]);
+  useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); } }, [fetchReportData, isStale]);
   useEffect(() => {
     setPagination(p => p.currentPage === 1 ? p : { ...p, currentPage: 1 });
     setSelection({ mode: 'none', selectedIds: new Set() });
@@ -105,7 +105,7 @@ export default function FinanceReconciliation() {
   };
 
   const handleSelectAllOnPage = (isChecked: boolean) => {
-    const pageIds = reportData?.records?.map((r: any) => r.id) || [];
+    const pageIds = (reportData?.records || []).map((r: any) => r.id);
     if (isChecked) {
       setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) }));
     } else {
@@ -155,13 +155,52 @@ export default function FinanceReconciliation() {
 
   // --- 派生状态和工具函数 ---
   const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? { from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined } : undefined;
-  const displayedPartners = useMemo(() => { /* ... (此函数无需改动) ... */ }, [reportData, allPartners, uiFilters.partnerId]);
-  const exportDetailsToExcel = () => { /* ... (此函数无需改动) ... */ };
+  
+  const displayedPartners = useMemo(() => {
+    if (uiFilters.partnerId !== "all") {
+      const selected = allPartners.find(p => p.id === uiFilters.partnerId);
+      return selected ? [selected] : [];
+    }
+    if (!reportData?.records) return [];
+    const relevantPartnerIds = new Set<string>();
+    (reportData.records || []).forEach((record: any) => {
+      (record.partner_costs || []).forEach((cost: any) => relevantPartnerIds.add(cost.partner_id));
+    });
+    return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
+  }, [reportData, allPartners, uiFilters.partnerId]);
+
+  const exportDetailsToExcel = () => {
+    if (!reportData?.records || reportData.records.length === 0) {
+        toast({ title: "提示", description: "没有可导出的数据" });
+        return;
+    }
+    const headers = ['运单编号', '项目名称', '司机姓名', '路线', '装货日期', '运费金额', '额外费用', '司机应收'];
+    displayedPartners.forEach(p => headers.push(`${p.name}(应付)`));
+    const dataToExport = (reportData.records || []).map((record: any) => {
+      const row: {[key: string]: any} = {
+        '运单编号': record.auto_number, '项目名称': record.project_name, '司机姓名': record.driver_name,
+        '路线': `${record.loading_location} → ${record.unloading_location}`, '装货日期': record.loading_date,
+        '运费金额': record.current_cost || 0, '额外费用': record.extra_cost || 0, '司机应收': record.payable_cost || 0,
+      };
+      displayedPartners.forEach(p => {
+        const cost = (record.partner_costs || []).find((c:any) => c.partner_id === p.id);
+        row[`${p.name}(应付)`] = cost ? cost.payable_amount : 0;
+      });
+      return row;
+    });
+    const ws = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "运单财务明细");
+    XLSX.writeFile(wb, `运单财务明细_${new Date().toLocaleDateString()}.xlsx`);
+    toast({ title: "成功", description: "财务明细数据已导出到Excel" });
+  };
+
   const isAllOnPageSelected = useMemo(() => {
-    const pageIds = reportData?.records?.map((r: any) => r.id) || [];
+    const pageIds = (reportData?.records || []).map((r: any) => r.id);
     if (pageIds.length === 0) return false;
     return pageIds.every(id => selection.selectedIds.has(id));
   }, [reportData?.records, selection.selectedIds]);
+
   const selectionCount = useMemo(() => {
     if (selection.mode === 'all_filtered') return reportData?.count || 0;
     return selection.selectedIds.size;
@@ -190,7 +229,7 @@ export default function FinanceReconciliation() {
         </CardContent>
       </Card>
 
-      {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && isAllOnPageSelected && reportData?.count > reportData?.records?.length && (
+      {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && isAllOnPageSelected && reportData?.count > (reportData?.records?.length || 0) && (
         <div className="flex items-center justify-center gap-4 p-2 text-sm font-medium text-center bg-secondary text-secondary-foreground rounded-md">
           <span>已选择当前页的所有 <b>{reportData?.records?.length}</b> 条记录。</span>
           <Button variant="link" className="p-0 h-auto" onClick={() => setSelection({ mode: 'all_filtered', selectedIds: new Set() })}>选择全部 <b>{reportData?.count}</b> 条匹配的记录</Button>
@@ -218,7 +257,7 @@ export default function FinanceReconciliation() {
               <Table>
                 <TableHeader><TableRow><TableHead>合作方名称</TableHead><TableHead>相关运单数</TableHead><TableHead>应付总金额</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {loading && reportData?.partner_payables?.length > 0 ? (<TableRow><TableCell colSpan={3} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin inline-block"/></TableCell></TableRow>) : (!reportData?.partner_payables || reportData.partner_payables.length === 0) ? (<TableRow><TableCell colSpan={3} className="text-center">没有找到匹配的数据</TableCell></TableRow>) : (reportData.partner_payables).map((partner: any) => (<TableRow key={partner.partner_id}><TableCell className="font-medium">{partner.partner_name}</TableCell><TableCell>{partner.records_count}</TableCell><TableCell className="font-mono">¥{partner.total_payable.toFixed(2)}</TableCell></TableRow>))}
+                  {loading && !(reportData?.partner_payables?.length > 0) ? (<TableRow><TableCell colSpan={3} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin inline-block"/></TableCell></TableRow>) : (!reportData?.partner_payables || reportData.partner_payables.length === 0) ? (<TableRow><TableCell colSpan={3} className="text-center">没有找到匹配的数据</TableCell></TableRow>) : (reportData.partner_payables).map((partner: any) => (<TableRow key={partner.partner_id}><TableCell className="font-medium">{partner.partner_name}</TableCell><TableCell>{partner.records_count}</TableCell><TableCell className="font-mono">¥{partner.total_payable.toFixed(2)}</TableCell></TableRow>))}
                 </TableBody>
               </Table>
             </CardContent>
@@ -227,7 +266,7 @@ export default function FinanceReconciliation() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div><CardTitle>运单财务明细</CardTitle><p className="text-sm text-muted-foreground">各合作方应付金额按级别从左到右排列</p></div>
-                <Button variant="outline" size="sm" onClick={exportDetailsToExcel} disabled={!reportData?.records || reportData.records.length === 0}><Download className="mr-2 h-4 w-4" />导出明细</Button>
+                <Button variant="outline" size="sm" onClick={exportDetailsToExcel} disabled={!(reportData?.records?.length > 0)}><Download className="mr-2 h-4 w-4" />导出明细</Button>
             </CardHeader>
             <CardContent>
               <div className="min-h-[400px]">
@@ -235,7 +274,7 @@ export default function FinanceReconciliation() {
                 <Table>
                   <TableHeader><TableRow><TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage}/></TableHead><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>日期</TableHead><TableHead>运费</TableHead><TableHead className="text-orange-600">额外费</TableHead>{displayedPartners.map(p => <TableHead key={p.id} className="text-center">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}<TableHead>状态</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {reportData?.records?.map((r: any) => (<TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"}><TableCell><Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)}/></TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{r.auto_number}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell><TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_location}→{r.unloading_location}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>¥{r.current_cost?.toFixed(2)}</TableCell><TableCell className="font-mono text-orange-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{r.extra_cost ? `¥${r.extra_cost.toFixed(2)}` : '-'}</TableCell>{displayedPartners.map(p => { const cost = (r.partner_costs || []).find((c:any) => c.partner_id === p.id); return <TableCell key={p.id} className="font-mono text-center cursor-pointer" onClick={() => setViewingRecord(r)}>{cost ? `¥${cost.payable_amount.toFixed(2)}` : '-'}</TableCell>; })}<TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}><Badge variant={r.current_cost ? "default" : "secondary"}>{r.current_cost ? "已计费" : "待计费"}</Badge></TableCell></TableRow>))}
+                    {(reportData?.records || []).map((r: any) => (<TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"}><TableCell><Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)}/></TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{r.auto_number}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell><TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_location}→{r.unloading_location}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>¥{r.current_cost?.toFixed(2)}</TableCell><TableCell className="font-mono text-orange-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{r.extra_cost ? `¥${r.extra_cost.toFixed(2)}` : '-'}</TableCell>{displayedPartners.map(p => { const cost = (r.partner_costs || []).find((c:any) => c.partner_id === p.id); return <TableCell key={p.id} className="font-mono text-center cursor-pointer" onClick={() => setViewingRecord(r)}>{cost ? `¥${cost.payable_amount.toFixed(2)}` : '-'}</TableCell>; })}<TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}><Badge variant={r.current_cost ? "default" : "secondary"}>{r.current_cost ? "已计费" : "待计费"}</Badge></TableCell></TableRow>))}
                     <TableRow className="bg-muted/30 font-semibold border-t-2"><TableCell colSpan={6} className="text-right font-bold">合计</TableCell><TableCell className="font-mono font-bold text-center"><div>¥{(reportData?.overview?.total_current_cost || 0).toFixed(2)}</div><div className="text-xs text-muted-foreground font-normal">(运费)</div></TableCell><TableCell className="font-mono font-bold text-orange-600 text-center"><div>¥{(reportData?.overview?.total_extra_cost || 0).toFixed(2)}</div><div className="text-xs text-muted-foreground font-normal">(额外费)</div></TableCell>{displayedPartners.map(p => { const total = (reportData?.partner_payables || []).find((pp: any) => pp.partner_id === p.id)?.total_payable || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono"><div>¥{total.toFixed(2)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}<TableCell></TableCell></TableRow>
                   </TableBody>
                 </Table>
