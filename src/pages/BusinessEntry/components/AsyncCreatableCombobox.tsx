@@ -17,25 +17,25 @@ export interface Option {
 
 interface AsyncCreatableComboboxProps {
   value: string;
-  onValue-change: (option: Option | null, rawValue: string) => void;
+  onValueChange: (option: Option | null, rawValue: string) => void; // [核心修复] - 修正了拼写错误
   placeholder?: string;
   searchPlaceholder?: string;
   emptyResultText?: string;
   tableName: 'drivers' | 'locations';
   searchColumn: string;
-  projectId: string | null; // [核心重写] - 接收项目ID
+  projectId: string | null;
   disabled?: boolean;
 }
 
 export function AsyncCreatableCombobox({
   value,
-  onValueChange,
+  onValueChange, // [核心修复]
   placeholder = "Select an option...",
   searchPlaceholder = "Search...",
   emptyResultText = "No results found. Type to create.",
   tableName,
   searchColumn,
-  projectId, // [核心重写]
+  projectId,
   disabled = false
 }: AsyncCreatableComboboxProps) {
   const [open, setOpen] = React.useState(false);
@@ -47,7 +47,6 @@ export function AsyncCreatableCombobox({
   const selectedOption = options.find(opt => opt.label === value) || (value ? { value: value, label: value } : null);
 
   React.useEffect(() => {
-    // [核心重写] - 只有在项目ID存在、有搜索词、且下拉框打开时才搜索
     if (!projectId || !debouncedSearchTerm || !open) {
       setOptions([]);
       return;
@@ -55,7 +54,6 @@ export function AsyncCreatableCombobox({
 
     setIsLoading(true);
     const fetchOptions = async () => {
-      // [核心重写] - 调用新的RPC函数
       const { data, error } = await supabase.rpc('search_project_linked_items', {
         p_project_id: projectId,
         p_item_type: tableName,
@@ -100,7 +98,6 @@ export function AsyncCreatableCombobox({
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between"
-          // [核心重写] - 如果没有项目ID，则禁用
           disabled={!projectId || disabled}
         >
           <span className="truncate">{displayValue}</span>
