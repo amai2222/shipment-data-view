@@ -6,19 +6,17 @@ import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/p
 import { Trash2, Loader2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogisticsRecord } from '../types';
-import { TotalSummary } from '../hooks/useLogisticsData';
 
 interface LogisticsTableProps {
   records: LogisticsRecord[];
   loading: boolean;
-  totalSummary: TotalSummary;
   pagination: { currentPage: number; totalPages: number; };
   setPagination: React.Dispatch<React.SetStateAction<{ currentPage: number; totalPages: number; }>>;
   onDelete: (id: string) => void;
   onView: (record: LogisticsRecord) => void;
 }
 
-export function LogisticsTable({ records, loading, totalSummary, pagination, setPagination, onDelete, onView }: LogisticsTableProps) {
+export function LogisticsTable({ records, loading, pagination, setPagination, onDelete, onView }: LogisticsTableProps) {
   const { currentPage, totalPages } = pagination;
 
   return (
@@ -76,15 +74,7 @@ export function LogisticsTable({ records, loading, totalSummary, pagination, set
         </PaginationContent>
       </Pagination>
 
-      <div className="flex items-center justify-end space-x-6 rounded-lg border p-4 text-sm font-medium">
-        <span>筛选结果合计:</span>
-        <span className="font-bold">装: <span className="text-primary">{totalSummary.totalLoadingWeight.toFixed(2)}吨</span></span>
-        <span className="font-bold">卸: <span className="text-primary">{totalSummary.totalUnloadingWeight.toFixed(2)}吨</span></span>
-        <span className="font-bold">{totalSummary.actualCount}实际 / {totalSummary.returnCount}退货</span>
-        <span>司机运费: <span className="font-bold text-primary">¥{totalSummary.totalCurrentCost.toFixed(2)}</span></span>
-        <span>额外费用: <span className="font-bold text-orange-600">¥{totalSummary.totalExtraCost.toFixed(2)}</span></span>
-        <span>司机应收: <span className="font-bold text-green-600">¥{totalSummary.totalDriverPayableCost.toFixed(2)}</span></span>
-      </div>
+      {/* [核心重构] - 合计信息已被移除，并上移至 index.tsx */}
     </>
   );
 }
