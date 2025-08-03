@@ -45,15 +45,12 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
       <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
         <Label htmlFor="project-id">项目名称</Label>
         <Select
-          // [已修改] 2. 适配显示逻辑：如果 projectId 为空，则选中 "all"
           value={filters.projectId || 'all'}
-          // [已修改] 3. 适配更新逻辑：如果选择了 "all"，则将状态设置为空字符串
           onValueChange={(value) => handleInputChange('projectId', value === 'all' ? '' : value)}
           disabled={loading || projects.length === 0}
         >
           <SelectTrigger id="project-id"><SelectValue placeholder="所有项目" /></SelectTrigger>
           <SelectContent>
-            {/* [已修复] 1. 为 "所有项目" 指定一个非空的、唯一的 value */}
             <SelectItem value="all">所有项目</SelectItem>
             {(projects || []).map(project => (<SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>))}
           </SelectContent>
@@ -74,7 +71,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
         <Label>日期范围</Label>
         <DateRangePicker
           date={dateRangeValue}
-          onDateChange={handleDateChange}
+          setDate={handleDateChange} // [已修复] 使用了正确的 prop 名称 "setDate"
           disabled={loading}
         />
       </div>
