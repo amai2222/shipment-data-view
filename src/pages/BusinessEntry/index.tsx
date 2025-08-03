@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, FileDown, FileUp, Loader2 } from "lucide-react";
+import { Download, FileDown, FileUp, Loader2, Search } from "lucide-react"; // 引入 Search 图标
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
@@ -29,13 +29,22 @@ const SummaryDisplay = ({ totalSummary }: { totalSummary: TotalSummary }) => (
   </div>
 );
 
+// [核心修复] - 创建一个新的提示组件
+const StaleDataPrompt = () => (
+  <div className="text-center py-10 border rounded-lg bg-muted/20">
+    <Search className="mx-auto h-12 w-12 text-muted-foreground" />
+    <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3>
+    <p className="mt-1 text-sm text-muted-foreground">请点击“搜索”按钮以查看最新结果。</p>
+  </div>
+);
+
+
 export default function BusinessEntry() {
   const { toast } = useToast();
   
   const [projects, setProjects] = useState<Project[]>([]);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
 
-  // [核心重构] - uiFilters 是用户在界面上看到的“草稿”状态
   const [uiFilters, setUiFilters] = useState(INITIAL_FILTERS);
 
   const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch } = useLogisticsData();
@@ -43,7 +52,6 @@ export default function BusinessEntry() {
     refetch();
   });
 
-  // [核心重构] - 计算合计信息是否已“过时”
   const isSummaryStale = useMemo(() => {
     return JSON.stringify(uiFilters) !== JSON.stringify(activeFilters);
   }, [uiFilters, activeFilters]);
@@ -63,7 +71,6 @@ export default function BusinessEntry() {
   }, [loadInitialOptions]);
 
   const handleSearch = () => {
-    // 将“草稿”状态提交为“已应用”状态，触发数据查询
     setActiveFilters(uiFilters);
     if (pagination.currentPage !== 1) {
       setPagination(p => ({ ...p, currentPage: 1 }));
@@ -71,7 +78,6 @@ export default function BusinessEntry() {
   };
 
   const handleClearSearch = () => {
-    // 同时重置“草稿”和“已应用”状态
     setUiFilters(INITIAL_FILTERS);
     setActiveFilters(INITIAL_FILTERS);
     if (pagination.currentPage !== 1) {
@@ -95,17 +101,22 @@ export default function BusinessEntry() {
         projects={projects}
       />
 
-      {/* [核心重构] - 只有在合计信息不过时且不在加载中时，才显示 */}
-      {!isSummaryStale && !loading && <SummaryDisplay totalSummary={totalSummary} />}
-
-      <LogisticsTable
-        records={records}
-        loading={loading}
-        pagination={pagination}
-        setPagination={setPagination}
-        onDelete={handleDelete}
-        onView={setViewingRecord}
-      />
+      {/* [核心修复] - 使用 isSummaryStale 来决定渲染哪个视图 */}
+      {isSummaryStale ? (
+        <StaleDataPrompt />
+      ) : (
+        <>
+          {!loading && <SummaryDisplay totalSummary={totalSummary} />}
+          <LogisticsTable
+            records={records}
+            loading={loading}
+            pagination={pagination}
+            setPagination={setPagination}
+            onDelete={handleDelete}
+            onView={setViewingRecord}
+          />
+        </>
+      )}
       
       <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />
       
