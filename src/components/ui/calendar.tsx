@@ -9,7 +9,7 @@ import { zhCN } from "date-fns/locale"
 import { format, addYears, subYears } from "date-fns"
 
 import { cn } from "@/lib/utils"
-import { Button, buttonVariants } from "@/components/ui/button" // [核心修复] - 引入 Button 组件
+import { Button, buttonVariants } from "@/components/ui/button"
 import { useNavigation } from "react-day-picker"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
@@ -27,15 +27,16 @@ function Calendar({
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
+        // [核心修复] - 移除旧的 caption 样式，由我们的新组件全权负责
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
-        nav: "space-x-1 flex items-center",
+        caption_label: "hidden", // 隐藏默认的 label，因为我们自己渲染
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
           "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
         ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
+        // 移除旧的 nav_button_previous/next 绝对定位
+        nav_button_previous: "h-7 w-7",
+        nav_button_next: "h-7 w-7",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
         head_cell:
@@ -66,15 +67,16 @@ function Calendar({
 }
 Calendar.displayName = "Calendar"
 
+// [核心修复] - 全新的、使用 Flexbox 进行布局的日历标题组件
 function CalendarCaption({ displayMonth }: CaptionProps) {
   const { goToMonth, nextMonth, previousMonth } = useNavigation();
 
   return (
-    <div className="flex justify-center pt-1 relative items-center">
+    <div className="flex justify-between items-center mb-2">
       <span className="text-sm font-medium">
         {format(displayMonth, "yyyy年 LLLL", { locale: zhCN })}
       </span>
-      <div className="flex items-center gap-1 absolute right-1">
+      <div className="flex items-center gap-1">
         <Button
           onClick={() => goToMonth(subYears(displayMonth, 1))}
           disabled={!previousMonth}
