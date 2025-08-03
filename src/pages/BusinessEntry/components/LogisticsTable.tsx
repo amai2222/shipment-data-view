@@ -11,7 +11,7 @@ import { TotalSummary } from '../hooks/useLogisticsData';
 interface LogisticsTableProps {
   records: LogisticsRecord[];
   loading: boolean;
-  totalSummary: TotalSummary; // [核心修复] - 接收总计
+  totalSummary: TotalSummary;
   pagination: { currentPage: number; totalPages: number; };
   setPagination: React.Dispatch<React.SetStateAction<{ currentPage: number; totalPages: number; }>>;
   onDelete: (id: string) => void;
@@ -27,9 +27,15 @@ export function LogisticsTable({ records, loading, totalSummary, pagination, set
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>合作链路</TableHead>
-              <TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>装货日期</TableHead>
-              <TableHead>运费</TableHead><TableHead>额外费</TableHead><TableHead>司机应收</TableHead>
+              <TableHead>运单编号</TableHead>
+              <TableHead>项目</TableHead>
+              <TableHead>合作链路</TableHead>
+              <TableHead>司机</TableHead>
+              <TableHead>路线</TableHead>
+              <TableHead>装货日期</TableHead>
+              <TableHead>运费</TableHead>
+              <TableHead>额外费</TableHead>
+              <TableHead>司机应收</TableHead>
               <TableHead className="text-right w-[50px]">操作</TableHead>
             </TableRow>
           </TableHeader>
@@ -41,7 +47,6 @@ export function LogisticsTable({ records, loading, totalSummary, pagination, set
             ) : (
               records.map((record) => (
                 <TableRow key={record.id} onClick={() => onView(record)} className="cursor-pointer hover:bg-muted/50">
-                  {/* [核心修复] - 优化行距，减小垂直 padding */}
                   <TableCell className="font-mono py-2">{record.auto_number}</TableCell>
                   <TableCell className="py-2">{record.project_name}</TableCell>
                   <TableCell className="py-2">{record.chain_name || '默认'}</TableCell>
@@ -71,7 +76,6 @@ export function LogisticsTable({ records, loading, totalSummary, pagination, set
         </PaginationContent>
       </Pagination>
 
-      {/* [核心修复] - 显示总计 */}
       <div className="flex items-center justify-end space-x-6 rounded-lg border p-4 text-sm font-medium">
         <span>筛选结果合计:</span>
         <span className="font-bold">装: <span className="text-primary">{totalSummary.totalLoadingWeight.toFixed(2)}吨</span></span>
