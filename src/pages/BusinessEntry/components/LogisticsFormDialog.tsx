@@ -1,15 +1,14 @@
 // src/pages/BusinessEntry/components/LogisticsFormDialog.tsx
 
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CreatableCombobox } from "@/components/CreatableCombobox";
 import { Loader2 } from "lucide-react";
-import { LogisticsFormData, Project, Driver, Location, PartnerChain } from '../types';
+import { AsyncCreatableCombobox, Option } from "@/components/AsyncCreatableCombobox"; // 引入新组件
+import { LogisticsFormData, Project, PartnerChain, Driver } from '../types';
 
 interface LogisticsFormDialogProps {
   isOpen: boolean;
@@ -20,46 +19,80 @@ interface LogisticsFormDialogProps {
   formData: LogisticsFormData;
   dispatch: React.Dispatch<any>;
   projects: Project[];
-  filteredDrivers: Driver[];
-  filteredLocations: Location[];
   partnerChains: PartnerChain[];
 }
 
-export function LogisticsFormDialog({ isOpen, onOpenChange, onSubmit, isSubmitting, editingRecord, formData, dispatch, projects, filteredDrivers, filteredLocations, partnerChains }: LogisticsFormDialogProps) {
-  const navigate = useNavigate();
+export function LogisticsFormDialog({ isOpen, onOpenChange, onSubmit, isSubmitting, editingRecord, formData, dispatch, projects, partnerChains }: LogisticsFormDialogProps) {
   const handleInputChange = (field: keyof LogisticsFormData, value: any) => {
     dispatch({ type: 'SET_FIELD', field, payload: value });
   };
 
-  const driverOptions = (filteredDrivers || []).map(d => ({ value: d.id, label: `${d.name} (${d.license_plate || '无车牌'})` }));
-  const locationOptions = (filteredLocations || []).map(l => ({ value: l.name, label: l.name }));
+  const handleDriverChange = (option: Option | null, rawValue: string) => {
+    if (option) { // 用户选择了现有司机
+      dispatch({ type: 'SET_DRIVER', payload: option as unknown as Driver });
+    } else { // 用户输入了新司机
+      dispatch({ type: 'SET_FIELD', field: 'driver_name', payload: rawValue });
+      dispatch({ type: 'SET_FIELD', field: 'driver_id', payload: rawValue }); // 临时用名称作为ID
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>{editingRecord ? "编辑运单" : "新增运单"}</DialogTitle>
-        </DialogHeader>
-        
+        <DialogHeader><DialogTitle>{editingRecord ? "编辑运单" : "新增运单"}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-4 gap-x-6 gap-y-4 py-4">
+          {/* ... 其他字段保持不变 ... */}
           <div className="col-span-1 space-y-1"><Label>项目 *</Label><Select value={formData.project_id} onValueChange={(v) => handleInputChange('project_id', v)}><SelectTrigger><SelectValue placeholder="请选择项目" /></SelectTrigger><SelectContent>{(projects || []).map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
           <div className="col-span-1 space-y-1"><Label>合作链路</Label><Select value={formData.chain_id || ''} onValueChange={(v) => handleInputChange('chain_id', v)} disabled={!formData.project_id}><SelectTrigger><SelectValue placeholder="默认链路" /></SelectTrigger><SelectContent>{(partnerChains || []).map(c => (<SelectItem key={c.id} value={c.id}>{c.chain_name}</SelectItem>))}</SelectContent></Select></div>
           <div className="col-span-1 space-y-1"><Label>装货日期 *</Label><Input type="date" value={formData.loading_date} onChange={(e) => handleInputChange('loading_date', e.target.value)} /></div>
           <div className="col-span-1 space-y-1"><Label>卸货日期</Label><Input type="date" value={formData.unloading_date} onChange={(e) => handleInputChange('unloading_date', e.target.value)} /></div>
-          <div className="col-span-1 space-y-1"><Label>司机 *</Label><CreatableCombobox options={driverOptions} value={formData.driver_id} onValueChange={(value) => { const driver = filteredDrivers.find(d => d.id === value); if (driver) { dispatch({ type: 'SET_DRIVER', payload: driver }); } else { handleInputChange('driver_id', value); handleInputChange('driver_name', value); } }} placeholder="选择或创建司机" searchPlaceholder="搜索或输入新司机..." onCreateNew={() => navigate('/drivers')} /></div>
+          
+          {/* [核心重写] - 使用新的异步组件 */}
+          <div className="col-span-1 space-y-1">
+            <Label>司机 *</Label>
+            <AsyncCreatableCombobox
+              value={formData.driver_name}
+              onValueChange={handleDriverChange}
+              tableName="drivers"
+              searchColumn="name"
+              placeholder="选择或创建司机"
+              searchPlaceholder="搜索司机..."
+            />
+          </div>
           <div className="col-span-1 space-y-1"><Label>车牌号</Label><Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} /></div>
           <div className="col-span-1 space-y-1"><Label>司机电话</Label><Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} /></div>
           <div className="col-span-1 space-y-1"><Label>运输类型</Label><Select value={formData.transport_type} onValueChange={(v) => handleInputChange('transport_type', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent></Select></div>
-          <div className="col-span-1 space-y-1"><Label>装货地点 *</Label><CreatableCombobox options={locationOptions} value={formData.loading_location} onValueChange={(value) => handleInputChange('loading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={() => navigate('/locations')} /></div>
+          
+          <div className="col-span-1 space-y-1">
+            <Label>装货地点 *</Label>
+            <AsyncCreatableCombobox
+              value={formData.loading_location}
+              onValueChange={(_, rawValue) => handleInputChange('loading_location', rawValue)}
+              tableName="locations"
+              searchColumn="name"
+              placeholder="选择或创建地点"
+              searchPlaceholder="搜索地点..."
+            />
+          </div>
           <div className="col-span-1 space-y-1"><Label>装货重量</Label><Input type="number" placeholder="吨" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value)} /></div>
-          <div className="col-span-1 space-y-1"><Label>卸货地点 *</Label><CreatableCombobox options={locationOptions} value={formData.unloading_location} onValueChange={(value) => handleInputChange('unloading_location', value)} placeholder="选择或创建地点" searchPlaceholder="搜索或输入新地点..." onCreateNew={() => navigate('/locations')} /></div>
+          
+          <div className="col-span-1 space-y-1">
+            <Label>卸货地点 *</Label>
+            <AsyncCreatableCombobox
+              value={formData.unloading_location}
+              onValueChange={(_, rawValue) => handleInputChange('unloading_location', rawValue)}
+              tableName="locations"
+              searchColumn="name"
+              placeholder="选择或创建地点"
+              searchPlaceholder="搜索地点..."
+            />
+          </div>
           <div className="col-span-1 space-y-1"><Label>卸货重量</Label><Input type="number" placeholder="吨" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value)} /></div>
           <div className="col-span-1 space-y-1"><Label>运费金额 (元)</Label><Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value)} /></div>
           <div className="col-span-1 space-y-1"><Label>额外费用 (元)</Label><Input type="number" value={formData.extra_cost || ''} onChange={(e) => handleInputChange('extra_cost', e.target.value)} /></div>
           <div className="col-span-2 row-span-2 space-y-1"><Label>备注</Label><Textarea className="h-24" value={formData.remarks || ''} onChange={(e) => handleInputChange('remarks', e.target.value)} /></div>
           <div className="col-span-2 space-y-1 self-end"><Label>司机应收 (自动计算)</Label><Input type="number" value={formData.payable_cost || ''} disabled className="font-bold text-primary" /></div>
         </div>
-        
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={isSubmitting}>取消</Button>
           <Button type="submit" onClick={onSubmit} disabled={isSubmitting}>
