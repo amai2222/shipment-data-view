@@ -12,7 +12,7 @@ import { LogisticsFormData, Project, Driver, Location, PartnerChain } from '../t
 
 interface LogisticsFormDialogProps {
   isOpen: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
   onSubmit: () => void;
   editingRecord: any;
   formData: LogisticsFormData;
@@ -23,14 +23,14 @@ interface LogisticsFormDialogProps {
   partnerChains: PartnerChain[];
 }
 
-export function LogisticsFormDialog({ isOpen, onClose, onSubmit, editingRecord, formData, dispatch, projects, filteredDrivers, filteredLocations, partnerChains }: LogisticsFormDialogProps) {
+export function LogisticsFormDialog({ isOpen, onOpenChange, onSubmit, editingRecord, formData, dispatch, projects, filteredDrivers, filteredLocations, partnerChains }: LogisticsFormDialogProps) {
   const navigate = useNavigate();
   const handleInputChange = (field: keyof LogisticsFormData, value: any) => {
     dispatch({ type: 'SET_FIELD', field, payload: value });
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl">
         <DialogHeader><DialogTitle>{editingRecord ? "编辑运单" : "新增运单"}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-4 gap-4 py-4">
@@ -51,7 +51,7 @@ export function LogisticsFormDialog({ isOpen, onClose, onSubmit, editingRecord, 
           <div className="space-y-1 col-span-2"><Label>备注</Label><Textarea value={formData.remarks || ''} onChange={(e) => handleInputChange('remarks', e.target.value)} /></div>
           <div className="space-y-1 col-start-4"><Label>司机应收 (自动计算)</Label><Input type="number" value={formData.payable_cost || ''} disabled className="font-bold text-primary" /></div>
         </div>
-        <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onClose}>取消</Button><Button type="submit" onClick={onSubmit}>保存</Button></div>
+        <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => onOpenChange(false)}>取消</Button><Button type="submit" onClick={onSubmit}>保存</Button></div>
       </DialogContent>
     </Dialog>
   );
