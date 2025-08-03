@@ -1,4 +1,4 @@
-// src/pages/BusinessEntry/types.ts
+// 正确路径: src/pages/BusinessEntry/types.ts
 
 // 数据库原始记录类型
 export interface LogisticsRecord {
@@ -26,13 +26,25 @@ export interface LogisticsRecord {
   created_at?: string;
 }
 
-// 下拉选项类型
-export interface Project { id: string; name: string; start_date: string; }
+// [核心修复] - 根据您提供的完整结构图，更新 Project 类型
+export interface Project {
+  id: string;
+  name: string;
+  start_date: string; // 保持为 string 以匹配 text 类型
+  end_date: string | null;
+  manager: string | null;
+  loading_address: string | null;
+  unloading_address: string | null;
+  project_status: string | null;
+  // ...可以根据需要添加其他字段
+}
+
+// 其他类型保持不变
 export interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 export interface Location { id: string; name: string; }
 export interface PartnerChain { id: string; project_id: string; chain_name: string; }
 
-// 表单数据专用类型，所有可输入字段都用 string | null 以匹配 input value
+// 表单数据专用类型
 export type LogisticsFormData = {
   project_id: string;
   chain_id: string | null;
