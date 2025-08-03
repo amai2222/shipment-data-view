@@ -11,14 +11,15 @@ import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 
 import { Project, LogisticsRecord } from './types';
-import { useLogisticsData, INITIAL_FILTERS, TotalSummary } from './hooks/useLogisticsData';
+// [已修改] 导入我们统一后的 LogisticsFilters 类型，以确保整个应用类型一致
+import { useLogisticsData, INITIAL_FILTERS, TotalSummary, LogisticsFilters } from './hooks/useLogisticsData';
 import { useExcelImport } from './hooks/useExcelImport';
 import { FilterBar } from './components/FilterBar';
 import { LogisticsTable } from './components/LogisticsTable';
 import { ImportDialog } from './components/ImportDialog';
 
-// [已集成] 1. 带有动态标题和左对齐布局的合计信息组件
-const SummaryDisplay = ({ totalSummary, activeFilters, projects }: { totalSummary: TotalSummary, activeFilters: typeof INITIAL_FILTERS, projects: Project[] }) => {
+// [已修改] 将 activeFilters 的类型更新为 LogisticsFilters
+const SummaryDisplay = ({ totalSummary, activeFilters, projects }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters, projects: Project[] }) => {
   
   const summaryTitle = useMemo(() => {
     const parts: string[] = [];
@@ -48,7 +49,6 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects }: { totalSummar
   );
 };
 
-// [已集成] 2. 用于提示用户搜索的 "Stale Data" 组件
 const StaleDataPrompt = () => (
   <div className="text-center py-10 border rounded-lg bg-muted/20">
     <Search className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -102,7 +102,6 @@ export default function BusinessEntry() {
     }
   };
 
-  // [已集成] 3. 导出 Excel 功能实现
   const exportToExcel = async () => {
     toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
     try {
@@ -113,7 +112,7 @@ export default function BusinessEntry() {
       if (activeFilters.startDate) query = query.gte('loading_date', activeFilters.startDate);
       if (activeFilters.endDate) query = query.lte('loading_date', activeFilters.endDate);
       
-      const { data, error } = await query.order('created_at', { ascending: false }).limit(10000); // 增加上限以导出更多数据
+      const { data, error } = await query.order('created_at', { ascending: false }).limit(10000);
 
       if (error) throw error;
 
@@ -136,7 +135,6 @@ export default function BusinessEntry() {
     }
   };
 
-  // [已集成] 4. 下载模板功能实现
   const handleTemplateDownload = () => {
     const templateData = [{
       '项目名称': '', '合作链路': '', '司机姓名': '', '车牌号': '', '司机电话': '', 
@@ -153,7 +151,6 @@ export default function BusinessEntry() {
 
   return (
     <div className="space-y-4">
-      {/* [已集成] 5. 完整的页面头部，包含标题和所有功能按钮 */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">运单管理</h1>
@@ -198,7 +195,6 @@ export default function BusinessEntry() {
       
       <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />
       
-      {/* [已集成] 6. 功能完整的运单详情查看对话框 */}
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
