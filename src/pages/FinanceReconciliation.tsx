@@ -1,5 +1,5 @@
 // 文件路径: src/pages/FinanceReconciliation.tsx
-// 描述: [最终美化版] 采用内容自适应列宽，实现最终的紧凑美观布局
+// 描述: [最终修正版] 精确为“合作方名称”列设置10个汉字的最小宽度，实现最终视觉效果
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -270,9 +270,9 @@ export default function FinanceReconciliation() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {/* [最终优化] 未设置宽度，使其自适应剩余空间 */}
-                    <TableHead>合作方名称</TableHead>
-                    {/* [最终优化] 使用 w-[1%] 和 whitespace-nowrap 实现内容自适应列宽 */}
+                    {/* [最终修正] 为合作方名称列设置 10em 的最小宽度，确保视觉稳定 */}
+                    <TableHead className="min-w-[10em]">合作方名称</TableHead>
+                    {/* [最终修正] 保持内容自适应，以实现紧凑布局 */}
                     <TableHead className="w-[1%] whitespace-nowrap text-center">相关运单数</TableHead>
                     <TableHead className="w-[1%] whitespace-nowrap text-right">应付总金额 (元)</TableHead>
                   </TableRow>
