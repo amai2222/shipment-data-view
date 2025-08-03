@@ -1,6 +1,6 @@
 // src/pages/BusinessEntry/hooks/useLogisticsData.ts
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'; // THE FIX IS HERE
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogisticsRecord } from '../types';
@@ -28,7 +28,6 @@ export function useLogisticsData() {
     totalPages: 1,
   });
 
-  // The single source of truth for fetching data.
   const loadPaginatedRecords = useCallback(async (page: number, currentFilters: typeof filters) => {
     setLoading(true);
     try {
@@ -49,14 +48,12 @@ export function useLogisticsData() {
       setPagination(prev => ({ ...prev, totalPages: Math.ceil((count || 0) / PAGE_SIZE) || 1 }));
     } catch (error: any) {
       toast({ title: "错误", description: `加载运单记录失败: ${error.message}`, variant: "destructive" });
-      setRecords([]); // On error, clear records to avoid showing stale data
+      setRecords([]);
     } finally {
       setLoading(false);
     }
   }, [toast]);
 
-  // Effect 1: Reset to page 1 when filters change.
-  // We use a ref to prevent this from running on the initial mount.
   const isInitialMount = useRef(true);
   useEffect(() => {
     if (isInitialMount.current) {
@@ -68,8 +65,6 @@ export function useLogisticsData() {
     }
   }, [filters]);
 
-  // Effect 2: The ONLY effect that triggers data loading.
-  // It runs when the page changes OR when the filters change (which will eventually lead to a page change or already be on page 1).
   useEffect(() => {
     loadPaginatedRecords(pagination.currentPage, filters);
   }, [pagination.currentPage, filters, loadPaginatedRecords]);
@@ -79,7 +74,6 @@ export function useLogisticsData() {
     try {
       await supabase.from('logistics_records').delete().eq('id', id);
       toast({ title: "成功", description: "运单记录已删除" });
-      // After deletion, refetch the current page
       loadPaginatedRecords(pagination.currentPage, filters);
     } catch (error: any) {
       toast({ title: "删除失败", description: error.message, variant: "destructive" });
