@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogisticsFilters, UI_INITIAL_FILTERS } from '../hooks/useLogisticsData'; // [核心修复] - 引入 UI_INITIAL_FILTERS
+import { LogisticsFilters, INITIAL_FILTERS } from '../hooks/useLogisticsData'; // [核心修复] - 引入唯一的 INITIAL_FILTERS
 import { Project } from '../types';
 
 interface FilterBarProps {
@@ -16,8 +16,8 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ onSearch, onClear, loading, projects }: FilterBarProps) {
-  // [核心修复] - 本地状态现在由 UI_INITIAL_FILTERS 初始化
-  const [localFilters, setLocalFilters] = useState<LogisticsFilters>(UI_INITIAL_FILTERS);
+  // [核心修复] - 本地状态现在由完全为空的 INITIAL_FILTERS 初始化
+  const [localFilters, setLocalFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
 
   const handleInputChange = (field: keyof LogisticsFilters, value: string) => {
     setLocalFilters(prev => ({ ...prev, [field]: value }));
@@ -28,7 +28,7 @@ export function FilterBar({ onSearch, onClear, loading, projects }: FilterBarPro
   };
 
   const handleClear = () => {
-    setLocalFilters(UI_INITIAL_FILTERS); // 清除时也重置为 UI 默认值
+    setLocalFilters(INITIAL_FILTERS); // 清除时也重置为空
     onClear();
   };
 
@@ -37,11 +37,11 @@ export function FilterBar({ onSearch, onClear, loading, projects }: FilterBarPro
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="grid items-center gap-1.5">
           <Label htmlFor="start-date">开始日期</Label>
-          <Input type="date" id="start-date" value={localFilters.startDate || ''} onChange={e => handleInputChange('startDate', e.target.value)} disabled={loading} />
+          <Input type="date" id="start-date" value={localFilters.startDate} onChange={e => handleInputChange('startDate', e.target.value)} disabled={loading} />
         </div>
         <div className="grid items-center gap-1.5">
           <Label htmlFor="end-date">结束日期</Label>
-          <Input type="date" id="end-date" value={localFilters.endDate || ''} onChange={e => handleInputChange('endDate', e.target.value)} disabled={loading} />
+          <Input type="date" id="end-date" value={localFilters.endDate} onChange={e => handleInputChange('endDate', e.target.value)} disabled={loading} />
         </div>
         
         <div className="grid items-center gap-1.5">
