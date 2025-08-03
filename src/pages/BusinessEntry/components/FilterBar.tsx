@@ -10,7 +10,6 @@ import { Project } from '../types';
 import { DateRange } from "react-day-picker";
 import { Search } from "lucide-react";
 
-// [已修改] 1. 更新 props 定义，使其接收 filters 和 onFiltersChange
 interface FilterBarProps {
   filters: LogisticsFilters;
   onFiltersChange: (newFilters: LogisticsFilters) => void;
@@ -20,10 +19,8 @@ interface FilterBarProps {
   projects: Project[];
 }
 
-// [已重构] 2. 将 FilterBar 重构为完全受控的组件
 export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading, projects }: FilterBarProps) {
 
-  // [已修改] 3. 创建新的事件处理器，直接调用 onFiltersChange
   const handleInputChange = (field: keyof Omit<LogisticsFilters, 'startDate' | 'endDate'>, value: string) => {
     onFiltersChange({ ...filters, [field]: value });
   };
@@ -36,7 +33,6 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     });
   };
 
-  // 将日期字符串转换为 DateRange 对象以适配 DateRangePicker
   const dateRangeValue: DateRange | undefined = (filters.startDate || filters.endDate)
     ? {
         from: filters.startDate ? new Date(filters.startDate) : undefined,
@@ -49,13 +45,16 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
       <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
         <Label htmlFor="project-id">项目名称</Label>
         <Select
-          value={filters.projectId || ''}
-          onValueChange={(value) => handleInputChange('projectId', value)}
+          // [已修改] 2. 适配显示逻辑：如果 projectId 为空，则选中 "all"
+          value={filters.projectId || 'all'}
+          // [已修改] 3. 适配更新逻辑：如果选择了 "all"，则将状态设置为空字符串
+          onValueChange={(value) => handleInputChange('projectId', value === 'all' ? '' : value)}
           disabled={loading || projects.length === 0}
         >
           <SelectTrigger id="project-id"><SelectValue placeholder="所有项目" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">所有项目</SelectItem>
+            {/* [已修复] 1. 为 "所有项目" 指定一个非空的、唯一的 value */}
+            <SelectItem value="all">所有项目</SelectItem>
             {(projects || []).map(project => (<SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>))}
           </SelectContent>
         </Select>
@@ -75,12 +74,11 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
         <Label>日期范围</Label>
         <DateRangePicker
           date={dateRangeValue}
-          onDateChange={handleDateChange} // 使用 onDateChange 以保持一致性
+          onDateChange={handleDateChange}
           disabled={loading}
         />
       </div>
 
-      {/* 按钮组 */}
       <div className="flex gap-2">
         <Button variant="outline" onClick={onClear} disabled={loading}>
           清除筛选
