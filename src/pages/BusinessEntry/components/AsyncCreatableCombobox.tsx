@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
-import { useDebounce } from '../hooks/use-debounce'; // [核心修复] - 修正了导入路径
+import { useDebounce } from '../hooks/use-debounce';
 
 export interface Option {
   value: string;
@@ -45,33 +45,37 @@ export function AsyncCreatableCombobox({
   const selectedOption = options.find(opt => opt.label === value) || (value ? { value: value, label: value } : null);
 
   React.useEffect(() => {
-    if (debouncedSearchTerm) {
-      setIsLoading(true);
-      const fetchOptions = async () => {
-        const { data, error } = await supabase
-          .from(tableName)
-          .select(`id, ${searchColumn}, license_plate, phone`)
-          .ilike(searchColumn, `%${debouncedSearchTerm}%`)
-          .limit(10);
-        
-        if (error) {
-          console.error("Error fetching options:", error);
-          setOptions([]);
-        } else {
-          const formattedOptions = data.map(item => ({
-            value: item.id,
-            label: tableName === 'drivers' ? `${item[searchColumn]} (${item.license_plate || '无车牌'})` : item[searchColumn],
-            ...item
-          }));
-          setOptions(formattedOptions);
-        }
-        setIsLoading(false);
-      };
-      fetchOptions();
-    } else {
+    // 当没有搜索词或下拉框关闭时，不执行搜索
+    if (!debouncedSearchTerm || !open) {
       setOptions([]);
+      return;
     }
-  }, [debouncedSearchTerm, tableName, searchColumn]);
+
+    setIsLoading(true);
+    const fetchOptions = async () => {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select(`id, ${searchColumn}, license_plate, phone`)
+        .ilike(searchColumn, `%${debouncedSearchTerm}%`)
+        .limit(10);
+      
+      if (error) {
+        console.error("Error fetching options:", error);
+        setOptions([]);
+      } else {
+        // [核心修复] - 无论data是什么，都确保我们是在一个数组上调用.map
+        // (data || []) 确保了即使data是null或undefined，我们也能安全地执行操作。
+        const formattedOptions = (data || []).map(item => ({
+          value: item.id,
+          label: tableName === 'drivers' ? `${item[searchColumn]} (${item.license_plate || '无车牌'})` : item[searchColumn],
+          ...item
+        }));
+        setOptions(formattedOptions);
+      }
+      setIsLoading(false);
+    };
+    fetchOptions();
+  }, [debouncedSearchTerm, tableName, searchColumn, open]);
 
   const handleSelect = (currentValue: string) => {
     const option = options.find(opt => opt.value === currentValue);
