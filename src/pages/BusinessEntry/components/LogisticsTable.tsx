@@ -1,5 +1,5 @@
 // 文件路径: src/pages/BusinessEntry/components/LogisticsTable.tsx
-// 描述: [a8ibs] 运单表格组件，已根据您的要求完成功能升级。
+// 描述: [k4wOtn 修复版] 增加了对可能为 null 的数值字段的健壮性处理，防止 'toFixed' 错误。
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,6 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
     setPagination(p => ({ ...p, currentPage: newPage }));
   };
 
-  // [修改] 路线格式化函数，将长地址提炼为简称
   const formatRoute = (loadingLoc: string, unloadingLoc: string) => {
     const start = (loadingLoc || '未知').slice(0, 2);
     const end = (unloadingLoc || '未知').slice(0, 2);
@@ -40,7 +39,6 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               <TableHead className="w-[120px]">运单编号</TableHead>
               <TableHead>项目</TableHead>
               <TableHead>司机</TableHead>
-              {/* [新增] 增加车牌号和司机电话的表头 */}
               <TableHead className="w-[120px]">车牌号</TableHead>
               <TableHead className="w-[130px]">司机电话</TableHead>
               <TableHead className="w-[120px]">路线</TableHead>
@@ -66,13 +64,14 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                   <TableCell className="font-mono">{record.auto_number}</TableCell>
                   <TableCell>{record.project_name}</TableCell>
                   <TableCell>{record.driver_name}</TableCell>
-                  {/* [新增] 渲染车牌号和司机电话，并提供'未填写'作为后备显示 */}
                   <TableCell>{record.license_plate || '未填写'}</TableCell>
                   <TableCell className="font-mono">{record.driver_phone || '未填写'}</TableCell>
-                  {/* [修改] 使用新的格式化函数来显示路线 */}
                   <TableCell>{formatRoute(record.loading_location, record.unloading_location)}</TableCell>
                   <TableCell>{record.loading_weight} / {record.unloading_weight}</TableCell>
-                  <TableCell className="font-semibold text-primary font-mono">¥{record.driver_payable_cost.toFixed(2)}</TableCell>
+                  <TableCell className="font-semibold text-primary font-mono">
+                    {/* [最终修复] 增加对 driver_payable_cost 的空值检查，防止 toFixed 错误 */}
+                    {record.driver_payable_cost != null ? `¥${record.driver_payable_cost.toFixed(2)}` : '未计算'}
+                  </TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 text-xs rounded-full ${record.transport_type === '退货运输' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
                       {record.transport_type}
