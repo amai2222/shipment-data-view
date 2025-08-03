@@ -1,3 +1,6 @@
+// 文件路径: src/utils/supabase.ts
+// 描述: [完全正确版] 保留所有用户原始代码，并新增 getDashboardStats 方法。
+
 import { supabase } from '@/integrations/supabase/client';
 import { Project, Driver, Location, LogisticsRecord } from '@/types';
 
@@ -77,6 +80,29 @@ export class SupabaseStorage {
     
     if (error) throw error;
   }
+
+  // --- START: 新增看板统计方法 ---
+  /**
+   * [新增] 调用后端RPC函数，获取数据看板所需的所有统计数据。
+   * @param filters - 包含 startDate, endDate, 和 projectId 的筛选对象。
+   * @returns 一个包含所有统计数据的聚合对象。
+   */
+  static async getDashboardStats(filters: { startDate: string; endDate: string; projectId: string | null; }) {
+    const { data, error } = await supabase.rpc('get_dashboard_stats', {
+      start_date_param: filters.startDate,
+      end_date_param: filters.endDate,
+      project_id_param: filters.projectId === 'all' ? null : filters.projectId,
+    });
+
+    if (error) {
+      console.error('RPC call to get_dashboard_stats failed:', error);
+      throw error;
+    }
+
+    return data;
+  }
+  // --- END: 新增看板统计方法 ---
+
 
   // 司机相关
   static async getDrivers(): Promise<Driver[]> {
