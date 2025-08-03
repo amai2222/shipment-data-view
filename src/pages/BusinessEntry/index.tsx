@@ -1,150 +1,109 @@
-// src/pages/BusinessEntry/index.tsx
+// src/pages/BusinessEntry/hooks/useLogisticsForm.ts
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, FileDown, FileUp, PlusCircle, Loader2 } from "lucide-react";
+import { useState, useReducer, useEffect, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { LogisticsRecord, LogisticsFormData, Project, Driver } from '../types';
 
-import { Project, Driver, Location, LogisticsRecord, PartnerChain } from './types';
-import { useLogisticsData } from './hooks/useLogisticsData';
-import { useLogisticsForm } from './hooks/useLogisticsForm';
-import { useExcelImport } from './hooks/useExcelImport';
-import { FilterBar } from './components/FilterBar';
-import { LogisticsTable } from './components/LogisticsTable';
-import { LogisticsFormDialog } from './components/LogisticsFormDialog';
-import { ImportDialog } from './components/ImportDialog';
+// ... (BLANK_FORM_DATA 和 formReducer 保持不变)
+const BLANK_FORM_DATA: LogisticsFormData = {
+  project_id: "", chain_id: null, driver_id: "", driver_name: "", loading_location: "", unloading_location: "",
+  loading_date: new Date().toISOString().split('T')[0], unloading_date: new Date().toISOString().split('T')[0],
+  loading_weight: null, unloading_weight: null, current_cost: null, license_plate: "", driver_phone: "",
+  transport_type: "实际运输", extra_cost: null, payable_cost: null, remarks: ""
+};
+type FormAction =
+  | { type: 'SET_FIELD'; field: keyof LogisticsFormData; payload: any }
+  | { type: 'SET_DRIVER'; payload: Driver }
+  | { type: 'CALCULATE_PAYABLE' }
+  | { type: 'RESET'; payload: Partial<LogisticsFormData> }
+  | { type: 'LOAD_RECORD'; payload: LogisticsRecord };
+const formReducer = (state: LogisticsFormData, action: FormAction): LogisticsFormData => {
+  switch (action.type) {
+    case 'SET_FIELD': return { ...state, [action.field]: action.payload };
+    case 'SET_DRIVER': return { ...state, driver_id: action.payload.id, driver_name: action.payload.name, license_plate: action.payload.license_plate, driver_phone: action.payload.phone };
+    case 'CALCULATE_PAYABLE': { const currentCost = parseFloat(state.current_cost || '0'); const extraCost = parseFloat(state.extra_cost || '0'); const total = currentCost + extraCost; return { ...state, payable_cost: total > 0 ? total.toFixed(2) : null }; }
+    case 'RESET': return { ...BLANK_FORM_DATA, ...action.payload };
+    case 'LOAD_RECORD': { const record = action.payload; return { project_id: record.project_id, chain_id: record.chain_id || null, driver_id: record.driver_id, driver_name: record.driver_name, loading_location: record.loading_location, unloading_location: record.unloading_location, loading_date: record.loading_date.split('T')[0], unloading_date: (record.unloading_date || record.loading_date).split('T')[0], loading_weight: record.loading_weight?.toString() || null, unloading_weight: record.unloading_weight?.toString() || null, current_cost: record.current_cost?.toString() || null, license_plate: record.license_plate, driver_phone: record.driver_phone, transport_type: record.transport_type || '实际运输', extra_cost: record.extra_cost?.toString() || null, payable_cost: record.payable_cost?.toString() || null, remarks: record.remarks }; }
+    default: return state;
+  }
+};
 
-type DriverProjectLink = { driver_id: string; project_id: string; };
-type LocationProjectLink = { location_id: string; project_id: string; };
 
-export default function BusinessEntry() {
+export function useLogisticsForm(projects: Project[], onFormSuccess: () => void) {
   const { toast } = useToast();
-  
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [partnerChains, setPartnerChains] = useState<PartnerChain[]>([]);
-  const [driverProjectLinks, setDriverProjectLinks] = useState<DriverProjectLink[]>([]);
-  const [locationProjectLinks, setLocationProjectLinks] = useState<LocationProjectLink[]>([]);
-  const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
+  const [formData, dispatch] = useReducer(formReducer, BLANK_FORM_DATA);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { records, loading, filters, setFilters, pagination, setPagination, summary, handleDelete, refetch } = useLogisticsData();
-  const { isModalOpen, setIsModalOpen, editingRecord, formData, dispatch, handleOpenModal, handleSubmit, isConfirmingDuplicate, setIsConfirmingDuplicate, isSubmitting } = useLogisticsForm(projects, () => {
-    refetch();
-    loadInitialOptions();
-  });
-  const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates } = useExcelImport(() => {
-    refetch();
-    loadInitialOptions();
-  });
+  // ... (其他 useEffect 保持不变)
+  useEffect(() => { dispatch({ type: 'CALCULATE_PAYABLE' }); }, [formData.current_cost, formData.extra_cost]);
+  useEffect(() => { if (formData.loading_date && !formData.unloading_date) { dispatch({ type: 'SET_FIELD', field: 'unloading_date', payload: formData.loading_date }); } }, [formData.loading_date, formData.unloading_date]);
 
-  const loadInitialOptions = useCallback(async () => {
+  const handleOpenModal = useCallback((record: LogisticsRecord | null = null) => {
+    if (record) {
+      setEditingRecord(record);
+      dispatch({ type: 'LOAD_RECORD', payload: record });
+    } else {
+      const latestProject = projects.length > 0 ? [...projects].sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))[0] : null;
+      setEditingRecord(null);
+      dispatch({ type: 'RESET', payload: { project_id: latestProject ? latestProject.id : "" } });
+    }
+    setIsModalOpen(true);
+  }, [projects]);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    const projectName = projects.find(p => p.id === formData.project_id)?.name;
+    if (!projectName || !formData.driver_name || !formData.loading_location || !formData.unloading_location) {
+      toast({ title: "错误", description: "项目、司机和地点为必填项", variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
-      const [
-        projectsRes, driversRes, locationsRes, partnerChainsRes, driverLinksRes, locationLinksRes
-      ] = await Promise.all([
-        supabase.from('projects').select('id, name, start_date'),
-        supabase.from('drivers').select('id, name, license_plate, phone'),
-        supabase.from('locations').select('id, name'),
-        supabase.from('partner_chains').select('id, project_id, chain_name'),
-        supabase.from('driver_projects').select('driver_id, project_id'),
-        supabase.from('location_projects').select('location_id, project_id')
+      // [核心重写] - 调用新的RPC函数处理司机和地点
+      const { data: driverId, error: driverError } = await supabase.rpc('get_or_create_driver_and_link_project', {
+        p_driver_name: formData.driver_name, p_license_plate: formData.license_plate,
+        p_phone: formData.driver_phone, p_project_id: formData.project_id
+      });
+      if (driverError) throw driverError;
+
+      await Promise.all([
+        supabase.rpc('get_or_create_location_and_link_project', { p_location_name: formData.loading_location, p_project_id: formData.project_id }),
+        supabase.rpc('get_or_create_location_and_link_project', { p_location_name: formData.unloading_location, p_project_id: formData.project_id })
       ]);
 
-      setProjects(projectsRes.data || []);
-      setDrivers(driversRes.data || []);
-      setLocations(locationsRes.data || []);
-      setPartnerChains(partnerChainsRes.data || []);
-      setDriverProjectLinks(driverLinksRes.data || []);
-      setLocationProjectLinks(locationLinksRes.data || []);
+      const recordData = {
+        p_project_id: formData.project_id, p_project_name: projectName, p_chain_id: formData.chain_id || null,
+        p_driver_id: driverId, // 使用返回的ID
+        p_driver_name: formData.driver_name, p_loading_location: formData.loading_location, p_unloading_location: formData.unloading_location,
+        p_loading_date: formData.loading_date, p_unloading_date: formData.unloading_date || formData.loading_date,
+        p_loading_weight: formData.loading_weight ? parseFloat(formData.loading_weight) : null,
+        p_unloading_weight: formData.unloading_weight ? parseFloat(formData.unloading_weight) : null,
+        p_current_cost: formData.current_cost ? parseFloat(formData.current_cost) : null,
+        p_license_plate: formData.license_plate, p_driver_phone: formData.driver_phone, p_transport_type: formData.transport_type,
+        p_extra_cost: formData.extra_cost ? parseFloat(formData.extra_cost) : null, p_remarks: formData.remarks
+      };
 
-    } catch (error) { toast({ title: "错误", description: "加载页面基础数据失败", variant: "destructive" }); }
-  }, [toast]);
-
-  useEffect(() => {
-    loadInitialOptions();
-  }, [loadInitialOptions]);
-
-  const filteredChainsForForm = useMemo(() => {
-    return partnerChains.filter(c => c.project_id === formData.project_id);
-  }, [formData.project_id, partnerChains]);
-
-  const filteredDriversForForm = useMemo(() => {
-    const relevantDriverIds = new Set(driverProjectLinks.filter(l => l.project_id === formData.project_id).map(l => l.driver_id));
-    return drivers.filter(d => relevantDriverIds.has(d.id));
-  }, [formData.project_id, driverProjectLinks, drivers]);
-
-  const filteredLocationsForForm = useMemo(() => {
-    const relevantLocationIds = new Set(locationProjectLinks.filter(l => l.project_id === formData.project_id).map(l => l.location_id));
-    return locations.filter(l => relevantLocationIds.has(l.id));
-  }, [formData.project_id, locationProjectLinks, locations]);
-
-  const exportToExcel = async () => {
-    toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
-    try {
-      let query = supabase.from('logistics_records').select('*');
-      if (filters.searchQuery) {
-        const q = `%${filters.searchQuery}%`;
-        query = query.or(`auto_number.ilike.${q},project_name.ilike.${q},driver_name.ilike.${q},loading_location.ilike.${q},unloading_location.ilike.${q},license_plate.ilike.${q}`);
+      if (editingRecord) {
+        await supabase.rpc('update_logistics_record_with_costs', { p_record_id: editingRecord.id, ...recordData });
+        toast({ title: "成功", description: "运单记录已更新" });
+      } else {
+        await supabase.rpc('add_logistics_record_with_costs', recordData);
+        toast({ title: "成功", description: "新运单已添加" });
       }
-      const { data, error } = await query.gte('loading_date', filters.startDate).lte('loading_date', filters.endDate).order('loading_date', { ascending: false }).limit(10000);
-      if (error) throw error;
-      const chainNameMap = new Map(partnerChains.map(c => [c.id, c.chain_name]));
-      const dataToExport = (data || []).map((r: LogisticsRecord) => ({ '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_id ? (chainNameMap.get(r.chain_id) || '未知链路') : '默认', '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone, '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date.split('T')[0], '卸货日期': r.unloading_date ? r.unloading_date.split('T')[0] : '', '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.payable_cost, '备注': r.remarks, }));
-      const ws = XLSX.utils.json_to_sheet(dataToExport);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "运单记录");
-      XLSX.writeFile(wb, "运单记录.xlsx");
-      toast({ title: "成功", description: "全部筛选结果已成功导出！" });
-    } catch (e) { toast({ title: "错误", description: "导出失败，请重试。", variant: "destructive" }); }
+      setIsModalOpen(false);
+      onFormSuccess();
+    } catch (error: any) {
+      toast({ title: "操作失败", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleTemplateDownload = () => {
-    const templateData = [{ '项目名称': '', '合作链路': '', '司机姓名': '', '车牌号': '', '司机电话': '', '装货地点': '', '卸货地点': '', '装货日期': '2025/01/14', '卸货日期': '2025/01/14', '运输类型': '实际运输', '装货重量': '', '卸货重量': '', '运费金额': '', '额外费用': '', '备注': '' }];
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "模板");
-    XLSX.writeFile(wb, "运单导入模板.xlsx");
+  return {
+    isModalOpen, editingRecord, formData, dispatch, handleOpenModal, setIsModalOpen, handleSubmit, isSubmitting,
   };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-foreground">运单管理</h1><p className="text-muted-foreground">录入、查询和管理所有运单记录</p></div>
-        <div className="flex gap-2"><Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button><Button variant="outline" asChild disabled={loading || isImporting}><Label htmlFor="excel-upload" className="cursor-pointer flex items-center">{isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}导入Excel<Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={loading || isImporting}/></Label></Button><Button onClick={exportToExcel} disabled={loading}><Download className="mr-2 h-4 w-4" />导出数据</Button><Button onClick={() => handleOpenModal()} disabled={loading}><PlusCircle className="mr-2 h-4 w-4" />新增运单</Button></div>
-      </div>
-
-      <FilterBar filters={filters} setFilters={setFilters} loading={loading} />
-
-      <LogisticsTable records={records} loading={loading} summary={summary} pagination={pagination} setPagination={setPagination} onEdit={handleOpenModal} onDelete={handleDelete} onView={setViewingRecord} />
-
-      <LogisticsFormDialog isOpen={isModalOpen} onOpenChange={setIsModalOpen} onSubmit={() => handleSubmit()} isSubmitting={isSubmitting} editingRecord={editingRecord} formData={formData} dispatch={dispatch} projects={projects} filteredDrivers={filteredDriversForForm} filteredLocations={filteredLocationsForForm} partnerChains={filteredChainsForForm} />
-
-      <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />
-      
-      <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
-          {viewingRecord && ( <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm"><div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date ? viewingRecord.loading_date.split('T')[0] : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date ? viewingRecord.unloading_date.split('T')[0] : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{viewingRecord.transport_type}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost != null ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono text-orange-600">{viewingRecord.extra_cost != null ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div><div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.payable_cost != null ? `¥${viewingRecord.payable_cost.toFixed(2)}` : '-'}</p></div><div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px] whitespace-pre-wrap">{viewingRecord.remarks || '无'}</p></div></div> )}
-          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button><Button onClick={() => { if (viewingRecord) { handleOpenModal(viewingRecord); setViewingRecord(null); } }}>编辑此记录</Button></div>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={isConfirmingDuplicate} onOpenChange={setIsConfirmingDuplicate}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>发现疑似重复记录</AlertDialogTitle><AlertDialogDescription>系统中已存在一个具有相同项目、司机、地点、日期和重量的运单记录。您确定要继续创建这条新的运单吗？</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction onClick={() => handleSubmit(true)}>强制创建</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
 }
