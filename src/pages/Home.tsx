@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [最终正确版] 1. 通过已有的 SupabaseStorage 调用后端函数。 2. 移除了所有错误引用和前端计算。
+// 描述: [完整无省略][性能优化版] 1. 默认加载最近30天数据。 2. 优化useEffect加载顺序。
 
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { BarChart3, TrendingUp, Truck, Package, Eye, Database, RefreshCw, CheckCircle, Search } from "lucide-react";
-import { SupabaseStorage } from "@/utils/supabase"; // [修正] 使用您已有的正确 import
+import { SupabaseStorage } from "@/utils/supabase";
 import { DataMigration } from "@/utils/migration";
-import { Project } from "@/types"; // [修正] 只需引入 Project 类型
+import { Project } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,7 +24,7 @@ interface OverviewStats { totalRecords: number; totalWeight: number; totalCost: 
 interface BackendLogisticsRecord { id: string; project_id: string; project_name: string; loading_date: string; loading_weight: number; unloading_weight: number | null; transport_type: string; current_fee: number; extra_fee: number; payable_fee: number; auto_number: string; driver_name: string; license_plate: string; loading_location: string; unloading_location: string; remarks: string | null; }
 
 export default function Home() {
-  // [后端驱动] 状态管理重构
+  // 状态管理
   const [overviewStats, setOverviewStats] = useState<OverviewStats | null>(null);
   const [dailyTransportStats, setDailyTransportStats] = useState<DailyTransportStats[]>([]);
   const [dailyCostStats, setDailyCostStats] = useState<DailyCostStats[]>([]);
@@ -34,22 +34,38 @@ export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // 页面首次加载状态
+  const [isSearching, setIsSearching] = useState(false); // 用于搜索按钮的加载状态
   const [migrationStatus, setMigrationStatus] = useState<{ supabaseCount: number; localCount: number; isMigrated: boolean; } | null>(null);
   
+  // [性能优化] 默认加载最近30天的数据，而不是一整年
   const getDefaultDateRange = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    return { startDate: `${year}-01-01`, endDate: today.toISOString().split('T')[0] };
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 30);
+    return { 
+      startDate: startDate.toISOString().split('T')[0], 
+      endDate: endDate.toISOString().split('T')[0] 
+    };
   };
 
   const [filterInputs, setFilterInputs] = useState({ ...getDefaultDateRange(), projectId: 'all' });
   const { toast } = useToast();
 
+  // [性能优化] 优化加载逻辑
   useEffect(() => {
-    handleSearch();
-    loadProjects();
-    checkMigrationStatus();
+    const initialLoad = async () => {
+      setIsLoading(true);
+      // 并行加载轻量级数据
+      await Promise.all([
+        loadProjects(),
+        checkMigrationStatus()
+      ]);
+      // 然后加载重量级的数据
+      await handleSearch(true); // 传入一个标志，表示这是首次加载
+      setIsLoading(false);
+    };
+    initialLoad();
   }, []);
 
   const loadProjects = async () => {
@@ -58,12 +74,14 @@ export default function Home() {
       setProjects(allProjects as Project[]);
     } catch (error) {
       console.error("加载项目列表失败:", error);
+      toast({ title: "项目列表加载失败", variant: "destructive" });
     }
   };
 
-  // [后端驱动] 核心函数，通过 SupabaseStorage 调用后端的RPC
-  const handleSearch = async () => {
-    setIsLoading(true);
+  const handleSearch = async (isInitialLoad = false) => {
+    if (!isInitialLoad) {
+      setIsSearching(true);
+    }
     try {
       const data = await SupabaseStorage.getDashboardStats({
         startDate: filterInputs.startDate,
@@ -81,7 +99,9 @@ export default function Home() {
       console.error('获取看板数据失败:', err);
       toast({ title: "数据加载失败", description: "无法从数据库获取统计数据。", variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      if (!isInitialLoad) {
+        setIsSearching(false);
+      }
     }
   };
 
@@ -95,7 +115,7 @@ export default function Home() {
       toast({ title: "开始数据迁移" });
       const success = await DataMigration.migrateAllData();
       if (success) {
-        await handleSearch();
+        await handleSearch(true);
         await checkMigrationStatus();
         toast({ title: "数据迁移完成" });
       } else {
@@ -139,7 +159,7 @@ export default function Home() {
     return (
       <div className="flex items-center justify-center h-screen">
         <RefreshCw className="h-8 w-8 animate-spin" />
-        <span className="ml-2 text-lg text-gray-600">正在加载数据...</span>
+        <span className="ml-2 text-lg text-gray-600">正在初始化应用...</span>
       </div>
     );
   }
@@ -190,9 +210,9 @@ export default function Home() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleSearch} disabled={isLoading}>
-              <Search className="mr-2 h-4 w-4" />
-              {isLoading ? '正在搜索...' : '搜索'}
+            <Button onClick={() => handleSearch(false)} disabled={isSearching}>
+              {isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+              {isSearching ? '正在搜索...' : '搜索'}
             </Button>
           </div>
         </CardContent>
