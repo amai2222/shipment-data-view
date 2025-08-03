@@ -5,35 +5,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogisticsRecord } from '../types';
 
-const getInitialDefaultDates = () => {
-  const today = new Date();
-  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const formatDate = (date: Date) => date.toISOString().split('T')[0];
-  return { startDate: formatDate(firstDayOfMonth), endDate: formatDate(today) };
-};
-
 export interface LogisticsFilters {
-  startDate: string | null; // [核心修复] - 允许日期为空
-  endDate: string | null;   // [核心修复] - 允许日期为空
+  startDate: string; // [核心修复] - 类型改回 string，因为 input value 总是 string
+  endDate: string;
   projectName: string;
   driverName: string;
   licensePlate: string;
   driverPhone: string;
 }
 
-// [核心修复] - 这是用于UI显示的初始值，包含了方便用户的默认日期
-export const UI_INITIAL_FILTERS: LogisticsFilters = {
-  ...getInitialDefaultDates(),
-  projectName: "",
-  driverName: "",
-  licensePlate: "",
-  driverPhone: "",
-};
-
-// [核心修复] - 这是用于首次数据查询的初始值，不包含任何日期限制
-const QUERY_INITIAL_FILTERS: LogisticsFilters = {
-  startDate: null,
-  endDate: null,
+// [核心修复] - 唯一的、完全为空的初始筛选器
+export const INITIAL_FILTERS: LogisticsFilters = {
+  startDate: "",
+  endDate: "",
   projectName: "",
   driverName: "",
   licensePlate: "",
@@ -47,8 +31,7 @@ export function useLogisticsData() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // [核心修复] - activeFilters 的初始状态现在是无日期限制的
-  const [activeFilters, setActiveFilters] = useState<LogisticsFilters>(QUERY_INITIAL_FILTERS);
+  const [activeFilters, setActiveFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
   
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -64,7 +47,7 @@ export function useLogisticsData() {
         .from('logistics_records')
         .select('*', { count: 'exact' });
 
-      // [核心修复] - 只有当日期存在时，才添加日期筛选条件
+      // [核心修复] - 只有当日期字符串不为空时，才添加日期筛选条件
       if (filters.startDate) {
         query = query.gte('loading_date', filters.startDate);
       }
