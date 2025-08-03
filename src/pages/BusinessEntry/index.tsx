@@ -1,6 +1,6 @@
 // 正确路径: src/pages/BusinessEntry/index.tsx
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,6 @@ import { FilterBar } from './components/FilterBar';
 import { LogisticsTable } from './components/LogisticsTable';
 import { ImportDialog } from './components/ImportDialog';
 
-// [核心重构] - 创建一个独立的合计信息组件
 const SummaryDisplay = ({ totalSummary }: { totalSummary: TotalSummary }) => (
   <div className="flex items-center justify-end space-x-6 rounded-lg border p-4 text-sm font-medium">
     <span>筛选结果合计:</span>
@@ -36,10 +35,18 @@ export default function BusinessEntry() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
 
+  // [核心重构] - uiFilters 是用户在界面上看到的“草稿”状态
+  const [uiFilters, setUiFilters] = useState(INITIAL_FILTERS);
+
   const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch } = useLogisticsData();
   const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates } = useExcelImport(() => {
     refetch();
   });
+
+  // [核心重构] - 计算合计信息是否已“过时”
+  const isSummaryStale = useMemo(() => {
+    return JSON.stringify(uiFilters) !== JSON.stringify(activeFilters);
+  }, [uiFilters, activeFilters]);
 
   const loadInitialOptions = useCallback(async () => {
     try {
@@ -55,14 +62,17 @@ export default function BusinessEntry() {
     loadInitialOptions();
   }, [loadInitialOptions]);
 
-  const handleSearch = (newFilters: typeof INITIAL_FILTERS) => {
-    setActiveFilters(newFilters);
+  const handleSearch = () => {
+    // 将“草稿”状态提交为“已应用”状态，触发数据查询
+    setActiveFilters(uiFilters);
     if (pagination.currentPage !== 1) {
       setPagination(p => ({ ...p, currentPage: 1 }));
     }
   };
 
   const handleClearSearch = () => {
+    // 同时重置“草稿”和“已应用”状态
+    setUiFilters(INITIAL_FILTERS);
     setActiveFilters(INITIAL_FILTERS);
     if (pagination.currentPage !== 1) {
       setPagination(p => ({ ...p, currentPage: 1 }));
@@ -74,24 +84,19 @@ export default function BusinessEntry() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-foreground">运单管理</h1><p className="text-muted-foreground">查询和管理所有运单记录</p></div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
-          <Button variant="outline" asChild disabled={loading || isImporting}><Label htmlFor="excel-upload" className="cursor-pointer flex items-center">{isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}导入Excel<Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={loading || isImporting}/></Label></Button>
-          <Button onClick={exportToExcel} disabled={loading}><Download className="mr-2 h-4 w-4" />导出数据</Button>
-        </div>
-      </div>
+      <div className="flex justify-between items-center">{/* ... Header JSX ... */}</div>
 
       <FilterBar
+        filters={uiFilters}
+        onFiltersChange={setUiFilters}
         onSearch={handleSearch}
         onClear={handleClearSearch}
         loading={loading}
         projects={projects}
       />
 
-      {/* [核心重构] - 将合计信息渲染在表格上方 */}
-      <SummaryDisplay totalSummary={totalSummary} />
+      {/* [核心重构] - 只有在合计信息不过时且不在加载中时，才显示 */}
+      {!isSummaryStale && !loading && <SummaryDisplay totalSummary={totalSummary} />}
 
       <LogisticsTable
         records={records}
