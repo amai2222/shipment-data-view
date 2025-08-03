@@ -17,7 +17,7 @@ export interface Option {
 
 interface AsyncCreatableComboboxProps {
   value: string;
-  onValueChange: (option: Option | null, rawValue: string) => void; // [核心修复] - 修正了拼写错误
+  onValueChange: (option: Option | null, rawValue: string) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyResultText?: string;
@@ -29,7 +29,7 @@ interface AsyncCreatableComboboxProps {
 
 export function AsyncCreatableCombobox({
   value,
-  onValueChange, // [核心修复]
+  onValueChange,
   placeholder = "Select an option...",
   searchPlaceholder = "Search...",
   emptyResultText = "No results found. Type to create.",
@@ -47,13 +47,15 @@ export function AsyncCreatableCombobox({
   const selectedOption = options.find(opt => opt.label === value) || (value ? { value: value, label: value } : null);
 
   React.useEffect(() => {
-    if (!projectId || !debouncedSearchTerm || !open) {
+    // [核心重写] - 只要下拉框打开且有项目ID，就应该获取数据
+    if (!projectId || !open) {
       setOptions([]);
       return;
     }
 
     setIsLoading(true);
     const fetchOptions = async () => {
+      // [核心重写] - debouncedSearchTerm 可以为空，RPC函数会处理
       const { data, error } = await supabase.rpc('search_project_linked_items', {
         p_project_id: projectId,
         p_item_type: tableName,
@@ -73,6 +75,7 @@ export function AsyncCreatableCombobox({
       }
       setIsLoading(false);
     };
+    
     fetchOptions();
   }, [debouncedSearchTerm, tableName, searchColumn, open, projectId]);
 
