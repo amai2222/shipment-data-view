@@ -10,7 +10,6 @@ import { Project } from '../types';
 import { DateRange } from "react-day-picker";
 import { Search } from "lucide-react";
 
-// [核心修复] 1. 定义与整个应用统一的 props 接口
 interface FilterBarProps {
   filters: LogisticsFilters;
   onFiltersChange: (newFilters: LogisticsFilters) => void;
@@ -20,7 +19,6 @@ interface FilterBarProps {
   projects: Project[];
 }
 
-// [核心修复] 2. 使其成为一个完全受控的组件，没有自己的内部状态
 export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading, projects }: FilterBarProps) {
 
   const handleInputChange = (field: keyof Omit<LogisticsFilters, 'startDate' | 'endDate'>, value: string) => {
@@ -45,16 +43,17 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
   return (
     <div className="flex items-end gap-2 p-4 border rounded-lg flex-wrap">
       <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
-        <Label htmlFor="project-id">项目名称</Label>
+        <Label htmlFor="project-name">项目名称</Label>
+        {/* [最终修复] 1. Select 现在使用 projectName */}
         <Select
-          value={filters.projectId || 'all'}
-          onValueChange={(value) => handleInputChange('projectId', value === 'all' ? '' : value)}
+          value={filters.projectName || 'all'}
+          onValueChange={(value) => handleInputChange('projectName', value === 'all' ? '' : value)}
           disabled={loading || projects.length === 0}
         >
-          <SelectTrigger id="project-id"><SelectValue placeholder="所有项目" /></SelectTrigger>
+          <SelectTrigger id="project-name"><SelectValue placeholder="所有项目" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">所有项目</SelectItem>
-            {(projects || []).map(project => (<SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>))}
+            {(projects || []).map(project => (<SelectItem key={project.id} value={project.name}>{project.name}</SelectItem>))}
           </SelectContent>
         </Select>
       </div>
@@ -69,23 +68,20 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
         <Input type="text" id="license-plate" placeholder="车牌号..." value={filters.licensePlate} onChange={e => handleInputChange('licensePlate', e.target.value)} disabled={loading} />
       </div>
 
+      {/* [最终修复] 2. 恢复司机电话输入框 */}
+      <div className="grid items-center gap-1.5 flex-1 min-w-[150px]">
+        <Label htmlFor="driver-phone">司机电话</Label>
+        <Input type="text" id="driver-phone" placeholder="司机电话..." value={filters.driverPhone} onChange={e => handleInputChange('driverPhone', e.target.value)} disabled={loading} />
+      </div>
+
       <div className="grid items-center gap-1.5 flex-1 min-w-[280px]">
         <Label>日期范围</Label>
-        <DateRangePicker
-          date={dateRangeValue}
-          setDate={handleDateChange} // [核心修复] 3. 使用正确的 prop "setDate"
-          disabled={loading}
-        />
+        <DateRangePicker date={dateRangeValue} setDate={handleDateChange} disabled={loading} />
       </div>
 
       <div className="flex gap-2">
-        <Button variant="outline" onClick={onClear} disabled={loading}>
-          清除筛选
-        </Button>
-        <Button onClick={onSearch} disabled={loading}>
-          <Search className="mr-2 h-4 w-4" />
-          搜索
-        </Button>
+        <Button variant="outline" onClick={onClear} disabled={loading}>清除筛选</Button>
+        <Button onClick={onSearch} disabled={loading}><Search className="mr-2 h-4 w-4" />搜索</Button>
       </div>
     </div>
   );
