@@ -1,5 +1,5 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [1MWgh 最终装甲修复版] 对所有 .map() 调用进行显式数组检查，彻底杜绝运行时崩溃。
+// 描述: [vQZua 最终无省略修复版] 提供了所有函数的完整实现，修复因代码省略导致的运行时错误。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,11 +114,203 @@ export default function PaymentRequest() {
   const handleDateChange = (dateRange: DateRange | undefined) => { setUiFilters(prev => ({ ...prev, startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' })); };
   const handleRecordSelect = (recordId: string) => { setSelection(prev => { const newSet = new Set(prev.selectedIds); if (newSet.has(recordId)) { newSet.delete(recordId); } else { newSet.add(recordId); } if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); };
   const handleSelectAllOnPage = (isChecked: boolean) => { const pageIds = (reportData?.records || []).map((r: any) => r.id); if (isChecked) { setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) })); } else { setSelection(prev => { const newSet = new Set(prev.selectedIds); pageIds.forEach(id => newSet.delete(id)); if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); } };
-  const handleApplyForPaymentClick = async () => { /* ... */ };
-  const handleConfirmAndSave = async () => { /* ... */ };
-  const handleCancelApplication = async () => { /* ... */ };
-  const exportMultiSheetExcel = (data: MultiSheetPaymentData, requestId: string) => { /* ... */ };
-  const exportDetailsToExcel = () => { /* ... */ };
+  
+  const handleApplyForPaymentClick = async () => {
+    if (selectionCount === 0) {
+      toast({ title: "提示", description: "请先选择需要申请付款的运单。" });
+      return;
+    }
+    if (selection.mode === 'all_filtered') {
+        toast({ title: "提示", description: "“跨页全选”模式下将直接后台处理，无法预览。功能开发中..." });
+        return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { data: filterData, error: filterError } = await supabase.from('logistics_records').select('id').eq('payment_status', 'Unpaid').in('id', Array.from(selection.selectedIds));
+      if (filterError) throw filterError;
+      const idsToFetch = filterData.map(r => r.id);
+
+      if (idsToFetch.length === 0) {
+        toast({ title: "提示", description: "所选运单中没有“未支付”状态的记录，无需申请。" });
+        setIsGenerating(false);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc('get_data_for_payment_application', { p_record_ids: idsToFetch });
+      if (error) throw error;
+
+      const records: LogisticsRecord[] = data.records || [];
+      
+      const paymentSheetsMap = new Map<string, PaymentSheetData>();
+      records.forEach(record => {
+        const costs = record.partner_costs || [];
+        for (let i = 0; i < costs.length; i++) {
+          const currentPartner = costs[i];
+          const nextPartner = costs[i + 1];
+          if (currentPartner.level === 0) continue;
+          if (!paymentSheetsMap.has(currentPartner.partner_id)) {
+            paymentSheetsMap.set(currentPartner.partner_id, {
+              paying_partner_id: currentPartner.partner_id,
+              paying_partner_name: currentPartner.partner_name,
+              header_company_name: nextPartner ? nextPartner.partner_name : '中科智运（云南）供应链科技有限公司',
+              records: [],
+              total_payable: 0,
+            });
+          }
+          const sheet = paymentSheetsMap.get(currentPartner.partner_id)!;
+          sheet.records.push({ record: record, payable_to_driver: currentPartner.payable_amount });
+          sheet.total_payable += currentPartner.payable_amount;
+        }
+      });
+
+      setMultiSheetPaymentData({ sheets: Array.from(paymentSheetsMap.values()), all_records: records });
+      setIsPreviewModalOpen(true);
+
+    } catch (error) {
+      console.error("准备付款申请数据失败:", error);
+      toast({ title: "错误", description: `准备付款申请数据失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleConfirmAndSave = async () => {
+    if (!multiSheetPaymentData || multiSheetPaymentData.all_records.length === 0) return;
+    setIsSaving(true);
+    try {
+      const { all_records } = multiSheetPaymentData;
+      const recordIds = all_records.map(r => r.id);
+      const totalAmount = all_records.reduce((sum, r) => sum + (r.payable_cost || 0), 0);
+
+      const { data: newRequestId, error } = await supabase.rpc('process_payment_application', {
+        p_record_ids: recordIds,
+        p_total_amount: totalAmount,
+      });
+
+      if (error) throw error;
+
+      toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已成功创建，并更新了 ${recordIds.length} 条运单状态为“已申请支付”。` });
+      
+      exportMultiSheetExcel(multiSheetPaymentData, newRequestId);
+
+      setIsPreviewModalOpen(false);
+      setMultiSheetPaymentData(null);
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchReportData();
+
+    } catch (error) {
+      console.error("保存付款申请失败:", error);
+      toast({ title: "错误", description: `保存付款申请失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelApplication = async () => {
+    setIsCancelling(true);
+    try {
+        let updatedCount = 0;
+        let error: any = null;
+
+        if (selection.mode === 'all_filtered') {
+            const { data, error: rpcError } = await supabase.rpc('batch_cancel_by_filter', {
+                p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
+                p_start_date: activeFilters.startDate || null,
+                p_end_date: activeFilters.endDate || null,
+                p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
+            });
+            updatedCount = data;
+            error = rpcError;
+        } else {
+            const idsToCancel = Array.from(selection.selectedIds);
+            if (idsToCancel.length === 0) {
+                toast({ title: "提示", description: "没有选择任何运单。" });
+                setIsCancelling(false);
+                return;
+            }
+            const { data, error: rpcError } = await supabase.rpc('batch_cancel_payment_application', { p_record_ids: idsToCancel });
+            updatedCount = data;
+            error = rpcError;
+        }
+
+        if (error) throw error;
+
+        if (updatedCount > 0) {
+            toast({ title: "成功", description: `已成功取消 ${updatedCount} 条付款申请，状态已恢复为“未支付”。` });
+        } else {
+            toast({ title: "提示", description: "所选运单中没有需要取消的申请（可能已支付或未申请）。" });
+        }
+        
+        setSelection({ mode: 'none', selectedIds: new Set() });
+        fetchReportData();
+
+    } catch (error) {
+        console.error("取消付款申请失败:", error);
+        toast({ title: "错误", description: `取消付款申请失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+        setIsCancelling(false);
+    }
+  };
+
+  const exportMultiSheetExcel = (data: MultiSheetPaymentData, requestId: string) => {
+    const wb = XLSX.utils.book_new();
+    const requestDate = format(new Date(), 'yyyy-MM-dd');
+
+    data.sheets.forEach(sheetData => {
+      const ws_data: any[][] = [
+        [sheetData.header_company_name + '支付申请表'], [],
+        ['货主单位:', sheetData.paying_partner_name, null, '申请时间:', requestDate, null, '申请编号:', requestId], [],
+        ['序号', '运单号', '实际出发时间', '起始地', '目的地', '司机', '司机电话', '车牌号', '承运人运费']
+      ];
+
+      sheetData.records.forEach((item, index) => {
+        const r = item.record;
+        ws_data.push([
+          index + 1, r.auto_number, r.loading_date, r.loading_location, r.unloading_location,
+          r.driver_name, r.driver_phone, r.license_plate, item.payable_to_driver
+        ]);
+      });
+      
+      ws_data.push([], [null, null, null, null, null, null, null, '合计:', sheetData.total_payable]);
+
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: {  r: 0, c: 8 } }];
+      const cols = [ {wch:5}, {wch:15}, {wch:12}, {wch:20}, {wch:20}, {wch:10}, {wch:15}, {wch:12}, {wch:12} ];
+      ws['!cols'] = cols;
+
+      XLSX.utils.book_append_sheet(wb, ws, sheetData.paying_partner_name.slice(0, 30));
+    });
+
+    XLSX.writeFile(wb, `支付申请表_${requestId}.xlsx`);
+  };
+
+  const exportDetailsToExcel = () => {
+    if (!reportData?.records || reportData.records.length === 0) {
+        toast({ title: "提示", description: "没有可导出的数据" });
+        return;
+    }
+    const headers = ['运单编号', '项目名称', '司机姓名', '路线', '装货日期', '运费金额', '额外费用', '司机应收', '支付状态'];
+    displayedPartners.forEach(p => headers.push(`${p.name}(应付)`));
+    const dataToExport = (reportData.records || []).map((record: any) => {
+      const row: {[key: string]: any} = {
+        '运单编号': record.auto_number, '项目名称': record.project_name, '司机姓名': record.driver_name,
+        '路线': `${record.loading_location} → ${record.unloading_location}`, '装货日期': record.loading_date,
+        '运费金额': record.current_cost || 0, '额外费用': record.extra_cost || 0, '司机应收': record.payable_cost || 0,
+        '支付状态': record.payment_status === 'Paid' ? '已完成支付' : (record.payment_status === 'Processing' ? '已申请支付' : '未支付')
+      };
+      displayedPartners.forEach(p => {
+        const cost = (record.partner_costs || []).find((c:any) => c.partner_id === p.id);
+        row[`${p.name}(应付)`] = cost ? cost.payable_amount : 0;
+      });
+      return row;
+    });
+    const ws = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "运单财务明细");
+    XLSX.writeFile(wb, `运单财务明细_${new Date().toLocaleDateString()}.xlsx`);
+    toast({ title: "成功", description: "财务明细数据已导出到Excel" });
+  };
 
   // --- 派生状态和工具函数 ---
   const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? { from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined } : undefined;
@@ -128,7 +320,6 @@ export default function PaymentRequest() {
       const selected = allPartners.find(p => p.id === uiFilters.partnerId);
       return selected ? [selected] : [];
     }
-    // [1MWgh] 装甲修复：确保 reportData 和 reportData.records 存在且为数组
     if (!reportData || !Array.isArray(reportData.records)) return [];
     
     const relevantPartnerIds = new Set<string>();
@@ -141,7 +332,6 @@ export default function PaymentRequest() {
   }, [reportData, allPartners, uiFilters.partnerId]);
 
   const isAllOnPageSelected = useMemo(() => {
-    // [1MWgh] 装甲修复
     if (!reportData || !Array.isArray(reportData.records)) return false;
     const pageIds = reportData.records.map((r: any) => r.id);
     if (pageIds.length === 0) return false;
@@ -186,12 +376,10 @@ export default function PaymentRequest() {
         <CardContent className="p-4">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1.5 min-w-[140px]"><Label>项目</Label><Select value={uiFilters.projectId} onValueChange={(v) => handleFilterChange('projectId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>
-                {/* [1MWgh] 装甲修复 */}
                 {Array.isArray(projects) && projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
             </SelectContent></Select></div>
             <div className="flex flex-col gap-1.5"><Label>日期范围</Label><DateRangePicker date={dateRangeValue} setDate={handleDateChange} /></div>
             <div className="flex flex-col gap-1.5 min-w-[140px]"><Label>合作方</Label><Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有合作方</SelectItem>
-                {/* [1MWgh] 装甲修复 */}
                 {Array.isArray(allPartners) && allPartners.map(p => (<SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>))}
             </SelectContent></Select></div>
             <div className="flex flex-col gap-1.5 min-w-[120px]">
@@ -229,11 +417,9 @@ export default function PaymentRequest() {
                 {loading ? (<div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin"/></div>) : (
                 <Table>
                   <TableHeader><TableRow><TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>日期</TableHead><TableHead>运费</TableHead><TableHead className="text-orange-600">额外费</TableHead>
-                    {/* [1MWgh] 装甲修复 */}
                     {Array.isArray(displayedPartners) && displayedPartners.map(p => <TableHead key={p.id} className="text-center">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}
                   <TableHead>支付状态</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {/* [1MWgh] 核心装甲修复 */}
                     {Array.isArray(reportData?.records) && reportData.records.map((r: any) => (
                         <TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"}>
                             <TableCell><Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)} /></TableCell>
@@ -244,13 +430,11 @@ export default function PaymentRequest() {
                             <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell>
                             <TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>¥{r.current_cost?.toFixed(2)}</TableCell>
                             <TableCell className="font-mono text-orange-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{r.extra_cost ? `¥${r.extra_cost.toFixed(2)}` : '-'}</TableCell>
-                            {/* [1MWgh] 装甲修复 */}
                             {Array.isArray(displayedPartners) && displayedPartners.map(p => { const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.id)); return <TableCell key={p.id} className="font-mono text-center cursor-pointer" onClick={() => setViewingRecord(r)}>{cost ? `¥${cost.payable_amount.toFixed(2)}` : '-'}</TableCell>; })}
                             <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{getPaymentStatusBadge(r.payment_status)}</TableCell>
                         </TableRow>
                     ))}
                     <TableRow className="bg-muted/30 font-semibold border-t-2"><TableCell colSpan={6} className="text-right font-bold">合计</TableCell><TableCell className="font-mono font-bold text-center"><div>¥{(reportData?.overview?.total_current_cost || 0).toFixed(2)}</div><div className="text-xs text-muted-foreground font-normal">(运费)</div></TableCell><TableCell className="font-mono font-bold text-orange-600 text-center"><div>¥{(reportData?.overview?.total_extra_cost || 0).toFixed(2)}</div><div className="text-xs text-muted-foreground font-normal">(额外费)</div></TableCell>
-                        {/* [1MWgh] 装甲修复 */}
                         {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partner_payables) && reportData.partner_payables.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono"><div>¥{total.toFixed(2)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
                     <TableCell></TableCell></TableRow>
                   </TableBody>
@@ -274,11 +458,59 @@ export default function PaymentRequest() {
       )}
 
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
-        {/* ... 详情弹窗 ... */}
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
+          {viewingRecord && (
+            <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
+              <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div><div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p>{getPaymentStatusBadge(viewingRecord.payment_status)}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{(viewingRecord as any).transport_type}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{(viewingRecord as any).loading_weight ? `${(viewingRecord as any).loading_weight} 吨` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{(viewingRecord as any).unloading_weight ? `${(viewingRecord as any).unloading_weight} 吨` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono">{viewingRecord.extra_cost ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div><div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.payable_cost ? `¥${viewingRecord.payable_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{(viewingRecord as any).remarks || '无'}</p></div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button></div>
+        </DialogContent>
       </Dialog>
 
       <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
-        {/* ... 预览弹窗 ... */}
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>付款申请预览</DialogTitle>
+            <DialogDescription>将为以下合作方生成付款申请，并更新 {multiSheetPaymentData?.all_records.length || 0} 条运单状态为“已申请支付”。</DialogDescription>
+          </DialogHeader>
+          {multiSheetPaymentData && (
+            <div className="max-h-[60vh] overflow-y-auto p-1">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>付款方 (货主单位)</TableHead>
+                    <TableHead>收款方 (Excel表头)</TableHead>
+                    <TableHead className="text-right">运单数</TableHead>
+                    <TableHead className="text-right">合计金额</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {multiSheetPaymentData.sheets.map(sheet => (
+                    <TableRow key={sheet.paying_partner_id}>
+                      <TableCell className="font-medium">{sheet.paying_partner_name}</TableCell>
+                      <TableCell>{sheet.header_company_name}</TableCell>
+                      <TableCell className="text-right">{sheet.records.length}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(sheet.total_payable)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)} disabled={isSaving}>取消</Button>
+            <Button onClick={handleConfirmAndSave} disabled={isSaving}>
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              确认并生成申请
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );
