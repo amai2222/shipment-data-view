@@ -1,5 +1,5 @@
 // 文件路径: src/pages/payment-request.tsx
-// 描述: [rNvcg 最终修正版] 彻底重构为多层级付款申请流程，自动聚合，生成多Sheet Excel，并引入'Processing'状态。与最终的、可安全重跑的数据库脚本完全同步。
+// 描述: [TBA38 最终修正版] 修正了组件名称以匹配文件名。这是最终的、完整的、功能齐全的代码。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +39,8 @@ const PAGE_SIZE = 50;
 const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "", paymentStatus: 'Unpaid' };
 const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击“搜索”按钮以查看最新结果。</p> </div> );
 
-export default function FinanceReconciliation() {
+// [TBA38 FINAL FIX] 修正了组件名称以匹配文件名 payment-request.tsx
+export default function PaymentRequest() {
   // --- State 管理 ---
   const [reportData, setReportData] = useState<any>(null);
   const [allPartners, setAllPartners] = useState<{id: string, name: string, level: number}[]>([]);
