@@ -77,6 +77,67 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_records: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_amount: number
+          invoice_date: string
+          invoice_number: string | null
+          logistics_record_id: string
+          partner_id: string
+          remarks: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_amount?: number
+          invoice_date?: string
+          invoice_number?: string | null
+          logistics_record_id: string
+          partner_id: string
+          remarks?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_amount?: number
+          invoice_date?: string
+          invoice_number?: string | null
+          logistics_record_id?: string
+          partner_id?: string
+          remarks?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_records_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_records_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_records_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_projects: {
         Row: {
           created_at: string
@@ -351,6 +412,64 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_records: {
+        Row: {
+          created_at: string
+          id: string
+          logistics_record_id: string
+          partner_id: string
+          payment_amount: number
+          payment_date: string
+          remarks: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logistics_record_id: string
+          partner_id: string
+          payment_amount?: number
+          payment_date?: string
+          remarks?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logistics_record_id?: string
+          partner_id?: string
+          payment_amount?: number
+          payment_date?: string
+          remarks?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_records_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_records_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_records_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -490,9 +609,11 @@ export type Database = {
           chain_id: string | null
           chain_name: string | null
           created_at: string | null
+          created_by_user_id: string | null
           current_cost: number | null
           driver_id: string | null
           driver_name: string | null
+          driver_payable_cost: number | null
           driver_phone: string | null
           extra_cost: number | null
           id: string | null
@@ -508,6 +629,7 @@ export type Database = {
           unloading_date: string | null
           unloading_location: string | null
           unloading_weight: number | null
+          user_id: string | null
         }
         Relationships: [
           {
@@ -560,6 +682,15 @@ export type Database = {
       batch_import_logistics_records: {
         Args: { p_records: Json }
         Returns: Json
+      }
+      batch_recalculate_by_filter: {
+        Args: {
+          p_project_id: string
+          p_partner_id: string
+          p_start_date: string
+          p_end_date: string
+        }
+        Returns: undefined
       }
       batch_recalculate_partner_costs: {
         Args: { p_record_ids: string[] }
@@ -636,6 +767,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_dashboard_stats: {
+        Args: {
+          start_date_param: string
+          end_date_param: string
+          project_id_param?: string
+        }
+        Returns: Json
+      }
       get_filtered_logistics_records: {
         Args: {
           p_project_id?: string
@@ -672,23 +811,41 @@ export type Database = {
         }[]
       }
       get_finance_reconciliation_data: {
-        Args: {
-          p_project_id: string
-          p_start_date: string
-          p_end_date: string
-          p_partner_id: string
-        }
+        Args:
+          | {
+              p_project_id: string
+              p_partner_id: string
+              p_start_date: string
+              p_end_date: string
+              p_page_number: number
+              p_page_size: number
+            }
+          | {
+              p_project_id: string
+              p_start_date: string
+              p_end_date: string
+              p_partner_id: string
+            }
         Returns: Json
       }
       get_logistics_records_paginated: {
-        Args: {
-          p_start_date: string
-          p_end_date: string
-          p_project_name: string
-          p_search_term: string
-          p_page_number: number
-          p_page_size: number
-        }
+        Args:
+          | {
+              p_start_date: string
+              p_end_date: string
+              p_page_number: number
+              p_page_size: number
+              p_project_name?: string
+              p_search_term?: string
+            }
+          | {
+              p_start_date: string
+              p_end_date: string
+              p_project_name: string
+              p_search_term: string
+              p_page_number: number
+              p_page_size: number
+            }
         Returns: {
           id: string
           auto_number: string
@@ -707,6 +864,19 @@ export type Database = {
           remarks: string
         }[]
       }
+      get_logistics_summary_and_records: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_project_name: string
+          p_driver_name: string
+          p_license_plate: string
+          p_driver_phone: string
+          p_page_number: number
+          p_page_size: number
+        }
+        Returns: Json
+      }
       get_or_create_driver: {
         Args: {
           p_driver_name: string
@@ -718,6 +888,16 @@ export type Database = {
           driver_id: string
           driver_name: string
         }[]
+      }
+      get_or_create_driver_and_link_project: {
+        Args: {
+          p_driver_name: string
+          p_license_plate: string
+          p_phone: string
+          p_project_id: string
+          p_user_id?: string
+        }
+        Returns: string
       }
       get_or_create_driver_with_project: {
         Args: {
@@ -734,6 +914,14 @@ export type Database = {
       get_or_create_location: {
         Args: { p_location_name: string; p_project_id: string }
         Returns: string
+      }
+      get_or_create_location_and_link_project: {
+        Args: {
+          p_location_name: string
+          p_project_id: string
+          p_user_id?: string
+        }
+        Returns: undefined
       }
       get_or_create_location_with_project: {
         Args: { p_location_name: string; p_project_id: string }
@@ -811,6 +999,14 @@ export type Database = {
       save_project_with_chains: {
         Args: { project_id_in: string; project_data: Json; chains_data: Json }
         Returns: undefined
+      }
+      search_project_linked_items: {
+        Args: {
+          p_project_id: string
+          p_item_type: string
+          p_search_term: string
+        }
+        Returns: Json
       }
       update_logistics_record_with_costs: {
         Args:
