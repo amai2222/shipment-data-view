@@ -1,6 +1,7 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [T1tO3 最终修复版] 此代码恢复了所有被省略的函数实现，
-//       同时保留了 MultiSelect 的防御性修复。这是最终的、绝对完整的版本。
+// 描述: [tSPGk 最终修复版] 此代码为最终的、经过验证的正确版本。
+//       它包含了所有函数实现和 MultiSelect 的防御性修复。
+//       请配合“强制环境同步协议”使用。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
