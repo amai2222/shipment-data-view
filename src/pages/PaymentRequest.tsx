@@ -1,5 +1,5 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [vQZua 最终无省略修复版] 提供了所有函数的完整实现，修复因代码省略导致的运行时错误。
+// 描述: [hoWm3 最终完整版] 提供了所有函数的完整实现，未经任何省略。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +26,7 @@ import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
 // --- 类型定义 ---
 interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; }
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; }
-interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string; }
+interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; }
 interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string[]; }
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
@@ -36,11 +36,7 @@ interface MultiSheetPaymentData { sheets: PaymentSheetData[]; all_records: Logis
 // --- 常量和初始状态 ---
 const PAGE_SIZE = 50;
 const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "", paymentStatus: ['Unpaid'] };
-const PAYMENT_STATUS_OPTIONS: MultiSelectOption[] = [
-    { value: 'Unpaid', label: '未支付' },
-    { value: 'Processing', label: '已申请支付' },
-    { value: 'Paid', label: '已完成支付' },
-];
+const PAYMENT_STATUS_OPTIONS: MultiSelectOption[] = [ { value: 'Unpaid', label: '未支付' }, { value: 'Processing', label: '已申请支付' }, { value: 'Paid', label: '已完成支付' }, ];
 const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击“搜索”按钮以查看最新结果。</p> </div> );
 
 export default function PaymentRequest() {
@@ -76,7 +72,7 @@ export default function PaymentRequest() {
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_finance_reconciliation_data', {
+      const { data, error } = await supabase.rpc('get_payment_request_data', {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
@@ -99,20 +95,20 @@ export default function PaymentRequest() {
   // --- Effects ---
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
   useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); } }, [fetchReportData, isStale]);
-  useEffect(() => {
-    setPagination(p => p.currentPage === 1 ? p : { ...p, currentPage: 1 });
-    setSelection({ mode: 'none', selectedIds: new Set() });
-  }, [activeFilters]);
+  useEffect(() => { setPagination(p => p.currentPage === 1 ? p : { ...p, currentPage: 1 }); setSelection({ mode: 'none', selectedIds: new Set() }); }, [activeFilters]);
 
+  // --- 完整函数实现 ---
   const formatCurrency = (value: number | null | undefined): string => {
     if (value == null) return '¥0.00';
     return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
   };
 
-  // --- 事件处理器 ---
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
+  
   const handleDateChange = (dateRange: DateRange | undefined) => { setUiFilters(prev => ({ ...prev, startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' })); };
+  
   const handleRecordSelect = (recordId: string) => { setSelection(prev => { const newSet = new Set(prev.selectedIds); if (newSet.has(recordId)) { newSet.delete(recordId); } else { newSet.add(recordId); } if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); };
+  
   const handleSelectAllOnPage = (isChecked: boolean) => { const pageIds = (reportData?.records || []).map((r: any) => r.id); if (isChecked) { setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) })); } else { setSelection(prev => { const newSet = new Set(prev.selectedIds); pageIds.forEach(id => newSet.delete(id)); if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); } };
   
   const handleApplyForPaymentClick = async () => {
@@ -312,6 +308,15 @@ export default function PaymentRequest() {
     toast({ title: "成功", description: "财务明细数据已导出到Excel" });
   };
 
+  const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => {
+    switch (status) {
+      case 'Unpaid': return <Badge variant="destructive">未支付</Badge>;
+      case 'Processing': return <Badge variant="secondary">已申请支付</Badge>;
+      case 'Paid': return <Badge variant="success">已完成支付</Badge>;
+      default: return <Badge>{status}</Badge>;
+    }
+  };
+
   // --- 派生状态和工具函数 ---
   const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? { from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined } : undefined;
   
@@ -342,15 +347,6 @@ export default function PaymentRequest() {
     if (selection.mode === 'all_filtered') return reportData?.count || 0;
     return selection.selectedIds.size;
   }, [selection, reportData?.count]);
-
-  const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => {
-    switch (status) {
-      case 'Unpaid': return <Badge variant="destructive">未支付</Badge>;
-      case 'Processing': return <Badge variant="secondary">已申请支付</Badge>;
-      case 'Paid': return <Badge variant="success">已完成支付</Badge>;
-      default: return <Badge>{status}</Badge>;
-    }
-  };
 
   if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
 
@@ -462,10 +458,21 @@ export default function PaymentRequest() {
           <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
           {viewingRecord && (
             <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
-              <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div><div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p>{getPaymentStatusBadge(viewingRecord.payment_status)}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{(viewingRecord as any).transport_type}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{(viewingRecord as any).loading_weight ? `${(viewingRecord as any).loading_weight} 吨` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{(viewingRecord as any).unloading_weight ? `${(viewingRecord as any).unloading_weight} 吨` : '-'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono">{viewingRecord.extra_cost ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div><div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.payable_cost ? `¥${viewingRecord.payable_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '未指定'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p>{getPaymentStatusBadge(viewingRecord.payment_status)}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{(viewingRecord as any).transport_type}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{(viewingRecord as any).loading_weight ? `${(viewingRecord as any).loading_weight} 吨` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{(viewingRecord as any).unloading_weight ? `${(viewingRecord as any).unloading_weight} 吨` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono">{viewingRecord.extra_cost ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.payable_cost ? `¥${viewingRecord.payable_cost.toFixed(2)}` : '-'}</p></div>
               <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{(viewingRecord as any).remarks || '无'}</p></div>
             </div>
           )}
