@@ -1,7 +1,9 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [tSPGk 最终修复版] 此代码为最终的、经过验证的正确版本。
-//       它包含了所有函数实现和 MultiSelect 的防御性修复。
-//       请配合“强制环境同步协议”使用。
+// 描述: [IwL24 最终修复版] 此代码采纳了用户的最终指令。
+//       1. 彻底移除了有问题的 MultiSelect 组件。
+//       2. 使用标准的、稳健的 Select 组件替换了支付状态筛选器。
+//       3. 相应地调整了状态管理和数据请求逻辑。
+//       这是最终的、决定性的解决方案。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,13 +25,15 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
-import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
+// 关键变更：不再需要 MultiSelect
+// import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
 
 // --- 类型定义 ---
 interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; }
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; }
-interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string[]; }
+// 关键变更：paymentStatus 从 string[] 变为 string
+interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string; }
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
 interface PaymentSheetData { paying_partner_id: string; paying_partner_name: string; header_company_name: string; records: { record: LogisticsRecord; payable_to_driver: number; }[]; total_payable: number; }
@@ -37,8 +41,15 @@ interface MultiSheetPaymentData { sheets: PaymentSheetData[]; all_records: Logis
 
 // --- 常量和初始状态 ---
 const PAGE_SIZE = 50;
-const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "", paymentStatus: ['Unpaid'] };
-const PAYMENT_STATUS_OPTIONS: MultiSelectOption[] = [ { value: 'Unpaid', label: '未支付' }, { value: 'Processing', label: '已申请支付' }, { value: 'Paid', label: '已完成支付' }, ];
+// 关键变更：paymentStatus 从 ['Unpaid'] 变为 'Unpaid'
+const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "", paymentStatus: 'Unpaid' };
+// 关键变更：为新的 Select 组件准备选项
+const PAYMENT_STATUS_OPTIONS = [
+    { value: 'all', label: '所有状态' },
+    { value: 'Unpaid', label: '未支付' },
+    { value: 'Processing', label: '已申请支付' },
+    { value: 'Paid', label: '已完成支付' },
+];
 const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击“搜索”按钮以查看最新结果。</p> </div> );
 
 export default function PaymentRequest() {
@@ -74,12 +85,15 @@ export default function PaymentRequest() {
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     try {
+      // 关键变更：根据新的 paymentStatus (string) 调整 RPC 参数
+      const statusArray = activeFilters.paymentStatus === 'all' ? null : [activeFilters.paymentStatus];
+      
       const { data, error } = await supabase.rpc('get_payment_request_data', {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
-        p_payment_status_array: activeFilters.paymentStatus.length > 0 ? activeFilters.paymentStatus : null,
+        p_payment_status_array: statusArray,
         p_page_size: PAGE_SIZE,
         p_page_number: pagination.currentPage
       });
@@ -380,15 +394,19 @@ export default function PaymentRequest() {
             <div className="flex flex-col gap-1.5 min-w-[140px]"><Label>合作方</Label><Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有合作方</SelectItem>
                 {Array.isArray(allPartners) && allPartners.map(p => (<SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>))}
             </SelectContent></Select></div>
+            {/* 关键变更：使用标准的 Select 组件 */}
             <div className="flex flex-col gap-1.5 min-w-[120px]">
                 <Label>支付状态</Label>
-                <MultiSelect 
-                    options={PAYMENT_STATUS_OPTIONS} 
-                    selected={uiFilters.paymentStatus} 
-                    onChange={(v) => handleFilterChange('paymentStatus', v || [])} 
-                    className="w-full" 
-                    placeholder="选择状态..." 
-                />
+                <Select value={uiFilters.paymentStatus} onValueChange={(v) => handleFilterChange('paymentStatus', v)}>
+                    <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="选择状态..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {PAYMENT_STATUS_OPTIONS.map(option => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
             <Button onClick={handleSearch} size="sm" className="h-9 px-3 text-sm"><Search className="mr-2 h-4 w-4"/>搜索</Button>
             <Button variant="outline" size="sm" onClick={handleClear} className="h-9 px-3 text-sm">清除筛选</Button>
