@@ -1,6 +1,3 @@
-// 文件路径: src/pages/FinanceReconciliation.tsx
-// 描述: [最终修正版] 精确为“合作方名称”列设置10个汉字的最小宽度，实现最终视觉效果
-
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -219,7 +216,7 @@ export default function FinanceReconciliation() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-foreground">财务对账</h1><p className="text-muted-foreground">运费收入与合作方应付金额统计</p></div>
+        <div><h1 className="text-3xl font-bold text-foreground">公司付款申请</h1><p className="text-muted-foreground">提交财务部付款申请</p></div>
         <ConfirmDialog title="确认批量重算" description={`您确定要为选中的 ${selectionCount} 条运单重新计算所有合作方的应付金额吗？此操作会根据最新的项目合作链路配置覆盖现有数据。`} onConfirm={handleBatchRecalculate}>
           <Button variant="destructive" disabled={selectionCount === 0 || isRecalculating}>{isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}一键重算已选运单 ({selectionCount})</Button>
         </ConfirmDialog>
