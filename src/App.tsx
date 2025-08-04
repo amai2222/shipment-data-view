@@ -33,7 +33,7 @@ const App = () => (
           <Route path="/locations" element={<AppLayout><Locations /></AppLayout>} />
           <Route path="/partners" element={<AppLayout><Partners /></AppLayout>} />
           <Route path="/business-entry" element={<AppLayout><BusinessEntry /></AppLayout>} />
-          <Route path="/payment-request" element={<AppLayout><FinanceReconciliation /></AppLayout>} />
+          <Route path="/payment-request" element={<AppLayout><payment-request /></AppLayout>} />
           <Route path="/finance/reconciliation" element={<AppLayout><FinanceReconciliation /></AppLayout>} />
           <Route path="/finance/payment-invoice" element={<AppLayout><PaymentInvoice /></AppLayout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
