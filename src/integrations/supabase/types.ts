@@ -963,6 +963,17 @@ export type Database = {
           records_count: number
         }[]
       }
+      get_payment_invoice_data: {
+        Args: {
+          p_project_ids?: string[]
+          p_partner_ids?: string[]
+          p_start_date?: string
+          p_end_date?: string
+          p_page_number?: number
+          p_page_size?: number
+        }
+        Returns: Json
+      }
       get_project_drivers_with_details: {
         Args: { p_project_id: string }
         Returns: {

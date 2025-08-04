@@ -18,6 +18,8 @@ import { format } from "date-fns";
 interface PaymentInvoiceRecord {
   id: string;
   auto_number: string;
+  project_name: string;
+  partner_id: string;
   partner_name: string;
   driver_name: string;
   loading_date: string;
@@ -26,11 +28,13 @@ interface PaymentInvoiceRecord {
   partner_payable: number;
   paid_amount: number;
   invoiced_amount: number;
+  pending_payment: number;
+  pending_invoice: number;
   payment_status: string;
   invoice_status: string;
-  payment_date?: string;
-  invoice_date?: string;
-  remarks?: string;
+  latest_payment_date?: string;
+  latest_invoice_date?: string;
+  level: number;
 }
 
 interface Project {
@@ -52,6 +56,9 @@ export default function PaymentInvoice() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
 
   // 对话框状态
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -120,56 +127,35 @@ export default function PaymentInvoice() {
   const handleQuery = async () => {
     setLoading(true);
     try {
-      // 构建查询条件
-      let query = supabase
-        .from('logistics_records_view')
-        .select(`
-          id,
-          auto_number,
-          loading_date,
-          driver_name,
-          loading_location,
-          unloading_location,
-          loading_weight
-        `);
+      const params: any = {
+        p_page_number: currentPage,
+        p_page_size: pageSize
+      };
 
       // 应用筛选条件
       if (selectedProjects.length > 0) {
-        query = query.in('project_id', selectedProjects);
+        params.p_project_ids = selectedProjects;
+      }
+
+      if (selectedPartners.length > 0) {
+        params.p_partner_ids = selectedPartners;
       }
 
       if (dateRange?.from) {
-        query = query.gte('loading_date', format(dateRange.from, 'yyyy-MM-dd'));
+        params.p_start_date = format(dateRange.from, 'yyyy-MM-dd');
       }
 
       if (dateRange?.to) {
-        query = query.lte('loading_date', format(dateRange.to, 'yyyy-MM-dd'));
+        params.p_end_date = format(dateRange.to, 'yyyy-MM-dd');
       }
 
-      query = query.order('loading_date', { ascending: false });
-
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc('get_payment_invoice_data', params);
 
       if (error) throw error;
 
-      // 转换数据格式并模拟财务数据
-      const transformedData: PaymentInvoiceRecord[] = (data || []).map(record => ({
-        id: record.id,
-        auto_number: record.auto_number,
-        partner_name: '待查询', // 需要从合作方成本表查询
-        driver_name: record.driver_name,
-        loading_date: record.loading_date,
-        route: `${record.loading_location} → ${record.unloading_location}`,
-        loading_weight: record.loading_weight || 0,
-        partner_payable: 0, // 需要从合作方成本表查询
-        paid_amount: 0, // 需要从付款记录表查询
-        invoiced_amount: 0, // 需要从开票记录表查询
-        payment_status: '待付款',
-        invoice_status: '待开票',
-        remarks: ''
-      }));
-
-      setRecords(transformedData);
+      const result = data as any;
+      setRecords(result.records || []);
+      setTotalCount(result.total_count || 0);
     } catch (error) {
       console.error('查询失败:', error);
       toast({
@@ -188,6 +174,8 @@ export default function PaymentInvoice() {
     setDateRange(undefined);
     setRecords([]);
     setSelectedRecords([]);
+    setCurrentPage(1);
+    setTotalCount(0);
   };
 
   const handleSelectRecord = (recordId: string, checked: boolean) => {
@@ -636,9 +624,9 @@ export default function PaymentInvoice() {
                     <TableCell>{record.route}</TableCell>
                     <TableCell>{record.loading_weight}吨</TableCell>
                     <TableCell>¥{record.partner_payable.toFixed(2)}</TableCell>
-                    <TableCell>¥{(record.partner_payable - record.paid_amount).toFixed(2)}</TableCell>
+                    <TableCell>¥{record.pending_payment.toFixed(2)}</TableCell>
                     <TableCell>¥{record.paid_amount.toFixed(2)}</TableCell>
-                    <TableCell>¥{(record.partner_payable - record.invoiced_amount).toFixed(2)}</TableCell>
+                    <TableCell>¥{record.pending_invoice.toFixed(2)}</TableCell>
                     <TableCell>¥{record.invoiced_amount.toFixed(2)}</TableCell>
                     <TableCell>{getStatusBadge(record.payment_status)}</TableCell>
                     <TableCell>{getStatusBadge(record.invoice_status)}</TableCell>
