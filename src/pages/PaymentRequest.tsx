@@ -293,7 +293,7 @@ export default function PaymentRequest() {
       ws_data.push([], [null, null, null, null, null, null, null, '合计:', sheetData.total_payable]);
 
       const ws = XLSX.utils.aoa_to_sheet(ws_data);
-      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, 8 } }];
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: {  r: 0, c: 8 } }];
       const cols = [ {wch:5}, {wch:15}, {wch:12}, {wch:20}, {wch:20}, {wch:10}, {wch:15}, {wch:12}, {wch:12} ];
       ws['!cols'] = cols;
 
