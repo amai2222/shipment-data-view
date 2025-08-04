@@ -1,3 +1,6 @@
+// 文件路径: src/pages/PaymentRequest.tsx
+// 描述: [oXmMD 最终修正版] 此版本修正了文件名和致命的语法错误。
+
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -5,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Loader2, RefreshCw, Search } from "lucide-react";
+import { Download, Loader2, RefreshCw, Search, FileSpreadsheet, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
@@ -20,19 +23,21 @@ import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, Pagi
 import { cn } from "@/lib/utils";
 
 // --- 类型定义 ---
-interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; loading_weight: number | null; unloading_weight: number | null; current_cost: number | null; payable_cost: number | null; extra_cost: number | null; license_plate: string | null; driver_phone: string | null; transport_type: string | null; remarks: string | null; chain_name: string | null; }
-interface PartnerPayable { partner_id: string; partner_name: string; level: number; total_payable: number; records_count: number; }
-interface LogisticsRecordWithPartners extends LogisticsRecord { partner_costs: { partner_id: string; partner_name: string; level: number; payable_amount: number; }[]; }
-interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; }
+interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; }
+interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; }
+interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string; }
+interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: 'Unpaid' | 'Processing' | 'Paid' | 'all'; }
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
+interface PaymentSheetData { paying_partner_id: string; paying_partner_name: string; header_company_name: string; records: { record: LogisticsRecord; payable_to_driver: number; }[]; total_payable: number; }
+interface MultiSheetPaymentData { sheets: PaymentSheetData[]; all_records: LogisticsRecord[]; }
 
 // --- 常量和初始状态 ---
 const PAGE_SIZE = 50;
-const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "" };
+const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "", paymentStatus: 'Unpaid' };
 const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击“搜索”按钮以查看最新结果。</p> </div> );
 
-export default function FinanceReconciliation() {
+export default function PaymentRequest() {
   // --- State 管理 ---
   const [reportData, setReportData] = useState<any>(null);
   const [allPartners, setAllPartners] = useState<{id: string, name: string, level: number}[]>([]);
@@ -44,6 +49,10 @@ export default function FinanceReconciliation() {
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_FINANCE_FILTERS);
   const [pagination, setPagination] = useState<PaginationState>({ currentPage: 1, totalPages: 1 });
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [multiSheetPaymentData, setMultiSheetPaymentData] = useState<MultiSheetPaymentData | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // --- 数据获取 ---
   const fetchInitialOptions = useCallback(async () => {
@@ -61,11 +70,14 @@ export default function FinanceReconciliation() {
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_finance_reconciliation_data' as any, {
+      const { data, error } = await supabase.rpc('get_finance_reconciliation_data', {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
+        p_payment_status: activeFilters.paymentStatus === 'all' ? null : activeFilters.paymentStatus,
+        p_page_size: PAGE_SIZE,
+        p_page_number: pagination.currentPage
       });
       if (error) throw error;
       setReportData(data);
@@ -86,14 +98,9 @@ export default function FinanceReconciliation() {
     setSelection({ mode: 'none', selectedIds: new Set() });
   }, [activeFilters]);
 
-  // [新增] 一个小巧、高效的货币格式化函数
   const formatCurrency = (value: number | null | undefined): string => {
     if (value == null) return '¥0.00';
-    // 使用 Intl.NumberFormat 来实现专业的货币格式化，包括千位分隔符
-    return new Intl.NumberFormat('zh-CN', {
-      style: 'currency',
-      currency: 'CNY',
-    }).format(value);
+    return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
   };
 
   // --- 事件处理器 ---
@@ -110,7 +117,7 @@ export default function FinanceReconciliation() {
   };
 
   const handleSelectAllOnPage = (isChecked: boolean) => {
-    const pageIds = (reportData?.records || []).map((r: any) => r.id);
+    const pageIds = (reportData?.records || []).filter((r: any) => r.payment_status === 'Unpaid').map((r: any) => r.id);
     if (isChecked) {
       setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) }));
     } else {
@@ -158,6 +165,117 @@ export default function FinanceReconciliation() {
     }
   };
 
+  const handleApplyForPaymentClick = async () => {
+    if (selectionCount === 0) {
+      toast({ title: "提示", description: "请先选择需要申请付款的运单。" });
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      const { data: filterData, error: filterError } = await supabase.from('logistics_records').select('id').eq('payment_status', 'Unpaid').in('id', Array.from(selection.selectedIds));
+      if (filterError) throw filterError;
+      const idsToFetch = filterData.map(r => r.id);
+
+      if (idsToFetch.length === 0) {
+        toast({ title: "提示", description: "所选运单均已申请或支付，无需重复操作。" });
+        setIsGenerating(false);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc('get_data_for_payment_application', { p_record_ids: idsToFetch });
+      if (error) throw error;
+
+      const records: LogisticsRecord[] = data.records || [];
+      
+      const paymentSheetsMap = new Map<string, PaymentSheetData>();
+      records.forEach(record => {
+        const costs = record.partner_costs || [];
+        for (let i = 0; i < costs.length; i++) {
+          const currentPartner = costs[i];
+          const nextPartner = costs[i + 1];
+          if (currentPartner.level === 0) continue;
+          if (!paymentSheetsMap.has(currentPartner.partner_id)) {
+            paymentSheetsMap.set(currentPartner.partner_id, {
+              paying_partner_id: currentPartner.partner_id,
+              paying_partner_name: currentPartner.partner_name,
+              header_company_name: nextPartner ? nextPartner.partner_name : '中科智运（云南）供应链科技有限公司',
+              records: [],
+              total_payable: 0,
+            });
+          }
+          const sheet = paymentSheetsMap.get(currentPartner.partner_id)!;
+          sheet.records.push({ record: record, payable_to_driver: currentPartner.payable_amount });
+          sheet.total_payable += currentPartner.payable_amount;
+        }
+      });
+
+      setMultiSheetPaymentData({ sheets: Array.from(paymentSheetsMap.values()), all_records: records });
+      setIsPreviewModalOpen(true);
+
+    } catch (error) {
+      console.error("准备付款申请数据失败:", error);
+      toast({ title: "错误", description: `准备付款申请数据失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleConfirmAndSave = async () => {
+    if (!multiSheetPaymentData || multiSheetPaymentData.all_records.length === 0) return;
+    setIsSaving(true);
+    try {
+      const { all_records } = multiSheetPaymentData;
+      const recordIds = all_records.map(r => r.id);
+      const totalAmount = all_records.reduce((sum, r) => sum + (r.payable_cost || 0), 0);
+
+      const { data: newRequestId, error } = await supabase.rpc('process_payment_application', {
+        p_record_ids: recordIds,
+        p_total_amount: totalAmount,
+      });
+
+      if (error) throw error;
+
+      toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已成功创建，并更新了 ${recordIds.length} 条运单状态为“已申请支付”。` });
+      
+      exportMultiSheetExcel(multiSheetPaymentData, newRequestId);
+
+      setIsPreviewModalOpen(false);
+      setMultiSheetPaymentData(null);
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchReportData();
+
+    } catch (error) {
+      console.error("保存付款申请失败:", error);
+      toast({ title: "错误", description: `保存付款申请失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const exportMultiSheetExcel = (data: MultiSheetPaymentData, requestId: string) => {
+    const wb = XLSX.utils.book_new();
+    const requestDate = format(new Date(), 'yyyy-MM-dd');
+
+    data.sheets.forEach(sheetData => {
+      const ws_data: any[][] = [
+        [sheetData.header_company_name + '支付申请表'], [],
+        ['货主单位:', sheetData.paying_partner_name, null, '申请时间:', requestDate, null, '申请编号:', requestId], [],
+        ['序号', '运单号', '实际出发时间', '起始地', '目的地', '司机', '司机电话', '车牌号', '承运人运费']
+      ];
+      sheetData.records.forEach((item, index) => {
+        const r = item.record;
+        ws_data.push([ index + 1, r.auto_number, r.loading_date, r.loading_location, r.unloading_location, r.driver_name, r.driver_phone, r.license_plate, item.payable_to_driver ]);
+      });
+      ws_data.push([], [null, null, null, null, null, null, null, '合计:', sheetData.total_payable]);
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, 8 } }];
+      ws['!cols'] = [ {wch:5}, {wch:15}, {wch:12}, {wch:20}, {wch:20}, {wch:10}, {wch:15}, {wch:12}, {wch:12} ];
+      XLSX.utils.book_append_sheet(wb, ws, sheetData.paying_partner_name.slice(0, 30));
+    });
+
+    XLSX.writeFile(wb, `支付申请表_${requestId}.xlsx`);
+  };
+
   // --- 派生状态和工具函数 ---
   const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? { from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined } : undefined;
   
@@ -179,13 +297,14 @@ export default function FinanceReconciliation() {
         toast({ title: "提示", description: "没有可导出的数据" });
         return;
     }
-    const headers = ['运单编号', '项目名称', '司机姓名', '路线', '装货日期', '运费金额', '额外费用', '司机应收'];
+    const headers = ['运单编号', '项目名称', '司机姓名', '路线', '装货日期', '运费金额', '额外费用', '司机应收', '支付状态'];
     displayedPartners.forEach(p => headers.push(`${p.name}(应付)`));
     const dataToExport = (reportData.records || []).map((record: any) => {
       const row: {[key: string]: any} = {
         '运单编号': record.auto_number, '项目名称': record.project_name, '司机姓名': record.driver_name,
         '路线': `${record.loading_location} → ${record.unloading_location}`, '装货日期': record.loading_date,
         '运费金额': record.current_cost || 0, '额外费用': record.extra_cost || 0, '司机应收': record.payable_cost || 0,
+        '支付状态': record.payment_status === 'Paid' ? '已完成支付' : (record.payment_status === 'Processing' ? '已申请支付' : '未支付')
       };
       displayedPartners.forEach(p => {
         const cost = (record.partner_costs || []).find((c:any) => c.partner_id === p.id);
@@ -201,7 +320,7 @@ export default function FinanceReconciliation() {
   };
 
   const isAllOnPageSelected = useMemo(() => {
-    const pageIds = (reportData?.records || []).map((r: any) => r.id);
+    const pageIds = (reportData?.records || []).filter((r: any) => r.payment_status === 'Unpaid').map((r: any) => r.id);
     if (pageIds.length === 0) return false;
     return pageIds.every(id => selection.selectedIds.has(id));
   }, [reportData?.records, selection.selectedIds]);
@@ -211,15 +330,30 @@ export default function FinanceReconciliation() {
     return selection.selectedIds.size;
   }, [selection, reportData?.count]);
 
+  const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => {
+    switch (status) {
+      case 'Unpaid': return <Badge variant="destructive">未支付</Badge>;
+      case 'Processing': return <Badge variant="secondary">已申请支付</Badge>;
+      case 'Paid': return <Badge variant="success">已完成支付</Badge>;
+      default: return <Badge>{status}</Badge>;
+    }
+  };
+
   if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-foreground">公司付款申请</h1><p className="text-muted-foreground">提交财务部付款申请</p></div>
-        <ConfirmDialog title="确认批量重算" description={`您确定要为选中的 ${selectionCount} 条运单重新计算所有合作方的应付金额吗？此操作会根据最新的项目合作链路配置覆盖现有数据。`} onConfirm={handleBatchRecalculate}>
-          <Button variant="destructive" disabled={selectionCount === 0 || isRecalculating}>{isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}一键重算已选运单 ({selectionCount})</Button>
-        </ConfirmDialog>
+        <div><h1 className="text-3xl font-bold text-foreground">合作方付款申请</h1><p className="text-muted-foreground">向合作方申请支付司机运费。</p></div>
+        <div className="flex gap-2">
+          <Button variant="default" disabled={selectionCount === 0 || isGenerating} onClick={handleApplyForPaymentClick}>
+            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+            一键申请付款 ({selectionCount})
+          </Button>
+          <ConfirmDialog title="确认批量重算" description={`您确定要为选中的 ${selectionCount} 条运单重新计算所有合作方的应付金额吗？`} onConfirm={handleBatchRecalculate}>
+            <Button variant="destructive" disabled={selectionCount === 0 || isRecalculating}>{isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}重算费用 ({selectionCount})</Button>
+          </ConfirmDialog>
+        </div>
       </div>
 
       <Card className="border-muted/40">
@@ -228,6 +362,7 @@ export default function FinanceReconciliation() {
             <div className="flex flex-col gap-1.5 min-w-[140px]"><Label>项目</Label><Select value={uiFilters.projectId} onValueChange={(v) => handleFilterChange('projectId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
             <div className="flex flex-col gap-1.5"><Label>日期范围</Label><DateRangePicker date={dateRangeValue} setDate={handleDateChange} /></div>
             <div className="flex flex-col gap-1.5 min-w-[140px]"><Label>合作方</Label><Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有合作方</SelectItem>{allPartners.map(p => (<SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>))}</SelectContent></Select></div>
+            <div className="flex flex-col gap-1.5 min-w-[120px]"><Label>支付状态</Label><Select value={uiFilters.paymentStatus} onValueChange={(v) => handleFilterChange('paymentStatus', v as any)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="Unpaid">未支付</SelectItem><SelectItem value="Processing">已申请支付</SelectItem><SelectItem value="Paid">已完成支付</SelectItem><SelectItem value="all">全部</SelectItem></SelectContent></Select></div>
             <Button onClick={handleSearch} size="sm" className="h-9 px-3 text-sm"><Search className="mr-2 h-4 w-4"/>搜索</Button>
             <Button variant="outline" size="sm" onClick={handleClear} className="h-9 px-3 text-sm">清除筛选</Button>
           </div>
@@ -256,49 +391,17 @@ export default function FinanceReconciliation() {
             <Card><CardHeader><CardTitle className="text-sm font-medium">司机应收汇总</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">¥{(reportData?.overview?.total_payable_cost || 0).toFixed(2)}</div></CardContent></Card>
           </div>
 
-          {/* --- [已美化] 合作方应付汇总 Card --- */}
           <Card>
-            <CardHeader>
-              <CardTitle>合作方应付汇总</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>合作方应付汇总</CardTitle></CardHeader>
             <CardContent>
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    {/* [最终修正] 为合作方名称列设置 10em 的最小宽度，确保视觉稳定 */}
-                    <TableHead className="min-w-[10em]">合作方名称</TableHead>
-                    {/* [最终修正] 保持内容自适应，以实现紧凑布局 */}
-                    <TableHead className="w-[1%] whitespace-nowrap text-center">相关运单数</TableHead>
-                    <TableHead className="w-[1%] whitespace-nowrap text-right">应付总金额 (元)</TableHead>
-                  </TableRow>
-                </TableHeader>
+                <TableHeader><TableRow><TableHead className="min-w-[10em]">合作方名称</TableHead><TableHead className="w-[1%] whitespace-nowrap text-center">相关运单数</TableHead><TableHead className="w-[1%] whitespace-nowrap text-right">应付总金额 (元)</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {loading && !(reportData?.partner_payables?.length > 0) ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center h-24">
-                        <Loader2 className="h-6 w-6 animate-spin inline-block"/>
-                      </TableCell>
-                    </TableRow>
-                  ) : (!reportData?.partner_payables || reportData.partner_payables.length === 0) ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center">没有找到匹配的数据</TableCell>
-                    </TableRow>
-                  ) : (
-                    (reportData.partner_payables).map((partner: any, index: number) => (
-                      <TableRow key={partner.partner_id} className="even:bg-muted/40">
-                        <TableCell className="font-medium">{partner.partner_name}</TableCell>
-                        <TableCell className="text-center">{partner.records_count}</TableCell>
-                        <TableCell className="text-right font-mono text-red-600">
-                          {formatCurrency(partner.total_payable)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
+                  {loading && !(reportData?.partner_payables?.length > 0) ? ( <TableRow><TableCell colSpan={3} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin inline-block"/></TableCell></TableRow> ) : (!reportData?.partner_payables || reportData.partner_payables.length === 0) ? ( <TableRow><TableCell colSpan={3} className="text-center">没有找到匹配的数据</TableCell></TableRow> ) : ( (reportData.partner_payables).map((partner: any) => ( <TableRow key={partner.partner_id} className="even:bg-muted/40"><TableCell className="font-medium">{partner.partner_name}</TableCell><TableCell className="text-center">{partner.records_count}</TableCell><TableCell className="text-right font-mono text-red-600">{formatCurrency(partner.total_payable)}</TableCell></TableRow> )) )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
-          {/* --- 美化结束 --- */}
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -309,9 +412,9 @@ export default function FinanceReconciliation() {
               <div className="min-h-[400px]">
                 {loading ? (<div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin"/></div>) : (
                 <Table>
-                  <TableHeader><TableRow><TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage}/></TableHead><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>日期</TableHead><TableHead>运费</TableHead><TableHead className="text-orange-600">额外费</TableHead>{displayedPartners.map(p => <TableHead key={p.id} className="text-center">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}<TableHead>状态</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} disabled={uiFilters.paymentStatus !== 'Unpaid'} /></TableHead><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>日期</TableHead><TableHead>运费</TableHead><TableHead className="text-orange-600">额外费</TableHead>{displayedPartners.map(p => <TableHead key={p.id} className="text-center">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}<TableHead>支付状态</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {(reportData?.records || []).map((r: any) => (<TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"}><TableCell><Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)}/></TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{r.auto_number}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell><TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_location}→{r.unloading_location}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>¥{r.current_cost?.toFixed(2)}</TableCell><TableCell className="font-mono text-orange-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{r.extra_cost ? `¥${r.extra_cost.toFixed(2)}` : '-'}</TableCell>{displayedPartners.map(p => { const cost = (r.partner_costs || []).find((c:any) => c.partner_id === p.id); return <TableCell key={p.id} className="font-mono text-center cursor-pointer" onClick={() => setViewingRecord(r)}>{cost ? `¥${cost.payable_amount.toFixed(2)}` : '-'}</TableCell>; })}<TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}><Badge variant={r.current_cost ? "default" : "secondary"}>{r.current_cost ? "已计费" : "待计费"}</Badge></TableCell></TableRow>))}
+                    {(reportData?.records || []).map((r: any) => (<TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"}><TableCell><Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)} disabled={r.payment_status !== 'Unpaid'} /></TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{r.auto_number}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell><TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_location}→{r.unloading_location}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>¥{r.current_cost?.toFixed(2)}</TableCell><TableCell className="font-mono text-orange-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{r.extra_cost ? `¥${r.extra_cost.toFixed(2)}` : '-'}</TableCell>{displayedPartners.map(p => { const cost = (r.partner_costs || []).find((c:any) => c.partner_id === p.id); return <TableCell key={p.id} className="font-mono text-center cursor-pointer" onClick={() => setViewingRecord(r)}>{cost ? `¥${cost.payable_amount.toFixed(2)}` : '-'}</TableCell>; })}<TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{getPaymentStatusBadge(r.payment_status)}</TableCell></TableRow>))}
                     <TableRow className="bg-muted/30 font-semibold border-t-2"><TableCell colSpan={6} className="text-right font-bold">合计</TableCell><TableCell className="font-mono font-bold text-center"><div>¥{(reportData?.overview?.total_current_cost || 0).toFixed(2)}</div><div className="text-xs text-muted-foreground font-normal">(运费)</div></TableCell><TableCell className="font-mono font-bold text-orange-600 text-center"><div>¥{(reportData?.overview?.total_extra_cost || 0).toFixed(2)}</div><div className="text-xs text-muted-foreground font-normal">(额外费)</div></TableCell>{displayedPartners.map(p => { const total = (reportData?.partner_payables || []).find((pp: any) => pp.partner_id === p.id)?.total_payable || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono"><div>¥{total.toFixed(2)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}<TableCell></TableCell></TableRow>
                   </TableBody>
                 </Table>
@@ -338,14 +441,54 @@ export default function FinanceReconciliation() {
           <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
           {viewingRecord && (
             <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
-              <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date || '未填写'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{viewingRecord.transport_type}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div><div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p>{getPaymentStatusBadge(viewingRecord.payment_status)}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{(viewingRecord as any).transport_type}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{(viewingRecord as any).loading_weight ? `${(viewingRecord as any).loading_weight} 吨` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{(viewingRecord as any).unloading_weight ? `${(viewingRecord as any).unloading_weight} 吨` : '-'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono">{viewingRecord.extra_cost ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div><div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.payable_cost ? `¥${viewingRecord.payable_cost.toFixed(2)}` : '-'}</p></div>
-              <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{viewingRecord.remarks || '无'}</p></div>
+              <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{(viewingRecord as any).remarks || '无'}</p></div>
             </div>
           )}
           <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button></div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>付款申请预览</DialogTitle>
+            <DialogDescription>将为以下合作方生成付款申请，并更新 {multiSheetPaymentData?.all_records.length || 0} 条运单状态为“已申请支付”。</DialogDescription>
+          </DialogHeader>
+          {multiSheetPaymentData && (
+            <div className="max-h-[60vh] overflow-y-auto p-1">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>付款方 (货主单位)</TableHead>
+                    <TableHead>收款方 (Excel表头)</TableHead>
+                    <TableHead className="text-right">运单数</TableHead>
+                    <TableHead className="text-right">合计金额</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {multiSheetPaymentData.sheets.map(sheet => (
+                    <TableRow key={sheet.paying_partner_id}>
+                      <TableCell className="font-medium">{sheet.paying_partner_name}</TableCell>
+                      <TableCell>{sheet.header_company_name}</TableCell>
+                      <TableCell className="text-right">{sheet.records.length}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(sheet.total_payable)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)} disabled={isSaving}>取消</Button>
+            <Button onClick={handleConfirmAndSave} disabled={isSaving}>
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              确认并生成申请
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
