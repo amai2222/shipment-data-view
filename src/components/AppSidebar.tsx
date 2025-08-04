@@ -56,6 +56,7 @@ const menuItems = [
     icon: FileText,
     items: [
       { title: "运单录入", url: "/business-entry", icon: Plus },
+      { title: "付款申请", url: "/business-entry/payment-request", icon: DollarSign },
     ]
   },
   {
