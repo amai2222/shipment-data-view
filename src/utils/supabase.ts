@@ -88,7 +88,7 @@ export class SupabaseStorage {
    * @returns 一个包含所有统计数据的聚合对象。
    */
   static async getDashboardStats(filters: { startDate: string; endDate: string; projectId: string | null; }) {
-    const { data, error } = await supabase.rpc('get_dashboard_stats', {
+    const { data, error } = await supabase.rpc('get_dashboard_stats' as any, {
       start_date_param: filters.startDate,
       end_date_param: filters.endDate,
       project_id_param: filters.projectId === 'all' ? null : filters.projectId,

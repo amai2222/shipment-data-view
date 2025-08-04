@@ -59,7 +59,7 @@ export function useLogisticsData() {
     setLoading(true);
     try {
       // [最终修复] 3. RPC 调用参数与您的 SQL 函数定义完全匹配
-      const { data, error } = await supabase.rpc('get_logistics_summary_and_records', {
+      const { data, error } = await supabase.rpc('get_logistics_summary_and_records' as any, {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,
@@ -73,7 +73,7 @@ export function useLogisticsData() {
       if (error) throw error;
       
       // 您的函数返回一个 JSONB 对象，而不是数组
-      const responseData = data || {};
+      const responseData = (data as any) || {};
       
       setRecords(responseData.records || []);
       setTotalSummary(responseData.summary || INITIAL_SUMMARY);

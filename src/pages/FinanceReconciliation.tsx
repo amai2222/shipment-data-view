@@ -64,17 +64,15 @@ export default function FinanceReconciliation() {
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_finance_reconciliation_data', {
+      const { data, error } = await supabase.rpc('get_finance_reconciliation_data' as any, {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
-        p_page_number: pagination.currentPage,
-        p_page_size: PAGE_SIZE,
       });
       if (error) throw error;
       setReportData(data);
-      setPagination(prev => ({ ...prev, totalPages: Math.ceil((data?.count || 0) / PAGE_SIZE) || 1 }));
+      setPagination(prev => ({ ...prev, totalPages: Math.ceil(((data as any)?.count || 0) / PAGE_SIZE) || 1 }));
     } catch (error) {
       console.error("加载财务对账数据失败:", error);
       toast({ title: "错误", description: `加载财务对账数据失败: ${(error as any).message}`, variant: "destructive" });
@@ -133,7 +131,7 @@ export default function FinanceReconciliation() {
     try {
       let error;
       if (selection.mode === 'all_filtered') {
-        const { error: filterError } = await supabase.rpc('batch_recalculate_by_filter', {
+        const { error: filterError } = await supabase.rpc('batch_recalculate_by_filter' as any, {
           p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
           p_start_date: activeFilters.startDate || null,
           p_end_date: activeFilters.endDate || null,

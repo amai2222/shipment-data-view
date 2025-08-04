@@ -108,10 +108,10 @@ export default function Home() {
     try {
       // 这个调用现在只会返回轻量级的聚合数据
       const data = await SupabaseStorage.getDashboardStats(filterInputs);
-      setOverviewStats(data.overview);
-      setDailyTransportStats(data.dailyTransportStats || []);
-      setDailyCostStats(data.dailyCostStats || []);
-      setDailyCountStats(data.dailyCountStats || []);
+      setOverviewStats((data as any).overview);
+      setDailyTransportStats((data as any).dailyTransportStats || []);
+      setDailyCostStats((data as any).dailyCostStats || []);
+      setDailyCountStats((data as any).dailyCountStats || []);
     } catch (err) {
       console.error('获取看板数据失败:', err);
       toast({ title: "数据加载失败", variant: "destructive" });

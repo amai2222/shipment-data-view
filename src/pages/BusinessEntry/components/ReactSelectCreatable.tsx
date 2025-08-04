@@ -31,9 +31,10 @@ export function ReactSelectCreatable({ value, onChange, placeholder = "选择或
   const loadOptions = async (inputValue: string): Promise<SelectOption[]> => {
     if (!projectId) return [];
     const searchTerm = inputValue || ''; // 确保即使是空输入也能触发初始列表加载
-    const { data, error } = await supabase.rpc('search_project_linked_items', { p_project_id: projectId, p_item_type: tableName, p_search_term: searchTerm });
+    const { data, error } = await supabase.rpc('search_project_linked_items' as any, { p_project_id: projectId, p_item_type: tableName, p_search_term: searchTerm });
     if (error) { console.error("Error fetching options:", error); return []; }
-    return (data || []).map((item: any) => ({ value: item.id, label: tableName === 'drivers' ? `${item.name} (${item.license_plate || '无车牌'})` : item.name, ...item }));
+    const resultArray = Array.isArray(data) ? data : [];
+    return resultArray.map((item: any) => ({ value: item.id, label: tableName === 'drivers' ? `${item.name} (${item.license_plate || '无车牌'})` : item.name, ...item }));
   };
 
   return (
