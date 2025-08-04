@@ -1,7 +1,6 @@
--- 文件路径: supabase/migrations/YYYYMMDDHHMMSS_create_payment_request_function.sql
--- 描述: [CzkRO 最终修复版] 创建一个全新的、独立的函数 get_payment_request_data，
---       专门用于付款申请页面，以避免影响其他功能。
---       同时，暂时移除了对不存在的 project_partner_chains 表的查询来修复 "relation does not exist" 错误。
+-- 文件路径: supabase/migrations/20250805030722_create_payment_request_function.sql
+-- 描述: [Hnq2n 最终蓝图修复版] 根据用户提供的真实数据库结构，
+--       正确地 LEFT JOIN 到 partner_chains 表以获取 chain_name。
 
 CREATE OR REPLACE FUNCTION public.get_payment_request_data(
     p_project_id uuid DEFAULT NULL::uuid, 
@@ -58,8 +57,8 @@ BEGIN
                     'payment_status', fr.payment_status,
                     'current_cost', fr.current_cost,
                     'extra_cost', fr.extra_cost,
-                    -- 关键修复：移除了对 ppc.name 的引用，使用 NULL 作为占位符
-                    'chain_name', NULL 
+                    -- 关键修复：从正确的表 pc (partner_chains) 中获取正确的列 chain_name
+                    'chain_name', pc.chain_name
                 )
             )
             FROM (
@@ -69,7 +68,8 @@ BEGIN
             ) fr
             JOIN projects p ON fr.project_id = p.id
             JOIN drivers d ON fr.driver_id = d.id
-            -- 关键修复：彻底移除了对不存在的 project_partner_chains 表的 LEFT JOIN
+            -- 关键修复：LEFT JOIN 到正确的表 partner_chains
+            LEFT JOIN partner_chains pc ON fr.chain_id = pc.id
         ), '[]'::json),
         'overview', (
             SELECT json_build_object(
@@ -82,14 +82,14 @@ BEGIN
         'partner_payables', COALESCE((
             SELECT json_agg(t) FROM (
                 SELECT
-                    pc.partner_id,
-                    pc.partner_name,
+                    pc_data.partner_id,
+                    pc_data.partner_name,
                     count(*) as records_count,
-                    sum(pc.payable_amount) as total_payable
+                    sum(pc_data.payable_amount) as total_payable
                 FROM filtered_records,
-                LATERAL jsonb_to_populate_recordset(null::partner_cost_type, partner_costs) AS pc
-                GROUP BY pc.partner_id, pc.partner_name
-                ORDER BY sum(pc.payable_amount) DESC
+                LATERAL jsonb_to_populate_recordset(null::partner_cost_type, partner_costs) AS pc_data
+                GROUP BY pc_data.partner_id, pc_data.partner_name
+                ORDER BY sum(pc_data.payable_amount) DESC
             ) t
         ), '[]'::json)
     ) INTO result_json;
