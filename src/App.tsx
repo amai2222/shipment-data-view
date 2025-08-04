@@ -12,7 +12,7 @@ import Locations from "./pages/Locations";
 import Partners from "./pages/Partners";
 import BusinessEntry from "./pages/BusinessEntry";
 import FinancialOverview from "./pages/FinancialOverview";
-import PaymentRequest from "./pages/payment-request"; // 请确保这个相对路径是正确的
+import PaymentRequest from "./pages/PaymentRequest.tsx"; // 请确保这个相对路径是正确的
 import FinanceReconciliation from "./pages/FinanceReconciliation";
 import PaymentInvoice from "./pages/PaymentInvoice";
 import NotFound from "./pages/NotFound";
