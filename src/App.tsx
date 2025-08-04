@@ -11,6 +11,7 @@ import Drivers from "./pages/Drivers";
 import Locations from "./pages/Locations";
 import Partners from "./pages/Partners";
 import BusinessEntry from "./pages/BusinessEntry";
+import PaymentRequest from "./pages/PaymentRequest"; // 正确：文件名符合PascalCase约定
 import FinancialOverview from "./pages/FinancialOverview";
 import FinanceReconciliation from "./pages/FinanceReconciliation";
 import PaymentInvoice from "./pages/PaymentInvoice";
@@ -33,7 +34,7 @@ const App = () => (
           <Route path="/locations" element={<AppLayout><Locations /></AppLayout>} />
           <Route path="/partners" element={<AppLayout><Partners /></AppLayout>} />
           <Route path="/business-entry" element={<AppLayout><BusinessEntry /></AppLayout>} />
-          <Route path="/payment-request" element={<AppLayout><FinanceReconciliation /></AppLayout>} />
+          <Route path="/payment-request" element={<AppLayout><PaymentRequest /></AppLayout>} />
           <Route path="/finance/reconciliation" element={<AppLayout><FinanceReconciliation /></AppLayout>} />
           <Route path="/finance/payment-invoice" element={<AppLayout><PaymentInvoice /></AppLayout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
