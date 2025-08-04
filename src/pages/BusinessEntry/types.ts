@@ -18,6 +18,7 @@ export interface LogisticsRecord {
   unloading_weight: number | null;
   current_cost: number | null;
   payable_cost: number | null;
+  driver_payable_cost: number | null;
   license_plate: string | null;
   driver_phone: string | null;
   transport_type: string | null;
@@ -45,6 +46,16 @@ export interface Project {
 export interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 export interface Location { id: string; name: string; }
 export interface PartnerChain { id: string; project_id: string; chain_name: string; }
+
+// 分页状态类型
+export interface PaginationState {
+  page: number;
+  size: number;
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  totalCount: number;
+}
 
 // 导入预览的类型
 export interface ImportPreviewResult {
