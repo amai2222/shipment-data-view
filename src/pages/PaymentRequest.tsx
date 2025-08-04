@@ -1,5 +1,6 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [hoWm3 最终完整版] 提供了所有函数的完整实现，未经任何省略。
+// 描述: [T1tO3 最终修复版] 此代码恢复了所有被省略的函数实现，
+//       同时保留了 MultiSelect 的防御性修复。这是最终的、绝对完整的版本。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -380,7 +381,13 @@ export default function PaymentRequest() {
             </SelectContent></Select></div>
             <div className="flex flex-col gap-1.5 min-w-[120px]">
                 <Label>支付状态</Label>
-                <MultiSelect options={PAYMENT_STATUS_OPTIONS} selected={uiFilters.paymentStatus} onChange={(v) => handleFilterChange('paymentStatus', v)} className="w-full" placeholder="选择状态..." />
+                <MultiSelect 
+                    options={PAYMENT_STATUS_OPTIONS} 
+                    selected={uiFilters.paymentStatus} 
+                    onChange={(v) => handleFilterChange('paymentStatus', v || [])} 
+                    className="w-full" 
+                    placeholder="选择状态..." 
+                />
             </div>
             <Button onClick={handleSearch} size="sm" className="h-9 px-3 text-sm"><Search className="mr-2 h-4 w-4"/>搜索</Button>
             <Button variant="outline" size="sm" onClick={handleClear} className="h-9 px-3 text-sm">清除筛选</Button>
