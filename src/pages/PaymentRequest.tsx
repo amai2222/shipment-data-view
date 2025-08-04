@@ -1,5 +1,5 @@
-// 文件路径: src/pages/payment-request.tsx
-// 描述: [TBA38 最终修正版] 修正了组件名称以匹配文件名。这是最终的、完整的、功能齐全的代码。
+// 文件路径: src/pages/PaymentRequest.tsx
+// 描述: [mO0GK 最终版] 根据您的设计要求，移除了所有统计卡片和重算按钮，聚焦核心功能。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,14 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Loader2, RefreshCw, Search, FileSpreadsheet, Save } from "lucide-react";
+import { Download, Loader2, Search, FileSpreadsheet, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
@@ -29,9 +28,7 @@ interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: n
 interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: 'Unpaid' | 'Processing' | 'Paid' | 'all'; }
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
-// [核心重构] 多层级支付申请的数据结构
-interface PaymentSheetData { paying_partner_id: string; paying_partner_name: string; header_company_name: string; // 下一级合作方
-  records: { record: LogisticsRecord; payable_to_driver: number; }[]; total_payable: number; }
+interface PaymentSheetData { paying_partner_id: string; paying_partner_name: string; header_company_name: string; records: { record: LogisticsRecord; payable_to_driver: number; }[]; total_payable: number; }
 interface MultiSheetPaymentData { sheets: PaymentSheetData[]; all_records: LogisticsRecord[]; }
 
 // --- 常量和初始状态 ---
@@ -39,7 +36,6 @@ const PAGE_SIZE = 50;
 const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "", paymentStatus: 'Unpaid' };
 const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击“搜索”按钮以查看最新结果。</p> </div> );
 
-// [TBA38 FINAL FIX] 修正了组件名称以匹配文件名 payment-request.tsx
 export default function PaymentRequest() {
   // --- State 管理 ---
   const [reportData, setReportData] = useState<any>(null);
@@ -47,13 +43,10 @@ export default function PaymentRequest() {
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecordWithPartners | null>(null);
-  const [isRecalculating, setIsRecalculating] = useState(false);
   const { toast } = useToast();
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_FINANCE_FILTERS);
   const [pagination, setPagination] = useState<PaginationState>({ currentPage: 1, totalPages: 1 });
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
-  
-  // [核心重构] 付款申请相关状态
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [multiSheetPaymentData, setMultiSheetPaymentData] = useState<MultiSheetPaymentData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -135,42 +128,6 @@ export default function PaymentRequest() {
     }
   };
 
-  const handleBatchRecalculate = async () => {
-    setIsRecalculating(true);
-    try {
-      let error;
-      if (selection.mode === 'all_filtered') {
-        const { error: filterError } = await supabase.rpc('batch_recalculate_by_filter' as any, {
-          p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
-          p_start_date: activeFilters.startDate || null,
-          p_end_date: activeFilters.endDate || null,
-          p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
-        });
-        error = filterError;
-      } else {
-        const idsToRecalculate = Array.from(selection.selectedIds);
-        if (idsToRecalculate.length === 0) {
-          toast({ title: "提示", description: "没有选择任何运单。" });
-          setIsRecalculating(false);
-          return;
-        }
-        const { error: idError } = await supabase.rpc('batch_recalculate_partner_costs', { p_record_ids: idsToRecalculate });
-        error = idError;
-      }
-      if (error) throw error;
-      const count = selection.mode === 'all_filtered' ? reportData?.count || '全部' : selection.selectedIds.size;
-      toast({ title: "成功", description: `已为 ${count} 条运单提交重算任务。` });
-      setSelection({ mode: 'none', selectedIds: new Set() });
-      fetchReportData();
-    } catch (error) {
-      console.error("批量重算失败:", error);
-      toast({ title: "错误", description: "批量重算失败，请重试。", variant: "destructive" });
-    } finally {
-      setIsRecalculating(false);
-    }
-  };
-
-  // [核心重构] "一键申请付款" 按钮点击逻辑
   const handleApplyForPaymentClick = async () => {
     if (selectionCount === 0) {
       toast({ title: "提示", description: "请先选择需要申请付款的运单。" });
@@ -193,7 +150,6 @@ export default function PaymentRequest() {
 
       const records: LogisticsRecord[] = data.records || [];
       
-      // --- 核心聚合逻辑 ---
       const paymentSheetsMap = new Map<string, PaymentSheetData>();
       records.forEach(record => {
         const costs = record.partner_costs || [];
@@ -236,7 +192,6 @@ export default function PaymentRequest() {
     }
   };
 
-  // [核心重构] 确认并保存
   const handleConfirmAndSave = async () => {
     if (!multiSheetPaymentData || multiSheetPaymentData.all_records.length === 0) return;
     setIsSaving(true);
@@ -256,7 +211,6 @@ export default function PaymentRequest() {
       
       exportMultiSheetExcel(multiSheetPaymentData, newRequestId);
 
-      // 清理工作
       setIsPreviewModalOpen(false);
       setMultiSheetPaymentData(null);
       setSelection({ mode: 'none', selectedIds: new Set() });
@@ -270,7 +224,6 @@ export default function PaymentRequest() {
     }
   };
 
-  // [核心重构] 导出多Sheet Excel
   const exportMultiSheetExcel = (data: MultiSheetPaymentData, requestId: string) => {
     const wb = XLSX.utils.book_new();
     const requestDate = format(new Date(), 'yyyy-MM-dd');
@@ -377,9 +330,6 @@ export default function PaymentRequest() {
             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
             一键申请付款 ({selectionCount})
           </Button>
-          <ConfirmDialog title="确认批量重算" description={`您确定要为选中的 ${selectionCount} 条运单重新计算所有合作方的应付金额吗？`} onConfirm={handleBatchRecalculate}>
-            <Button variant="destructive" disabled={selectionCount === 0 || isRecalculating}>{isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}重算费用 ({selectionCount})</Button>
-          </ConfirmDialog>
         </div>
       </div>
 
@@ -411,25 +361,6 @@ export default function PaymentRequest() {
 
       {isStale ? ( <StaleDataPrompt /> ) : (
         <>
-          <div className="grid gap-6 md:grid-cols-4">
-            <Card><CardHeader><CardTitle className="text-sm font-medium">运单总数</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{reportData?.overview?.total_records || 0}</div></CardContent></Card>
-            <Card><CardHeader><CardTitle className="text-sm font-medium">总运费</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">¥{(reportData?.overview?.total_current_cost || 0).toFixed(2)}</div></CardContent></Card>
-            <Card><CardHeader><CardTitle className="text-sm font-medium">总额外费用</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-orange-600">¥{(reportData?.overview?.total_extra_cost || 0).toFixed(2)}</div></CardContent></Card>
-            <Card><CardHeader><CardTitle className="text-sm font-medium">司机应收汇总</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">¥{(reportData?.overview?.total_payable_cost || 0).toFixed(2)}</div></CardContent></Card>
-          </div>
-
-          <Card>
-            <CardHeader><CardTitle>合作方应付汇总</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader><TableRow><TableHead className="min-w-[10em]">合作方名称</TableHead><TableHead className="w-[1%] whitespace-nowrap text-center">相关运单数</TableHead><TableHead className="w-[1%] whitespace-nowrap text-right">应付总金额 (元)</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {loading && !(reportData?.partner_payables?.length > 0) ? ( <TableRow><TableCell colSpan={3} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin inline-block"/></TableCell></TableRow> ) : (!reportData?.partner_payables || reportData.partner_payables.length === 0) ? ( <TableRow><TableCell colSpan={3} className="text-center">没有找到匹配的数据</TableCell></TableRow> ) : ( (reportData.partner_payables).map((partner: any) => ( <TableRow key={partner.partner_id} className="even:bg-muted/40"><TableCell className="font-medium">{partner.partner_name}</TableCell><TableCell className="text-center">{partner.records_count}</TableCell><TableCell className="text-right font-mono text-red-600">{formatCurrency(partner.total_payable)}</TableCell></TableRow> )) )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div><CardTitle>运单财务明细</CardTitle><p className="text-sm text-muted-foreground">各合作方应付金额按级别从左到右排列</p></div>
