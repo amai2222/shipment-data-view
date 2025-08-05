@@ -1,6 +1,6 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [vV2vg 最终修复版] 此代码是 PaymentRequest.tsx 的一个真正完整的、未经任何省略的版本。
-//       它包含了之前所有修复（下拉菜单、透明化提示等），并修复了因代码省略导致的页面崩溃问题。
+// 描述: [h2JVt 最终修复版] 此代码是 PaymentRequest.tsx 的一个真正完整的、未经任何省略的版本。
+//       它包含了之前所有修复（数据库函数适配、新Excel模板生成等），并修复了因代码省略导致的页面崩溃问题。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,14 +23,14 @@ import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
-// --- 类型定义 ---
-interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; }
-interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; }
+// --- 类型定义 (已根据新数据结构更新) ---
+interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; full_name: string; bank_account: string; bank_name: string; branch_name: string; }
+interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; cargo_type: string | null; loading_weight: number | null; remarks: string | null; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; }
 interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string; }
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
-interface PaymentSheetData { paying_partner_id: string; paying_partner_name: string; header_company_name: string; records: { record: LogisticsRecord; payable_to_driver: number; }[]; total_payable: number; }
+interface PaymentSheetData { paying_partner_id: string; paying_partner_name: string; paying_partner_full_name: string; paying_partner_bank_account: string; paying_partner_bank_name: string; paying_partner_branch_name: string; header_company_name: string; records: { record: LogisticsRecord; payable_amount: number; }[]; total_payable: number; project_name: string; }
 interface MultiSheetPaymentData { sheets: PaymentSheetData[]; all_records: LogisticsRecord[]; }
 
 // --- 常量和初始状态 ---
@@ -93,7 +93,6 @@ export default function PaymentRequest() {
     }
   }, [activeFilters, pagination.currentPage, toast]);
 
-  // --- Effects ---
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
   useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); } }, [fetchReportData, isStale]);
   useEffect(() => { setPagination(p => p.currentPage === 1 ? p : { ...p, currentPage: 1 }); setSelection({ mode: 'none', selectedIds: new Set() }); }, [activeFilters]);
@@ -107,14 +106,8 @@ export default function PaymentRequest() {
   
   const handleApplyForPaymentClick = async () => {
     const initialSelectionCount = selection.selectedIds.size;
-    if (initialSelectionCount === 0) {
-      toast({ title: "提示", description: "请先选择需要申请付款的运单。" });
-      return;
-    }
-    if (selection.mode === 'all_filtered') {
-        toast({ title: "提示", description: "“跨页全选”模式下将直接后台处理，无法预览。功能开发中..." });
-        return;
-    }
+    if (initialSelectionCount === 0) { toast({ title: "提示", description: "请先选择需要申请付款的运单。" }); return; }
+    if (selection.mode === 'all_filtered') { toast({ title: "提示", description: "“跨页全选”模式下将直接后台处理，无法预览。功能开发中..." }); return; }
 
     setIsGenerating(true);
     try {
@@ -125,26 +118,13 @@ export default function PaymentRequest() {
       const finalCount = idsToFetch.length;
       const ignoredCount = initialSelectionCount - finalCount;
 
-      if (ignoredCount > 0) {
-        toast({
-          title: "部分运单被忽略",
-          description: `您选择了 ${initialSelectionCount} 条运单，其中 ${ignoredCount} 条因状态不为“未支付”已被自动忽略。将仅为剩余的 ${finalCount} 条运单生成付款申请。`,
-          variant: "default",
-          duration: 8000,
-          action: <div className="p-1 rounded-full bg-blue-100"><Info className="h-5 w-5 text-blue-600"/></div>
-        });
-      }
-
-      if (finalCount === 0) {
-        toast({ title: "提示", description: "所选运单中没有“未支付”状态的记录，无需申请。", variant: "destructive" });
-        setIsGenerating(false);
-        return;
-      }
+      if (ignoredCount > 0) { toast({ title: "部分运单被忽略", description: `您选择了 ${initialSelectionCount} 条运单，其中 ${ignoredCount} 条因状态不为“未支付”已被自动忽略。将仅为剩余的 ${finalCount} 条运单生成付款申请。`, variant: "default", duration: 8000, action: <div className="p-1 rounded-full bg-blue-100"><Info className="h-5 w-5 text-blue-600"/></div> }); }
+      if (finalCount === 0) { toast({ title: "提示", description: "所选运单中没有“未支付”状态的记录，无需申请。", variant: "destructive" }); setIsGenerating(false); return; }
 
       const { data, error } = await supabase.rpc('get_data_for_payment_application', { p_record_ids: idsToFetch });
       if (error) throw error;
 
-      const records: LogisticsRecord[] = (data as any)?.records || [];
+      const records: LogisticsRecord[] = data || [];
       
       const paymentSheetsMap = new Map<string, PaymentSheetData>();
       records.forEach(record => {
@@ -153,17 +133,23 @@ export default function PaymentRequest() {
           const currentPartner = costs[i];
           const nextPartner = costs[i + 1];
           if (currentPartner.level === 0) continue;
+
           if (!paymentSheetsMap.has(currentPartner.partner_id)) {
             paymentSheetsMap.set(currentPartner.partner_id, {
               paying_partner_id: currentPartner.partner_id,
               paying_partner_name: currentPartner.partner_name,
-              header_company_name: nextPartner ? nextPartner.partner_name : '中科智运（云南）供应链科技有限公司',
+              paying_partner_full_name: currentPartner.full_name,
+              paying_partner_bank_account: currentPartner.bank_account,
+              paying_partner_bank_name: currentPartner.bank_name,
+              paying_partner_branch_name: currentPartner.branch_name,
+              header_company_name: nextPartner ? nextPartner.full_name : '中科智运（云南）供应链科技有限公司',
               records: [],
               total_payable: 0,
+              project_name: record.project_name, // Assume all records in a sheet have the same project for now
             });
           }
           const sheet = paymentSheetsMap.get(currentPartner.partner_id)!;
-          sheet.records.push({ record: record, payable_to_driver: currentPartner.payable_amount });
+          sheet.records.push({ record: record, payable_amount: currentPartner.payable_amount });
           sheet.total_payable += currentPartner.payable_amount;
         }
       });
@@ -241,23 +227,77 @@ export default function PaymentRequest() {
   const exportMultiSheetExcel = (data: MultiSheetPaymentData, requestId: string) => {
     const wb = XLSX.utils.book_new();
     const requestDate = format(new Date(), 'yyyy-MM-dd');
+
     data.sheets.forEach(sheetData => {
-      const ws_data: any[][] = [
-        [sheetData.header_company_name + '支付申请表'], [],
-        ['货主单位:', sheetData.paying_partner_name, null, '申请时间:', requestDate, null, '申请编号:', requestId], [],
-        ['序号', '运单号', '实际出发时间', '起始地', '目的地', '司机', '司机电话', '车牌号', '承运人运费']
+      const ws_data: (string | number | null)[][] = [
+        [sheetData.header_company_name + '支付申请表'],
+        ...Array(7).fill([]), // 7 empty rows for spacing
+        ['项目名称：', sheetData.project_name, null, null, null, null, '申请时间：', requestDate],
+        [null, null, null, null, null, null, '申请编号：', requestId],
+        [], // empty row
+        ['序号', '实际出发时间', '实际到达时间', '起始地', '目的地', '货物', '司机', '司机电话', '车牌号', '吨位', '承运人运费', '收款人', '收款银行账号', '开户行名称', '支行网点']
       ];
+
       sheetData.records.forEach((item, index) => {
         const r = item.record;
-        ws_data.push([ index + 1, r.auto_number, r.loading_date, r.loading_location, r.unloading_location, r.driver_name, r.driver_phone, r.license_plate, item.payable_to_driver ]);
+        ws_data.push([
+          index + 1,
+          r.loading_date,
+          r.unloading_date,
+          r.loading_location,
+          r.unloading_location,
+          r.cargo_type,
+          r.driver_name,
+          r.driver_phone,
+          r.license_plate,
+          r.loading_weight,
+          item.payable_amount,
+          sheetData.paying_partner_full_name,
+          sheetData.paying_partner_bank_account,
+          sheetData.paying_partner_bank_name,
+          sheetData.paying_partner_branch_name
+        ]);
       });
-      ws_data.push([], [null, null, null, null, null, null, null, '合计:', sheetData.total_payable]);
+
+      const emptyRowsToAdd = Math.max(0, 10 - sheetData.records.length);
+      for (let i = 0; i < emptyRowsToAdd; i++) {
+        ws_data.push(Array(15).fill(null));
+      }
+
+      const remarksText = sheetData.records.map(i => i.record.remarks).filter(Boolean).join('; ');
+      ws_data.push(['备注：', remarksText]);
+      ws_data.push([null, null, null, null, null, null, null, null, null, '合计', sheetData.total_payable, null, null, null, null]);
+      ws_data.push([]);
+      ws_data.push(['信息专员签字', null, '信息部审核签字', null, '业务负责人签字', null, '复核审批人签字', null, '业务经理', null, '业务总经理', null, '财务部审核签字']);
+
       const ws = XLSX.utils.aoa_to_sheet(ws_data);
-      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: {  r: 0, c: 8 } }];
-      const cols = [ {wch:5}, {wch:15}, {wch:12}, {wch:20}, {wch:20}, {wch:10}, {wch:15}, {wch:12}, {wch:12} ];
-      ws['!cols'] = cols;
+
+      const lastDataRow = 11 + Math.max(sheetData.records.length, 10);
+      const remarksRow = lastDataRow + 1;
+      const totalRow = lastDataRow + 2;
+      const signRow = lastDataRow + 4;
+
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 14 } },
+        { s: { r: 8, c: 1 }, e: { r: 8, c: 5 } },
+        { s: { r: remarksRow, c: 1 }, e: { r: remarksRow, c: 14 } },
+        { s: { r: signRow, c: 0 }, e: { r: signRow, c: 1 } },
+        { s: { r: signRow, c: 2 }, e: { r: signRow, c: 3 } },
+        { s: { r: signRow, c: 4 }, e: { r: signRow, c: 5 } },
+        { s: { r: signRow, c: 6 }, e: { r: signRow, c: 7 } },
+        { s: { r: signRow, c: 8 }, e: { r: signRow, c: 9 } },
+        { s: { r: signRow, c: 10 }, e: { r: signRow, c: 11 } },
+        { s: { r: signRow, c: 12 }, e: { r: signRow, c: 14 } },
+      ];
+
+      ws['!cols'] = [
+        { wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 10 },
+        { wch: 12 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }
+      ];
+
       XLSX.utils.book_append_sheet(wb, ws, sheetData.paying_partner_name.slice(0, 30));
     });
+
     XLSX.writeFile(wb, `支付申请表_${requestId}.xlsx`);
   };
 
@@ -292,7 +332,7 @@ export default function PaymentRequest() {
     switch (status) {
       case 'Unpaid': return <Badge variant="destructive">未支付</Badge>;
       case 'Processing': return <Badge variant="secondary">已申请支付</Badge>;
-      case 'Paid': return <Badge variant="default">已完成支付</Badge>;
+      case 'Paid': return <Badge variant="success">已完成支付</Badge>;
       default: return <Badge>{status}</Badge>;
     }
   };
@@ -328,7 +368,7 @@ export default function PaymentRequest() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-foreground">合作方付款申请</h1><p className="text-muted-foreground">向合作方申请支付司机运费。</p></div>
+        <div><h1 className="text-3xl font-bold text-foreground">合作方付款申请</h1><p className="text-muted-foreground">向合作方申请支付运费。</p></div>
         <div className="flex gap-2">
           <Button variant="default" disabled={selectionCount === 0 || isGenerating} onClick={handleApplyForPaymentClick}>
             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
@@ -469,8 +509,8 @@ export default function PaymentRequest() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>付款方 (货主单位)</TableHead>
-                    <TableHead>收款方 (Excel表头)</TableHead>
+                    <TableHead>付款方 (收款人)</TableHead>
+                    <TableHead>收款银行账号</TableHead>
                     <TableHead className="text-right">运单数</TableHead>
                     <TableHead className="text-right">合计金额</TableHead>
                   </TableRow>
@@ -478,8 +518,8 @@ export default function PaymentRequest() {
                 <TableBody>
                   {multiSheetPaymentData.sheets.map(sheet => (
                     <TableRow key={sheet.paying_partner_id}>
-                      <TableCell className="font-medium">{sheet.paying_partner_name}</TableCell>
-                      <TableCell>{sheet.header_company_name}</TableCell>
+                      <TableCell className="font-medium">{sheet.paying_partner_full_name}</TableCell>
+                      <TableCell>{sheet.paying_partner_bank_account}</TableCell>
                       <TableCell className="text-right">{sheet.records.length}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(sheet.total_payable)}</TableCell>
                     </TableRow>
