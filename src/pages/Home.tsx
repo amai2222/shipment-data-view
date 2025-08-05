@@ -160,8 +160,7 @@ export default function Home() {
   }
 
   return (
-    // 【布局修正】为整个页面增加 position: relative，以便悬浮按钮正确定位
-    <div className="space-y-8 p-4 md:p-8 relative min-h-screen">
+    <div className="space-y-8 p-4 md:p-8">
       {migrationStatus && !migrationStatus.isMigrated && migrationStatus.localCount > 0 && (
         <Card className="border-orange-200 bg-orange-50">
           <CardContent className="p-4">
@@ -211,10 +210,17 @@ export default function Home() {
         </Card>
         <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-purple-100 rounded-lg mr-4"><BarChart3 className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm font-medium text-muted-foreground">实际运输/退货</p><p className="text-2xl font-bold">{overviewStats?.actualTransportCount || 0}/{overviewStats?.returnCount || 0}</p></div></CardContent></Card>
       </div>
-      
+
       <div className="space-y-6">
         <Card className="shadow-card">
-          <CardHeader><CardTitle>每日运输量统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (吨)</CardTitle></CardHeader>
+          {/* 【布局修正】将开关放在 CardHeader 中，与标题并列 */}
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>每日运输量统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (吨)</CardTitle>
+            <div className="flex items-center space-x-2">
+              <Switch id="log-scale-switch-home" checked={useLogScale} onCheckedChange={setUseLogScale} />
+              <Label htmlFor="log-scale-switch-home" className="cursor-pointer text-sm">对数刻度</Label>
+            </div>
+          </CardHeader>
           <CardContent>
             <div className="h-96">
               <ResponsiveContainer width="100%" height="100%">
@@ -266,12 +272,6 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
-
-      {/* 【布局修正】将开关固定在页面右下角，不再影响其他元素布局 */}
-      <div className="fixed bottom-6 right-6 z-50 p-4 bg-background/80 backdrop-blur-sm border rounded-lg shadow-lg flex items-center space-x-2">
-        <Switch id="log-scale-switch-home" checked={useLogScale} onCheckedChange={setUseLogScale} />
-        <Label htmlFor="log-scale-switch-home" className="cursor-pointer text-sm font-medium">启用对数刻度</Label>
-      </div>
 
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col" aria-describedby="dialog-description">
