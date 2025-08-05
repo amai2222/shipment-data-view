@@ -35,11 +35,11 @@ import { forceReimportData } from "@/utils/importData";
 // 菜单配置
 const menuItems = [
   {
-    title: "数据概览",
+    title: "数据看板",
     icon: BarChart3,
     items: [
-      { title: "运输概览", url: "/dashboard/transport", icon: Truck },
-      { title: "财务概览", url: "/dashboard/financial", icon: DollarSign },
+      { title: "运输看板", url: "/dashboard/transport", icon: Truck },
+      { title: "财务看板", url: "/dashboard/financial", icon: DollarSign },
     ]
   },
   {
