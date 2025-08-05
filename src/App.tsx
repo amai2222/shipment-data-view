@@ -16,6 +16,7 @@ import FinancialOverview from "./pages/FinancialOverview";
 import FinanceReconciliation from "./pages/FinanceReconciliation";
 import PaymentInvoice from "./pages/PaymentInvoice";
 import NotFound from "./pages/NotFound";
+import PaymentRequestsList from "./pages/PaymentRequestsList";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="/partners" element={<AppLayout><Partners /></AppLayout>} />
           <Route path="/business-entry" element={<AppLayout><BusinessEntry /></AppLayout>} />
           <Route path="/payment-request" element={<AppLayout><PaymentRequest /></AppLayout>} />
+          <Route path="/payment-requests-list" element={<AppLayout><PaymentRequestsList /></AppLayout>} />
           <Route path="/finance/reconciliation" element={<AppLayout><FinanceReconciliation /></AppLayout>} />
           <Route path="/finance/payment-invoice" element={<AppLayout><PaymentInvoice /></AppLayout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
