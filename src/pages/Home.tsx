@@ -160,7 +160,8 @@ export default function Home() {
   }
 
   return (
-    <div className="space-y-8 p-4 md:p-8">
+    // 【布局修正】为整个页面增加 position: relative，以便悬浮按钮正确定位
+    <div className="space-y-8 p-4 md:p-8 relative min-h-screen">
       {migrationStatus && !migrationStatus.isMigrated && migrationStatus.localCount > 0 && (
         <Card className="border-orange-200 bg-orange-50">
           <CardContent className="p-4">
@@ -183,43 +184,34 @@ export default function Home() {
         <p className="opacity-90">运输数据统计分析与可视化</p>
       </div>
 
-      {/* 【布局修正】将筛选器、卡片和开关都放在一个统一的容器内，并使用 space-y-8 来确保它们之间的间距 */}
-      <div className="space-y-8">
-          <Card className="shadow-card">
-            <CardHeader><CardTitle>数据筛选</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                <div className="space-y-2"><Label htmlFor="startDate">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(prev => ({...prev, startDate: e.target.value}))} /></div>
-                <div className="space-y-2"><Label htmlFor="endDate">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(prev => ({...prev, endDate: e.target.value}))} /></div>
-                <div className="space-y-2"><Label htmlFor="projectFilter">项目筛选</Label><Select value={filterInputs.projectId} onValueChange={(value) => setFilterInputs(prev => ({...prev, projectId: value}))}><SelectTrigger id="projectFilter"><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{projects.map(project => (<SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>))}</SelectContent></Select></div>
-                <Button onClick={() => handleSearch(false)} disabled={isSearching}>{isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}{isSearching ? '正在搜索...' : '搜索'}</Button>
-              </div>
-            </CardContent>
-          </Card>
+      <Card className="shadow-card">
+        <CardHeader><CardTitle>数据筛选</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="space-y-2"><Label htmlFor="startDate">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(prev => ({...prev, startDate: e.target.value}))} /></div>
+            <div className="space-y-2"><Label htmlFor="endDate">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(prev => ({...prev, endDate: e.target.value}))} /></div>
+            <div className="space-y-2"><Label htmlFor="projectFilter">项目筛选</Label><Select value={filterInputs.projectId} onValueChange={(value) => setFilterInputs(prev => ({...prev, projectId: value}))}><SelectTrigger id="projectFilter"><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{projects.map(project => (<SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>))}</SelectContent></Select></div>
+            <Button onClick={() => handleSearch(false)} disabled={isSearching}>{isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}{isSearching ? '正在搜索...' : '搜索'}</Button>
+          </div>
+        </CardContent>
+      </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-blue-100 rounded-lg mr-4"><Package className="h-6 w-6 text-blue-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输次数</p><p className="text-2xl font-bold">{overviewStats?.totalRecords || 0}</p></div></CardContent></Card>
-            <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-green-100 rounded-lg mr-4"><Truck className="h-6 w-6 text-green-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输重量</p><p className="text-2xl font-bold">{(overviewStats?.totalWeight || 0).toFixed(1)}吨</p></div></CardContent></Card>
-            
-            <Card className="shadow-card">
-              <CardContent className="flex items-center p-6">
-                <div className="p-2 bg-yellow-100 rounded-lg mr-4"><TrendingUp className="h-6 w-6 text-yellow-600" /></div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">司机应收汇总</p>
-                  <p className="text-2xl font-bold">{formatCurrency(overviewStats?.totalCost)}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-purple-100 rounded-lg mr-4"><BarChart3 className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm font-medium text-muted-foreground">实际运输/退货</p><p className="text-2xl font-bold">{overviewStats?.actualTransportCount || 0}/{overviewStats?.returnCount || 0}</p></div></CardContent></Card>
-          </div>
-
-        <div className="flex items-center space-x-2 p-4 border rounded-lg bg-muted/50">
-          <Switch id="log-scale-switch-home" checked={useLogScale} onCheckedChange={setUseLogScale} />
-          <Label htmlFor="log-scale-switch-home" className="cursor-pointer">为柱状图/条形图启用对数刻度</Label>
-          <p className="text-xs text-muted-foreground ml-4">（当数值差异过大时，此功能可让您同时看清极大值和极小值）</p>
-        </div>
-      </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-blue-100 rounded-lg mr-4"><Package className="h-6 w-6 text-blue-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输次数</p><p className="text-2xl font-bold">{overviewStats?.totalRecords || 0}</p></div></CardContent></Card>
+        <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-green-100 rounded-lg mr-4"><Truck className="h-6 w-6 text-green-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输重量</p><p className="text-2xl font-bold">{(overviewStats?.totalWeight || 0).toFixed(1)}吨</p></div></CardContent></Card>
+        
+        <Card className="shadow-card">
+          <CardContent className="flex items-center p-6">
+            <div className="p-2 bg-yellow-100 rounded-lg mr-4"><TrendingUp className="h-6 w-6 text-yellow-600" /></div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">司机应收汇总</p>
+              <p className="text-2xl font-bold">{formatCurrency(overviewStats?.totalCost)}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-purple-100 rounded-lg mr-4"><BarChart3 className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm font-medium text-muted-foreground">实际运输/退货</p><p className="text-2xl font-bold">{overviewStats?.actualTransportCount || 0}/{overviewStats?.returnCount || 0}</p></div></CardContent></Card>
+      </div>
+      
       <div className="space-y-6">
         <Card className="shadow-card">
           <CardHeader><CardTitle>每日运输量统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (吨)</CardTitle></CardHeader>
@@ -275,19 +267,23 @@ export default function Home() {
         </Card>
       </div>
 
+      {/* 【布局修正】将开关固定在页面右下角，不再影响其他元素布局 */}
+      <div className="fixed bottom-6 right-6 z-50 p-4 bg-background/80 backdrop-blur-sm border rounded-lg shadow-lg flex items-center space-x-2">
+        <Switch id="log-scale-switch-home" checked={useLogScale} onCheckedChange={setUseLogScale} />
+        <Label htmlFor="log-scale-switch-home" className="cursor-pointer text-sm font-medium">启用对数刻度</Label>
+      </div>
+
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col" aria-describedby="dialog-description">
           <DialogHeader>
             <DialogTitle className="flex items-center"><Eye className="mr-2 h-5 w-5" />{dialogFilter.date ? `${new Date(dialogFilter.date).toLocaleDateString('zh-CN')} 详细运输记录` : `全部筛选结果记录`}</DialogTitle>
             <div id="dialog-description" className="sr-only">显示运输记录详细信息</div>
           </DialogHeader>
-          {/* 【布局修正】将表格包裹在一个 div 中，以确保弹窗内容可以正确滚动 */}
           <div className="flex-grow overflow-y-auto">
               {isDialogLoading ? (
                 <div className="flex items-center justify-center py-8"><RefreshCw className="h-6 w-6 animate-spin" /><span className="ml-2">正在加载详细记录...</span></div>
               ) : dialogRecords.length > 0 ? (
                 <div className="space-y-4">
-                  {/* 【布局修正】为表格本身增加一个外层 div，用于处理水平滚动，防止表格内容撑破弹窗 */}
                     <div className="border rounded-lg overflow-x-auto">
                       <Table>
                         <TableHeader><TableRow className="text-xs"><TableHead>运单号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>车牌</TableHead><TableHead>装货地</TableHead><TableHead>卸货地</TableHead><TableHead>装货重</TableHead><TableHead>卸货重</TableHead><TableHead>类型</TableHead><TableHead>司机应收</TableHead><TableHead>备注</TableHead></TableRow></TableHeader>
