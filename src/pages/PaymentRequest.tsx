@@ -144,7 +144,7 @@ export default function PaymentRequest() {
       const { data, error } = await supabase.rpc('get_data_for_payment_application', { p_record_ids: idsToFetch });
       if (error) throw error;
 
-      const records: LogisticsRecord[] = data.records || [];
+      const records: LogisticsRecord[] = (data as any)?.records || [];
       
       const paymentSheetsMap = new Map<string, PaymentSheetData>();
       records.forEach(record => {
@@ -292,7 +292,7 @@ export default function PaymentRequest() {
     switch (status) {
       case 'Unpaid': return <Badge variant="destructive">未支付</Badge>;
       case 'Processing': return <Badge variant="secondary">已申请支付</Badge>;
-      case 'Paid': return <Badge variant="success">已完成支付</Badge>;
+      case 'Paid': return <Badge variant="default">已完成支付</Badge>;
       default: return <Badge>{status}</Badge>;
     }
   };

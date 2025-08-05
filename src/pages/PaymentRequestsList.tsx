@@ -37,7 +37,10 @@ export default function PaymentRequestsList() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setRequests(data || []);
+      setRequests((data || []).map(item => ({
+        ...item,
+        status: item.status as 'Pending' | 'Approved' | 'Paid' | 'Rejected'
+      })));
     } catch (error) {
       console.error("加载付款申请列表失败:", error);
       toast({
@@ -61,7 +64,7 @@ export default function PaymentRequestsList() {
       case 'Approved':
         return <Badge variant="default">已审批</Badge>;
       case 'Paid':
-        return <Badge variant="success">已支付</Badge>;
+        return <Badge variant="outline">已支付</Badge>;
       case 'Rejected':
         return <Badge variant="destructive">已驳回</Badge>;
       default:
