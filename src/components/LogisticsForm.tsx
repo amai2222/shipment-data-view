@@ -20,6 +20,7 @@ interface LogisticsFormProps {
     unloadingDate: string;
     unloadingWeight: string;
     transportType: "实际运输" | "退货";
+    cargoType: string;
     currentFee: string;
     extraFee: string;
     driverReceivable: string;
@@ -295,6 +296,26 @@ export function LogisticsForm({
             <SelectContent className="bg-background border border-border shadow-md">
               <SelectItem value="实际运输">实际运输</SelectItem>
               <SelectItem value="退货">退货</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="cargoType">货物类型</Label>
+          <Select value={formData.cargoType} onValueChange={(value: string) => setFormData((prev: any) => ({ ...prev, cargoType: value }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="选择货物类型" />
+            </SelectTrigger>
+            <SelectContent className="bg-background border border-border shadow-md">
+              <SelectItem value="建材">建材</SelectItem>
+              <SelectItem value="钢材">钢材</SelectItem>
+              <SelectItem value="煤炭">煤炭</SelectItem>
+              <SelectItem value="砂石">砂石</SelectItem>
+              <SelectItem value="水泥">水泥</SelectItem>
+              <SelectItem value="危化品">危化品</SelectItem>
+              <SelectItem value="食品">食品</SelectItem>
+              <SelectItem value="设备">设备</SelectItem>
+              <SelectItem value="其他">其他</SelectItem>
             </SelectContent>
           </Select>
         </div>

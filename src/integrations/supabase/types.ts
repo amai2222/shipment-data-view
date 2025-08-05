@@ -253,6 +253,7 @@ export type Database = {
       logistics_records: {
         Row: {
           auto_number: string
+          cargo_type: string | null
           chain_id: string | null
           created_at: string
           created_by_user_id: string
@@ -268,6 +269,7 @@ export type Database = {
           loading_location: string
           loading_weight: number | null
           payable_cost: number | null
+          payment_status: string
           project_id: string | null
           project_name: string
           remarks: string | null
@@ -279,6 +281,7 @@ export type Database = {
         }
         Insert: {
           auto_number: string
+          cargo_type?: string | null
           chain_id?: string | null
           created_at?: string
           created_by_user_id: string
@@ -294,6 +297,7 @@ export type Database = {
           loading_location: string
           loading_weight?: number | null
           payable_cost?: number | null
+          payment_status?: string
           project_id?: string | null
           project_name: string
           remarks?: string | null
@@ -305,6 +309,7 @@ export type Database = {
         }
         Update: {
           auto_number?: string
+          cargo_type?: string | null
           chain_id?: string | null
           created_at?: string
           created_by_user_id?: string
@@ -320,6 +325,7 @@ export type Database = {
           loading_location?: string
           loading_weight?: number | null
           payable_cost?: number | null
+          payment_status?: string
           project_id?: string | null
           project_name?: string
           remarks?: string | null
@@ -388,23 +394,105 @@ export type Database = {
           },
         ]
       }
-      partners: {
+      partner_payment_items: {
+        Row: {
+          logistics_record_id: string
+          payment_request_id: string
+        }
+        Insert: {
+          logistics_record_id: string
+          payment_request_id: string
+        }
+        Update: {
+          logistics_record_id?: string
+          payment_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_payment_items_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_items_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_items_payment_request_id_fkey"
+            columns: ["payment_request_id"]
+            isOneToOne: false
+            referencedRelation: "partner_payment_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_payment_requests: {
         Row: {
           created_at: string
+          created_by: string | null
+          id: string
+          request_date: string
+          request_id: string
+          status: string
+          total_amount: number
+          total_records: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          request_date: string
+          request_id: string
+          status?: string
+          total_amount: number
+          total_records: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          request_date?: string
+          request_id?: string
+          status?: string
+          total_amount?: number
+          total_records?: number
+        }
+        Relationships: []
+      }
+      partners: {
+        Row: {
+          bank_account: string | null
+          bank_name: string | null
+          branch_name: string | null
+          created_at: string
+          full_name: string | null
           id: string
           name: string
           tax_rate: number
           user_id: string | null
         }
         Insert: {
+          bank_account?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
           created_at?: string
+          full_name?: string | null
           id?: string
           name: string
           tax_rate: number
           user_id?: string | null
         }
         Update: {
+          bank_account?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
           created_at?: string
+          full_name?: string | null
           id?: string
           name?: string
           tax_rate?: number
@@ -469,6 +557,76 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_request_records: {
+        Row: {
+          logistics_record_id: string
+          payment_request_id: string
+        }
+        Insert: {
+          logistics_record_id: string
+          payment_request_id: string
+        }
+        Update: {
+          logistics_record_id?: string
+          payment_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_request_records_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_request_records_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_request_records_payment_request_id_fkey"
+            columns: ["payment_request_id"]
+            isOneToOne: false
+            referencedRelation: "payment_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_requests: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          record_count: number
+          request_id: string
+          status: string
+          total_amount: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          record_count: number
+          request_id: string
+          status?: string
+          total_amount: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          record_count?: number
+          request_id?: string
+          status?: string
+          total_amount?: number
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -679,6 +837,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      batch_cancel_by_filter: {
+        Args: {
+          p_project_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_partner_id?: string
+        }
+        Returns: number
+      }
+      batch_cancel_payment_application: {
+        Args: { p_record_ids: string[] }
+        Returns: number
+      }
       batch_import_logistics_records: {
         Args: { p_records: Json }
         Returns: Json
@@ -775,6 +946,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_data_for_payment_application: {
+        Args: { p_record_ids: string[] }
+        Returns: Json
+      }
       get_filtered_logistics_records: {
         Args: {
           p_project_id?: string
@@ -826,6 +1001,18 @@ export type Database = {
               p_end_date: string
               p_partner_id: string
             }
+        Returns: Json
+      }
+      get_finance_reconciliation_data2: {
+        Args: {
+          p_project_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_partner_id?: string
+          p_payment_status_array?: string[]
+          p_page_size?: number
+          p_page_number?: number
+        }
         Returns: Json
       }
       get_logistics_records_paginated: {
@@ -974,6 +1161,18 @@ export type Database = {
         }
         Returns: Json
       }
+      get_payment_request_data: {
+        Args: {
+          p_project_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_partner_id?: string
+          p_payment_status_array?: string[]
+          p_page_size?: number
+          p_page_number?: number
+        }
+        Returns: Json
+      }
       get_project_drivers_with_details: {
         Args: { p_project_id: string }
         Returns: {
@@ -994,6 +1193,10 @@ export type Database = {
       preview_import_with_duplicates_check: {
         Args: { p_records: Json }
         Returns: Json
+      }
+      process_payment_application: {
+        Args: { p_record_ids: string[]; p_total_amount: number }
+        Returns: string
       }
       recalculate_and_update_costs_for_record: {
         Args: { p_record_id: string }
@@ -1074,6 +1277,12 @@ export type Database = {
         description: string | null
         isDefault: boolean | null
         partners: Json | null
+      }
+      partner_cost_type: {
+        partner_id: string | null
+        partner_name: string | null
+        level: number | null
+        payable_amount: number | null
       }
       project_partner_type: {
         id: string | null

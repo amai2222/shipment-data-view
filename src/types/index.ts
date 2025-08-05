@@ -59,6 +59,10 @@ export interface LogisticsRecord {
 export interface Partner {
   id: string;
   name: string;
+  fullName?: string; // 合作方全名
+  bankAccount?: string; // 银行账户
+  bankName?: string; // 开户行名称
+  branchName?: string; // 支行网点
   taxRate: number;  // 默认税点
   createdAt: string;
 }

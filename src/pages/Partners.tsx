@@ -52,15 +52,22 @@ export default function Partners() {
   const [partners, setPartners] = useState<PartnerWithProjects[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
-  const [formData, setFormData] = useState({ name: '', taxRate: 0 });
+  const [formData, setFormData] = useState({ 
+    name: '', 
+    fullName: '', 
+    bankAccount: '', 
+    bankName: '', 
+    branchName: '', 
+    taxRate: 0 
+  });
 
   const fetchPartners = useCallback(async () => {
     try {
-      // 【核心修复】一次查询获取所有合作方及其关联的项目信息
+      // 【核心修复】一次查询获取所有合作方及其关联的项目信息，包含新增字段
       const { data, error } = await supabase
         .from('partners')
         .select(`
-          id, name, tax_rate, created_at,
+          id, name, full_name, bank_account, bank_name, branch_name, tax_rate, created_at,
           project_partners (
             level, tax_rate,
             projects ( id, name, auto_code )
@@ -74,6 +81,10 @@ export default function Partners() {
       const formattedData: PartnerWithProjects[] = data.map(item => ({
         id: item.id,
         name: item.name,
+        fullName: item.full_name || '',
+        bankAccount: item.bank_account || '',
+        bankName: item.bank_name || '',
+        branchName: item.branch_name || '',
         taxRate: Number(item.tax_rate),
         createdAt: item.created_at,
         projects: (item.project_partners || []).map((pp: any) => ({
@@ -102,7 +113,14 @@ export default function Partners() {
     if (formData.taxRate < 0 || formData.taxRate >= 1) { toast.error('税点必须在0-1之间'); return; }
 
     try {
-      const partnerData = { name: formData.name.trim(), tax_rate: formData.taxRate };
+      const partnerData = { 
+        name: formData.name.trim(), 
+        full_name: formData.fullName.trim() || null,
+        bank_account: formData.bankAccount.trim() || null,
+        bank_name: formData.bankName.trim() || null,
+        branch_name: formData.branchName.trim() || null,
+        tax_rate: formData.taxRate 
+      };
       if (editingPartner) {
         const { error } = await supabase.from('partners').update(partnerData).eq('id', editingPartner.id);
         if (error) throw error;
@@ -123,7 +141,14 @@ export default function Partners() {
 
   const handleEdit = (partner: Partner) => {
     setEditingPartner(partner);
-    setFormData({ name: partner.name, taxRate: partner.taxRate });
+    setFormData({ 
+      name: partner.name, 
+      fullName: partner.fullName || '',
+      bankAccount: partner.bankAccount || '',
+      bankName: partner.bankName || '',
+      branchName: partner.branchName || '',
+      taxRate: partner.taxRate 
+    });
     setIsDialogOpen(true);
   };
 
@@ -189,7 +214,14 @@ export default function Partners() {
   const closeDialog = () => {
     setIsDialogOpen(false);
     setEditingPartner(null);
-    setFormData({ name: '', taxRate: 0 });
+    setFormData({ 
+      name: '', 
+      fullName: '', 
+      bankAccount: '', 
+      bankName: '', 
+      branchName: '', 
+      taxRate: 0 
+    });
   };
 
   return (
@@ -208,12 +240,28 @@ export default function Partners() {
               <DialogHeader><DialogTitle>{editingPartner ? '编辑合作方' : '添加合作方'}</DialogTitle></DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="name">合作方名称</Label>
+                  <Label htmlFor="name">合作方名称 *</Label>
                   <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="请输入合作方名称" />
                 </div>
                 <div>
-                  <Label htmlFor="taxRate">默认税点 (0-1之间的小数)</Label>
+                  <Label htmlFor="fullName">合作方全名</Label>
+                  <Input id="fullName" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder="请输入合作方全名（选填）" />
+                </div>
+                <div>
+                  <Label htmlFor="taxRate">默认税点 (0-1之间的小数) *</Label>
                   <Input id="taxRate" type="number" step="0.0001" min="0" max="0.9999" value={formData.taxRate} onChange={(e) => setFormData({ ...formData, taxRate: parseFloat(e.target.value) || 0 })} placeholder="例如：0.03 表示3%" />
+                </div>
+                <div>
+                  <Label htmlFor="bankAccount">银行账户</Label>
+                  <Input id="bankAccount" value={formData.bankAccount} onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })} placeholder="请输入银行账户（选填）" />
+                </div>
+                <div>
+                  <Label htmlFor="bankName">开户行名称</Label>
+                  <Input id="bankName" value={formData.bankName} onChange={(e) => setFormData({ ...formData, bankName: e.target.value })} placeholder="请输入开户行名称（选填）" />
+                </div>
+                <div>
+                  <Label htmlFor="branchName">支行网点</Label>
+                  <Input id="branchName" value={formData.branchName} onChange={(e) => setFormData({ ...formData, branchName: e.target.value })} placeholder="请输入支行网点（选填）" />
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={closeDialog}>取消</Button>
@@ -232,6 +280,8 @@ export default function Partners() {
             <TableHeader>
               <TableRow>
                 <TableHead>合作方名称</TableHead>
+                <TableHead>合作方全名</TableHead>
+                <TableHead>银行信息</TableHead>
                 <TableHead>默认税点</TableHead>
                 <TableHead>关联项目</TableHead>
                 <TableHead>创建时间</TableHead>
@@ -240,8 +290,27 @@ export default function Partners() {
             </TableHeader>
             <TableBody>
               {partners.map((partner) => (
-                <TableRow key={partner.id}>
+                 <TableRow key={partner.id}>
                   <TableCell className="font-medium">{partner.name}</TableCell>
+                  <TableCell className="text-sm">
+                    {partner.fullName || <span className="text-muted-foreground">-</span>}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    <div className="space-y-1">
+                      {partner.bankAccount && (
+                        <div><span className="font-medium">账户:</span> {partner.bankAccount}</div>
+                      )}
+                      {partner.bankName && (
+                        <div><span className="font-medium">银行:</span> {partner.bankName}</div>
+                      )}
+                      {partner.branchName && (
+                        <div><span className="font-medium">网点:</span> {partner.branchName}</div>
+                      )}
+                      {!partner.bankAccount && !partner.bankName && !partner.branchName && (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{(partner.taxRate * 100).toFixed(2)}%</TableCell>
                   <TableCell>
                     <div className="max-w-xs space-y-1">

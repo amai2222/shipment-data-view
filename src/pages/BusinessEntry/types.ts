@@ -47,6 +47,18 @@ export interface Driver { id: string; name: string; license_plate: string | null
 export interface Location { id: string; name: string; }
 export interface PartnerChain { id: string; project_id: string; chain_name: string; }
 
+// 更新合作方类型，添加新字段
+export interface Partner {
+  id: string;
+  name: string;
+  full_name?: string; // 合作方全名
+  bank_account?: string; // 银行账户
+  bank_name?: string; // 开户行名称
+  branch_name?: string; // 支行网点
+  tax_rate: number;
+  created_at: string;
+}
+
 // 分页状态类型
 export interface PaginationState {
   page: number;
