@@ -48,54 +48,21 @@ export default function FinancialOverview() {
   const [projectContribution, setProjectContribution] = useState<ProjectContributionData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- 数据获取 ---
+  // --- 数据获取 (优化后) ---
   useEffect(() => {
-    const fetchAllData = async () => {
+    const fetchAllDataInOneGo = async () => {
       setLoading(true);
       try {
-        const [
-          statsData,
-          trendData,
-          rankingData,
-          contributionData
-        ] = await Promise.all([
-          // 1. 获取卡片数据
-          Promise.all([
-            supabase.rpc('get_total_receivables'),
-            supabase.rpc('get_monthly_receivables'),
-            supabase.rpc('get_pending_payments'),
-            supabase.rpc('get_pending_invoicing')
-          ]),
-          // 2. 获取图表数据
-          supabase.rpc('get_monthly_trends'),
-          supabase.rpc('get_partner_ranking'),
-          supabase.rpc('get_project_contribution')
-        ]);
+        // 只调用一次 "大一统" 的 RPC 函数
+        const { data, error } = await supabase.rpc('get_financial_overview');
         
-        // 处理卡片数据
-        const [
-          { data: totalReceivables, error: e1 },
-          { data: monthlyReceivables, error: e2 },
-          { data: pendingPayment, error: e3 },
-          { data: pendingInvoice, error: e4 }
-        ] = statsData;
-        if (e1 || e2 || e3 || e4) throw new Error(`获取指标卡数据失败: ${e1?.message || e2?.message || e3?.message || e4?.message}`);
-        setStats({
-          totalReceivables: totalReceivables || 0,
-          monthlyReceivables: monthlyReceivables || 0,
-          pendingPayment: pendingPayment || 0,
-          pendingInvoice: pendingInvoice || 0,
-        });
+        if (error) throw error;
 
-        // 处理图表数据
-        if (trendData.error) throw trendData.error;
-        setMonthlyTrend(trendData.data || []);
-
-        if (rankingData.error) throw rankingData.error;
-        setPartnerRanking(rankingData.data || []);
-        
-        if (contributionData.error) throw contributionData.error;
-        setProjectContribution(contributionData.data || []);
+        // 将返回的单一数据源分发到各个 state
+        setStats(data.stats);
+        setMonthlyTrend(data.monthlyTrend);
+        setPartnerRanking(data.partnerRanking);
+        setProjectContribution(data.projectContribution);
 
       } catch (error) {
         console.error("获取财务概览数据失败:", error);
@@ -103,7 +70,7 @@ export default function FinancialOverview() {
         setLoading(false);
       }
     };
-    fetchAllData();
+    fetchAllDataInOneGo();
   }, []);
 
   // --- 辅助函数 ---
@@ -139,10 +106,10 @@ export default function FinancialOverview() {
         <p className="text-muted-foreground">运输财务统计分析</p>
       </div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card><CardHeader><CardTitle className="text-sm font-medium">总应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.totalReceivables || 0)}</div><p className="text-xs text-muted-foreground">所有甲方的应付总额</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">本月应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.monthlyReceivables || 0)}</div><p className="text-xs text-muted-foreground">本月甲方的应付总额</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">待付金额</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.pendingPayment || 0)}</div><p className="text-xs text-muted-foreground">待付款总额</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">待开票</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.pendingInvoice || 0)}</div><p className="text-xs text-muted-foreground">待开票总额</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm font-medium">总应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.totalReceivables || 0)}</div><p className="text-xs text-muted-foreground">所有运单最高级合作方的应付总额</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm font-medium">本月应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.monthlyReceivables || 0)}</div><p className="text-xs text-muted-foreground">本月运单最高级合作方的应付总额</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm font-medium">待付金额</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.pendingPayment || 0)}</div><p className="text-xs text-muted-foreground">状态为“待付款(Unpaid)”的应付总额</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm font-medium">待开票</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.pendingInvoice || 0)}</div><p className="text-xs text-muted-foreground">状态为“未开票”的应付总额</p></CardContent></Card>
       </div>
 
       {/* --- 图表区域 --- */}
