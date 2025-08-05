@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [布局修复版] 移除了最外层容器的全局内边距，使页面内容紧贴顶部和左侧菜单。
+// 描述: [JQvEM 最终交付版] 此为修复了布局偏移问题的完整、最终代码。
 
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -227,7 +227,6 @@ export default function Home() {
         <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-blue-100 rounded-lg mr-4"><Package className="h-6 w-6 text-blue-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输次数</p><p className="text-2xl font-bold">{overviewStats?.totalRecords || 0}</p></div></CardContent></Card>
         <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-green-100 rounded-lg mr-4"><Truck className="h-6 w-6 text-green-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输重量</p><p className="text-2xl font-bold">{(overviewStats?.totalWeight || 0).toFixed(1)}吨</p></div></CardContent></Card>
         
-        {/* --- THIS IS THE MODIFIED CARD --- */}
         <Card className="shadow-card">
           <CardContent className="flex items-center p-6">
             <div className="p-2 bg-yellow-100 rounded-lg mr-4">
@@ -244,7 +243,6 @@ export default function Home() {
             </div>
           </CardContent>
         </Card>
-        {/* --- END OF MODIFICATION --- */}
 
         <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-purple-100 rounded-lg mr-4"><BarChart3 className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm font-medium text-muted-foreground">实际运输/退货</p><p className="text-2xl font-bold">{overviewStats?.actualTransportCount || 0}/{overviewStats?.returnCount || 0}</p></div></CardContent></Card>
       </div>
