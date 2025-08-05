@@ -47,10 +47,15 @@ export default function FinancialOverview() {
   
   useEffect(() => { if (isDetailDialogOpen && detailFilter) { fetchDialogRecords(); } }, [isDetailDialogOpen, detailFilter, dialogPagination.currentPage, fetchDialogRecords]);
 
-  // --- 事件处理器 ---
-  const handleChartClick = (type: string, payload: any, event?: any) => {
-    let value = payload?.activePayload?.[0]?.payload?.name ?? payload?.activePayload?.[0]?.payload?.partner_name ?? payload?.activePayload?.[0]?.payload?.project_name ?? payload?.activePayload?.[0]?.payload?.month_start;
-    if (!value && event) { value = event.name; } // 备用方案，用于直接从 Pie/Cell 事件获取
+  // --- 事件处理器 (已修正) ---
+  const handleChartClick = (type: string, payload: any) => {
+    let value = payload?.activePayload?.[0]?.payload?.name ?? 
+                payload?.activePayload?.[0]?.payload?.partner_name ?? 
+                payload?.activePayload?.[0]?.payload?.project_name ?? 
+                payload?.activePayload?.[0]?.payload?.month_start;
+
+    if (!value && payload.value) { value = payload.value; }
+    
     if (value) {
       setDetailFilter({ type, value: String(value) });
       setDialogPagination({ currentPage: 1, totalPages: 1, totalCount: 0 });
@@ -82,11 +87,11 @@ export default function FinancialOverview() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="col-span-1 lg:col-span-2"><CardHeader><CardTitle>月度应收趋势</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={monthlyTrend} onClick={(payload) => handleChartClick('monthly_trend', payload)} className="cursor-pointer"><CartesianGrid /><XAxis dataKey="month_start" /><YAxis tickFormatter={formatCompact} /><Tooltip formatter={(value: number) => [formatCurrency(value), '月应收']} /><Legend /><Bar dataKey="total_receivables" fill="#3b82f6" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
-        <Card><CardHeader><CardTitle>合作方应付排名</CardTitle></CardHeader><CardContent className="h-96"><ResponsiveContainer width="100%" height="100%"><BarChart data={partnerRanking} layout="vertical" onClick={(payload) => handleChartClick('partner_ranking', payload)} className="cursor-pointer"><CartesianGrid /><XAxis type="number" tickFormatter={formatCompact}/><YAxis dataKey="partner_name" type="category" width={80} tick={{ fontSize: 12 }}/><Tooltip formatter={(value: number) => [formatCurrency(value), '应付总额']} /><Bar dataKey="total_payable" fill="#10b981" radius={[0, 4, 4, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
-        <Card><CardHeader><CardTitle>财务状态分布</CardTitle></CardHeader><CardContent className="h-96"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={financialStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={80} outerRadius={120} labelLine={false} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>{financialStatusData.map((entry, index) => ( <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} onClick={(_, event) => handleChartClick('financial_status', null, entry)} className="cursor-pointer"/> ))}</Pie><Tooltip formatter={(value: number) => formatCurrency(value)} /><Legend /></PieChart></ResponsiveContainer></CardContent></Card>
+        <Card className="col-span-1 lg:col-span-2"><CardHeader><CardTitle>月度应收趋势</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={monthlyTrend} onClick={(payload) => handleChartClick('monthly_trend', payload)} className="cursor-pointer"><CartesianGrid /><XAxis dataKey="month_start" /><YAxis tickFormatter={formatCompact} /><Tooltip formatter={(value: number) => [formatCurrency(value), '月应收']} /><Legend onClick={(payload) => handleChartClick('monthly_trend', payload)} /><Bar dataKey="total_receivables" fill="#3b82f6" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
+        <Card><CardHeader><CardTitle>合作方应付排名</CardTitle></CardHeader><CardContent className="h-96"><ResponsiveContainer width="100%" height="100%"><BarChart data={partnerRanking} layout="vertical" onClick={(payload) => handleChartClick('partner_ranking', payload)} className="cursor-pointer"><CartesianGrid /><XAxis type="number" tickFormatter={formatCompact}/><YAxis dataKey="partner_name" type="category" width={80} tick={{ fontSize: 12 }}/><Tooltip formatter={(value: number) => [formatCurrency(value), '应付总额']} /><Legend onClick={(payload) => handleChartClick('partner_ranking', payload)} /><Bar dataKey="total_payable" fill="#10b981" radius={[0, 4, 4, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
+        <Card><CardHeader><CardTitle>财务状态分布</CardTitle></CardHeader><CardContent className="h-96"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={financialStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={80} outerRadius={120} labelLine={false} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>{financialStatusData.map((entry, index) => ( <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} onClick={() => handleChartClick('financial_status', { activePayload: [{ payload: entry }] })} className="cursor-pointer"/> ))}</Pie><Tooltip formatter={(value: number) => formatCurrency(value)} /><Legend onClick={(payload) => handleChartClick('financial_status', payload)} /></PieChart></ResponsiveContainer></CardContent></Card>
       </div>
-      {projectContribution.length > 0 && <Card><CardHeader><CardTitle>项目应收贡献度</CardTitle></CardHeader><CardContent className="h-96"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={projectContribution} dataKey="total_receivables" nameKey="project_name" cx="50%" cy="50%" outerRadius={150} label={(props) => `${props.project_name} (${formatCompact(props.total_receivables)})`}>{projectContribution.map((entry, index) => ( <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} onClick={(_, event) => handleChartClick('project_contribution', null, entry)} className="cursor-pointer"/> ))}</Pie><Tooltip formatter={(value: number) => formatCurrency(value)} /><Legend /></PieChart></ResponsiveContainer></CardContent></Card>}
+      {projectContribution.length > 0 && <Card><CardHeader><CardTitle>项目应收贡献度</CardTitle></CardHeader><CardContent className="h-96"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={projectContribution} dataKey="total_receivables" nameKey="project_name" cx="50%" cy="50%" outerRadius={150} label={(props) => `${props.project_name} (${formatCompact(props.total_receivables)})`}>{projectContribution.map((entry, index) => ( <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} onClick={() => handleChartClick('project_contribution', { activePayload: [{ payload: entry }] })} className="cursor-pointer"/> ))}</Pie><Tooltip formatter={(value: number) => formatCurrency(value)} /><Legend onClick={(payload) => handleChartClick('project_contribution', payload)} /></PieChart></ResponsiveContainer></CardContent></Card>}
       
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col">
@@ -95,13 +100,11 @@ export default function FinancialOverview() {
             {isDialogLoading ? <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin"/></div> :
               <Table>
                 <TableHeader>
-                  {/* 【已修正】这里是您需要的11个列标题 */}
-                  <TableRow><TableHead>运单号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>车牌</TableHead><TableHead>装货地</TableHead><TableHead>卸货地</TableHead><TableHead>装货重(吨)</TableHead><TableHead>卸货重(吨)</TableHead><TableHead>类型</TableHead><TableHead>司机应收</TableHead><TableHead>备注</TableHead></TableRow>
+                  <TableRow><TableHead>运单号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>车牌</TableHead><TableHead>装货地</TableHead><TableHead>卸货地</TableHead><TableHead>装货重</TableHead><TableHead>卸货重</TableHead><TableHead>类型</TableHead><TableHead>司机应收</TableHead><TableHead>备注</TableHead></TableRow>
                 </TableHeader>
                 <TableBody>
                   {dialogRecords.length > 0 ? dialogRecords.map(r => (
                     <TableRow key={r.id}>
-                      {/* 【已修正】这里对应上面的11个字段 */}
                       <TableCell>{r.auto_number}</TableCell><TableCell>{r.project_name}</TableCell><TableCell>{r.driver_name}</TableCell><TableCell>{r.license_plate || '-'}</TableCell><TableCell>{r.loading_location}</TableCell><TableCell>{r.unloading_location}</TableCell><TableCell>{r.loading_weight}</TableCell><TableCell>{r.unloading_weight}</TableCell><TableCell>{r.transport_type}</TableCell><TableCell>{formatCurrency(r.payable_cost)}</TableCell><TableCell>{r.remarks || '-'}</TableCell>
                     </TableRow>
                   )) : <TableRow><TableCell colSpan={11} className="text-center">没有找到记录</TableCell></TableRow>}
