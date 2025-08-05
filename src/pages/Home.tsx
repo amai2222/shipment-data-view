@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch"; // 【新增】导入Switch组件
+import { Switch } from "@/components/ui/switch";
 import { BarChart3, TrendingUp, Truck, Package, Eye, Database, RefreshCw, CheckCircle, Search } from "lucide-react";
 import { SupabaseStorage } from "@/utils/supabase";
 import { DataMigration } from "@/utils/migration";
@@ -33,7 +33,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
   const [migrationStatus, setMigrationStatus] = useState<{ supabaseCount: number; localCount: number; isMigrated: boolean; } | null>(null);
-  const [useLogScale, setUseLogScale] = useState(true); // 【新增】对数刻度状态，默认开启
+  const [useLogScale, setUseLogScale] = useState(true);
 
   const [dialogRecords, setDialogRecords] = useState<LogisticsRecord[]>([]);
   const [isDialogLoading, setIsDialogLoading] = useState(false);
@@ -64,13 +64,9 @@ export default function Home() {
     }
   }, [isDetailDialogOpen, dialogFilter]);
 
-  // 【新增】统一的财务格式化函数
   const formatCurrency = (value: number | null | undefined): string => {
     if (value == null) return '¥0.00';
-    return new Intl.NumberFormat('zh-CN', {
-      style: 'currency',
-      currency: 'CNY',
-    }).format(value);
+    return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
   };
 
   const fetchDialogRecords = async () => {
@@ -187,40 +183,41 @@ export default function Home() {
         <p className="opacity-90">运输数据统计分析与可视化</p>
       </div>
 
-      <Card className="shadow-card">
-        <CardHeader><CardTitle>数据筛选</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div className="space-y-2"><Label htmlFor="startDate">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(prev => ({...prev, startDate: e.target.value}))} /></div>
-            <div className="space-y-2"><Label htmlFor="endDate">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(prev => ({...prev, endDate: e.target.value}))} /></div>
-            <div className="space-y-2"><Label htmlFor="projectFilter">项目筛选</Label><Select value={filterInputs.projectId} onValueChange={(value) => setFilterInputs(prev => ({...prev, projectId: value}))}><SelectTrigger id="projectFilter"><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{projects.map(project => (<SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>))}</SelectContent></Select></div>
-            <Button onClick={() => handleSearch(false)} disabled={isSearching}>{isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}{isSearching ? '正在搜索...' : '搜索'}</Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* 【布局修正】将筛选器、卡片和开关都放在一个统一的容器内，并使用 space-y-8 来确保它们之间的间距 */}
+      <div className="space-y-8">
+          <Card className="shadow-card">
+            <CardHeader><CardTitle>数据筛选</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div className="space-y-2"><Label htmlFor="startDate">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(prev => ({...prev, startDate: e.target.value}))} /></div>
+                <div className="space-y-2"><Label htmlFor="endDate">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(prev => ({...prev, endDate: e.target.value}))} /></div>
+                <div className="space-y-2"><Label htmlFor="projectFilter">项目筛选</Label><Select value={filterInputs.projectId} onValueChange={(value) => setFilterInputs(prev => ({...prev, projectId: value}))}><SelectTrigger id="projectFilter"><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{projects.map(project => (<SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>))}</SelectContent></Select></div>
+                <Button onClick={() => handleSearch(false)} disabled={isSearching}>{isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}{isSearching ? '正在搜索...' : '搜索'}</Button>
+              </div>
+            </CardContent>
+          </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-blue-100 rounded-lg mr-4"><Package className="h-6 w-6 text-blue-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输次数</p><p className="text-2xl font-bold">{overviewStats?.totalRecords || 0}</p></div></CardContent></Card>
-        <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-green-100 rounded-lg mr-4"><Truck className="h-6 w-6 text-green-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输重量</p><p className="text-2xl font-bold">{(overviewStats?.totalWeight || 0).toFixed(1)}吨</p></div></CardContent></Card>
-        
-        <Card className="shadow-card">
-          <CardContent className="flex items-center p-6">
-            <div className="p-2 bg-yellow-100 rounded-lg mr-4"><TrendingUp className="h-6 w-6 text-yellow-600" /></div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">司机应收汇总</p>
-              {/* 【已修改】应用财务格式化 */}
-              <p className="text-2xl font-bold">{formatCurrency(overviewStats?.totalCost)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-purple-100 rounded-lg mr-4"><BarChart3 className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm font-medium text-muted-foreground">实际运输/退货</p><p className="text-2xl font-bold">{overviewStats?.actualTransportCount || 0}/{overviewStats?.returnCount || 0}</p></div></CardContent></Card>
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-blue-100 rounded-lg mr-4"><Package className="h-6 w-6 text-blue-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输次数</p><p className="text-2xl font-bold">{overviewStats?.totalRecords || 0}</p></div></CardContent></Card>
+            <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-green-100 rounded-lg mr-4"><Truck className="h-6 w-6 text-green-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输重量</p><p className="text-2xl font-bold">{(overviewStats?.totalWeight || 0).toFixed(1)}吨</p></div></CardContent></Card>
+            
+            <Card className="shadow-card">
+              <CardContent className="flex items-center p-6">
+                <div className="p-2 bg-yellow-100 rounded-lg mr-4"><TrendingUp className="h-6 w-6 text-yellow-600" /></div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">司机应收汇总</p>
+                  <p className="text-2xl font-bold">{formatCurrency(overviewStats?.totalCost)}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-purple-100 rounded-lg mr-4"><BarChart3 className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm font-medium text-muted-foreground">实际运输/退货</p><p className="text-2xl font-bold">{overviewStats?.actualTransportCount || 0}/{overviewStats?.returnCount || 0}</p></div></CardContent></Card>
+          </div>
 
-      {/* 【新增】对数刻度切换开关 */}
-      <div className="flex items-center space-x-2 my-4 p-4 border rounded-lg bg-muted/50">
-        <Switch id="log-scale-switch-home" checked={useLogScale} onCheckedChange={setUseLogScale} />
-        <Label htmlFor="log-scale-switch-home" className="cursor-pointer">为柱状图/条形图启用对数刻度</Label>
-        <p className="text-xs text-muted-foreground ml-4">（当数值差异过大时，此功能可让您同时看清极大值和极小值）</p>
+        <div className="flex items-center space-x-2 p-4 border rounded-lg bg-muted/50">
+          <Switch id="log-scale-switch-home" checked={useLogScale} onCheckedChange={setUseLogScale} />
+          <Label htmlFor="log-scale-switch-home" className="cursor-pointer">为柱状图/条形图启用对数刻度</Label>
+          <p className="text-xs text-muted-foreground ml-4">（当数值差异过大时，此功能可让您同时看清极大值和极小值）</p>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -229,7 +226,6 @@ export default function Home() {
           <CardContent>
             <div className="h-96">
               <ResponsiveContainer width="100%" height="100%">
-                {/* 【已修改】应用对数刻度 */}
                 <BarChart data={dailyTransportStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={0} />
@@ -265,7 +261,6 @@ export default function Home() {
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                {/* 【已修改】应用对数刻度 & 财务格式化 */}
                 <BarChart data={dailyCostStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={0} />
@@ -281,39 +276,43 @@ export default function Home() {
       </div>
 
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" aria-describedby="dialog-description">
+        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col" aria-describedby="dialog-description">
           <DialogHeader>
             <DialogTitle className="flex items-center"><Eye className="mr-2 h-5 w-5" />{dialogFilter.date ? `${new Date(dialogFilter.date).toLocaleDateString('zh-CN')} 详细运输记录` : `全部筛选结果记录`}</DialogTitle>
             <div id="dialog-description" className="sr-only">显示运输记录详细信息</div>
           </DialogHeader>
-          {isDialogLoading ? (
-            <div className="flex items-center justify-center py-8"><RefreshCw className="h-6 w-6 animate-spin" /><span className="ml-2">正在加载详细记录...</span></div>
-          ) : dialogRecords.length > 0 ? (
-            <div className="space-y-4">
-              <div className="border rounded-lg overflow-x-auto">
-                <Table>
-                  <TableHeader><TableRow className="text-xs"><TableHead>运单号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>车牌</TableHead><TableHead>装货地</TableHead><TableHead>卸货地</TableHead><TableHead>装货重</TableHead><TableHead>卸货重</TableHead><TableHead>类型</TableHead><TableHead>司机应收</TableHead><TableHead>备注</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {dialogRecords.map((record) => (
-                      <TableRow key={record.id} className="text-xs">
-                        <TableCell className="font-medium whitespace-nowrap">{record.autoNumber}</TableCell>
-                        <TableCell className="whitespace-nowrap">{record.projectName || '-'}</TableCell>
-                        <TableCell className="whitespace-nowrap">{record.driverName}</TableCell>
-                        <TableCell className="whitespace-nowrap">{record.licensePlate}</TableCell>
-                        <TableCell className="whitespace-nowrap">{record.loadingLocation}</TableCell>
-                        <TableCell className="whitespace-nowrap">{record.unloadingLocation}</TableCell>
-                        <TableCell className="whitespace-nowrap">{record.loadingWeight.toFixed(2)}吨</TableCell>
-                        <TableCell className="whitespace-nowrap">{record.unloadingWeight?.toFixed(2) || '-'}吨</TableCell>
-                        <TableCell><span className={`px-1 py-0.5 rounded-full text-xs whitespace-nowrap ${record.transportType === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transportType}</span></TableCell>
-                        <TableCell className="whitespace-nowrap">{record.payableFee ? formatCurrency(record.payableFee) : '-'} </TableCell>
-                        <TableCell className="max-w-[120px] truncate" title={record.remarks}>{record.remarks || '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          ) : (<div className="text-center py-8 text-muted-foreground">没有符合条件的运输记录</div>)}
+          {/* 【布局修正】将表格包裹在一个 div 中，以确保弹窗内容可以正确滚动 */}
+          <div className="flex-grow overflow-y-auto">
+              {isDialogLoading ? (
+                <div className="flex items-center justify-center py-8"><RefreshCw className="h-6 w-6 animate-spin" /><span className="ml-2">正在加载详细记录...</span></div>
+              ) : dialogRecords.length > 0 ? (
+                <div className="space-y-4">
+                  {/* 【布局修正】为表格本身增加一个外层 div，用于处理水平滚动，防止表格内容撑破弹窗 */}
+                    <div className="border rounded-lg overflow-x-auto">
+                      <Table>
+                        <TableHeader><TableRow className="text-xs"><TableHead>运单号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>车牌</TableHead><TableHead>装货地</TableHead><TableHead>卸货地</TableHead><TableHead>装货重</TableHead><TableHead>卸货重</TableHead><TableHead>类型</TableHead><TableHead>司机应收</TableHead><TableHead>备注</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {dialogRecords.map((record) => (
+                            <TableRow key={record.id} className="text-xs">
+                              <TableCell className="font-medium whitespace-nowrap">{record.autoNumber}</TableCell>
+                              <TableCell className="whitespace-nowrap">{record.projectName || '-'}</TableCell>
+                              <TableCell className="whitespace-nowrap">{record.driverName}</TableCell>
+                              <TableCell className="whitespace-nowrap">{record.licensePlate}</TableCell>
+                              <TableCell className="whitespace-nowrap">{record.loadingLocation}</TableCell>
+                              <TableCell className="whitespace-nowrap">{record.unloadingLocation}</TableCell>
+                              <TableCell className="whitespace-nowrap">{record.loadingWeight.toFixed(2)}吨</TableCell>
+                              <TableCell className="whitespace-nowrap">{record.unloadingWeight?.toFixed(2) || '-'}吨</TableCell>
+                              <TableCell><span className={`px-1 py-0.5 rounded-full text-xs whitespace-nowrap ${record.transportType === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transportType}</span></TableCell>
+                              <TableCell className="whitespace-nowrap">{record.payableFee ? formatCurrency(record.payableFee) : '-'}</TableCell>
+                              <TableCell className="max-w-[120px] truncate" title={record.remarks}>{record.remarks || '-'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ) : (<div className="text-center py-8 text-muted-foreground">没有符合条件的运输记录</div>)}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
