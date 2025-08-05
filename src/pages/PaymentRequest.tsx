@@ -1,7 +1,7 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [YawFe 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
-//       它实现了“凤凰协议”，为每个Sheet创建独立的模板克隆，并进行真正的、
-//       精准的“外科手术”（同时移动单元格和合并规则），最终完美生成符合所有要求的Excel文档。
+// 描述: [wNjGJ 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
+//       它实现了“地基协议”，严格按照用户设计的正确逻辑，为每个Sheet创建独立的、
+//       完美的模板克隆，并进行精准的“外科手术”，最终完美生成符合所有要求的Excel文档。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -225,21 +225,20 @@ export default function PaymentRequest() {
     }
   };
 
-  // 关键变更：exportMultiSheetExcel 函数已彻底重写，以使用“凤凰协议”
+  // 关键变更：exportMultiSheetExcel 函数已彻底重写，以使用“地基协议”
   const exportMultiSheetExcel = async (data: MultiSheetPaymentData, requestId: string) => {
     try {
       const response = await fetch('/payment_template_final.xlsx');
       const arrayBuffer = await response.arrayBuffer();
-      const templateWb = XLSX.read(arrayBuffer, { type: 'buffer', cellStyles: true });
-      const templateWsName = templateWb.SheetNames[0];
-      const templateWs = templateWb.Sheets[templateWsName];
-
+      
       const outputWb = XLSX.utils.book_new();
       const requestDate = format(new Date(), 'yyyy-MM-dd');
 
       for (const sheetData of data.sheets) {
         // 1. 完美克隆
-        const newWs = JSON.parse(JSON.stringify(templateWs));
+        const templateWb = XLSX.read(arrayBuffer, { type: 'buffer', cellStyles: true });
+        const templateWsName = templateWb.SheetNames[0];
+        const newWs = templateWb.Sheets[templateWsName];
 
         // 2. 准备数据并排序
         const sortedRecords = sheetData.records.sort((a, b) => {
@@ -251,7 +250,6 @@ export default function PaymentRequest() {
         const dataStartRow = 3; // 数据从第4行开始 (索引为3)
         const templateDataRow = 3; // 模板中用于复制样式的数据行也是第4行
         const footerStartRowInTemplate = 4; // 模板中页脚部分的起始行索引 (第5行)
-        // 关键变更：计算需要插入的行数。模板自带一行，所以减1
         const rowsToInsert = Math.max(0, sortedRecords.length - 1);
 
         // 3. 精准的外科手术
@@ -306,7 +304,6 @@ export default function PaymentRequest() {
             const cellAddr = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
             const templateCellAddr = XLSX.utils.encode_cell({ r: templateDataRow, c: colIndex });
             
-            // 获取模板样式，如果不存在则创建一个空对象
             const style = newWs[templateCellAddr]?.s ? JSON.parse(JSON.stringify(newWs[templateCellAddr].s)) : {};
 
             newWs[cellAddr] = {
@@ -328,7 +325,6 @@ export default function PaymentRequest() {
         const totalWeightCellAddr = XLSX.utils.encode_cell({ r: footerRowIndex, c: 9 }); // J列
         const totalPayableCellAddr = XLSX.utils.encode_cell({ r: footerRowIndex, c: 10 }); // K列
         
-        // 备注字段留空
         newWs[remarksCellAddr].v = '';
         newWs[totalWeightCellAddr].v = totalWeight;
         newWs[totalPayableCellAddr].v = sheetData.total_payable;
