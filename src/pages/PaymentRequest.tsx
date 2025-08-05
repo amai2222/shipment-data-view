@@ -1,7 +1,7 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [IEbqi 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
-//       它引入了“单元格防御协议”，在写入Excel单元格前检查其是否存在，
-//       如果不存在则先创建，从而彻底修复 "Cannot set properties of undefined" 崩溃问题。
+// 描述: [AfdMl 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
+//       它实现了“外科手术式行插入协议”，通过底层API手动移动页脚、
+//       动态插入数据行并逐一复制样式，最终完美生成符合所有要求的Excel文档。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -225,24 +225,7 @@ export default function PaymentRequest() {
     }
   };
 
-  // 关键变更：引入防御性的 updateCell 辅助函数
-  const updateCell = (ws: XLSX.WorkSheet, address: string, value: any) => {
-    if (!ws[address]) {
-      ws[address] = {}; // 如果单元格不存在，则创建它
-    }
-    ws[address].v = value; // 设置值
-    // 根据值的类型设置单元格类型
-    if (typeof value === 'number') {
-      ws[address].t = 'n';
-    } else if (typeof value === 'boolean') {
-      ws[address].t = 'b';
-    } else if (value instanceof Date) {
-      ws[address].t = 'd';
-    } else {
-      ws[address].t = 's';
-    }
-  };
-
+  // 关键变更：exportMultiSheetExcel 函数已彻底重写，以使用“外科手术式行插入协议”
   const exportMultiSheetExcel = async (data: MultiSheetPaymentData, requestId: string) => {
     try {
       const response = await fetch('/payment_template.xlsx');
@@ -255,50 +238,98 @@ export default function PaymentRequest() {
       const requestDate = format(new Date(), 'yyyy-MM-dd');
 
       for (const sheetData of data.sheets) {
+        // 1. 深度克隆模板工作表
         const newWs = JSON.parse(JSON.stringify(templateWs));
-        // 修复 !ref，否则 sheet_add_json 可能会出错
-        const range = XLSX.utils.decode_range(newWs['!ref']!);
-        range.e.r = Math.max(range.e.r, 12 + sheetData.records.length);
-        newWs['!ref'] = XLSX.utils.encode_range(range);
 
-        const sortedRecords = sheetData.records
-          .sort((a, b) => {
-            const dateCompare = a.record.loading_date.localeCompare(b.record.loading_date);
-            if (dateCompare !== 0) return dateCompare;
-            return a.record.driver_name.localeCompare(b.record.driver_name);
-          });
-
-        const dataForInjection = sortedRecords.map((item, index) => ({
-          '序号': index + 1,
-          '实际出发时间': item.record.loading_date,
-          '实际到达时间': item.record.unloading_date || item.record.loading_date,
-          '起始地': item.record.loading_location,
-          '目的地': item.record.unloading_location,
-          '货物': item.record.cargo_type,
-          '司机': item.record.driver_name,
-          '司机电话': item.record.driver_phone,
-          '车牌号': item.record.license_plate,
-          '吨位': item.record.loading_weight,
-          '承运人运费': item.payable_amount,
-          '收款人': sheetData.paying_partner_full_name,
-          '收款银行账号': sheetData.paying_partner_bank_account,
-          '开户行名称': sheetData.paying_partner_bank_name,
-          '支行网点': sheetData.paying_partner_branch_name,
-        }));
-
-        // 关键变更：使用防御性的 updateCell 函数更新单元格
-        updateCell(newWs, 'A1', sheetData.header_company_name + '支付申请表');
-        updateCell(newWs, 'B9', sheetData.project_name);
-        updateCell(newWs, 'H9', requestDate);
-        updateCell(newWs, 'H10', requestId);
-        updateCell(newWs, 'B23', sheetData.records.map(i => i.record.remarks).filter(Boolean).join('; '));
-        updateCell(newWs, 'K24', sheetData.total_payable);
-
-        XLSX.utils.sheet_add_json(newWs, dataForInjection, {
-          skipHeader: true,
-          origin: 'A13'
+        // 2. 准备数据并排序
+        const sortedRecords = sheetData.records.sort((a, b) => {
+          const dateCompare = a.record.loading_date.localeCompare(b.record.loading_date);
+          if (dateCompare !== 0) return dateCompare;
+          return a.record.driver_name.localeCompare(b.record.driver_name);
         });
         
+        const numDataRows = sortedRecords.length;
+        const templateDataRow = 12; // 模板中数据行的起始行索引 (第13行)
+        const footerStartRow = 22; // 模板中页脚部分的起始行索引 (第23行)
+        const rowsToInsert = Math.max(0, numDataRows - 1); // 模板自带一行，所以减1
+
+        // 3. 外科手术：向下移动页脚
+        if (rowsToInsert > 0) {
+          const range = XLSX.utils.decode_range(newWs['!ref']!);
+          for (let R = range.e.r; R >= footerStartRow; --R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+              const fromAddr = XLSX.utils.encode_cell({ r: R, c: C });
+              const toAddr = XLSX.utils.encode_cell({ r: R + rowsToInsert, c: C });
+              if (newWs[fromAddr]) {
+                newWs[toAddr] = newWs[fromAddr];
+                delete newWs[fromAddr];
+              }
+            }
+          }
+          // 更新合并信息
+          if (newWs['!merges']) {
+            newWs['!merges'].forEach(merge => {
+              if (merge.s.r >= footerStartRow) {
+                merge.s.r += rowsToInsert;
+                merge.e.r += rowsToInsert;
+              }
+            });
+          }
+        }
+
+        // 4. 逐行注入数据并复制样式
+        sortedRecords.forEach((item, index) => {
+          const rowIndex = templateDataRow + index;
+          const dataRow = [
+            index + 1,
+            item.record.loading_date,
+            item.record.unloading_date || item.record.loading_date,
+            item.record.loading_location,
+            item.record.unloading_location,
+            item.record.cargo_type,
+            item.record.driver_name,
+            item.record.driver_phone,
+            item.record.license_plate,
+            item.record.loading_weight,
+            item.payable_amount,
+            sheetData.paying_partner_full_name,
+            sheetData.paying_partner_bank_account,
+            sheetData.paying_partner_bank_name,
+            sheetData.paying_partner_branch_name,
+          ];
+
+          dataRow.forEach((value, colIndex) => {
+            const cellAddr = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+            const templateCellAddr = XLSX.utils.encode_cell({ r: templateDataRow, c: colIndex });
+            
+            newWs[cellAddr] = {
+              v: value,
+              t: typeof value === 'number' ? 'n' : 's',
+              s: newWs[templateCellAddr]?.s // 完美复制模板行的样式
+            };
+          });
+        });
+
+        // 5. 更新页眉和移动后的页脚
+        newWs['A1'].v = sheetData.header_company_name + '支付申请表';
+        newWs['B9'].v = sheetData.project_name;
+        newWs['H9'].v = requestDate;
+        newWs['H10'].v = requestId;
+        
+        const remarksCellAddr = XLSX.utils.encode_cell({ r: footerStartRow + rowsToInsert, c: 1 }); // B23 + offset
+        const totalCellAddr = XLSX.utils.encode_cell({ r: footerStartRow + rowsToInsert + 1, c: 10 }); // K24 + offset
+        
+        if(!newWs[remarksCellAddr]) newWs[remarksCellAddr] = { t: 's', s: newWs['B23']?.s };
+        newWs[remarksCellAddr].v = sheetData.records.map(i => i.record.remarks).filter(Boolean).join('; ');
+
+        if(!newWs[totalCellAddr]) newWs[totalCellAddr] = { t: 'n', s: newWs['K24']?.s };
+        newWs[totalCellAddr].v = sheetData.total_payable;
+
+        // 6. 更新工作表元数据
+        const finalRange = XLSX.utils.decode_range(newWs['!ref']!);
+        finalRange.e.r += rowsToInsert;
+        newWs['!ref'] = XLSX.utils.encode_range(finalRange);
+
         XLSX.utils.book_append_sheet(outputWb, newWs, sheetData.paying_partner_name.slice(0, 30));
       }
 
