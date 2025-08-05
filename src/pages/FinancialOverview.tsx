@@ -2,9 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // ########## 核心修正 ##########
-// 导入项目中已经初始化好的 supabase 客户端实例
-// 这个路径是根据您提供的 Home.tsx 文件推断的
-import { supabase } from "@/utils/supabase"; 
+// 使用您项目中正确的路径来导入 supabase 客户端实例
+import { supabase } from "@/integrations/supabase/client"; 
 
 // 用于存储卡片数据的状态类型
 interface FinancialStats {
