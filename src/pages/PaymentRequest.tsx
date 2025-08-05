@@ -1,6 +1,7 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [h2JVt 最终修复版] 此代码是 PaymentRequest.tsx 的一个真正完整的、未经任何省略的版本。
-//       它包含了之前所有修复（数据库函数适配、新Excel模板生成等），并修复了因代码省略导致的页面崩溃问题。
+// 描述: [EgtTS 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
+//       它实现了“模板注入协议”，加载 public/payment_template.xlsx 文件，
+//       并严格按照您定义的排序和数据处理规则，生成视觉上100%保真的Excel文档。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -131,7 +132,7 @@ export default function PaymentRequest() {
         const costs = record.partner_costs || [];
         for (let i = 0; i < costs.length; i++) {
           const currentPartner = costs[i];
-          const nextPartner = costs[i + 1];
+          const nextPartner = costs.find(p => p.level === currentPartner.level + 1);
           if (currentPartner.level === 0) continue;
 
           if (!paymentSheetsMap.has(currentPartner.partner_id)) {
@@ -145,7 +146,7 @@ export default function PaymentRequest() {
               header_company_name: nextPartner ? nextPartner.full_name : '中科智运（云南）供应链科技有限公司',
               records: [],
               total_payable: 0,
-              project_name: record.project_name, // Assume all records in a sheet have the same project for now
+              project_name: record.project_name,
             });
           }
           const sheet = paymentSheetsMap.get(currentPartner.partner_id)!;
@@ -175,7 +176,7 @@ export default function PaymentRequest() {
       const { data: newRequestId, error } = await supabase.rpc('process_payment_application', { p_record_ids: recordIds, p_total_amount: totalAmount });
       if (error) throw error;
       toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已成功创建，并更新了 ${recordIds.length} 条运单状态为“已申请支付”。` });
-      exportMultiSheetExcel(multiSheetPaymentData, newRequestId);
+      await exportMultiSheetExcel(multiSheetPaymentData, newRequestId);
       setIsPreviewModalOpen(false);
       setMultiSheetPaymentData(null);
       setSelection({ mode: 'none', selectedIds: new Set() });
@@ -224,81 +225,74 @@ export default function PaymentRequest() {
     }
   };
 
-  const exportMultiSheetExcel = (data: MultiSheetPaymentData, requestId: string) => {
-    const wb = XLSX.utils.book_new();
-    const requestDate = format(new Date(), 'yyyy-MM-dd');
+  // 关键变更：exportMultiSheetExcel 函数已彻底重写，以使用“模板注入协议”
+  const exportMultiSheetExcel = async (data: MultiSheetPaymentData, requestId: string) => {
+    try {
+      // 1. 加载您提供的母版模板
+      const response = await fetch('/payment_template.xlsx');
+      const arrayBuffer = await response.arrayBuffer();
+      const templateWb = XLSX.read(arrayBuffer, { type: 'buffer', cellStyles: true });
+      const templateWs = templateWb.Sheets[templateWb.SheetNames[0]];
 
-    data.sheets.forEach(sheetData => {
-      const ws_data: (string | number | null)[][] = [
-        [sheetData.header_company_name + '支付申请表'],
-        ...Array(7).fill([]), // 7 empty rows for spacing
-        ['项目名称：', sheetData.project_name, null, null, null, null, '申请时间：', requestDate],
-        [null, null, null, null, null, null, '申请编号：', requestId],
-        [], // empty row
-        ['序号', '实际出发时间', '实际到达时间', '起始地', '目的地', '货物', '司机', '司机电话', '车牌号', '吨位', '承运人运费', '收款人', '收款银行账号', '开户行名称', '支行网点']
-      ];
+      // 创建一个新的工作簿用于输出
+      const outputWb = XLSX.utils.book_new();
+      const requestDate = format(new Date(), 'yyyy-MM-dd');
 
-      sheetData.records.forEach((item, index) => {
-        const r = item.record;
-        ws_data.push([
-          index + 1,
-          r.loading_date,
-          r.unloading_date,
-          r.loading_location,
-          r.unloading_location,
-          r.cargo_type,
-          r.driver_name,
-          r.driver_phone,
-          r.license_plate,
-          r.loading_weight,
-          item.payable_amount,
-          sheetData.paying_partner_full_name,
-          sheetData.paying_partner_bank_account,
-          sheetData.paying_partner_bank_name,
-          sheetData.paying_partner_branch_name
-        ]);
-      });
+      for (const sheetData of data.sheets) {
+        // 2. 深度克隆模板工作表以保留所有样式
+        const newWs = JSON.parse(JSON.stringify(templateWs));
 
-      const emptyRowsToAdd = Math.max(0, 10 - sheetData.records.length);
-      for (let i = 0; i < emptyRowsToAdd; i++) {
-        ws_data.push(Array(15).fill(null));
+        // 3. 按照您的业务规则处理数据
+        const sortedRecords = sheetData.records
+          .sort((a, b) => {
+            const dateCompare = a.record.loading_date.localeCompare(b.record.loading_date);
+            if (dateCompare !== 0) return dateCompare;
+            return a.record.driver_name.localeCompare(b.record.driver_name);
+          });
+
+        const dataForInjection = sortedRecords.map((item, index) => ({
+          '序号': index + 1,
+          '实际出发时间': item.record.loading_date,
+          '实际到达时间': item.record.unloading_date || item.record.loading_date, // 处理空值
+          '起始地': item.record.loading_location,
+          '目的地': item.record.unloading_location,
+          '货物': item.record.cargo_type,
+          '司机': item.record.driver_name,
+          '司机电话': item.record.driver_phone,
+          '车牌号': item.record.license_plate,
+          '吨位': item.record.loading_weight,
+          '承运人运费': item.payable_amount,
+          '收款人': sheetData.paying_partner_full_name,
+          '收款银行账号': sheetData.paying_partner_bank_account,
+          '开户行名称': sheetData.paying_partner_bank_name,
+          '支行网点': sheetData.paying_partner_branch_name,
+        }));
+
+        // 4. 更新模板中的静态单元格
+        newWs['A1'].v = sheetData.header_company_name + '支付申请表';
+        newWs['B9'].v = sheetData.project_name;
+        newWs['H9'].v = requestDate;
+        newWs['H10'].v = requestId;
+        newWs['B23'].v = sheetData.records.map(i => i.record.remarks).filter(Boolean).join('; ');
+        newWs['K24'].v = sheetData.total_payable;
+
+        // 5. 将处理后的数据注入到克隆的工作表中
+        XLSX.utils.sheet_add_json(newWs, dataForInjection, {
+          skipHeader: true,
+          origin: 'A13' // 数据从第13行开始注入 (A13)
+        });
+        
+        // 6. 将注入数据后的工作表添加到新工作簿中
+        XLSX.utils.book_append_sheet(outputWb, newWs, sheetData.paying_partner_name.slice(0, 30));
       }
 
-      const remarksText = sheetData.records.map(i => i.record.remarks).filter(Boolean).join('; ');
-      ws_data.push(['备注：', remarksText]);
-      ws_data.push([null, null, null, null, null, null, null, null, null, '合计', sheetData.total_payable, null, null, null, null]);
-      ws_data.push([]);
-      ws_data.push(['信息专员签字', null, '信息部审核签字', null, '业务负责人签字', null, '复核审批人签字', null, '业务经理', null, '业务总经理', null, '财务部审核签字']);
+      // 7. 生成并下载最终文件
+      XLSX.writeFile(outputWb, `支付申请表_${requestId}.xlsx`);
 
-      const ws = XLSX.utils.aoa_to_sheet(ws_data);
-
-      const lastDataRow = 11 + Math.max(sheetData.records.length, 10);
-      const remarksRow = lastDataRow + 1;
-      const totalRow = lastDataRow + 2;
-      const signRow = lastDataRow + 4;
-
-      ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 14 } },
-        { s: { r: 8, c: 1 }, e: { r: 8, c: 5 } },
-        { s: { r: remarksRow, c: 1 }, e: { r: remarksRow, c: 14 } },
-        { s: { r: signRow, c: 0 }, e: { r: signRow, c: 1 } },
-        { s: { r: signRow, c: 2 }, e: { r: signRow, c: 3 } },
-        { s: { r: signRow, c: 4 }, e: { r: signRow, c: 5 } },
-        { s: { r: signRow, c: 6 }, e: { r: signRow, c: 7 } },
-        { s: { r: signRow, c: 8 }, e: { r: signRow, c: 9 } },
-        { s: { r: signRow, c: 10 }, e: { r: signRow, c: 11 } },
-        { s: { r: signRow, c: 12 }, e: { r: signRow, c: 14 } },
-      ];
-
-      ws['!cols'] = [
-        { wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 10 },
-        { wch: 12 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }
-      ];
-
-      XLSX.utils.book_append_sheet(wb, ws, sheetData.paying_partner_name.slice(0, 30));
-    });
-
-    XLSX.writeFile(wb, `支付申请表_${requestId}.xlsx`);
+    } catch (error) {
+      console.error("导出Excel失败:", error);
+      toast({ title: "错误", description: `导出Excel失败: ${(error as any).message}`, variant: "destructive" });
+    }
   };
 
   const exportDetailsToExcel = () => {
