@@ -126,7 +126,7 @@ export default function PaymentRequest() {
       const { data, error } = await supabase.rpc('get_data_for_payment_application', { p_record_ids: idsToFetch });
       if (error) throw error;
 
-      const records: LogisticsRecord[] = data || [];
+      const records: LogisticsRecord[] = (data as { records?: LogisticsRecord[] })?.records || [];
       
       const paymentSheetsMap = new Map<string, PaymentSheetData>();
       records.forEach(record => {
@@ -181,8 +181,7 @@ export default function PaymentRequest() {
 
       // 关键变更：调用后端 Edge Function
       const { data: fileBlob, error: functionError } = await supabase.functions.invoke('export-excel', {
-        body: { sheetData: multiSheetPaymentData, requestId: newRequestId },
-        responseType: 'blob'
+        body: { sheetData: multiSheetPaymentData, requestId: newRequestId }
       });
 
       if (functionError) {
@@ -253,7 +252,7 @@ a.click();
     switch (status) {
       case 'Unpaid': return <Badge variant="destructive">未支付</Badge>;
       case 'Processing': return <Badge variant="secondary">已申请支付</Badge>;
-      case 'Paid': return <Badge variant="success">已完成支付</Badge>;
+      case 'Paid': return <Badge variant="default">已完成支付</Badge>;
       default: return <Badge>{status}</Badge>;
     }
   };
