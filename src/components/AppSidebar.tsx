@@ -57,6 +57,7 @@ const menuItems = [
     items: [
       { title: "运单录入", url: "/business-entry", icon: Plus },
       { title: "付款申请", url: "/payment-request", icon: DollarSign },
+      { title: "申请单管理", url: "/payment-requests-list", icon: ClipboardList },
     ]
   },
   {
