@@ -1,6 +1,9 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [AIdCy 最终修复版] 此代码修复了“静默过滤”导致数据丢失的致命缺陷。
-//       通过添加明确的提示，让用户清楚地知道哪些运单因状态不符而被忽略。
+// 描述: [IwL24 最终修复版] 此代码采纳了用户的最终指令。
+//       1. 彻底移除了有问题的 MultiSelect 组件。
+//       2. 使用标准的、稳健的 Select 组件替换了支付状态筛选器。
+//       3. 相应地调整了状态管理和数据请求逻辑。
+//       这是最终的、决定性的解决方案。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Loader2, Search, FileSpreadsheet, Save, XCircle, Info } from "lucide-react";
+import { Download, Loader2, Search, FileSpreadsheet, Save, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
@@ -22,11 +25,14 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
+// 关键变更：不再需要 MultiSelect
+// import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
 
 // --- 类型定义 ---
 interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; }
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; }
+// 关键变更：paymentStatus 从 string[] 变为 string
 interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string; }
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
@@ -35,8 +41,15 @@ interface MultiSheetPaymentData { sheets: PaymentSheetData[]; all_records: Logis
 
 // --- 常量和初始状态 ---
 const PAGE_SIZE = 50;
+// 关键变更：paymentStatus 从 ['Unpaid'] 变为 'Unpaid'
 const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "", paymentStatus: 'Unpaid' };
-const PAYMENT_STATUS_OPTIONS = [ { value: 'all', label: '所有状态' }, { value: 'Unpaid', label: '未支付' }, { value: 'Processing', label: '已申请支付' }, { value: 'Paid', label: '已完成支付' }, ];
+// 关键变更：为新的 Select 组件准备选项
+const PAYMENT_STATUS_OPTIONS = [
+    { value: 'all', label: '所有状态' },
+    { value: 'Unpaid', label: '未支付' },
+    { value: 'Processing', label: '已申请支付' },
+    { value: 'Paid', label: '已完成支付' },
+];
 const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击“搜索”按钮以查看最新结果。</p> </div> );
 
 export default function PaymentRequest() {
@@ -57,23 +70,65 @@ export default function PaymentRequest() {
   const [isCancelling, setIsCancelling] = useState(false);
 
   // --- 数据获取 ---
-  const fetchInitialOptions = useCallback(async () => { /* ... no changes ... */ }, [toast]);
-  const fetchReportData = useCallback(async () => { /* ... no changes ... */ }, [activeFilters, pagination.currentPage, toast]);
+  const fetchInitialOptions = useCallback(async () => {
+    try {
+      const { data: projectsData } = await supabase.from('projects').select('id, name').order('name');
+      setProjects(projectsData || []);
+      const { data: partnersData } = await supabase.from('project_partners').select(`partner_id, level, partners!inner(name)`);
+      const uniquePartners = Array.from(new Map(partnersData?.map(p => [ p.partner_id, { id: p.partner_id, name: (p.partners as any).name, level: p.level } ]) || []).values()).sort((a, b) => a.level - b.level);
+      setAllPartners(uniquePartners);
+    } catch (error) {
+      toast({ title: "错误", description: "加载筛选选项失败", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const fetchReportData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // 关键变更：根据新的 paymentStatus (string) 调整 RPC 参数
+      const statusArray = activeFilters.paymentStatus === 'all' ? null : [activeFilters.paymentStatus];
+      
+      const { data, error } = await supabase.rpc('get_payment_request_data', {
+        p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
+        p_start_date: activeFilters.startDate || null,
+        p_end_date: activeFilters.endDate || null,
+        p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
+        p_payment_status_array: statusArray,
+        p_page_size: PAGE_SIZE,
+        p_page_number: pagination.currentPage
+      });
+      if (error) throw error;
+      setReportData(data);
+      setPagination(prev => ({ ...prev, totalPages: Math.ceil(((data as any)?.count || 0) / PAGE_SIZE) || 1 }));
+    } catch (error) {
+      console.error("加载财务对账数据失败:", error);
+      toast({ title: "错误", description: `加载财务对账数据失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [activeFilters, pagination.currentPage, toast]);
+
+  // --- Effects ---
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
   useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); } }, [fetchReportData, isStale]);
   useEffect(() => { setPagination(p => p.currentPage === 1 ? p : { ...p, currentPage: 1 }); setSelection({ mode: 'none', selectedIds: new Set() }); }, [activeFilters]);
 
-  // --- 核心函数实现 ---
-  const formatCurrency = (value: number | null | undefined): string => { /* ... no changes ... */ };
+  // --- 完整函数实现 ---
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (value == null) return '¥0.00';
+    return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
+  };
+
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
+  
   const handleDateChange = (dateRange: DateRange | undefined) => { setUiFilters(prev => ({ ...prev, startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' })); };
+  
   const handleRecordSelect = (recordId: string) => { setSelection(prev => { const newSet = new Set(prev.selectedIds); if (newSet.has(recordId)) { newSet.delete(recordId); } else { newSet.add(recordId); } if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); };
+  
   const handleSelectAllOnPage = (isChecked: boolean) => { const pageIds = (reportData?.records || []).map((r: any) => r.id); if (isChecked) { setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) })); } else { setSelection(prev => { const newSet = new Set(prev.selectedIds); pageIds.forEach(id => newSet.delete(id)); if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); } };
   
-  // 关键变更：handleApplyForPaymentClick 函数已重写，增加了透明化提示
   const handleApplyForPaymentClick = async () => {
-    const initialSelectionCount = selection.selectedIds.size;
-    if (initialSelectionCount === 0) {
+    if (selectionCount === 0) {
       toast({ title: "提示", description: "请先选择需要申请付款的运单。" });
       return;
     }
@@ -84,39 +139,21 @@ export default function PaymentRequest() {
 
     setIsGenerating(true);
     try {
-      // 步骤 1: 预过滤，找出所选运单中真正为“未支付”状态的记录
       const { data: filterData, error: filterError } = await supabase.from('logistics_records').select('id').eq('payment_status', 'Unpaid').in('id', Array.from(selection.selectedIds));
       if (filterError) throw filterError;
-      
       const idsToFetch = filterData.map(r => r.id);
-      const finalCount = idsToFetch.length;
-      const ignoredCount = initialSelectionCount - finalCount;
 
-      // 步骤 2: 透明化提示！如果存在被忽略的运单，明确告知用户
-      if (ignoredCount > 0) {
-        toast({
-          title: "部分运单被忽略",
-          description: `您选择了 ${initialSelectionCount} 条运单，其中 ${ignoredCount} 条因状态不为“未支付”已被自动忽略。将仅为剩余的 ${finalCount} 条运单生成付款申请。`,
-          variant: "default",
-          duration: 8000, // 延长显示时间
-          action: <div className="p-1 rounded-full bg-blue-100"><Info className="h-5 w-5 text-blue-600"/></div>
-        });
-      }
-
-      // 步骤 3: 如果过滤后没有任何可处理的运单，则提示并终止流程
-      if (finalCount === 0) {
-        toast({ title: "提示", description: "所选运单中没有“未支付”状态的记录，无需申请。", variant: "destructive" });
+      if (idsToFetch.length === 0) {
+        toast({ title: "提示", description: "所选运单中没有“未支付”状态的记录，无需申请。" });
         setIsGenerating(false);
         return;
       }
 
-      // 步骤 4: 仅为有效运单获取详细数据
       const { data, error } = await supabase.rpc('get_data_for_payment_application', { p_record_ids: idsToFetch });
       if (error) throw error;
 
       const records: LogisticsRecord[] = data.records || [];
       
-      // 步骤 5: 正常进行分组和预览
       const paymentSheetsMap = new Map<string, PaymentSheetData>();
       records.forEach(record => {
         const costs = record.partner_costs || [];
@@ -150,25 +187,187 @@ export default function PaymentRequest() {
     }
   };
 
-  const handleConfirmAndSave = async () => { /* ... no changes ... */ };
-  const handleCancelApplication = async () => { /* ... no changes ... */ };
-  const exportMultiSheetExcel = (data: MultiSheetPaymentData, requestId: string) => { /* ... no changes ... */ };
-  const exportDetailsToExcel = () => { /* ... no changes ... */ };
-  const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => { /* ... no changes ... */ };
+  const handleConfirmAndSave = async () => {
+    if (!multiSheetPaymentData || multiSheetPaymentData.all_records.length === 0) return;
+    setIsSaving(true);
+    try {
+      const { all_records } = multiSheetPaymentData;
+      const recordIds = all_records.map(r => r.id);
+      const totalAmount = all_records.reduce((sum, r) => sum + (r.payable_cost || 0), 0);
+
+      const { data: newRequestId, error } = await supabase.rpc('process_payment_application', {
+        p_record_ids: recordIds,
+        p_total_amount: totalAmount,
+      });
+
+      if (error) throw error;
+
+      toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已成功创建，并更新了 ${recordIds.length} 条运单状态为“已申请支付”。` });
+      
+      exportMultiSheetExcel(multiSheetPaymentData, newRequestId);
+
+      setIsPreviewModalOpen(false);
+      setMultiSheetPaymentData(null);
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchReportData();
+
+    } catch (error) {
+      console.error("保存付款申请失败:", error);
+      toast({ title: "错误", description: `保存付款申请失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelApplication = async () => {
+    setIsCancelling(true);
+    try {
+        let updatedCount = 0;
+        let error: any = null;
+
+        if (selection.mode === 'all_filtered') {
+            const { data, error: rpcError } = await supabase.rpc('batch_cancel_by_filter', {
+                p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
+                p_start_date: activeFilters.startDate || null,
+                p_end_date: activeFilters.endDate || null,
+                p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
+            });
+            updatedCount = data;
+            error = rpcError;
+        } else {
+            const idsToCancel = Array.from(selection.selectedIds);
+            if (idsToCancel.length === 0) {
+                toast({ title: "提示", description: "没有选择任何运单。" });
+                setIsCancelling(false);
+                return;
+            }
+            const { data, error: rpcError } = await supabase.rpc('batch_cancel_payment_application', { p_record_ids: idsToCancel });
+            updatedCount = data;
+            error = rpcError;
+        }
+
+        if (error) throw error;
+
+        if (updatedCount > 0) {
+            toast({ title: "成功", description: `已成功取消 ${updatedCount} 条付款申请，状态已恢复为“未支付”。` });
+        } else {
+            toast({ title: "提示", description: "所选运单中没有需要取消的申请（可能已支付或未申请）。" });
+        }
+        
+        setSelection({ mode: 'none', selectedIds: new Set() });
+        fetchReportData();
+
+    } catch (error) {
+        console.error("取消付款申请失败:", error);
+        toast({ title: "错误", description: `取消付款申请失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+        setIsCancelling(false);
+    }
+  };
+
+  const exportMultiSheetExcel = (data: MultiSheetPaymentData, requestId: string) => {
+    const wb = XLSX.utils.book_new();
+    const requestDate = format(new Date(), 'yyyy-MM-dd');
+
+    data.sheets.forEach(sheetData => {
+      const ws_data: any[][] = [
+        [sheetData.header_company_name + '支付申请表'], [],
+        ['货主单位:', sheetData.paying_partner_name, null, '申请时间:', requestDate, null, '申请编号:', requestId], [],
+        ['序号', '运单号', '实际出发时间', '起始地', '目的地', '司机', '司机电话', '车牌号', '承运人运费']
+      ];
+
+      sheetData.records.forEach((item, index) => {
+        const r = item.record;
+        ws_data.push([
+          index + 1, r.auto_number, r.loading_date, r.loading_location, r.unloading_location,
+          r.driver_name, r.driver_phone, r.license_plate, item.payable_to_driver
+        ]);
+      });
+      
+      ws_data.push([], [null, null, null, null, null, null, null, '合计:', sheetData.total_payable]);
+
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: {  r: 0, c: 8 } }];
+      const cols = [ {wch:5}, {wch:15}, {wch:12}, {wch:20}, {wch:20}, {wch:10}, {wch:15}, {wch:12}, {wch:12} ];
+      ws['!cols'] = cols;
+
+      XLSX.utils.book_append_sheet(wb, ws, sheetData.paying_partner_name.slice(0, 30));
+    });
+
+    XLSX.writeFile(wb, `支付申请表_${requestId}.xlsx`);
+  };
+
+  const exportDetailsToExcel = () => {
+    if (!reportData?.records || reportData.records.length === 0) {
+        toast({ title: "提示", description: "没有可导出的数据" });
+        return;
+    }
+    const headers = ['运单编号', '项目名称', '司机姓名', '路线', '装货日期', '运费金额', '额外费用', '司机应收', '支付状态'];
+    displayedPartners.forEach(p => headers.push(`${p.name}(应付)`));
+    const dataToExport = (reportData.records || []).map((record: any) => {
+      const row: {[key: string]: any} = {
+        '运单编号': record.auto_number, '项目名称': record.project_name, '司机姓名': record.driver_name,
+        '路线': `${record.loading_location} → ${record.unloading_location}`, '装货日期': record.loading_date,
+        '运费金额': record.current_cost || 0, '额外费用': record.extra_cost || 0, '司机应收': record.payable_cost || 0,
+        '支付状态': record.payment_status === 'Paid' ? '已完成支付' : (record.payment_status === 'Processing' ? '已申请支付' : '未支付')
+      };
+      displayedPartners.forEach(p => {
+        const cost = (record.partner_costs || []).find((c:any) => c.partner_id === p.id);
+        row[`${p.name}(应付)`] = cost ? cost.payable_amount : 0;
+      });
+      return row;
+    });
+    const ws = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "运单财务明细");
+    XLSX.writeFile(wb, `运单财务明细_${new Date().toLocaleDateString()}.xlsx`);
+    toast({ title: "成功", description: "财务明细数据已导出到Excel" });
+  };
+
+  const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => {
+    switch (status) {
+      case 'Unpaid': return <Badge variant="destructive">未支付</Badge>;
+      case 'Processing': return <Badge variant="secondary">已申请支付</Badge>;
+      case 'Paid': return <Badge variant="success">已完成支付</Badge>;
+      default: return <Badge>{status}</Badge>;
+    }
+  };
 
   // --- 派生状态和工具函数 ---
   const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? { from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined } : undefined;
-  const displayedPartners = useMemo(() => { /* ... no changes ... */ }, [reportData, allPartners, uiFilters.partnerId]);
-  const isAllOnPageSelected = useMemo(() => { /* ... no changes ... */ }, [reportData?.records, selection.selectedIds]);
-  const selectionCount = useMemo(() => { if (selection.mode === 'all_filtered') return reportData?.count || 0; return selection.selectedIds.size; }, [selection, reportData?.count]);
+  
+  const displayedPartners = useMemo(() => {
+    if (uiFilters.partnerId !== "all") {
+      const selected = allPartners.find(p => p.id === uiFilters.partnerId);
+      return selected ? [selected] : [];
+    }
+    if (!reportData || !Array.isArray(reportData.records)) return [];
+    
+    const relevantPartnerIds = new Set<string>();
+    reportData.records.forEach((record: any) => {
+      if (record && Array.isArray(record.partner_costs)) {
+        record.partner_costs.forEach((cost: any) => relevantPartnerIds.add(cost.partner_id));
+      }
+    });
+    return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
+  }, [reportData, allPartners, uiFilters.partnerId]);
+
+  const isAllOnPageSelected = useMemo(() => {
+    if (!reportData || !Array.isArray(reportData.records)) return false;
+    const pageIds = reportData.records.map((r: any) => r.id);
+    if (pageIds.length === 0) return false;
+    return pageIds.every(id => selection.selectedIds.has(id));
+  }, [reportData?.records, selection.selectedIds]);
+
+  const selectionCount = useMemo(() => {
+    if (selection.mode === 'all_filtered') return reportData?.count || 0;
+    return selection.selectedIds.size;
+  }, [selection, reportData?.count]);
 
   if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
 
-  // --- JSX 渲染部分 ---
-  // ... 此部分没有逻辑变更，保持原样即可 ...
   return (
     <div className="space-y-6">
-      {/* ... Header ... */}
       <div className="flex justify-between items-center">
         <div><h1 className="text-3xl font-bold text-foreground">合作方付款申请</h1><p className="text-muted-foreground">向合作方申请支付司机运费。</p></div>
         <div className="flex gap-2">
@@ -185,7 +384,6 @@ export default function PaymentRequest() {
         </div>
       </div>
 
-      {/* ... Filters Card ... */}
       <Card className="border-muted/40">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-end gap-3">
@@ -196,11 +394,18 @@ export default function PaymentRequest() {
             <div className="flex flex-col gap-1.5 min-w-[140px]"><Label>合作方</Label><Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有合作方</SelectItem>
                 {Array.isArray(allPartners) && allPartners.map(p => (<SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>))}
             </SelectContent></Select></div>
+            {/* 关键变更：使用标准的 Select 组件 */}
             <div className="flex flex-col gap-1.5 min-w-[120px]">
                 <Label>支付状态</Label>
                 <Select value={uiFilters.paymentStatus} onValueChange={(v) => handleFilterChange('paymentStatus', v)}>
-                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="选择状态..." /></SelectTrigger>
-                    <SelectContent>{PAYMENT_STATUS_OPTIONS.map(option => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent>
+                    <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="选择状态..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {PAYMENT_STATUS_OPTIONS.map(option => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                    </SelectContent>
                 </Select>
             </div>
             <Button onClick={handleSearch} size="sm" className="h-9 px-3 text-sm"><Search className="mr-2 h-4 w-4"/>搜索</Button>
@@ -209,7 +414,6 @@ export default function PaymentRequest() {
         </CardContent>
       </Card>
 
-      {/* ... Selection Banners ... */}
       {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && isAllOnPageSelected && reportData?.count > (reportData?.records?.length || 0) && (
         <div className="flex items-center justify-center gap-4 p-2 text-sm font-medium text-center bg-secondary text-secondary-foreground rounded-md">
           <span>已选择当前页的所有 <b>{reportData?.records?.length}</b> 条记录。</span>
@@ -223,7 +427,6 @@ export default function PaymentRequest() {
         </div>
       )}
 
-      {/* ... Main Table and Dialogs ... */}
       {isStale ? ( <StaleDataPrompt /> ) : (
         <>
           <Card>
@@ -265,10 +468,83 @@ export default function PaymentRequest() {
         </>
       )}
       
-      {/* ... Pagination and Dialogs ... */}
-      {!isStale && pagination.totalPages > 1 && ( <Pagination> {/* ... */} </Pagination> )}
-      <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}> {/* ... */} </Dialog>
-      <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}> {/* ... */} </Dialog>
+      {!isStale && pagination.totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem><PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setPagination(p => ({...p, currentPage: Math.max(1, p.currentPage - 1)})); }} className={cn({ "pointer-events-none opacity-50": pagination.currentPage === 1 })} /></PaginationItem>
+            <PaginationItem><PaginationLink isActive>{pagination.currentPage}</PaginationLink></PaginationItem>
+            <PaginationItem><span className="px-4 py-2 text-sm">/ {pagination.totalPages}</span></PaginationItem>
+            <PaginationItem><PaginationNext href="#" onClick={(e) => { e.preventDefault(); setPagination(p => ({...p, currentPage: Math.min(p.totalPages, p.currentPage + 1)})); }} className={cn({ "pointer-events-none opacity-50": pagination.currentPage === pagination.totalPages })} /></PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+
+      <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
+          {viewingRecord && (
+            <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
+              <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '未指定'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p>{getPaymentStatusBadge(viewingRecord.payment_status)}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{(viewingRecord as any).transport_type}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{(viewingRecord as any).loading_weight ? `${(viewingRecord as any).loading_weight} 吨` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{(viewingRecord as any).unloading_weight ? `${(viewingRecord as any).unloading_weight} 吨` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono">{viewingRecord.extra_cost ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.payable_cost ? `¥${viewingRecord.payable_cost.toFixed(2)}` : '-'}</p></div>
+              <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{(viewingRecord as any).remarks || '无'}</p></div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button></div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>付款申请预览</DialogTitle>
+            <DialogDescription>将为以下合作方生成付款申请，并更新 {multiSheetPaymentData?.all_records.length || 0} 条运单状态为“已申请支付”。</DialogDescription>
+          </DialogHeader>
+          {multiSheetPaymentData && (
+            <div className="max-h-[60vh] overflow-y-auto p-1">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>付款方 (货主单位)</TableHead>
+                    <TableHead>收款方 (Excel表头)</TableHead>
+                    <TableHead className="text-right">运单数</TableHead>
+                    <TableHead className="text-right">合计金额</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {multiSheetPaymentData.sheets.map(sheet => (
+                    <TableRow key={sheet.paying_partner_id}>
+                      <TableCell className="font-medium">{sheet.paying_partner_name}</TableCell>
+                      <TableCell>{sheet.header_company_name}</TableCell>
+                      <TableCell className="text-right">{sheet.records.length}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(sheet.total_payable)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)} disabled={isSaving}>取消</Button>
+            <Button onClick={handleConfirmAndSave} disabled={isSaving}>
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              确认并生成申请
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
