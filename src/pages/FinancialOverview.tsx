@@ -26,27 +26,31 @@ export default function FinancialOverview() {
   const [partnerRanking, setPartnerRanking] = useState<PartnerRankingData[]>([]);
   const [projectContribution, setProjectContribution] = useState<ProjectContributionData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // --- 数据获取 (优化后) ---
+  // --- 数据获取 ---
   const fetchAllDataInOneGo = useCallback(async () => {
     setLoading(true);
+    setError(null); // 重置错误状态
     try {
-      const { data, error } = await supabase.rpc('get_financial_overview');
-      if (error) throw error;
+      const { data, error: rpcError } = await supabase.rpc('get_financial_overview');
+      if (rpcError) throw rpcError;
+      if (!data) throw new Error("函数返回了空数据，请检查数据库函数逻辑和权限。");
       
       setStats(data.stats);
       setMonthlyTrend(data.monthlyTrend);
       setPartnerRanking(data.partnerRanking);
       setProjectContribution(data.projectContribution);
 
-    } catch (error) {
-      console.error("获取财务概览数据失败:", error);
+    } catch (err: any) {
+      console.error("获取财务概览数据失败:", err);
+      setError(err.message || "发生未知错误，请检查浏览器控制台。");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // --- Effect Hook (增加智能刷新机制) ---
+  // --- Effect Hook ---
   useEffect(() => {
     fetchAllDataInOneGo();
 
@@ -55,12 +59,8 @@ export default function FinancialOverview() {
         fetchAllDataInOneGo();
       }
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [fetchAllDataInOneGo]);
 
   // --- 辅助函数 ---
@@ -71,7 +71,7 @@ export default function FinancialOverview() {
     return `¥${value.toFixed(0)}`;
   }
 
-  // --- 派生数据 (用于财务状态分布图) ---
+  // --- 派生数据 ---
   const financialStatusData = stats ? [
     { name: '待开票', value: stats.pendingInvoice },
     { name: '待付款', value: stats.pendingPayment },
@@ -86,6 +86,16 @@ export default function FinancialOverview() {
         <span className="ml-4 text-lg text-muted-foreground">正在加载财务数据...</span>
       </div>
     );
+  }
+
+  if (error) {
+      return (
+          <div className="flex flex-col justify-center items-center h-screen text-center p-4">
+              <h2 className="text-xl font-semibold text-destructive">数据加载失败</h2>
+              <p className="mt-2 text-sm text-muted-foreground max-w-md">无法获取财务概览数据，这可能是由于数据库权限或函数错误导致的。</p>
+              <code className="mt-4 p-2 bg-muted text-muted-foreground rounded-md text-xs">{error}</code>
+          </div>
+      )
   }
 
   return (
