@@ -1,7 +1,7 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [qB4RE 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
-//       它实现了“最终蓝图复现协议”，加载 public/payment_template_final.xlsx，
-//       通过底层API手动移动页脚、动态插入数据行并逐一复制样式，最终完美生成符合所有要求的Excel文档。
+// 描述: [99Jg7 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
+//       它实现了“最终布局校准协议”，将备注和合计放在同一行，并将合计值
+//       精确放置在对应的数据列下方，最终完美生成符合所有要求的Excel文档。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -225,7 +225,7 @@ export default function PaymentRequest() {
     }
   };
 
-  // 关键变更：exportMultiSheetExcel 函数已彻底重写，以使用“最终蓝图复现协议”
+  // 关键变更：exportMultiSheetExcel 函数已彻底重写，以使用“最终布局校准协议”
   const exportMultiSheetExcel = async (data: MultiSheetPaymentData, requestId: string) => {
     try {
       const response = await fetch('/payment_template_final.xlsx');
@@ -238,49 +238,28 @@ export default function PaymentRequest() {
       const requestDate = format(new Date(), 'yyyy-MM-dd');
 
       for (const sheetData of data.sheets) {
-        // 1. 深度克隆模板工作表
-        const newWs = JSON.parse(JSON.stringify(templateWs));
+        // 1. 构建数据骨架 (ws_data)
+        const ws_data: (string | number | null)[][] = [];
+        
+        // --- 页眉 ---
+        ws_data.push([sheetData.header_company_name + '支付申请表']); // 动态标题 (第1行)
+        ws_data.push(['项目名称：', null, sheetData.project_name, null, null, null, null, null, '申请时间：', null, requestDate, '申请编号：', requestId]); // 信息行 (第2行)
 
-        // 2. 准备数据并排序
+        // --- 数据表头 ---
+        const headers = ['序号', '实际出发时间', '实际到达时间', '起始地', '目的地', '货物', '司机', '司机电话', '车牌号', '吨位', '承运人运费', '收款人', '收款银行账号', '开户行名称', '支行网点'];
+        ws_data.push(headers); // (第3行)
+
+        // --- 动态数据 ---
         const sortedRecords = sheetData.records.sort((a, b) => {
           const dateCompare = a.record.loading_date.localeCompare(b.record.loading_date);
           if (dateCompare !== 0) return dateCompare;
           return a.record.driver_name.localeCompare(b.record.driver_name);
         });
-        
-        const numDataRows = sortedRecords.length;
-        const templateHeaderRowIndex = 2; // 模板中数据表头的行索引 (第3行)
-        const dataStartRowIndex = 3; // 数据注入的起始行索引 (第4行)
-        const footerStartRowInTemplate = 3; // 在新模板中，页脚紧跟在表头之后，行索引为3 (第4行)
-        const rowsToInsert = numDataRows; // 需要插入的行数等于数据行数
 
-        // 3. 外科手术：向下移动页脚
-        const range = XLSX.utils.decode_range(newWs['!ref']!);
-        for (let R = range.e.r; R >= footerStartRowInTemplate; --R) {
-          for (let C = range.s.c; C <= range.e.c; ++C) {
-            const fromAddr = XLSX.utils.encode_cell({ r: R, c: C });
-            const toAddr = XLSX.utils.encode_cell({ r: R + rowsToInsert, c: C });
-            if (newWs[fromAddr]) {
-              newWs[toAddr] = newWs[fromAddr];
-              delete newWs[fromAddr];
-            }
-          }
-        }
-        if (newWs['!merges']) {
-          newWs['!merges'].forEach(merge => {
-            if (merge.s.r >= footerStartRowInTemplate) {
-              merge.s.r += rowsToInsert;
-              merge.e.r += rowsToInsert;
-            }
-          });
-        }
-
-        // 4. 逐行注入数据并复制样式
         let totalWeight = 0;
         sortedRecords.forEach((item, index) => {
-          const rowIndex = dataStartRowIndex + index;
           totalWeight += item.record.loading_weight || 0;
-          const dataRow = [
+          ws_data.push([
             index + 1,
             item.record.loading_date,
             item.record.unloading_date || item.record.loading_date,
@@ -296,49 +275,76 @@ export default function PaymentRequest() {
             sheetData.paying_partner_bank_account,
             sheetData.paying_partner_bank_name,
             sheetData.paying_partner_branch_name,
-          ];
-
-          dataRow.forEach((value, colIndex) => {
-            const cellAddr = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
-            const templateCellAddr = XLSX.utils.encode_cell({ r: templateHeaderRowIndex, c: colIndex });
-            
-            newWs[cellAddr] = {
-              v: value,
-              t: typeof value === 'number' ? 'n' : 's',
-              s: newWs[templateCellAddr]?.s // 完美复制模板表头行的样式
-            };
-          });
+          ]);
         });
 
-        // 5. 更新页眉和移动后的页脚
-        // 动态标题
-        const titleCellAddr = 'A1';
-        newWs[titleCellAddr] = { v: sheetData.header_company_name + '支付申请表', t: 's', s: { font: { sz: 20, bold: true }, alignment: { horizontal: 'center', vertical: 'center' } } };
-        if (!newWs['!merges']) newWs['!merges'] = [];
-        newWs['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 14 } }); // A1:O1
-
-        // 信息行
-        newWs['C2'] = { v: sheetData.project_name, t: 's' };
-        newWs['J2'] = { v: requestDate, t: 's' };
-        newWs['L2'] = { v: requestId, t: 's' };
+        // --- 页脚 ---
+        const dataEndRow = 2 + sortedRecords.length;
+        const remarksText = sheetData.records.map(i => i.record.remarks).filter(Boolean).join('; ');
         
-        // 移动后的页脚
-        const remarksRowIndex = footerStartRowInTemplate + rowsToInsert;
-        const totalRowIndex = remarksRowIndex + 1;
-        
-        const remarksCellAddr = XLSX.utils.encode_cell({ r: remarksRowIndex, c: 1 }); // B列
-        const totalCellAddr = XLSX.utils.encode_cell({ r: totalRowIndex, c: 1 }); // B列
-        
-        if(!newWs[remarksCellAddr]) newWs[remarksCellAddr] = { t: 's' };
-        newWs[remarksCellAddr].v = sheetData.records.map(i => i.record.remarks).filter(Boolean).join('; ');
+        // 关键变更：备注和合计在同一行
+        const footerRow = new Array(15).fill(null);
+        footerRow[0] = '备注：'; // A列
+        footerRow[1] = remarksText; // B列
+        footerRow[8] = '合计：'; // I列
+        footerRow[9] = totalWeight; // J列 (吨位合计)
+        footerRow[10] = sheetData.total_payable; // K列 (运费合计)
+        ws_data.push(footerRow);
 
-        if(!newWs[totalCellAddr]) newWs[totalCellAddr] = { t: 's' };
-        newWs[totalCellAddr].v = `${totalWeight.toFixed(2)} / ${sheetData.total_payable.toFixed(2)}`;
+        // 签字行
+        ws_data.push(['信息专员签字', null, null, '信息部审核签字', null, null, '业务负责人签字', null, null, '复核审批人签字', null, null, '业务经理', null, '业务总经理']);
+        ws_data.push([null, null, null, null, null, null, null, null, null, null, null, null, '财务部审核签字']);
 
-        // 6. 更新工作表元数据
-        const finalRange = XLSX.utils.decode_range(newWs['!ref']!);
-        finalRange.e.r += rowsToInsert;
-        newWs['!ref'] = XLSX.utils.encode_range(finalRange);
+        // 2. 生成无格式工作表
+        const newWs = XLSX.utils.aoa_to_sheet(ws_data);
+
+        // 3. 手动重建所有合并单元格
+        const merges = [];
+        merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 14 } }); // 标题
+        merges.push({ s: { r: 1, c: 2 }, e: { r: 1, c: 7 } }); // 项目名称值
+        
+        // 关键变更：新的备注/合计行合并规则
+        const footerRowIndex = dataEndRow + 1;
+        merges.push({ s: { r: footerRowIndex, c: 1 }, e: { r: footerRowIndex, c: 7 } }); // 备注值 (B列到H列)
+        
+        // 签字区合并规则
+        const signRow1 = dataEndRow + 2;
+        merges.push({ s: { r: signRow1, c: 0 }, e: { r: signRow1, c: 2 } });
+        merges.push({ s: { r: signRow1, c: 3 }, e: { r: signRow1, c: 5 } });
+        merges.push({ s: { r: signRow1, c: 6 }, e: { r: signRow1, c: 8 } });
+        merges.push({ s: { r: signRow1, c: 9 }, e: { r: signRow1, c: 11 } });
+        
+        const signRow2 = dataEndRow + 3;
+        merges.push({ s: { r: signRow1, c: 12 }, e: { r: signRow2, c: 12 } }); // 业务经理跨两行
+        merges.push({ s: { r: signRow1, c: 13 }, e: { r: signRow2, c: 14 } }); // 业务总经理跨两行
+        merges.push({ s: { r: signRow2, c: 0 }, e: { r: signRow2, c: 11 } }); // 财务部审核签字
+
+        newWs['!merges'] = merges;
+
+        // 4. 逐一应用单元格样式 (从模板中提取)
+        const range = XLSX.utils.decode_range(newWs['!ref']!);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cell_address = { c: C, r: R };
+                const cell_ref = XLSX.utils.encode_cell(cell_address);
+                if (!newWs[cell_ref]) continue;
+
+                let template_cell_ref;
+                if (R === 0) template_cell_ref = 'A1'; // 标题行样式
+                else if (R === 1) template_cell_ref = 'A2'; // 信息行样式
+                else if (R === 2) template_cell_ref = XLSX.utils.encode_cell({c:C, r:2}); // 表头行样式
+                else if (R > 2 && R <= dataEndRow) template_cell_ref = XLSX.utils.encode_cell({c:C, r:3}); // 数据行样式 (取模板第4行)
+                else if (R === footerRowIndex) template_cell_ref = XLSX.utils.encode_cell({c:C, r:4}); // 备注/合计行样式
+                else if (R >= signRow1) template_cell_ref = XLSX.utils.encode_cell({c:C, r:6}); // 签字区样式
+                
+                if (template_cell_ref && templateWs[template_cell_ref] && templateWs[template_cell_ref].s) {
+                    newWs[cell_ref].s = templateWs[template_cell_ref].s;
+                }
+            }
+        }
+        
+        // 设置列宽
+        newWs['!cols'] = templateWs['!cols'];
 
         XLSX.utils.book_append_sheet(outputWb, newWs, sheetData.paying_partner_name.slice(0, 30));
       }
