@@ -123,7 +123,16 @@ export default function PaymentRequest() {
       if (ignoredCount > 0) { toast({ title: "部分运单被忽略", description: `您选择了 ${initialSelectionCount} 条运单，其中 ${ignoredCount} 条因状态不为“未支付”已被自动忽略。将仅为剩余的 ${finalCount} 条运单生成付款申请。`, variant: "default", duration: 8000, action: <div className="p-1 rounded-full bg-blue-100"><Info className="h-5 w-5 text-blue-600"/></div> }); }
       if (finalCount === 0) { toast({ title: "提示", description: "所选运单中没有“未支付”状态的记录，无需申请。", variant: "destructive" }); setIsGenerating(false); return; }
 
-      const { data, error } = await supabase.rpc('get_data_for_payment_application', { p_record_ids: idsToFetch });
+      const { data, error } = await supabase.rpc('get_payment_request_data', { 
+        p_record_ids: idsToFetch,
+        p_project_id: null,
+        p_start_date: null,
+        p_end_date: null,
+        p_partner_id: null,
+        p_payment_status_array: null,
+        p_page_size: 1000,
+        p_page_number: 1
+      });
       if (error) throw error;
 
       const records: LogisticsRecord[] = (data as { records?: LogisticsRecord[] })?.records || [];
