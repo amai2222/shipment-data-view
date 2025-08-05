@@ -160,10 +160,10 @@ export default function Home() {
   }
 
   return (
-    // 【布局修正】为整个页面增加 position: relative，以便悬浮按钮正确定位
-    <div className="space-y-8 p-4 md:p-8 relative min-h-screen">
+    // 【布局修正】使用和 FinancialOverview.tsx 一致的顶层 div 结构
+    <div className="space-y-6 p-4 md:p-6">
       {migrationStatus && !migrationStatus.isMigrated && migrationStatus.localCount > 0 && (
-        <Card className="border-orange-200 bg-orange-50">
+        <Card className="border-orange-200 bg-orange-50 mb-6">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -179,10 +179,11 @@ export default function Home() {
         </Card>
       )}
 
-      <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
-        <h1 className="text-2xl font-bold mb-2 flex items-center"><BarChart3 className="mr-2" />数据看板</h1>
-        <p className="opacity-90">运输数据统计分析与可视化</p>
-      </div>
+      {/* 【布局修正】使用和 FinancialOverview.tsx 一致的标题结构 */}
+      <div>
+        <h1 className="text-3xl font-bold text-foreground">运输看板</h1>
+        <p className="text-muted-foreground">运输数据统计分析与可视化</p>
+      </div>
 
       <Card className="shadow-card">
         <CardHeader><CardTitle>数据筛选</CardTitle></CardHeader>
@@ -214,7 +215,13 @@ export default function Home() {
       
       <div className="space-y-6">
         <Card className="shadow-card">
-          <CardHeader><CardTitle>每日运输量统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (吨)</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>每日运输量统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (吨)</CardTitle>
+            <div className="flex items-center space-x-2">
+              <Switch id="log-scale-switch-home" checked={useLogScale} onCheckedChange={setUseLogScale} />
+              <Label htmlFor="log-scale-switch-home" className="cursor-pointer text-sm">对数刻度</Label>
+            </div>
+          </CardHeader>
           <CardContent>
             <div className="h-96">
               <ResponsiveContainer width="100%" height="100%">
@@ -266,12 +273,6 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
-
-      {/* 【布局修正】将开关固定在页面右下角，不再影响其他元素布局 */}
-      <div className="fixed bottom-6 right-6 z-50 p-4 bg-background/80 backdrop-blur-sm border rounded-lg shadow-lg flex items-center space-x-2">
-        <Switch id="log-scale-switch-home" checked={useLogScale} onCheckedChange={setUseLogScale} />
-        <Label htmlFor="log-scale-switch-home" className="cursor-pointer text-sm font-medium">启用对数刻度</Label>
-      </div>
 
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col" aria-describedby="dialog-description">
