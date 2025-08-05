@@ -1,13 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from '@supabase/supabase-js';
-
-// 确保您的 supabase 客户端实例被正确初始化
-// 注意: 请确保您的项目中已经配置了 .env.local 文件并包含了以下两个环境变量
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// 从项目中正确的位置导入已经初始化好的 supabase 客户端
+import { supabase } from "@/integrations/supabase/client";
 
 // 用于存储卡片数据的状态类型
 interface FinancialStats {
@@ -105,40 +99,4 @@ export default function FinancialOverview() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.monthlyReceivables)}</div>
             <p className="text-xs text-muted-foreground">本月运单最高级合作方的应付总额</p>
-          </CardContent>
-        </Card>
-
-        {/* 卡片3: 待付金额 */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">待付金额</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.pendingPayment)}</div>
-            <p className="text-xs text-muted-foreground">状态为“待付款(Unpaid)”的应付总额</p>
-          </CardContent>
-        </Card>
-
-        {/* 卡片4: 待开票 */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">待开票</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.pendingInvoice)}</div>
-            <p className="text-xs text-muted-foreground">状态为“未开票”的应付总额</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 建议的图表区域 */}
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold text-foreground mb-4">财务图表分析</h2>
-        <div className="p-6 border rounded-lg bg-card text-card-foreground">
-            {/* 在这里添加您选择的图表组件，例如 recharts, chart.js 等 */}
-            <p className="text-center text-muted-foreground">图表区域：您可以在此集成如“月度应收趋势图”、“应付对象排名”等图表。</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+          </C
