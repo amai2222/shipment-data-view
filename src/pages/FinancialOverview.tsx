@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// 从项目中正确的位置导入已经初始化好的 supabase 客户端
-import { supabase } from "@/integrations/supabase/client";
+
+// ########## 核心修正 ##########
+// 导入项目中已经初始化好的 supabase 客户端实例
+// 这个路径是根据您提供的 Home.tsx 文件推断的
+import { supabase } from "@/utils/supabase"; 
 
 // 用于存储卡片数据的状态类型
 interface FinancialStats {
@@ -54,7 +57,7 @@ export default function FinancialOverview() {
 
       } catch (error) {
         console.error("获取财务数据失败:", error);
-        // 您可以在这里添加更友好的用户错误提示，例如使用 Toaster
+        // 您可以在这里添加更友好的用户错误提示，例如使用 Toaster 组件
       } finally {
         setLoading(false);
       }
@@ -99,4 +102,39 @@ export default function FinancialOverview() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.monthlyReceivables)}</div>
             <p className="text-xs text-muted-foreground">本月运单最高级合作方的应付总额</p>
-          </C
+          </CardContent>
+        </Card>
+
+        {/* 卡片3: 待付金额 */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">待付金额</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(stats.pendingPayment)}</div>
+            <p className="text-xs text-muted-foreground">状态为“待付款(Unpaid)”的应付总额</p>
+          </CardContent>
+        </Card>
+
+        {/* 卡片4: 待开票 */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">待开票</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(stats.pendingInvoice)}</div>
+            <p className="text-xs text-muted-foreground">状态为“未开票”的应付总额</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 建议的图表区域 */}
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold text-foreground mb-4">财务图表分析</h2>
+        <div className="p-6 border rounded-lg bg-card text-card-foreground">
+            <p className="text-center text-muted-foreground">图表区域：您可以在此集成如“月度应收趋势图”、“应付对象排名”等图表。</p>
+        </div>
+      </div>
+    </div>
+  );
+}
