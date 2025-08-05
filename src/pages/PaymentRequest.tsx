@@ -1,7 +1,7 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [AfdMl 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
-//       它实现了“外科手术式行插入协议”，通过底层API手动移动页脚、
-//       动态插入数据行并逐一复制样式，最终完美生成符合所有要求的Excel文档。
+// 描述: [qB4RE 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
+//       它实现了“最终蓝图复现协议”，加载 public/payment_template_final.xlsx，
+//       通过底层API手动移动页脚、动态插入数据行并逐一复制样式，最终完美生成符合所有要求的Excel文档。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -225,10 +225,10 @@ export default function PaymentRequest() {
     }
   };
 
-  // 关键变更：exportMultiSheetExcel 函数已彻底重写，以使用“外科手术式行插入协议”
+  // 关键变更：exportMultiSheetExcel 函数已彻底重写，以使用“最终蓝图复现协议”
   const exportMultiSheetExcel = async (data: MultiSheetPaymentData, requestId: string) => {
     try {
-      const response = await fetch('/payment_template.xlsx');
+      const response = await fetch('/payment_template_final.xlsx');
       const arrayBuffer = await response.arrayBuffer();
       const templateWb = XLSX.read(arrayBuffer, { type: 'buffer', cellStyles: true });
       const templateWsName = templateWb.SheetNames[0];
@@ -249,37 +249,37 @@ export default function PaymentRequest() {
         });
         
         const numDataRows = sortedRecords.length;
-        const templateDataRow = 12; // 模板中数据行的起始行索引 (第13行)
-        const footerStartRow = 22; // 模板中页脚部分的起始行索引 (第23行)
-        const rowsToInsert = Math.max(0, numDataRows - 1); // 模板自带一行，所以减1
+        const templateHeaderRowIndex = 2; // 模板中数据表头的行索引 (第3行)
+        const dataStartRowIndex = 3; // 数据注入的起始行索引 (第4行)
+        const footerStartRowInTemplate = 3; // 在新模板中，页脚紧跟在表头之后，行索引为3 (第4行)
+        const rowsToInsert = numDataRows; // 需要插入的行数等于数据行数
 
         // 3. 外科手术：向下移动页脚
-        if (rowsToInsert > 0) {
-          const range = XLSX.utils.decode_range(newWs['!ref']!);
-          for (let R = range.e.r; R >= footerStartRow; --R) {
-            for (let C = range.s.c; C <= range.e.c; ++C) {
-              const fromAddr = XLSX.utils.encode_cell({ r: R, c: C });
-              const toAddr = XLSX.utils.encode_cell({ r: R + rowsToInsert, c: C });
-              if (newWs[fromAddr]) {
-                newWs[toAddr] = newWs[fromAddr];
-                delete newWs[fromAddr];
-              }
+        const range = XLSX.utils.decode_range(newWs['!ref']!);
+        for (let R = range.e.r; R >= footerStartRowInTemplate; --R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const fromAddr = XLSX.utils.encode_cell({ r: R, c: C });
+            const toAddr = XLSX.utils.encode_cell({ r: R + rowsToInsert, c: C });
+            if (newWs[fromAddr]) {
+              newWs[toAddr] = newWs[fromAddr];
+              delete newWs[fromAddr];
             }
           }
-          // 更新合并信息
-          if (newWs['!merges']) {
-            newWs['!merges'].forEach(merge => {
-              if (merge.s.r >= footerStartRow) {
-                merge.s.r += rowsToInsert;
-                merge.e.r += rowsToInsert;
-              }
-            });
-          }
+        }
+        if (newWs['!merges']) {
+          newWs['!merges'].forEach(merge => {
+            if (merge.s.r >= footerStartRowInTemplate) {
+              merge.s.r += rowsToInsert;
+              merge.e.r += rowsToInsert;
+            }
+          });
         }
 
         // 4. 逐行注入数据并复制样式
+        let totalWeight = 0;
         sortedRecords.forEach((item, index) => {
-          const rowIndex = templateDataRow + index;
+          const rowIndex = dataStartRowIndex + index;
+          totalWeight += item.record.loading_weight || 0;
           const dataRow = [
             index + 1,
             item.record.loading_date,
@@ -300,30 +300,40 @@ export default function PaymentRequest() {
 
           dataRow.forEach((value, colIndex) => {
             const cellAddr = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
-            const templateCellAddr = XLSX.utils.encode_cell({ r: templateDataRow, c: colIndex });
+            const templateCellAddr = XLSX.utils.encode_cell({ r: templateHeaderRowIndex, c: colIndex });
             
             newWs[cellAddr] = {
               v: value,
               t: typeof value === 'number' ? 'n' : 's',
-              s: newWs[templateCellAddr]?.s // 完美复制模板行的样式
+              s: newWs[templateCellAddr]?.s // 完美复制模板表头行的样式
             };
           });
         });
 
         // 5. 更新页眉和移动后的页脚
-        newWs['A1'].v = sheetData.header_company_name + '支付申请表';
-        newWs['B9'].v = sheetData.project_name;
-        newWs['H9'].v = requestDate;
-        newWs['H10'].v = requestId;
+        // 动态标题
+        const titleCellAddr = 'A1';
+        newWs[titleCellAddr] = { v: sheetData.header_company_name + '支付申请表', t: 's', s: { font: { sz: 20, bold: true }, alignment: { horizontal: 'center', vertical: 'center' } } };
+        if (!newWs['!merges']) newWs['!merges'] = [];
+        newWs['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 14 } }); // A1:O1
+
+        // 信息行
+        newWs['C2'] = { v: sheetData.project_name, t: 's' };
+        newWs['J2'] = { v: requestDate, t: 's' };
+        newWs['L2'] = { v: requestId, t: 's' };
         
-        const remarksCellAddr = XLSX.utils.encode_cell({ r: footerStartRow + rowsToInsert, c: 1 }); // B23 + offset
-        const totalCellAddr = XLSX.utils.encode_cell({ r: footerStartRow + rowsToInsert + 1, c: 10 }); // K24 + offset
+        // 移动后的页脚
+        const remarksRowIndex = footerStartRowInTemplate + rowsToInsert;
+        const totalRowIndex = remarksRowIndex + 1;
         
-        if(!newWs[remarksCellAddr]) newWs[remarksCellAddr] = { t: 's', s: newWs['B23']?.s };
+        const remarksCellAddr = XLSX.utils.encode_cell({ r: remarksRowIndex, c: 1 }); // B列
+        const totalCellAddr = XLSX.utils.encode_cell({ r: totalRowIndex, c: 1 }); // B列
+        
+        if(!newWs[remarksCellAddr]) newWs[remarksCellAddr] = { t: 's' };
         newWs[remarksCellAddr].v = sheetData.records.map(i => i.record.remarks).filter(Boolean).join('; ');
 
-        if(!newWs[totalCellAddr]) newWs[totalCellAddr] = { t: 'n', s: newWs['K24']?.s };
-        newWs[totalCellAddr].v = sheetData.total_payable;
+        if(!newWs[totalCellAddr]) newWs[totalCellAddr] = { t: 's' };
+        newWs[totalCellAddr].v = `${totalWeight.toFixed(2)} / ${sheetData.total_payable.toFixed(2)}`;
 
         // 6. 更新工作表元数据
         const finalRange = XLSX.utils.decode_range(newWs['!ref']!);
