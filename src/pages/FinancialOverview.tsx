@@ -1,42 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { 
-    BarChart, 
-    Bar, 
-    XAxis, 
-    YAxis, 
-    CartesianGrid, 
-    Tooltip, 
-    Legend, 
-    ResponsiveContainer, 
-    PieChart, 
-    Pie, 
-    Cell 
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell 
 } from 'recharts';
 import { Loader2 } from "lucide-react";
 
 // --- 类型定义 ---
 interface FinancialStats {
-  totalReceivables: number;
-  monthlyReceivables: number;
-  pendingPayment: number;
-  pendingInvoice: number;
+  totalReceivables: number; monthlyReceivables: number;
+  pendingPayment: number; pendingInvoice: number;
 }
-interface MonthlyTrendData { 
-  month_start: string; 
-  total_receivables: number; 
-}
-interface PartnerRankingData { 
-  partner_name: string; 
-  total_payable: number; 
-}
-interface ProjectContributionData { 
-  project_name: string; 
-  total_receivables: number; 
-}
+interface MonthlyTrendData { month_start: string; total_receivables: number; }
+interface PartnerRankingData { partner_name: string; total_payable: number; }
+interface ProjectContributionData { project_name: string; total_receivables: number; }
 
-// --- 图表颜色 ---
+// --- 常量 ---
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
 // --- 主组件 ---
@@ -49,29 +28,47 @@ export default function FinancialOverview() {
   const [loading, setLoading] = useState(true);
 
   // --- 数据获取 (优化后) ---
+  const fetchAllDataInOneGo = useCallback(async () => {
+    setLoading(true);
+    try {
+      // 只调用一次 "大一统" 的 RPC 函数
+      const { data, error } = await supabase.rpc('get_financial_overview');
+      if (error) throw error;
+      
+      // 将返回的单一数据源分发到各个 state
+      setStats(data.stats);
+      setMonthlyTrend(data.monthlyTrend);
+      setPartnerRanking(data.partnerRanking);
+      setProjectContribution(data.projectContribution);
+
+    } catch (error) {
+      console.error("获取财务概览数据失败:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // --- Effect Hook (增加智能刷新机制) ---
   useEffect(() => {
-    const fetchAllDataInOneGo = async () => {
-      setLoading(true);
-      try {
-        // 只调用一次 "大一统" 的 RPC 函数
-        const { data, error } = await supabase.rpc('get_financial_overview');
-        
-        if (error) throw error;
+    // 1. 组件首次加载时，获取数据
+    fetchAllDataInOneGo();
 
-        // 将返回的单一数据源分发到各个 state
-        setStats(data.stats);
-        setMonthlyTrend(data.monthlyTrend);
-        setPartnerRanking(data.partnerRanking);
-        setProjectContribution(data.projectContribution);
-
-      } catch (error) {
-        console.error("获取财务概览数据失败:", error);
-      } finally {
-        setLoading(false);
+    // 2. 监听浏览器标签页的可见性变化
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // 当页面从后台切回前台时，重新获取数据
+        console.log("页面已激活，正在刷新数据...");
+        fetchAllDataInOneGo();
       }
     };
-    fetchAllDataInOneGo();
-  }, []);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 3. 组件卸载时，清理监听器，防止内存泄漏
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchAllDataInOneGo]); // 依赖回调函数本身
 
   // --- 辅助函数 ---
   const formatCurrency = (value: number) => `¥${value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -89,7 +86,7 @@ export default function FinancialOverview() {
   ].filter(item => item.value > 0) : [];
 
   // --- 渲染组件 ---
-  if (loading) {
+  if (loading && !stats) { // 只在首次加载且没有旧数据时显示全屏加载
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -99,7 +96,14 @@ export default function FinancialOverview() {
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-6 p-4 md:p-6 relative">
+      {/* 增加一个覆盖整个页面的加载动画，用于刷新时提示用户 */}
+      {loading && (
+        <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex justify-center items-center z-10">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
+
       {/* --- 顶部标题和卡片区域 --- */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">财务概览</h1>
@@ -107,14 +111,13 @@ export default function FinancialOverview() {
       </div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card><CardHeader><CardTitle className="text-sm font-medium">总应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.totalReceivables || 0)}</div><p className="text-xs text-muted-foreground">所有运单最高级合作方的应付总额</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">本月应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.monthlyReceivables || 0)}</div><p className="text-xs text-muted-foreground">本月运单最高级合作方的应付总额</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm font-medium">本月应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.monthlyReceivables || 0)}</div><p className="text-xs text-muted-foreground">按装货日期统计的本月应收</p></CardContent></Card>
         <Card><CardHeader><CardTitle className="text-sm font-medium">待付金额</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.pendingPayment || 0)}</div><p className="text-xs text-muted-foreground">状态为“待付款(Unpaid)”的应付总额</p></CardContent></Card>
         <Card><CardHeader><CardTitle className="text-sm font-medium">待开票</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.pendingInvoice || 0)}</div><p className="text-xs text-muted-foreground">状态为“未开票”的应付总额</p></CardContent></Card>
       </div>
 
       {/* --- 图表区域 --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 月度应收趋势图 */}
         <Card className="col-span-1 lg:col-span-2">
           <CardHeader><CardTitle>月度应收趋势 (最近12个月)</CardTitle></CardHeader>
           <CardContent className="h-80">
@@ -131,7 +134,6 @@ export default function FinancialOverview() {
           </CardContent>
         </Card>
 
-        {/* 合作方应付排名 */}
         <Card>
           <CardHeader><CardTitle>合作方应付金额排名 (Top 10)</CardTitle></CardHeader>
           <CardContent className="h-96">
@@ -147,7 +149,6 @@ export default function FinancialOverview() {
           </CardContent>
         </Card>
 
-        {/* 财务状态分布图 */}
         <Card>
           <CardHeader><CardTitle>财务状态分布</CardTitle></CardHeader>
           <CardContent className="h-96">
@@ -163,8 +164,7 @@ export default function FinancialOverview() {
           </CardContent>
         </Card>
       </div>
-
-      {/* 项目贡献度 - 单独一行，如果数据存在 */}
+      
       {projectContribution.length > 0 && (
           <Card>
               <CardHeader><CardTitle>项目应收贡献度</CardTitle></CardHeader>
