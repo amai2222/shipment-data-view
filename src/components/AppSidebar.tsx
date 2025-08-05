@@ -12,7 +12,8 @@ import {
   Users,
   Plus,
   RotateCcw,
-  ChevronDown
+  ChevronDown,
+  ClipboardList 
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
