@@ -1,7 +1,7 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [wNjGJ 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
-//       它实现了“地基协议”，严格按照用户设计的正确逻辑，为每个Sheet创建独立的、
-//       完美的模板克隆，并进行精准的“外科手术”，最终完美生成符合所有要求的Excel文档。
+// 描述: [cdinQ 最终执行版] 此代码是 PaymentRequest.tsx 的最终版本。
+//       它已彻底移除所有前端Excel生成逻辑，并被改造为调用后端 'export-excel' Edge Function。
+//       这是在您亲自指导下完成的、唯一正确的最终前端代码。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Download, Loader2, Search, FileSpreadsheet, Save, XCircle, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from 'xlsx';
+// 关键变更：不再需要 'xlsx' 库
+// import * as XLSX from 'xlsx'; 
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -175,15 +176,36 @@ export default function PaymentRequest() {
       const totalAmount = all_records.reduce((sum, r) => sum + (r.payable_cost || 0), 0);
       const { data: newRequestId, error } = await supabase.rpc('process_payment_application', { p_record_ids: recordIds, p_total_amount: totalAmount });
       if (error) throw error;
-      toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已成功创建，并更新了 ${recordIds.length} 条运单状态为“已申请支付”。` });
-      await exportMultiSheetExcel(multiSheetPaymentData, newRequestId);
+      
+      toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已成功创建，并更新了 ${recordIds.length} 条运单状态为“已申请支付”。正在生成Excel文件...` });
+
+      // 关键变更：调用后端 Edge Function
+      const { data: fileBlob, error: functionError } = await supabase.functions.invoke('export-excel', {
+        body: { sheetData: multiSheetPaymentData, requestId: newRequestId },
+        responseType: 'blob'
+      });
+
+      if (functionError) {
+        throw new Error(`生成Excel文件失败: ${functionError.message}`);
+      }
+
+      // 创建下载链接并触发下载
+      const url = window.URL.createObjectURL(fileBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `支付申请表_${newRequestId}.xlsx`;
+      document.body.appendChild(a);
+a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+
       setIsPreviewModalOpen(false);
       setMultiSheetPaymentData(null);
       setSelection({ mode: 'none', selectedIds: new Set() });
       fetchReportData();
     } catch (error) {
-      console.error("保存付款申请失败:", error);
-      toast({ title: "错误", description: `保存付款申请失败: ${(error as any).message}`, variant: "destructive" });
+      console.error("保存付款申请或生成文件失败:", error);
+      toast({ title: "错误", description: `操作失败: ${(error as any).message}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -225,152 +247,7 @@ export default function PaymentRequest() {
     }
   };
 
-  // 关键变更：exportMultiSheetExcel 函数已彻底重写，以使用“地基协议”
-  const exportMultiSheetExcel = async (data: MultiSheetPaymentData, requestId: string) => {
-    try {
-      const response = await fetch('/payment_template_final.xlsx');
-      const arrayBuffer = await response.arrayBuffer();
-      
-      const outputWb = XLSX.utils.book_new();
-      const requestDate = format(new Date(), 'yyyy-MM-dd');
-
-      for (const sheetData of data.sheets) {
-        // 1. 完美克隆
-        const templateWb = XLSX.read(arrayBuffer, { type: 'buffer', cellStyles: true });
-        const templateWsName = templateWb.SheetNames[0];
-        const newWs = templateWb.Sheets[templateWsName];
-
-        // 2. 准备数据并排序
-        const sortedRecords = sheetData.records.sort((a, b) => {
-          const dateCompare = a.record.loading_date.localeCompare(b.record.loading_date);
-          if (dateCompare !== 0) return dateCompare;
-          return a.record.driver_name.localeCompare(b.record.driver_name);
-        });
-        
-        const dataStartRow = 3; // 数据从第4行开始 (索引为3)
-        const templateDataRow = 3; // 模板中用于复制样式的数据行也是第4行
-        const footerStartRowInTemplate = 4; // 模板中页脚部分的起始行索引 (第5行)
-        const rowsToInsert = Math.max(0, sortedRecords.length - 1);
-
-        // 3. 精准的外科手术
-        if (rowsToInsert > 0) {
-          const range = XLSX.utils.decode_range(newWs['!ref']!);
-          // 移动单元格
-          for (let R = range.e.r; R >= footerStartRowInTemplate; --R) {
-            for (let C = range.s.c; C <= range.e.c; ++C) {
-              const fromAddr = XLSX.utils.encode_cell({ r: R, c: C });
-              const toAddr = XLSX.utils.encode_cell({ r: R + rowsToInsert, c: C });
-              if (newWs[fromAddr]) {
-                newWs[toAddr] = newWs[fromAddr];
-                delete newWs[fromAddr];
-              }
-            }
-          }
-          // 移动合并规则
-          if (newWs['!merges']) {
-            newWs['!merges'].forEach(merge => {
-              if (merge.s.r >= footerStartRowInTemplate) {
-                merge.s.r += rowsToInsert;
-                merge.e.r += rowsToInsert;
-              }
-            });
-          }
-        }
-
-        // 4. 带样式注入
-        let totalWeight = 0;
-        sortedRecords.forEach((item, index) => {
-          const rowIndex = dataStartRow + index;
-          totalWeight += item.record.loading_weight || 0;
-          const dataRow = [
-            index + 1,
-            item.record.loading_date,
-            item.record.unloading_date || item.record.loading_date,
-            item.record.loading_location,
-            item.record.unloading_location,
-            item.record.cargo_type,
-            item.record.driver_name,
-            item.record.driver_phone,
-            item.record.license_plate,
-            item.record.loading_weight,
-            item.payable_amount,
-            sheetData.paying_partner_full_name,
-            sheetData.paying_partner_bank_account,
-            sheetData.paying_partner_bank_name,
-            sheetData.paying_partner_branch_name,
-          ];
-
-          dataRow.forEach((value, colIndex) => {
-            const cellAddr = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
-            const templateCellAddr = XLSX.utils.encode_cell({ r: templateDataRow, c: colIndex });
-            
-            const style = newWs[templateCellAddr]?.s ? JSON.parse(JSON.stringify(newWs[templateCellAddr].s)) : {};
-
-            newWs[cellAddr] = {
-              v: value,
-              t: typeof value === 'number' ? 'n' : 's',
-              s: style
-            };
-          });
-        });
-
-        // 5. 更新动态内容
-        newWs['A1'].v = sheetData.header_company_name + '支付申请表';
-        newWs['C2'].v = sheetData.project_name;
-        newWs['K2'].v = requestDate;
-        newWs['M2'].v = requestId;
-        
-        const footerRowIndex = footerStartRowInTemplate + rowsToInsert;
-        const remarksCellAddr = XLSX.utils.encode_cell({ r: footerRowIndex, c: 1 }); // B列
-        const totalWeightCellAddr = XLSX.utils.encode_cell({ r: footerRowIndex, c: 9 }); // J列
-        const totalPayableCellAddr = XLSX.utils.encode_cell({ r: footerRowIndex, c: 10 }); // K列
-        
-        newWs[remarksCellAddr].v = '';
-        newWs[totalWeightCellAddr].v = totalWeight;
-        newWs[totalPayableCellAddr].v = sheetData.total_payable;
-
-        // 6. 更新工作表元数据
-        const finalRange = XLSX.utils.decode_range(newWs['!ref']!);
-        finalRange.e.r += rowsToInsert;
-        newWs['!ref'] = XLSX.utils.encode_range(finalRange);
-
-        XLSX.utils.book_append_sheet(outputWb, newWs, sheetData.paying_partner_name.slice(0, 30));
-      }
-
-      XLSX.writeFile(outputWb, `支付申请表_${requestId}.xlsx`);
-
-    } catch (error) {
-      console.error("导出Excel失败:", error);
-      toast({ title: "错误", description: `导出Excel失败: ${(error as any).message}`, variant: "destructive" });
-    }
-  };
-
-  const exportDetailsToExcel = () => {
-    if (!reportData?.records || reportData.records.length === 0) {
-        toast({ title: "提示", description: "没有可导出的数据" });
-        return;
-    }
-    const headers = ['运单编号', '项目名称', '司机姓名', '路线', '装货日期', '运费金额', '额外费用', '司机应收', '支付状态'];
-    displayedPartners.forEach(p => headers.push(`${p.name}(应付)`));
-    const dataToExport = (reportData.records || []).map((record: any) => {
-      const row: {[key: string]: any} = {
-        '运单编号': record.auto_number, '项目名称': record.project_name, '司机姓名': record.driver_name,
-        '路线': `${record.loading_location} → ${record.unloading_location}`, '装货日期': record.loading_date,
-        '运费金额': record.current_cost || 0, '额外费用': record.extra_cost || 0, '司机应收': record.payable_cost || 0,
-        '支付状态': record.payment_status === 'Paid' ? '已完成支付' : (record.payment_status === 'Processing' ? '已申请支付' : '未支付')
-      };
-      displayedPartners.forEach(p => {
-        const cost = (record.partner_costs || []).find((c:any) => c.partner_id === p.id);
-        row[`${p.name}(应付)`] = cost ? cost.payable_amount : 0;
-      });
-      return row;
-    });
-    const ws = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "运单财务明细");
-    XLSX.writeFile(wb, `运单财务明细_${new Date().toLocaleDateString()}.xlsx`);
-    toast({ title: "成功", description: "财务明细数据已导出到Excel" });
-  };
+  // 关键变更：前端的 exportMultiSheetExcel 函数已被彻底删除
 
   const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => {
     switch (status) {
@@ -468,7 +345,7 @@ export default function PaymentRequest() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div><CardTitle>运单财务明细</CardTitle><p className="text-sm text-muted-foreground">各合作方应付金额按级别从左到右排列</p></div>
-                <Button variant="outline" size="sm" onClick={exportDetailsToExcel} disabled={!(reportData?.records?.length > 0)}><Download className="mr-2 h-4 w-4" />导出明细</Button>
+                {/* <Button variant="outline" size="sm" onClick={exportDetailsToExcel} disabled={!(reportData?.records?.length > 0)}><Download className="mr-2 h-4 w-4" />导出明细</Button> */}
             </CardHeader>
             <CardContent>
               <div className="min-h-[400px]">
