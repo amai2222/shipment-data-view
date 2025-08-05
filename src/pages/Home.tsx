@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [格式化优化版] 将“司机应收汇总”卡片的数据显示为专业的财务格式。
+// 描述: [布局修复版] 移除了最外层容器的全局内边距，使页面内容紧贴顶部和左侧菜单。
 
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -170,7 +170,7 @@ export default function Home() {
   }
 
   return (
-    <div className="space-y-8 p-4 md:p-8">
+    <div className="space-y-8">
       {migrationStatus && !migrationStatus.isMigrated && migrationStatus.localCount > 0 && (
         <Card className="border-orange-200 bg-orange-50">
           <CardContent className="p-4">
