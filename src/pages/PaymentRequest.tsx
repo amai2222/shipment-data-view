@@ -1,7 +1,7 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [EgtTS 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
-//       它实现了“模板注入协议”，加载 public/payment_template.xlsx 文件，
-//       并严格按照您定义的排序和数据处理规则，生成视觉上100%保真的Excel文档。
+// 描述: [IEbqi 最终修复版] 此代码是 PaymentRequest.tsx 的最终版本。
+//       它引入了“单元格防御协议”，在写入Excel单元格前检查其是否存在，
+//       如果不存在则先创建，从而彻底修复 "Cannot set properties of undefined" 崩溃问题。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -225,24 +225,42 @@ export default function PaymentRequest() {
     }
   };
 
-  // 关键变更：exportMultiSheetExcel 函数已彻底重写，以使用“模板注入协议”
+  // 关键变更：引入防御性的 updateCell 辅助函数
+  const updateCell = (ws: XLSX.WorkSheet, address: string, value: any) => {
+    if (!ws[address]) {
+      ws[address] = {}; // 如果单元格不存在，则创建它
+    }
+    ws[address].v = value; // 设置值
+    // 根据值的类型设置单元格类型
+    if (typeof value === 'number') {
+      ws[address].t = 'n';
+    } else if (typeof value === 'boolean') {
+      ws[address].t = 'b';
+    } else if (value instanceof Date) {
+      ws[address].t = 'd';
+    } else {
+      ws[address].t = 's';
+    }
+  };
+
   const exportMultiSheetExcel = async (data: MultiSheetPaymentData, requestId: string) => {
     try {
-      // 1. 加载您提供的母版模板
       const response = await fetch('/payment_template.xlsx');
       const arrayBuffer = await response.arrayBuffer();
       const templateWb = XLSX.read(arrayBuffer, { type: 'buffer', cellStyles: true });
-      const templateWs = templateWb.Sheets[templateWb.SheetNames[0]];
+      const templateWsName = templateWb.SheetNames[0];
+      const templateWs = templateWb.Sheets[templateWsName];
 
-      // 创建一个新的工作簿用于输出
       const outputWb = XLSX.utils.book_new();
       const requestDate = format(new Date(), 'yyyy-MM-dd');
 
       for (const sheetData of data.sheets) {
-        // 2. 深度克隆模板工作表以保留所有样式
         const newWs = JSON.parse(JSON.stringify(templateWs));
+        // 修复 !ref，否则 sheet_add_json 可能会出错
+        const range = XLSX.utils.decode_range(newWs['!ref']!);
+        range.e.r = Math.max(range.e.r, 12 + sheetData.records.length);
+        newWs['!ref'] = XLSX.utils.encode_range(range);
 
-        // 3. 按照您的业务规则处理数据
         const sortedRecords = sheetData.records
           .sort((a, b) => {
             const dateCompare = a.record.loading_date.localeCompare(b.record.loading_date);
@@ -253,7 +271,7 @@ export default function PaymentRequest() {
         const dataForInjection = sortedRecords.map((item, index) => ({
           '序号': index + 1,
           '实际出发时间': item.record.loading_date,
-          '实际到达时间': item.record.unloading_date || item.record.loading_date, // 处理空值
+          '实际到达时间': item.record.unloading_date || item.record.loading_date,
           '起始地': item.record.loading_location,
           '目的地': item.record.unloading_location,
           '货物': item.record.cargo_type,
@@ -268,25 +286,22 @@ export default function PaymentRequest() {
           '支行网点': sheetData.paying_partner_branch_name,
         }));
 
-        // 4. 更新模板中的静态单元格
-        newWs['A1'].v = sheetData.header_company_name + '支付申请表';
-        newWs['B9'].v = sheetData.project_name;
-        newWs['H9'].v = requestDate;
-        newWs['H10'].v = requestId;
-        newWs['B23'].v = sheetData.records.map(i => i.record.remarks).filter(Boolean).join('; ');
-        newWs['K24'].v = sheetData.total_payable;
+        // 关键变更：使用防御性的 updateCell 函数更新单元格
+        updateCell(newWs, 'A1', sheetData.header_company_name + '支付申请表');
+        updateCell(newWs, 'B9', sheetData.project_name);
+        updateCell(newWs, 'H9', requestDate);
+        updateCell(newWs, 'H10', requestId);
+        updateCell(newWs, 'B23', sheetData.records.map(i => i.record.remarks).filter(Boolean).join('; '));
+        updateCell(newWs, 'K24', sheetData.total_payable);
 
-        // 5. 将处理后的数据注入到克隆的工作表中
         XLSX.utils.sheet_add_json(newWs, dataForInjection, {
           skipHeader: true,
-          origin: 'A13' // 数据从第13行开始注入 (A13)
+          origin: 'A13'
         });
         
-        // 6. 将注入数据后的工作表添加到新工作簿中
         XLSX.utils.book_append_sheet(outputWb, newWs, sheetData.paying_partner_name.slice(0, 30));
       }
 
-      // 7. 生成并下载最终文件
       XLSX.writeFile(outputWb, `支付申请表_${requestId}.xlsx`);
 
     } catch (error) {
