@@ -70,10 +70,10 @@ export default function FinancialOverview() {
       
       <div><h1 className="text-3xl font-bold text-foreground">财务概览</h1><p className="text-muted-foreground">运输财务统计分析</p></div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card><CardHeader><CardTitle className="text-sm font-medium">总应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.totalReceivables || 0)}</div><p className="text-xs text-muted-foreground">所有运单最高级合作方的应付总额</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">本月应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.monthlyReceivables || 0)}</div><p className="text-xs text-muted-foreground">按装货日期统计的本月应收</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">待付金额</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.pendingPayment || 0)}</div><p className="text-xs text-muted-foreground">状态为“待付款(Unpaid)”的应付总额</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm font-medium">待开票</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.pendingInvoice || 0)}</div><p className="text-xs text-muted-foreground">状态为“未开票”的应付总额</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm font-medium">总应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.totalReceivables || 0)}</div><p className="text-xs text-muted-foreground">所有合作方的应收总额</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm font-medium">本月应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.monthlyReceivables || 0)}</div><p className="text-xs text-muted-foreground">本月应收总额</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm font-medium">待付金额</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.pendingPayment || 0)}</div><p className="text-xs text-muted-foreground">合作方待付款总额</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm font-medium">待开票</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.pendingInvoice || 0)}</div><p className="text-xs text-muted-foreground">合作方未开票总额</p></CardContent></Card>
       </div>
 
       {/* 【关键】对数刻度切换开关 */}
@@ -84,7 +84,7 @@ export default function FinancialOverview() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 【关键】月度应收趋势图 (已应用对数刻度) */}
+        {/* 【关键】月度应收图 (已应用对数刻度) */}
         <Card className="col-span-1 lg:col-span-2">
           <CardHeader><CardTitle>月度应收趋势</CardTitle></CardHeader>
           <CardContent className="h-80">
@@ -95,7 +95,7 @@ export default function FinancialOverview() {
                 <YAxis tickFormatter={formatCompact} scale={useLogScale ? "log" : "auto"} domain={useLogScale ? [0.1, 'dataMax'] : [0, 'dataMax']} allowDataOverflow />
                 <Tooltip formatter={(value: number) => [formatCurrency(value), '月应收']} />
                 <Legend onClick={(payload) => handleChartClick('monthly_trend', payload)} />
-                <Bar dataKey="total_receivables" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="应收总额" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
