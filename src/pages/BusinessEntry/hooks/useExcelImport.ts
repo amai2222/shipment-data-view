@@ -1,4 +1,5 @@
-// src/pages/BusinessEntry/hooks/useExcelImport.ts
+// 最终文件路径: src/pages/BusinessEntry/hooks/useExcelImport.ts
+// 这是修复后的完整代码，请直接替换
 
 import { useState, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
@@ -56,8 +57,7 @@ export function useExcelImport(onImportSuccess: () => void) {
       }));
       const { data: previewResult, error } = await supabase.rpc('preview_import_with_duplicates_check', { p_records: recordsToPreview });
       if (error) throw error;
-      
-      // Handle the response safely
+
       if (previewResult && typeof previewResult === 'object' && !Array.isArray(previewResult)) {
         const safePreview = previewResult as unknown as ImportPreviewResult;
         setImportPreview(safePreview);
@@ -107,7 +107,7 @@ export function useExcelImport(onImportSuccess: () => void) {
     if (!importPreview) return;
     setImportStep('processing');
     setImportLogs([]);
-    const addLog = (message: string) => setImportLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
+    const addLog = (message: string) => setImportLogs(prev => [...prev, `[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] ${message}`]);
     const finalRecordsToImport = [
       ...importPreview.new_records.map(item => item.record),
       ...importPreview.duplicate_records.filter((_, index) => approvedDuplicates.has(index)).map(item => item.record)
@@ -122,14 +122,34 @@ export function useExcelImport(onImportSuccess: () => void) {
       const { data: result, error } = await supabase.rpc('batch_import_logistics_records', { p_records: finalRecordsToImport });
       if (error) throw error;
       
-      // Handle the response safely
+      // 【【【核心修复逻辑在这里】】】
+      // 对后端返回结果进行安全处理，适配新的数据结构
       if (result && typeof result === 'object') {
-        const safeResult = result as { success_count: number; error_count: number; errors: any[] };
+        const safeResult = result as { success_count: number; error_count: number; errors: any }; // errors可以是对象或数组
+        
         addLog(`导入完成！成功: ${safeResult.success_count}, 失败: ${safeResult.error_count}`);
-        if (safeResult.error_count > 0) addLog(`失败详情: ${JSON.stringify(safeResult.errors.slice(0, 5))}`);
-        toast({ title: "导入成功", description: `共导入 ${safeResult.success_count} 条记录。` });
-        if (safeResult.success_count > 0) {
-          onImportSuccess();
+
+        if (safeResult.error_count > 0) {
+          let finalErrorMessage = `有 ${safeResult.error_count} 条记录处理失败。`;
+          // 新版后端在失败时，errors字段是一个包含error属性的对象
+          if (safeResult.errors && typeof safeResult.errors === 'object' && !Array.isArray(safeResult.errors) && safeResult.errors.error) {
+            finalErrorMessage = `导入失败: ${safeResult.errors.error}`;
+            addLog(`失败详情: ${safeResult.errors.error}`);
+          } else {
+            // 提供一个通用的失败信息
+            addLog("导入过程中发生未知错误，请检查数据库日志获取详细信息。");
+          }
+          toast({
+            title: "导入失败",
+            description: finalErrorMessage,
+            variant: "destructive",
+            duration: 9000
+          });
+        } else {
+          toast({ title: "导入成功", description: `共导入 ${safeResult.success_count} 条记录。` });
+          if (safeResult.success_count > 0) {
+            onImportSuccess(); // 调用回调，刷新主页面数据
+          }
         }
       } else {
         throw new Error('导入结果格式错误');
