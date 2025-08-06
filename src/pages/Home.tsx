@@ -1,7 +1,7 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [B5C1Y 功能完整性最终修复版] 1. 对数刻度开关现在同时控制柱状图和折线图。 2. 保持所有金额的财务格式化。
+// 描述: [kHjTn 性能优化重构版] 1. 抽离FilterPanel组件，避免不必要的父组件重渲染。 2. 使用useCallback优化所有事件处理函数。 3. 保持所有功能和UI不变。
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { BarChart3, TrendingUp, Truck, Package, Eye, Database, RefreshCw, CheckCircle, Search, Settings } from "lucide-react";
+import { BarChart3, TrendingUp, Truck, Package, Eye, Database, RefreshCw, Search, Settings } from "lucide-react";
 import { SupabaseStorage } from "@/utils/supabase";
 import { DataMigration } from "@/utils/migration";
 import { Project, LogisticsRecord } from "@/types";
@@ -22,6 +22,43 @@ interface DailyTransportStats { date: string; actualTransport: number; returns: 
 interface DailyCostStats { date: string; totalCost: number; }
 interface DailyCountStats { date: string; count: number; }
 interface OverviewStats { totalRecords: number; totalWeight: number; totalCost: number; actualTransportCount: number; returnCount: number; }
+
+// 【优化 1: 状态分离与组件抽离】
+// 将筛选面板抽离成一个独立的、经过优化的组件。
+// 它自己管理输入的临时状态，只有在点击“搜索”时才通知父组件。
+const FilterPanel = React.memo(({ projects, onSearch, isSearching }: { projects: Project[], onSearch: (filters: any) => void, isSearching: boolean }) => {
+  const getDefaultDateRange = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    return { 
+      startDate: `${year}-01-01`, 
+      endDate: today.toISOString().split('T')[0] 
+    };
+  };
+  const [filters, setFilters] = useState({ ...getDefaultDateRange(), projectId: 'all' });
+
+  const handleInputChange = (field: string, value: string) => {
+    setFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSearchClick = () => {
+    onSearch(filters);
+  };
+
+  return (
+    <Card className="shadow-card">
+      <CardHeader><CardTitle>数据筛选</CardTitle></CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div className="space-y-2"><Label htmlFor="startDate">开始日期</Label><Input id="startDate" type="date" value={filters.startDate} onChange={(e) => handleInputChange('startDate', e.target.value)} /></div>
+          <div className="space-y-2"><Label htmlFor="endDate">结束日期</Label><Input id="endDate" type="date" value={filters.endDate} onChange={(e) => handleInputChange('endDate', e.target.value)} /></div>
+          <div className="space-y-2"><Label htmlFor="projectFilter">项目筛选</Label><Select value={filters.projectId} onValueChange={(value) => handleInputChange('projectId', value)}><SelectTrigger id="projectFilter"><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{projects.map(project => (<SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>))}</SelectContent></Select></div>
+          <Button onClick={handleSearchClick} disabled={isSearching}>{isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}{isSearching ? '正在搜索...' : '搜索'}</Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
 
 export default function Home() {
   // 状态管理
@@ -38,39 +75,14 @@ export default function Home() {
   
   const [dialogRecords, setDialogRecords] = useState<LogisticsRecord[]>([]);
   const [isDialogLoading, setIsDialogLoading] = useState(false);
-  const [dialogFilter, setDialogFilter] = useState<{projectId: string | null, date: string | null}>({ projectId: null, date: null });
+  const [dialogFilter, setDialogFilter] = useState<{projectId: string | null, date: string | null, startDate: string, endDate: string}>({ projectId: null, date: null, startDate: '', endDate: '' });
 
   const [useLogScale, setUseLogScale] = useState(true);
-
-  const getDefaultDateRange = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    return { 
-      startDate: `${year}-01-01`, 
-      endDate: today.toISOString().split('T')[0] 
-    };
-  };
-
-  const [filterInputs, setFilterInputs] = useState({ ...getDefaultDateRange(), projectId: 'all' });
   const { toast } = useToast();
 
-  useEffect(() => {
-    const initialLoad = async () => {
-      setIsLoading(true);
-      await Promise.all([loadProjects(), checkMigrationStatus()]);
-      await handleSearch(true);
-      setIsLoading(false);
-    };
-    initialLoad();
-  }, []);
-
-  useEffect(() => {
-    if (isDetailDialogOpen) {
-      fetchDialogRecords();
-    }
-  }, [isDetailDialogOpen, dialogFilter]);
-
-  const formatCurrency = (value: number | null | undefined, precision = 2) => {
+  // 【优化 2: 使用useCallback稳定化函数】
+  // 避免在每次重渲染时都创建新的函数实例。
+  const formatCurrency = useCallback((value: number | null | undefined, precision = 2) => {
     if (value == null) return '-';
     return new Intl.NumberFormat('zh-CN', {
       style: 'currency',
@@ -78,15 +90,17 @@ export default function Home() {
       minimumFractionDigits: precision,
       maximumFractionDigits: precision,
     }).format(value);
-  };
+  }, []);
 
-  const fetchDialogRecords = async () => {
+  const fetchDialogRecords = useCallback(async () => {
     setIsDialogLoading(true);
     try {
       const projectId = dialogFilter.projectId === 'all' ? undefined : dialogFilter.projectId;
-      const startDate = dialogFilter.date ? dialogFilter.date : filterInputs.startDate;
-      const endDate = dialogFilter.date ? dialogFilter.date : filterInputs.endDate;
+      const startDate = dialogFilter.date ? dialogFilter.date : dialogFilter.startDate;
+      const endDate = dialogFilter.date ? dialogFilter.date : dialogFilter.endDate;
 
+      // 【性能提示 #4】: 当记录数非常大时，这里的 .map 可能会成为瓶颈。
+      // 考虑使用虚拟化列表库（如 tanstack-virtual）来优化大规模数据的渲染。
       const { records } = await SupabaseStorage.getFilteredLogisticsRecords(
         projectId, undefined, startDate, endDate, 1000, 0
       );
@@ -97,42 +111,65 @@ export default function Home() {
     } finally {
       setIsDialogLoading(false);
     }
-  };
+  }, [dialogFilter, toast]);
 
-  const loadProjects = async () => {
-    try {
-      setProjects(await SupabaseStorage.getProjects() as Project[]);
-    } catch (error) {
-      console.error("加载项目列表失败:", error);
+  useEffect(() => {
+    if (isDetailDialogOpen) {
+      fetchDialogRecords();
     }
-  };
+  }, [isDetailDialogOpen, fetchDialogRecords]);
 
-  const handleSearch = async (isInitialLoad = false) => {
+  const handleSearch = useCallback(async (filters: any, isInitialLoad = false) => {
     if (!isInitialLoad) setIsSearching(true);
     try {
-      const data = await SupabaseStorage.getDashboardStats(filterInputs);
+      const data = await SupabaseStorage.getDashboardStats(filters);
       setOverviewStats((data as any).overview);
       setDailyTransportStats((data as any).dailyTransportStats || []);
       setDailyCostStats((data as any).dailyCostStats || []);
       setDailyCountStats((data as any).dailyCountStats || []);
+      // 保存当前筛选条件，用于图表点击下钻
+      setDialogFilter(prev => ({ ...prev, projectId: filters.projectId, startDate: filters.startDate, endDate: filters.endDate }));
     } catch (err) {
       console.error('获取看板数据失败:', err);
       toast({ title: "数据加载失败", variant: "destructive" });
     } finally {
       if (!isInitialLoad) setIsSearching(false);
     }
-  };
+  }, [toast]);
 
-  const checkMigrationStatus = async () => {
+  const checkMigrationStatus = useCallback(async () => {
     setMigrationStatus(await DataMigration.checkMigrationStatus());
-  };
+  }, []);
 
-  const handleMigrateData = async () => {
+  useEffect(() => {
+    const initialLoad = async () => {
+      setIsLoading(true);
+      const projectsData = await SupabaseStorage.getProjects() as Project[];
+      setProjects(projectsData);
+      await checkMigrationStatus();
+      
+      const today = new Date();
+      const year = today.getFullYear();
+      const initialFilters = { 
+        startDate: `${year}-01-01`, 
+        endDate: today.toISOString().split('T')[0],
+        projectId: 'all'
+      };
+      await handleSearch(initialFilters, true);
+      
+      setIsLoading(false);
+    };
+    initialLoad();
+  }, [handleSearch, checkMigrationStatus]);
+
+  const handleMigrateData = useCallback(async () => {
     try {
       toast({ title: "开始数据迁移" });
       const success = await DataMigration.migrateAllData();
       if (success) {
-        await handleSearch(true);
+        // 重新触发一次搜索以刷新数据
+        const currentFilters = { ...dialogFilter };
+        await handleSearch(currentFilters, true);
         await checkMigrationStatus();
         toast({ title: "数据迁移完成" });
       } else {
@@ -141,20 +178,20 @@ export default function Home() {
     } catch (error) {
       toast({ title: "迁移失败", variant: "destructive" });
     }
-  };
+  }, [toast, handleSearch, checkMigrationStatus, dialogFilter]);
 
-  const handleChartClick = (data: any) => {
+  const handleChartClick = useCallback((data: any) => {
     if (data?.activePayload?.[0]) {
       const clickedDate = data.activePayload[0].payload.date;
-      setDialogFilter({ projectId: filterInputs.projectId, date: clickedDate });
+      setDialogFilter(prev => ({ ...prev, date: clickedDate }));
       setIsDetailDialogOpen(true);
     }
-  };
+  }, []);
 
-  const handleLegendClick = () => {
-    setDialogFilter({ projectId: filterInputs.projectId, date: null });
+  const handleLegendClick = useCallback(() => {
+    setDialogFilter(prev => ({ ...prev, date: null }));
     setIsDetailDialogOpen(true);
-  };
+  }, []);
 
   const legendTotals = useMemo(() => ({
     actualTransportTotal: dailyTransportStats.reduce((sum, day) => sum + (day.actualTransport || 0), 0),
@@ -196,17 +233,7 @@ export default function Home() {
         <p className="opacity-90">运输数据统计分析与可视化</p>
       </div>
 
-      <Card className="shadow-card">
-        <CardHeader><CardTitle>数据筛选</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div className="space-y-2"><Label htmlFor="startDate">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(prev => ({...prev, startDate: e.target.value}))} /></div>
-            <div className="space-y-2"><Label htmlFor="endDate">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(prev => ({...prev, endDate: e.target.value}))} /></div>
-            <div className="space-y-2"><Label htmlFor="projectFilter">项目筛选</Label><Select value={filterInputs.projectId} onValueChange={(value) => setFilterInputs(prev => ({...prev, projectId: value}))}><SelectTrigger id="projectFilter"><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{projects.map(project => (<SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>))}</SelectContent></Select></div>
-            <Button onClick={() => handleSearch(false)} disabled={isSearching}>{isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}{isSearching ? '正在搜索...' : '搜索'}</Button>
-          </div>
-        </CardContent>
-      </Card>
+      <FilterPanel projects={projects} onSearch={handleSearch} isSearching={isSearching} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-blue-100 rounded-lg mr-4"><Package className="h-6 w-6 text-blue-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输次数</p><p className="text-2xl font-bold">{overviewStats?.totalRecords || 0}</p></div></CardContent></Card>
@@ -217,7 +244,7 @@ export default function Home() {
 
       <div className="space-y-6">
         <Card className="shadow-card">
-          <CardHeader><CardTitle>每日运输量统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (吨)</CardTitle></CardHeader>
+          <CardHeader><CardTitle>每日运输量统计 ({dialogFilter.startDate} 至 {dialogFilter.endDate}) (吨)</CardTitle></CardHeader>
           <CardContent><div className="h-96"><ResponsiveContainer width="100%" height="100%"><BarChart data={dailyTransportStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}><CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={0} />
             <YAxis scale={useLogScale ? "log" : "auto"} domain={useLogScale ? [0.1, 'dataMax'] : [0, 'dataMax + 20']} tickFormatter={(value) => value.toString()} allowDataOverflow={true} />
@@ -228,10 +255,9 @@ export default function Home() {
           </BarChart></ResponsiveContainer></div></CardContent>
         </Card>
         <Card className="shadow-card">
-          <CardHeader><CardTitle>运输日报 ({filterInputs.startDate} 至 {filterInputs.endDate})</CardTitle></CardHeader>
+          <CardHeader><CardTitle>运输日报 ({dialogFilter.startDate} 至 {dialogFilter.endDate})</CardTitle></CardHeader>
           <CardContent><div className="h-80"><ResponsiveContainer width="100%" height="100%"><LineChart data={dailyCountStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}><CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={0} />
-            {/* [B5C1Y] 将对数刻度应用到此图表 */}
             <YAxis scale={useLogScale ? "log" : "auto"} domain={useLogScale ? [0.1, 'dataMax'] : [0, 'dataMax + 1']} allowDecimals={false} tickFormatter={(value) => value.toString()} allowDataOverflow={true} />
             <Tooltip labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')} formatter={(value) => [`${value} 次`, '运输次数']} contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px' }} cursor={{ stroke: 'rgba(59, 130, 246, 0.3)', strokeWidth: 2 }} />
             <Legend formatter={() => `运输次数 (总计${legendTotals.totalTrips}次) - 点击查看全部运单`} wrapperStyle={{ paddingTop: '20px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }} onClick={handleLegendClick} />
@@ -239,7 +265,7 @@ export default function Home() {
           </LineChart></ResponsiveContainer></div></CardContent>
         </Card>
         <Card className="shadow-card">
-          <CardHeader><CardTitle>每日运输费用分析 ({filterInputs.startDate} 至 {filterInputs.endDate}) (元)</CardTitle></CardHeader>
+          <CardHeader><CardTitle>每日运输费用分析 ({dialogFilter.startDate} 至 {dialogFilter.endDate}) (元)</CardTitle></CardHeader>
           <CardContent><div className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={dailyCostStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}><CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={0} />
             <YAxis scale={useLogScale ? "log" : "auto"} domain={useLogScale ? [0.1, 'dataMax'] : [0, 'dataMax']} tickFormatter={(value) => formatCurrency(value, 0)} allowDataOverflow={true} />
