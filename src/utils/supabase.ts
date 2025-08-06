@@ -1,5 +1,5 @@
 // 文件路径: src/utils/supabase.ts
-// 描述: [完全正确版] 保留所有用户原始代码，并新增 getDashboardStats 方法。
+// 这是修复后的完整代码，请直接替换
 
 import { supabase } from '@/integrations/supabase/client';
 import { Project, Driver, Location, LogisticsRecord } from '@/types';
@@ -12,7 +12,7 @@ export class SupabaseStorage {
       .from('projects')
       .select('*')
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
     return data?.map(p => ({
       id: p.id,
@@ -40,9 +40,9 @@ export class SupabaseStorage {
       }])
       .select()
       .single();
-    
+
     if (error) throw error;
-    
+
     return {
       id: data.id,
       name: data.name,
@@ -68,7 +68,7 @@ export class SupabaseStorage {
         unloading_address: updates.unloadingAddress,
       })
       .eq('id', id);
-    
+
     if (error) throw error;
   }
 
@@ -77,16 +77,11 @@ export class SupabaseStorage {
       .from('projects')
       .delete()
       .eq('id', id);
-    
+
     if (error) throw error;
   }
 
   // --- START: 新增看板统计方法 ---
-  /**
-   * [新增] 调用后端RPC函数，获取数据看板所需的所有统计数据。
-   * @param filters - 包含 startDate, endDate, 和 projectId 的筛选对象。
-   * @returns 一个包含所有统计数据的聚合对象。
-   */
   static async getDashboardStats(filters: { startDate: string; endDate: string; projectId: string | null; }) {
     const { data, error } = await supabase.rpc('get_dashboard_stats' as any, {
       start_date_param: filters.startDate,
@@ -113,7 +108,7 @@ export class SupabaseStorage {
         driver_projects(project_id)
       `)
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
     return data?.map(d => ({
       id: d.id,
@@ -134,7 +129,7 @@ export class SupabaseStorage {
       `)
       .eq('driver_projects.project_id', projectId)
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
     return data?.map(d => ({
       id: d.id,
@@ -145,18 +140,27 @@ export class SupabaseStorage {
       createdAt: d.created_at,
     })) || [];
   }
-
+  
+  // 【【【核心修复逻辑在这里】】】
   static async addDriver(driver: Omit<Driver, 'id' | 'createdAt'>): Promise<Driver> {
+    // 步骤1：获取当前登录用户的ID
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        throw new Error('无法获取用户信息，请重新登录后重试。');
+    }
+
+    // 步骤2：在插入数据库时，将 user_id 一并加入
     const { data, error } = await supabase
       .from('drivers')
       .insert([{
+        user_id: user.id, // 【修复】在这里添加 user_id
         name: driver.name,
         license_plate: driver.licensePlate,
         phone: driver.phone,
       }])
       .select()
       .single();
-    
+
     if (error) throw error;
 
     // 如果有项目关联，插入关联关系
@@ -169,10 +173,10 @@ export class SupabaseStorage {
             project_id: projectId
           }))
         );
-      
+
       if (relationError) throw relationError;
     }
-    
+
     return {
       id: data.id,
       name: data.name,
@@ -192,7 +196,7 @@ export class SupabaseStorage {
         phone: updates.phone,
       })
       .eq('id', id);
-    
+
     if (error) throw error;
 
     // 更新项目关联
@@ -202,7 +206,7 @@ export class SupabaseStorage {
         .from('driver_projects')
         .delete()
         .eq('driver_id', id);
-      
+
       // 插入新关联
       if (updates.projectIds.length > 0) {
         const { error: relationError } = await supabase
@@ -213,7 +217,7 @@ export class SupabaseStorage {
               project_id: projectId
             }))
           );
-        
+
         if (relationError) throw relationError;
       }
     }
@@ -224,10 +228,13 @@ export class SupabaseStorage {
       .from('drivers')
       .delete()
       .eq('id', id);
-    
+
     if (error) throw error;
   }
 
+  // ... 此处省略了您文件中其他未改动的函数 ...
+  // ... 请确保您复制的是下面的完整代码，或者只替换 addDriver 函数 ...
+  
   // 地点相关
   static async getLocations(): Promise<Location[]> {
     const { data, error } = await supabase
