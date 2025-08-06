@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [H7Bld 最终修复版] 移除最外层容器的内边距，使布局紧贴菜单栏。
+// 描述: [PQjfG 最终优化版] 全面应用性能审核报告中的所有优化点。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,11 +17,29 @@ import { Project, LogisticsRecord } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 
-// --- 类型定义 ---
+// [PQjfG 优化点 2 - 方案A] 将纯函数移出组件，避免在每次渲染时重新创建。
+const getDefaultDateRange = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  return { startDate: `${year}-01-01`, endDate: today.toISOString().split('T')[0] };
+};
+
+const formatCurrency = (value: number | null | undefined): string => {
+  if (value == null) return '¥0.00';
+  return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
+};
+
+// [PQjfG 优化点 4] 为RPC返回的数据定义一个完整的类型，消除 as any。
 interface DailyTransportStats { date: string; actualTransport: number; returns: number; }
 interface DailyCostStats { date: string; totalCost: number; }
 interface DailyCountStats { date: string; count: number; }
 interface OverviewStats { totalRecords: number; totalWeight: number; totalCost: number; actualTransportCount: number; returnCount: number; }
+interface DashboardData {
+  overview: OverviewStats;
+  dailyTransportStats: DailyTransportStats[];
+  dailyCostStats: DailyCostStats[];
+  dailyCountStats: DailyCountStats[];
+}
 
 // --- 主组件 ---
 export default function Home() {
@@ -42,23 +60,19 @@ export default function Home() {
   const [isDialogLoading, setIsDialogLoading] = useState(false);
   const [dialogFilter, setDialogFilter] = useState<{projectId: string | null, date: string | null}>({ projectId: null, date: null });
 
-  const getDefaultDateRange = useCallback(() => {
-    const today = new Date();
-    const year = today.getFullYear();
-    return { startDate: `${year}-01-01`, endDate: today.toISOString().split('T')[0] };
-  }, []);
-
-  const [filterInputs, setFilterInputs] = useState({ ...getDefaultDateRange(), projectId: 'all' });
+  const [filterInputs, setFilterInputs] = useState(() => getDefaultDateRange());
   const { toast } = useToast();
 
+  // [PQjfG 优化点 1] 使用 useCallback 封装所有函数，确保引用稳定，避免不必要的重渲染。
   const handleSearch = useCallback(async (isInitialLoad = false) => {
     if (!isInitialLoad) setIsSearching(true);
     try {
-      const data = await SupabaseStorage.getDashboardStats(filterInputs);
-      setOverviewStats((data as any).overview);
-      setDailyTransportStats((data as any).dailyTransportStats || []);
-      setDailyCostStats((data as any).dailyCostStats || []);
-      setDailyCountStats((data as any).dailyCountStats || []);
+      // [PQjfG 优化点 4] 使用严格类型，不再需要 as any
+      const data: DashboardData = await SupabaseStorage.getDashboardStats(filterInputs);
+      setOverviewStats(data.overview);
+      setDailyTransportStats(data.dailyTransportStats || []);
+      setDailyCostStats(data.dailyCostStats || []);
+      setDailyCountStats(data.dailyCountStats || []);
     } catch (err) {
       console.error('获取看板数据失败:', err);
       toast({ title: "数据加载失败", variant: "destructive" });
@@ -79,16 +93,6 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    const initialLoad = async () => {
-      setIsLoading(true);
-      await Promise.all([loadProjects(), checkMigrationStatus()]);
-      await handleSearch(true);
-      setIsLoading(false);
-    };
-    initialLoad();
-  }, [loadProjects, checkMigrationStatus, handleSearch]);
-
   const fetchDialogRecords = useCallback(async () => {
     setIsDialogLoading(true);
     try {
@@ -104,18 +108,25 @@ export default function Home() {
     } finally {
       setIsDialogLoading(false);
     }
-  }, [dialogFilter, filterInputs, toast]);
+  }, [dialogFilter, filterInputs.startDate, filterInputs.endDate, toast]);
 
+  // [PQjfG 优化点 1] 修正 useEffect 依赖项
+  useEffect(() => {
+    const initialLoad = async () => {
+      setIsLoading(true);
+      await Promise.all([loadProjects(), checkMigrationStatus()]);
+      await handleSearch(true);
+      setIsLoading(false);
+    };
+    initialLoad();
+  }, [loadProjects, checkMigrationStatus, handleSearch]);
+
+  // [PQjfG 优化点 1] 修正 useEffect 依赖项
   useEffect(() => {
     if (isDetailDialogOpen) {
       fetchDialogRecords();
     }
   }, [isDetailDialogOpen, fetchDialogRecords]);
-
-  const formatCurrency = (value: number | null | undefined): string => {
-    if (value == null) return '¥0.00';
-    return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
-  };
 
   const handleMigrateData = useCallback(async () => {
     try {
@@ -146,6 +157,19 @@ export default function Home() {
     setIsDetailDialogOpen(true);
   }, [filterInputs.projectId]);
 
+  // [PQjfG 优化点 3] 为输入框创建稳定的事件处理器
+  const handleStartDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterInputs(prev => ({...prev, startDate: e.target.value}));
+  }, []);
+
+  const handleEndDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterInputs(prev => ({...prev, endDate: e.target.value}));
+  }, []);
+
+  const handleProjectChange = useCallback((value: string) => {
+    setFilterInputs(prev => ({...prev, projectId: value}));
+  }, []);
+
   const legendTotals = useMemo(() => ({
     actualTransportTotal: dailyTransportStats.reduce((sum, day) => sum + (day.actualTransport || 0), 0),
     returnsTotal: dailyTransportStats.reduce((sum, day) => sum + (day.returns || 0), 0),
@@ -163,9 +187,6 @@ export default function Home() {
   }
 
   return (
-    // ====================================================================
-    // [关键修改] 移除了 p-4 md:p-8，使容器紧贴边缘
-    // ====================================================================
     <div className="space-y-8">
       {migrationStatus && !migrationStatus.isMigrated && migrationStatus.localCount > 0 && (
         <Card className="border-orange-200 bg-orange-50">
@@ -193,9 +214,10 @@ export default function Home() {
         <CardHeader><CardTitle>数据筛选</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div className="space-y-2"><Label htmlFor="startDate">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(prev => ({...prev, startDate: e.target.value}))} /></div>
-            <div className="space-y-2"><Label htmlFor="endDate">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(prev => ({...prev, endDate: e.target.value}))} /></div>
-            <div className="space-y-2"><Label htmlFor="projectFilter">项目筛选</Label><Select value={filterInputs.projectId} onValueChange={(value) => setFilterInputs(prev => ({...prev, projectId: value}))}><SelectTrigger id="projectFilter"><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{projects.map(project => (<SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>))}</SelectContent></Select></div>
+            {/* [PQjfG 优化点 3] 使用稳定的事件处理器 */}
+            <div className="space-y-2"><Label htmlFor="startDate">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={handleStartDateChange} /></div>
+            <div className="space-y-2"><Label htmlFor="endDate">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={handleEndDateChange} /></div>
+            <div className="space-y-2"><Label htmlFor="projectFilter">项目筛选</Label><Select value={filterInputs.projectId} onValueChange={handleProjectChange}><SelectTrigger id="projectFilter"><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{projects.map(project => (<SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>))}</SelectContent></Select></div>
             <Button onClick={() => handleSearch(false)} disabled={isSearching}>{isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}{isSearching ? '正在搜索...' : '搜索'}</Button>
           </div>
         </CardContent>
