@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { BarChart3, TrendingUp, Truck, Package, Eye, Database, RefreshCw, CheckCircle, Search } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { SupabaseStorage } from "@/utils/supabase";
 import { DataMigration } from "@/utils/migration";
 import { Project, LogisticsRecord } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -48,49 +48,21 @@ export default function Home() {
   const [filterInputs, setFilterInputs] = useState({ ...getDefaultDateRange(), projectId: 'all' });
   const { toast } = useToast();
 
-  const loadProjects = useCallback(async () => {
-    try {
-      const { data } = await supabase.from('projects').select('id, name');
-      setProjects((data as Project[]) || []);
-    } catch (error) {
-      console.error("加载项目列表失败:", error);
-    }
-  }, []);
-
-  const handleSearch = useCallback(async (isInitialLoad = false) => {
-    if (!isInitialLoad) setIsSearching(true);
-    else setIsLoading(true);
-
-    try {
-      // 调用新的 "大一统" RPC 函数
-      const { data, error } = await supabase.rpc('get_transport_overview', {
-        p_project_id: filterInputs.projectId === 'all' ? null : filterInputs.projectId,
-        p_start_date: filterInputs.startDate,
-        p_end_date: filterInputs.endDate
-      });
-      if (error) throw error;
-
-      setOverviewStats(data.overview);
-      setDailyTransportStats(data.dailyTransportStats || []);
-      setDailyCostStats(data.dailyCostStats || []);
-      setDailyCountStats(data.dailyCountStats || []);
-    } catch (err: any) {
-      console.error('获取看板数据失败:', err);
-      toast({ title: "数据加载失败", description: err.message, variant: "destructive" });
-    } finally {
-      if (!isInitialLoad) setIsSearching(false);
-      else setIsLoading(false);
-    }
-  }, [filterInputs, toast]);
-  
   useEffect(() => {
     const initialLoad = async () => {
-      setIsLoading(true);
-      await Promise.all([loadProjects(), DataMigration.checkMigrationStatus().then(setMigrationStatus)]);
+      setIsLoading(true);
+      await Promise.all([loadProjects(), checkMigrationStatus()]);
       await handleSearch(true);
+      setIsLoading(false);
     };
     initialLoad();
-  }, [loadProjects, handleSearch]);
+  }, []);
+
+  useEffect(() => {
+    if (isDetailDialogOpen) {
+      fetchDialogRecords();
+    }
+  }, [isDetailDialogOpen, dialogFilter]);
 
   const formatCurrency = (value: number | null | undefined): string => {
     if (value == null) return '¥0.00';
@@ -104,9 +76,8 @@ export default function Home() {
       const startDate = dialogFilter.date ? dialogFilter.date : filterInputs.startDate;
       const endDate = dialogFilter.date ? dialogFilter.date : filterInputs.endDate;
 
-      // 注意：此处的 SupabaseStorage.getFilteredLogisticsRecords 仍是前端调用，
-      // 如果弹窗数据量也很大，未来也可优化为后端函数
-      const { records } = await DataMigration.getFilteredLogisticsRecords(projectId, undefined, startDate, endDate, 1000, 0);
+      // 【修正】确保这里调用的是 SupabaseStorage
+      const { records } = await SupabaseStorage.getFilteredLogisticsRecords(projectId, undefined, startDate, endDate, 1000, 0);
       setDialogRecords(records);
     } catch (error) {
       console.error("获取详细记录失败:", error);
@@ -116,13 +87,41 @@ export default function Home() {
     }
   };
 
+  const loadProjects = async () => {
+    try {
+      setProjects(await SupabaseStorage.getProjects() as Project[]);
+    } catch (error) {
+      console.error("加载项目列表失败:", error);
+    }
+  };
+
+  const handleSearch = async (isInitialLoad = false) => {
+    if (!isInitialLoad) setIsSearching(true);
+    try {
+      const data = await SupabaseStorage.getDashboardStats(filterInputs);
+      setOverviewStats((data as any).overview);
+      setDailyTransportStats((data as any).dailyTransportStats || []);
+      setDailyCostStats((data as any).dailyCostStats || []);
+      setDailyCountStats((data as any).dailyCountStats || []);
+    } catch (err) {
+      console.error('获取看板数据失败:', err);
+      toast({ title: "数据加载失败", variant: "destructive" });
+    } finally {
+      if (!isInitialLoad) setIsSearching(false);
+    }
+  };
+
+  const checkMigrationStatus = async () => {
+    setMigrationStatus(await DataMigration.checkMigrationStatus());
+  };
+
   const handleMigrateData = async () => {
     try {
       toast({ title: "开始数据迁移" });
       const success = await DataMigration.migrateAllData();
       if (success) {
         await handleSearch(true);
-        await DataMigration.checkMigrationStatus().then(setMigrationStatus);
+        await checkMigrationStatus();
         toast({ title: "数据迁移完成" });
       } else {
         toast({ title: "迁移失败", variant: "destructive" });
@@ -162,7 +161,7 @@ export default function Home() {
   }
 
   return (
-    <div className="space-y-8 p-4 md:p-8 relative min-h-screen">
+    <div className="space-y-8 p-4 md:p-8">
       {migrationStatus && !migrationStatus.isMigrated && migrationStatus.localCount > 0 && (
         <Card className="border-orange-200 bg-orange-50">
           <CardContent className="p-4">
@@ -217,6 +216,10 @@ export default function Home() {
         <Card className="shadow-card">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>每日运输量统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (吨)</CardTitle>
+            <div className="flex items-center space-x-2">
+              <Switch id="log-scale-switch-home" checked={useLogScale} onCheckedChange={setUseLogScale} />
+              <Label htmlFor="log-scale-switch-home" className="cursor-pointer text-sm">对数刻度</Label>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="h-96">
@@ -269,11 +272,6 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
-
-      <div className="fixed bottom-6 right-6 z-50 p-4 bg-background/80 backdrop-blur-sm border rounded-lg shadow-lg flex items-center space-x-2">
-        <Switch id="log-scale-switch-home" checked={useLogScale} onCheckedChange={setUseLogScale} />
-        <Label htmlFor="log-scale-switch-home" className="cursor-pointer text-sm font-medium">启用对数刻度</Label>
-      </div>
 
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col" aria-describedby="dialog-description">
