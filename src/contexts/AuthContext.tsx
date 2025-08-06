@@ -1,169 +1,101 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
+import { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { Session, User } from '@supabase/supabase-js';
+import { Loader2 } from 'lucide-react';
 
-// 定义用户角色类型，确保类型安全
-export type UserRole = 'admin' | 'finance' | 'business' | 'partner' | 'operator';
-
-// 定义用户档案的完整接口
-export interface UserProfile {
-  id: string;
-  email: string;
-  username: string;
-  full_name: string;
-  role: UserRole;
-  is_active: boolean;
-}
-
-// 定义AuthContext的类型，明确提供给子组件的属性和方法
+// 1. 定义 Context 中值的类型
+// 这为整个应用提供了一个统一的认证状态接口
 interface AuthContextType {
-  user: User | null;
-  profile: UserProfile | null;
   session: Session | null;
+  user: User | null;
+  profile: any | null; // 您可以在这里定义更具体的 Profile 类型
   loading: boolean;
-  signIn: (username: string, password: string) => Promise<{ error?: string }>;
-  signOut: () => Promise<void>;
-  hasPermission: (requiredRoles: UserRole[]) => boolean;
 }
 
-// 创建AuthContext
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// 2. 创建 Auth Context
+// 使用 undefined 作为初始值，以便在 useAuth hook 中进行检查
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// AuthProvider组件，包裹整个应用，提供认证状态
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+// 3. 创建 Auth Provider 组件
+// 这是包裹整个应用的核心组件，负责管理和分发认证状态
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true); // 初始状态为 loading，直到首次认证状态确定
 
   useEffect(() => {
-    // 首次加载时，尝试获取当前会话
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    // 设置认证状态的实时监听器
+    // onAuthStateChange 是 Supabase 推荐的最佳实践。
+    // 它会在订阅时立即触发一次，获取当前会话，完美替代了手动的 getSession()。
+    // 之后，它会在登录、登出、令牌刷新等任何认证状态变化时自动触发。
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event, session) => {
         setSession(session);
-        setUser(session?.user ?? null);
-        
-        // 当用户登录或会话刷新时，获取其用户档案
-        if (session?.user) {
-          try {
-            const { data: profileData, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-            
-            if (error) throw error;
-            setProfile(profileData as UserProfile);
-          } catch (error) {
-            console.error('获取用户配置文件失败:', error);
+        const currentUser = session ? session.user : null;
+        setUser(currentUser);
+
+        // 如果用户存在，则去获取他/她在 public.profiles 表中的详细信息
+        if (currentUser) {
+          const { data: userProfile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+          
+          if (error) {
+            console.error('获取用户 profile 失败:', error);
             setProfile(null);
-            // 如果获取档案失败，可能需要强制用户登出
-            await supabase.auth.signOut();
+          } else {
+            setProfile(userProfile);
           }
         } else {
-          // 如果用户登出，清空档案
+          // 如果用户不存在（例如已登出），则清空 profile
           setProfile(null);
         }
-        
+
+        // 【关键修复】
+        // 无论是初始加载、令牌刷新、还是用户登出，
+        // 都在这个回调的最后将 loading 状态设置为 false。
+        // 这确保了应用不会再卡在“转圈”状态。
         setLoading(false);
       }
     );
 
-    // 组件卸载时，取消监听
-    return () => subscription.unsubscribe();
-  }, []);
+    // 在组件卸载时，清理订阅，防止内存泄漏
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []); // 空依赖数组确保这个 effect 只在组件挂载时运行一次
 
-  /**
-   * 终极的、正确的、经过重构的signIn函数
-   * 它遵循了安全和效率的最佳实践
-   */
-  const signIn = async (username: string, password: string) => {
-    try {
-      setLoading(true);
-      
-      // 第一步：调用后端升级后的RPC函数，直接通过用户名获取email
-      // 这个操作利用了函数的SECURITY DEFINER权限，安全地绕过了RLS限制
-      const { data: emailData, error: rpcError } = await supabase.rpc(
-        'get_user_by_username',
-        { username_input: username }
-      );
-      
-      // 如果RPC调用出错或未返回email，说明用户不存在或账户被禁用
-      if (rpcError || !emailData) {
-        return { error: '用户名不存在或已被禁用' };
-      }
+  // 在首次加载完成前，显示一个全局的加载指示器
+  // 这可以防止在认证状态确定前，页面因为缺少用户信息而闪烁或报错
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
-      // 第二步：使用获取到的email和前端传入的密码进行最终认证
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: emailData, // 使用从安全后端函数获取的email
-        password: password,
-      });
-
-      // 如果认证失败，说明密码错误
-      if (authError) {
-        return { error: '用户名或密码错误' };
-      }
-
-      // 登录成功，返回空对象
-      return {};
-    } catch (error) {
-      console.error('登录失败:', error);
-      return { error: '登录过程中发生错误，请稍后重试' };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 登出函数
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast({
-        title: "登出失败",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  // 权限检查函数
-  const hasPermission = (requiredRoles: UserRole[]): boolean => {
-    if (!profile) return false;
-    return requiredRoles.includes(profile.role);
-  };
-
-  // 传递给Context的值
+  // 将所有认证相关的数据打包成一个 value 对象
   const value = {
+    session,
     user,
     profile,
-    session,
     loading,
-    signIn,
-    signOut,
-    hasPermission,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
+  // 通过 Provider 将 value 提供给应用中的所有子组件
+  return <AuthContext.Provider value={value}>{children}</Auth-Context.Provider>;
+};
 
-// 自定义Hook，方便子组件使用AuthContext
-export function useAuth() {
+// 4. 创建一个自定义 Hook
+// 这让子组件可以非常方便地、安全地访问到认证状态
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth必须在AuthProvider内部使用');
+    // 如果组件没有被 AuthProvider 包裹，则抛出错误，帮助开发者快速定位问题
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+};
