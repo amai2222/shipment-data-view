@@ -946,8 +946,13 @@ export type Database = {
         }
         Returns: Json
       }
-      get_data_for_payment_application: {
-        Args: { p_record_ids: string[] }
+      get_detailed_records_for_chart: {
+        Args: {
+          p_filter_type: string
+          p_filter_value: string
+          p_page_size: number
+          p_page_number: number
+        }
         Returns: Json
       }
       get_filtered_logistics_records: {
@@ -1015,6 +1020,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_financial_overview: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       get_logistics_records_paginated: {
         Args:
           | {
@@ -1063,6 +1072,17 @@ export type Database = {
           p_page_size: number
         }
         Returns: Json
+      }
+      get_monthly_receivables: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      get_monthly_trends: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          month_start: string
+          total_receivables: number
+        }[]
       }
       get_or_create_driver: {
         Args: {
@@ -1150,6 +1170,13 @@ export type Database = {
           records_count: number
         }[]
       }
+      get_partner_ranking: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          partner_name: string
+          total_payable: number
+        }[]
+      }
       get_payment_invoice_data: {
         Args: {
           p_project_ids?: string[]
@@ -1162,16 +1189,33 @@ export type Database = {
         Returns: Json
       }
       get_payment_request_data: {
-        Args: {
-          p_project_id?: string
-          p_start_date?: string
-          p_end_date?: string
-          p_partner_id?: string
-          p_payment_status_array?: string[]
-          p_page_size?: number
-          p_page_number?: number
-        }
+        Args:
+          | {
+              p_project_id?: string
+              p_start_date?: string
+              p_end_date?: string
+              p_partner_id?: string
+              p_payment_status_array?: string[]
+              p_page_size?: number
+              p_page_number?: number
+            }
+          | { p_record_ids: string[] }
         Returns: Json
+      }
+      get_pending_invoicing: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      get_pending_payments: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      get_project_contribution: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          project_name: string
+          total_receivables: number
+        }[]
       }
       get_project_drivers_with_details: {
         Args: { p_project_id: string }
@@ -1189,6 +1233,10 @@ export type Database = {
       get_projects_with_details_optimized: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      get_total_receivables: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       preview_import_with_duplicates_check: {
         Args: { p_records: Json }

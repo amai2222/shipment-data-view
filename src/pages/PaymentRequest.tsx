@@ -124,7 +124,6 @@ export default function PaymentRequest() {
       if (finalCount === 0) { toast({ title: "提示", description: "所选运单中没有“未支付”状态的记录，无需申请。", variant: "destructive" }); setIsGenerating(false); return; }
 
       const { data, error } = await supabase.rpc('get_payment_request_data', { 
-        p_record_ids: idsToFetch,
         p_project_id: null,
         p_start_date: null,
         p_end_date: null,

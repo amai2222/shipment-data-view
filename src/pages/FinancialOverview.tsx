@@ -41,8 +41,62 @@ export default function FinancialOverview() {
   const [dialogPagination, setDialogPagination] = useState<DialogPagination>({ currentPage: 1, totalPages: 1, totalCount: 0 });
 
   // --- 数据获取 ---
-  const fetchAllDataInOneGo = useCallback(async () => { setLoading(true); setError(null); try { const { data, error: rpcError } = await supabase.rpc('get_financial_overview'); if (rpcError) throw rpcError; if (!data) throw new Error("函数返回了空数据，请检查数据库函数逻辑。"); setStats(data.stats || null); setMonthlyTrend(data.monthlyTrend || []); setPartnerRanking(data.partnerRanking || []); setProjectContribution(data.projectContribution || []); } catch (err: any) { console.error("获取财务概览数据失败:", err); setError(err.message || "发生未知错误，请检查浏览器控制台。"); } finally { setLoading(false); } }, []);
-  const fetchDialogRecords = useCallback(async () => { if (!detailFilter) return; setIsDialogLoading(true); try { const { data, error: rpcError } = await supabase.rpc('get_detailed_records_for_chart', { p_filter_type: detailFilter.type, p_filter_value: detailFilter.value, p_page_size: PAGE_SIZE, p_page_number: dialogPagination.currentPage }); if (rpcError) throw rpcError; setDialogRecords(data.records || []); const totalCount = data.total_count || 0; setDialogPagination(prev => ({ ...prev, totalCount, totalPages: Math.ceil(totalCount / PAGE_SIZE) || 1 })); } catch (err: any) { console.error("获取明细数据失败:", err); } finally { setIsDialogLoading(false); } }, [detailFilter, dialogPagination.currentPage]);
+  const fetchAllDataInOneGo = useCallback(async () => { 
+    setLoading(true); 
+    setError(null); 
+    try { 
+      // 获取基础统计数据
+      const [totalReceivables, monthlyReceivables, pendingPayment, pendingInvoice] = await Promise.all([
+        supabase.rpc('get_total_receivables'),
+        supabase.rpc('get_monthly_receivables'),
+        supabase.rpc('get_pending_payments'),
+        supabase.rpc('get_pending_invoicing')
+      ]);
+      
+      setStats({
+        totalReceivables: totalReceivables.data || 0,
+        monthlyReceivables: monthlyReceivables.data || 0,
+        pendingPayment: pendingPayment.data || 0,
+        pendingInvoice: pendingInvoice.data || 0
+      });
+
+      // 获取月度趋势数据
+      const { data: trendsData } = await supabase.rpc('get_monthly_trends');
+      setMonthlyTrend(trendsData || []);
+
+      // 获取合作方排名数据
+      const { data: rankingData } = await supabase.rpc('get_partner_ranking');
+      setPartnerRanking(rankingData || []);
+
+      // 获取项目贡献数据（暂时为空，可后续添加函数）
+      setProjectContribution([]);
+    } catch (err: any) { 
+      console.error("获取财务概览数据失败:", err); 
+      setError(err.message || "发生未知错误，请检查浏览器控制台。"); 
+    } finally { 
+      setLoading(false); 
+    } 
+  }, []);
+  const fetchDialogRecords = useCallback(async () => { 
+    if (!detailFilter) return; 
+    setIsDialogLoading(true); 
+    try { 
+      // 简化明细查询，直接查询 logistics_records 表
+      const { data, error } = await supabase
+        .from('logistics_records')
+        .select('id, auto_number, project_name, driver_name, license_plate, loading_location, unloading_location, loading_weight, unloading_weight, transport_type, payable_cost, remarks')
+        .range((dialogPagination.currentPage - 1) * PAGE_SIZE, dialogPagination.currentPage * PAGE_SIZE - 1);
+      
+      if (error) throw error;
+      
+      setDialogRecords(data || []); 
+      setDialogPagination(prev => ({ ...prev, totalCount: data?.length || 0, totalPages: Math.ceil((data?.length || 0) / PAGE_SIZE) || 1 })); 
+    } catch (err: any) { 
+      console.error("获取明细数据失败:", err); 
+    } finally { 
+      setIsDialogLoading(false); 
+    } 
+  }, [detailFilter, dialogPagination.currentPage]);
 
   // --- Effects ---
   useEffect(() => { fetchAllDataInOneGo(); const handleVisibilityChange = () => { if (document.visibilityState === 'visible') { fetchAllDataInOneGo(); } }; document.addEventListener('visibilitychange', handleVisibilityChange); return () => document.removeEventListener('visibilitychange', handleVisibilityChange); }, [fetchAllDataInOneGo]);
