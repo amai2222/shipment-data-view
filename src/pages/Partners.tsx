@@ -1,4 +1,6 @@
 // 文件路径: src/pages/Partners.tsx
+// 这是修复后的完整代码，请直接替换
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,17 +29,17 @@ interface PartnerWithProjects extends Partner {
 // 删除确认组件
 const DeleteConfirmButton = ({ partnerId, partnerName, onConfirm }: { partnerId: string, partnerName: string, onConfirm: (id: string) => void }) => {
   const [open, setOpen] = React.useState(false);
-  
+
   return (
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <Trash2 className="h-4 w-4" />
       </Button>
-      <ConfirmDialog 
+      <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
-        title="确认删除" 
-        description={`您确定要删除合作方 "${partnerName}" 吗？相关的项目合作链路也会被影响，这个操作无法撤销。`} 
+        title="确认删除"
+        description={`您确定要删除合作方 "${partnerName}" 吗？相关的项目合作链路也会被影响，这个操作无法撤销。`}
         onConfirm={() => {
           onConfirm(partnerId);
           setOpen(false);
@@ -52,18 +54,17 @@ export default function Partners() {
   const [partners, setPartners] = useState<PartnerWithProjects[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
-  const [formData, setFormData] = useState({ 
-    name: '', 
-    fullName: '', 
-    bankAccount: '', 
-    bankName: '', 
-    branchName: '', 
-    taxRate: 0 
+  const [formData, setFormData] = useState({
+    name: '',
+    fullName: '',
+    bankAccount: '',
+    bankName: '',
+    branchName: '',
+    taxRate: 0
   });
 
   const fetchPartners = useCallback(async () => {
     try {
-      // 【核心修复】一次查询获取所有合作方及其关联的项目信息，包含新增字段
       const { data, error } = await supabase
         .from('partners')
         .select(`
@@ -77,7 +78,6 @@ export default function Partners() {
 
       if (error) throw error;
 
-      // 【核心修复】将查询到的数据格式化为我们需要的结构
       const formattedData: PartnerWithProjects[] = data.map(item => ({
         id: item.id,
         name: item.name,
@@ -107,47 +107,64 @@ export default function Partners() {
     fetchPartners();
   }, [fetchPartners]);
 
+  // 【【【核心修复逻辑在这里】】】
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) { toast.error('请输入合作方名称'); return; }
     if (formData.taxRate < 0 || formData.taxRate >= 1) { toast.error('税点必须在0-1之间'); return; }
 
     try {
-      const partnerData = { 
-        name: formData.name.trim(), 
+      // 获取当前登录用户的ID，这是新增操作所必需的
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('无法获取用户信息，请重新登录');
+        return;
+      }
+
+      const partnerData = {
+        user_id: user.id, // 【修复】在插入对象中包含 user_id
+        name: formData.name.trim(),
         full_name: formData.fullName.trim() || null,
         bank_account: formData.bankAccount.trim() || null,
         bank_name: formData.bankName.trim() || null,
         branch_name: formData.branchName.trim() || null,
-        tax_rate: formData.taxRate 
+        tax_rate: formData.taxRate
       };
+
       if (editingPartner) {
-        const { error } = await supabase.from('partners').update(partnerData).eq('id', editingPartner.id);
+        // 更新操作不需要修改 user_id，所以从对象中安全地移除它
+        const { user_id, ...updateData } = partnerData;
+        const { error } = await supabase.from('partners').update(updateData).eq('id', editingPartner.id);
         if (error) throw error;
         toast.success('合作方更新成功');
       } else {
+        // 新增操作将包含 user_id 的完整对象插入数据库
         const { error } = await supabase.from('partners').insert([partnerData]);
         if (error) throw error;
         toast.success('合作方添加成功');
       }
+
       closeDialog();
       fetchPartners(); // 重新加载数据
     } catch (error: any) {
       console.error('保存合作方失败:', error);
-      if (error.code === '23505') { toast.error('合作方名称已存在');
-      } else { toast.error('保存合作方失败'); }
+      if (error.code === '23505') {
+        toast.error('合作方名称已存在');
+      } else {
+        toast.error('保存合作方失败');
+      }
     }
   };
 
   const handleEdit = (partner: Partner) => {
     setEditingPartner(partner);
-    setFormData({ 
-      name: partner.name, 
+    setFormData({
+      name: partner.name,
       fullName: partner.fullName || '',
       bankAccount: partner.bankAccount || '',
       bankName: partner.bankName || '',
       branchName: partner.branchName || '',
-      taxRate: partner.taxRate 
+      taxRate: partner.taxRate
     });
     setIsDialogOpen(true);
   };
@@ -192,13 +209,16 @@ export default function Partners() {
         const importData = jsonData.map((row: any) => ({
           name: row['合作方名称'] || row['name'] || '',
           tax_rate: parseFloat((row['默认税点'] || row['税点'] || row['taxRate'] || '0').toString().replace('%', '')) / 100,
+          user_id: supabase.auth.getUser() ? supabase.auth.getUser().then(u => u.data.user.id) : null // 导入时也尝试添加user_id
         }));
         const validData = importData.filter(item => item.name && item.tax_rate >= 0 && item.tax_rate < 1);
         if (validData.length === 0) { toast.error('没有有效的数据可导入'); return; }
         const existingNames = partners.map(p => p.name);
         const newData = validData.filter(item => !existingNames.includes(item.name));
         if (newData.length === 0) { toast.error('所有合作方已存在'); return; }
-        const { error } = await supabase.from('partners').insert(newData);
+        // 确保 user_id 被正确解析
+        const resolvedData = await Promise.all(newData.map(async item => ({...item, user_id: await item.user_id})));
+        const { error } = await supabase.from('partners').insert(resolvedData);
         if (error) throw error;
         toast.success(`成功导入 ${newData.length} 个合作方`);
         fetchPartners();
@@ -214,13 +234,13 @@ export default function Partners() {
   const closeDialog = () => {
     setIsDialogOpen(false);
     setEditingPartner(null);
-    setFormData({ 
-      name: '', 
-      fullName: '', 
-      bankAccount: '', 
-      bankName: '', 
-      branchName: '', 
-      taxRate: 0 
+    setFormData({
+      name: '',
+      fullName: '',
+      bankAccount: '',
+      bankName: '',
+      branchName: '',
+      taxRate: 0
     });
   };
 
@@ -234,7 +254,7 @@ export default function Partners() {
             <Button variant="outline" asChild><span><Upload className="h-4 w-4 mr-2" />导入</span></Button>
             <input type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
           </label>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); else setIsDialogOpen(true); }}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />添加合作方</Button></DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>{editingPartner ? '编辑合作方' : '添加合作方'}</DialogTitle></DialogHeader>
