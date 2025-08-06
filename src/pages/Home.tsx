@@ -76,7 +76,6 @@ export default function Home() {
       const startDate = dialogFilter.date ? dialogFilter.date : filterInputs.startDate;
       const endDate = dialogFilter.date ? dialogFilter.date : filterInputs.endDate;
 
-      // 【修正】确保这里调用的是 SupabaseStorage
       const { records } = await SupabaseStorage.getFilteredLogisticsRecords(projectId, undefined, startDate, endDate, 1000, 0);
       setDialogRecords(records);
     } catch (error) {
