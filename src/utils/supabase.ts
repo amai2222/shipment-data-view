@@ -1,5 +1,5 @@
 // 文件路径: src/utils/supabase.ts
-// 这是修复后的完整代码，请直接替换
+// 这是最终的、完整的、修复后的代码，请直接替换
 
 import { supabase } from '@/integrations/supabase/client';
 import { Project, Driver, Location, LogisticsRecord } from '@/types';
@@ -81,7 +81,6 @@ export class SupabaseStorage {
     if (error) throw error;
   }
 
-  // --- START: 新增看板统计方法 ---
   static async getDashboardStats(filters: { startDate: string; endDate: string; projectId: string | null; }) {
     const { data, error } = await supabase.rpc('get_dashboard_stats' as any, {
       start_date_param: filters.startDate,
@@ -96,8 +95,6 @@ export class SupabaseStorage {
 
     return data;
   }
-  // --- END: 新增看板统计方法 ---
-
 
   // 司机相关
   static async getDrivers(): Promise<Driver[]> {
@@ -141,19 +138,16 @@ export class SupabaseStorage {
     })) || [];
   }
   
-  // 【【【核心修复逻辑在这里】】】
   static async addDriver(driver: Omit<Driver, 'id' | 'createdAt'>): Promise<Driver> {
-    // 步骤1：获取当前登录用户的ID
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         throw new Error('无法获取用户信息，请重新登录后重试。');
     }
 
-    // 步骤2：在插入数据库时，将 user_id 一并加入
     const { data, error } = await supabase
       .from('drivers')
       .insert([{
-        user_id: user.id, // 【修复】在这里添加 user_id
+        user_id: user.id,
         name: driver.name,
         license_plate: driver.licensePlate,
         phone: driver.phone,
@@ -163,7 +157,6 @@ export class SupabaseStorage {
 
     if (error) throw error;
 
-    // 如果有项目关联，插入关联关系
     if (driver.projectIds && driver.projectIds.length > 0) {
       const { error: relationError } = await supabase
         .from('driver_projects')
@@ -199,15 +192,12 @@ export class SupabaseStorage {
 
     if (error) throw error;
 
-    // 更新项目关联
     if (updates.projectIds !== undefined) {
-      // 删除现有关联
       await supabase
         .from('driver_projects')
         .delete()
         .eq('driver_id', id);
 
-      // 插入新关联
       if (updates.projectIds.length > 0) {
         const { error: relationError } = await supabase
           .from('driver_projects')
@@ -231,9 +221,6 @@ export class SupabaseStorage {
 
     if (error) throw error;
   }
-
-  // ... 此处省略了您文件中其他未改动的函数 ...
-  // ... 请确保您复制的是下面的完整代码，或者只替换 addDriver 函数 ...
   
   // 地点相关
   static async getLocations(): Promise<Location[]> {
@@ -273,10 +260,19 @@ export class SupabaseStorage {
     })) || [];
   }
 
+  // 【【【核心修复逻辑在这里】】】
   static async addLocation(location: Omit<Location, 'id' | 'createdAt'>): Promise<Location> {
+    // 步骤1：获取当前登录用户的ID
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('无法获取用户信息，请重新登录后重试。');
+    }
+
+    // 步骤2：在插入数据库时，将 user_id 一并加入
     const { data, error } = await supabase
       .from('locations')
       .insert([{ 
+        user_id: user.id, // 【修复】在这里添加 user_id
         name: location.name,
       }])
       .select()
@@ -318,13 +314,11 @@ export class SupabaseStorage {
 
     // 更新项目关联
     if (updates.projectIds !== undefined) {
-      // 删除现有关联
       await supabase
         .from('location_projects')
         .delete()
         .eq('location_id', id);
       
-      // 插入新关联
       if (updates.projectIds.length > 0) {
         const { error: relationError } = await supabase
           .from('location_projects')
@@ -410,7 +404,6 @@ export class SupabaseStorage {
   }
 
   static async addLogisticsRecord(record: Omit<LogisticsRecord, 'id' | 'autoNumber' | 'createdAt'>): Promise<LogisticsRecord> {
-    // 生成自动编号
     const autoNumber = await this.generateAutoNumber();
     
     const { data, error } = await supabase
@@ -467,7 +460,6 @@ export class SupabaseStorage {
       createdByUserId: data.created_by_user_id,
     };
 
-    // 如果有运费金额，自动生成合作方成本
     if (record.currentFee && record.currentFee > 0 && record.projectId) {
       await this.generatePartnerCosts(
         data.id, 
@@ -482,7 +474,6 @@ export class SupabaseStorage {
   }
 
   static async updateLogisticsRecord(id: string, updates: Partial<LogisticsRecord>): Promise<void> {
-    // 先删除现有的合作方成本记录
     await supabase
       .from('logistics_partner_costs')
       .delete()
@@ -514,7 +505,6 @@ export class SupabaseStorage {
     
     if (error) throw error;
 
-    // 如果有运费金额，重新生成合作方成本
     if (updates.currentFee && updates.currentFee > 0 && updates.projectId) {
       await this.generatePartnerCosts(
         id, 
@@ -527,7 +517,6 @@ export class SupabaseStorage {
   }
 
   static async deleteLogisticsRecord(id: string): Promise<void> {
-    // 先删除相关的合作方成本记录
     await supabase
       .from('logistics_partner_costs')
       .delete()
@@ -541,7 +530,6 @@ export class SupabaseStorage {
     if (error) throw error;
   }
 
-  // 生成自动编号
   static async generateAutoNumber(): Promise<string> {
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
@@ -558,9 +546,7 @@ export class SupabaseStorage {
     return `${dateStr}-${sequenceNumber}`;
   }
 
-  // 查找或创建地点
   static async findOrCreateLocation(name: string, projectIds?: string[]): Promise<Location> {
-    // 先查找是否存在同名地点
     const { data: existing } = await supabase
       .from('locations')
       .select('*')
@@ -571,16 +557,14 @@ export class SupabaseStorage {
       return {
         id: existing.id,
         name: existing.name,
-        projectIds: [], // 需要单独查询关联项目
+        projectIds: [],
         createdAt: existing.created_at,
       };
     }
     
-    // 不存在则创建
     return await this.addLocation({ name, projectIds });
   }
 
-  // 获取项目的合作链路
   static async getPartnerChains(projectId: string): Promise<any[]> {
     const { data, error } = await supabase
       .from('partner_chains')
@@ -592,7 +576,6 @@ export class SupabaseStorage {
     return data || [];
   }
 
-  // 获取项目的默认合作链路ID
   static async getDefaultChainId(projectId: string): Promise<string | null> {
     const { data, error } = await supabase
       .from('partner_chains')
@@ -602,7 +585,6 @@ export class SupabaseStorage {
       .single();
     
     if (error) {
-      // 如果没有默认链路，获取第一个链路
       const { data: firstChain } = await supabase
         .from('partner_chains')
         .select('id')
@@ -617,10 +599,8 @@ export class SupabaseStorage {
     return data?.id || null;
   }
 
-  // 生成合作方成本记录
   static async generatePartnerCosts(logisticsRecordId: string, baseCost: number, projectId: string, loadingWeight?: number, unloadingWeight?: number): Promise<void> {
     try {
-      // 使用新的数据库函数计算合作方成本
       const { data: partnerCosts, error } = await supabase
         .rpc('calculate_partner_costs_v2', {
           p_base_amount: baseCost,
@@ -632,7 +612,6 @@ export class SupabaseStorage {
       if (error) throw error;
 
       if (partnerCosts && partnerCosts.length > 0) {
-        // 插入合作方成本记录
         const costRecords = partnerCosts.map((cost: any) => ({
           logistics_record_id: logisticsRecordId,
           partner_id: cost.partner_id,
@@ -650,23 +629,19 @@ export class SupabaseStorage {
       }
     } catch (error) {
       console.error('Error generating partner costs:', error);
-      // 不阻断主流程，只记录错误
     }
   }
 
-  // 一次性修复现有运单的合作方成本（仅在开发期间使用）
   static async fixExistingRecordsPartnerCosts(): Promise<void> {
     try {
-      // 先清除所有现有的合作方成本记录
       const { error: deleteError } = await supabase
         .from('logistics_partner_costs')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // 删除所有记录
+        .neq('id', '00000000-0000-0000-0000-000000000000');
 
       if (deleteError) throw deleteError;
       console.log('已清除所有现有合作方成本记录');
 
-      // 获取所有有运费的运单
       const { data: records, error } = await supabase
         .from('logistics_records')
         .select('id, current_cost, project_id, auto_number, loading_weight, unloading_weight')
@@ -678,7 +653,6 @@ export class SupabaseStorage {
       console.log(`找到 ${records?.length || 0} 条需要重新生成的记录`);
 
       for (const record of records || []) {
-        // 重新生成合作方成本
         await this.generatePartnerCosts(
           record.id, 
           record.current_cost, 
