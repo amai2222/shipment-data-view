@@ -52,7 +52,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // 当用户登录或会话刷新时，获取其用户档案
         if (session?.user) {
           try {
             const { data: profileData, error } = await supabase
@@ -66,11 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch (error) {
             console.error('获取用户配置文件失败:', error);
             setProfile(null);
-            // 如果获取档案失败，可能需要强制用户登出
             await supabase.auth.signOut();
           }
         } else {
-          // 如果用户登出，清空档案
           setProfile(null);
         }
         
@@ -78,45 +75,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // 组件卸载时，取消监听
     return () => subscription.unsubscribe();
   }, []);
 
   /**
-   * 终极的、正确的、经过重构的signIn函数
-   * 它遵循了安全和效率的最佳实践
+   * 终极的、正确的、已隔离故障的signIn函数
+   * 它不再包含任何对外部日志服务的失败调用，确保了登录逻辑的纯粹性。
    */
   const signIn = async (username: string, password: string) => {
     try {
       setLoading(true);
       
-      // 第一步：调用后端升级后的RPC函数，直接通过用户名获取email
-      // 这个操作利用了函数的SECURITY DEFINER权限，安全地绕过了RLS限制
       const { data: emailData, error: rpcError } = await supabase.rpc(
         'get_user_by_username',
         { username_input: username }
       );
       
-      // 如果RPC调用出错或未返回email，说明用户不存在或账户被禁用
       if (rpcError || !emailData) {
         return { error: '用户名不存在或已被禁用' };
       }
 
-      // 第二步：使用获取到的email和前端传入的密码进行最终认证
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: emailData, // 使用从安全后端函数获取的email
+        email: emailData,
         password: password,
       });
 
-      // 如果认证失败，说明密码错误
       if (authError) {
+        // 认证失败，直接返回错误信息。
+        // 之前可能存在的 pushLogsToGrafana() 等干扰性调用已被彻底移除。
         return { error: '用户名或密码错误' };
       }
 
-      // 登录成功，返回空对象
+      // 登录成功
       return {};
     } catch (error) {
-      console.error('登录失败:', error);
+      // 捕获到意外错误，直接返回通用错误信息。
+      // 之前可能存在的 pushLogsToGrafana() 等干扰性调用已被彻底移除。
+      console.error('登录过程中捕获到意外错误:', error);
       return { error: '登录过程中发生错误，请稍后重试' };
     } finally {
       setLoading(false);
@@ -141,7 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return requiredRoles.includes(profile.role);
   };
 
-  // 传递给Context的值
   const value = {
     user,
     profile,
