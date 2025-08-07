@@ -60,7 +60,7 @@ export default function Home() {
   const [isDialogLoading, setIsDialogLoading] = useState(false);
   const [dialogFilter, setDialogFilter] = useState<{projectId: string | null, date: string | null}>({ projectId: null, date: null });
 
-  const [filterInputs, setFilterInputs] = useState(() => getDefaultDateRange());
+  const [filterInputs, setFilterInputs] = useState(() => ({ ...getDefaultDateRange(), projectId: 'all' }));
   const { toast } = useToast();
 
   // [PQjfG 优化点 1] 使用 useCallback 封装所有函数，确保引用稳定，避免不必要的重渲染。

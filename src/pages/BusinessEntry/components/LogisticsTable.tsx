@@ -4,7 +4,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash2, Loader2 } from "lucide-react";
+import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogisticsRecord, PaginationState } from '../types';
 
@@ -15,9 +15,12 @@ interface LogisticsTableProps {
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>;
   onDelete: (id: string, autoNumber: string) => void;
   onView: (record: LogisticsRecord) => void;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  onSort?: (field: string) => void;
 }
 
-export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView }: LogisticsTableProps) => {
+export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, sortField, sortDirection, onSort }: LogisticsTableProps) => {
   
   const handlePageChange = (newPage: number) => {
     setPagination(p => ({ ...p, currentPage: newPage }));
@@ -34,23 +37,42 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
     return `¥${value.toFixed(2)}`;
   };
 
+  const SortableHeader = ({ field, children, className }: { field: string, children: React.ReactNode, className?: string }) => {
+    const getSortIcon = () => {
+      if (sortField !== field) return <ChevronsUpDown className="ml-1 h-4 w-4 opacity-50" />;
+      return sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />;
+    };
+
+    return (
+      <TableHead 
+        className={`cursor-pointer hover:bg-muted/50 select-none ${className || ''}`}
+        onClick={() => onSort?.(field)}
+      >
+        <div className="flex items-center">
+          {children}
+          {getSortIcon()}
+        </div>
+      </TableHead>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[120px]">运单编号</TableHead>
-              <TableHead>项目</TableHead>
-              <TableHead>司机</TableHead>
-              <TableHead className="w-[120px]">车牌号</TableHead>
-              <TableHead className="w-[130px]">司机电话</TableHead>
-              <TableHead className="w-[120px]">路线</TableHead>
-              <TableHead>装/卸重量 (吨)</TableHead>
-              <TableHead>运费 (元)</TableHead>
-              <TableHead>额外费 (元)</TableHead>
-              <TableHead className="font-bold">司机应收 (元)</TableHead>
-              <TableHead className="w-[100px]">状态</TableHead>
+              <SortableHeader field="auto_number" className="w-[120px]">运单编号</SortableHeader>
+              <SortableHeader field="project_name">项目</SortableHeader>
+              <SortableHeader field="driver_name">司机</SortableHeader>
+              <SortableHeader field="license_plate" className="w-[120px]">车牌号</SortableHeader>
+              <SortableHeader field="driver_phone" className="w-[130px]">司机电话</SortableHeader>
+              <SortableHeader field="loading_location" className="w-[120px]">路线</SortableHeader>
+              <SortableHeader field="loading_weight">装/卸重量 (吨)</SortableHeader>
+              <SortableHeader field="current_cost">运费 (元)</SortableHeader>
+              <SortableHeader field="extra_cost">额外费 (元)</SortableHeader>
+              <SortableHeader field="driver_payable_cost" className="font-bold">司机应收 (元)</SortableHeader>
+              <SortableHeader field="transport_type" className="w-[100px]">状态</SortableHeader>
               <TableHead className="w-[80px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>

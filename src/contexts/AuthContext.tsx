@@ -60,7 +60,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('获取用户配置文件失败，但会话将保持:', error);
             setProfile(null); // 清空旧的profile以避免数据不一致
           } else {
-            setProfile(profileData as UserProfile);
+            setProfile({
+              id: profileData.id,
+              email: profileData.email || '',
+              username: (profileData as any).username || profileData.email || '',
+              full_name: profileData.full_name || '',
+              role: profileData.role as UserRole,
+              is_active: (profileData as any).is_active ?? true
+            });
           }
         } catch (catchError) {
           console.error('处理用户配置文件时发生意外错误:', catchError);
@@ -104,10 +111,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // 第一步：调用后端升级后的RPC函数，直接通过用户名获取email
       // 这个操作利用了函数的SECURITY DEFINER权限，安全地绕过了RLS限制
-      const { data: emailData, error: rpcError } = await supabase.rpc(
-        'get_user_by_username',
-        { username_input: username }
-      );
+      const { data: emailData, error: rpcError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', username)
+        .single();
       
       // 如果RPC调用出错或未返回email，说明用户不存在或账户被禁用
       if (rpcError || !emailData) {
@@ -116,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 第二步：使用获取到的email和前端传入的密码进行最终认证
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: emailData, // 使用从安全后端函数获取的email
+        email: emailData.email, // 使用从安全后端函数获取的email
         password: password,
       });
 

@@ -52,8 +52,10 @@ export function useLogisticsData() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilters, setActiveFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
-  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1 });
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalCount: 0, pageSize: PAGE_SIZE });
   const [totalSummary, setTotalSummary] = useState<TotalSummary>(INITIAL_SUMMARY);
+  const [sortField, setSortField] = useState<string>('auto_number');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const loadPaginatedRecords = useCallback(async (page: number, filters: LogisticsFilters) => {
     setLoading(true);
@@ -75,9 +77,23 @@ export function useLogisticsData() {
       // 您的函数返回一个 JSONB 对象，而不是数组
       const responseData = (data as any) || {};
       
-      setRecords(responseData.records || []);
+      const sortedRecords = (responseData.records || []).sort((a: any, b: any) => {
+        const aVal = a[sortField] || '';
+        const bVal = b[sortField] || '';
+        if (sortDirection === 'asc') {
+          return aVal > bVal ? 1 : -1;
+        } else {
+          return aVal < bVal ? 1 : -1;
+        }
+      });
+      
+      setRecords(sortedRecords);
       setTotalSummary(responseData.summary || INITIAL_SUMMARY);
-      setPagination(prev => ({ ...prev, totalPages: Math.ceil((responseData.count || 0) / PAGE_SIZE) || 1 }));
+      setPagination(prev => ({ 
+        ...prev, 
+        totalPages: Math.ceil((responseData.count || 0) / PAGE_SIZE) || 1,
+        totalCount: responseData.count || 0
+      }));
 
     } catch (error: any) {
       toast({ title: "错误", description: `加载运单记录失败: ${error.message}`, variant: "destructive" });
@@ -90,7 +106,16 @@ export function useLogisticsData() {
 
   useEffect(() => {
     loadPaginatedRecords(pagination.currentPage, activeFilters);
-  }, [pagination.currentPage, activeFilters, loadPaginatedRecords]);
+  }, [pagination.currentPage, activeFilters, loadPaginatedRecords, sortField, sortDirection]);
+
+  const handleSort = useCallback((field: string) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  }, [sortField]);
 
   const handleDelete = useCallback(async (id: string) => {
     try {
@@ -113,5 +138,6 @@ export function useLogisticsData() {
 
   return {
     records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch,
+    sortField, sortDirection, handleSort,
   };
 }

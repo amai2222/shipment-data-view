@@ -58,7 +58,7 @@ export default function BusinessEntry() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
   const [uiFilters, setUiFilters] = useState(INITIAL_FILTERS);
-  const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch } = useLogisticsData();
+  const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch, sortField, sortDirection, handleSort } = useLogisticsData();
   const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates } = useExcelImport(() => { refetch(); });
   const isSummaryStale = useMemo(() => JSON.stringify(uiFilters) !== JSON.stringify(activeFilters), [uiFilters, activeFilters]);
 
@@ -135,7 +135,7 @@ export default function BusinessEntry() {
       </div>
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} projects={projects} />)}
-      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, page: pagination.currentPage, size: 25, pageSize: 25, totalCount: 0 }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} />)}
+      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, page: pagination.currentPage, size: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />)}
       <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
         <DialogContent className="sm:max-w-4xl">
