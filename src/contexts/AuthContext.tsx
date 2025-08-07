@@ -24,6 +24,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (username: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  switchUser: (username: string, password: string) => Promise<{ error?: string }>;
   hasPermission: (requiredRoles: UserRole[]) => boolean;
 }
 
@@ -155,6 +156,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // 切换用户函数
+  const switchUser = async (username: string, password: string) => {
+    try {
+      // 先登出当前用户
+      await signOut();
+      
+      // 然后登录新用户
+      return await signIn(username, password);
+    } catch (error) {
+      console.error('切换用户失败:', error);
+      return { error: '切换用户过程中发生错误，请稍后重试' };
+    }
+  };
+
   // 权限检查函数
   const hasPermission = (requiredRoles: UserRole[]): boolean => {
     if (!profile) return false;
@@ -169,6 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signIn,
     signOut,
+    switchUser,
     hasPermission,
   };
 

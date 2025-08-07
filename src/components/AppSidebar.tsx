@@ -13,7 +13,9 @@ import {
   Plus,
   RotateCcw,
   ChevronDown,
-  ClipboardList 
+  ClipboardList,
+  Settings,
+  UserCog
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -67,6 +69,13 @@ const menuItems = [
     items: [
       { title: "运费对账", url: "/finance/reconciliation", icon: Calculator },
       { title: "付款与开票", url: "/finance/payment-invoice", icon: DollarSign },
+    ]
+  },
+  {
+    title: "设置",
+    icon: Settings,
+    items: [
+      { title: "用户管理", url: "/settings/users", icon: UserCog },
     ]
   }
 ];

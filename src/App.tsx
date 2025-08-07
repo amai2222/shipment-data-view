@@ -20,6 +20,7 @@ import FinanceReconciliation from "./pages/FinanceReconciliation";
 import PaymentInvoice from "./pages/PaymentInvoice";
 import NotFound from "./pages/NotFound";
 import PaymentRequestsList from "./pages/PaymentRequestsList";
+import UserManagement from "./pages/Settings/UserManagement";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +105,12 @@ const App = () => (
             <Route path="/finance/payment-invoice" element={
               <ProtectedRoute requiredRoles={['admin', 'finance']}>
                 <AppLayout><PaymentInvoice /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings/users" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><UserManagement /></AppLayout>
               </ProtectedRoute>
             } />
             
