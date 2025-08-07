@@ -1,3 +1,6 @@
+// 文件路径: src/contexts/AuthContext.tsx
+// 描述: [VmXwk 最终修复版] 实现了使用用户名或邮箱登录的终极解决方案。
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,9 +25,9 @@ interface AuthContextType {
   profile: UserProfile | null;
   session: Session | null;
   loading: boolean;
-  signIn: (username: string, password: string) => Promise<{ error?: string }>;
+  signIn: (usernameOrEmail: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
-  switchUser: (username: string, password: string) => Promise<{ error?: string }>;
+  switchUser: (usernameOrEmail: string, password: string) => Promise<{ error?: string }>;
   hasPermission: (requiredRoles: UserRole[]) => boolean;
 }
 
@@ -40,7 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // 【修改】将首次加载和状态监听合并，并统一处理加载状态
     setLoading(true);
 
     const handleAuthChange = async (session: Session | null) => {
@@ -56,18 +58,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .single();
 
           if (error) {
-            // 【关键修改】不再因为获取profile失败而强制登出。
-            // 这是一个更具弹性的策略，允许网络波动等瞬时错误发生。
             console.error('获取用户配置文件失败，但会话将保持:', error);
-            setProfile(null); // 清空旧的profile以避免数据不一致
+            setProfile(null);
           } else {
             setProfile({
               id: profileData.id,
               email: profileData.email || '',
-              username: (profileData as any).username || profileData.email || '',
+              username: profileData.username || profileData.email || '',
               full_name: profileData.full_name || '',
               role: profileData.role as UserRole,
-              is_active: (profileData as any).is_active ?? true
+              is_active: profileData.is_active ?? true
             });
           }
         } catch (catchError) {
@@ -77,60 +77,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
       }
-
-      // 【关键修改】确保在所有逻辑路径的最后都设置loading为false
       setLoading(false);
     };
 
-    // 首次加载时，获取会话并处理
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleAuthChange(session);
     });
 
-    // 设置认证状态的实时监听器
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // 【关键修改】在处理任何认证事件前，都先进入加载状态
         setLoading(true);
         handleAuthChange(session);
       }
     );
 
-    // 组件卸载时，取消监听
     return () => {
       subscription.unsubscribe();
     };
   }, []);
 
   /**
-   * 终极的、正确的、经过重构的signIn函数
-   * 它遵循了安全和效率的最佳实践
+   * [VmXwk 最终修复] 终极的、正确的、经过重构的signIn函数
+   * 它现在可以接受用户名或邮箱进行登录。
    */
-  const signIn = async (username: string, password: string) => {
+  const signIn = async (usernameOrEmail: string, password: string) => {
     try {
       setLoading(true);
       
-      // 第一步：调用后端升级后的RPC函数，直接通过用户名获取email
-      // 这个操作利用了函数的SECURITY DEFINER权限，安全地绕过了RLS限制
-      const { data: emailData, error: rpcError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('email', username)
-        .single();
+      // 第一步：调用我们新创建的后端RPC函数，安全地获取用户的真实邮箱
+      const { data: rpcData, error: rpcError } = await supabase.rpc('login_with_username_or_email', {
+        identifier: usernameOrEmail
+      });
+
+      if (rpcError) {
+        console.error('RPC call failed:', rpcError);
+        return { error: '登录服务暂时不可用，请稍后重试' };
+      }
       
-      // 如果RPC调用出错或未返回email，说明用户不存在或账户被禁用
-      if (rpcError || !emailData) {
+      // 如果RPC未返回任何数据，说明用户不存在或账户被禁用
+      if (!rpcData || rpcData.length === 0) {
         return { error: '用户名不存在或已被禁用' };
       }
 
-      // 第二步：使用获取到的email和前端传入的密码进行最终认证
+      const userEmail = rpcData[0].user_email;
+
+      // 第二步：使用获取到的真实email和前端传入的密码进行最终认证
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: emailData.email, // 使用从安全后端函数获取的email
+        email: userEmail,
         password: password,
       });
 
       // 如果认证失败，说明密码错误
       if (authError) {
+        // Supabase对于不存在的用户和密码错误返回相同的错误信息，这是为了安全
         return { error: '用户名或密码错误' };
       }
 
@@ -138,45 +137,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return {};
     } catch (error) {
       console.error('登录失败:', error);
-      return { error: '登录过程中发生错误，请稍后重试' };
+      return { error: '登录过程中发生未知错误，请稍后重试' };
     } finally {
       setLoading(false);
     }
   };
 
-  // 登出函数
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
-      toast({
-        title: "登出失败",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "登出失败", description: error.message, variant: "destructive" });
     }
   };
 
-  // 切换用户函数
-  const switchUser = async (username: string, password: string) => {
+  const switchUser = async (usernameOrEmail: string, password: string) => {
     try {
-      // 先登出当前用户
       await signOut();
-      
-      // 然后登录新用户
-      return await signIn(username, password);
+      return await signIn(usernameOrEmail, password);
     } catch (error) {
       console.error('切换用户失败:', error);
       return { error: '切换用户过程中发生错误，请稍后重试' };
     }
   };
 
-  // 权限检查函数
   const hasPermission = (requiredRoles: UserRole[]): boolean => {
     if (!profile) return false;
     return requiredRoles.includes(profile.role);
   };
 
-  // 传递给Context的值
   const value = {
     user,
     profile,
@@ -195,7 +183,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// 自定义Hook，方便子组件使用AuthContext
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
