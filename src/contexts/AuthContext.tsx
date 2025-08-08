@@ -47,43 +47,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // onAuthStateChange 在订阅时会立即触发一次，返回当前会话
     // 这一个监听器就足以处理所有认证状态的检查和变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session);
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
         if (currentUser) {
-          try {
-            const { data: profileData, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', currentUser.id)
-              .single();
+          setTimeout(async () => {
+            try {
+              const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .maybeSingle();
 
-            if (error) {
-              console.error('获取用户配置文件失败:', error);
+              if (error) {
+                console.error('获取用户配置文件失败:', error);
+                setProfile(null);
+              } else if (profileData) {
+                const anyProfile = profileData as any;
+                setProfile({
+                  id: anyProfile.id,
+                  email: anyProfile.email || '',
+                  username: anyProfile.username || anyProfile.email || '',
+                  full_name: anyProfile.full_name || '',
+                  role: (anyProfile.role as UserRole) ?? 'operator',
+                  is_active: anyProfile.is_active ?? true
+                });
+              } else {
+                setProfile(null);
+              }
+            } catch (catchError) {
+              console.error('处理用户配置文件时发生意外错误:', catchError);
               setProfile(null);
-            } else {
-              setProfile({
-                id: profileData.id,
-                email: profileData.email || '',
-                username: profileData.username || profileData.email || '',
-                full_name: profileData.full_name || '',
-                role: profileData.role as UserRole,
-                is_active: profileData.is_active ?? true
-              });
+            } finally {
+              setLoading(false);
             }
-          } catch (catchError) {
-            console.error('处理用户配置文件时发生意外错误:', catchError);
-            setProfile(null);
-          }
+          }, 0);
         } else {
           // 如果没有用户，清空profile
           setProfile(null);
+          setLoading(false);
         }
-        
-        // 无论成功与否，在检查完成后，都将loading状态设为false
-        setLoading(false);
       }
     );
 
@@ -96,25 +101,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (usernameOrEmail: string, password: string) => {
     try {
       setLoading(true);
-      
-      const { data: rpcData, error: rpcError } = await supabase.rpc('login_with_username_or_email', {
-        identifier: usernameOrEmail
-      });
 
-      if (rpcError) {
-        console.error('RPC call failed:', rpcError);
-        return { error: '登录服务暂时不可用，请稍后重试' };
+      let userEmail = usernameOrEmail;
+      if (!usernameOrEmail.includes('@')) {
+        const { data, error: rpcError } = await supabase.rpc('get_user_by_username', {
+          username_input: usernameOrEmail,
+        });
+        if (rpcError) {
+          console.error('RPC 调用失败:', rpcError);
+          return { error: '登录服务暂时不可用，请稍后重试' };
+        }
+        if (!data) {
+          return { error: '用户名不存在或已被禁用' };
+        }
+        userEmail = String(data);
       }
-      
-      if (!rpcData || rpcData.length === 0) {
-        return { error: '用户名不存在或已被禁用' };
-      }
-
-      const userEmail = rpcData[0].user_email;
 
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: userEmail,
-        password: password,
+        password,
       });
 
       if (authError) {
@@ -126,8 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('登录失败:', error);
       return { error: '登录过程中发生未知错误，请稍后重试' };
     } finally {
-      // 注意：登录成功后，onAuthStateChange会自动处理loading状态，这里可以不设置
-      // setLoading(false); 
+      // 登录成功后由 onAuthStateChange 处理 loading
     }
   };
 

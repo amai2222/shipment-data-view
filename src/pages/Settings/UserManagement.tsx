@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { UserPlus, Copy, Key, Trash2, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { UserRole, UserProfile } from "@/contexts/AuthContext";
+import { useAuth, UserRole, UserProfile } from "@/contexts/AuthContext";
 
 interface CreateUserData {
   email: string;
@@ -35,6 +35,7 @@ export default function UserManagement() {
   });
   const [newPassword, setNewPassword] = useState('');
   const { toast } = useToast();
+  const { profile: me } = useAuth();
 
   useEffect(() => {
     fetchUsers();
@@ -168,24 +169,25 @@ export default function UserManagement() {
 
     setLoading(true);
     try {
-      // 注意：在实际应用中，修改其他用户密码通常需要管理员权限的特殊API
-      // 这里简化处理，实际应该通过管理员API来重置密码
-      toast({
-        title: "功能提示",
-        description: "密码修改功能需要后端管理员API支持",
-        variant: "default",
+      const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+        body: {
+          userId: selectedUser.id,
+          newPassword,
+        },
       });
-      
+
+      if (error) {
+        toast({ title: '修改失败', description: error.message, variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: '修改成功', description: '密码已更新' });
       setIsPasswordDialogOpen(false);
       setNewPassword('');
       setSelectedUser(null);
     } catch (error) {
       console.error('修改密码失败:', error);
-      toast({
-        title: "修改失败",
-        description: "修改密码时发生错误",
-        variant: "destructive",
-      });
+      toast({ title: '修改失败', description: '修改密码时发生错误', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -215,6 +217,23 @@ export default function UserManagement() {
       fetchUsers();
     } catch (error) {
       console.error('操作失败:', error);
+    }
+  };
+
+  const handleUpdateRole = async (userId: string, role: UserRole) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role } as any)
+        .eq('id', userId);
+      if (error) {
+        toast({ title: '更新失败', description: error.message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: '更新成功', description: '角色已更新' });
+      fetchUsers();
+    } catch (e) {
+      console.error('更新角色失败:', e);
     }
   };
 
@@ -345,9 +364,21 @@ export default function UserManagement() {
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.full_name}</TableCell>
                   <TableCell>
-                    <Badge variant={getRoleBadgeVariant(user.role)}>
-                      {getRoleLabel(user.role)}
-                    </Badge>
+                    <Select
+                      value={user.role}
+                      onValueChange={(value) => handleUpdateRole(user.id, value as UserRole)}
+                    >
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder={getRoleLabel(user.role)} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">管理员</SelectItem>
+                        <SelectItem value="finance">财务</SelectItem>
+                        <SelectItem value="business">业务</SelectItem>
+                        <SelectItem value="operator">操作员</SelectItem>
+                        <SelectItem value="partner">合作方</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>
                     <Badge variant={user.is_active ? 'default' : 'secondary'}>
