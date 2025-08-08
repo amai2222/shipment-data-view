@@ -634,24 +634,30 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
-          role: string | null
+          is_active: boolean | null
+          role: Database["public"]["Enums"]["app_role"] | null
           updated_at: string | null
+          username: string | null
         }
         Insert: {
           created_at?: string | null
           email?: string | null
           full_name?: string | null
           id: string
-          role?: string | null
+          is_active?: boolean | null
+          role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string | null
+          username?: string | null
         }
         Update: {
           created_at?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
-          role?: string | null
+          is_active?: boolean | null
+          role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string | null
+          username?: string | null
         }
         Relationships: []
       }
@@ -1084,6 +1090,10 @@ export type Database = {
           total_receivables: number
         }[]
       }
+      get_my_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_or_create_driver: {
         Args: {
           p_driver_name: string
@@ -1238,6 +1248,32 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      get_transport_overview: {
+        Args: { p_project_id: string; p_start_date: string; p_end_date: string }
+        Returns: Json
+      }
+      get_unified_dashboard_stats: {
+        Args: {
+          start_date: string
+          end_date: string
+          project_id_filter?: string
+        }
+        Returns: Json
+      }
+      get_user_by_username: {
+        Args: { username_input: string }
+        Returns: string
+      }
+      is_admin: {
+        Args: { _user_id?: string }
+        Returns: boolean
+      }
+      login_with_username_or_email: {
+        Args: { identifier: string }
+        Returns: {
+          user_email: string
+        }[]
+      }
       preview_import_with_duplicates_check: {
         Args: { p_records: Json }
         Returns: Json
@@ -1248,6 +1284,10 @@ export type Database = {
       }
       recalculate_and_update_costs_for_record: {
         Args: { p_record_id: string }
+        Returns: undefined
+      }
+      recalculate_and_update_costs_for_records: {
+        Args: { p_record_ids: string[] }
         Returns: undefined
       }
       save_project_addresses_to_locations: {
@@ -1316,7 +1356,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "finance" | "business" | "partner" | "operator"
     }
     CompositeTypes: {
       partner_chain_type: {
@@ -1471,6 +1511,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "finance", "business", "partner", "operator"],
+    },
   },
 } as const
