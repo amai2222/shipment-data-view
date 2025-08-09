@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [CcLKZ 最终审计版] 此代码已实现全新的卡片对齐布局、环形进度图和统一的蓝色标题样式。
+// 描述: [6ciZr 最终审计版] 此代码已实现全新的卡片对齐布局、环形进度图和统一的蓝色标题样式。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Package, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon } from "lucide-react";
 // 【关键新增】从 recharts 导入环形图所需组件
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
@@ -161,111 +161,119 @@ export default function ProjectDashboard() {
       </div>
 
       {/* 【关键重构】全新的网格布局，以实现卡片对齐 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 日报卡片 */}
-        <Card className="lg:col-span-2">
-           <CardHeader><CardTitle className="flex items-center text-blue-600"><CalendarIcon className="mr-2 h-5 w-5"/>日报</CardTitle></CardHeader>
-           <CardContent className="grid grid-cols-4 gap-4 text-center">
-              <div>
-                  <p className="text-2xl font-bold">{formatNumber(dashboardData.daily_report?.trip_count, '车')}</p>
-                  <p className="text-sm text-muted-foreground">当日车次</p>
-              </div>
-              <div>
-                  <p className="text-2xl font-bold">{formatNumber(dashboardData.daily_report?.total_tonnage, '吨')}</p>
-                  <p className="text-sm text-muted-foreground">当日运输吨数</p>
-              </div>
-              <div>
-                  <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.daily_report?.driver_receivable, '元')}</p>
-                  <p className="text-sm text-muted-foreground">司机应收</p>
-              </div>
-              <div>
-                  <p className="text-2xl font-bold text-red-600">{formatNumber(dashboardData.daily_report?.partner_payable, '元')}</p>
-                  <p className="text-sm text-muted-foreground">{selectedProjectDetails?.partner_name || '合作方'}应付</p>
-              </div>
-           </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* 左侧区域 */}
+        <div className="lg:col-span-1 space-y-6">
+            <Card>
+                <CardHeader><CardTitle className="flex items-center text-blue-600"><Target className="mr-2 h-5 w-5"/>项目进度 ({selectedProjectDetails?.name})</CardTitle></CardHeader>
+                <CardContent className="text-center space-y-4 pt-2">
+                    {/* 【关键新增】环形进度图 */}
+                    <div className="h-40 w-full">
+                      <CircularProgressChart value={progressPercentage} />
+                    </div>
+                    <Progress value={progressPercentage} className="h-4" />
+                    <div className="text-lg font-semibold text-muted-foreground">
+                        {formatNumber(completedTons, '吨')} / <span className="text-foreground">{formatNumber(plannedTons, '吨')}</span>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
 
-        {/* 项目进度卡片 */}
-        <Card className="lg:col-span-1">
-            <CardHeader><CardTitle className="flex items-center text-blue-600"><Target className="mr-2 h-5 w-5"/>项目进度 ({selectedProjectDetails?.name})</CardTitle></CardHeader>
-            <CardContent className="text-center space-y-3 pt-2">
-                {/* 【关键新增】环形进度图 */}
-                <div className="h-40 w-full">
-                  <CircularProgressChart value={progressPercentage} />
-                </div>
-                <Progress value={progressPercentage} className="h-4" />
-                <div className="text-lg font-semibold text-muted-foreground">
-                    {formatNumber(completedTons, '吨')} / <span className="text-foreground">{formatNumber(plannedTons, '吨')}</span>
-                </div>
-            </CardContent>
-        </Card>
-
-        {/* 三个摘要卡片 */}
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-blue-600"><Truck className="h-4 w-4 mr-2"/>项目已发车次</CardTitle></CardHeader>
-          <CardContent><p className="text-xl font-bold">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p></CardContent>
-        </Card>
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-blue-600"><Wallet className="h-4 w-4 mr-2"/>项目现应收</CardTitle></CardHeader>
-          <CardContent><p className="text-xl font-bold">{formatNumber(dashboardData.summary_stats?.total_cost, '元')}</p></CardContent>
-        </Card>
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-blue-600"><BarChartHorizontal className="h-4 w-4 mr-2"/>平均吨成本</CardTitle></CardHeader>
-          <CardContent><p className="text-xl font-bold">{formatNumber(dashboardData.summary_stats?.avg_cost, '元')}</p></CardContent>
-        </Card>
+        {/* 右侧区域 */}
+        <div className="lg:col-span-2 space-y-6">
+            <Card>
+               <CardHeader><CardTitle className="flex items-center text-blue-600"><CalendarIcon className="mr-2 h-5 w-5"/>日报</CardTitle></CardHeader>
+               <CardContent className="grid grid-cols-4 gap-4 text-center">
+                  <div>
+                      <p className="text-2xl font-bold">{formatNumber(dashboardData.daily_report?.trip_count, '车')}</p>
+                      <p className="text-sm text-muted-foreground">当日车次</p>
+                  </div>
+                  <div>
+                      <p className="text-2xl font-bold">{formatNumber(dashboardData.daily_report?.total_tonnage, '吨')}</p>
+                      <p className="text-sm text-muted-foreground">当日运输吨数</p>
+                  </div>
+                  <div>
+                      <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.daily_report?.driver_receivable, '元')}</p>
+                      <p className="text-sm text-muted-foreground">司机应收</p>
+                  </div>
+                  <div>
+                      <p className="text-2xl font-bold text-red-600">{formatNumber(dashboardData.daily_report?.partner_payable, '元')}</p>
+                      <p className="text-sm text-muted-foreground">{selectedProjectDetails?.partner_name || '合作方'}应付</p>
+                  </div>
+               </CardContent>
+            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-blue-600"><Truck className="h-4 w-4 mr-2"/>项目已发车次</CardTitle></CardHeader>
+                  <CardContent><p className="text-xl font-bold">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p></CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-blue-600"><Wallet className="h-4 w-4 mr-2"/>项目现应收</CardTitle></CardHeader>
+                  <CardContent><p className="text-xl font-bold">{formatNumber(dashboardData.summary_stats?.total_cost, '元')}</p></CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-blue-600"><BarChartHorizontal className="h-4 w-4 mr-2"/>平均吨成本</CardTitle></CardHeader>
+                  <CardContent><p className="text-xl font-bold">{formatNumber(dashboardData.summary_stats?.avg_cost, '元')}</p></CardContent>
+                </Card>
+            </div>
+        </div>
 
         {/* 底部图表区域 */}
-        <Card className="lg:col-span-3">
-          <CardHeader><CardTitle className="flex items-center text-blue-600"><TrendingUp className="mr-2 h-5 w-5"/>项目近7日进度 ({selectedProjectDetails?.name})</CardTitle></CardHeader>
-          <CardContent className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dashboardData.seven_day_trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis yAxisId="left" domain={[0, maxTrips]} label={{ value: '吨 / 车', angle: -90, position: 'insideLeft' }} />
-                <YAxis yAxisId="right" orientation="right" label={{ value: '元', angle: -90, position: 'insideRight' }} />
-                <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '总重量' ? '吨' : '元'}`, name]} />
-                <Legend onClick={handleLegendClick} />
-                <Line yAxisId="left" type="monotone" dataKey="trips" name="车次" stroke="#8884d8" strokeWidth={2} hide={!visibleLines.trips} />
-                <Line yAxisId="left" type="monotone" dataKey="weight" name="总重量" stroke="#82ca9d" strokeWidth={2} hide={!visibleLines.weight} />
-                <Line yAxisId="right" type="monotone" dataKey="receivable" name="应收总额" stroke="#ffc658" strokeWidth={2} hide={!visibleLines.receivable} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <div className="lg:col-span-3">
+            <Card>
+              <CardHeader><CardTitle className="flex items-center text-blue-600"><TrendingUp className="mr-2 h-5 w-5"/>项目近7日进度 ({selectedProjectDetails?.name})</CardTitle></CardHeader>
+              <CardContent className="h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dashboardData.seven_day_trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis yAxisId="left" domain={[0, maxTrips]} label={{ value: '吨 / 车', angle: -90, position: 'insideLeft' }} />
+                    <YAxis yAxisId="right" orientation="right" label={{ value: '元', angle: -90, position: 'insideRight' }} />
+                    <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '总重量' ? '吨' : '元'}`, name]} />
+                    <Legend onClick={handleLegendClick} />
+                    <Line yAxisId="left" type="monotone" dataKey="trips" name="车次" stroke="#8884d8" strokeWidth={2} hide={!visibleLines.trips} />
+                    <Line yAxisId="left" type="monotone" dataKey="weight" name="总重量" stroke="#82ca9d" strokeWidth={2} hide={!visibleLines.weight} />
+                    <Line yAxisId="right" type="monotone" dataKey="receivable" name="应收总额" stroke="#ffc658" strokeWidth={2} hide={!visibleLines.receivable} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+        </div>
         
         {/* 司机工作量报告表格 */}
-        <Card className="lg:col-span-3">
-          <CardHeader><CardTitle className="flex items-center text-blue-600"><Users className="mr-2 h-5 w-5" />司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>司机姓名</TableHead>
-                  <TableHead className="text-right">出车次数</TableHead>
-                  <TableHead className="text-right">卸货吨数</TableHead>
-                  <TableHead className="text-right">司机应收 (元)</TableHead>
-                  <TableHead className="text-right">{selectedProjectDetails?.partner_name || '合作方'}应付 (元)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dashboardData.driver_report_table.length > 0 ? (
-                  dashboardData.driver_report_table.map((row) => (
-                    <TableRow key={row.driver_name}>
-                      <TableCell className="font-medium">{row.driver_name}</TableCell>
-                      <TableCell className="text-right">{row.trip_count}</TableCell>
-                      <TableCell className="text-right">{formatNumber(row.total_tonnage)}</TableCell>
-                      <TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell>
-                      <TableCell className="text-right text-red-600 font-semibold">{formatNumber(row.total_partner_payable)}</TableCell>
+        <div className="lg:col-span-3">
+            <Card>
+              <CardHeader><CardTitle className="flex items-center text-blue-600"><Users className="mr-2 h-5 w-5" />司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>司机姓名</TableHead>
+                      <TableHead className="text-right">出车次数</TableHead>
+                      <TableHead className="text-right">卸货吨数</TableHead>
+                      <TableHead className="text-right">司机应收 (元)</TableHead>
+                      <TableHead className="text-right">{selectedProjectDetails?.partner_name || '合作方'}应付 (元)</TableHead>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow><TableCell colSpan={5} className="h-24 text-center text-muted-foreground">该日无司机工作记录</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {dashboardData.driver_report_table.length > 0 ? (
+                      dashboardData.driver_report_table.map((row) => (
+                        <TableRow key={row.driver_name}>
+                          <TableCell className="font-medium">{row.driver_name}</TableCell>
+                          <TableCell className="text-right">{row.trip_count}</TableCell>
+                          <TableCell className="text-right">{formatNumber(row.total_tonnage)}</TableCell>
+                          <TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell>
+                          <TableCell className="text-right text-red-600 font-semibold">{formatNumber(row.total_partner_payable)}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow><TableCell colSpan={5} className="h-24 text-center text-muted-foreground">该日无司机工作记录</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+        </div>
       </div>
     </div>
   );
