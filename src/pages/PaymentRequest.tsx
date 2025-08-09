@@ -1,7 +1,8 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [8MFgb 最终执行版] 此代码已根据您的最新需求完成界面优化。
-//       1. 强制不换行：主数据表格中的所有单元格内容将保持在单行显示。
-//       2. 启用水平滚动：当表格宽度超出屏幕时，将出现水平滚动条，保证布局完整。
+// 描述: [po4B4 最终执行版] 此代码已根据您的最新需求完成界面优化。
+//       1. 合并列：将“装货重量”和“卸货重量”合并为“装/卸重量（吨）”列。
+//       2. 格式化显示：以 "60 / 59.2" 的格式展示合并后的重量数据。
+//       3. 布局调整：已自动修正合计行的 colSpan 以确保对齐。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,6 +101,8 @@ export default function PaymentRequest() {
   // --- 核心函数实现 ---
   const formatCurrency = (value: number | null | undefined): string => { if (value == null) return '-'; return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value); };
   const simplifyRoute = (loading?: string, unloading?: string): string => { const start = (loading || '').substring(0, 2); const end = (unloading || '').substring(0, 2); return `${start}→${end}`; };
+  // 优化：新增重量格式化函数
+  const formatWeight = (loading?: number | null, unloading?: number | null): string => { const loadingText = loading ?? '-'; const unloadingText = unloading ?? '-'; return `${loadingText} / ${unloadingText}`; };
 
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
   const handleDateChange = (dateRange: DateRange | undefined) => { setUiFilters(prev => ({ ...prev, startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' })); };
@@ -351,20 +354,18 @@ export default function PaymentRequest() {
                 <div><CardTitle>运单财务明细</CardTitle><p className="text-sm text-muted-foreground">各合作方应付金额按级别从左到右排列</p></div>
             </CardHeader>
             <CardContent>
-              {/* 关键变更 1: 添加一个启用水平滚动的外层容器 */}
               <div className="relative overflow-x-auto">
                 <div className="min-h-[400px]">
                   {loading ? (<div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin"/></div>) : (
                   <Table>
                     <TableHeader><TableRow>
-                      {/* 关键变更 2: 为所有表头和单元格添加 whitespace-nowrap */}
                       <TableHead className="w-12 whitespace-nowrap"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>
                       <TableHead className="whitespace-nowrap">运单编号</TableHead>
                       <TableHead className="whitespace-nowrap">项目</TableHead>
                       <TableHead className="whitespace-nowrap">司机</TableHead>
                       <TableHead className="whitespace-nowrap">路线</TableHead>
-                      <TableHead className="whitespace-nowrap">装货重量</TableHead>
-                      <TableHead className="whitespace-nowrap">卸货重量</TableHead>
+                      {/* 关键变更：合并表头 */}
+                      <TableHead className="whitespace-nowrap">装/卸重量(吨)</TableHead>
                       <TableHead className="whitespace-nowrap">日期</TableHead>
                       <TableHead className="whitespace-nowrap">运费</TableHead>
                       <TableHead className="text-orange-600 whitespace-nowrap">额外费</TableHead>
@@ -379,8 +380,8 @@ export default function PaymentRequest() {
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell>
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell>
                               <TableCell className="text-sm cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{simplifyRoute(r.loading_location, r.unloading_location)}</TableCell>
-                              <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.loading_weight ? `${r.loading_weight} 吨` : '-'}</TableCell>
-                              <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.unloading_weight ? `${r.unloading_weight} 吨` : '-'}</TableCell>
+                              {/* 关键变更：合并单元格并使用新函数格式化 */}
+                              <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatWeight(r.loading_weight, r.unloading_weight)}</TableCell>
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell>
                               <TableCell className="font-mono cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatCurrency(r.current_cost)}</TableCell>
                               <TableCell className="font-mono text-orange-600 cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatCurrency(r.extra_cost)}</TableCell>
@@ -388,7 +389,8 @@ export default function PaymentRequest() {
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{getPaymentStatusBadge(r.payment_status)}</TableCell>
                           </TableRow>
                       ))}
-                      <TableRow className="bg-muted/30 font-semibold border-t-2"><TableCell colSpan={8} className="text-right font-bold whitespace-nowrap">合计</TableCell>
+                      {/* 关键变更：调整 colSpan */}
+                      <TableRow className="bg-muted/30 font-semibold border-t-2"><TableCell colSpan={7} className="text-right font-bold whitespace-nowrap">合计</TableCell>
                       <TableCell className="font-mono font-bold text-center whitespace-nowrap"><div>{formatCurrency(reportData?.overview?.total_current_cost)}</div><div className="text-xs text-muted-foreground font-normal">(运费)</div></TableCell>
                       <TableCell className="font-mono font-bold text-orange-600 text-center whitespace-nowrap"><div>{formatCurrency(reportData?.overview?.total_extra_cost)}</div><div className="text-xs text-muted-foreground font-normal">(额外费)</div></TableCell>
                           {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partner_payables) && reportData.partner_payables.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
