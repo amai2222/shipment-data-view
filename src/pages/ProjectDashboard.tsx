@@ -1,9 +1,11 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [B7jGs 最终审计版] 此代码已恢复您原始的“最近的项目”列表UI，并使用单一、完整的后端数据源。
+// 描述: [iL7ai 最终审计版] 此代码已补全缺失的表格组件导入，并修复了 'Table is not defined' 的运行时错误。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+// 【关键修正】补全缺失的表格组件导入
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Package, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar, Briefcase } from "lucide-react";
@@ -52,7 +54,9 @@ interface DashboardData {
   driver_workload: DriverWorkload[];
 }
 
-// 【关键新增】可点击的项目列表卡片组件
+const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
+
+// 可点击的项目列表卡片组件
 const ProjectListCard = ({ projects, selectedProjectId, onSelect }: { projects: ProjectDetails[], selectedProjectId: string | null, onSelect: (id: string) => void }) => (
   <Card>
     <CardHeader><CardTitle className="flex items-center"><Package className="mr-2 h-5 w-5"/>最近的项目</CardTitle></CardHeader>
@@ -80,8 +84,6 @@ const ProjectListCard = ({ projects, selectedProjectId, onSelect }: { projects: 
   </Card>
 );
 
-const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
-
 // 主组件
 export default function ProjectDashboard() {
   // --- States ---
@@ -95,7 +97,7 @@ export default function ProjectDashboard() {
     receivable: true,
   });
 
-  // --- DATA FETCHING (保持不变) ---
+  // --- DATA FETCHING ---
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
@@ -121,7 +123,7 @@ export default function ProjectDashboard() {
     fetchDashboardData();
   }, [selectedProjectId, toast]);
 
-  // --- 辅助函数和计算 (保持不变) ---
+  // --- 辅助函数和计算 ---
   const allProjects = dashboardData?.project_details || [];
   const selectedProjectDetails = useMemo(() => {
     return allProjects.find(p => p.id === selectedProjectId);
@@ -163,7 +165,6 @@ export default function ProjectDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 左侧区域 */}
         <div className="lg:col-span-1 space-y-6">
-          {/* 【关键修改】使用新的 ProjectListCard 组件替换下拉框 */}
           <ProjectListCard
             projects={allProjects}
             selectedProjectId={selectedProjectId}
@@ -182,7 +183,7 @@ export default function ProjectDashboard() {
           </Card>
         </div>
 
-        {/* 右侧区域 (保持不变) */}
+        {/* 右侧区域 */}
         <div className="lg:col-span-2 space-y-6">
           <Card>
            <CardHeader><CardTitle className="flex items-center"><Calendar className="mr-2 h-5 w-5"/>今日日报 ({new Date().toLocaleDateString()})</CardTitle></CardHeader>
@@ -217,7 +218,7 @@ export default function ProjectDashboard() {
           </div>
         </div>
 
-        {/* 底部图表区域 (保持不变) */}
+        {/* 底部图表区域 */}
         <div className="lg:col-span-3">
           <Card>
             <CardHeader><CardTitle className="flex items-center"><TrendingUp className="mr-2 h-5 w-5"/>项目近7日进度 ({selectedProjectDetails?.name})</CardTitle></CardHeader>
@@ -239,7 +240,7 @@ export default function ProjectDashboard() {
           </Card>
         </div>
         
-        {/* 司机日报表格 (保持不变) */}
+        {/* 司机日报表格 */}
         <div className="lg:col-span-3">
           <Card>
             <CardHeader><CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5" />司机工作量日报 ({new Date().toLocaleDateString()})</CardTitle></CardHeader>
