@@ -163,7 +163,8 @@ export class SupabaseStorage {
         .insert(
           driver.projectIds.map(projectId => ({
             driver_id: data.id,
-            project_id: projectId
+            project_id: projectId,
+            user_id: user.id,
           }))
         );
 
@@ -199,12 +200,17 @@ export class SupabaseStorage {
         .eq('driver_id', id);
 
       if (updates.projectIds.length > 0) {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) {
+          throw new Error('无法获取用户信息，请重新登录后重试。');
+        }
         const { error: relationError } = await supabase
           .from('driver_projects')
           .insert(
             updates.projectIds.map(projectId => ({
               driver_id: id,
-              project_id: projectId
+              project_id: projectId,
+              user_id: currentUser.id,
             }))
           );
 
@@ -287,7 +293,8 @@ export class SupabaseStorage {
         .insert(
           location.projectIds.map(projectId => ({
             location_id: data.id,
-            project_id: projectId
+            project_id: projectId,
+            user_id: user.id,
           }))
         );
       
@@ -320,12 +327,17 @@ export class SupabaseStorage {
         .eq('location_id', id);
       
       if (updates.projectIds.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error('无法获取用户信息，请重新登录后重试。');
+        }
         const { error: relationError } = await supabase
           .from('location_projects')
           .insert(
             updates.projectIds.map(projectId => ({
               location_id: id,
-              project_id: projectId
+              project_id: projectId,
+              user_id: user.id,
             }))
           );
         
@@ -605,6 +617,7 @@ export class SupabaseStorage {
         .rpc('calculate_partner_costs_v2', {
           p_base_amount: baseCost,
           p_project_id: projectId,
+          p_chain_id: null as unknown as string, // 使用项目默认链路
           p_loading_weight: loadingWeight || null,
           p_unloading_weight: unloadingWeight || null
         });
@@ -612,13 +625,18 @@ export class SupabaseStorage {
       if (error) throw error;
 
       if (partnerCosts && partnerCosts.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error('无法获取用户信息，请重新登录后重试。');
+        }
         const costRecords = partnerCosts.map((cost: any) => ({
           logistics_record_id: logisticsRecordId,
           partner_id: cost.partner_id,
           level: cost.level,
           base_amount: cost.base_amount,
           payable_amount: cost.payable_amount,
-          tax_rate: cost.tax_rate
+          tax_rate: cost.tax_rate,
+          user_id: user.id,
         }));
 
         const { error: insertError } = await supabase

@@ -74,7 +74,25 @@ export default function Projects() {
 
       const { data: projectsData, error: projectsError } = projectsResponse;
       if (projectsError) throw projectsError;
-      setProjects((projectsData as unknown as ProjectWithDetails[]) || []);
+
+      // 正确解析 RPC 返回的 JSON 结构 { projects, chains, partners }
+      const payload = (projectsData as any) || {};
+      const rawProjects: any[] = Array.isArray(payload.projects) ? payload.projects : [];
+      const chainsMap: Record<string, any[]> = payload.chains || {};
+      const partnersMap: Record<string, any[]> = payload.partners || {};
+
+      const composedProjects: ProjectWithDetails[] = rawProjects.map((p: any) => {
+        const chains = (chainsMap[p.id] || []).map((c: any) => ({
+          ...c,
+          partners: (partnersMap[p.id] || []).filter((pp: any) => pp.chainId === c.id)
+        }));
+        return {
+          ...p,
+          partnerChains: chains,
+        } as ProjectWithDetails;
+      });
+
+      setProjects(composedProjects);
       
       const { data: partnersData, error: partnersError } = partnersResponse;
       if(partnersError) throw partnersError;
