@@ -1,61 +1,30 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [KbjZj 最终审计版] 此代码已恢复下拉框筛选，并实现了全新的司机工作量报告表格。
+// 描述: [I3edH 最终审计版] 此代码已实现可交互的日报日期选择和动态合作方名称显示。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Package, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar } from "lucide-react";
+import { Loader2, Package, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid
 } from 'recharts';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
-// --- 类型定义 ---
-interface ProjectDetails {
-  id: string;
-  name: string;
-  partner_name: string;
-  start_date: string;
-  planned_total_tons: number;
-}
-interface DailyReport {
-  total_tonnage: number;
-  driver_receivable: number;
-  partner_payable: number;
-}
-interface TrendData {
-  date: string;
-  trips: number;
-  weight: number;
-  receivable: number;
-}
-interface SummaryStats {
-  total_trips: number;
-  total_cost: number;
-  avg_cost: number;
-  total_tonnage: number;
-}
-// 【关键新增】司机工作量报告的行类型
-interface DriverReportRow {
-    report_date: string;
-    driver_name: string;
-    trip_count: number;
-    total_tonnage: number;
-    total_driver_receivable: number;
-    total_partner_payable: number;
-}
-// 【关键修改】看板完整数据类型
-interface DashboardData {
-  project_details: ProjectDetails[];
-  daily_report: DailyReport;
-  seven_day_trend: TrendData[];
-  summary_stats: SummaryStats;
-  driver_report_table: DriverReportRow[];
-}
+// --- 类型定义 (保持不变) ---
+interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; }
+interface DailyReport { total_tonnage: number; driver_receivable: number; partner_payable: number; }
+interface TrendData { date: string; trips: number; weight: number; receivable: number; }
+interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; }
+interface DriverReportRow { report_date: string; driver_name: string; trip_count: number; total_tonnage: number; total_driver_receivable: number; total_partner_payable: number; }
+interface DashboardData { project_details: ProjectDetails[]; daily_report: DailyReport; seven_day_trend: TrendData[]; summary_stats: SummaryStats; driver_report_table: DriverReportRow[]; }
 
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
@@ -66,20 +35,19 @@ export default function ProjectDashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const [visibleLines, setVisibleLines] = useState({
-    trips: true,
-    weight: true,
-    receivable: true,
-  });
+  const [visibleLines, setVisibleLines] = useState({ trips: true, weight: true, receivable: true });
+  // 【关键新增】用于控制日报日期的状态
+  const [reportDate, setReportDate] = useState<Date>(new Date());
 
   // --- DATA FETCHING ---
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
+        // 【关键修改】p_report_date 现在使用 state 中的 reportDate
         const { data, error } = await supabase.rpc('get_project_dashboard_data', {
           p_selected_project_id: selectedProjectId,
-          p_report_date: format(new Date(), 'yyyy-MM-dd')
+          p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
 
         if (error) throw error;
@@ -95,8 +63,9 @@ export default function ProjectDashboard() {
         setLoading(false);
       }
     };
+    // 【关键修改】当 reportDate 变化时，也重新获取数据
     fetchDashboardData();
-  }, [selectedProjectId, toast]);
+  }, [selectedProjectId, reportDate, toast]);
 
   // --- 辅助函数和计算 ---
   const allProjects = dashboardData?.project_details || [];
@@ -140,7 +109,6 @@ export default function ProjectDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 左侧区域 */}
         <div className="lg:col-span-1 space-y-6">
-          {/* 【关键修改】恢复为下拉框筛选器 */}
           <Card>
             <CardHeader><CardTitle className="flex items-center"><Package className="mr-2 h-5 w-5"/>项目筛选</CardTitle></CardHeader>
             <CardContent>
@@ -167,8 +135,32 @@ export default function ProjectDashboard() {
 
         {/* 右侧区域 */}
         <div className="lg:col-span-2 space-y-6">
+          {/* 【关键重构】今日日报卡片 */}
           <Card>
-           <CardHeader><CardTitle className="flex items-center"><Calendar className="mr-2 h-5 w-5"/>今日日报 ({new Date().toLocaleDateString()})</CardTitle></CardHeader>
+           <CardHeader>
+             <CardTitle className="flex items-center justify-between">
+               <span>日报</span>
+               <Popover>
+                 <PopoverTrigger asChild>
+                   <Button
+                     variant={"outline"}
+                     className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-muted-foreground")}
+                   >
+                     <CalendarIcon className="mr-2 h-4 w-4" />
+                     {reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}
+                   </Button>
+                 </PopoverTrigger>
+                 <PopoverContent className="w-auto p-0">
+                   <CalendarComponent
+                     mode="single"
+                     selected={reportDate}
+                     onSelect={(date) => date && setReportDate(date)}
+                     initialFocus
+                   />
+                 </PopoverContent>
+               </Popover>
+             </CardTitle>
+           </CardHeader>
            <CardContent className="flex justify-around text-center">
               <div>
                   <p className="text-2xl font-bold">{formatNumber(dashboardData.daily_report?.total_tonnage, '吨')}</p>
@@ -180,7 +172,8 @@ export default function ProjectDashboard() {
               </div>
               <div>
                   <p className="text-2xl font-bold text-red-600">{formatNumber(dashboardData.daily_report?.partner_payable, '元')}</p>
-                  <p className="text-sm text-muted-foreground">合作方应付</p>
+                  {/* 【关键修改】动态显示合作方名称 */}
+                  <p className="text-sm text-muted-foreground">{selectedProjectDetails?.partner_name || '合作方'}应付</p>
               </div>
            </CardContent>
           </Card>
@@ -222,7 +215,7 @@ export default function ProjectDashboard() {
           </Card>
         </div>
         
-        {/* 【关键重构】司机工作量报告表格 */}
+        {/* 司机工作量报告表格 */}
         <div className="lg:col-span-3">
           <Card>
             <CardHeader><CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5" />司机工作量报告</CardTitle></CardHeader>
