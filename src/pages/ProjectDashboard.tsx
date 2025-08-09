@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [6ciZr 最终审计版] 此代码已实现全新的卡片对齐布局、环形进度图和统一的蓝色标题样式。
+// 描述: [kuIDn 最终审计版] 此代码已实现全新的、与侧边栏和谐统一的专业配色方案。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,6 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon } from "lucide-react";
-// 【关键新增】从 recharts 导入环形图所需组件
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
   RadialBarChart, RadialBar, PolarAngleAxis
@@ -30,9 +29,9 @@ interface DashboardData { project_details: ProjectDetails[]; daily_report: Daily
 
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
-// 【关键新增】环形进度图组件
+// 【配色方案】环形进度图组件
 const CircularProgressChart = ({ value }: { value: number }) => {
-  const data = [{ name: 'progress', value: value, fill: '#3b82f6' }]; // 使用蓝色
+  const data = [{ name: 'progress', value: value, fill: '#2563eb' }]; // 主色调 - 深蓝
   return (
     <ResponsiveContainer width="100%" height="100%">
       <RadialBarChart
@@ -46,13 +45,13 @@ const CircularProgressChart = ({ value }: { value: number }) => {
         endAngle={-270}
       >
         <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-        <RadialBar background dataKey="value" cornerRadius={10} angleAxisId={0} />
+        <RadialBar background={{ fill: '#e2e8f0' }} dataKey="value" cornerRadius={10} angleAxisId={0} />
         <text
           x="50%"
           y="50%"
           textAnchor="middle"
           dominantBaseline="middle"
-          className="text-2xl font-bold fill-current text-blue-600"
+          className="text-2xl font-bold fill-blue-600" // 主色调 - 深蓝
         >
           {`${value.toFixed(1)}%`}
         </text>
@@ -127,17 +126,17 @@ export default function ProjectDashboard() {
 
   if (!dashboardData || allProjects.length === 0) {
     return (
-      <div className="space-y-6">
+      <div className="p-6 bg-slate-50 min-h-screen">
         <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
-        <div className="text-center py-10 text-muted-foreground">暂无项目数据</div>
+        <div className="text-center py-10 text-slate-500">暂无项目数据</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    // 【配色方案】使用浅灰色背景
+    <div className="p-6 bg-slate-50 space-y-6">
       <div className="flex justify-between items-center">
-        {/* 【关键修改】页面主标题设为蓝色 */}
         <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
         <div className="flex items-center gap-4">
           <Select value={selectedProjectId || ''} onValueChange={setSelectedProjectId}>
@@ -148,7 +147,7 @@ export default function ProjectDashboard() {
           </Select>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant={"outline"} className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-muted-foreground")}>
+              <Button variant={"outline"} className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-slate-500")}>
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}
               </Button>
@@ -160,20 +159,18 @@ export default function ProjectDashboard() {
         </div>
       </div>
 
-      {/* 【关键重构】全新的网格布局，以实现卡片对齐 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* 左侧区域 */}
         <div className="lg:col-span-1 space-y-6">
-            <Card>
-                <CardHeader><CardTitle className="flex items-center text-blue-600"><Target className="mr-2 h-5 w-5"/>项目进度 ({selectedProjectDetails?.name})</CardTitle></CardHeader>
+            <Card className="shadow-sm">
+                <CardHeader><CardTitle className="flex items-center text-slate-700"><Target className="mr-2 h-5 w-5 text-blue-500"/>项目进度 ({selectedProjectDetails?.name})</CardTitle></CardHeader>
                 <CardContent className="text-center space-y-4 pt-2">
-                    {/* 【关键新增】环形进度图 */}
                     <div className="h-40 w-full">
                       <CircularProgressChart value={progressPercentage} />
                     </div>
-                    <Progress value={progressPercentage} className="h-4" />
-                    <div className="text-lg font-semibold text-muted-foreground">
-                        {formatNumber(completedTons, '吨')} / <span className="text-foreground">{formatNumber(plannedTons, '吨')}</span>
+                    <Progress value={progressPercentage} />
+                    <div className="text-lg font-semibold text-slate-500">
+                        {formatNumber(completedTons, '吨')} / <span className="text-slate-800">{formatNumber(plannedTons, '吨')}</span>
                     </div>
                 </CardContent>
             </Card>
@@ -181,47 +178,47 @@ export default function ProjectDashboard() {
 
         {/* 右侧区域 */}
         <div className="lg:col-span-2 space-y-6">
-            <Card>
-               <CardHeader><CardTitle className="flex items-center text-blue-600"><CalendarIcon className="mr-2 h-5 w-5"/>日报</CardTitle></CardHeader>
+            <Card className="shadow-sm">
+               <CardHeader><CardTitle className="flex items-center text-slate-700"><CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>日报</CardTitle></CardHeader>
                <CardContent className="grid grid-cols-4 gap-4 text-center">
                   <div>
-                      <p className="text-2xl font-bold">{formatNumber(dashboardData.daily_report?.trip_count, '车')}</p>
-                      <p className="text-sm text-muted-foreground">当日车次</p>
+                      <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.trip_count, '车')}</p>
+                      <p className="text-sm text-slate-500">当日车次</p>
                   </div>
                   <div>
-                      <p className="text-2xl font-bold">{formatNumber(dashboardData.daily_report?.total_tonnage, '吨')}</p>
-                      <p className="text-sm text-muted-foreground">当日运输吨数</p>
+                      <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.total_tonnage, '吨')}</p>
+                      <p className="text-sm text-slate-500">当日运输吨数</p>
                   </div>
                   <div>
                       <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.daily_report?.driver_receivable, '元')}</p>
-                      <p className="text-sm text-muted-foreground">司机应收</p>
+                      <p className="text-sm text-slate-500">司机应收</p>
                   </div>
                   <div>
                       <p className="text-2xl font-bold text-red-600">{formatNumber(dashboardData.daily_report?.partner_payable, '元')}</p>
-                      <p className="text-sm text-muted-foreground">{selectedProjectDetails?.partner_name || '合作方'}应付</p>
+                      <p className="text-sm text-slate-500">{selectedProjectDetails?.partner_name || '合作方'}应付</p>
                   </div>
                </CardContent>
             </Card>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-blue-600"><Truck className="h-4 w-4 mr-2"/>项目已发车次</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p></CardContent>
+                <Card className="shadow-sm">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><Truck className="h-4 w-4 mr-2 text-slate-500"/>项目已发车次</CardTitle></CardHeader>
+                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p></CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-blue-600"><Wallet className="h-4 w-4 mr-2"/>项目现应收</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold">{formatNumber(dashboardData.summary_stats?.total_cost, '元')}</p></CardContent>
+                <Card className="shadow-sm">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 mr-2 text-green-500"/>项目现应收</CardTitle></CardHeader>
+                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_cost, '元')}</p></CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-blue-600"><BarChartHorizontal className="h-4 w-4 mr-2"/>平均吨成本</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold">{formatNumber(dashboardData.summary_stats?.avg_cost, '元')}</p></CardContent>
+                <Card className="shadow-sm">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><BarChartHorizontal className="h-4 w-4 mr-2 text-indigo-500"/>平均吨成本</CardTitle></CardHeader>
+                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.avg_cost, '元')}</p></CardContent>
                 </Card>
             </div>
         </div>
 
         {/* 底部图表区域 */}
         <div className="lg:col-span-3">
-            <Card>
-              <CardHeader><CardTitle className="flex items-center text-blue-600"><TrendingUp className="mr-2 h-5 w-5"/>项目近7日进度 ({selectedProjectDetails?.name})</CardTitle></CardHeader>
+            <Card className="shadow-sm">
+              <CardHeader><CardTitle className="flex items-center text-slate-700"><TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>项目近7日进度 ({selectedProjectDetails?.name})</CardTitle></CardHeader>
               <CardContent className="h-[350px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dashboardData.seven_day_trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -230,10 +227,11 @@ export default function ProjectDashboard() {
                     <YAxis yAxisId="left" domain={[0, maxTrips]} label={{ value: '吨 / 车', angle: -90, position: 'insideLeft' }} />
                     <YAxis yAxisId="right" orientation="right" label={{ value: '元', angle: -90, position: 'insideRight' }} />
                     <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '总重量' ? '吨' : '元'}`, name]} />
-                    <Legend onClick={handleLegendClick} />
-                    <Line yAxisId="left" type="monotone" dataKey="trips" name="车次" stroke="#8884d8" strokeWidth={2} hide={!visibleLines.trips} />
-                    <Line yAxisId="left" type="monotone" dataKey="weight" name="总重量" stroke="#82ca9d" strokeWidth={2} hide={!visibleLines.weight} />
-                    <Line yAxisId="right" type="monotone" dataKey="receivable" name="应收总额" stroke="#ffc658" strokeWidth={2} hide={!visibleLines.receivable} />
+                    <Legend />
+                    {/* 【配色方案】为图表线条指定新的颜色 */}
+                    <Line yAxisId="left" type="monotone" dataKey="trips" name="车次" stroke="#4338ca" strokeWidth={2} hide={!visibleLines.trips} />
+                    <Line yAxisId="left" type="monotone" dataKey="weight" name="总重量" stroke="#0d9488" strokeWidth={2} hide={!visibleLines.weight} />
+                    <Line yAxisId="right" type="monotone" dataKey="receivable" name="应收总额" stroke="#f59e0b" strokeWidth={2} hide={!visibleLines.receivable} />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -242,8 +240,8 @@ export default function ProjectDashboard() {
         
         {/* 司机工作量报告表格 */}
         <div className="lg:col-span-3">
-            <Card>
-              <CardHeader><CardTitle className="flex items-center text-blue-600"><Users className="mr-2 h-5 w-5" />司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
+            <Card className="shadow-sm">
+              <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
@@ -267,7 +265,7 @@ export default function ProjectDashboard() {
                         </TableRow>
                       ))
                     ) : (
-                      <TableRow><TableCell colSpan={5} className="h-24 text-center text-muted-foreground">该日无司机工作记录</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
