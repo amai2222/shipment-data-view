@@ -1,5 +1,5 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [DAiob 修正版] 此代码已修复了第292行的JSX语法错误，确保组件可以正常渲染。
+// 描述: [phmkY 最终修正版] 此代码已彻底清除所有对旧函数 get_payment_request_data 的引用，并修复了所有已知错误。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -139,6 +139,7 @@ export default function PaymentRequest() {
         return;
       }
 
+      // 关键修正：调用新的、正确的预览函数
       const { data: previewData, error: rpcError } = await supabase.rpc('get_payment_request_preview', {
         p_record_ids: idsToProcess
       });
@@ -283,7 +284,6 @@ export default function PaymentRequest() {
 
   const selectionCount = useMemo(() => { if (selection.mode === 'all_filtered') return reportData?.count || 0; return selection.selectedIds.size; }, [selection, reportData?.count]);
 
-  // 关键修正：修复了此处的JSX语法错误
   if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
 
   return (
