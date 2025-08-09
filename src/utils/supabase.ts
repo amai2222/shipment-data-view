@@ -687,3 +687,27 @@ export class SupabaseStorage {
     }
   }
 }
+
+/**
+   * (统一函数) 调用 RPC 函数: get_project_dashboard_data
+   * 一次性获取项目看板所需的所有数据
+   * @param {string | null} projectId - 当前选中的项目ID, 首次加载可传 null
+   */
+  static async getProjectDashboardData(projectId: string | null) {
+    const today = new Date().toISOString().split('T')[0];
+
+    // 如果 projectId 为 null (通常是首次加载), 后端可能需要处理这种情况
+    // 我们的后端函数设计为即使 p_selected_project_id 为 null, 也会返回 recent_projects
+    const { data, error } = await supabase.rpc('get_project_dashboard_data', {
+      p_selected_project_id: projectId,
+      p_report_date: today,
+    });
+
+    if (error) {
+        console.error("Supabase RPC Error (get_project_dashboard_data):", error);
+        throw error;
+    }
+    
+    return data;
+  }
+}
