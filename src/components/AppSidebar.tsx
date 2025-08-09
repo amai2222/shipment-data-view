@@ -42,6 +42,7 @@ const menuItems = [
     items: [
       { title: "运输看板", url: "/dashboard/transport", icon: Truck },
       { title: "财务看板", url: "/dashboard/financial", icon: DollarSign },
+      { title: "项目看板", url: "/dashboard/project", icon: PieChart },
     ]
   },
   {
