@@ -1,19 +1,18 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [iL7ai 最终审计版] 此代码已补全缺失的表格组件导入，并修复了 'Table is not defined' 的运行时错误。
+// 描述: [KbjZj 最终审计版] 此代码已恢复下拉框筛选，并实现了全新的司机工作量报告表格。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-// 【关键修正】补全缺失的表格组件导入
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Package, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar, Briefcase } from "lucide-react";
+import { Loader2, Package, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid
 } from 'recharts';
-import { format, parseISO } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 // --- 类型定义 ---
 interface ProjectDetails {
@@ -40,49 +39,25 @@ interface SummaryStats {
   avg_cost: number;
   total_tonnage: number;
 }
-interface DriverWorkload {
+// 【关键新增】司机工作量报告的行类型
+interface DriverReportRow {
+    report_date: string;
     driver_name: string;
     trip_count: number;
     total_tonnage: number;
-    total_receivable: number;
+    total_driver_receivable: number;
+    total_partner_payable: number;
 }
+// 【关键修改】看板完整数据类型
 interface DashboardData {
   project_details: ProjectDetails[];
   daily_report: DailyReport;
   seven_day_trend: TrendData[];
   summary_stats: SummaryStats;
-  driver_workload: DriverWorkload[];
+  driver_report_table: DriverReportRow[];
 }
 
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
-
-// 可点击的项目列表卡片组件
-const ProjectListCard = ({ projects, selectedProjectId, onSelect }: { projects: ProjectDetails[], selectedProjectId: string | null, onSelect: (id: string) => void }) => (
-  <Card>
-    <CardHeader><CardTitle className="flex items-center"><Package className="mr-2 h-5 w-5"/>最近的项目</CardTitle></CardHeader>
-    <CardContent className="space-y-2">
-      {projects.map(project => (
-        <div
-          key={project.id}
-          onClick={() => onSelect(project.id)}
-          className={cn(
-            "p-3 rounded-md border cursor-pointer transition-all",
-            project.id === selectedProjectId
-              ? "bg-primary text-primary-foreground border-primary"
-              : "hover:bg-muted/50"
-          )}
-        >
-          <h3 className="font-semibold">{project.name}</h3>
-          <div className="text-xs opacity-80 space-y-1 mt-1">
-            <p className="flex items-center"><Briefcase className="mr-1.5 h-3 w-3" />合作方: {project.partner_name || '未指定'}</p>
-            <p className="flex items-center"><Calendar className="mr-1.5 h-3 w-3" />起始: {project.start_date ? format(parseISO(project.start_date), 'yyyy-MM-dd') : '未开始'}</p>
-            <p className="flex items-center"><Target className="mr-1.5 h-3 w-3" />计划: {formatNumber(project.planned_total_tons, '吨')}</p>
-          </div>
-        </div>
-      ))}
-    </CardContent>
-  </Card>
-);
 
 // 主组件
 export default function ProjectDashboard() {
@@ -165,11 +140,18 @@ export default function ProjectDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 左侧区域 */}
         <div className="lg:col-span-1 space-y-6">
-          <ProjectListCard
-            projects={allProjects}
-            selectedProjectId={selectedProjectId}
-            onSelect={setSelectedProjectId}
-          />
+          {/* 【关键修改】恢复为下拉框筛选器 */}
+          <Card>
+            <CardHeader><CardTitle className="flex items-center"><Package className="mr-2 h-5 w-5"/>项目筛选</CardTitle></CardHeader>
+            <CardContent>
+              <Select value={selectedProjectId || ''} onValueChange={setSelectedProjectId}>
+                <SelectTrigger><SelectValue placeholder="请选择项目..." /></SelectTrigger>
+                <SelectContent>
+                  {allProjects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
 
           <Card>
               <CardHeader><CardTitle className="flex items-center"><Target className="mr-2 h-5 w-5"/>项目进度 ({selectedProjectDetails?.name})</CardTitle></CardHeader>
@@ -240,32 +222,36 @@ export default function ProjectDashboard() {
           </Card>
         </div>
         
-        {/* 司机日报表格 */}
+        {/* 【关键重构】司机工作量报告表格 */}
         <div className="lg:col-span-3">
           <Card>
-            <CardHeader><CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5" />司机工作量日报 ({new Date().toLocaleDateString()})</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5" />司机工作量报告</CardTitle></CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>日期</TableHead>
                     <TableHead>司机姓名</TableHead>
                     <TableHead className="text-right">出车次数</TableHead>
                     <TableHead className="text-right">卸货吨数</TableHead>
-                    <TableHead className="text-right">应收金额 (元)</TableHead>
+                    <TableHead className="text-right">司机应收 (元)</TableHead>
+                    <TableHead className="text-right">应付金额 (元)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dashboardData.driver_workload.length > 0 ? (
-                    dashboardData.driver_workload.map(driver => (
-                      <TableRow key={driver.driver_name}>
-                        <TableCell className="font-medium">{driver.driver_name}</TableCell>
-                        <TableCell className="text-right">{driver.trip_count}</TableCell>
-                        <TableCell className="text-right">{formatNumber(driver.total_tonnage)}</TableCell>
-                        <TableCell className="text-right text-green-600 font-semibold">{formatNumber(driver.total_receivable)}</TableCell>
+                  {dashboardData.driver_report_table.length > 0 ? (
+                    dashboardData.driver_report_table.map((row, index) => (
+                      <TableRow key={`${row.report_date}-${row.driver_name}-${index}`}>
+                        <TableCell>{format(new Date(row.report_date), 'yyyy-MM-dd')}</TableCell>
+                        <TableCell className="font-medium">{row.driver_name}</TableCell>
+                        <TableCell className="text-right">{row.trip_count}</TableCell>
+                        <TableCell className="text-right">{formatNumber(row.total_tonnage)}</TableCell>
+                        <TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell>
+                        <TableCell className="text-right text-red-600 font-semibold">{formatNumber(row.total_partner_payable)}</TableCell>
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan={4} className="h-24 text-center text-muted-foreground">今日暂无司机工作记录</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">该项目暂无司机工作记录</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
