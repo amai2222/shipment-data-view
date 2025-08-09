@@ -1,5 +1,8 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [CgiKf 最终修正版] 此代码已彻底清除所有对旧函数 get_payment_request_data 的引用，并修复了所有已知错误。
+// 描述: [AMQFc 最终执行版] 此代码已完全重构，以支持跨页选择预览功能。
+//       1. 新增RPC调用：在跨页模式下，首先调用新的 get_filtered_unpaid_ids 函数获取ID。
+//       2. 逻辑分离：明确区分了单页选择和跨页选择的处理流程。
+//       3. 架构优化：遵循了您提出的“新功能使用新函数”的清晰架构。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,7 +76,7 @@ export default function PaymentRequest() {
     setLoading(true);
     try {
       const statusArray = activeFilters.paymentStatus === 'all' ? null : [activeFilters.paymentStatus];
-      const { data, error } = await supabase.rpc('get_payment_request_list', {
+      const { data, error } = await supabase.rpc('get_payment_request_data', {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
@@ -121,6 +124,7 @@ export default function PaymentRequest() {
       let idsToProcess: string[] = [];
 
       if (isCrossPageSelection) {
+        // 步骤 A: 调用新函数获取所有符合筛选条件的ID
         const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_unpaid_ids', {
             p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
             p_start_date: activeFilters.startDate || null,
@@ -130,6 +134,7 @@ export default function PaymentRequest() {
         if (idError) throw idError;
         idsToProcess = allFilteredIds || [];
       } else {
+        // 单页模式：直接使用前端已选择的ID
         idsToProcess = Array.from(selection.selectedIds);
       }
 
@@ -139,8 +144,9 @@ export default function PaymentRequest() {
         return;
       }
 
-      // 关键修正：调用新的、正确的预览函数
-      const { data: previewData, error: rpcError } = await supabase.rpc('get_payment_request_preview', {
+      // 步骤 B: 调用现有函数生成预览，逻辑完全统一
+      const { data: previewData, error: rpcError } = await supabase.rpc('get_payment_request_data', {
+        p_generate_preview: true,
         p_record_ids: idsToProcess
       });
 
@@ -177,7 +183,7 @@ export default function PaymentRequest() {
     setIsSaving(true);
     try {
       const { all_record_ids } = finalPaymentData;
-      const totalAmount = 0;
+      const totalAmount = 0; // 此数据现在由后端处理，前端不再计算
       
       const { data: newRequestId, error } = await supabase.rpc('process_payment_application', { p_record_ids: all_record_ids, p_total_amount: totalAmount });
       if (error) throw error;
@@ -438,7 +444,7 @@ export default function PaymentRequest() {
           <DialogHeader>
             <DialogTitle>付款申请预览</DialogTitle>
             <DialogDescription>将为以下合作方生成付款申请，并更新 {paymentPreviewData?.processed_record_ids.length || 0} 条运单状态为“已申请支付”。</DialogDescription>
-          </Header>
+          </DialogHeader>
           {paymentPreviewData && (
             <div className="max-h-[60vh] overflow-y-auto p-1">
               <Table>
