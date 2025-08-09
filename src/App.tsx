@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,10 +8,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "./components/AppLayout";
+
+// --- 页面组件导入 ---
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import TransportOverview from "./pages/TransportOverview";
-import Projects from "./pages/Projects";
+import Projects from "./pages/Projects"; // 您已有的项目管理页面
 import Drivers from "./pages/Drivers";
 import Locations from "./pages/Locations";
 import Partners from "./pages/Partners";
@@ -21,6 +25,8 @@ import PaymentInvoice from "./pages/PaymentInvoice";
 import NotFound from "./pages/NotFound";
 import PaymentRequestsList from "./pages/PaymentRequestsList";
 import UserManagement from "./pages/Settings/UserManagement";
+// ★★★ 确保导入我们新创建的项目看板页面 ★★★
+import ProjectDashboard from "./pages/ProjectDashboard"; 
 
 const queryClient = new QueryClient();
 
@@ -32,10 +38,10 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* 公开路由 */}
+            {/* --- 公开路由 --- */}
             <Route path="/auth" element={<Auth />} />
             
-            {/* 受保护的路由 */}
+            {/* --- 受保护的路由 --- */}
             <Route path="/" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
                 <AppLayout><TransportOverview /></AppLayout>
@@ -47,6 +53,13 @@ const App = () => (
                 <AppLayout><TransportOverview /></AppLayout>
               </ProtectedRoute>
             } />
+
+            {/* ★★★ 在这里添加新的“项目看板”路由 ★★★ */}
+            <Route path="/dashboard/project" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+                <AppLayout><ProjectDashboard /></AppLayout>
+              </ProtectedRoute>
+            } />
             
             <Route path="/dashboard/financial" element={
               <ProtectedRoute requiredRoles={['admin', 'finance']}>
@@ -54,12 +67,14 @@ const App = () => (
               </ProtectedRoute>
             } />
             
+            {/* 您原有的“项目管理”路由，保持不变 */}
             <Route path="/projects" element={
               <ProtectedRoute requiredRoles={['admin', 'business']}>
                 <AppLayout><Projects /></AppLayout>
               </ProtectedRoute>
             } />
             
+            {/* ... 其他路由保持不变 ... */}
             <Route path="/drivers" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
                 <AppLayout><Drivers /></AppLayout>
@@ -114,7 +129,7 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* 404路由 */}
+            {/* --- 404路由 --- */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
