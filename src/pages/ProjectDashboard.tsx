@@ -3,17 +3,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // 引入Select组件
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
-import { Loader2, Package, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar, Briefcase } from "lucide-react";
+import { Loader2, Building, Calendar, Package, TrendingUp, Target, Briefcase, Truck, Wallet, BarChartHorizontal } from "lucide-react"; // 引入新图标
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid
 } from 'recharts';
 
-// --- 类型定义 ---
-interface ProjectDetails {
+// --- 类型定义 (保持不变) ---
+interface ProjectInfo {
   id: string;
   name: string;
   partner_name: string;
@@ -31,34 +30,28 @@ interface TrendData {
   weight: number;
   receivable: number;
 }
-interface SummaryStats {
+interface OverallStats {
   total_trips: number;
   total_cost: number;
   avg_cost: number;
   total_tonnage: number;
 }
-interface DriverWorkload {
-    driver_name: string;
-    trip_count: number;
-    total_tonnage: number;
-    total_receivable: number;
-}
 
 // 主组件
 export default function ProjectDashboard() {
   // --- States ---
-  const [allProjects, setAllProjects] = useState<{ id: string, name: string }[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [projectsForSelect, setProjectsForSelect] = useState<{ id: string, name: string }[]>([]); // 1. 改为存储所有项目用于下拉框
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null); // 1. 只存储选中的项目ID
   
+  // (其他 state 保持不变)
   const [dailyReport, setDailyReport] = useState<DailyReport | null>(null);
   const [trendData, setTrendData] = useState<TrendData[]>([]);
-  const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
-  const [projectDetailsList, setProjectDetailsList] = useState<ProjectDetails[]>([]);
-  const [driverWorkload, setDriverWorkload] = useState<DriverWorkload[]>([]);
-
+  const [overallStats, setOverallStats] = useState<OverallStats | null>(null);
+  const [selectedProjectDetails, setSelectedProjectDetails] = useState<ProjectInfo | null>(null); // 用于显示选中项目的详细信息
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  // 5. 新增 state 用于控制图表线的显示/隐藏
   const [visibleLines, setVisibleLines] = useState({
     trips: true,
     weight: true,
@@ -66,17 +59,17 @@ export default function ProjectDashboard() {
   });
 
   // --- Effects ---
-  // 效果1: 首次加载，获取所有项目列表用于下拉框
+  // 效果1: 页面首次加载时，获取所有项目列表用于填充下拉框
   useEffect(() => {
     const fetchProjectList = async () => {
-      setLoading(true);
       try {
         const data = await SupabaseStorage.getAllProjectsForSelect();
-        setAllProjects(data || []);
+        setProjectsForSelect(data || []);
+        // 1. 默认选中最新项目（列表中的第一个）
         if (data && data.length > 0) {
-          setSelectedProjectId(data[0].id); // 默认选中第一个
+          setSelectedProjectId(data[0].id);
         } else {
-          setLoading(false);
+          setLoading(false); // 没有项目，停止加载
         }
       } catch (error) {
         toast({ title: "错误", description: "加载项目列表失败", variant: "destructive" });
@@ -93,18 +86,17 @@ export default function ProjectDashboard() {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        const [dashboardData, driverData] = await Promise.all([
-          SupabaseStorage.getProjectOverallStats(selectedProjectId),
-          SupabaseStorage.getDriverDailyWorkload(selectedProjectId)
-        ]);
+        const dashboardData = await SupabaseStorage.getProjectDashboardData(selectedProjectId);
 
         if (dashboardData) {
-          setProjectDetailsList(dashboardData.project_details || []);
+          // 在 "recent_projects" 数组中找到当前选中项目的详细信息
+          const currentProjectDetails = dashboardData.recent_projects?.find((p: ProjectInfo) => p.id === selectedProjectId);
+          setSelectedProjectDetails(currentProjectDetails || null);
+          
           setDailyReport(dashboardData.daily_report);
           setTrendData(dashboardData.seven_day_trend || []);
-          setSummaryStats(dashboardData.summary_stats);
+          setOverallStats(dashboardData.overall_stats);
         }
-        setDriverWorkload(driverData || []);
       } catch (error) {
         console.error("加载看板数据失败:", error);
         toast({ title: "错误", description: "加载看板数据失败", variant: "destructive" });
@@ -117,51 +109,57 @@ export default function ProjectDashboard() {
   }, [selectedProjectId, toast]);
 
   // --- 辅助函数和计算 ---
-  const formatNumber = (val: number | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})} ${unit}`;
-  
-  const selectedProjectDetails = useMemo(() => {
-    return projectDetailsList.find(p => p.id === selectedProjectId);
-  }, [projectDetailsList, selectedProjectId]);
-
-  const completedTons = summaryStats?.total_tonnage || 0;
+  const formatNumber = (val: number | undefined, unit: string = '') => `${(val || 0).toLocaleString()} ${unit}`;
+  const completedTons = overallStats?.total_tonnage || 0;
   const plannedTons = selectedProjectDetails?.planned_total_tons || 1;
   const progressPercentage = (completedTons / plannedTons) * 100;
 
+  // 4. 计算车次Y轴的最大值
   const maxTrips = useMemo(() => {
     if (!trendData || trendData.length === 0) return 30;
     const max = Math.max(...trendData.map(d => d.trips || 0));
-    return Math.max(30, Math.ceil(max / 10) * 10);
+    return Math.max(30, Math.ceil(max / 10) * 10); // 保证是10的倍数且至少为30
   }, [trendData]);
   
+  // 5. 处理图例点击事件
   const handleLegendClick = (e: any) => {
     const { dataKey } = e;
-    setVisibleLines(prev => ({ ...prev, [dataKey]: !prev[dataKey] }));
+    setVisibleLines(prev => ({
+      ...prev,
+      [dataKey]: !prev[dataKey]
+    }));
   };
   
   // --- 渲染 ---
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">项目看板</h1>
-      {loading && !summaryStats ? (
+      {loading && !selectedProjectDetails ? (
         <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
-      ) : allProjects.length === 0 ? (
+      ) : projectsForSelect.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground">暂无项目数据</div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 左侧区域 */}
           <div className="lg:col-span-1 space-y-6">
+            {/* 1. 最近的项目卡片改成项目筛选 */}
             <Card>
-              <CardHeader><CardTitle className="flex items-center"><Package className="mr-2 h-5 w-5"/>项目筛选</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center"><Package className="mr-2 h-5 w-5"/>项目筛选</CardTitle>
+              </CardHeader>
               <CardContent>
                 <Select value={selectedProjectId || ''} onValueChange={setSelectedProjectId}>
                   <SelectTrigger><SelectValue placeholder="请选择项目..." /></SelectTrigger>
                   <SelectContent>
-                    {allProjects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+                    {projectsForSelect.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </CardContent>
             </Card>
 
+            {/* 项目进度卡片 */}
             <Card>
                 <CardHeader><CardTitle className="flex items-center"><Target className="mr-2 h-5 w-5"/>项目进度 ({selectedProjectDetails?.name})</CardTitle></CardHeader>
                 <CardContent className="text-center space-y-3 pt-2">
@@ -176,8 +174,9 @@ export default function ProjectDashboard() {
 
           {/* 右侧区域 */}
           <div className="lg:col-span-2 space-y-6">
+            {/* 今日日报卡片 */}
             <Card>
-             <CardHeader><CardTitle className="flex items-center"><Calendar className="mr-2 h-5 w-5"/>今日日报 ({new Date().toLocaleDateString()})</CardTitle></CardHeader>
+             <CardHeader><CardTitle>今日日报 ({new Date().toLocaleDateString()})</CardTitle></CardHeader>
              <CardContent className="flex justify-around text-center">
                 <div>
                     <p className="text-2xl font-bold">{formatNumber(dailyReport?.total_tonnage, '吨')}</p>
@@ -193,18 +192,20 @@ export default function ProjectDashboard() {
                 </div>
              </CardContent>
             </Card>
+            {/* 项目总览数据卡片 */}
             <div className="grid grid-cols-3 gap-6">
+               {/* 2 & 3. 添加图标并修改标题 */}
                <Card>
                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">项目已发车次</CardTitle><Truck className="h-4 w-4 text-muted-foreground" /></CardHeader>
-                 <CardContent><p className="text-xl font-bold">{formatNumber(summaryStats?.total_trips, '车')}</p></CardContent>
+                 <CardContent><p className="text-xl font-bold">{formatNumber(overallStats?.total_trips, '车')}</p></CardContent>
                </Card>
                <Card>
                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">项目现应收</CardTitle><Wallet className="h-4 w-4 text-muted-foreground" /></CardHeader>
-                 <CardContent><p className="text-xl font-bold">{formatNumber(summaryStats?.total_cost, '元')}</p></CardContent>
+                 <CardContent><p className="text-xl font-bold">{formatNumber(overallStats?.total_cost, '元')}</p></CardContent>
                </Card>
                <Card>
                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">平均吨成本</CardTitle><BarChartHorizontal className="h-4 w-4 text-muted-foreground" /></CardHeader>
-                 <CardContent><p className="text-xl font-bold">{formatNumber(summaryStats?.avg_cost, '元')}</p></CardContent>
+                 <CardContent><p className="text-xl font-bold">{formatNumber(overallStats?.avg_cost, '元')}</p></CardContent>
                </Card>
             </div>
           </div>
@@ -218,48 +219,18 @@ export default function ProjectDashboard() {
                   <LineChart data={trendData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
+                    {/* 4. 车次和重量使用左侧Y轴，并动态调整domain */}
                     <YAxis yAxisId="left" domain={[0, maxTrips]} label={{ value: '吨 / 车', angle: -90, position: 'insideLeft' }} />
                     <YAxis yAxisId="right" orientation="right" label={{ value: '元', angle: -90, position: 'insideRight' }} />
                     <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '总重量' ? '吨' : '元'}`, name]} />
+                    {/* 5. 添加可点击的 Legend */}
                     <Legend onClick={handleLegendClick} />
+                    {/* 5. 根据 state 决定是否隐藏 Line */}
                     <Line yAxisId="left" type="monotone" dataKey="trips" name="车次" stroke="#8884d8" strokeWidth={2} hide={!visibleLines.trips} />
                     <Line yAxisId="left" type="monotone" dataKey="weight" name="总重量" stroke="#82ca9d" strokeWidth={2} hide={!visibleLines.weight} />
                     <Line yAxisId="right" type="monotone" dataKey="receivable" name="应收总额" stroke="#ffc658" strokeWidth={2} hide={!visibleLines.receivable} />
                   </LineChart>
                 </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {/* 司机日报表格 */}
-          <div className="lg:col-span-3">
-            <Card>
-              <CardHeader><CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5" />司机工作量日报 ({new Date().toLocaleDateString()})</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>司机姓名</TableHead>
-                      <TableHead className="text-right">出车次数</TableHead>
-                      <TableHead className="text-right">卸货吨数</TableHead>
-                      <TableHead className="text-right">应收金额 (元)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {driverWorkload.length > 0 ? (
-                      driverWorkload.map(driver => (
-                        <TableRow key={driver.driver_name}>
-                          <TableCell className="font-medium">{driver.driver_name}</TableCell>
-                          <TableCell className="text-right">{driver.trip_count}</TableCell>
-                          <TableCell className="text-right">{formatNumber(driver.total_tonnage)}</TableCell>
-                          <TableCell className="text-right text-green-600 font-semibold">{formatNumber(driver.total_receivable)}</TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow><TableCell colSpan={4} className="h-24 text-center text-muted-foreground">今日暂无司机工作记录</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
               </CardContent>
             </Card>
           </div>
