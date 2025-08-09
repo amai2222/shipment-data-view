@@ -686,7 +686,7 @@ export class SupabaseStorage {
       console.error('修复现有记录时出错:', error);
     }
   }
-}
+
 
 /**
    * (统一函数) 调用 RPC 函数: get_project_dashboard_data
