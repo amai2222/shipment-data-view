@@ -1,5 +1,5 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [phmkY 最终修正版] 此代码已彻底清除所有对旧函数 get_payment_request_data 的引用，并修复了所有已知错误。
+// 描述: [CgiKf 最终修正版] 此代码已彻底清除所有对旧函数 get_payment_request_data 的引用，并修复了所有已知错误。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
