@@ -20,18 +20,21 @@ export type Database = {
           driver_id: string
           id: string
           project_id: string
+          user_id: string
         }
         Insert: {
           created_at?: string
           driver_id: string
           id?: string
           project_id: string
+          user_id: string
         }
         Update: {
           created_at?: string
           driver_id?: string
           id?: string
           project_id?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -144,18 +147,21 @@ export type Database = {
           id: string
           location_id: string
           project_id: string
+          user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           location_id: string
           project_id: string
+          user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           location_id?: string
           project_id?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -205,6 +211,7 @@ export type Database = {
           partner_id: string
           payable_amount: number
           tax_rate: number
+          user_id: string
         }
         Insert: {
           base_amount: number
@@ -215,6 +222,7 @@ export type Database = {
           partner_id: string
           payable_amount: number
           tax_rate: number
+          user_id: string
         }
         Update: {
           base_amount?: number
@@ -225,6 +233,7 @@ export type Database = {
           partner_id?: string
           payable_amount?: number
           tax_rate?: number
+          user_id?: string
         }
         Relationships: [
           {
@@ -367,6 +376,7 @@ export type Database = {
           id: string
           is_default: boolean
           project_id: string
+          user_id: string
         }
         Insert: {
           chain_name?: string
@@ -375,6 +385,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           project_id: string
+          user_id: string
         }
         Update: {
           chain_name?: string
@@ -383,6 +394,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           project_id?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -398,14 +410,17 @@ export type Database = {
         Row: {
           logistics_record_id: string
           payment_request_id: string
+          user_id: string | null
         }
         Insert: {
           logistics_record_id: string
           payment_request_id: string
+          user_id?: string | null
         }
         Update: {
           logistics_record_id?: string
           payment_request_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -434,33 +449,33 @@ export type Database = {
       partner_payment_requests: {
         Row: {
           created_at: string
-          created_by: string | null
           id: string
           request_date: string
           request_id: string
           status: string
           total_amount: number
           total_records: number
+          user_id: string | null
         }
         Insert: {
           created_at?: string
-          created_by?: string | null
           id?: string
           request_date: string
           request_id: string
           status?: string
           total_amount: number
           total_records: number
+          user_id?: string | null
         }
         Update: {
           created_at?: string
-          created_by?: string | null
           id?: string
           request_date?: string
           request_id?: string
           status?: string
           total_amount?: number
           total_records?: number
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -562,14 +577,17 @@ export type Database = {
         Row: {
           logistics_record_id: string
           payment_request_id: string
+          user_id: string
         }
         Insert: {
           logistics_record_id: string
           payment_request_id: string
+          user_id: string
         }
         Update: {
           logistics_record_id?: string
           payment_request_id?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -605,6 +623,7 @@ export type Database = {
           request_id: string
           status: string
           total_amount: number
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -615,6 +634,7 @@ export type Database = {
           request_id: string
           status?: string
           total_amount: number
+          user_id: string
         }
         Update: {
           created_at?: string
@@ -625,6 +645,7 @@ export type Database = {
           request_id?: string
           status?: string
           total_amount?: number
+          user_id?: string
         }
         Relationships: []
       }
@@ -672,6 +693,7 @@ export type Database = {
           profit_rate: number | null
           project_id: string
           tax_rate: number
+          user_id: string
         }
         Insert: {
           calculation_method?: string | null
@@ -683,6 +705,7 @@ export type Database = {
           profit_rate?: number | null
           project_id: string
           tax_rate?: number
+          user_id: string
         }
         Update: {
           calculation_method?: string | null
@@ -694,6 +717,7 @@ export type Database = {
           profit_rate?: number | null
           project_id?: string
           tax_rate?: number
+          user_id?: string
         }
         Relationships: [
           {
@@ -722,6 +746,7 @@ export type Database = {
       projects: {
         Row: {
           auto_code: string | null
+          cargo_type: string
           created_at: string
           end_date: string
           finance_manager: string | null
@@ -729,6 +754,7 @@ export type Database = {
           loading_address: string
           manager: string
           name: string
+          planned_total_tons: number | null
           project_status: string
           start_date: string
           unloading_address: string
@@ -736,6 +762,7 @@ export type Database = {
         }
         Insert: {
           auto_code?: string | null
+          cargo_type?: string
           created_at?: string
           end_date: string
           finance_manager?: string | null
@@ -743,6 +770,7 @@ export type Database = {
           loading_address: string
           manager: string
           name: string
+          planned_total_tons?: number | null
           project_status?: string
           start_date: string
           unloading_address: string
@@ -750,6 +778,7 @@ export type Database = {
         }
         Update: {
           auto_code?: string | null
+          cargo_type?: string
           created_at?: string
           end_date?: string
           finance_manager?: string | null
@@ -757,6 +786,7 @@ export type Database = {
           loading_address?: string
           manager?: string
           name?: string
+          planned_total_tons?: number | null
           project_status?: string
           start_date?: string
           unloading_address?: string
@@ -843,6 +873,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_standard_rls_policies: {
+        Args: { p_table_name: string; p_user_id_column: string }
+        Returns: undefined
+      }
       batch_cancel_by_filter: {
         Args: {
           p_project_id?: string
@@ -884,21 +918,32 @@ export type Database = {
           tax_rate: number
         }[]
       }
+      calculate_partner_costs_for_project_v2: {
+        Args: {
+          p_base_amount: number
+          p_project_id: string
+          p_loading_weight?: number
+          p_unloading_weight?: number
+        }
+        Returns: {
+          partner_id: string
+          partner_name: string
+          level: number
+          base_amount: number
+          payable_amount: number
+          tax_rate: number
+          calculation_method: string
+          profit_rate: number
+        }[]
+      }
       calculate_partner_costs_v2: {
-        Args:
-          | {
-              p_base_amount: number
-              p_project_id: string
-              p_chain_id: string
-              p_loading_weight: number
-              p_unloading_weight: number
-            }
-          | {
-              p_base_amount: number
-              p_project_id: string
-              p_loading_weight?: number
-              p_unloading_weight?: number
-            }
+        Args: {
+          p_base_amount: number
+          p_project_id: string
+          p_chain_id: string
+          p_loading_weight: number
+          p_unloading_weight: number
+        }
         Returns: {
           partner_id: string
           partner_name: string
@@ -997,21 +1042,23 @@ export type Database = {
         }[]
       }
       get_finance_reconciliation_data: {
-        Args:
-          | {
-              p_project_id: string
-              p_partner_id: string
-              p_start_date: string
-              p_end_date: string
-              p_page_number: number
-              p_page_size: number
-            }
-          | {
-              p_project_id: string
-              p_start_date: string
-              p_end_date: string
-              p_partner_id: string
-            }
+        Args: {
+          p_project_id: string
+          p_start_date: string
+          p_end_date: string
+          p_partner_id: string
+        }
+        Returns: Json
+      }
+      get_finance_reconciliation_data_paginated: {
+        Args: {
+          p_project_id: string
+          p_partner_id: string
+          p_start_date: string
+          p_end_date: string
+          p_page_number: number
+          p_page_size: number
+        }
         Returns: Json
       }
       get_finance_reconciliation_data2: {
@@ -1031,23 +1078,41 @@ export type Database = {
         Returns: Json
       }
       get_logistics_records_paginated: {
-        Args:
-          | {
-              p_start_date: string
-              p_end_date: string
-              p_page_number: number
-              p_page_size: number
-              p_project_name?: string
-              p_search_term?: string
-            }
-          | {
-              p_start_date: string
-              p_end_date: string
-              p_project_name: string
-              p_search_term: string
-              p_page_number: number
-              p_page_size: number
-            }
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_page_number: number
+          p_page_size: number
+          p_project_name?: string
+          p_search_term?: string
+        }
+        Returns: {
+          id: string
+          auto_number: string
+          project_name: string
+          driver_name: string
+          loading_location: string
+          unloading_location: string
+          loading_date: string
+          unloading_date: string
+          loading_weight: number
+          unloading_weight: number
+          current_cost: number
+          payable_cost: number
+          license_plate: string
+          cooperative_partner: string
+          remarks: string
+        }[]
+      }
+      get_logistics_records_paginated_old_sig: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_project_name: string
+          p_search_term: string
+          p_page_number: number
+          p_page_size: number
+        }
         Returns: {
           id: string
           auto_number: string
@@ -1089,6 +1154,10 @@ export type Database = {
           month_start: string
           total_receivables: number
         }[]
+      }
+      get_my_claim: {
+        Args: { claim: string }
+        Returns: string
       }
       get_my_role: {
         Args: Record<PropertyKey, never>
@@ -1199,17 +1268,19 @@ export type Database = {
         Returns: Json
       }
       get_payment_request_data: {
-        Args:
-          | {
-              p_project_id?: string
-              p_start_date?: string
-              p_end_date?: string
-              p_partner_id?: string
-              p_payment_status_array?: string[]
-              p_page_size?: number
-              p_page_number?: number
-            }
-          | { p_record_ids: string[] }
+        Args: {
+          p_project_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_partner_id?: string
+          p_payment_status_array?: string[]
+          p_page_size?: number
+          p_page_number?: number
+        }
+        Returns: Json
+      }
+      get_payment_request_data_v2: {
+        Args: { p_record_ids: string[] }
         Returns: Json
       }
       get_pending_invoicing: {
@@ -1290,6 +1361,10 @@ export type Database = {
         Args: { p_record_ids: string[] }
         Returns: undefined
       }
+      recalculate_and_update_costs_for_records_test: {
+        Args: { p_record_ids: string[] }
+        Returns: undefined
+      }
       save_project_addresses_to_locations: {
         Args: {
           p_project_id: string
@@ -1310,48 +1385,50 @@ export type Database = {
         }
         Returns: Json
       }
+      update_logistics_record_via_recalc: {
+        Args: {
+          p_record_id: string
+          p_project_id: string
+          p_project_name: string
+          p_chain_id: string
+          p_driver_id: string
+          p_driver_name: string
+          p_loading_location: string
+          p_unloading_location: string
+          p_loading_date: string
+          p_loading_weight: number
+          p_unloading_weight: number
+          p_current_cost: number
+          p_license_plate: string
+          p_driver_phone: string
+          p_transport_type: string
+          p_extra_cost: number
+          p_remarks: string
+          p_unloading_date: string
+        }
+        Returns: undefined
+      }
       update_logistics_record_with_costs: {
-        Args:
-          | {
-              p_record_id: string
-              p_project_id: string
-              p_project_name: string
-              p_chain_id: string
-              p_driver_id: string
-              p_driver_name: string
-              p_loading_location: string
-              p_unloading_location: string
-              p_loading_date: string
-              p_loading_weight: number
-              p_unloading_weight: number
-              p_current_cost: number
-              p_license_plate: string
-              p_driver_phone: string
-              p_transport_type: string
-              p_extra_cost: number
-              p_driver_payable_cost: number
-              p_remarks: string
-            }
-          | {
-              p_record_id: string
-              p_project_id: string
-              p_project_name: string
-              p_chain_id: string
-              p_driver_id: string
-              p_driver_name: string
-              p_loading_location: string
-              p_unloading_location: string
-              p_loading_date: string
-              p_loading_weight: number
-              p_unloading_weight: number
-              p_current_cost: number
-              p_license_plate: string
-              p_driver_phone: string
-              p_transport_type: string
-              p_extra_cost: number
-              p_remarks: string
-              p_unloading_date: string
-            }
+        Args: {
+          p_record_id: string
+          p_project_id: string
+          p_project_name: string
+          p_chain_id: string
+          p_driver_id: string
+          p_driver_name: string
+          p_loading_location: string
+          p_unloading_location: string
+          p_loading_date: string
+          p_loading_weight: number
+          p_unloading_weight: number
+          p_current_cost: number
+          p_license_plate: string
+          p_driver_phone: string
+          p_transport_type: string
+          p_extra_cost: number
+          p_driver_payable_cost: number
+          p_remarks: string
+        }
         Returns: undefined
       }
     }
