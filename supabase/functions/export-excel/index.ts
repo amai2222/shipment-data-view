@@ -102,89 +102,207 @@ serve(async (req) => {
 
     const { sheetData, requestId }: RequestBody = await req.json();
 
-    // Build workbook
-    const workbook = XLSX.utils.book_new();
+    // Build workbook from storage template and fill per-partner sheets
+    // 1) Load template file from Supabase Storage
+    const candidateBuckets = ["public", "templates", "payment", "documents"];
+    let templateBuffer: ArrayBuffer | null = null;
 
-    sheetData.sheets.forEach((sheet, index) => {
-      const data: any[][] = [
-        ["付款申请单"],
-        [""],
-        [`付款方: ${sheet.paying_partner_full_name || sheet.paying_partner_name}`],
-        [`银行账户: ${sheet.paying_partner_bank_account || ""}`],
-        [`开户行: ${sheet.paying_partner_bank_name || ""}`],
-        [`支行网点: ${sheet.paying_partner_branch_name || ""}`],
-        [`收款方: ${sheet.header_company_name}`],
-        [`总金额: ¥${(sheet.total_payable || 0).toFixed(2)}`],
-        [""],
-        [
-          "运单号",
-          "项目名称",
-          "司机姓名",
-          "装货地点",
-          "卸货地点",
-          "装货日期",
-          "卸货日期",
-          "装货重量",
-          "卸货重量",
-          "运费",
-          "额外费用",
-          "应付金额",
-          "车牌号",
-          "司机电话",
-          "运输类型",
-          "货物类型",
-          "备注",
-        ],
-      ];
+    for (const bucket of candidateBuckets) {
+      try {
+        const { data, error } = await adminClient.storage
+          .from(bucket)
+          .download("payment_template_final.xlsx");
+        if (data && !error) {
+          templateBuffer = await data.arrayBuffer();
+          break;
+        }
+      } catch (_) {
+        // ignore and try next bucket
+      }
+    }
 
-      sheet.records.forEach(({ record, payable_amount }) => {
-        data.push([
-          record.auto_number || "",
-          record.project_name || "",
-          record.driver_name || "",
-          record.loading_location || "",
-          record.unloading_location || "",
-          record.loading_date || "",
-          record.unloading_date || "",
-          record.loading_weight ?? "",
-          record.unloading_weight ?? "",
-          record.current_cost ?? 0,
-          record.extra_cost ?? 0,
-          payable_amount ?? 0,
-          record.license_plate || "",
-          record.driver_phone || "",
-          record.transport_type || "",
-          record.cargo_type || "",
-          record.remarks || "",
-        ]);
-      });
+    if (!templateBuffer) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Template not found. Please upload payment_template_final.xlsx to a Storage bucket (e.g. 'public').",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
-      const sheetOut = XLSX.utils.aoa_to_sheet(data);
-      sheetOut["!cols"] = [
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 10 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 12 },
-        { wch: 12 },
-        { wch: 10 },
-        { wch: 10 },
-        { wch: 10 },
-        { wch: 10 },
-        { wch: 12 },
-        { wch: 12 },
-        { wch: 15 },
-        { wch: 10 },
-        { wch: 10 },
-        { wch: 20 },
-      ];
+    const templateWb = XLSX.read(templateBuffer, { type: "array" });
+    const templateSheetName = templateWb.SheetNames[0];
+    const templateSheet = templateWb.Sheets[templateSheetName];
 
-      const sheetName = `${sheet.paying_partner_name}_${index + 1}`.substring(0, 31);
-      XLSX.utils.book_append_sheet(workbook, sheetOut, sheetName);
-    });
+    const outWb = XLSX.utils.book_new();
 
-    const excelBuffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+    // Helpers
+    const setCell = (ws: any, addr: string, v: any, tOverride?: "s" | "n") => {
+      const t = tOverride ?? (typeof v === "number" ? "n" : "s");
+      ws[addr] = { t, v };
+    };
+
+    const cloneSheet = (ws: any) => JSON.parse(JSON.stringify(ws));
+
+    const parentNameCache = new Map<string, string>();
+    const DEFAULT_PARENT = "中科智运（云南）供应链科技有限公司";
+
+    const getParentName = async (
+      payingPartnerId: string,
+      projectName: string,
+      chainName?: string
+    ): Promise<string> => {
+      try {
+        const cacheKey = `${payingPartnerId}|${projectName}|${chainName || ""}`;
+        if (parentNameCache.has(cacheKey)) return parentNameCache.get(cacheKey)!;
+
+        const { data: proj } = await adminClient
+          .from("projects")
+          .select("id")
+          .eq("name", projectName)
+          .maybeSingle();
+        if (!proj?.id) {
+          parentNameCache.set(cacheKey, DEFAULT_PARENT);
+          return DEFAULT_PARENT;
+        }
+
+        let chainId: string | null = null;
+        if (chainName) {
+          const { data: chain } = await adminClient
+            .from("partner_chains")
+            .select("id")
+            .eq("project_id", proj.id)
+            .eq("chain_name", chainName)
+            .maybeSingle();
+          chainId = chain?.id ?? null;
+        }
+
+        const { data: pps } = await adminClient
+          .from("project_partners")
+          .select("partner_id, level, chain_id")
+          .eq("project_id", proj.id)
+          .order("level", { ascending: true });
+        if (!pps || pps.length === 0) {
+          parentNameCache.set(cacheKey, DEFAULT_PARENT);
+          return DEFAULT_PARENT;
+        }
+
+        let current = pps.find(
+          (pp: any) =>
+            pp.partner_id === payingPartnerId && (!chainId || pp.chain_id === chainId)
+        );
+        if (!current) {
+          current = pps.find((pp: any) => pp.partner_id === payingPartnerId);
+        }
+        if (!current) {
+          parentNameCache.set(cacheKey, DEFAULT_PARENT);
+          return DEFAULT_PARENT;
+        }
+
+        const nextLevel = (current.level || 0) + 1;
+        const parentRow = pps.find(
+          (pp: any) => pp.chain_id === current.chain_id && pp.level === nextLevel
+        );
+        if (!parentRow) {
+          parentNameCache.set(cacheKey, DEFAULT_PARENT);
+          return DEFAULT_PARENT;
+        }
+
+        const { data: parentPartner } = await adminClient
+          .from("partners")
+          .select("full_name, name")
+          .eq("id", parentRow.partner_id)
+          .maybeSingle();
+        const parentName = parentPartner?.full_name || parentPartner?.name || DEFAULT_PARENT;
+        parentNameCache.set(cacheKey, parentName);
+        return parentName;
+      } catch (_err) {
+        return DEFAULT_PARENT;
+      }
+    };
+
+    for (const [index, sheet] of sheetData.sheets.entries()) {
+      const ws = cloneSheet(templateSheet);
+
+      const firstRecord = sheet.records?.[0]?.record ?? null;
+      const projectName = sheet.project_name || firstRecord?.project_name || "";
+      const chainName = firstRecord?.chain_name as string | undefined;
+
+      const parentTitle = await getParentName(
+        sheet.paying_partner_id,
+        projectName,
+        chainName
+      );
+
+      const payingPartnerName =
+        (sheet as any).paying_partner_full_name ||
+        (sheet as any).paying_partner_name ||
+        "";
+      const bankAccount = (sheet as any).paying_partner_bank_account || "";
+      const bankName = (sheet as any).paying_partner_bank_name || "";
+      const branchName = (sheet as any).paying_partner_branch_name || "";
+
+      // Header cells
+      setCell(ws, "A1", `${parentTitle}支付申请表`);
+      setCell(ws, "A2", `项目名称：${projectName}`);
+      setCell(ws, "G2", `申请时间：${new Date().toISOString().split("T")[0]}`);
+      setCell(ws, "L2", `申请编号：${requestId}`);
+
+      // Data rows start at A4, ordered by 运单号 (auto_number) ASC
+      const startRow = 4;
+      const sorted = (sheet.records || [])
+        .slice()
+        .sort((a: any, b: any) =>
+          String(a.record.auto_number || "").localeCompare(String(b.record.auto_number || ""))
+        );
+
+      let lastRow = startRow - 1;
+      for (let i = 0; i < sorted.length; i++) {
+        const rec = sorted[i].record;
+        const r = startRow + i;
+        lastRow = r;
+
+        setCell(ws, `A${r}`, rec.auto_number || "");
+        setCell(ws, `B${r}`, rec.loading_date || "");
+        setCell(ws, `C${r}`, rec.unloading_date || "");
+        setCell(ws, `D${r}`, rec.loading_location || "");
+        setCell(ws, `E${r}`, rec.unloading_location || "");
+        setCell(ws, `F${r}`, "普货");
+        setCell(ws, `G${r}`, rec.driver_name || "");
+        setCell(ws, `H${r}`, rec.driver_phone || "");
+        setCell(ws, `I${r}`, rec.license_plate || "");
+        setCell(ws, `J${r}`, rec.loading_weight ?? "", typeof rec.loading_weight === "number" ? "n" : undefined);
+        setCell(ws, `K${r}`, rec.payable_cost ?? "", typeof rec.payable_cost === "number" ? "n" : undefined);
+        setCell(ws, `L${r}`, (sheet as any).paying_partner_name || payingPartnerName);
+        setCell(ws, `M${r}`, bankAccount);
+        setCell(ws, `N${r}`, bankName);
+        setCell(ws, `O${r}`, branchName);
+      }
+
+      // Totals: keep row 23 fixed, so place sums in row 22
+      const totalRow = 22;
+      const sumStart = startRow;
+      const sumEnd = Math.max(lastRow, startRow);
+      ws[`J${totalRow}`] = { t: "n", f: `SUM(J${sumStart}:J${sumEnd})` };
+      ws[`K${totalRow}`] = { t: "n", f: `SUM(K${sumStart}:K${sumEnd})` };
+
+      // Ensure !ref is large enough
+      const range = XLSX.utils.decode_range(ws["!ref"] || "A1:O50");
+      range.e.r = Math.max(range.e.r, Math.max(totalRow, lastRow));
+      range.e.c = Math.max(range.e.c, 14); // column O (0-indexed 14)
+      ws["!ref"] = XLSX.utils.encode_range(range);
+
+      const sheetName = `${(sheet as any).paying_partner_name || payingPartnerName || "Sheet"}_${
+        index + 1
+      }`.substring(0, 31);
+      XLSX.utils.book_append_sheet(outWb, ws, sheetName);
+    }
+
+    const excelBuffer = XLSX.write(outWb, { type: "array", bookType: "xlsx" });
 
     return new Response(excelBuffer, {
       status: 200,
