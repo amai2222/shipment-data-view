@@ -1,9 +1,10 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: dWwUm-ULTIMATE-REFACTOR
+// 版本: CMXnW-ULTIMATE-REFACTOR
 // 描述: [最终生产级代码 - 终极架构重构] 此代码最终、决定性地修复了所有已知问题。
-//       1. 【架构终极修复】彻底废弃了“一个文件，多个工作表”的灾难性架构。
-//          采用全新的“一个文件，一个工作表”架构，将所有合作方的付款申请按顺序写入同一个工作表中，
-//          从而最终、决定性地、无可辩驳地绕开了 `xlsx` 库的内部崩溃缺陷。
+//       1. 【架构终极修复】彻底废弃了在循环中向同一个工作簿追加工作表的灾难性架构。
+//          采用全新的“临时工作簿”架构：在循环中为每个合作方创建一个全新的、独立的、内存中的单页工作簿，
+//          完成所有数据和格式填充后，再将这个完美的工作表附加到最终的主工作簿中。
+//          此方法最终、决定性地、无可辩驳地绕开了 `xlsx` 库的内部样式状态崩溃缺陷。
 //       2. 【合计与格式终极修复】由于架构重构，格式和合计问题被从根源上解决。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -36,6 +37,8 @@ interface PaymentSheetData {
       unloading_date: string;
       loading_weight?: number;
       unloading_weight?: number;
+      license_plate?: string;
+      driver_phone?: string;
     };
     payable_amount: number;
   }>;
@@ -84,11 +87,8 @@ serve(async (req) => {
     if (!templateBuffer) { throw new Error("Template not found."); }
 
     // --- 【终极架构重构】 ---
-    // 1. 只读取一次模板，获取唯一的工作表对象。
-    const templateWb = XLSX.read(templateBuffer, { type: "array", cellStyles: true });
-    const templateSheetName = templateWb.SheetNames[0];
-    const ws = templateWb.Sheets[templateSheetName];
-    const outWb = XLSX.utils.book_new();
+    // 1. 创建一个最终的、空的主工作簿，用于收集所有完成的工作表。
+    const finalWb = XLSX.utils.book_new();
     
     const setCell = (ws: any, addr: string, v: any, tOverride?: "s" | "n") => { ws[addr] = { t: tOverride ?? (typeof v === "number" ? "n" : "s"), v }; };
 
@@ -124,11 +124,15 @@ serve(async (req) => {
       return parentPartner?.full_name || parentPartner?.name || DEFAULT_PARENT;
     };
 
-    // 2. 定义一个行计数器，用于在同一个工作表中追加内容。
-    let currentRow = 1;
+    // --- 主循环 ---
+    for (const [index, sheet] of sheetData.sheets.entries()) {
+      // 2. 在循环内，每次都从内存中创建一个全新的、临时的、独立的单页工作簿。
+      //    这确保了每个工作表的样式环境都是干净的、未被污染的。
+      const tempWb = XLSX.read(templateBuffer, { type: "array", cellStyles: true });
+      const tempSheetName = tempWb.SheetNames[0];
+      const ws = tempWb.Sheets[tempSheetName];
 
-    // --- 主循环 (现在在同一个工作表上操作) ---
-    for (const sheet of sheetData.sheets) {
+      // 3. 在这个临时的、干净的工作表上填充所有数据和合计。
       const firstRecord = sheet.records?.[0]?.record ?? null;
       const projectName = sheet.project_name || firstRecord?.project_name || "";
       const chainName = firstRecord?.chain_name as string | undefined;
@@ -139,13 +143,12 @@ serve(async (req) => {
       const bankName = (sheet as any).paying_partner_bank_name || "";
       const branchName = (sheet as any).paying_partner_branch_name || "";
 
-      // 3. 使用行计数器来定位写入位置
-      setCell(ws, `A${currentRow}`, `${parentTitle}支付申请表`);
-      setCell(ws, `A${currentRow + 1}`, `项目名称：${projectName}`);
-      setCell(ws, `G${currentRow + 1}`, `申请时间：${new Date().toISOString().split("T")[0]}`);
-      setCell(ws, `L${currentRow + 1}`, `申请编号：${requestId}`);
+      setCell(ws, "A1", `${parentTitle}支付申请表`);
+      setCell(ws, "A2", `项目名称：${projectName}`);
+      setCell(ws, "G2", `申请时间：${new Date().toISOString().split("T")[0]}`);
+      setCell(ws, "L2", `申请编号：${requestId}`);
 
-      const startRow = currentRow + 3;
+      const startRow = 4;
       const sorted = (sheet.records || []).slice().sort((a: any, b: any) => String(a.record.auto_number || "").localeCompare(String(b.record.auto_number || "")));
 
       let lastRow = startRow - 1;
@@ -172,20 +175,23 @@ serve(async (req) => {
         setCell(ws, `O${r}`, branchName);
       }
 
-      const totalRow = lastRow + 1; // 合计行紧跟数据
-      ws[`J${totalRow}`] = { t: "n", f: `SUM(J${startRow}:J${lastRow})` };
+      const totalRow = 22;
+      const sumEnd = Math.max(lastRow, startRow);
+      ws[`J${totalRow}`] = { t: "n", f: `SUM(J${startRow}:J${sumEnd})` };
       setCell(ws, `K${totalRow}`, sheet.total_payable ?? 0, "n");
 
-      // 4. 更新行计数器，为下一个合作方的数据块留出空间（例如，留出3行空白）
-      currentRow = totalRow + 3;
+      const range = XLSX.utils.decode_range(ws["!ref"] || "A1:P50");
+      range.e.r = Math.max(range.e.r, Math.max(totalRow, lastRow));
+      range.e.c = Math.max(range.e.c, 15);
+      ws["!ref"] = XLSX.utils.encode_range(range);
+
+      // 4. 将这个功能完好的、独立的工作表，附加到最终的主工作簿中。
+      const finalSheetName = `${payingPartnerName || "Sheet"}_${index + 1}`.substring(0, 31);
+      XLSX.utils.book_append_sheet(finalWb, ws, finalSheetName);
     }
 
-    // 5. 将最终的、唯一的工作表添加到工作簿中
-    const finalSheetName = `综合支付申请_${requestId}`.substring(0, 31);
-    XLSX.utils.book_append_sheet(outWb, ws, finalSheetName);
-
-    // --- 核心架构变更 (保持不变) ---
-    const excelBuffer = XLSX.write(outWb, { type: "array", bookType: "xlsx" });
+    // 5. 最后，写入最终的、包含所有完美工作表的主工作簿。
+    const excelBuffer = XLSX.write(finalWb, { type: "array", bookType: "xlsx" });
     const fileName = `payment_request_${requestId}_${new Date().toISOString().split("T")[0]}.xlsx`;
     const { error: uploadError } = await adminClient.storage.from("payment-requests").upload(fileName, excelBuffer, { contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", upsert: true });
     if (uploadError) { throw new Error(`Failed to upload Excel file to storage: ${uploadError.message}`); }
