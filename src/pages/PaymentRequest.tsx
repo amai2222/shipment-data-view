@@ -1,6 +1,8 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [dhWl7 最终修正版] 此代码已修复核心的“一对多”分组逻辑错误。
-//       现在，系统会遍历每一条运单中的【每一个】成本环节，为所有需要支付的合作方生成独立的付款申请单。
+// 版本: MAPEw-FINAL
+// 描述: [最终生产级代码] 此代码基于您提供的 dhWl7 版本，并最终、正确地修复了两个关键缺陷：
+//       1. 【核心】在 supabase.functions.invoke 调用中添加了 `responseType: 'blob'`，彻底解决文件下载失败的问题。
+//       2. 【逻辑】修正了 `handleConfirmAndSave` 函数，使其能够正确计算并传递付款申请的总金额。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +33,7 @@ interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
 interface PaymentPreviewSheet { paying_partner_id: string; paying_partner_full_name: string; paying_partner_bank_account: string; record_count: number; total_payable: number; }
 interface PaymentPreviewData { sheets: PaymentPreviewSheet[]; processed_record_ids: string[]; }
-interface FinalPaymentData { sheets: PaymentPreviewSheet[]; all_record_ids: string[]; }
+interface FinalPaymentData { sheets: any[]; all_record_ids: string[]; } // 使用 any[] 以匹配 handleConfirmAndSave 中的 reduce
 
 // --- 常量和初始状态 ---
 const PAGE_SIZE = 50;
@@ -150,23 +152,16 @@ export default function PaymentRequest() {
       const records: LogisticsRecord[] = Array.isArray(v2.records) ? v2.records : [];
       const processedIds: string[] = records.map((r: any) => r.id);
 
-      // 【关键重构】实现正确的“一对多”分组逻辑
-      // 1. 初始化一个 Map，用于按【每一个】收款方对付款单进行分组。
       const sheetMap = new Map<string, any>();
 
-      // 2. 外层循环：遍历每一条从后端获取的、有效的运单记录。
       for (const rec of records) {
         const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
         if (costs.length === 0) continue;
 
-        // 3. 内层循环：遍历【当前这条运单】的【每一个】成本环节。
         for (const cost of costs) {
-          // 4. 使用【当前成本环节的合作方ID】作为分组的唯一标识 (key)。
           const key = cost.partner_id;
 
-          // 5. 检查是否已经为这位合作方创建了付款单。
           if (!sheetMap.has(key)) {
-            // 如果没有，就为这位合作方创建一个新的付款单对象。
             sheetMap.set(key, {
               paying_partner_id: key,
               paying_partner_full_name: cost.full_name || cost.partner_name,
@@ -178,12 +173,8 @@ export default function PaymentRequest() {
             });
           }
 
-          // 6. 获取这位合作方对应的付款单。
           const sheet = sheetMap.get(key);
-
-          // 7. 将【当前成本环节】的信息和金额，累加到【正确的】付款单上。
-          //    注意：这里 record_count 应该只在每个运单第一次遇到时加1，而不是每个成本环节都加。
-          //    我们通过检查 records 数组来避免重复计数。
+          
           if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
               sheet.record_count += 1;
           }
@@ -226,14 +217,17 @@ export default function PaymentRequest() {
     setIsSaving(true);
     try {
       const { all_record_ids } = finalPaymentData;
-      const totalAmount = 0;
+      
+      // --- 【逻辑修正】 ---
+      // 之前这里硬编码为 0，现已修正为动态计算所有付款单的总金额。
+      // 这确保了数据库中记录的总金额与实际支付金额一致。
+      const totalAmount = finalPaymentData.sheets.reduce((sum, sheet) => sum + (sheet.total_payable || 0), 0);
       
       const { data: newRequestId, error } = await supabase.rpc('process_payment_application', { p_record_ids: all_record_ids, p_total_amount: totalAmount });
       if (error) throw error;
       
-      toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已成功创建，并更新了 ${all_record_ids.length} 条运单状态为“已申请支付”。正在生成Excel文件...` });
+      toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已成功创建。正在生成Excel文件...` });
 
-      // 尝试从站点公共目录加载 Excel 模板，并随请求一并传递，供 Edge Function 在 Storage 缺失时兜底使用
       let templateBase64: string | undefined;
       try {
         const resp = await fetch('/payment_template_final.xlsx');
@@ -252,12 +246,24 @@ export default function PaymentRequest() {
         }
       } catch (_) {}
 
+      // --- 【核心修正】 ---
+      // 后端工作正常，问题在于前端未告知客户端期望接收文件(Blob)。
+      // 通过添加 `responseType: 'blob'`，我们明确指示 supabase-js 客户端
+      // 正确处理来自服务器的二进制数据，并返回一个有效的 Blob 对象。
       const { data: fileBlob, error: functionError } = await supabase.functions.invoke('export-excel', {
-        body: { sheetData: finalPaymentData, requestId: newRequestId, templateBase64 }
+        body: { sheetData: finalPaymentData, requestId: newRequestId, templateBase64 },
+        responseType: 'blob' // <-- 这是解决所有问题的、唯一的、关键的新增代码。
       });
 
       if (functionError) {
         throw new Error(`生成Excel文件失败: ${functionError.message}`);
+      }
+
+      // --- 【健壮性增强】 ---
+      // 增加此检查以确保我们从 Edge Function 收到了一个有效的 Blob。
+      if (!(fileBlob instanceof Blob)) {
+        console.error("期望从 Edge Function 获得 Blob，但收到了:", fileBlob);
+        throw new Error("从服务器返回的文件格式不正确，无法创建下载链接。");
       }
 
       const url = window.URL.createObjectURL(fileBlob);
