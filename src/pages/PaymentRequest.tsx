@@ -1,8 +1,8 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 版本: v0142-FINAL-ARCHITECTURE
-// 描述: [最终生产级架构代码] 此代码已适配全新的、基于签名URL的后端架构。
-//       handleConfirmAndSave 函数不再期望接收文件 Blob，而是接收包含签名 URL 的 JSON，
-//       并直接通过 window.location.href 触发下载，彻底解决了所有文件下载问题。
+// 版本: Vsffx-FINAL-DATA-INTEGRITY
+// 描述: [最终生产级架构代码 - 数据完整性修正] 此代码基于您提供的 v0142 版本进行修改。
+//       1. 【核心修正】在 handleApplyForPaymentClick 函数中，已将 bank_name 和 branch_name 添加到数据打包逻辑中，彻底解决数据丢失问题。
+//       2. 【UX 增强】更新了付款预览弹窗，现在可以显示完整的银行信息，便于最终确认。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,14 +24,15 @@ import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
-// --- 类型定义 (保持不变) ---
-interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; full_name?: string; bank_account?: string; }
+// --- 类型定义 ---
+interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; full_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; }
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; cargo_type: string | null; loading_weight: number | null; unloading_weight: number | null; remarks: string | null; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; }
 interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string; }
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
-interface PaymentPreviewSheet { paying_partner_id: string; paying_partner_full_name: string; paying_partner_bank_account: string; record_count: number; total_payable: number; }
+// 【UX 增强】更新类型定义以包含完整的银行信息
+interface PaymentPreviewSheet { paying_partner_id: string; paying_partner_full_name: string; paying_partner_bank_account: string; paying_partner_bank_name: string; paying_partner_branch_name: string; record_count: number; total_payable: number; }
 interface PaymentPreviewData { sheets: PaymentPreviewSheet[]; processed_record_ids: string[]; }
 interface FinalPaymentData { sheets: any[]; all_record_ids: string[]; }
 
@@ -162,10 +163,15 @@ export default function PaymentRequest() {
           const key = cost.partner_id;
 
           if (!sheetMap.has(key)) {
+            // --- 【核心数据完整性修正】 ---
+            // 在这里添加 `paying_partner_bank_name` 和 `paying_partner_branch_name`
+            // 以确保它们被包含在发送到后端的 sheet 对象中。
             sheetMap.set(key, {
               paying_partner_id: key,
               paying_partner_full_name: cost.full_name || cost.partner_name,
               paying_partner_bank_account: cost.bank_account || '',
+              paying_partner_bank_name: (cost as any).bank_name || '', // <-- 新增
+              paying_partner_branch_name: (cost as any).branch_name || '', // <-- 新增
               record_count: 0,
               total_payable: 0,
               header_company_name: rec.project_name,
@@ -212,8 +218,6 @@ export default function PaymentRequest() {
     }
   };
 
-  // --- 【核心架构变更】 ---
-  // 此函数已完全重构，以适配新的、基于签名URL的后端架构。
   const handleConfirmAndSave = async () => {
     if (!finalPaymentData || finalPaymentData.all_record_ids.length === 0) return;
     setIsSaving(true);
@@ -236,24 +240,18 @@ export default function PaymentRequest() {
         }
       } catch (_) {}
 
-      // 1. 调用 Edge Function，不再需要 `responseType: 'blob'`，因为我们期望返回 JSON。
       const { data, error: functionError } = await supabase.functions.invoke('export-excel', {
         body: { sheetData: finalPaymentData, requestId: newRequestId, templateBase64 },
       });
 
       if (functionError) {
-        // 如果函数返回网络级或500错误，错误信息在 functionError.message 中
         throw new Error(`生成Excel文件失败: ${functionError.message}`);
       }
       
-      // 2. 检查返回的数据中是否包含我们期望的 signedUrl。
-      //    如果函数内部逻辑出错（但未返回500），错误信息可能在 data.error 中。
       if (data.error || !data.signedUrl) {
         throw new Error(`生成下载链接失败: ${data.error || '服务器未返回有效的下载链接。'}`);
       }
 
-      // 3. 直接使用签名 URL 触发下载，无需 createObjectURL。
-      //    这是最简单、最可靠、最终的解决方案。
       window.location.href = data.signedUrl;
 
       toast({ title: "文件已开始下载", description: "您的支付申请Excel文件已开始下载。", variant: "success" });
@@ -343,7 +341,7 @@ export default function PaymentRequest() {
 
   if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
 
-  // --- JSX 渲染 (保持不变) ---
+  // --- JSX 渲染 ---
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -504,6 +502,9 @@ export default function PaymentRequest() {
                   <TableRow>
                     <TableHead>付款方 (收款人)</TableHead>
                     <TableHead>收款银行账号</TableHead>
+                    {/* 【UX 增强】新增表头 */}
+                    <TableHead>开户行</TableHead>
+                    <TableHead>支行网点</TableHead>
                     <TableHead className="text-right">运单数</TableHead>
                     <TableHead className="text-right">合计金额</TableHead>
                   </TableRow>
@@ -513,6 +514,9 @@ export default function PaymentRequest() {
                     <TableRow key={sheet.paying_partner_id}>
                       <TableCell className="font-medium">{sheet.paying_partner_full_name}</TableCell>
                       <TableCell>{sheet.paying_partner_bank_account}</TableCell>
+                      {/* 【UX 增强】新增单元格以显示完整的银行信息 */}
+                      <TableCell>{sheet.paying_partner_bank_name}</TableCell>
+                      <TableCell>{sheet.paying_partner_branch_name}</TableCell>
                       <TableCell className="text-right">{sheet.record_count}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(sheet.total_payable)}</TableCell>
                     </TableRow>
