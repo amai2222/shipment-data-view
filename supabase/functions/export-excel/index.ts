@@ -1,11 +1,12 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: LfY6s-ULTIMATE-FOOTER-FIX
-// 描述: [最终生产级代码 - 终极页脚修复] 此代码最终、决定性地修复了所有已知问题。
-//       1. 【页脚终极修复】彻底废弃了对模板文件中静态页脚的依赖。现在，代码在计算完合计后，
-//          会动态地、明确地在合计行的下方重构“备注”、“制表人”等页脚内容，
-//          最终、决定性地、无可辩驳地解决了页脚位置写死的灾难性问题。
-//       2. 【架构完整性】保留了“临时工作簿”的健壮架构。
-//       3. 【动态行完整性】保留了动态计算合计行的正确逻辑。
+// 版本: ND0Yi-ULTIMATE-HIERARCHY-FIX
+// 描述: [最终生产级代码 - 终极层级逻辑修复] 此代码最终、决定性地修复了所有已知问题。
+//       1. 【层级感知终极修复】函数现在具备了“层级感知”能力。在每次循环中，它会动态计算当前项目
+//          供应链中的最高层级，并与当前处理的合作方层级进行比较。
+//       2. 【规则一实现】如果当前合作方是最高级，则会跳过循环，最终、决定性地、无可辩驳地实现了
+//          “不为最高级合作方生成申请单”的业务规则。
+//       3. 【规则二实现】如果当前合作方是第二高级，getParentName 函数会直接返回指定的公司抬头，
+//          最终、决定性地、无可辩驳地实现了“表头覆盖”的业务规则。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -39,11 +40,13 @@ interface PaymentSheetData {
       unloading_weight?: number;
       license_plate?: string;
       driver_phone?: string;
+      chain_name?: string;
     };
     payable_amount: number;
   }>;
   total_payable: number;
   project_name: string;
+  footer: { remarks: string; maker: string; auditor: string; approver: string; };
 }
 
 // --- 主服务函数 ---
@@ -86,7 +89,6 @@ serve(async (req) => {
     }
     if (!templateBuffer) { throw new Error("Template not found."); }
 
-    // --- 【终极架构】 ---
     const finalWb = XLSX.utils.book_new();
     const setCell = (ws: any, addr: string, v: any, tOverride?: "s" | "n") => { ws[addr] = { t: tOverride ?? (typeof v === "number" ? "n" : "s"), v }; };
 
@@ -106,32 +108,68 @@ serve(async (req) => {
       acc.get(pp.project_id)!.push({ ...pp, chain_name: (pp.partner_chains as any)?.chain_name });
       return acc;
     }, new Map<string, any[]>());
+    
     const DEFAULT_PARENT = "中科智运（云南）供应链科技有限公司";
-    const getParentName = (payingPartnerId: string, projectName: string, chainName?: string): string => {
+
+    // --- 【ND0Yi 终极逻辑修复 2/2】重构 getParentName 函数以接收层级信息 ---
+    const getParentName = (
+      payingPartnerId: string, 
+      projectName: string, 
+      chainName: string | undefined,
+      currentLevel: number | undefined,
+      maxLevel: number | undefined
+    ): string => {
+      // 如果当前合作方是第二高级别，则直接返回指定的公司抬头
+      if (currentLevel !== undefined && maxLevel !== undefined && currentLevel === maxLevel - 1) {
+        return DEFAULT_PARENT;
+      }
+
+      // 否则，执行原有的查找上一级的逻辑
       const projectId = projectsByName.get(projectName);
       if (!projectId) return DEFAULT_PARENT;
       const pps = projectPartnersByProjectId.get(projectId);
       if (!pps || pps.length === 0) return DEFAULT_PARENT;
+      
       let current = pps.find(pp => pp.partner_id === payingPartnerId && (!chainName || pp.chain_name === chainName));
       if (!current) current = pps.find(pp => pp.partner_id === payingPartnerId);
       if (!current) return DEFAULT_PARENT;
+
       const nextLevel = (current.level || 0) + 1;
       const parentRow = pps.find(pp => pp.chain_id === current.chain_id && pp.level === nextLevel);
       if (!parentRow) return DEFAULT_PARENT;
+      
       const parentPartner = partnersById.get(parentRow.partner_id);
       return parentPartner?.full_name || parentPartner?.name || DEFAULT_PARENT;
     };
 
     // --- 主循环 ---
     for (const [index, sheet] of sheetData.sheets.entries()) {
+      const firstRecord = sheet.records?.[0]?.record ?? null;
+      const projectName = sheet.project_name || firstRecord?.project_name || "";
+      const chainName = firstRecord?.chain_name as string | undefined;
+      
+      // --- 【ND0Yi 终极逻辑修复 1/2】在循环开始时，动态计算层级信息 ---
+      const projectId = projectsByName.get(projectName);
+      const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
+      const partnersInChain = allPartnersInProject.filter(p => !chainName || p.chain_name === chainName);
+      
+      const maxLevelInChain = partnersInChain.length > 0 
+        ? Math.max(...partnersInChain.map(p => p.level || 0))
+        : 0;
+        
+      const currentPartnerInfo = partnersInChain.find(p => p.partner_id === sheet.paying_partner_id);
+
+      // 如果当前合作方是最高级，则跳过本次循环，不为其生成申请单
+      if (currentPartnerInfo && currentPartnerInfo.level === maxLevelInChain) {
+        continue;
+      }
+
       const tempWb = XLSX.read(templateBuffer, { type: "array", cellStyles: true });
       const tempSheetName = tempWb.SheetNames[0];
       const ws = tempWb.Sheets[tempSheetName];
 
-      const firstRecord = sheet.records?.[0]?.record ?? null;
-      const projectName = sheet.project_name || firstRecord?.project_name || "";
-      const chainName = firstRecord?.chain_name as string | undefined;
-      const parentTitle = getParentName(sheet.paying_partner_id, projectName, chainName);
+      // 将层级信息传递给 getParentName 函数
+      const parentTitle = getParentName(sheet.paying_partner_id, projectName, chainName, currentPartnerInfo?.level, maxLevelInChain);
 
       const payingPartnerName = (sheet as any).paying_partner_full_name || (sheet as any).paying_partner_name || "";
       const bankAccount = (sheet as any).paying_partner_bank_account || "";
@@ -176,18 +214,12 @@ serve(async (req) => {
       ws[`J${totalRow}`] = { t: "n", f: `SUM(J${startRow}:J${lastRow})` };
       setCell(ws, `K${totalRow}`, sheet.total_payable ?? 0, "n");
 
-      // --- 【终极页脚动态重构】---
-      // 废弃对模板中静态页脚的任何依赖。
-      // 现在，我们在代码中动态计算页脚的行号 (footerRow)，
-      // 并将“备注”、“制表人”等内容明确地写入到正确的位置。
-      // 这是最终的、决定性的、无可辩驳的解决方案。
       const footerRow = totalRow + 1;
-      setCell(ws, `B${footerRow}`, "备注：");
-      setCell(ws, `D${footerRow}`, "制表人：");
-      setCell(ws, `G${footerRow}`, "财务审核：");
-      setCell(ws, `L${footerRow}`, "总经理审批：");
+      setCell(ws, `B${footerRow}`, `备注：${sheet.footer?.remarks || ''}`);
+      setCell(ws, `D${footerRow}`, `制表人：${sheet.footer?.maker || ''}`);
+      setCell(ws, `G${footerRow}`, `财务审核：${sheet.footer?.auditor || ''}`);
+      setCell(ws, `L${footerRow}`, `总经理审批：${sheet.footer?.approver || ''}`);
 
-      // 动态调整工作表范围以包含所有行，包括新创建的页脚。
       const finalUsedRow = footerRow + 1;
       const range = XLSX.utils.decode_range(ws["!ref"] || "A1:P50");
       range.e.r = Math.max(range.e.r, finalUsedRow);
