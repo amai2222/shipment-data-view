@@ -233,8 +233,27 @@ export default function PaymentRequest() {
       
       toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已成功创建，并更新了 ${all_record_ids.length} 条运单状态为“已申请支付”。正在生成Excel文件...` });
 
+      // 尝试从站点公共目录加载 Excel 模板，并随请求一并传递，供 Edge Function 在 Storage 缺失时兜底使用
+      let templateBase64: string | undefined;
+      try {
+        const resp = await fetch('/payment_template_final.xlsx');
+        if (resp.ok) {
+          const buf = await resp.arrayBuffer();
+          const toBase64 = (ab: ArrayBuffer) => {
+            let binary = '';
+            const bytes = new Uint8Array(ab);
+            const chunk = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunk) {
+              binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+            }
+            return btoa(binary);
+          };
+          templateBase64 = toBase64(buf);
+        }
+      } catch (_) {}
+
       const { data: fileBlob, error: functionError } = await supabase.functions.invoke('export-excel', {
-        body: { sheetData: finalPaymentData, requestId: newRequestId }
+        body: { sheetData: finalPaymentData, requestId: newRequestId, templateBase64 }
       });
 
       if (functionError) {

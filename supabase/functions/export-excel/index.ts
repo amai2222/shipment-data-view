@@ -100,12 +100,25 @@ serve(async (req) => {
       });
     }
 
-    const { sheetData, requestId }: RequestBody = await req.json();
+    const body: any = await req.json();
+    const { sheetData, requestId, templateBase64 } = body;
 
     // Build workbook from storage template and fill per-partner sheets
     // 1) Load template file from Supabase Storage
     const candidateBuckets = ["public", "templates", "payment", "documents"];
     let templateBuffer: ArrayBuffer | null = null;
+
+    // Prefer inlined base64 template if provided by client (fallback when Storage file is missing)
+    if (!templateBuffer && templateBase64) {
+      try {
+        const bin = atob(templateBase64 as string);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        templateBuffer = bytes.buffer;
+      } catch (_) {
+        // ignore base64 decode failures
+      }
+    }
 
     for (const bucket of candidateBuckets) {
       try {
