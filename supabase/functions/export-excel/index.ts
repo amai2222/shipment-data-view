@@ -1,8 +1,8 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: shhy7-DIAGNOSTIC-UNABRIDGED
-// 描述: [最终诊断代码 - 完整无删减版] 此代码的唯一目的是进行插桩诊断。
-//       我们在每一个关键步骤都添加了详细的 console.log，以找出函数“静默死亡”的确切位置。
-//       这不是一个修复方案，而是一个获取最终证据的工具。
+// 版本: GNezd-FINAL-ARCHITECTURE
+// 描述: [最终生产级架构代码] 此代码基于您的诊断版本进行修改，彻底解决了“响应体过大”的平台限制问题。
+//       它不再直接返回文件，而是将生成的文件上传到 Supabase Storage，
+//       然后返回一个安全的、有时效性的签名下载链接 (Signed URL)。此版本已移除所有诊断日志。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -61,97 +61,75 @@ interface RequestBody {
 
 // --- 主服务函数 ---
 serve(async (req) => {
-  console.log("shhy7-DIAGNOSTIC: Function invoked.");
   if (req.method === "OPTIONS") {
-    console.log("shhy7-DIAGNOSTIC: Handling OPTIONS preflight request.");
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log("shhy7-DIAGNOSTIC: Entered main try block.");
     // --- 身份验证和权限检查 ---
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) { throw new Error("Missing authorization header"); }
-    console.log("shhy7-DIAGNOSTIC: Auth header found.");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceKey) { throw new Error("Service not configured"); }
-    console.log("shhy7-DIAGNOSTIC: Environment variables loaded.");
 
     const adminClient = createClient(supabaseUrl, serviceKey);
     const jwt = authHeader.replace("Bearer ", "");
     const { data: userRes, error: authError } = await adminClient.auth.getUser(jwt);
     if (authError || !userRes?.user) { throw new Error("Invalid or expired token"); }
-    console.log(`shhy7-DIAGNOSTIC: User authenticated: ${userRes.user.id}`);
 
     const { data: profile } = await adminClient.from("profiles").select("role").eq("id", userRes.user.id).maybeSingle();
     if (!profile || !["admin", "finance"].includes(profile.role)) { throw new Error("Insufficient permissions"); }
-    console.log(`shhy7-DIAGNOSTIC: User permission check passed. Role: ${profile.role}`);
 
     const body: any = await req.json();
     const { sheetData, requestId, templateBase64 } = body;
-    console.log(`shhy7-DIAGNOSTIC: Request body parsed. Request ID: ${requestId}, Number of sheets: ${sheetData?.sheets?.length}`);
 
     // --- 模板加载逻辑 ---
-    console.log("shhy7-DIAGNOSTIC: Starting template loading.");
     const candidateBuckets = ["public", "templates", "payment", "documents"];
     let templateBuffer: ArrayBuffer | null = null;
 
-    if (!templateBuffer && templateBase64) {
+    if (templateBase64) {
       try {
         const bin = atob(templateBase64 as string);
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
         templateBuffer = bytes.buffer;
-        console.log("shhy7-DIAGNOSTIC: Template loaded from Base64 fallback.");
-      } catch (e) {
-        console.log("shhy7-DIAGNOSTIC: Base64 decoding failed, ignoring.", e.message);
-      }
+      } catch (_) {}
     }
 
     if (!templateBuffer) {
         for (const bucket of candidateBuckets) {
-          console.log(`shhy7-DIAGNOSTIC: Trying to download template from bucket: ${bucket}`);
           try {
             const { data, error } = await adminClient.storage.from(bucket).download("payment_template_final.xlsx");
             if (data && !error) {
               templateBuffer = await data.arrayBuffer();
-              console.log(`shhy7-DIAGNOSTIC: Template successfully downloaded from bucket: ${bucket}`);
               break;
             }
-            if(error) console.log(`shhy7-DIAGNOSTIC: Error downloading from ${bucket}: ${error.message}`);
-          } catch (e) {
-            console.log(`shhy7-DIAGNOSTIC: Exception downloading from ${bucket}: ${e.message}`);
-          }
+          } catch (_) {}
         }
     }
 
     if (!templateBuffer) { throw new Error("Template not found in any bucket or Base64."); }
-    console.log("shhy7-DIAGNOSTIC: Template buffer is ready.");
 
     const templateWb = XLSX.read(templateBuffer, { type: "array" });
     const templateSheetName = templateWb.SheetNames[0];
     const templateSheet = templateWb.Sheets[templateSheetName];
     const outWb = XLSX.utils.book_new();
-    console.log("shhy7-DIAGNOSTIC: XLSX template parsed.");
 
     const setCell = (ws: any, addr: string, v: any, tOverride?: "s" | "n") => { ws[addr] = { t: tOverride ?? (typeof v === "number" ? "n" : "s"), v }; };
     const cloneSheet = (ws: any) => JSON.parse(JSON.stringify(ws));
 
-    // --- 【性能重构：数据预加载】 ---
-    console.log("shhy7-DIAGNOSTIC: Starting data pre-loading for performance.");
+    // --- 数据预加载 ---
     const projectNames = [...new Set(sheetData.sheets.map((s: any) => s.project_name || s.records?.[0]?.record?.project_name).filter(Boolean))];
     const allPayingPartnerIds = sheetData.sheets.map((s: any) => s.paying_partner_id);
     const partnerIds = [...new Set(allPayingPartnerIds)];
-    console.log(`shhy7-DIAGNOSTIC: Pre-loading data for ${partnerIds.length} partners and ${projectNames.length} projects.`);
 
     const [projectsRes, projectPartnersRes, partnersRes] = await Promise.all([
       adminClient.from("projects").select("id, name").in("name", projectNames),
       adminClient.from("project_partners").select("project_id, partner_id, level, chain_id, partner_chains(chain_name)"),
       adminClient.from("partners").select("id, name, full_name").in("id", partnerIds)
     ]);
-    console.log("shhy7-DIAGNOSTIC: All data pre-loaded successfully.");
 
     const projectsByName = new Map((projectsRes.data || []).map(p => [p.name, p.id]));
     const partnersById = new Map((partnersRes.data || []).map(p => [p.id, p]));
@@ -160,7 +138,6 @@ serve(async (req) => {
       acc.get(pp.project_id)!.push({ ...pp, chain_name: (pp.partner_chains as any)?.chain_name });
       return acc;
     }, new Map<string, any[]>());
-    console.log("shhy7-DIAGNOSTIC: Data caches created.");
     
     const DEFAULT_PARENT = "中科智运（云南）供应链科技有限公司";
 
@@ -178,19 +155,15 @@ serve(async (req) => {
       const parentPartner = partnersById.get(parentRow.partner_id);
       return parentPartner?.full_name || parentPartner?.name || DEFAULT_PARENT;
     };
-    console.log("shhy7-DIAGNOSTIC: Synchronous getParentName function is ready.");
 
     // --- 主循环 ---
-    console.log("shhy7-DIAGNOSTIC: Entering main loop to process sheets.");
     for (const [index, sheet] of sheetData.sheets.entries()) {
-      console.log(`shhy7-DIAGNOSTIC: Processing sheet ${index + 1}/${sheetData.sheets.length} for partner: ${sheet.paying_partner_name}`);
       const ws = cloneSheet(templateSheet);
 
       const firstRecord = sheet.records?.[0]?.record ?? null;
       const projectName = sheet.project_name || firstRecord?.project_name || "";
       const chainName = firstRecord?.chain_name as string | undefined;
       const parentTitle = getParentName(sheet.paying_partner_id, projectName, chainName);
-      console.log(`shhy7-DIAGNOSTIC: Sheet ${index + 1} - Parent name resolved to: ${parentTitle}`);
 
       const payingPartnerName = (sheet as any).paying_partner_full_name || (sheet as any).paying_partner_name || "";
       const bankAccount = (sheet as any).paying_partner_bank_account || "";
@@ -204,44 +177,83 @@ serve(async (req) => {
 
       const startRow = 4;
       const sorted = (sheet.records || []).slice().sort((a: any, b: any) => String(a.record.auto_number || "").localeCompare(String(b.record.auto_number || "")));
-      console.log(`shhy7-DIAGNOSTIC: Sheet ${index + 1} - has ${sorted.length} records to process.`);
 
       let lastRow = startRow - 1;
       for (let i = 0; i < sorted.length; i++) {
         const rec = sorted[i].record;
         const r = startRow + i;
         lastRow = r;
+        
+        setCell(ws, `A${r}`, rec.auto_number || "");
+        setCell(ws, `B${r}`, rec.loading_date || "");
+        setCell(ws, `C${r}`, rec.unloading_date || "");
+        setCell(ws, `D${r}`, rec.loading_location || "");
+        setCell(ws, `E${r}`, rec.unloading_location || "");
+        setCell(ws, `F${r}`, "普货");
+        setCell(ws, `G${r}`, rec.driver_name || "");
+        setCell(ws, `H${r}`, rec.driver_phone || "");
+        setCell(ws, `I${r}`, rec.license_plate || "");
+        setCell(ws, `J${r}`, rec.loading_weight ?? "", typeof rec.loading_weight === "number" ? "n" : undefined);
         const payableAmount = sorted[i].payable_amount;
         setCell(ws, `K${r}`, payableAmount ?? "", typeof payableAmount === "number" ? "n" : undefined);
-        // ... (other setCell calls)
+        setCell(ws, `L${r}`, payingPartnerName);
+        setCell(ws, `M${r}`, bankAccount);
+        setCell(ws, `N${r}`, bankName);
+        setCell(ws, `O${r}`, branchName);
       }
-      console.log(`shhy7-DIAGNOSTIC: Sheet ${index + 1} - Finished processing records.`);
 
       const totalRow = 22;
-      ws[`K${totalRow}`] = { t: "n", f: `SUM(K${startRow}:K${Math.max(lastRow, startRow)})` };
-      // ... (other total calculations)
+      const sumStart = startRow;
+      const sumEnd = Math.max(lastRow, startRow);
+      ws[`J${totalRow}`] = { t: "n", f: `SUM(J${sumStart}:J${sumEnd})` };
+      ws[`K${totalRow}`] = { t: "n", f: `SUM(K${sumStart}:K${sumEnd})` };
+
+      const range = XLSX.utils.decode_range(ws["!ref"] || "A1:O50");
+      range.e.r = Math.max(range.e.r, Math.max(totalRow, lastRow));
+      range.e.c = Math.max(range.e.c, 14);
+      ws["!ref"] = XLSX.utils.encode_range(range);
 
       const sheetName = `${payingPartnerName || "Sheet"}_${index + 1}`.substring(0, 31);
       XLSX.utils.book_append_sheet(outWb, ws, sheetName);
-      console.log(`shhy7-DIAGNOSTIC: Sheet ${index + 1} - Appended to workbook with name: ${sheetName}`);
     }
-    console.log("shhy7-DIAGNOSTIC: Main loop finished.");
 
-    console.log("shhy7-DIAGNOSTIC: Starting final XLSX.write operation. This may be memory/CPU intensive.");
+    // --- 【核心架构变更】 ---
+    // 1. 生成 Excel 文件 Buffer
     const excelBuffer = XLSX.write(outWb, { type: "array", bookType: "xlsx" });
-    console.log("shhy7-DIAGNOSTIC: XLSX.write operation completed. Buffer size: ${excelBuffer.length} bytes.");
+    const fileName = `payment_request_${requestId}_${new Date().toISOString().split("T")[0]}.xlsx`;
 
-    console.log("shhy7-DIAGNOSTIC: Preparing final response.");
-    return new Response(excelBuffer, {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="payment_request_${requestId}_${new Date().toISOString().split("T")[0]}.xlsx"`,
-      },
-    });
+    // 2. 将 Buffer 上传到 Storage
+    const { error: uploadError } = await adminClient.storage
+      .from("payment-requests") // 确保您已创建名为 "payment-requests" 的私有桶
+      .upload(fileName, excelBuffer, {
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        upsert: true, // 如果同名文件存在则覆盖
+      });
+
+    if (uploadError) {
+      throw new Error(`Failed to upload Excel file to storage: ${uploadError.message}`);
+    }
+
+    // 3. 为上传的文件创建签名 URL
+    const { data: signedUrlData, error: signedUrlError } = await adminClient.storage
+      .from("payment-requests")
+      .createSignedUrl(fileName, 60 * 5); // 链接有效期 5 分钟
+
+    if (signedUrlError) {
+      throw new Error(`Failed to create signed URL: ${signedUrlError.message}`);
+    }
+
+    // 4. 返回包含签名 URL 的 JSON 响应
+    return new Response(
+      JSON.stringify({ signedUrl: signedUrlData.signedUrl }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+
   } catch (error: any) {
-    console.error("shhy7-DIAGNOSTIC: CRITICAL ERROR in catch block:", error.stack || error.message);
+    console.error("export-excel CRITICAL ERROR:", error.stack || error.message);
     return new Response(JSON.stringify({ error: error?.message || "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
