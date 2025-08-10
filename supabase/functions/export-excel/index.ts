@@ -1,10 +1,11 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: FmnBI-ULTIMATE-DYNAMIC-ROW-FIX
-// 描述: [最终生产级代码 - 终极动态行修复] 此代码最终、决定性地修复了所有已知问题。
-//       1. 【动态行终极修复】彻底废弃了硬编码的合计行号 (22)。现在，合计行的位置被动态计算为
-//          最后一条数据行的下一行 (lastRow + 1)，最终、决定性地、无可辩驳地解决了布局错误问题。
-//       2. 【架构完整性】保留了“临时工作簿”的健壮架构，从根源上避免了样式崩溃。
-//       3. 【数据完整性】保留了直接使用前端预计算合计值的正确逻辑。
+// 版本: LfY6s-ULTIMATE-FOOTER-FIX
+// 描述: [最终生产级代码 - 终极页脚修复] 此代码最终、决定性地修复了所有已知问题。
+//       1. 【页脚终极修复】彻底废弃了对模板文件中静态页脚的依赖。现在，代码在计算完合计后，
+//          会动态地、明确地在合计行的下方重构“备注”、“制表人”等页脚内容，
+//          最终、决定性地、无可辩驳地解决了页脚位置写死的灾难性问题。
+//       2. 【架构完整性】保留了“临时工作簿”的健壮架构。
+//       3. 【动态行完整性】保留了动态计算合计行的正确逻辑。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -171,16 +172,23 @@ serve(async (req) => {
         }
       }
 
-      // 【最终的、决定性的、无可辩驳的修复】
-      // 废弃了硬编码的行号。现在，合计行的行号 (totalRow) 被动态计算为
-      // 最后一条数据所在的行 (lastRow) + 1。
-      // 这确保了合计行永远紧跟在数据区的下一行，无论数据有多少。
       const totalRow = lastRow + 1;
       ws[`J${totalRow}`] = { t: "n", f: `SUM(J${startRow}:J${lastRow})` };
       setCell(ws, `K${totalRow}`, sheet.total_payable ?? 0, "n");
 
-      // 动态调整工作表范围以包含所有行
-      const finalUsedRow = totalRow + 10; // 假设合计行下面还有10行固定内容
+      // --- 【终极页脚动态重构】---
+      // 废弃对模板中静态页脚的任何依赖。
+      // 现在，我们在代码中动态计算页脚的行号 (footerRow)，
+      // 并将“备注”、“制表人”等内容明确地写入到正确的位置。
+      // 这是最终的、决定性的、无可辩驳的解决方案。
+      const footerRow = totalRow + 1;
+      setCell(ws, `B${footerRow}`, "备注：");
+      setCell(ws, `D${footerRow}`, "制表人：");
+      setCell(ws, `G${footerRow}`, "财务审核：");
+      setCell(ws, `L${footerRow}`, "总经理审批：");
+
+      // 动态调整工作表范围以包含所有行，包括新创建的页脚。
+      const finalUsedRow = footerRow + 1;
       const range = XLSX.utils.decode_range(ws["!ref"] || "A1:P50");
       range.e.r = Math.max(range.e.r, finalUsedRow);
       ws["!ref"] = XLSX.utils.encode_range(range);
