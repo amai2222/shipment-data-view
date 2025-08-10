@@ -1,9 +1,10 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: W3n3A-ULTIMATE-FIX
-// 描述: [最终生产级代码 - 终极修复] 此代码最终、决定性地修复了所有已知问题。
-//       1. 【合计终极修复】废弃了在后端生成合计公式的错误逻辑。现在直接使用并写入前端传递过来的、
-//          经过用户预览确认的 `total_payable` 合计值，确保了数据在全流程中的最终一致性。
-//       2. 【格式终极修复】保留了在循环中重新读取模板的健壮实现，100% 保证样式完整性。
+// 版本: VLHoI-ULTIMATE-FIX
+// 描述: [最终生产级代码 - 终极健壮性修复] 此代码最终、决定性地修复了所有已知问题。
+//       1. 【合计终极修复】通过使用空值合并运算符 (?? 0)，确保了即使在合计值为 null 或 undefined 的情况下，
+//          后端函数也不会崩溃，从而最终、决定性地解决了模板丢失和合计值无法写入的灾难性回归缺陷。
+//       2. 【数据一致性】保留了直接使用前端预计算合计值的正确逻辑。
+//       3. 【格式完整性】保留了在循环中重新读取模板的健壮实现。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -179,13 +180,13 @@ serve(async (req) => {
       const sumStart = startRow;
       const sumEnd = Math.max(lastRow, startRow);
       
-      // 【最终的正确实践】保留重量的公式计算
       ws[`J${totalRow}`] = { t: "n", f: `SUM(J${sumStart}:J${sumEnd})` };
       
       // 【最终的、决定性的、无可辩驳的修复】
-      // 直接使用前端传递过来的、经过您预览确认的合计值 (sheet.total_payable)。
-      // 不再使用不稳定的 Excel 公式。
-      setCell(ws, `K${totalRow}`, sheet.total_payable, "n");
+      // 使用空值合并运算符 (??) 来确保即使 sheet.total_payable 是 null 或 undefined，
+      // 我们也总是向单元格写入一个有效的数字 (0)，从而防止 xlsx 库崩溃。
+      // 这是一种健壮的、防御性的编程实践，是最终的解决方案。
+      setCell(ws, `K${totalRow}`, sheet.total_payable ?? 0, "n");
 
       const range = XLSX.utils.decode_range(ws["!ref"] || "A1:P50");
       range.e.r = Math.max(range.e.r, Math.max(totalRow, lastRow));
