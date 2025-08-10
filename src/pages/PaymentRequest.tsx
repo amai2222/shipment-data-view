@@ -1,6 +1,6 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [vOgHD 最终修正版] 此代码已修复核心的分组逻辑错误。
-//       现在，系统会为每一条运单动态查找其最高级合作方，并为每一个不同的收款方生成独立的付款申请单。
+// 描述: [dhWl7 最终修正版] 此代码已修复核心的“一对多”分组逻辑错误。
+//       现在，系统会遍历每一条运单中的【每一个】成本环节，为所有需要支付的合作方生成独立的付款申请单。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -150,42 +150,46 @@ export default function PaymentRequest() {
       const records: LogisticsRecord[] = Array.isArray(v2.records) ? v2.records : [];
       const processedIds: string[] = records.map((r: any) => r.id);
 
-      // 【关键修正】正确的分组逻辑
-      // 1. 初始化一个 Map，用于按最终收款方（最高级合作方）对付款单进行分组。
+      // 【关键重构】实现正确的“一对多”分组逻辑
+      // 1. 初始化一个 Map，用于按【每一个】收款方对付款单进行分组。
       const sheetMap = new Map<string, any>();
 
-      // 2. 遍历每一条从后端获取的、有效的运单记录。
+      // 2. 外层循环：遍历每一条从后端获取的、有效的运单记录。
       for (const rec of records) {
         const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
-        if (costs.length === 0) continue; // 如果没有成本信息，则跳过此运单
+        if (costs.length === 0) continue;
 
-        // 3. 为【当前这条运单】，动态地找出其成本链条中的最高级合作方。
-        const topPartner = costs.reduce((highest, current) => (current.level > highest.level ? current : highest), costs[0]);
-        
-        // 4. 使用【当前运单的最高级合作方ID】作为分组的唯一标识 (key)。
-        const key = topPartner.partner_id;
+        // 3. 内层循环：遍历【当前这条运单】的【每一个】成本环节。
+        for (const cost of costs) {
+          // 4. 使用【当前成本环节的合作方ID】作为分组的唯一标识 (key)。
+          const key = cost.partner_id;
 
-        // 5. 检查是否已经为这位合作方创建了付款单。
-        if (!sheetMap.has(key)) {
-          // 如果没有，就为这位合作方创建一个新的付款单对象。
-          sheetMap.set(key, {
-            paying_partner_id: key,
-            paying_partner_full_name: topPartner.full_name || topPartner.partner_name,
-            paying_partner_bank_account: topPartner.bank_account || '',
-            record_count: 0,
-            total_payable: 0,
-            header_company_name: rec.project_name,
-            records: []
-          });
+          // 5. 检查是否已经为这位合作方创建了付款单。
+          if (!sheetMap.has(key)) {
+            // 如果没有，就为这位合作方创建一个新的付款单对象。
+            sheetMap.set(key, {
+              paying_partner_id: key,
+              paying_partner_full_name: cost.full_name || cost.partner_name,
+              paying_partner_bank_account: cost.bank_account || '',
+              record_count: 0,
+              total_payable: 0,
+              header_company_name: rec.project_name,
+              records: []
+            });
+          }
+
+          // 6. 获取这位合作方对应的付款单。
+          const sheet = sheetMap.get(key);
+
+          // 7. 将【当前成本环节】的信息和金额，累加到【正确的】付款单上。
+          //    注意：这里 record_count 应该只在每个运单第一次遇到时加1，而不是每个成本环节都加。
+          //    我们通过检查 records 数组来避免重复计数。
+          if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
+              sheet.record_count += 1;
+          }
+          sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
+          sheet.total_payable += Number(cost.payable_amount || 0);
         }
-
-        // 6. 获取这位合作方对应的付款单。
-        const sheet = sheetMap.get(key);
-
-        // 7. 将【当前这条运单】的信息和金额，累加到【正确的】付款单上。
-        sheet.records.push({ record: rec, payable_amount: topPartner.payable_amount });
-        sheet.record_count += 1;
-        sheet.total_payable += Number(topPartner.payable_amount || 0);
       }
 
       const sheets = Array.from(sheetMap.values());
