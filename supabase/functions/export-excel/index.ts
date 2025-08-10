@@ -289,7 +289,7 @@ serve(async (req) => {
         setCell(ws, `H${r}`, rec.driver_phone || "");
         setCell(ws, `I${r}`, rec.license_plate || "");
         setCell(ws, `J${r}`, rec.loading_weight ?? "", typeof rec.loading_weight === "number" ? "n" : undefined);
-        setCell(ws, `K${r}`, rec.payable_cost ?? "", typeof rec.payable_cost === "number" ? "n" : undefined);
+        setCell(ws, `K${r}`,  payableAmount ?? "", typeof  payableAmount === "number" ? "n" : undefined);
         setCell(ws, `L${r}`, (sheet as any).paying_partner_name || payingPartnerName);
         setCell(ws, `M${r}`, bankAccount);
         setCell(ws, `N${r}`, bankName);
