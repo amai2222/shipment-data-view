@@ -698,7 +698,7 @@ export class SupabaseStorage {
 
     // 如果 projectId 为 null (通常是首次加载), 后端可能需要处理这种情况
     // 我们的后端函数设计为即使 p_selected_project_id 为 null, 也会返回 recent_projects
-    const { data, error } = await supabase.rpc('get_project_dashboard_data', {
+    const { data, error } = await supabase.rpc('get_project_dashboard_data' as any, {
       p_selected_project_id: projectId,
       p_report_date: today,
     });

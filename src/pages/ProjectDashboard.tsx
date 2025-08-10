@@ -76,16 +76,17 @@ export default function ProjectDashboard() {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase.rpc('get_project_dashboard_data', {
+        const { data, error } = await supabase.rpc('get_project_dashboard_data' as any, {
           p_selected_project_id: selectedProjectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
 
         if (error) throw error;
-        setDashboardData(data);
+        const typed = data as unknown as DashboardData;
+        setDashboardData(typed);
 
-        if (!selectedProjectId && data.project_details && data.project_details.length > 0) {
-          setSelectedProjectId(data.project_details[0].id);
+        if (!selectedProjectId && typed.project_details && typed.project_details.length > 0) {
+          setSelectedProjectId(typed.project_details[0].id);
         }
       } catch (error) {
         console.error("加载看板数据失败:", error);

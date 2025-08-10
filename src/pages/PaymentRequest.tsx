@@ -125,14 +125,14 @@ export default function PaymentRequest() {
 
       if (isCrossPageSelection) {
         // 步骤 A: 调用新函数获取所有符合筛选条件的ID
-        const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_unpaid_ids', {
+        const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_unpaid_ids' as any, {
             p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
             p_start_date: activeFilters.startDate || null,
             p_end_date: activeFilters.endDate || null,
             p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
         });
         if (idError) throw idError;
-        idsToProcess = allFilteredIds || [];
+        idsToProcess = (allFilteredIds as string[] | null) || [];
       } else {
         // 单页模式：直接使用前端已选择的ID
         idsToProcess = Array.from(selection.selectedIds);
@@ -144,13 +144,43 @@ export default function PaymentRequest() {
         return;
       }
 
-      // 步骤 B: 调用现有函数生成预览，逻辑完全统一
-      const { data: previewData, error: rpcError } = await supabase.rpc('get_payment_request_data', {
-        p_generate_preview: true,
+      // 步骤 B: 使用 v2 函数生成预览数据
+      const { data: v2Data, error: rpcError } = await supabase.rpc('get_payment_request_data_v2' as any, {
         p_record_ids: idsToProcess
       });
 
       if (rpcError) throw rpcError;
+
+      const v2 = (v2Data as any) || {};
+      const records: any[] = Array.isArray(v2.records) ? v2.records : [];
+      const processedIds: string[] = records.map((r: any) => r.id);
+
+      // 按最高级合作方分组生成 sheets
+      const sheetMap = new Map<string, any>();
+      for (const rec of records) {
+        const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
+        if (costs.length === 0) continue;
+        const top = costs.reduce((a: any, b: any) => (a.level > b.level ? a : b));
+        const key = top.partner_id;
+        if (!sheetMap.has(key)) {
+          sheetMap.set(key, {
+            paying_partner_id: key,
+            paying_partner_full_name: top.full_name || top.partner_name,
+            paying_partner_bank_account: top.bank_account || '',
+            record_count: 0,
+            total_payable: 0,
+            header_company_name: rec.project_name,
+            records: []
+          });
+        }
+        const sheet = sheetMap.get(key);
+        sheet.records.push({ record: rec, payable_amount: top.payable_amount });
+        sheet.record_count += 1;
+        sheet.total_payable += Number(top.payable_amount || 0);
+      }
+
+      const sheets = Array.from(sheetMap.values());
+      const previewData: PaymentPreviewData = { sheets, processed_record_ids: processedIds };
 
       const finalCount = previewData.processed_record_ids.length;
       if (finalCount === 0) {
