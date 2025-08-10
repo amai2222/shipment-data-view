@@ -1,8 +1,6 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 描述: [AMQFc 最终执行版] 此代码已完全重构，以支持跨页选择预览功能。
-//       1. 新增RPC调用：在跨页模式下，首先调用新的 get_filtered_unpaid_ids 函数获取ID。
-//       2. 逻辑分离：明确区分了单页选择和跨页选择的处理流程。
-//       3. 架构优化：遵循了您提出的“新功能使用新函数”的清晰架构。
+// 描述: [vOgHD 最终修正版] 此代码已修复核心的分组逻辑错误。
+//       现在，系统会为每一条运单动态查找其最高级合作方，并为每一个不同的收款方生成独立的付款申请单。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +23,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, Pagi
 import { cn } from "@/lib/utils";
 
 // --- 类型定义 ---
-interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; }
+interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; full_name?: string; bank_account?: string; }
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; cargo_type: string | null; loading_weight: number | null; unloading_weight: number | null; remarks: string | null; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; }
 interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string; }
@@ -124,7 +122,6 @@ export default function PaymentRequest() {
       let idsToProcess: string[] = [];
 
       if (isCrossPageSelection) {
-        // 步骤 A: 调用新函数获取所有符合筛选条件的ID
         const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_unpaid_ids' as any, {
             p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
             p_start_date: activeFilters.startDate || null,
@@ -134,7 +131,6 @@ export default function PaymentRequest() {
         if (idError) throw idError;
         idsToProcess = (allFilteredIds as string[] | null) || [];
       } else {
-        // 单页模式：直接使用前端已选择的ID
         idsToProcess = Array.from(selection.selectedIds);
       }
 
@@ -144,7 +140,6 @@ export default function PaymentRequest() {
         return;
       }
 
-      // 步骤 B: 使用 v2 函数生成预览数据
       const { data: v2Data, error: rpcError } = await supabase.rpc('get_payment_request_data_v2' as any, {
         p_record_ids: idsToProcess
       });
@@ -152,31 +147,45 @@ export default function PaymentRequest() {
       if (rpcError) throw rpcError;
 
       const v2 = (v2Data as any) || {};
-      const records: any[] = Array.isArray(v2.records) ? v2.records : [];
+      const records: LogisticsRecord[] = Array.isArray(v2.records) ? v2.records : [];
       const processedIds: string[] = records.map((r: any) => r.id);
 
-      // 按最高级合作方分组生成 sheets
+      // 【关键修正】正确的分组逻辑
+      // 1. 初始化一个 Map，用于按最终收款方（最高级合作方）对付款单进行分组。
       const sheetMap = new Map<string, any>();
+
+      // 2. 遍历每一条从后端获取的、有效的运单记录。
       for (const rec of records) {
         const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
-        if (costs.length === 0) continue;
-        const top = costs.reduce((a: any, b: any) => (a.level > b.level ? a : b));
-        const key = top.partner_id;
+        if (costs.length === 0) continue; // 如果没有成本信息，则跳过此运单
+
+        // 3. 为【当前这条运单】，动态地找出其成本链条中的最高级合作方。
+        const topPartner = costs.reduce((highest, current) => (current.level > highest.level ? current : highest), costs[0]);
+        
+        // 4. 使用【当前运单的最高级合作方ID】作为分组的唯一标识 (key)。
+        const key = topPartner.partner_id;
+
+        // 5. 检查是否已经为这位合作方创建了付款单。
         if (!sheetMap.has(key)) {
+          // 如果没有，就为这位合作方创建一个新的付款单对象。
           sheetMap.set(key, {
             paying_partner_id: key,
-            paying_partner_full_name: top.full_name || top.partner_name,
-            paying_partner_bank_account: top.bank_account || '',
+            paying_partner_full_name: topPartner.full_name || topPartner.partner_name,
+            paying_partner_bank_account: topPartner.bank_account || '',
             record_count: 0,
             total_payable: 0,
             header_company_name: rec.project_name,
             records: []
           });
         }
+
+        // 6. 获取这位合作方对应的付款单。
         const sheet = sheetMap.get(key);
-        sheet.records.push({ record: rec, payable_amount: top.payable_amount });
+
+        // 7. 将【当前这条运单】的信息和金额，累加到【正确的】付款单上。
+        sheet.records.push({ record: rec, payable_amount: topPartner.payable_amount });
         sheet.record_count += 1;
-        sheet.total_payable += Number(top.payable_amount || 0);
+        sheet.total_payable += Number(topPartner.payable_amount || 0);
       }
 
       const sheets = Array.from(sheetMap.values());
@@ -213,7 +222,7 @@ export default function PaymentRequest() {
     setIsSaving(true);
     try {
       const { all_record_ids } = finalPaymentData;
-      const totalAmount = 0; // 此数据现在由后端处理，前端不再计算
+      const totalAmount = 0;
       
       const { data: newRequestId, error } = await supabase.rpc('process_payment_application', { p_record_ids: all_record_ids, p_total_amount: totalAmount });
       if (error) throw error;
