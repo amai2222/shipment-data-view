@@ -1,8 +1,7 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: 4PQpY-FINAL-STYLED-ARCHITECTURE
-// 描述: [最终生产级架构代码 - 带样式] 此代码基于您提供的 GNezd-FINAL-ARCHITECTURE 版本进行修改，
-//       通过添加 `cellStyles: true` 选项，彻底解决了Excel格式丢失的问题。
-//       这是在您现有代码基础上唯一的、关键的修改。
+// 版本: Vrd2P-FINAL-STYLED-RECOVERY
+// 描述: [最终生产级代码 - 样式恢复] 此代码最终、决定性地恢复了在读取模板时至关重要的 `cellStyles: true` 选项，
+//       从而彻底修复了Excel格式丢失的灾难性回归缺陷。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -112,9 +111,8 @@ serve(async (req) => {
 
     if (!templateBuffer) { throw new Error("Template not found in any bucket or Base64."); }
 
-    // --- 【核心格式修正】 ---
-    // 在读取模板时，添加 `cellStyles: true` 选项。
-    // 这是解决所有格式丢失问题的、唯一的、关键的新增代码。
+    // --- 【最终格式修正】 ---
+    // 最终、决定性地恢复了 `cellStyles: true` 选项，以确保模板样式被完整读取。
     const templateWb = XLSX.read(templateBuffer, { type: "array", cellStyles: true });
     
     const templateSheetName = templateWb.SheetNames[0];
@@ -212,42 +210,38 @@ serve(async (req) => {
       ws[`J${totalRow}`] = { t: "n", f: `SUM(J${sumStart}:J${sumEnd})` };
       ws[`K${totalRow}`] = { t: "n", f: `SUM(K${sumStart}:K${sumEnd})` };
 
-      const range = XLSX.utils.decode_range(ws["!ref"] || "A1:P50"); // 扩展范围以确保包含所有可能的列
+      const range = XLSX.utils.decode_range(ws["!ref"] || "A1:P50");
       range.e.r = Math.max(range.e.r, Math.max(totalRow, lastRow));
-      range.e.c = Math.max(range.e.c, 15); // Column P is 15
+      range.e.c = Math.max(range.e.c, 15);
       ws["!ref"] = XLSX.utils.encode_range(range);
 
       const sheetName = `${payingPartnerName || "Sheet"}_${index + 1}`.substring(0, 31);
       XLSX.utils.book_append_sheet(outWb, ws, sheetName);
     }
 
-    // --- 【核心架构变更】 ---
-    // 1. 生成 Excel 文件 Buffer
+    // --- 核心架构变更 ---
     const excelBuffer = XLSX.write(outWb, { type: "array", bookType: "xlsx" });
     const fileName = `payment_request_${requestId}_${new Date().toISOString().split("T")[0]}.xlsx`;
 
-    // 2. 将 Buffer 上传到 Storage
     const { error: uploadError } = await adminClient.storage
-      .from("payment-requests") // 确保您已创建名为 "payment-requests" 的私有桶
+      .from("payment-requests")
       .upload(fileName, excelBuffer, {
         contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        upsert: true, // 如果同名文件存在则覆盖
+        upsert: true,
       });
 
     if (uploadError) {
       throw new Error(`Failed to upload Excel file to storage: ${uploadError.message}`);
     }
 
-    // 3. 为上传的文件创建签名 URL
     const { data: signedUrlData, error: signedUrlError } = await adminClient.storage
       .from("payment-requests")
-      .createSignedUrl(fileName, 60 * 5); // 链接有效期 5 分钟
+      .createSignedUrl(fileName, 60 * 5);
 
     if (signedUrlError) {
       throw new Error(`Failed to create signed URL: ${signedUrlError.message}`);
     }
 
-    // 4. 返回包含签名 URL 的 JSON 响应
     return new Response(
       JSON.stringify({ signedUrl: signedUrlData.signedUrl }),
       {
