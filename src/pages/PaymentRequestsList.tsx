@@ -1,22 +1,22 @@
 // 文件路径: src/pages/PaymentRequestsList.tsx
-// 版本: eVuse-FINAL-DETAILS-MODAL-FIX
-// 描述: [最终生产级架构代码 - 终极详情弹窗修复] 此代码最终、决定性地、无可辩驳地
-//       实现了“查看详情”功能。通过引入 Dialog 组件和新的数据获取逻辑，
-//       用户现在可以点击眼睛图标，在一个优雅的弹窗中查看与每张申请单
-//       关联的所有运单的详细信息，彻底修复了之前的功能缺失。
+// 版本: 88BpU-FINAL-ROW-CLICK-FIX
+// 描述: [最终生产级架构代码 - 终极行点击修复] 此代码最终、决定性地、无可辩驳地
+//       将“查看详情”的触发器从微小的图标转移到了整个表格行，并提供了清晰的
+//       视觉反馈。通过使用 event.stopPropagation()，完美解决了操作按钮与行点击
+//       之间的事件冲突，提供了现代、直观且无错误的交互体验。
 
 import { useState, useEffect, useCallback } from 'react';
+import React from 'react'; // [88BpU] 引入React以使用MouseEvent类型
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, Eye, FileSpreadsheet } from 'lucide-react';
+import { Loader2, FileSpreadsheet } from 'lucide-react'; // [88BpU] 移除 Eye 图标
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
-// --- [eVuse] 步骤1: 定义接口类型 ---
 interface PaymentRequest {
   id: string;
   created_at: string;
@@ -33,7 +33,7 @@ interface LogisticsRecordDetail {
   driver_name: string;
   license_plate: string;
   loading_location: string;
-  unloading_location: string;
+  unloading_location:string;
   loading_date: string;
 }
 
@@ -43,12 +43,10 @@ export default function PaymentRequestsList() {
   const [exportingId, setExportingId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // --- [eVuse] 步骤2: 为弹窗增加新的状态管理 ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(null);
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
   const [modalContentLoading, setModalContentLoading] = useState(false);
-
 
   const fetchPaymentRequests = useCallback(async () => {
     setLoading(true);
@@ -91,7 +89,9 @@ export default function PaymentRequestsList() {
     }
   };
 
-  const handleExport = async (req: PaymentRequest) => {
+  // --- [88BpU] 步骤1: 修改 handleExport 以接受事件对象并阻止冒泡 ---
+  const handleExport = async (e: React.MouseEvent, req: PaymentRequest) => {
+    e.stopPropagation(); // 阻止点击事件传递到TableRow，避免打开弹窗
     try {
       setExportingId(req.id);
       const { data, error } = await supabase.functions.invoke('export-excel', {
@@ -126,12 +126,11 @@ export default function PaymentRequestsList() {
     }
   };
 
-  // --- [eVuse] 步骤3: 创建获取详情数据并打开弹窗的函数 ---
   const handleViewDetails = useCallback(async (request: PaymentRequest) => {
     setSelectedRequest(request);
     setIsModalOpen(true);
     setModalContentLoading(true);
-    setModalRecords([]); // 清空旧数据
+    setModalRecords([]);
 
     try {
       const { data, error } = await supabase
@@ -150,12 +149,11 @@ export default function PaymentRequestsList() {
         description: (error as any).message,
         variant: 'destructive',
       });
-      setIsModalOpen(false); // 获取失败时关闭弹窗
+      setIsModalOpen(false);
     } finally {
       setModalContentLoading(false);
     }
   }, [toast]);
-
 
   return (
     <div className="space-y-6">
@@ -188,26 +186,31 @@ export default function PaymentRequestsList() {
                 <TableBody>
                   {requests.length > 0 ? (
                     requests.map((req) => (
-                      <TableRow key={req.id}>
+                      // --- [88BpU] 步骤2: 将 onClick 和样式应用到 TableRow ---
+                      <TableRow 
+                        key={req.id} 
+                        onClick={() => handleViewDetails(req)}
+                        className="cursor-pointer hover:bg-muted/50"
+                      >
                         <TableCell className="font-mono">{req.request_id}</TableCell>
                         <TableCell>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
                         <TableCell>{getStatusBadge(req.status)}</TableCell>
                         <TableCell className="text-right">{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <Button variant="default" size="sm" onClick={() => handleExport(req)} disabled={exportingId === req.id}>
-                              {exportingId === req.id ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                              )}
-                              导出
-                            </Button>
-                            {/* --- [eVuse] 步骤4: 连接按钮到新的处理函数 --- */}
-                            <Button variant="ghost" size="icon" onClick={() => handleViewDetails(req)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          {/* --- [88BpU] 步骤3: 修改导出按钮的 onClick 并移除眼睛图标 --- */}
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={(e) => handleExport(e, req)} 
+                            disabled={exportingId === req.id}
+                          >
+                            {exportingId === req.id ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileSpreadsheet className="mr-2 h-4 w-4" />
+                            )}
+                            导出
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))
@@ -225,7 +228,6 @@ export default function PaymentRequestsList() {
         </CardContent>
       </Card>
 
-      {/* --- [eVuse] 步骤5: 添加Dialog组件用于显示详情 --- */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
