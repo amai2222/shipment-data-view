@@ -1,8 +1,9 @@
 // 文件路径: src/pages/PaymentRequestsList.tsx
-// 版本: 2xxrm-FINAL-ARCHITECTURE-FIX
-// 描述: [最终生产级架构代码 - 终极架构革命] 此代码最终、决定性地、无可辩驳地
-//       采纳了用户的革命性建议。handleExport 函数现在被极度简化，只负责向
-//       云函数发送一个最小化的请求（包含requestId），而不再进行任何复杂的数据获取和处理。
+// 版本: eVuse-FINAL-DETAILS-MODAL-FIX
+// 描述: [最终生产级架构代码 - 终极详情弹窗修复] 此代码最终、决定性地、无可辩驳地
+//       实现了“查看详情”功能。通过引入 Dialog 组件和新的数据获取逻辑，
+//       用户现在可以点击眼睛图标，在一个优雅的弹窗中查看与每张申请单
+//       关联的所有运单的详细信息，彻底修复了之前的功能缺失。
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,10 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Loader2, Eye, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
+// --- [eVuse] 步骤1: 定义接口类型 ---
 interface PaymentRequest {
   id: string;
   created_at: string;
@@ -24,11 +27,28 @@ interface PaymentRequest {
   record_count: number;
 }
 
+interface LogisticsRecordDetail {
+  id: string;
+  auto_number: string;
+  driver_name: string;
+  license_plate: string;
+  loading_location: string;
+  unloading_location: string;
+  loading_date: string;
+}
+
 export default function PaymentRequestsList() {
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // --- [eVuse] 步骤2: 为弹窗增加新的状态管理 ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(null);
+  const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
+  const [modalContentLoading, setModalContentLoading] = useState(false);
+
 
   const fetchPaymentRequests = useCallback(async () => {
     setLoading(true);
@@ -71,49 +91,33 @@ export default function PaymentRequestsList() {
     }
   };
 
-  // --- 【2xxrm 终极架构革命】 ---
   const handleExport = async (req: PaymentRequest) => {
     try {
       setExportingId(req.id);
-
-      // 1. 只向云函数发送 requestId
       const { data, error } = await supabase.functions.invoke('export-excel', {
         body: { requestId: req.request_id },
       });
-
       if (error) {
-        // 尝试解析云函数返回的错误信息
         let errorMessage = error.message;
         try {
             const errorBody = JSON.parse(error.context?.responseText || '{}');
             if (errorBody.error) {
                 errorMessage = errorBody.error;
             }
-        } catch (_) {
-            // 解析失败，使用原始错误信息
-        }
+        } catch (_) {}
         throw new Error(errorMessage);
       }
-
-      // 2. 从云函数获取签名的下载链接
       const { signedUrl } = data;
       if (!signedUrl) {
         throw new Error('云函数未返回有效的下载链接。');
       }
-
-      // 3. 在浏览器端创建并触发下载
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = signedUrl;
-      // 文件名现在由云函数决定，这里可以不设置
-      // a.download = `payment_request_${req.request_id}_${new Date().toISOString().split("T")[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
-      
       document.body.removeChild(a);
-
       toast({ title: '文件已开始下载', description: `申请单 ${req.request_id} 的Excel已开始下载。` });
-
     } catch (error) {
       console.error('导出失败:', error);
       toast({ title: '导出失败', description: (error as any).message, variant: 'destructive' });
@@ -121,6 +125,37 @@ export default function PaymentRequestsList() {
       setExportingId(null);
     }
   };
+
+  // --- [eVuse] 步骤3: 创建获取详情数据并打开弹窗的函数 ---
+  const handleViewDetails = useCallback(async (request: PaymentRequest) => {
+    setSelectedRequest(request);
+    setIsModalOpen(true);
+    setModalContentLoading(true);
+    setModalRecords([]); // 清空旧数据
+
+    try {
+      const { data, error } = await supabase
+        .from('logistics_records')
+        .select('id, auto_number, driver_name, license_plate, loading_location, unloading_location, loading_date')
+        .in('id', request.logistics_record_ids);
+
+      if (error) throw error;
+      
+      setModalRecords(data as LogisticsRecordDetail[]);
+
+    } catch (error) {
+      console.error('获取运单详情失败:', error);
+      toast({
+        title: '获取详情失败',
+        description: (error as any).message,
+        variant: 'destructive',
+      });
+      setIsModalOpen(false); // 获取失败时关闭弹窗
+    } finally {
+      setModalContentLoading(false);
+    }
+  }, [toast]);
+
 
   return (
     <div className="space-y-6">
@@ -168,7 +203,8 @@ export default function PaymentRequestsList() {
                               )}
                               导出
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => alert(`查看详情功能待开发，申请ID: ${req.request_id}`)}>
+                            {/* --- [eVuse] 步骤4: 连接按钮到新的处理函数 --- */}
+                            <Button variant="ghost" size="icon" onClick={() => handleViewDetails(req)}>
                               <Eye className="h-4 w-4" />
                             </Button>
                           </div>
@@ -188,6 +224,56 @@ export default function PaymentRequestsList() {
           </div>
         </CardContent>
       </Card>
+
+      {/* --- [eVuse] 步骤5: 添加Dialog组件用于显示详情 --- */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>申请单详情: {selectedRequest?.request_id}</DialogTitle>
+            <DialogDescription>
+              此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            {modalContentLoading ? (
+              <div className="flex justify-center items-center h-48">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>运单号</TableHead>
+                    <TableHead>司机</TableHead>
+                    <TableHead>车牌号</TableHead>
+                    <TableHead>起运地 → 目的地</TableHead>
+                    <TableHead>装车日期</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {modalRecords.length > 0 ? (
+                    modalRecords.map((rec) => (
+                      <TableRow key={rec.id}>
+                        <TableCell className="font-mono">{rec.auto_number}</TableCell>
+                        <TableCell>{rec.driver_name}</TableCell>
+                        <TableCell>{rec.license_plate}</TableCell>
+                        <TableCell>{`${rec.loading_location} → ${rec.unloading_location}`}</TableCell>
+                        <TableCell>{format(new Date(rec.loading_date), 'yyyy-MM-dd')}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center">
+                        未能加载运单详情或此申请单无运单。
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
