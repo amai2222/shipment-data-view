@@ -1,9 +1,8 @@
 // 文件路径: src/pages/PaymentRequestsList.tsx
-// 版本: iJx3R-SELECT-PARSER-FIX
-// 描述: [最终生产级代码 - 终极选择器解析修复] 此代码最终、决定性地、无可辩驳地
-//       修复了 fetchPaymentRequests 函数中灾难性的、不兼容的 select 查询语法。
-//       通过直接获取 logistics_record_ids 数组并在前端计算其长度，
-//       彻底解决了 "failed to parse select parameter" 的错误。
+// 版本: 2xxrm-FINAL-ARCHITECTURE-FIX
+// 描述: [最终生产级架构代码 - 终极架构革命] 此代码最终、决定性地、无可辩驳地
+//       采纳了用户的革命性建议。handleExport 函数现在被极度简化，只负责向
+//       云函数发送一个最小化的请求（包含requestId），而不再进行任何复杂的数据获取和处理。
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,15 +14,14 @@ import { Loader2, Eye, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
-// 定义付款申请的数据结构 (适配新架构)
 interface PaymentRequest {
   id: string;
   created_at: string;
   request_id: string;
   status: 'Pending' | 'Approved' | 'Paid' | 'Rejected';
   notes: string | null;
-  logistics_record_ids: string[]; // 确保此字段存在
-  record_count: number; // 我们将在前端填充此字段
+  logistics_record_ids: string[];
+  record_count: number;
 }
 
 export default function PaymentRequestsList() {
@@ -32,26 +30,16 @@ export default function PaymentRequestsList() {
   const [exportingId, setExportingId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // --- 【iJx3R 终极选择器解析修复】 ---
   const fetchPaymentRequests = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. 使用JS客户端兼容的语法，直接获取数组字段
       const { data, error } = await supabase
         .from('payment_requests')
-        .select('*, logistics_record_ids') // 直接获取整个数组，而不是尝试计算
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      // 2. 在前端处理数据，计算数组长度并填充到 record_count
-      setRequests((data || []).map(item => ({
-        ...item,
-        status: item.status as 'Pending' | 'Approved' | 'Paid' | 'Rejected',
-        // 显式地将数组长度作为 record_count，供UI使用
-        record_count: item.logistics_record_ids?.length ?? 0
-      })));
-
+      setRequests((data || []) as PaymentRequest[]);
     } catch (error) {
       console.error("加载付款申请列表失败:", error);
       toast({
@@ -83,68 +71,42 @@ export default function PaymentRequestsList() {
     }
   };
 
+  // --- 【2xxrm 终极架构革命】 ---
   const handleExport = async (req: PaymentRequest) => {
     try {
       setExportingId(req.id);
-      
-      const ids = req.logistics_record_ids || [];
 
-      if (!ids.length) {
-        toast({ title: '提示', description: '该申请单暂无关联运单，无法导出。' });
-        return;
-      }
-
-      const { data: v2Data, error: rpcError } = await supabase.rpc('get_payment_request_data_v2' as any, {
-        p_record_ids: ids,
+      // 1. 只向云函数发送 requestId
+      const { data, error } = await supabase.functions.invoke('export-excel', {
+        body: { requestId: req.request_id },
       });
-      if (rpcError) throw rpcError;
-      const records: any[] = Array.isArray((v2Data as any)?.records) ? (v2Data as any).records : [];
 
-      const sheetMap = new Map<string, any>();
-      for (const rec of records) {
-        const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
-        for (const cost of costs) {
-          const key = cost.partner_id;
-          if (!sheetMap.has(key)) {
-            sheetMap.set(key, {
-              paying_partner_id: key,
-              paying_partner_full_name: cost.full_name || cost.partner_name,
-              paying_partner_bank_account: cost.bank_account || '',
-              paying_partner_bank_name: (cost as any).bank_name || '',
-              paying_partner_branch_name: (cost as any).branch_name || '',
-              record_count: 0,
-              total_payable: 0,
-              project_name: rec.project_name,
-              records: [],
-            });
-          }
-          const sheet = sheetMap.get(key);
-          if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
-            sheet.record_count += 1;
-          }
-          sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
-          sheet.total_payable += Number(cost.payable_amount || 0);
+      if (error) {
+        // 尝试解析云函数返回的错误信息
+        let errorMessage = error.message;
+        try {
+            const errorBody = JSON.parse(error.context?.responseText || '{}');
+            if (errorBody.error) {
+                errorMessage = errorBody.error;
+            }
+        } catch (_) {
+            // 解析失败，使用原始错误信息
         }
+        throw new Error(errorMessage);
       }
-      const sheets = Array.from(sheetMap.values());
-      const finalPaymentData = { sheets, all_record_ids: ids };
 
-      const { data, error: functionError } = await supabase.functions.invoke('export-excel', {
-        body: { sheetData: finalPaymentData, requestId: req.request_id },
-      });
+      // 2. 从云函数获取签名的下载链接
+      const { signedUrl } = data;
+      if (!signedUrl) {
+        throw new Error('云函数未返回有效的下载链接。');
+      }
 
-      if (functionError) throw new Error(functionError.message);
-      
-      // 由于我们不再使用 responseType: 'blob'，需要手动处理返回的JSON
-      const result = await (data as any).json();
-      if (result.error) throw new Error(result.error);
-      if (!result.signedUrl) throw new Error('Edge function did not return a signed URL.');
-
-      // 直接使用返回的签名URL进行下载
+      // 3. 在浏览器端创建并触发下载
       const a = document.createElement('a');
       a.style.display = 'none';
-      a.href = result.signedUrl;
-      // a.download 属性对于签名URL可能不起作用，但浏览器通常会根据响应头自动命名
+      a.href = signedUrl;
+      // 文件名现在由云函数决定，这里可以不设置
+      // a.download = `payment_request_${req.request_id}_${new Date().toISOString().split("T")[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       
@@ -154,7 +116,7 @@ export default function PaymentRequestsList() {
 
     } catch (error) {
       console.error('导出失败:', error);
-      toast({ title: '错误', description: `导出失败: ${(error as any).message}`, variant: 'destructive' });
+      toast({ title: '导出失败', description: (error as any).message, variant: 'destructive' });
     } finally {
       setExportingId(null);
     }
@@ -195,7 +157,7 @@ export default function PaymentRequestsList() {
                         <TableCell className="font-mono">{req.request_id}</TableCell>
                         <TableCell>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
                         <TableCell>{getStatusBadge(req.status)}</TableCell>
-                        <TableCell className="text-right">{req.record_count}</TableCell>
+                        <TableCell className="text-right">{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
                             <Button variant="default" size="sm" onClick={() => handleExport(req)} disabled={exportingId === req.id}>
