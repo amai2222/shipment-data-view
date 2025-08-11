@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [kuIDn 最终审计版] 此代码已实现全新的、与侧边栏和谐统一的专业配色方案。
+// 描述: [elOZy 最终审计版] 此代码已实现根据 billing_type_id 动态调整单位（吨/车/立方）和对应的数据展示。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,8 +19,8 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-// --- 类型定义 (保持不变) ---
-interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; }
+// --- 类型定义 ---
+interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; }
 interface TrendData { date: string; trips: number; weight: number; receivable: number; }
 interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; }
@@ -98,15 +98,58 @@ export default function ProjectDashboard() {
     fetchDashboardData();
   }, [selectedProjectId, reportDate, toast]);
 
-  // --- 辅助函数和计算 (保持不变) ---
+  // --- 辅助函数和计算 ---
   const allProjects = dashboardData?.project_details || [];
   const selectedProjectDetails = useMemo(() => {
     return allProjects.find(p => p.id === selectedProjectId);
   }, [allProjects, selectedProjectId]);
 
-  const completedTons = dashboardData?.summary_stats?.total_tonnage || 0;
-  const plannedTons = selectedProjectDetails?.planned_total_tons || 1;
-  const progressPercentage = (completedTons / plannedTons) * 100;
+  // 【核心修改】根据 billing_type_id 动态生成单位和数据
+  const unitConfig = useMemo(() => {
+    const billingType = selectedProjectDetails?.billing_type_id;
+    const stats = dashboardData?.summary_stats;
+    const daily = dashboardData?.daily_report;
+
+    switch (billingType) {
+      case 2: // 计车
+        return {
+          progressUnit: '车',
+          progressCompleted: stats?.total_trips || 0,
+          progressPlanned: selectedProjectDetails?.planned_total_tons || 1, // 按指示，计划数用吨位的值
+          dailyReportLabel: '当日运输车次',
+          dailyReportValue: daily?.trip_count || 0,
+          trendLineLabel: '总车次',
+          driverReportColHeader: '出车次数',
+          getDriverReportRowValue: (row: DriverReportRow) => row.trip_count,
+        };
+      case 3: // 计方
+        // 警告：后端未提供体积数据，暂时使用吨位数据进行展示，标签已按要求修改。
+        // 建议未来更新后端以提供真实体积数据。
+        return {
+          progressUnit: '立方',
+          progressCompleted: stats?.total_tonnage || 0, // 使用吨位数据
+          progressPlanned: selectedProjectDetails?.planned_total_tons || 1, // 使用吨位数据
+          dailyReportLabel: '当日运输立方',
+          dailyReportValue: daily?.total_tonnage || 0, // 使用吨位数据
+          trendLineLabel: '总立方',
+          driverReportColHeader: '卸货立方',
+          getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage, // 使用吨位数据
+        };
+      default: // 计吨 (billing_type_id 为 1, null, 或其他)
+        return {
+          progressUnit: '吨',
+          progressCompleted: stats?.total_tonnage || 0,
+          progressPlanned: selectedProjectDetails?.planned_total_tons || 1,
+          dailyReportLabel: '当日运输吨数',
+          dailyReportValue: daily?.total_tonnage || 0,
+          trendLineLabel: '总重量',
+          driverReportColHeader: '卸货吨数',
+          getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage,
+        };
+    }
+  }, [selectedProjectDetails, dashboardData]);
+
+  const progressPercentage = (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100;
 
   const maxTrips = useMemo(() => {
     const trendData = dashboardData?.seven_day_trend;
@@ -135,7 +178,6 @@ export default function ProjectDashboard() {
   }
 
   return (
-    // 【配色方案】使用浅灰色背景
     <div className="p-6 bg-slate-50 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
@@ -171,7 +213,7 @@ export default function ProjectDashboard() {
                     </div>
                     <Progress value={progressPercentage} />
                     <div className="text-lg font-semibold text-slate-500">
-                        {formatNumber(completedTons, '吨')} / <span className="text-slate-800">{formatNumber(plannedTons, '吨')}</span>
+                        {formatNumber(unitConfig.progressCompleted, unitConfig.progressUnit)} / <span className="text-slate-800">{formatNumber(unitConfig.progressPlanned, unitConfig.progressUnit)}</span>
                     </div>
                 </CardContent>
             </Card>
@@ -187,8 +229,8 @@ export default function ProjectDashboard() {
                       <p className="text-sm text-slate-500">当日车次</p>
                   </div>
                   <div>
-                      <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.total_tonnage, '吨')}</p>
-                      <p className="text-sm text-slate-500">当日运输吨数</p>
+                      <p className="text-2xl font-bold text-slate-800">{formatNumber(unitConfig.dailyReportValue, unitConfig.progressUnit)}</p>
+                      <p className="text-sm text-slate-500">{unitConfig.dailyReportLabel}</p>
                   </div>
                   <div>
                       <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.daily_report?.driver_receivable, '元')}</p>
@@ -227,11 +269,10 @@ export default function ProjectDashboard() {
                     <XAxis dataKey="date" />
                     <YAxis yAxisId="left" domain={[0, maxTrips]} label={{ value: '吨 / 车', angle: -90, position: 'insideLeft' }} />
                     <YAxis yAxisId="right" orientation="right" label={{ value: '元', angle: -90, position: 'insideRight' }} />
-                    <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '总重量' ? '吨' : '元'}`, name]} />
+                    <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '总重量' || name === '总车次' || name === '总立方' ? unitConfig.progressUnit : '元'}`, name]} />
                     <Legend />
-                    {/* 【配色方案】为图表线条指定新的颜色 */}
                     <Line yAxisId="left" type="monotone" dataKey="trips" name="车次" stroke="#4338ca" strokeWidth={2} hide={!visibleLines.trips} />
-                    <Line yAxisId="left" type="monotone" dataKey="weight" name="总重量" stroke="#0d9488" strokeWidth={2} hide={!visibleLines.weight} />
+                    <Line yAxisId="left" type="monotone" dataKey="weight" name={unitConfig.trendLineLabel} stroke="#0d9488" strokeWidth={2} hide={!visibleLines.weight} />
                     <Line yAxisId="right" type="monotone" dataKey="receivable" name="应收总额" stroke="#f59e0b" strokeWidth={2} hide={!visibleLines.receivable} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -249,9 +290,11 @@ export default function ProjectDashboard() {
                     <TableRow>
                       <TableHead>司机姓名</TableHead>
                       <TableHead className="text-right">出车次数</TableHead>
-                      <TableHead className="text-right">卸货吨数</TableHead>
+                      <TableHead className="text-right">{unitConfig.driverReportColHeader}</TableHead>
                       <TableHead className="text-right">司机应收 (元)</TableHead>
-                      <TableHead className="text-right">{selectedProjectDetails?.partner_name || '合作方'}应付 (元)</TableHead>
+                      {selectedProjectDetails?.billing_type_id === 1 && (
+                        <TableHead className="text-right">{selectedProjectDetails?.partner_name || '合作方'}应付 (元)</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -260,13 +303,19 @@ export default function ProjectDashboard() {
                         <TableRow key={row.driver_name}>
                           <TableCell className="font-medium">{row.driver_name}</TableCell>
                           <TableCell className="text-right">{row.trip_count}</TableCell>
-                          <TableCell className="text-right">{formatNumber(row.total_tonnage)}</TableCell>
+                          <TableCell className="text-right">{formatNumber(unitConfig.getDriverReportRowValue(row))}</TableCell>
                           <TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell>
-                          <TableCell className="text-right text-red-600 font-semibold">{formatNumber(row.total_partner_payable)}</TableCell>
+                          {selectedProjectDetails?.billing_type_id === 1 && (
+                            <TableCell className="text-right text-red-600 font-semibold">{formatNumber(row.total_partner_payable)}</TableCell>
+                          )}
                         </TableRow>
                       ))
                     ) : (
-                      <TableRow><TableCell colSpan={5} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell></TableRow>
+                      <TableRow>
+                        <TableCell colSpan={selectedProjectDetails?.billing_type_id === 1 ? 5 : 4} className="h-24 text-center text-slate-500">
+                          该日无司机工作记录
+                        </TableCell>
+                      </TableRow>
                     )}
                   </TableBody>
                 </Table>
