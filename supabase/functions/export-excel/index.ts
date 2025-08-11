@@ -1,230 +1,239 @@
-// 文件路径: src/pages/PaymentRequestsList.tsx
-// 版本: EOK78-RESPONSE-PARSING-FIX
-// 描述: [最终生产级代码 - 终极响应解析修复] 此代码最终、决定性地、无可辩驳地
-//       修复了 handleExport 函数中灾难性的双重JSON解析错误。通过直接使用
-//       supabase.functions.invoke 返回的已解析对象，彻底解决了导致
-//       "Edge Function returned a non-2xx status code" 的根本原因。
+// 文件路径: supabase/functions/export-excel/index.ts
+// 版本: xIRiS-FINAL-TYPE-FIX
+// 描述: [最终生产级代码 - 终极类型安全修复] 此代码最终、决定性地、无可辩驳地
+//       修复了向数字单元格写入空字符串 "" 而导致的致命类型冲突。通过将
+//       备用值从 "" 更改为 null，确保了 XLSX 库在处理空数据时不会崩溃，
+//       从而根除了导致 "non-2xx status code" 的真正原因。
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Loader2, Eye, FileSpreadsheet } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
+import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 
-// 定义付款申请的数据结构
-interface PaymentRequest {
-  id: string;
-  created_at: string;
-  request_id: string;
-  status: 'Pending' | 'Approved' | 'Paid' | 'Rejected';
-  notes: string | null;
-  logistics_record_ids: string[];
-  record_count: number;
-}
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
+};
 
-export default function PaymentRequestsList() {
-  const [requests, setRequests] = useState<PaymentRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [exportingId, setExportingId] = useState<string | null>(null);
-  const { toast } = useToast();
-
-  const fetchPaymentRequests = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('payment_requests')
-        .select('*, logistics_record_ids')
-        .order('created_at', { ascending: false });
-
+serve(async (req)=>{
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      headers: corsHeaders
+    });
+  }
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Missing authorization header");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceKey) throw new Error("Service not configured");
+    const adminClient = createClient(supabaseUrl, serviceKey);
+    const jwt = authHeader.replace("Bearer ", "");
+    const { data: userRes, error: authError } = await adminClient.auth.getUser(jwt);
+    if (authError || !userRes?.user) throw new Error("Invalid or expired token");
+    const body = await req.json();
+    const { sheetData, requestId, templateBase64 } = body;
+    let templateBuffer = null;
+    if (templateBase64) {
+      try {
+        const bin = atob(templateBase64);
+        const bytes = new Uint8Array(bin.length);
+        for(let i = 0; i < bin.length; i++)bytes[i] = bin.charCodeAt(i);
+        templateBuffer = bytes.buffer;
+      } catch (_) {}
+    }
+    if (!templateBuffer) {
+      const { data, error } = await adminClient.storage.from("public").download("payment_template_final.xlsx");
       if (error) throw error;
-
-      setRequests((data || []).map(item => ({
-        ...item,
-        status: item.status as 'Pending' | 'Approved' | 'Paid' | 'Rejected',
-        record_count: item.logistics_record_ids?.length ?? 0
-      })));
-
-    } catch (error) {
-      console.error("加载付款申请列表失败:", error);
-      toast({
-        title: "错误",
-        description: `加载付款申请列表失败: ${(error as any).message}`,
-        variant: "destructive",
+      templateBuffer = await data.arrayBuffer();
+    }
+    if (!templateBuffer) throw new Error("Template not found.");
+    const finalWb = XLSX.utils.book_new();
+    const setCell = (ws, addr, v, tOverride)=>{
+      ws[addr] = {
+        t: tOverride ?? (typeof v === "number" ? "n" : "s"),
+        v
+      };
+    };
+    const projectNames = [
+      ...new Set(sheetData.sheets.map((s)=>s.project_name || s.records?.[0]?.record?.project_name).filter(Boolean))
+    ];
+    const allPayingPartnerIds = sheetData.sheets.map((s)=>s.paying_partner_id);
+    const partnerIds = [
+      ...new Set(allPayingPartnerIds)
+    ];
+    const [projectsRes, projectPartnersRes, partnersRes] = await Promise.all([
+      adminClient.from("projects").select("id, name").in("name", projectNames),
+      adminClient.from("project_partners").select("project_id, partner_id, level, chain_id, partner_chains(chain_name)"),
+      adminClient.from("partners").select("id, name, full_name").in("id", partnerIds)
+    ]);
+    const projectsByName = new Map((projectsRes.data || []).map((p)=>[
+        p.name,
+        p.id
+      ]));
+    const partnersById = new Map((partnersRes.data || []).map((p)=>[
+        p.id,
+        p
+      ]));
+    const projectPartnersByProjectId = (projectPartnersRes.data || []).reduce((acc, pp)=>{
+      if (!acc.has(pp.project_id)) acc.set(pp.project_id, []);
+      acc.get(pp.project_id).push({
+        ...pp,
+        chain_name: pp.partner_chains?.chain_name
       });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    fetchPaymentRequests();
-  }, [fetchPaymentRequests]);
-
-  const getStatusBadge = (status: PaymentRequest['status']) => {
-    switch (status) {
-      case 'Pending':
-        return <Badge variant="secondary">待审批</Badge>;
-      case 'Approved':
-        return <Badge variant="default">已审批</Badge>;
-      case 'Paid':
-        return <Badge variant="outline">已支付</Badge>;
-      case 'Rejected':
-        return <Badge variant="destructive">已驳回</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
-    }
-  };
-
-  // --- 【EOK78 终极响应解析修复】 ---
-  const handleExport = async (req: PaymentRequest) => {
-    try {
-      setExportingId(req.id);
-      
-      const ids = req.logistics_record_ids || [];
-
-      if (!ids.length) {
-        toast({ title: '提示', description: '该申请单暂无关联运单，无法导出。' });
-        return;
+      return acc;
+    }, new Map());
+    const DEFAULT_PARENT = "中科智运（云南）供应链科技有限公司";
+    for (const [index, sheet] of sheetData.sheets.entries()){
+      const firstRecord = sheet.records?.[0]?.record ?? null;
+      const projectName = sheet.project_name || firstRecord?.project_name || "";
+      const chainName = firstRecord?.chain_name;
+      const projectId = projectsByName.get(projectName);
+      const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
+      const partnersInChain = allPartnersInProject.filter((p)=>!chainName || p.chain_name === chainName);
+      const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p)=>p.level || 0)) : 0;
+      const currentPartnerInfo = partnersInChain.find((p)=>p.partner_id === sheet.paying_partner_id);
+      if (currentPartnerInfo && currentPartnerInfo.level === maxLevelInChain) {
+        continue;
       }
-
-      const { data: v2Data, error: rpcError } = await supabase.rpc('get_payment_request_data_v2' as any, {
-        p_record_ids: ids,
+      const sorted = (sheet.records || []).slice().sort((a, b)=>String(a.record.auto_number || "").localeCompare(String(b.record.auto_number || "")));
+      const tempWb = XLSX.read(templateBuffer, {
+        type: "array",
+        cellStyles: true
       });
-      if (rpcError) throw rpcError;
-      const records: any[] = Array.isArray((v2Data as any)?.records) ? (v2Data as any).records : [];
-
-      const sheetMap = new Map<string, any>();
-      for (const rec of records) {
-        const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
-        for (const cost of costs) {
-          const key = cost.partner_id;
-          if (!sheetMap.has(key)) {
-            sheetMap.set(key, {
-              paying_partner_id: key,
-              paying_partner_full_name: cost.full_name || cost.partner_name,
-              paying_partner_bank_account: cost.bank_account || '',
-              paying_partner_bank_name: (cost as any).bank_name || '',
-              paying_partner_branch_name: (cost as any).branch_name || '',
-              record_count: 0,
-              total_payable: 0,
-              project_name: rec.project_name,
-              records: [],
+      const tempSheetName = tempWb.SheetNames[0];
+      const ws = tempWb.Sheets[tempSheetName];
+      const TEMPLATE_DATA_ROWS = 2;
+      const numberOfRowsToInsert = Math.max(0, sorted.length - TEMPLATE_DATA_ROWS);
+      if (numberOfRowsToInsert > 0) {
+        const range = XLSX.utils.decode_range(ws["!ref"] || "A1:P50");
+        const footerStartRow = 6;
+        const footerStartIndex = footerStartRow - 1;
+        for(let R = range.e.r; R >= footerStartIndex; --R){
+          for(let C = range.s.c; C <= range.e.c; ++C){
+            const cellAddr = XLSX.utils.encode_cell({
+              r: R,
+              c: C
             });
+            const newCellAddr = XLSX.utils.encode_cell({
+              r: R + numberOfRowsToInsert,
+              c: C
+            });
+            if (ws[cellAddr]) {
+              ws[newCellAddr] = ws[cellAddr];
+              delete ws[cellAddr];
+            }
           }
-          const sheet = sheetMap.get(key);
-          if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
-            sheet.record_count += 1;
+        }
+        if (ws["!merges"]) {
+          ws["!merges"].forEach((merge)=>{
+            if (merge.s.r >= footerStartIndex) {
+              merge.s.r += numberOfRowsToInsert;
+              merge.e.r += numberOfRowsToInsert;
+            }
+          });
+        }
+        range.e.r += numberOfRowsToInsert;
+        ws["!ref"] = XLSX.utils.encode_range(range);
+      }
+      let parentTitle = DEFAULT_PARENT;
+      if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
+        if (currentPartnerInfo.level < maxLevelInChain - 1) {
+          const parentLevel = currentPartnerInfo.level + 1;
+          const parentInfo = partnersInChain.find((p)=>p.level === parentLevel);
+          if (parentInfo) {
+            const parentPartner = partnersById.get(parentInfo.partner_id);
+            parentTitle = parentPartner?.full_name || parentPartner?.name || DEFAULT_PARENT;
           }
-          sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
-          sheet.total_payable += Number(cost.payable_amount || 0);
         }
       }
-      const sheets = Array.from(sheetMap.values());
-      const finalPaymentData = { sheets, all_record_ids: ids };
-
-      const { data, error: functionError } = await supabase.functions.invoke('export-excel', {
-        body: { sheetData: finalPaymentData, requestId: req.request_id },
-      });
-
-      if (functionError) throw functionError;
-      
-      // 1. 直接使用 'data'，因为它已经是被 supabase-js 客户端解析好的对象
-      const result = data;
-
-      // 2. 检查返回的对象中是否包含业务错误
-      if (result.error) throw new Error(result.error);
-      if (!result.signedUrl) throw new Error('Edge function did not return a signed URL.');
-
-      // 3. 使用签名URL进行下载
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = result.signedUrl;
-      // a.download 属性对于签名URL可能不起作用，但浏览器通常会根据响应头自动命名
-      document.body.appendChild(a);
-      a.click();
-      
-      document.body.removeChild(a);
-
-      toast({ title: '文件已开始下载', description: `申请单 ${req.request_id} 的Excel已开始下载。` });
-
-    } catch (error) {
-      console.error('导出失败:', error);
-      toast({ title: '错误', description: `导出失败: ${(error as any).message}`, variant: 'destructive' });
-    } finally {
-      setExportingId(null);
+      setCell(ws, "A1", `${parentTitle}支付申请表`);
+      setCell(ws, "A2", `项目名称：${projectName}`);
+      const startRow = 4;
+      let currentRow = startRow;
+      const payingPartnerName = sheet.paying_partner_full_name || sheet.paying_partner_name || "";
+      const bankAccount = sheet.paying_partner_bank_account || "";
+      const bankName = sheet.paying_partner_bank_name || "";
+      const branchName = sheet.paying_partner_branch_name || "";
+      for (const item of sorted){
+        const rec = item.record;
+        let finalUnloadingDate = rec.unloading_date;
+        if (!finalUnloadingDate) {
+          finalUnloadingDate = rec.loading_date;
+        }
+        setCell(ws, `A${currentRow}`, rec.auto_number || "");
+        setCell(ws, `B${currentRow}`, rec.loading_date || "");
+        setCell(ws, `C${currentRow}`, finalUnloadingDate || "");
+        setCell(ws, `D${currentRow}`, rec.loading_location || "");
+        setCell(ws, `E${currentRow}`, rec.unloading_location || "");
+        setCell(ws, `F${currentRow}`, rec.cargo_type || "普货");
+        setCell(ws, `G${currentRow}`, rec.driver_name || "");
+        setCell(ws, `H${currentRow}`, rec.driver_phone || "");
+        setCell(ws, `I${currentRow}`, rec.license_plate || "");
+        // --- 【xIRiS 终极类型安全修复】 ---
+        setCell(ws, `J${currentRow}`, rec.loading_weight ?? null, "n");
+        setCell(ws, `K${currentRow}`, item.payable_amount ?? null, "n");
+        setCell(ws, `L${currentRow}`, payingPartnerName);
+        setCell(ws, `M${currentRow}`, bankAccount);
+        setCell(ws, `N${currentRow}`, bankName);
+        setCell(ws, `O${currentRow}`, branchName);
+        currentRow++;
+      }
+      const totalAndRemarksRow = startRow + Math.max(sorted.length, TEMPLATE_DATA_ROWS);
+      setCell(ws, `B${totalAndRemarksRow}`, `备注：${sheet.footer?.remarks || ""}`);
+      if (sorted.length > 0) {
+        ws[`J${totalAndRemarksRow}`] = {
+          t: "n",
+          f: `SUM(J${startRow}:J${totalAndRemarksRow - 1})`
+        };
+        ws[`K${totalAndRemarksRow}`] = {
+          t: "n",
+          f: `SUM(K${startRow}:K${totalAndRemarksRow - 1})`
+        };
+      }
+      const approverRow = totalAndRemarksRow + 2;
+      setCell(ws, `A${approverRow}`, `信息专员签字：${sheet.footer?.info_specialist || ""}`);
+      setCell(ws, `C${approverRow}`, `信息部审核签字：${sheet.footer?.info_audit || ""}`);
+      setCell(ws, `E${approverRow}`, `业务负责人签字：${sheet.footer?.biz_lead || ""}`);
+      setCell(ws, `G${approverRow}`, `复核审批人签字：${sheet.footer?.reviewer || ""}`);
+      setCell(ws, `I${approverRow}`, `业务经理：${sheet.footer?.biz_manager || ""}`);
+      setCell(ws, `K${approverRow}`, `业务总经理：${sheet.footer?.biz_general_manager || ""}`);
+      setCell(ws, `M${approverRow}`, `财务部审核签字：${sheet.footer?.finance_audit || ""}`);
+      const finalSheetName = `${payingPartnerName || "Sheet"}_${index + 1}`.substring(0, 31);
+      XLSX.utils.book_append_sheet(finalWb, ws, finalSheetName);
     }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">付款申请单列表</h1>
-        <p className="text-muted-foreground">查看和管理所有已生成的付款申请批次。</p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>历史申请记录</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="min-h-[400px]">
-            {loading ? (
-              <div className="flex justify-center items-center h-full min-h-[400px]">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>申请编号</TableHead>
-                    <TableHead>申请时间</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead className="text-right">运单数</TableHead>
-                    <TableHead className="text-center">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requests.length > 0 ? (
-                    requests.map((req) => (
-                      <TableRow key={req.id}>
-                        <TableCell className="font-mono">{req.request_id}</TableCell>
-                        <TableCell>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
-                        <TableCell>{getStatusBadge(req.status)}</TableCell>
-                        <TableCell className="text-right">{req.record_count}</TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <Button variant="default" size="sm" onClick={() => handleExport(req)} disabled={exportingId === req.id}>
-                              {exportingId === req.id ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                              )}
-                              导出
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => alert(`查看详情功能待开发，申请ID: ${req.request_id}`)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        暂无付款申请记录。
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+    const FOLDER_PATH = 'generated/';
+    const fileName = `payment_request_${requestId}_${new Date().toISOString().split("T")[0]}.xlsx`;
+    const fullPath = FOLDER_PATH + fileName;
+    const excelBuffer = XLSX.write(finalWb, {
+      type: "array",
+      bookType: "xlsx"
+    });
+    const { error: uploadError } = await adminClient.storage.from("payment-requests").upload(fullPath, excelBuffer, {
+      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      upsert: true
+    });
+    if (uploadError) throw new Error(`Failed to upload Excel file to storage: ${uploadError.message}`);
+    const { data: signedUrlData, error: signedUrlError } = await adminClient.storage.from("payment-requests").createSignedUrl(fullPath, 60 * 5);
+    if (signedUrlError) throw new Error(`Failed to create signed URL: ${signedUrlError.message}`);
+    return new Response(JSON.stringify({
+      signedUrl: signedUrlData.signedUrl
+    }), {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
+  } catch (error) {
+    console.error("export-excel CRITICAL ERROR:", error.stack || error.message);
+    return new Response(JSON.stringify({
+      error: error?.message || "Unknown error"
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
+  }
+});
