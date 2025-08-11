@@ -228,33 +228,7 @@ export default function PaymentRequest() {
       const { data: newRequestId, error } = await supabase.rpc('process_payment_application', { p_record_ids: all_record_ids, p_total_amount: totalAmount });
       if (error) throw error;
       
-      toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已成功创建。正在向服务器请求生成Excel文件...` });
-
-      let templateBase64: string | undefined;
-      try {
-        const resp = await fetch('/payment_template_final.xlsx');
-        if (resp.ok) {
-          const buf = await resp.arrayBuffer();
-          const toBase64 = (ab: ArrayBuffer) => { let binary = ''; const bytes = new Uint8Array(ab); const chunk = 0x8000; for (let i = 0; i < bytes.length; i += chunk) { binary += String.fromCharCode(...bytes.subarray(i, i + chunk)); } return btoa(binary); };
-          templateBase64 = toBase64(buf);
-        }
-      } catch (_) {}
-
-      const { data, error: functionError } = await supabase.functions.invoke('export-excel', {
-        body: { sheetData: finalPaymentData, requestId: newRequestId, templateBase64 },
-      });
-
-      if (functionError) {
-        throw new Error(`生成Excel文件失败: ${functionError.message}`);
-      }
-      
-      if (data.error || !data.signedUrl) {
-        throw new Error(`生成下载链接失败: ${data.error || '服务器未返回有效的下载链接。'}`);
-      }
-
-      window.location.href = data.signedUrl;
-
-      toast({ title: "文件已开始下载", description: "您的支付申请Excel文件已开始下载。" });
+      toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已创建。请前往“付款申请单列表”页面选择该申请单后导出Excel。` });
 
       setIsPreviewModalOpen(false);
       setPaymentPreviewData(null);

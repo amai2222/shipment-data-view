@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Eye } from 'lucide-react';
+import { Loader2, Eye, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
@@ -26,6 +26,7 @@ interface PaymentRequest {
 export default function PaymentRequestsList() {
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exportingId, setExportingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchPaymentRequests = useCallback(async () => {
@@ -77,6 +78,94 @@ export default function PaymentRequestsList() {
     return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
   };
 
+  const handleExport = async (req: PaymentRequest) => {
+    try {
+      setExportingId(req.id);
+      // 1) 获取该申请单关联的运单ID
+      const { data: items, error: itemsError } = await supabase
+        .from('payment_request_records')
+        .select('logistics_record_id')
+        .eq('payment_request_id', req.id);
+      if (itemsError) throw itemsError;
+      const ids = (items || []).map((i: any) => i.logistics_record_id);
+      if (!ids.length) {
+        toast({ title: '提示', description: '该申请单暂无关联运单，无法导出。' });
+        return;
+      }
+
+      // 2) 获取导出所需数据
+      const { data: v2Data, error: rpcError } = await supabase.rpc('get_payment_request_data_v2' as any, {
+        p_record_ids: ids,
+      });
+      if (rpcError) throw rpcError;
+      const records: any[] = Array.isArray((v2Data as any)?.records) ? (v2Data as any).records : [];
+
+      // 3) 按合作方分组，构建 sheets 数据
+      const sheetMap = new Map<string, any>();
+      for (const rec of records) {
+        const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
+        for (const cost of costs) {
+          const key = cost.partner_id;
+          if (!sheetMap.has(key)) {
+            sheetMap.set(key, {
+              paying_partner_id: key,
+              paying_partner_full_name: cost.full_name || cost.partner_name,
+              paying_partner_bank_account: cost.bank_account || '',
+              paying_partner_bank_name: (cost as any).bank_name || '',
+              paying_partner_branch_name: (cost as any).branch_name || '',
+              record_count: 0,
+              total_payable: 0,
+              header_company_name: rec.project_name,
+              records: [],
+            });
+          }
+          const sheet = sheetMap.get(key);
+          if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
+            sheet.record_count += 1;
+          }
+          sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
+          sheet.total_payable += Number(cost.payable_amount || 0);
+        }
+      }
+      const sheets = Array.from(sheetMap.values());
+      const finalPaymentData = { sheets, all_record_ids: ids };
+
+      // 4) 读取模板（前端提供备用）
+      let templateBase64: string | undefined;
+      try {
+        const resp = await fetch('/payment_template_final.xlsx');
+        if (resp.ok) {
+          const buf = await resp.arrayBuffer();
+          const toBase64 = (ab: ArrayBuffer) => {
+            let binary = '';
+            const bytes = new Uint8Array(ab);
+            const chunk = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunk) {
+              binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+            }
+            return btoa(binary);
+          };
+          templateBase64 = toBase64(buf);
+        }
+      } catch (_) {}
+
+      // 5) 调用 Edge Function 生成并下载
+      const { data, error: functionError } = await supabase.functions.invoke('export-excel', {
+        body: { sheetData: finalPaymentData, requestId: req.request_id, templateBase64 },
+      });
+      if (functionError) throw new Error(functionError.message);
+      if ((data as any)?.error || !(data as any)?.signedUrl) {
+        throw new Error((data as any)?.error || '服务器未返回有效的下载链接');
+      }
+      window.location.href = (data as any).signedUrl;
+      toast({ title: '文件已开始下载', description: `申请单 ${req.request_id} 的Excel已开始下载。` });
+    } catch (error) {
+      console.error('导出失败:', error);
+      toast({ title: '错误', description: `导出失败: ${(error as any).message}`, variant: 'destructive' });
+    } finally {
+      setExportingId(null);
+    }
+  };
   return (
     <div className="space-y-6">
       <div>
@@ -116,9 +205,19 @@ export default function PaymentRequestsList() {
                         <TableCell className="text-right">{req.record_count}</TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(req.total_amount)}</TableCell>
                         <TableCell className="text-center">
-                          <Button variant="ghost" size="icon" onClick={() => alert(`查看详情功能待开发，申请ID: ${req.request_id}`)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center justify-center gap-2">
+                            <Button variant="default" size="sm" onClick={() => handleExport(req)} disabled={exportingId === req.id}>
+                              {exportingId === req.id ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                              )}
+                              导出
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => alert(`查看详情功能待开发，申请ID: ${req.request_id}`)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
