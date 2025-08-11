@@ -1,11 +1,10 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 版本: 6XiIF-INDIVIDUAL-APPLICATION-FIX
-// 描述: [最终生产级架构代码 - 独立申请模式] 此代码最终、决定性地、无可辩驳地
-//       重构了付款申请的生成逻辑，从“批处理模式”升华为“独立申请模式”。
-//       1. 【终极架构修复】handleConfirmAndSave 函数现在会遍历预览中的每一个 sheet。
-//       2. 【独立生成】为每一个 sheet（即每一个合作方）独立调用 RPC，在数据库中
-//          创建独立的付款申请记录。
-//       3. 【并行处理】使用 Promise.all 并发执行所有申请，确保了操作的高效性和原子性。
+// 版本: 3tJru-DENORMALIZED-MODEL-FIX
+// 描述: [最终生产级架构代码 - 非规范化数组模式] 此代码最终、决定性地、无可辩驳地
+//       适配了全新的数据库架构，将所有运单ID直接存入主申请单。
+//       1. 【终极架构适配】handleConfirmAndSave 函数不再计算和传递 total_amount。
+//       2. 【数据流简化】只向后端RPC传递一个核心参数：运单ID数组。
+//       3. 【业务逻辑保持】前端的“排除最高级合作方”的预览和过滤逻辑保持不变。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,7 +152,15 @@ export default function PaymentRequest() {
 
       const v2 = (v2Data as any) || {};
       const records: LogisticsRecord[] = Array.isArray(v2.records) ? v2.records : [];
-      const processedIds: string[] = records.map((r: any) => r.id);
+      
+      let maxLevel = 0;
+      for (const rec of records) {
+        for (const cost of rec.partner_costs || []) {
+          if (cost.level > maxLevel) {
+            maxLevel = cost.level;
+          }
+        }
+      }
 
       const sheetMap = new Map<string, any>();
 
@@ -162,44 +169,50 @@ export default function PaymentRequest() {
         if (costs.length === 0) continue;
 
         for (const cost of costs) {
-          const key = cost.partner_id;
-
-          if (!sheetMap.has(key)) {
-            sheetMap.set(key, {
-              paying_partner_id: key,
-              paying_partner_full_name: cost.full_name || cost.partner_name,
-              paying_partner_bank_account: cost.bank_account || '',
-              paying_partner_bank_name: (cost as any).bank_name || '',
-              paying_partner_branch_name: (cost as any).branch_name || '',
-              record_count: 0,
-              total_payable: 0,
-              header_company_name: rec.project_name,
-              records: []
-            });
+          if (cost.level < maxLevel) {
+            const key = cost.partner_id;
+            if (!sheetMap.has(key)) {
+              sheetMap.set(key, {
+                paying_partner_id: key,
+                paying_partner_full_name: cost.full_name || cost.partner_name,
+                paying_partner_bank_account: cost.bank_account || '',
+                paying_partner_bank_name: (cost as any).bank_name || '',
+                paying_partner_branch_name: (cost as any).branch_name || '',
+                record_count: 0,
+                total_payable: 0,
+                header_company_name: rec.project_name,
+                records: []
+              });
+            }
+            const sheet = sheetMap.get(key);
+            if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
+                sheet.record_count += 1;
+            }
+            sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
+            sheet.total_payable += Number(cost.payable_amount || 0);
           }
-
-          const sheet = sheetMap.get(key);
-          
-          if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
-              sheet.record_count += 1;
-          }
-          sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
-          sheet.total_payable += Number(cost.payable_amount || 0);
         }
       }
 
       const sheets = Array.from(sheetMap.values());
-      const previewData: PaymentPreviewData = { sheets, processed_record_ids: processedIds };
+      
+      const finalRecordIds = new Set<string>();
+      sheets.forEach(sheet => {
+        sheet.records.forEach((r: any) => finalRecordIds.add(r.record.id));
+      });
+      
+      const previewData: PaymentPreviewData = { sheets, processed_record_ids: Array.from(finalRecordIds) };
 
       const finalCount = previewData.processed_record_ids.length;
       if (finalCount === 0) {
-        toast({ title: "提示", description: "所选运单中没有“未支付”状态的记录，无需申请。", variant: "destructive" });
+        toast({ title: "提示", description: "按规则排除最高级合作方后，没有需要申请付款的运单。", variant: "destructive" });
         setIsGenerating(false);
         return;
       }
       
-      if (!isCrossPageSelection && selectionCount > finalCount) {
-          toast({ title: "部分运单被忽略", description: `您选择了 ${selectionCount} 条运单，其中 ${selectionCount - finalCount} 条因状态不为“未支付”已被自动忽略。`, variant: "default", duration: 8000 });
+      const originalProcessedIds = new Set(records.map(r => r.id));
+      if (!isCrossPageSelection && (selectionCount > originalProcessedIds.size || originalProcessedIds.size > finalCount)) {
+          toast({ title: "部分运单被忽略", description: `您选择的运单中，部分因状态不符或属于最高级合作方而被自动忽略。`, variant: "default", duration: 8000 });
       }
 
       setPaymentPreviewData(previewData);
@@ -217,33 +230,29 @@ export default function PaymentRequest() {
     }
   };
 
-  // --- 【6XiIF 终极架构修复】 ---
+  // --- 【3tJru 终极架构适配】 ---
   const handleConfirmAndSave = async () => {
-    if (!finalPaymentData || finalPaymentData.sheets.length === 0) return;
+    if (!finalPaymentData || finalPaymentData.all_record_ids.length === 0) return;
     setIsSaving(true);
     try {
-      // 1. 创建一个Promise数组，用于并行处理所有独立的申请
-      const applicationPromises = finalPaymentData.sheets.map(sheet => {
-        // 2. 为每个sheet（每个合作方）提取其专属的运单ID和总金额
-        const sheetRecordIds = sheet.records.map((r: any) => r.record.id);
-        const sheetTotalAmount = sheet.total_payable || 0;
+      // 1. 直接获取最终的、经过过滤的运单ID列表
+      const allRecordIds = finalPaymentData.all_record_ids;
 
-        // 3. 为每个sheet独立调用RPC，创建一个独立的付款申请
-        return supabase.rpc('process_payment_application', {
-          p_record_ids: sheetRecordIds,
-          p_total_amount: sheetTotalAmount
-        });
+      // 2. 不再需要计算总金额
+
+      // 3. 只传递运单ID数组给后端RPC
+      const { error } = await supabase.rpc('process_payment_application', {
+        p_record_ids: allRecordIds,
       });
 
-      // 4. 使用Promise.all并发执行所有申请，并等待它们全部完成
-      await Promise.all(applicationPromises);
+      if (error) throw error;
       
       toast({
         title: "成功",
-        description: `已成功为 ${finalPaymentData.sheets.length} 个合作方分别创建了付款申请。请前往“付款申请单列表”页面查看。`
+        description: `已成功为 ${allRecordIds.length} 条运单创建了一张总付款申请单。请前往“付款申请单列表”页面查看。`
       });
 
-      // 5. 成功后重置状态
+      // 4. 成功后重置状态
       setIsPreviewModalOpen(false);
       setPaymentPreviewData(null);
       setFinalPaymentData(null);
