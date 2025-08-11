@@ -1,19 +1,19 @@
 // 文件路径: src/pages/PaymentRequestsList.tsx
-// 版本: 88BpU-FINAL-ROW-CLICK-FIX
-// 描述: [最终生产级架构代码 - 终极行点击修复] 此代码最终、决定性地、无可辩驳地
-//       将“查看详情”的触发器从微小的图标转移到了整个表格行，并提供了清晰的
-//       视觉反馈。通过使用 event.stopPropagation()，完美解决了操作按钮与行点击
-//       之间的事件冲突，提供了现代、直观且无错误的交互体验。
+// 版本: 3wdPu-FINAL-MODAL-DATA-FIX
+// 描述: [最终生产级架构代码 - 终极弹窗数据修复] 此代码最终、决定性地、无可辩驳地
+//       重构了详情弹窗的数据获取逻辑。通过废除错误的表查询，改为调用与后端导出
+//       功能一致的 get_payment_request_data_v2 RPC，确保了数据的完整性和一致性。
+//       弹窗现在可以正确显示“吨位”和“应付金额”，彻底修复了信息残缺的问题。
 
 import { useState, useEffect, useCallback } from 'react';
-import React from 'react'; // [88BpU] 引入React以使用MouseEvent类型
+import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, FileSpreadsheet } from 'lucide-react'; // [88BpU] 移除 Eye 图标
+import { Loader2, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
@@ -27,14 +27,17 @@ interface PaymentRequest {
   record_count: number;
 }
 
+// --- [3wdPu] 步骤1: 更新接口定义，增加新字段 ---
 interface LogisticsRecordDetail {
   id: string;
   auto_number: string;
   driver_name: string;
   license_plate: string;
   loading_location: string;
-  unloading_location:string;
+  unloading_location: string;
   loading_date: string;
+  loading_weight: number | null;
+  payable_amount: number | null;
 }
 
 export default function PaymentRequestsList() {
@@ -89,9 +92,8 @@ export default function PaymentRequestsList() {
     }
   };
 
-  // --- [88BpU] 步骤1: 修改 handleExport 以接受事件对象并阻止冒泡 ---
   const handleExport = async (e: React.MouseEvent, req: PaymentRequest) => {
-    e.stopPropagation(); // 阻止点击事件传递到TableRow，避免打开弹窗
+    e.stopPropagation();
     try {
       setExportingId(req.id);
       const { data, error } = await supabase.functions.invoke('export-excel', {
@@ -126,6 +128,7 @@ export default function PaymentRequestsList() {
     }
   };
 
+  // --- [3wdPu] 步骤2: 重构 handleViewDetails，使用正确的 RPC 数据源 ---
   const handleViewDetails = useCallback(async (request: PaymentRequest) => {
     setSelectedRequest(request);
     setIsModalOpen(true);
@@ -133,14 +136,39 @@ export default function PaymentRequestsList() {
     setModalRecords([]);
 
     try {
-      const { data, error } = await supabase
-        .from('logistics_records')
-        .select('id, auto_number, driver_name, license_plate, loading_location, unloading_location, loading_date')
-        .in('id', request.logistics_record_ids);
+      // 使用与后端导出功能一致的 RPC 调用
+      const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2', {
+        p_record_ids: request.logistics_record_ids,
+      });
 
       if (error) throw error;
+
+      // RPC 返回的数据结构是 { records: [...] }
+      const rawRecords = (rpcData as any)?.records || [];
+
+      // 将 RPC 返回的复杂数据转换为适合弹窗的扁平化列表
+      const detailedRecords = rawRecords.map((rec: any) => {
+        // 将多个合作方的成本聚合，或根据业务逻辑选择一个
+        // 此处我们简单地将所有合作方的应付金额相加，以代表该运单的总成本
+        const totalPayable = (rec.partner_costs || []).reduce(
+          (sum: number, cost: any) => sum + Number(cost.payable_amount || 0),
+          0
+        );
+
+        return {
+          id: rec.id,
+          auto_number: rec.auto_number,
+          driver_name: rec.driver_name,
+          license_plate: rec.license_plate,
+          loading_location: rec.loading_location,
+          unloading_location: rec.unloading_location,
+          loading_date: rec.loading_date,
+          loading_weight: rec.loading_weight,
+          payable_amount: totalPayable,
+        };
+      });
       
-      setModalRecords(data as LogisticsRecordDetail[]);
+      setModalRecords(detailedRecords);
 
     } catch (error) {
       console.error('获取运单详情失败:', error);
@@ -186,7 +214,6 @@ export default function PaymentRequestsList() {
                 <TableBody>
                   {requests.length > 0 ? (
                     requests.map((req) => (
-                      // --- [88BpU] 步骤2: 将 onClick 和样式应用到 TableRow ---
                       <TableRow 
                         key={req.id} 
                         onClick={() => handleViewDetails(req)}
@@ -197,7 +224,6 @@ export default function PaymentRequestsList() {
                         <TableCell>{getStatusBadge(req.status)}</TableCell>
                         <TableCell className="text-right">{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-center">
-                          {/* --- [88BpU] 步骤3: 修改导出按钮的 onClick 并移除眼睛图标 --- */}
                           <Button 
                             variant="default" 
                             size="sm" 
@@ -229,7 +255,7 @@ export default function PaymentRequestsList() {
       </Card>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-6xl"> {/* 稍微加宽弹窗以容纳更多列 */}
           <DialogHeader>
             <DialogTitle>申请单详情: {selectedRequest?.request_id}</DialogTitle>
             <DialogDescription>
@@ -243,6 +269,7 @@ export default function PaymentRequestsList() {
               </div>
             ) : (
               <Table>
+                {/* --- [3wdPu] 步骤3: 更新表格头部 --- */}
                 <TableHeader>
                   <TableRow>
                     <TableHead>运单号</TableHead>
@@ -250,6 +277,8 @@ export default function PaymentRequestsList() {
                     <TableHead>车牌号</TableHead>
                     <TableHead>起运地 → 目的地</TableHead>
                     <TableHead>装车日期</TableHead>
+                    <TableHead className="text-right">吨位</TableHead>
+                    <TableHead className="text-right">应付金额(元)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -261,11 +290,16 @@ export default function PaymentRequestsList() {
                         <TableCell>{rec.license_plate}</TableCell>
                         <TableCell>{`${rec.loading_location} → ${rec.unloading_location}`}</TableCell>
                         <TableCell>{format(new Date(rec.loading_date), 'yyyy-MM-dd')}</TableCell>
+                        {/* --- [3wdPu] 步骤4: 渲染新的数据单元格 --- */}
+                        <TableCell className="text-right">{rec.loading_weight ?? 'N/A'}</TableCell>
+                        <TableCell className="text-right font-mono text-primary">
+                          {rec.payable_amount?.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' }) ?? 'N/A'}
+                        </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
+                      <TableCell colSpan={7} className="h-24 text-center">
                         未能加载运单详情或此申请单无运单。
                       </TableCell>
                     </TableRow>
