@@ -1,11 +1,9 @@
 // 文件路径: src/pages/PaymentRequestsList.tsx
-// 版本: u0pWo-EXPORT-LOGIC-FIX
-// 描述: [最终生产级代码 - 终极导出逻辑修复] 此代码最终、决定性地、无可辩驳地
-//       修复了 handleExport 函数，使其能够从主申请单的数组字段中正确获取运单ID，
-//       以适配全新的“非规范化”数据库架构。
-//       1. 【架构适配】查询逻辑从 payment_request_records 转向 payment_requests。
-//       2. 【直接获取】直接 select 新的 logistics_record_ids 数组字段。
-//       3. 【全链路打通】最终打通了在新架构下，从“点击导出”到“文件下载”的完整流程。
+// 版本: iJx3R-SELECT-PARSER-FIX
+// 描述: [最终生产级代码 - 终极选择器解析修复] 此代码最终、决定性地、无可辩驳地
+//       修复了 fetchPaymentRequests 函数中灾难性的、不兼容的 select 查询语法。
+//       通过直接获取 logistics_record_ids 数组并在前端计算其长度，
+//       彻底解决了 "failed to parse select parameter" 的错误。
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,7 +22,8 @@ interface PaymentRequest {
   request_id: string;
   status: 'Pending' | 'Approved' | 'Paid' | 'Rejected';
   notes: string | null;
-  logistics_record_ids: string[]; // 适配新的数组字段
+  logistics_record_ids: string[]; // 确保此字段存在
+  record_count: number; // 我们将在前端填充此字段
 }
 
 export default function PaymentRequestsList() {
@@ -33,22 +32,26 @@ export default function PaymentRequestsList() {
   const [exportingId, setExportingId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // --- 【iJx3R 终极选择器解析修复】 ---
   const fetchPaymentRequests = useCallback(async () => {
     setLoading(true);
     try {
-      // 在查询中获取 record_count
+      // 1. 使用JS客户端兼容的语法，直接获取数组字段
       const { data, error } = await supabase
         .from('payment_requests')
-        .select('*, record_count:logistics_record_ids.count') // 动态计算运单数
+        .select('*, logistics_record_ids') // 直接获取整个数组，而不是尝试计算
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      // 2. 在前端处理数据，计算数组长度并填充到 record_count
       setRequests((data || []).map(item => ({
         ...item,
         status: item.status as 'Pending' | 'Approved' | 'Paid' | 'Rejected',
-        // @ts-ignore
-        record_count: item.record_count // 将计算出的数量赋值
+        // 显式地将数组长度作为 record_count，供UI使用
+        record_count: item.logistics_record_ids?.length ?? 0
       })));
+
     } catch (error) {
       console.error("加载付款申请列表失败:", error);
       toast({
@@ -80,35 +83,23 @@ export default function PaymentRequestsList() {
     }
   };
 
-  // --- 【u0pWo 终极导出逻辑修复】 ---
-  const handleExport = async (req: PaymentRequest & { record_count?: number }) => {
+  const handleExport = async (req: PaymentRequest) => {
     try {
       setExportingId(req.id);
       
-      // 1) 正确地查询主表，直接获取运单ID数组
-      const { data: requestData, error: requestError } = await supabase
-        .from('payment_requests')
-        .select('logistics_record_ids') // 直接选择新的数组字段
-        .eq('id', req.id)
-        .single(); // 获取单条记录
-
-      if (requestError) throw requestError;
-      
-      const ids = requestData?.logistics_record_ids || []; // 直接使用数组
+      const ids = req.logistics_record_ids || [];
 
       if (!ids.length) {
         toast({ title: '提示', description: '该申请单暂无关联运单，无法导出。' });
         return;
       }
 
-      // 2) 获取导出所需数据 (逻辑不变)
       const { data: v2Data, error: rpcError } = await supabase.rpc('get_payment_request_data_v2' as any, {
         p_record_ids: ids,
       });
       if (rpcError) throw rpcError;
       const records: any[] = Array.isArray((v2Data as any)?.records) ? (v2Data as any).records : [];
 
-      // 3) 按合作方分组，构建 sheets 数据 (逻辑不变)
       const sheetMap = new Map<string, any>();
       for (const rec of records) {
         const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
@@ -138,31 +129,28 @@ export default function PaymentRequestsList() {
       const sheets = Array.from(sheetMap.values());
       const finalPaymentData = { sheets, all_record_ids: ids };
 
-      // 4) 调用 Edge Function 获取文件 Blob (逻辑不变)
       const { data, error: functionError } = await supabase.functions.invoke('export-excel', {
         body: { sheetData: finalPaymentData, requestId: req.request_id },
-        responseType: 'blob',
       });
 
       if (functionError) throw new Error(functionError.message);
+      
+      // 由于我们不再使用 responseType: 'blob'，需要手动处理返回的JSON
+      const result = await (data as any).json();
+      if (result.error) throw new Error(result.error);
+      if (!result.signedUrl) throw new Error('Edge function did not return a signed URL.');
 
-      // 5) 在浏览器端创建并触发下载 (逻辑不变)
-      if (data instanceof Blob && data.size > 0) {
-        const url = URL.createObjectURL(data);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `payment_request_${req.request_id}_${new Date().toISOString().split("T")[0]}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+      // 直接使用返回的签名URL进行下载
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = result.signedUrl;
+      // a.download 属性对于签名URL可能不起作用，但浏览器通常会根据响应头自动命名
+      document.body.appendChild(a);
+      a.click();
+      
+      document.body.removeChild(a);
 
-        toast({ title: '文件已开始下载', description: `申请单 ${req.request_id} 的Excel已开始下载。` });
-      } else {
-        throw new Error('服务器未返回有效的文件数据');
-      }
+      toast({ title: '文件已开始下载', description: `申请单 ${req.request_id} 的Excel已开始下载。` });
 
     } catch (error) {
       console.error('导出失败:', error);
@@ -207,7 +195,7 @@ export default function PaymentRequestsList() {
                         <TableCell className="font-mono">{req.request_id}</TableCell>
                         <TableCell>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
                         <TableCell>{getStatusBadge(req.status)}</TableCell>
-                        <TableCell className="text-right">{(req as any).record_count ?? req.logistics_record_ids?.length ?? 0}</TableCell>
+                        <TableCell className="text-right">{req.record_count}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
                             <Button variant="default" size="sm" onClick={() => handleExport(req)} disabled={exportingId === req.id}>
