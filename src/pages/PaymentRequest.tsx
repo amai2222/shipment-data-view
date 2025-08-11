@@ -254,7 +254,7 @@ export default function PaymentRequest() {
 
       window.location.href = data.signedUrl;
 
-      toast({ title: "文件已开始下载", description: "您的支付申请Excel文件已开始下载。", variant: "success" });
+      toast({ title: "文件已开始下载", description: "您的支付申请Excel文件已开始下载。" });
 
       setIsPreviewModalOpen(false);
       setPaymentPreviewData(null);

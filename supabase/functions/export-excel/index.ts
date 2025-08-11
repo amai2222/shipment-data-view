@@ -57,10 +57,33 @@ serve(async (req) => {
     if (!templateBuffer) throw new Error("Template not found.");
 
     const finalWb = XLSX.utils.book_new();
-    const setCell = (ws: XLSX.WorkSheet, addr: string, v: any, tOverride?: XLSX.ExcelDataType) => {
-      ws[addr] = { t: tOverride ?? (typeof v === "number" ? "n" : "s"), v };
+    const getCellStyle = (ws: XLSX.WorkSheet, addr: string) => (ws as any)[addr]?.s;
+    const setCellWithStyle = (
+      ws: XLSX.WorkSheet,
+      addr: string,
+      v: any,
+      tOverride?: XLSX.ExcelDataType,
+      templateAddrForStyle?: string
+    ) => {
+      const prev: any = (ws as any)[addr];
+      const style = prev?.s || (templateAddrForStyle ? (ws as any)[templateAddrForStyle]?.s : undefined);
+      const cell: any = { t: tOverride ?? (typeof v === "number" ? "n" : "s"), v };
+      if (style) cell.s = style;
+      (ws as any)[addr] = cell;
     };
-
+    const setCell = setCellWithStyle;
+    const setCellFromTemplateRow = (
+      ws: XLSX.WorkSheet,
+      col: string,
+      targetRow: number,
+      templateRow: number,
+      v: any,
+      tOverride?: XLSX.ExcelDataType
+    ) => {
+      const addr = `${col}${targetRow}`;
+      const templateAddr = `${col}${templateRow}`;
+      setCellWithStyle(ws, addr, v, tOverride, templateAddr);
+    };
     // --- 数据预加载 (保持不变) ---
     const projectNames = [...new Set(sheetData.sheets.map((s: any) => s.project_name || s.records?.[0]?.record?.project_name).filter(Boolean))];
     const allPayingPartnerIds = sheetData.sheets.map((s: any) => s.paying_partner_id);
@@ -98,6 +121,8 @@ serve(async (req) => {
       const tempSheetName = tempWb.SheetNames[0];
       const ws = tempWb.Sheets[tempSheetName];
 
+      const TEMPLATE_ROWS = { data: 4, total: 22, remarks: 23, approver: 24 };
+      const COLS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O"] as const;
       let parentTitle = DEFAULT_PARENT;
       if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
         if (currentPartnerInfo.level < maxLevelInChain - 1) {
@@ -127,49 +152,48 @@ serve(async (req) => {
       if (sorted.length > 0) {
         for (const item of sorted) {
           const rec = item.record;
-          setCell(ws, `A${currentRow}`, rec.auto_number || "");
-          setCell(ws, `B${currentRow}`, rec.loading_date || "");
-          setCell(ws, `C${currentRow}`, rec.unloading_date || "");
-          setCell(ws, `D${currentRow}`, rec.loading_location || "");
-          setCell(ws, `E${currentRow}`, rec.unloading_location || "");
-          setCell(ws, `F${currentRow}`, "普货");
-          setCell(ws, `G${currentRow}`, rec.driver_name || "");
-          setCell(ws, `H${currentRow}`, rec.driver_phone || "");
-          setCell(ws, `I${currentRow}`, rec.license_plate || "");
-          setCell(ws, `J${currentRow}`, rec.loading_weight ?? "", typeof rec.loading_weight === "number" ? "n" : undefined);
+          setCellFromTemplateRow(ws, "A", currentRow, TEMPLATE_ROWS.data, rec.auto_number || "");
+          setCellFromTemplateRow(ws, "B", currentRow, TEMPLATE_ROWS.data, rec.loading_date || "");
+          setCellFromTemplateRow(ws, "C", currentRow, TEMPLATE_ROWS.data, rec.unloading_date || "");
+          setCellFromTemplateRow(ws, "D", currentRow, TEMPLATE_ROWS.data, rec.loading_location || "");
+          setCellFromTemplateRow(ws, "E", currentRow, TEMPLATE_ROWS.data, rec.unloading_location || "");
+          setCellFromTemplateRow(ws, "F", currentRow, TEMPLATE_ROWS.data, "普货");
+          setCellFromTemplateRow(ws, "G", currentRow, TEMPLATE_ROWS.data, rec.driver_name || "");
+          setCellFromTemplateRow(ws, "H", currentRow, TEMPLATE_ROWS.data, rec.driver_phone || "");
+          setCellFromTemplateRow(ws, "I", currentRow, TEMPLATE_ROWS.data, rec.license_plate || "");
+          setCellFromTemplateRow(ws, "J", currentRow, TEMPLATE_ROWS.data, rec.loading_weight ?? "", typeof rec.loading_weight === "number" ? "n" : undefined);
           const payableAmount = item.payable_amount;
-          setCell(ws, `K${currentRow}`, payableAmount ?? "", typeof payableAmount === "number" ? "n" : undefined);
-          setCell(ws, `L${currentRow}`, payingPartnerName);
-          setCell(ws, `M${currentRow}`, bankAccount);
-          setCell(ws, `N${currentRow}`, bankName);
-          setCell(ws, `O${currentRow}`, branchName);
+          setCellFromTemplateRow(ws, "K", currentRow, TEMPLATE_ROWS.data, payableAmount ?? "", typeof payableAmount === "number" ? "n" : undefined);
+          setCellFromTemplateRow(ws, "L", currentRow, TEMPLATE_ROWS.data, payingPartnerName);
+          setCellFromTemplateRow(ws, "M", currentRow, TEMPLATE_ROWS.data, bankAccount);
+          setCellFromTemplateRow(ws, "N", currentRow, TEMPLATE_ROWS.data, bankName);
+          setCellFromTemplateRow(ws, "O", currentRow, TEMPLATE_ROWS.data, branchName);
           currentRow++;
         }
       }
 
-      // --- 【7zGRM 终极合计逻辑修复】 ---
+      // --- 合计与页脚（动态行号，严格套用模板样式） ---
       const totalRow = currentRow;
-      
-      // 1. 仅在有数据行的情况下，才生成 SUM 公式，以避免灾难性的无效公式错误
       if (sorted.length > 0) {
-          ws[`J${totalRow}`] = { t: "n", f: `SUM(J${startRow}:J${totalRow - 1})` };
+        (ws as any)[`J${totalRow}`] = { t: "n", f: `SUM(J${startRow}:J${totalRow - 1})`, s: getCellStyle(ws, `J${TEMPLATE_ROWS.total}`) };
+        (ws as any)[`K${totalRow}`] = { t: "n", f: `SUM(K${startRow}:K${totalRow - 1})`, s: getCellStyle(ws, `K${TEMPLATE_ROWS.total}`) };
+      } else {
+        setCellWithStyle(ws, `J${totalRow}`, 0, "n", `J${TEMPLATE_ROWS.total}`);
+        setCellWithStyle(ws, `K${totalRow}`, 0, "n", `K${TEMPLATE_ROWS.total}`);
       }
-      // 2. 总计金额的写入保持不变，确保该单元格总是有值
-      setCell(ws, `K${totalRow}`, sheet.total_payable ?? 0, "n");
 
       const remarksRow = totalRow + 1;
-      setCell(ws, `B${remarksRow}`, `备注：${sheet.footer?.remarks || ''}`);
+      setCellWithStyle(ws, `B${remarksRow}`, `备注：${sheet.footer?.remarks || ''}`, undefined, `B${TEMPLATE_ROWS.remarks}`);
 
       const approverRow = remarksRow + 1;
-      setCell(ws, `D${approverRow}`, `制表人：${sheet.footer?.maker || ''}`);
-      setCell(ws, `G${approverRow}`, `财务审核：${sheet.footer?.auditor || ''}`);
-      setCell(ws, `L${approverRow}`, `总经理审批：${sheet.footer?.approver || ''}`);
+      setCellWithStyle(ws, `D${approverRow}`, `制表人：${sheet.footer?.maker || ''}`, undefined, `D${TEMPLATE_ROWS.approver}`);
+      setCellWithStyle(ws, `G${approverRow}`, `财务审核：${sheet.footer?.auditor || ''}`, undefined, `G${TEMPLATE_ROWS.approver}`);
+      setCellWithStyle(ws, `L${approverRow}`, `总经理审批：${sheet.footer?.approver || ''}`, undefined, `L${TEMPLATE_ROWS.approver}`);
 
       const finalUsedRow = approverRow + 1;
       const range = XLSX.utils.decode_range(ws["!ref"] || "A1:P50");
       range.e.r = Math.max(range.e.r, finalUsedRow);
       ws["!ref"] = XLSX.utils.encode_range(range);
-
       const finalSheetName = `${payingPartnerName || "Sheet"}_${index + 1}`.substring(0, 31);
       XLSX.utils.book_append_sheet(finalWb, ws, finalSheetName);
     }
