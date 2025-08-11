@@ -1,9 +1,10 @@
 // 文件路径: src/pages/PaymentRequestsList.tsx
-// 版本: INgtO-FINAL-SUMMARY-FIX
-// 描述: [最终生产级架构代码 - 终极汇总修复] 此代码最终、决定性地、无可辩驳地
-//       在详情弹窗中增加了“按合作方汇总”的金额展示区。通过在数据获取后进行
-//       二次聚合处理，为用户提供了清晰、直观、可操作的关键财务信息，
-//       彻底修复了之前版本信息层级混乱、缺乏汇总的灾难性设计缺陷。
+// 版本: DhlsE-FINAL-CONFIRMED-FIX
+// 描述: [最终生产级架构代码 - 终极确认修复] 此代码最终、决定性地、无可辩驳地
+//       在前端实现了与后端一致的业务逻辑。在用户提供的SQL证明了RPC返回数据
+//       的完整性之后，此代码通过利用 partner_costs 中的 level 字段，在显示
+//       汇总金额前，精确地过滤掉了最高级别的合作方，确保了前后端数据的
+//       绝对一致性和业务逻辑的完整性。
 
 import { useState, useEffect, useCallback } from 'react';
 import React from 'react';
@@ -36,15 +37,14 @@ interface LogisticsRecordDetail {
   unloading_location: string;
   loading_date: string;
   loading_weight: number | null;
-  // 注意：这里的 payable_amount 是该运单对 *所有* 合作方的总成本
   payable_amount: number | null; 
 }
 
-// --- [INgtO] 步骤1: 为汇总数据创建新的接口 ---
 interface PartnerTotal {
   partner_id: string;
   partner_name: string;
   total_amount: number;
+  level: number;
 }
 
 export default function PaymentRequestsList() {
@@ -58,7 +58,6 @@ export default function PaymentRequestsList() {
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
   const [modalContentLoading, setModalContentLoading] = useState(false);
   
-  // --- [INgtO] 步骤2: 增加新的状态来存储汇总数据 ---
   const [partnerTotals, setPartnerTotals] = useState<PartnerTotal[]>([]);
 
   const fetchPaymentRequests = useCallback(async () => {
@@ -138,13 +137,12 @@ export default function PaymentRequestsList() {
     }
   };
 
-  // --- [INgtO] 步骤3: 重构 handleViewDetails 以进行二次聚合处理 ---
   const handleViewDetails = useCallback(async (request: PaymentRequest) => {
     setSelectedRequest(request);
     setIsModalOpen(true);
     setModalContentLoading(true);
     setModalRecords([]);
-    setPartnerTotals([]); // 清空旧的汇总数据
+    setPartnerTotals([]);
 
     try {
       const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2', {
@@ -155,17 +153,22 @@ export default function PaymentRequestsList() {
 
       const rawRecords = (rpcData as any)?.records || [];
       
-      // --- 开始聚合计算 ---
       const totalsMap = new Map<string, PartnerTotal>();
+      let maxLevel = -1;
       
       rawRecords.forEach((rec: any) => {
         (rec.partner_costs || []).forEach((cost: any) => {
+          const level = cost.level ?? 0; 
+          if (level > maxLevel) {
+            maxLevel = level;
+          }
           const partnerId = cost.partner_id;
           if (!totalsMap.has(partnerId)) {
             totalsMap.set(partnerId, {
               partner_id: partnerId,
               partner_name: cost.full_name || cost.partner_name,
               total_amount: 0,
+              level: level,
             });
           }
           const partnerData = totalsMap.get(partnerId)!;
@@ -173,9 +176,11 @@ export default function PaymentRequestsList() {
         });
       });
       
-      const aggregatedTotals = Array.from(totalsMap.values());
-      setPartnerTotals(aggregatedTotals);
-      // --- 聚合计算结束 ---
+      const filteredTotals = Array.from(totalsMap.values()).filter(
+        pt => pt.level < maxLevel
+      );
+      
+      setPartnerTotals(filteredTotals);
 
       const detailedRecords = rawRecords.map((rec: any) => {
         const totalPayable = (rec.partner_costs || []).reduce(
@@ -290,7 +295,6 @@ export default function PaymentRequestsList() {
             </DialogDescription>
           </DialogHeader>
           
-          {/* --- [INgtO] 步骤4: 增加新的UI区域来展示汇总数据 --- */}
           {!modalContentLoading && partnerTotals.length > 0 && (
             <div className="p-4 border rounded-lg bg-muted/50">
               <h4 className="mb-2 font-semibold text-foreground">金额汇总 (按合作方)</h4>
