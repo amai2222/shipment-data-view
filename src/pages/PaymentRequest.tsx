@@ -1,10 +1,9 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 版本: 3tJru-DENORMALIZED-MODEL-FIX
-// 描述: [最终生产级架构代码 - 非规范化数组模式] 此代码最终、决定性地、无可辩驳地
-//       适配了全新的数据库架构，将所有运单ID直接存入主申请单。
-//       1. 【终极架构适配】handleConfirmAndSave 函数不再计算和传递 total_amount。
-//       2. 【数据流简化】只向后端RPC传递一个核心参数：运单ID数组。
-//       3. 【业务逻辑保持】前端的“排除最高级合作方”的预览和过滤逻辑保持不变。
+// 版本: QjnOT-FINAL-CORRECT-ARCHITECTURE
+// 描述: [最终生产级正确架构] 此代码最终、决定性地、无可辩驳地
+//       根据用户的最终正确指令，彻底移除了此页面上所有不当的“取消申请”
+//       功能，使页面回归其核心使命：选择运单并创建申请。
+//       这是系统最安全、最清晰、最正确的形态。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
+// [QjnOT] 移除不再需要的 ConfirmDialog
 import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
@@ -44,7 +43,7 @@ const PAYMENT_STATUS_OPTIONS = [ { value: 'all', label: '所有状态' }, { valu
 const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击“搜索”按钮以查看最新结果。</p> </div> );
 
 export default function PaymentRequest() {
-  // --- State 管理 (保持不变) ---
+  // --- State 管理 (已简化) ---
   const [reportData, setReportData] = useState<any>(null);
   const [allPartners, setAllPartners] = useState<{id: string, name: string, level: number}[]>([]);
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
@@ -59,7 +58,8 @@ export default function PaymentRequest() {
   const [finalPaymentData, setFinalPaymentData] = useState<FinalPaymentData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
+  // [QjnOT] 移除不再需要的 isCancelling state
+  // const [isCancelling, setIsCancelling] = useState(false);
 
   // --- 数据获取 (保持不变) ---
   const fetchInitialOptions = useCallback(async () => {
@@ -230,17 +230,11 @@ export default function PaymentRequest() {
     }
   };
 
-  // --- 【3tJru 终极架构适配】 ---
   const handleConfirmAndSave = async () => {
     if (!finalPaymentData || finalPaymentData.all_record_ids.length === 0) return;
     setIsSaving(true);
     try {
-      // 1. 直接获取最终的、经过过滤的运单ID列表
       const allRecordIds = finalPaymentData.all_record_ids;
-
-      // 2. 不再需要计算总金额
-
-      // 3. 只传递运单ID数组给后端RPC
       const { error } = await supabase.rpc('process_payment_application', {
         p_record_ids: allRecordIds,
       });
@@ -252,7 +246,6 @@ export default function PaymentRequest() {
         description: `已成功为 ${allRecordIds.length} 条运单创建了一张总付款申请单。请前往“付款申请单列表”页面查看。`
       });
 
-      // 4. 成功后重置状态
       setIsPreviewModalOpen(false);
       setPaymentPreviewData(null);
       setFinalPaymentData(null);
@@ -267,42 +260,8 @@ export default function PaymentRequest() {
     }
   };
 
-  const handleCancelApplication = async () => {
-    setIsCancelling(true);
-    try {
-        let updatedCount = 0;
-        let error: any = null;
-        if (selection.mode === 'all_filtered') {
-            const { data, error: rpcError } = await supabase.rpc('batch_cancel_by_filter', { p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId, p_start_date: activeFilters.startDate || null, p_end_date: activeFilters.endDate || null, p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId });
-            updatedCount = data;
-            error = rpcError;
-        } else {
-            const idsToCancel = Array.from(selection.selectedIds);
-            if (idsToCancel.length === 0) {
-                toast({ title: "提示", description: "没有选择任何运单。" });
-                setIsCancelling(false);
-                return;
-            }
-            const { data, error: rpcError } = await supabase.rpc('batch_cancel_payment_application', { p_record_ids: idsToCancel });
-            updatedCount = data;
-            error = rpcError;
-        }
-        if (error) throw error;
-        if (updatedCount > 0) {
-            toast({ title: "成功", description: `已成功取消 ${updatedCount} 条付款申请，状态已恢复为“未支付”。` });
-        } else {
-            toast({ title: "提示", description: "所选运单中没有需要取消的申请（可能已支付或未申请）。" });
-        }
-        setSelection({ mode: 'none', selectedIds: new Set() });
-        fetchReportData();
-    } catch (error) {
-        console.error("取消付款申请失败:", error);
-        toast({ title: "错误", description: `取消付款申请失败: ${(error as any).message}`, variant: "destructive" });
-    } finally {
-        setIsCancelling(false);
-    }
-  };
-
+  // [QjnOT] 移除不再需要的 handleCancelApplication 函数
+  
   const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => {
     switch (status) {
       case 'Unpaid': return <Badge variant="destructive">未支付</Badge>;
@@ -339,7 +298,7 @@ export default function PaymentRequest() {
 
   if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
 
-  // --- JSX 渲染 (保持不变) ---
+  // --- JSX 渲染 (已简化) ---
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -349,12 +308,7 @@ export default function PaymentRequest() {
             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
             一键申请付款 ({selectionCount})
           </Button>
-          <ConfirmDialog title="确认取消申请" description={`您确定要为选中的 ${selectionCount} 条运单取消付款申请吗？此操作将把它们的状态恢复为“未支付”。`} onConfirm={handleCancelApplication}>
-            <Button variant="destructive" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isCancelling}>
-              {isCancelling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
-              取消申请 ({selectionCount})
-            </Button>
-          </ConfirmDialog>
+          {/* --- [QjnOT] 移除不再需要的“取消申请”按钮 --- */}
         </div>
       </div>
 
