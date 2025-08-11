@@ -1,11 +1,10 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: FcgyIa1-HEADER-RESTORATION-FIX
-// 描述: [最终生产级代码 - 终极动态表头恢复修复] 此代码最终、决定性地、无可辩驳地
-//       恢复了被 svhtU 版本灾难性地禁用的动态表头逻辑，并将其与智能行插入功能完美结合。
-//       1. 【终极回归修复】重新激活了对 A1 和 A2 单元格的动态内容写入。
-//       2. 【逻辑整合】确保动态表头逻辑与页脚区的物理移动逻辑协同工作。
-//       3. 【完全体】最终实现了数据区、合计区、页脚区、以及表头的完全动态布局，
-//          同时100%保留模板格式。
+// 版本: v3XdG-TOP-LEVEL-FILTER-FIX
+// 描述: [最终生产级代码 - 终极最高级别过滤修复] 此代码最终、决定性地、无可辩驳地
+//       加入了核心业务规则：如果合作方是其所在供应链中的最高级别，则不为其生成付款申请单。
+//       1. 【终极守卫逻辑】在主循环的最前端加入了 if 判断，识别最高级别合作方。
+//       2. 【高效跳过】使用 continue 语句，高效地跳过不必要的处理，提升性能。
+//       3. 【业务完整性】确保了生成的Excel文件完全符合系统的层级付款业务逻辑。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -56,7 +55,6 @@ serve(async (req) => {
       ws[addr] = { t: tOverride ?? (typeof v === "number" ? "n" : "s"), v };
     };
     
-    // --- 数据预加载 (保持不变) ---
     const projectNames = [...new Set(sheetData.sheets.map((s: any) => s.project_name || s.records?.[0]?.record?.project_name).filter(Boolean))];
     const allPayingPartnerIds = sheetData.sheets.map((s: any) => s.paying_partner_id);
     const partnerIds = [...new Set(allPayingPartnerIds)];
@@ -75,6 +73,21 @@ serve(async (req) => {
     const DEFAULT_PARENT = "中科智运（云南）供应链科技有限公司";
 
     for (const [index, sheet] of sheetData.sheets.entries()) {
+      const firstRecord = sheet.records?.[0]?.record ?? null;
+      const projectName = sheet.project_name || firstRecord?.project_name || "";
+      const chainName = firstRecord?.chain_name;
+      const projectId = projectsByName.get(projectName);
+      const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
+      const partnersInChain = allPartnersInProject.filter((p: any) => !chainName || p.chain_name === chainName);
+      const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p: any) => p.level || 0)) : 0;
+      const currentPartnerInfo = partnersInChain.find((p: any) => p.partner_id === sheet.paying_partner_id);
+
+      // --- 【v3XdG 终极最高级别过滤修复】 ---
+      // 如果当前合作方是其所在供应链中的最高级别，则不为其生成付款申请单，直接跳过。
+      if (currentPartnerInfo && currentPartnerInfo.level === maxLevelInChain) {
+        continue;
+      }
+
       const sorted = (sheet.records || []).slice().sort((a: any, b: any) => String(a.record.auto_number || "").localeCompare(String(b.record.auto_number || "")));
       
       const tempWb = XLSX.read(templateBuffer, { type: "array", cellStyles: true });
@@ -110,16 +123,6 @@ serve(async (req) => {
         range.e.r += numberOfRowsToInsert;
         ws['!ref'] = XLSX.utils.encode_range(range);
       }
-
-      // --- 【FcgyIa1 终极动态表头修复】 ---
-      const firstRecord = sheet.records?.[0]?.record ?? null;
-      const projectName = sheet.project_name || firstRecord?.project_name || "";
-      const chainName = firstRecord?.chain_name;
-      const projectId = projectsByName.get(projectName);
-      const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
-      const partnersInChain = allPartnersInProject.filter((p: any) => !chainName || p.chain_name === chainName);
-      const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p: any) => p.level || 0)) : 0;
-      const currentPartnerInfo = partnersInChain.find((p: any) => p.partner_id === sheet.paying_partner_id);
       
       let parentTitle = DEFAULT_PARENT;
       if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
@@ -132,11 +135,9 @@ serve(async (req) => {
           }
         }
       }
-      // 恢复被错误禁用的动态表头写入逻辑
       setCell(ws, "A1", `${parentTitle}支付申请表`);
       setCell(ws, "A2", `项目名称：${projectName}`);
 
-      // --- 数据和页脚内容写入 ---
       const startRow = 4;
       let currentRow = startRow;
       const payingPartnerName = sheet.paying_partner_full_name || sheet.paying_partner_name || "";
