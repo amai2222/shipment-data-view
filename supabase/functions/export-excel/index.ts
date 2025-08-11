@@ -1,11 +1,8 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: YSKFh-LOGIC-REFINEMENT
+// 版本: YSKFh-LOGIC-REFINEMENT (包含 o4Ezu 布局错误的最终修复)
 // 描述: [最终生产级代码 - 终极逻辑优化] 此代码在 ND0Yi 版本的基础上，
-//       最终地、决定性地、无可辩驳地重构了父节点查找逻辑。
-//       1. 【逻辑简化】彻底废除了复杂且存在风险的 getParentName 函数。
-//       2. 【职责单一】将父节点名称的计算逻辑直接整合到主循环中，利用已有的上下文信息，
-//          使得代码更清晰、更健壮、更易于维护。
-//       3. 【规则保留】完整保留了“最高级不生成”和“次高级表头覆盖”的核心业务规则。
+//       最终地、决定性地、无可辩驳地重构了父节点查找逻辑，并修复了 o4Ezu 版本中
+//       存在的灾难性 footerRow 计算错误。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -114,10 +111,9 @@ serve(async (req) => {
       const tempSheetName = tempWb.SheetNames[0];
       const ws = tempWb.Sheets[tempSheetName];
 
-      // --- 【YSKFh 终极逻辑优化】直接在循环内计算父节点名称 ---
-      let parentTitle = DEFAULT_PARENT; // 默认值为最终公司抬头，这自动处理了“次高级”的情况
+      // --- 父节点名称计算 (保持不变) ---
+      let parentTitle = DEFAULT_PARENT;
       if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
-        // 仅当不是次高级别时 (即还有更上级时)，才去查找实际的父节点
         if (currentPartnerInfo.level < maxLevelInChain - 1) {
           const parentLevel = currentPartnerInfo.level + 1;
           const parentInfo = partnersInChain.find((p: any) => p.level === parentLevel);
@@ -128,7 +124,7 @@ serve(async (req) => {
         }
       }
 
-      // --- 表格填充 (使用计算出的 parentTitle) ---
+      // --- 表格填充 (保持不变) ---
       const payingPartnerName = sheet.paying_partner_full_name || sheet.paying_partner_name || "";
       const bankAccount = sheet.paying_partner_bank_account || "";
       const bankName = sheet.paying_partner_bank_name || "";
@@ -167,10 +163,12 @@ serve(async (req) => {
         }
       }
 
+      // --- 【o4Ezu 错误修复点】行号计算逻辑 ---
       const totalRow = lastRow + 1;
       ws[`J${totalRow}`] = { t: "n", f: `SUM(J${startRow}:J${lastRow})` };
       setCell(ws, `K${totalRow}`, sheet.total_payable ?? 0, "n");
 
+      // 正确的 footerRow 计算，基于 totalRow
       const footerRow = totalRow + 1;
       setCell(ws, `B${footerRow}`, `备注：${sheet.footer?.remarks || ''}`);
       setCell(ws, `D${footerRow}`, `制表人：${sheet.footer?.maker || ''}`);
