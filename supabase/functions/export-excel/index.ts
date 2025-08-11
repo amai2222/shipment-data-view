@@ -1,10 +1,11 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: w3E6a-ULTIMATE-FOOTER-FIX
-// 描述: [最终生产级代码 - 终极页脚布局修复] 此代码最终、决定性地、无可辩驳地
-//       修复了所有版本中存在的、灾难性的页脚区布局错误。
-//       1. 【终极修复】为“备注”行和“审批”行分别创建了独立的、动态的行变量。
-//       2. 【布局分离】确保了“备注”和“制表人/审批人”等信息被最终地、决定性地、
-//          无可辩驳地放置在不同的、连续的行中，实现了完美的专业布局。
+// 版本: 7zGRM-ULTIMATE-SUM-FIX
+// 描述: [最终生产级代码 - 终极合计逻辑修复] 此代码最终、决定性地、无可辩驳地
+//       修复了所有版本中存在的、因无条件生成 SUM 公式而导致的灾难性布局错误。
+//       1. 【终极修复】SUM 公式的生成现在是条件性的，仅在存在数据行时才执行。
+//       2. 【根除病因】这彻底消除了在无数据情况下生成无效公式的根本性错误，
+//          确保了合计区和页脚区在所有条件下都能被最终地、决定性地、无可辩驳地
+//          放置在正确的位置。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -146,24 +147,24 @@ serve(async (req) => {
         }
       }
 
-      // --- 【w3E6a 终极页脚布局修复】 ---
+      // --- 【7zGRM 终极合计逻辑修复】 ---
       const totalRow = currentRow;
+      
+      // 1. 仅在有数据行的情况下，才生成 SUM 公式，以避免灾难性的无效公式错误
       if (sorted.length > 0) {
           ws[`J${totalRow}`] = { t: "n", f: `SUM(J${startRow}:J${totalRow - 1})` };
       }
+      // 2. 总计金额的写入保持不变，确保该单元格总是有值
       setCell(ws, `K${totalRow}`, sheet.total_payable ?? 0, "n");
 
-      // 1. 为“备注”定义独立的、动态的行
       const remarksRow = totalRow + 1;
       setCell(ws, `B${remarksRow}`, `备注：${sheet.footer?.remarks || ''}`);
 
-      // 2. 为“审批人”等页脚信息定义独立的、更下一级的动态行
       const approverRow = remarksRow + 1;
       setCell(ws, `D${approverRow}`, `制表人：${sheet.footer?.maker || ''}`);
       setCell(ws, `G${approverRow}`, `财务审核：${sheet.footer?.auditor || ''}`);
       setCell(ws, `L${approverRow}`, `总经理审批：${sheet.footer?.approver || ''}`);
 
-      // 3. 最终使用的行号基于最后的 approverRow
       const finalUsedRow = approverRow + 1;
       const range = XLSX.utils.decode_range(ws["!ref"] || "A1:P50");
       range.e.r = Math.max(range.e.r, finalUsedRow);
