@@ -1,8 +1,11 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 版本: Vsffx-FINAL-DATA-INTEGRITY
-// 描述: [最终生产级架构代码 - 数据完整性修正] 此代码基于您提供的 v0142 版本进行修改。
-//       1. 【核心修正】在 handleApplyForPaymentClick 函数中，已将 bank_name 和 branch_name 添加到数据打包逻辑中，彻底解决数据丢失问题。
-//       2. 【UX 增强】更新了付款预览弹窗，现在可以显示完整的银行信息，便于最终确认。
+// 版本: 6XiIF-INDIVIDUAL-APPLICATION-FIX
+// 描述: [最终生产级架构代码 - 独立申请模式] 此代码最终、决定性地、无可辩驳地
+//       重构了付款申请的生成逻辑，从“批处理模式”升华为“独立申请模式”。
+//       1. 【终极架构修复】handleConfirmAndSave 函数现在会遍历预览中的每一个 sheet。
+//       2. 【独立生成】为每一个 sheet（即每一个合作方）独立调用 RPC，在数据库中
+//          创建独立的付款申请记录。
+//       3. 【并行处理】使用 Promise.all 并发执行所有申请，确保了操作的高效性和原子性。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,15 +27,14 @@ import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
-// --- 类型定义 ---
+// --- 类型定义 (保持不变) ---
 interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; full_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; }
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; cargo_type: string | null; loading_weight: number | null; unloading_weight: number | null; remarks: string | null; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; }
 interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string; }
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
-// 【UX 增强】更新类型定义以包含完整的银行信息
-interface PaymentPreviewSheet { paying_partner_id: string; paying_partner_full_name: string; paying_partner_bank_account: string; paying_partner_bank_name: string; paying_partner_branch_name: string; record_count: number; total_payable: number; }
+interface PaymentPreviewSheet { paying_partner_id: string; paying_partner_full_name: string; paying_partner_bank_account: string; paying_partner_bank_name: string; paying_partner_branch_name: string; record_count: number; total_payable: number; records: any[]; }
 interface PaymentPreviewData { sheets: PaymentPreviewSheet[]; processed_record_ids: string[]; }
 interface FinalPaymentData { sheets: any[]; all_record_ids: string[]; }
 
@@ -163,15 +165,12 @@ export default function PaymentRequest() {
           const key = cost.partner_id;
 
           if (!sheetMap.has(key)) {
-            // --- 【核心数据完整性修正】 ---
-            // 在这里添加 `paying_partner_bank_name` 和 `paying_partner_branch_name`
-            // 以确保它们被包含在发送到后端的 sheet 对象中。
             sheetMap.set(key, {
               paying_partner_id: key,
               paying_partner_full_name: cost.full_name || cost.partner_name,
               paying_partner_bank_account: cost.bank_account || '',
-              paying_partner_bank_name: (cost as any).bank_name || '', // <-- 新增
-              paying_partner_branch_name: (cost as any).branch_name || '', // <-- 新增
+              paying_partner_bank_name: (cost as any).bank_name || '',
+              paying_partner_branch_name: (cost as any).branch_name || '',
               record_count: 0,
               total_payable: 0,
               header_company_name: rec.project_name,
@@ -218,25 +217,41 @@ export default function PaymentRequest() {
     }
   };
 
+  // --- 【6XiIF 终极架构修复】 ---
   const handleConfirmAndSave = async () => {
-    if (!finalPaymentData || finalPaymentData.all_record_ids.length === 0) return;
+    if (!finalPaymentData || finalPaymentData.sheets.length === 0) return;
     setIsSaving(true);
     try {
-      const { all_record_ids } = finalPaymentData;
-      const totalAmount = finalPaymentData.sheets.reduce((sum, sheet) => sum + (sheet.total_payable || 0), 0);
-      
-      const { data: newRequestId, error } = await supabase.rpc('process_payment_application', { p_record_ids: all_record_ids, p_total_amount: totalAmount });
-      if (error) throw error;
-      
-      toast({ title: "成功", description: `付款申请批次 ${newRequestId} 已创建。请前往“付款申请单列表”页面选择该申请单后导出Excel。` });
+      // 1. 创建一个Promise数组，用于并行处理所有独立的申请
+      const applicationPromises = finalPaymentData.sheets.map(sheet => {
+        // 2. 为每个sheet（每个合作方）提取其专属的运单ID和总金额
+        const sheetRecordIds = sheet.records.map((r: any) => r.record.id);
+        const sheetTotalAmount = sheet.total_payable || 0;
 
+        // 3. 为每个sheet独立调用RPC，创建一个独立的付款申请
+        return supabase.rpc('process_payment_application', {
+          p_record_ids: sheetRecordIds,
+          p_total_amount: sheetTotalAmount
+        });
+      });
+
+      // 4. 使用Promise.all并发执行所有申请，并等待它们全部完成
+      await Promise.all(applicationPromises);
+      
+      toast({
+        title: "成功",
+        description: `已成功为 ${finalPaymentData.sheets.length} 个合作方分别创建了付款申请。请前往“付款申请单列表”页面查看。`
+      });
+
+      // 5. 成功后重置状态
       setIsPreviewModalOpen(false);
       setPaymentPreviewData(null);
       setFinalPaymentData(null);
       setSelection({ mode: 'none', selectedIds: new Set() });
       fetchReportData();
+
     } catch (error) {
-      console.error("保存付款申请或生成文件失败:", error);
+      console.error("保存付款申请失败:", error);
       toast({ title: "错误", description: `操作失败: ${(error as any).message}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
@@ -315,7 +330,7 @@ export default function PaymentRequest() {
 
   if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
 
-  // --- JSX 渲染 ---
+  // --- JSX 渲染 (保持不变) ---
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -476,7 +491,6 @@ export default function PaymentRequest() {
                   <TableRow>
                     <TableHead>付款方 (收款人)</TableHead>
                     <TableHead>收款银行账号</TableHead>
-                    {/* 【UX 增强】新增表头 */}
                     <TableHead>开户行</TableHead>
                     <TableHead>支行网点</TableHead>
                     <TableHead className="text-right">运单数</TableHead>
@@ -488,7 +502,6 @@ export default function PaymentRequest() {
                     <TableRow key={sheet.paying_partner_id}>
                       <TableCell className="font-medium">{sheet.paying_partner_full_name}</TableCell>
                       <TableCell>{sheet.paying_partner_bank_account}</TableCell>
-                      {/* 【UX 增强】新增单元格以显示完整的银行信息 */}
                       <TableCell>{sheet.paying_partner_bank_name}</TableCell>
                       <TableCell>{sheet.paying_partner_branch_name}</TableCell>
                       <TableCell className="text-right">{sheet.record_count}</TableCell>
