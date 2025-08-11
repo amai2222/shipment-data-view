@@ -1,10 +1,10 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: v3XdG-TOP-LEVEL-FILTER-FIX
-// 描述: [最终生产级代码 - 终极最高级别过滤修复] 此代码最终、决定性地、无可辩驳地
-//       加入了核心业务规则：如果合作方是其所在供应链中的最高级别，则不为其生成付款申请单。
-//       1. 【终极守卫逻辑】在主循环的最前端加入了 if 判断，识别最高级别合作方。
-//       2. 【高效跳过】使用 continue 语句，高效地跳过不必要的处理，提升性能。
-//       3. 【业务完整性】确保了生成的Excel文件完全符合系统的层级付款业务逻辑。
+// 版本: wwbP0-DATE-FALLBACK-FIX
+// 描述: [最终生产级代码 - 终极日期回退修复] 此代码最终、决定性地、无可辩驳地
+//       加入了核心数据完整性规则：如果卸货日期为空，则使用装货日期作为回退值。
+//       1. 【即时数据转换】在数据写入前加入了条件判断，确保卸货日期字段永远有值。
+//       2. 【数据健壮性】增强了代码对不完整数据的处理能力，避免在Excel中出现空单元格。
+//       3. 【业务完整性】确保了生成的Excel文件完全符合 wwbP0 指令的业务要求。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -82,8 +82,6 @@ serve(async (req) => {
       const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p: any) => p.level || 0)) : 0;
       const currentPartnerInfo = partnersInChain.find((p: any) => p.partner_id === sheet.paying_partner_id);
 
-      // --- 【v3XdG 终极最高级别过滤修复】 ---
-      // 如果当前合作方是其所在供应链中的最高级别，则不为其生成付款申请单，直接跳过。
       if (currentPartnerInfo && currentPartnerInfo.level === maxLevelInChain) {
         continue;
       }
@@ -147,9 +145,16 @@ serve(async (req) => {
 
       for (const item of sorted) {
         const rec = item.record;
+        
+        // --- 【wwbP0 终极日期回退修复】 ---
+        let finalUnloadingDate = rec.unloading_date;
+        if (!finalUnloadingDate) {
+          finalUnloadingDate = rec.loading_date;
+        }
+
         setCell(ws, `A${currentRow}`, rec.auto_number || "");
         setCell(ws, `B${currentRow}`, rec.loading_date || "");
-        setCell(ws, `C${currentRow}`, rec.unloading_date || "");
+        setCell(ws, `C${currentRow}`, finalUnloadingDate || "");
         setCell(ws, `D${currentRow}`, rec.loading_location || "");
         setCell(ws, `E${currentRow}`, rec.unloading_location || "");
         setCell(ws, `F${currentRow}`, rec.cargo_type || "普货");
