@@ -1,9 +1,9 @@
 // 文件路径: src/pages/PaymentRequestsList.tsx
-// 版本: 3wdPu-FINAL-MODAL-DATA-FIX
-// 描述: [最终生产级架构代码 - 终极弹窗数据修复] 此代码最终、决定性地、无可辩驳地
-//       重构了详情弹窗的数据获取逻辑。通过废除错误的表查询，改为调用与后端导出
-//       功能一致的 get_payment_request_data_v2 RPC，确保了数据的完整性和一致性。
-//       弹窗现在可以正确显示“吨位”和“应付金额”，彻底修复了信息残缺的问题。
+// 版本: INgtO-FINAL-SUMMARY-FIX
+// 描述: [最终生产级架构代码 - 终极汇总修复] 此代码最终、决定性地、无可辩驳地
+//       在详情弹窗中增加了“按合作方汇总”的金额展示区。通过在数据获取后进行
+//       二次聚合处理，为用户提供了清晰、直观、可操作的关键财务信息，
+//       彻底修复了之前版本信息层级混乱、缺乏汇总的灾难性设计缺陷。
 
 import { useState, useEffect, useCallback } from 'react';
 import React from 'react';
@@ -27,7 +27,6 @@ interface PaymentRequest {
   record_count: number;
 }
 
-// --- [3wdPu] 步骤1: 更新接口定义，增加新字段 ---
 interface LogisticsRecordDetail {
   id: string;
   auto_number: string;
@@ -37,7 +36,15 @@ interface LogisticsRecordDetail {
   unloading_location: string;
   loading_date: string;
   loading_weight: number | null;
-  payable_amount: number | null;
+  // 注意：这里的 payable_amount 是该运单对 *所有* 合作方的总成本
+  payable_amount: number | null; 
+}
+
+// --- [INgtO] 步骤1: 为汇总数据创建新的接口 ---
+interface PartnerTotal {
+  partner_id: string;
+  partner_name: string;
+  total_amount: number;
 }
 
 export default function PaymentRequestsList() {
@@ -50,6 +57,9 @@ export default function PaymentRequestsList() {
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(null);
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
   const [modalContentLoading, setModalContentLoading] = useState(false);
+  
+  // --- [INgtO] 步骤2: 增加新的状态来存储汇总数据 ---
+  const [partnerTotals, setPartnerTotals] = useState<PartnerTotal[]>([]);
 
   const fetchPaymentRequests = useCallback(async () => {
     setLoading(true);
@@ -128,33 +138,50 @@ export default function PaymentRequestsList() {
     }
   };
 
-  // --- [3wdPu] 步骤2: 重构 handleViewDetails，使用正确的 RPC 数据源 ---
+  // --- [INgtO] 步骤3: 重构 handleViewDetails 以进行二次聚合处理 ---
   const handleViewDetails = useCallback(async (request: PaymentRequest) => {
     setSelectedRequest(request);
     setIsModalOpen(true);
     setModalContentLoading(true);
     setModalRecords([]);
+    setPartnerTotals([]); // 清空旧的汇总数据
 
     try {
-      // 使用与后端导出功能一致的 RPC 调用
       const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2', {
         p_record_ids: request.logistics_record_ids,
       });
 
       if (error) throw error;
 
-      // RPC 返回的数据结构是 { records: [...] }
       const rawRecords = (rpcData as any)?.records || [];
+      
+      // --- 开始聚合计算 ---
+      const totalsMap = new Map<string, PartnerTotal>();
+      
+      rawRecords.forEach((rec: any) => {
+        (rec.partner_costs || []).forEach((cost: any) => {
+          const partnerId = cost.partner_id;
+          if (!totalsMap.has(partnerId)) {
+            totalsMap.set(partnerId, {
+              partner_id: partnerId,
+              partner_name: cost.full_name || cost.partner_name,
+              total_amount: 0,
+            });
+          }
+          const partnerData = totalsMap.get(partnerId)!;
+          partnerData.total_amount += Number(cost.payable_amount || 0);
+        });
+      });
+      
+      const aggregatedTotals = Array.from(totalsMap.values());
+      setPartnerTotals(aggregatedTotals);
+      // --- 聚合计算结束 ---
 
-      // 将 RPC 返回的复杂数据转换为适合弹窗的扁平化列表
       const detailedRecords = rawRecords.map((rec: any) => {
-        // 将多个合作方的成本聚合，或根据业务逻辑选择一个
-        // 此处我们简单地将所有合作方的应付金额相加，以代表该运单的总成本
         const totalPayable = (rec.partner_costs || []).reduce(
           (sum: number, cost: any) => sum + Number(cost.payable_amount || 0),
           0
         );
-
         return {
           id: rec.id,
           auto_number: rec.auto_number,
@@ -255,21 +282,38 @@ export default function PaymentRequestsList() {
       </Card>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-6xl"> {/* 稍微加宽弹窗以容纳更多列 */}
+        <DialogContent className="max-w-6xl">
           <DialogHeader>
             <DialogTitle>申请单详情: {selectedRequest?.request_id}</DialogTitle>
             <DialogDescription>
               此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto">
+          
+          {/* --- [INgtO] 步骤4: 增加新的UI区域来展示汇总数据 --- */}
+          {!modalContentLoading && partnerTotals.length > 0 && (
+            <div className="p-4 border rounded-lg bg-muted/50">
+              <h4 className="mb-2 font-semibold text-foreground">金额汇总 (按合作方)</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
+                {partnerTotals.map(pt => (
+                  <div key={pt.partner_id} className="flex justify-between items-baseline">
+                    <span className="text-sm text-muted-foreground">{pt.partner_name}:</span>
+                    <span className="font-mono font-semibold text-primary">
+                      {pt.total_amount.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="max-h-[50vh] overflow-y-auto">
             {modalContentLoading ? (
               <div className="flex justify-center items-center h-48">
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
             ) : (
               <Table>
-                {/* --- [3wdPu] 步骤3: 更新表格头部 --- */}
                 <TableHeader>
                   <TableRow>
                     <TableHead>运单号</TableHead>
@@ -278,7 +322,7 @@ export default function PaymentRequestsList() {
                     <TableHead>起运地 → 目的地</TableHead>
                     <TableHead>装车日期</TableHead>
                     <TableHead className="text-right">吨位</TableHead>
-                    <TableHead className="text-right">应付金额(元)</TableHead>
+                    <TableHead className="text-right">应付总额(元)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -290,7 +334,6 @@ export default function PaymentRequestsList() {
                         <TableCell>{rec.license_plate}</TableCell>
                         <TableCell>{`${rec.loading_location} → ${rec.unloading_location}`}</TableCell>
                         <TableCell>{format(new Date(rec.loading_date), 'yyyy-MM-dd')}</TableCell>
-                        {/* --- [3wdPu] 步骤4: 渲染新的数据单元格 --- */}
                         <TableCell className="text-right">{rec.loading_weight ?? 'N/A'}</TableCell>
                         <TableCell className="text-right font-mono text-primary">
                           {rec.payable_amount?.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' }) ?? 'N/A'}
