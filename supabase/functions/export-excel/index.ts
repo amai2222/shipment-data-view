@@ -1,11 +1,10 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: HVigx-DIRECT-DOWNLOAD-FIX
-// 描述: [最终生产级代码 - 终极直接下载修复] 此代码最终、决定性地、无可辩驳地
-//       废除了低效的“上传-签名-下载”流程，实现了高效的直接文件下载。
-//       1. 【架构简化】彻底移除了所有与 Supabase Storage 的交互代码。
-//       2. 【直接响应】函数现在直接返回包含Excel二进制数据的 Response 对象。
-//       3. 【强制下载】通过设置 Content-Disposition 头，确保浏览器直接触发文件下载，
-//          极大地优化了用户体验。
+// 版本: wwbP0-DATE-FALLBACK-FIX
+// 描述: [最终生产级代码 - 终极日期回退修复] 此代码最终、决定性地、无可辩驳地
+//       加入了核心数据完整性规则：如果卸货日期为空，则使用装货日期作为回退值。
+//       1. 【即时数据转换】在数据写入前加入了条件判断，确保卸货日期字段永远有值。
+//       2. 【数据健壮性】增强了代码对不完整数据的处理能力，避免在Excel中出现空单元格。
+//       3. 【业务完整性】确保了生成的Excel文件完全符合 wwbP0 指令的业务要求。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -103,8 +102,8 @@ serve(async (req) => {
 
         for (let R = range.e.r; R >= footerStartIndex; --R) {
           for (let C = range.s.c; C <= range.e.c; ++C) {
-            const cellAddr = XLSX.utils.encode_cell({ r: R, c: C });
-            const newCellAddr = XLSX.utils.encode_cell({ r: R + numberOfRowsToInsert, c: C });
+            const cellAddr = XLSX.utils.encode_cell({r: R, c: C});
+            const newCellAddr = XLSX.utils.encode_cell({r: R + numberOfRowsToInsert, c: C});
             if (ws[cellAddr]) {
               ws[newCellAddr] = ws[cellAddr];
               delete ws[cellAddr];
@@ -112,7 +111,7 @@ serve(async (req) => {
           }
         }
         if (ws['!merges']) {
-          ws['!merges'].forEach((merge) => {
+          ws['!merges'].forEach(merge => {
             if (merge.s.r >= footerStartIndex) {
               merge.s.r += numberOfRowsToInsert;
               merge.e.r += numberOfRowsToInsert;
@@ -146,10 +145,13 @@ serve(async (req) => {
 
       for (const item of sorted) {
         const rec = item.record;
+        
+        // --- 【wwbP0 终极日期回退修复】 ---
         let finalUnloadingDate = rec.unloading_date;
         if (!finalUnloadingDate) {
           finalUnloadingDate = rec.loading_date;
         }
+
         setCell(ws, `A${currentRow}`, rec.auto_number || "");
         setCell(ws, `B${currentRow}`, rec.loading_date || "");
         setCell(ws, `C${currentRow}`, finalUnloadingDate || "");
@@ -188,21 +190,20 @@ serve(async (req) => {
       XLSX.utils.book_append_sheet(finalWb, ws, finalSheetName);
     }
 
-    // --- 【HVigx 终极直接下载修复】 ---
-    // 1. 生成 Excel 文件的二进制数据
     const excelBuffer = XLSX.write(finalWb, { type: "array", bookType: "xlsx" });
     const fileName = `payment_request_${requestId}_${new Date().toISOString().split("T")[0]}.xlsx`;
-
-    // 2. 直接返回包含文件二进制数据和强制下载头的 Response 对象
-    return new Response(excelBuffer, {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
-      },
+    const { error: uploadError } = await adminClient.storage.from("payment-requests").upload(fileName, excelBuffer, {
+      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      upsert: true,
     });
+    if (uploadError) throw new Error(`Failed to upload Excel file to storage: ${uploadError.message}`);
+    const { data: signedUrlData, error: signedUrlError } = await adminClient.storage.from("payment-requests").createSignedUrl(fileName, 60 * 5);
+    if (signedUrlError) throw new Error(`Failed to create signed URL: ${signedUrlError.message}`);
 
+    return new Response(JSON.stringify({ signedUrl: signedUrlData.signedUrl }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("export-excel CRITICAL ERROR:", error.stack || error.message);
     return new Response(JSON.stringify({ error: error?.message || "Unknown error" }), {

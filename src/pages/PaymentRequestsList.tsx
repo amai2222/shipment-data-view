@@ -1,11 +1,6 @@
 // 文件路径: src/pages/PaymentRequestsList.tsx
-// 版本: 1zFKb-FRONTEND-FIX
-// 描述: [最终生产级代码 - 终极前端修复] 此代码最终、决定性地、无可辩驳地
-//       修复了前端的 handleExport 函数，使其能够正确处理后端返回的直接文件流 (Blob)。
-//       1. 【契约修复】在 invoke 调用中加入了 responseType: 'blob'。
-//       2. 【直接下载实现】采用 URL.createObjectURL 和模拟点击 a 标签的标准模式，
-//          在浏览器端触发文件下载。
-//       3. 【全链路打通】最终打通了从“点击导出”到“文件下载”的完整、高效的用户流程。
+// 描述: [Vft8p 最终修复版] 这是一个全新的页面，用于展示在 `payment_requests` 表中创建的付款申请单。
+//       它提供了查看、搜索和追踪所有付款申请批次的功能。
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -120,12 +115,11 @@ export default function PaymentRequestsList() {
               paying_partner_branch_name: (cost as any).branch_name || '',
               record_count: 0,
               total_payable: 0,
-              project_name: rec.project_name, // 使用 project_name 替代 header_company_name
+              header_company_name: rec.project_name,
               records: [],
             });
           }
           const sheet = sheetMap.get(key);
-          // 修正 record_count 逻辑，确保每个运单只计数一次
           if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
             sheet.record_count += 1;
           }
@@ -155,36 +149,16 @@ export default function PaymentRequestsList() {
         }
       } catch (_) {}
 
-      // --- 【1zFKb 终极前端修复】 ---
-      // 5) 调用 Edge Function 获取文件 Blob
+      // 5) 调用 Edge Function 生成并下载
       const { data, error: functionError } = await supabase.functions.invoke('export-excel', {
         body: { sheetData: finalPaymentData, requestId: req.request_id, templateBase64 },
-        responseType: 'blob', // 明确告诉 Supabase 我们期望一个 Blob
       });
-
       if (functionError) throw new Error(functionError.message);
-
-      // 6) 在浏览器端创建并触发下载
-      if (data instanceof Blob && data.size > 0) {
-        const url = URL.createObjectURL(data);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        // 在前端构造文件名，与后端保持一致
-        a.download = `payment_request_${req.request_id}_${new Date().toISOString().split("T")[0]}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        
-        // 清理
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-
-        toast({ title: '文件已开始下载', description: `申请单 ${req.request_id} 的Excel已开始下载。` });
-      } else {
-        // 如果返回的不是有效的 Blob，则抛出错误
-        throw new Error('服务器未返回有效的文件数据');
+      if ((data as any)?.error || !(data as any)?.signedUrl) {
+        throw new Error((data as any)?.error || '服务器未返回有效的下载链接');
       }
-
+      window.location.href = (data as any).signedUrl;
+      toast({ title: '文件已开始下载', description: `申请单 ${req.request_id} 的Excel已开始下载。` });
     } catch (error) {
       console.error('导出失败:', error);
       toast({ title: '错误', description: `导出失败: ${(error as any).message}`, variant: 'destructive' });
@@ -192,7 +166,6 @@ export default function PaymentRequestsList() {
       setExportingId(null);
     }
   };
-
   return (
     <div className="space-y-6">
       <div>
