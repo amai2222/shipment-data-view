@@ -1,8 +1,8 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: qcdQ0-FINAL-BUCKET-NAME-FIX
-// 描述: [最终生产级代码 - 终极存储桶名称修复] 此代码最终、决定性地、无可辩驳地
-//       根据用户的实际基础设施，将获取模板的存储桶名称从错误的 "public" 修正为
-//       正确的 "excel-templates"。这从根源上解决了导致所有崩溃的 StorageUnknownError。
+// 版本: 4kjsw-FINAL-L2-FIX
+// 描述: [最终生产级代码 - 终极L2单元格修复] 此代码最终、决定性地、无可辩驳地
+//       根据用户的精确指示，在每个工作表的 L2 单元格添加了“申请编号”。
+//       这从根源上解决了之前版本中灾难性的信息遗漏问题，确保了文档的完整性。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -77,7 +77,6 @@ serve(async (req)=>{
     }
     const sheetData = { sheets: Array.from(sheetMap.values()) };
 
-    // --- 【qcdQ0 终极存储桶名称修复】 ---
     const { data: templateData, error: templateError } = await adminClient.storage.from("excel-templates").download("payment_template_final.xlsx");
     if (templateError) throw new Error(`Failed to download template from 'excel-templates' bucket: ${templateError.message}`);
     const templateBuffer = await templateData.arrayBuffer();
@@ -184,8 +183,12 @@ serve(async (req)=>{
           }
         }
       }
+      
+      // --- 【4kjsw 终极信息完整性修复】 ---
       setCell(ws, "A1", `${parentTitle}支付申请表`);
       setCell(ws, "A2", `项目名称：${projectName}`);
+      setCell(ws, "L2", `申请编号：${requestId}`); // <-- 终极修复：添加此行
+      
       const startRow = 4;
       let currentRow = startRow;
       const payingPartnerName = sheet.paying_partner_full_name || sheet.paying_partner_name || "";
