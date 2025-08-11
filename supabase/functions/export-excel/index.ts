@@ -1,9 +1,8 @@
 // 文件路径: supabase/functions/export-excel/index.ts
-// 版本: 2xxrm-FINAL-ARCHITECTURE-FIX
-// 描述: [最终生产级架构代码 - 终极架构革命] 此代码最终、决定性地、无可辩驳地
-//       采纳了用户的革命性建议。云函数现在只接收一个 request_id，并在服务器端
-//       独立、安全、高效地完成所有数据获取和处理工作，从根本上解决了
-//       数据传输和类型冲突的所有问题。
+// 版本: qcdQ0-FINAL-BUCKET-NAME-FIX
+// 描述: [最终生产级代码 - 终极存储桶名称修复] 此代码最终、决定性地、无可辩驳地
+//       根据用户的实际基础设施，将获取模板的存储桶名称从错误的 "public" 修正为
+//       正确的 "excel-templates"。这从根源上解决了导致所有崩溃的 StorageUnknownError。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -31,13 +30,10 @@ serve(async (req)=>{
     const { data: userRes, error: authError } = await adminClient.auth.getUser(jwt);
     if (authError || !userRes?.user) throw new Error("Invalid or expired token");
     
-    // --- 【终极架构革命：步骤1 - 接收最小化请求】 ---
     const body = await req.json();
-    const { requestId } = body; // 只接收 requestId
+    const { requestId } = body;
     if (!requestId) throw new Error("requestId is required.");
 
-    // --- 【终极架构革命：步骤2 - 在后端获取所有数据】 ---
-    // 2.1 根据 requestId 获取运单ID列表
     const { data: requestData, error: requestError } = await adminClient
       .from('payment_requests')
       .select('logistics_record_ids')
@@ -47,14 +43,12 @@ serve(async (req)=>{
     const ids = requestData?.logistics_record_ids || [];
     if (ids.length === 0) throw new Error("No logistics records found for this request.");
 
-    // 2.2 根据运单ID列表，获取详细数据
     const { data: v2Data, error: rpcError } = await adminClient.rpc('get_payment_request_data_v2' as any, {
       p_record_ids: ids,
     });
     if (rpcError) throw new Error(`RPC get_payment_request_data_v2 failed: ${rpcError.message}`);
     const records: any[] = Array.isArray((v2Data as any)?.records) ? (v2Data as any).records : [];
 
-    // 2.3 在后端组装 sheetData
     const sheetMap = new Map<string, any>();
     for (const rec of records) {
       const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
@@ -83,11 +77,11 @@ serve(async (req)=>{
     }
     const sheetData = { sheets: Array.from(sheetMap.values()) };
 
-    // --- 【终极架构革命：步骤3 - 渲染Excel (逻辑不变，但现在绝对安全)】 ---
-    const { data: templateData, error: templateError } = await adminClient.storage.from("public").download("payment_template_final.xlsx");
-    if (templateError) throw templateError;
+    // --- 【qcdQ0 终极存储桶名称修复】 ---
+    const { data: templateData, error: templateError } = await adminClient.storage.from("excel-templates").download("payment_template_final.xlsx");
+    if (templateError) throw new Error(`Failed to download template from 'excel-templates' bucket: ${templateError.message}`);
     const templateBuffer = await templateData.arrayBuffer();
-    if (!templateBuffer) throw new Error("Template not found.");
+    if (!templateBuffer) throw new Error("Template not found or is empty.");
 
     const finalWb = XLSX.utils.book_new();
     const setCell = (ws, addr, v, tOverride)=>{
@@ -272,7 +266,7 @@ serve(async (req)=>{
       }
     });
   } catch (error) {
-    console.error("export-excel CRITICAL ERROR:", error.stack || error.message);
+    console.error("[CRITICAL] Function crashed. Error:", error.stack || error.message);
     return new Response(JSON.stringify({
       error: error?.message || "Unknown error"
     }), {
