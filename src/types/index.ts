@@ -8,6 +8,8 @@ export interface Project {
   loadingAddress: string;
   unloadingAddress: string;
   autoCode?: string;
+  plannedTotalTons?: number;
+  financeManager?: string;
   createdAt: string;
 }
 

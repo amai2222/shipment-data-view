@@ -235,7 +235,7 @@ export default function PaymentRequest() {
     setIsSaving(true);
     try {
       const allRecordIds = finalPaymentData.all_record_ids;
-      const { error } = await supabase.rpc('process_payment_application', {
+      const { error } = await supabase.rpc('process_payment_application' as any, {
         p_record_ids: allRecordIds,
       });
 

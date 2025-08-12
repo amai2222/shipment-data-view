@@ -287,7 +287,7 @@ export default function ProjectDashboard() {
         {/* 司机工作量报告表格 */}
         <div className="lg:col-span-3">
             <Card className="shadow-sm">
-              <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></Header>
+              <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>

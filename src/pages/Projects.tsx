@@ -55,10 +55,11 @@ export default function Projects() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "",
+    financeManager: "", plannedTotalTons: "",
   });
   
   const [selectedChains, setSelectedChains] = useState<{
-    id: string; dbId?: string; chainName: string; description?: string;
+    id: string; dbId?: string; chainName: string; description?: string; billingTypeId?: number | null;
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
   }[]>([]);
 
@@ -67,9 +68,10 @@ export default function Projects() {
     try {
       setIsLoading(true);
       // 并行加载所有需要的数据
-      const [projectsResponse, partnersResponse] = await Promise.all([
-        supabase.rpc('get_projects_with_details'), // 只调用一次，获取所有项目及其嵌套数据
-        supabase.from('partners').select('*').order('name', { ascending: true })
+      const [projectsResponse, partnersResponse, billingTypesResponse] = await Promise.all([
+        supabase.rpc('get_projects_with_details'),
+        supabase.from('partners').select('*').order('name', { ascending: true }),
+        supabase.from('billing_types').select('billing_type_id, type_name').order('billing_type_id', { ascending: true })
       ]);
 
       const { data: projectsData, error: projectsError } = projectsResponse;
@@ -109,7 +111,7 @@ export default function Projects() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const resetForm = () => {
-    setFormData({ name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "" });
+    setFormData({ name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "", financeManager: "", plannedTotalTons: "" });
     setSelectedChains([]);
     setEditingProject(null);
   };

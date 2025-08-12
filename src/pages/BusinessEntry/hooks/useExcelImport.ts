@@ -145,13 +145,13 @@ export function useExcelImport(onImportSuccess: () => void) {
     addLog(`准备导入 ${finalRecordsToImport.length} 条记录...`);
 
     try {
-      const { data: result, error } = await supabase.rpc('import_logistics_data', { p_records: finalRecordsToImport });
+      const { data: result, error } = await supabase.rpc('import_logistics_data' as any, { p_records: finalRecordsToImport });
       
       if (error) throw error;
       
-      if (result && typeof result === 'object' && 'success_count' in result && 'failures' in result) {
-        const safeResult = result as { success_count: number; failures: ImportFailure[] };
-        const failure_count = safeResult.failures.length;
+        if (result && typeof result === 'object' && 'success_count' in (result as any) && 'failures' in (result as any)) {
+          const safeResult = (result as unknown) as { success_count: number; failures: ImportFailure[] };
+          const failure_count = safeResult.failures.length;
 
         addLog(`导入完成！成功: ${safeResult.success_count}, 失败: ${failure_count}`);
 

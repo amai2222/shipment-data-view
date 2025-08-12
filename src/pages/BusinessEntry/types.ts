@@ -75,3 +75,10 @@ export interface ImportPreviewResult {
   duplicate_records: { record: any }[];
   error_records: any[];
 }
+
+// 导入失败详情（用于日志展示）
+export interface ImportFailure {
+  row_index: number;
+  data: any;
+  error: string;
+}

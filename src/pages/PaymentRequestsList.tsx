@@ -57,7 +57,7 @@ export default function PaymentRequestsList() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setRequests((data || []) as PaymentRequest[]);
+      setRequests(((data as unknown) as PaymentRequest[]) || []);
       setTotalRequestsCount(count || 0);
     } catch (error) {
       console.error("加载付款申请列表失败:", error);
@@ -239,7 +239,7 @@ export default function PaymentRequestsList() {
         return;
       }
 
-      const { data, error } = await supabase.rpc('cancel_payment_requests_by_ids', { p_request_ids: idsToCancel });
+      const { data, error } = await supabase.rpc('cancel_payment_requests_by_ids' as any, { p_request_ids: idsToCancel });
       if (error) throw error;
 
       toast({ title: "操作成功", description: `已成功作废 ${idsToCancel.length} 张申请单，${data} 条关联运单的状态已回滚。` });
