@@ -68,10 +68,9 @@ export default function Projects() {
     try {
       setIsLoading(true);
       // 并行加载所有需要的数据
-      const [projectsResponse, partnersResponse, billingTypesResponse] = await Promise.all([
+      const [projectsResponse, partnersResponse] = await Promise.all([
         supabase.rpc('get_projects_with_details'),
         supabase.from('partners').select('*').order('name', { ascending: true }),
-        supabase.from('billing_types').select('billing_type_id, type_name').order('billing_type_id', { ascending: true })
       ]);
 
       const { data: projectsData, error: projectsError } = projectsResponse;
@@ -118,14 +117,21 @@ export default function Projects() {
 
   const handleEdit = (project: ProjectWithDetails) => {
     setFormData({
-      name: project.name, startDate: project.startDate, endDate: project.endDate,
-      manager: project.manager, loadingAddress: project.loadingAddress, unloadingAddress: project.unloadingAddress,
+      name: project.name,
+      startDate: project.startDate,
+      endDate: project.endDate,
+      manager: project.manager,
+      loadingAddress: project.loadingAddress,
+      unloadingAddress: project.unloadingAddress,
+      financeManager: project.financeManager || "",
+      plannedTotalTons: (project.plannedTotalTons != null ? String(project.plannedTotalTons) : ""),
     });
     setEditingProject(project);
     
     const chainsWithPartners = (project.partnerChains || []).map(chain => ({
       id: `chain-existing-${chain.id}`, dbId: chain.id, chainName: chain.chainName,
       description: chain.description,
+      billingTypeId: Number((chain as any).billingTypeId) || 1,
       partners: (chain.partners || []).map((pp) => ({
         id: `partner-existing-${pp.id}`, dbId: pp.id, partnerId: pp.partnerId,
         level: pp.level, taxRate: pp.taxRate,
@@ -170,6 +176,8 @@ export default function Projects() {
         manager: formData.manager,
         loading_address: formData.loadingAddress,
         unloading_address: formData.unloadingAddress,
+        finance_manager: formData.financeManager || null,
+        planned_total_tons: formData.plannedTotalTons ? Number(formData.plannedTotalTons) : null,
       };
 
       const chainsPayload = selectedChains.map((chain, index) => ({
@@ -177,6 +185,7 @@ export default function Projects() {
         chain_name: chain.chainName || `链路${index + 1}`,
         description: chain.description || '',
         is_default: index === 0,
+        billing_type_id: chain.billingTypeId ?? 1,
         partners: chain.partners.map(p => ({
           id: p.dbId,
           partner_id: p.partnerId,
@@ -220,7 +229,7 @@ export default function Projects() {
   const addNewChain = () => {
     setSelectedChains(prev => [...prev, {
       id: `chain-new-${Date.now()}`, dbId: undefined,
-      chainName: `链路${prev.length + 1}`, description: '', partners: []
+      chainName: `链路${prev.length + 1}`, description: '', billingTypeId: 1, partners: []
     }]);
   };
 
@@ -306,6 +315,8 @@ export default function Projects() {
                     <div className="space-y-2"><Label htmlFor="endDate">结束日期 *</Label><Input id="endDate" type="date" value={formData.endDate} onChange={(e) => setFormData(prev => ({...prev, endDate: e.target.value}))} disabled={isSubmitting}/></div>
                     <div className="space-y-2"><Label htmlFor="loadingAddress">装货地址 *</Label><Input id="loadingAddress" value={formData.loadingAddress} onChange={(e) => setFormData(prev => ({...prev, loadingAddress: e.target.value}))} placeholder="请输入装货地址" disabled={isSubmitting}/></div>
                     <div className="space-y-2"><Label htmlFor="unloadingAddress">卸货地址 *</Label><Input id="unloadingAddress" value={formData.unloadingAddress} onChange={(e) => setFormData(prev => ({...prev, unloadingAddress: e.target.value}))} placeholder="请输入卸货地址" disabled={isSubmitting}/></div>
+                    <div className="space-y-2"><Label htmlFor="financeManager">财务负责人</Label><Input id="financeManager" value={formData.financeManager} onChange={(e) => setFormData(prev => ({...prev, financeManager: e.target.value}))} placeholder="请输入财务负责人" disabled={isSubmitting}/></div>
+                    <div className="space-y-2"><Label htmlFor="plannedTotalTons">计划数</Label><Input id="plannedTotalTons" type="number" min="0" step="0.01" value={formData.plannedTotalTons} onChange={(e) => setFormData(prev => ({...prev, plannedTotalTons: e.target.value}))} placeholder="请输入计划数（纯数字）" disabled={isSubmitting}/></div>
                   </div>
                 </div>
                 <div className="space-y-4 border-t pt-4">
@@ -315,7 +326,23 @@ export default function Projects() {
                       {selectedChains.map((chain, chainIndex) => (
                         <div key={chain.id} className="border rounded-lg p-4 space-y-3">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2"><Link className="h-4 w-4" /><Input value={chain.chainName} onChange={(e) => setSelectedChains(prev => prev.map((c, i) => i === chainIndex ? { ...c, chainName: e.target.value } : c))} placeholder="链路名称" className="w-40" disabled={isSubmitting}/></div>
+                            <div className="flex items-center space-x-3">
+                              <Link className="h-4 w-4" />
+                              <Input value={chain.chainName} onChange={(e) => setSelectedChains(prev => prev.map((c, i) => i === chainIndex ? { ...c, chainName: e.target.value } : c))} placeholder="链路名称" className="w-40" disabled={isSubmitting}/>
+                              <div className="flex items-center space-x-2">
+                                <Label className="text-xs">计费模式</Label>
+                                <select
+                                  value={chain.billingTypeId ?? 1}
+                                  onChange={(e) => setSelectedChains(prev => prev.map((c, i) => i === chainIndex ? { ...c, billingTypeId: Number(e.target.value) } : c))}
+                                  className="p-1 border rounded text-sm"
+                                  disabled={isSubmitting}
+                                >
+                                  <option value={1}>计吨</option>
+                                  <option value={2}>计车</option>
+                                  <option value={3}>计方</option>
+                                </select>
+                              </div>
+                            </div>
                             <div className="flex space-x-2"><Button type="button" variant="outline" size="sm" onClick={() => addPartnerToChain(chainIndex)} disabled={isSubmitting}><Plus className="h-4 w-4 mr-1" />添加合作方</Button><Button type="button" variant="outline" size="sm" onClick={() => removeChain(chainIndex)} disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button></div>
                           </div>
                           {chain.partners.length > 0 ? (
@@ -360,7 +387,13 @@ export default function Projects() {
                       {expandedProject === project.id ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
                       <div>
                         <CardTitle className="text-lg">{project.name}</CardTitle>
-                        <p className="text-sm text-muted-foreground mt-1">负责人: {project.manager}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          负责人: {project.manager}
+                          <span className="mx-2">·</span>
+                          财务负责人: {project.financeManager || '—'}
+                          <span className="mx-2">·</span>
+                          计划数: {project.plannedTotalTons ?? '—'}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
