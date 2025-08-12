@@ -1163,6 +1163,17 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_filtered_logistics_records_with_billing: {
+        Args: {
+          p_project_id?: string
+          p_driver_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Json
+      }
       get_filtered_unpaid_ids: {
         Args: {
           p_project_id?: string

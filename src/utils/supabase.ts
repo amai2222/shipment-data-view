@@ -82,18 +82,48 @@ export class SupabaseStorage {
   }
 
   static async getDashboardStats(filters: { startDate: string; endDate: string; projectId: string | null; }) {
-    const { data, error } = await supabase.rpc('get_dashboard_stats' as any, {
-      start_date_param: filters.startDate,
-      end_date_param: filters.endDate,
-      project_id_param: filters.projectId === 'all' ? null : filters.projectId,
+    const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
+      p_start_date: filters.startDate,
+      p_end_date: filters.endDate,
+      p_project_id: filters.projectId === 'all' ? null : filters.projectId,
     });
 
     if (error) {
-      console.error('RPC call to get_dashboard_stats failed:', error);
+      console.error('RPC call to get_dashboard_stats_with_billing_types failed:', error);
       throw error;
     }
 
     return data;
+  }
+
+  static async getFilteredLogisticsRecordsWithBilling(
+    projectId?: string, 
+    driverId?: string, 
+    startDate?: string, 
+    endDate?: string,
+    limit: number = 100,
+    offset: number = 0
+  ): Promise<{records: any[], totalCount: number}> {
+    const { data, error } = await supabase
+      .rpc('get_filtered_logistics_records_with_billing', {
+        p_project_id: projectId || null,
+        p_driver_id: driverId || null,
+        p_start_date: startDate || null,
+        p_end_date: endDate || null,
+        p_limit: limit,
+        p_offset: offset
+      });
+    
+    if (error) throw error;
+    
+    if (!data) {
+      return { records: [], totalCount: 0 };
+    }
+    
+    return { 
+      records: (data as any)?.records || [], 
+      totalCount: (data as any)?.total_count || 0 
+    };
   }
 
   // 司机相关
