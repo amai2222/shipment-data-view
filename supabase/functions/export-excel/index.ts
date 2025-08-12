@@ -29,6 +29,19 @@ serve(async (req)=>{
     const jwt = authHeader.replace("Bearer ", "");
     const { data: userRes, error: authError } = await adminClient.auth.getUser(jwt);
     if (authError || !userRes?.user) throw new Error("Invalid or expired token");
+
+    // Permission check: only finance or admin can export
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!anonKey) throw new Error("Missing anon key");
+    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+    const { data: canView, error: permError } = await userClient.rpc('is_finance_or_admin' as any);
+    if (permError) throw new Error(`Permission check failed: ${permError.message}`);
+    if (!canView) {
+      return new Response(JSON.stringify({ error: 'Forbidden: finance or admin only' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     
     const body = await req.json();
     const { requestId } = body;
@@ -43,7 +56,7 @@ serve(async (req)=>{
     const ids = requestData?.logistics_record_ids || [];
     if (ids.length === 0) throw new Error("No logistics records found for this request.");
 
-    const { data: v2Data, error: rpcError } = await adminClient.rpc('get_payment_request_data_v2' as any, {
+    const { data: v2Data, error: rpcError } = await userClient.rpc('get_payment_request_data_v2' as any, {
       p_record_ids: ids,
     });
     if (rpcError) throw new Error(`RPC get_payment_request_data_v2 failed: ${rpcError.message}`);
