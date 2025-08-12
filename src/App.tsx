@@ -1,4 +1,5 @@
-// src/App.tsx
+// 文件路径: src/App.tsx
+// 描述: [qZpSO-Final] 已集成新的两级项目看板路由
 
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -13,7 +14,7 @@ import { AppLayout } from "./components/AppLayout";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import TransportOverview from "./pages/TransportOverview";
-import Projects from "./pages/Projects"; // 您已有的项目管理页面
+import Projects from "./pages/Projects";
 import Drivers from "./pages/Drivers";
 import Locations from "./pages/Locations";
 import Partners from "./pages/Partners";
@@ -25,8 +26,10 @@ import PaymentInvoice from "./pages/PaymentInvoice";
 import NotFound from "./pages/NotFound";
 import PaymentRequestsList from "./pages/PaymentRequestsList";
 import UserManagement from "./pages/Settings/UserManagement";
-// ★★★ 确保导入我们新创建的项目看板页面 ★★★
-import ProjectDashboard from "./pages/ProjectDashboard"; 
+
+// ★★★ 1. 导入我们新创建的两个页面 ★★★
+import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
+import ProjectDashboard from "./pages/ProjectDashboard"; // 改造后的详情页
 
 const queryClient = new QueryClient();
 
@@ -54,8 +57,15 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-            {/* ★★★ 在这里添加新的“项目看板”路由 ★★★ */}
+            {/* ★★★ 2. 添加新的“项目看板”概览页路由 ★★★ */}
             <Route path="/dashboard/project" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+                <AppLayout><ProjectsOverview /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            {/* ★★★ 3. 添加新的“项目详情”下钻页路由 ★★★ */}
+            <Route path="/project/:projectId" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
                 <AppLayout><ProjectDashboard /></AppLayout>
               </ProtectedRoute>
