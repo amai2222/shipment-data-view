@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      billing_types: {
+        Row: {
+          billing_type_id: number
+          created_at: string | null
+          type_code: string | null
+          type_name: string | null
+          user_id: string | null
+        }
+        Insert: {
+          billing_type_id?: number
+          created_at?: string | null
+          type_code?: string | null
+          type_name?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          billing_type_id?: number
+          created_at?: string | null
+          type_code?: string | null
+          type_name?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       driver_projects: {
         Row: {
           created_at: string
@@ -370,6 +394,7 @@ export type Database = {
       }
       partner_chains: {
         Row: {
+          billing_type_id: number | null
           chain_name: string
           created_at: string
           description: string | null
@@ -379,6 +404,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          billing_type_id?: number | null
           chain_name?: string
           created_at?: string
           description?: string | null
@@ -388,6 +414,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          billing_type_id?: number | null
           chain_name?: string
           created_at?: string
           description?: string | null
@@ -397,6 +424,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "partner_chains_billing_type_id_fkey"
+            columns: ["billing_type_id"]
+            isOneToOne: false
+            referencedRelation: "billing_types"
+            referencedColumns: ["billing_type_id"]
+          },
           {
             foreignKeyName: "partner_chains_project_id_fkey"
             columns: ["project_id"]
@@ -573,78 +607,38 @@ export type Database = {
           },
         ]
       }
-      payment_request_records: {
-        Row: {
-          logistics_record_id: string
-          payment_request_id: string
-          user_id: string
-        }
-        Insert: {
-          logistics_record_id: string
-          payment_request_id: string
-          user_id: string
-        }
-        Update: {
-          logistics_record_id?: string
-          payment_request_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_request_records_logistics_record_id_fkey"
-            columns: ["logistics_record_id"]
-            isOneToOne: false
-            referencedRelation: "logistics_records"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_request_records_logistics_record_id_fkey"
-            columns: ["logistics_record_id"]
-            isOneToOne: false
-            referencedRelation: "logistics_records_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_request_records_payment_request_id_fkey"
-            columns: ["payment_request_id"]
-            isOneToOne: false
-            referencedRelation: "payment_requests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       payment_requests: {
         Row: {
           created_at: string
           created_by: string | null
           id: string
+          logistics_record_ids: string[] | null
           notes: string | null
           record_count: number
           request_id: string
           status: string
-          total_amount: number
           user_id: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           id?: string
+          logistics_record_ids?: string[] | null
           notes?: string | null
           record_count: number
           request_id: string
           status?: string
-          total_amount: number
           user_id: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
           id?: string
+          logistics_record_ids?: string[] | null
           notes?: string | null
           record_count?: number
           request_id?: string
           status?: string
-          total_amount?: number
           user_id?: string
         }
         Relationships: []
@@ -955,6 +949,10 @@ export type Database = {
           profit_rate: number
         }[]
       }
+      cancel_payment_requests_by_ids: {
+        Args: { p_request_ids: string[] }
+        Returns: number
+      }
       check_existing_waybills: {
         Args: {
           p_fingerprints: Database["public"]["CompositeTypes"]["waybill_fingerprint"][]
@@ -988,6 +986,12 @@ export type Database = {
       generate_project_code: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_all_projects_overview_data: {
+        Args:
+          | { p_report_date: string }
+          | { p_report_date: string; p_project_ids?: string[] }
+        Returns: Json
       }
       get_dashboard_stats: {
         Args: {
@@ -1040,6 +1044,15 @@ export type Database = {
           created_by_user_id: string
           total_count: number
         }[]
+      }
+      get_filtered_unpaid_ids: {
+        Args: {
+          p_project_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_partner_id?: string
+        }
+        Returns: string[]
       }
       get_finance_reconciliation_data: {
         Args: {
@@ -1269,6 +1282,18 @@ export type Database = {
       }
       get_payment_request_data: {
         Args: {
+          p_project_id: string
+          p_start_date: string
+          p_end_date: string
+          p_partner_id: string
+          p_payment_status_array: string[]
+          p_page_size: number
+          p_page_number: number
+        }
+        Returns: Json
+      }
+      get_payment_request_data_bak: {
+        Args: {
           p_project_id?: string
           p_start_date?: string
           p_end_date?: string
@@ -1280,6 +1305,22 @@ export type Database = {
         Returns: Json
       }
       get_payment_request_data_v2: {
+        Args: { p_record_ids: string[] }
+        Returns: Json
+      }
+      get_payment_request_list: {
+        Args: {
+          p_project_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_partner_id?: string
+          p_payment_status_array?: string[]
+          p_page_size?: number
+          p_page_number?: number
+        }
+        Returns: Json
+      }
+      get_payment_request_preview: {
         Args: { p_record_ids: string[] }
         Returns: Json
       }
@@ -1298,6 +1339,10 @@ export type Database = {
           total_receivables: number
         }[]
       }
+      get_project_dashboard_data: {
+        Args: { p_selected_project_id: string; p_report_date: string }
+        Returns: Json
+      }
       get_project_drivers_with_details: {
         Args: { p_project_id: string }
         Returns: {
@@ -1306,6 +1351,10 @@ export type Database = {
           license_plate: string
           phone: string
         }[]
+      }
+      get_project_overall_stats: {
+        Args: { p_project_id: string }
+        Returns: Json
       }
       get_projects_with_details: {
         Args: Record<PropertyKey, never>
@@ -1335,8 +1384,16 @@ export type Database = {
         Args: { username_input: string }
         Returns: string
       }
+      import_logistics_data: {
+        Args: { p_records: Json }
+        Returns: Json
+      }
       is_admin: {
         Args: { _user_id?: string }
+        Returns: boolean
+      }
+      is_finance_or_admin: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
       login_with_username_or_email: {
@@ -1350,6 +1407,10 @@ export type Database = {
         Returns: Json
       }
       process_payment_application: {
+        Args: { p_record_ids: string[] }
+        Returns: string
+      }
+      process_payment_application_old: {
         Args: { p_record_ids: string[]; p_total_amount: number }
         Returns: string
       }
