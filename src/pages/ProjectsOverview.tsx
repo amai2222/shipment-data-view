@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectsOverview.tsx
-// 描述: [9Xyrq-OverviewPage] 支持多选项目筛选和日期筛选的动态项目组合看板。
+// 描述: [x3TON-Fix] 修正了 "Table is not defined" 的运行时错误，补全了表格组件的导入。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { MultiSelectProjects, OptionType } from '@/components/ui/MultiSelectProjects';
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+// ★★★ 核心修正：在这里补全对表格组件的导入 ★★★
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 // --- 类型定义 ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
@@ -105,8 +107,8 @@ export default function ProjectsOverview() {
   const filteredData = useMemo(() => {
     if (!dashboardData) return null;
     const isFiltering = selectedProjectIds.length > 0;
-    const dataToProcess = isFiltering ? dashboardData.all_projects_data.filter(p => selectedProjectIds.includes(p.project_details.id)) : dashboardData.all_projects_data;
-    if (!dataToProcess) return null;
+    const dataToProcess = isFiltering ? (dashboardData.all_projects_data || []).filter(p => selectedProjectIds.includes(p.project_details.id)) : (dashboardData.all_projects_data || []);
+    
     const summary = {
       total_projects: dataToProcess.length,
       total_receivable: dataToProcess.reduce((sum, p) => sum + (p.summary_stats.total_cost || 0), 0),
@@ -115,8 +117,8 @@ export default function ProjectsOverview() {
     return {
       projects: dataToProcess,
       summary: summary,
-      trend: isFiltering ? [] : dashboardData.global_seven_day_trend,
-      drivers: isFiltering ? [] : dashboardData.global_driver_report_table,
+      trend: isFiltering ? [] : (dashboardData.global_seven_day_trend || []),
+      drivers: isFiltering ? [] : (dashboardData.global_driver_report_table || []),
       isFiltering: isFiltering,
     };
   }, [dashboardData, selectedProjectIds]);
@@ -158,7 +160,7 @@ export default function ProjectsOverview() {
           </Card>
           <Card className="shadow-sm">
             <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />司机工作量总榜 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
-            <CardContent className="max-h-[350px] overflow-y-auto"><Table><TableHeader><TableRow><TableHead>司机姓名</TableHead><TableHead className="text-right">总车次</TableHead><TableHead className="text-right">总应收 (元)</TableHead></TableRow></TableHeader><TableBody>{drivers.length > 0 ? (drivers.map((row) => (<TableRow key={row.driver_name}><TableCell className="font-medium">{row.driver_name}</TableCell><TableCell className="text-right">{row.trip_count}</TableCell><TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell></TableRow>))) : (<TableRow><TableCell colSpan={3} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell></TableRow>)}</TableBody></Table></CardContent>
+            <CardContent className="max-h-[350px] overflow-y-auto"><Table><TableHeader><TableRow><TableHead>司机姓名</TableHead><TableHead className="text-right">总车次</TableHead><TableHead className="text-right">总应收 (元)</TableHead></TableRow></TableHeader><TableBody>{(drivers || []).length > 0 ? (drivers.map((row) => (<TableRow key={row.driver_name}><TableCell className="font-medium">{row.driver_name}</TableCell><TableCell className="text-right">{row.trip_count}</TableCell><TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell></TableRow>))) : (<TableRow><TableCell colSpan={3} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell></TableRow>)}</TableBody></Table></CardContent>
           </Card>
         </div>
       )}
