@@ -153,6 +153,13 @@ export type Database = {
             foreignKeyName: "invoice_records_logistics_record_id_fkey"
             columns: ["logistics_record_id"]
             isOneToOne: false
+            referencedRelation: "logistics_records_secure_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_records_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
             referencedRelation: "logistics_records_view"
             referencedColumns: ["id"]
           },
@@ -265,6 +272,13 @@ export type Database = {
             columns: ["logistics_record_id"]
             isOneToOne: false
             referencedRelation: "logistics_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logistics_partner_costs_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records_secure_view"
             referencedColumns: ["id"]
           },
           {
@@ -468,6 +482,13 @@ export type Database = {
             foreignKeyName: "partner_payment_items_logistics_record_id_fkey"
             columns: ["logistics_record_id"]
             isOneToOne: false
+            referencedRelation: "logistics_records_secure_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_items_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
             referencedRelation: "logistics_records_view"
             referencedColumns: ["id"]
           },
@@ -589,6 +610,13 @@ export type Database = {
             columns: ["logistics_record_id"]
             isOneToOne: false
             referencedRelation: "logistics_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_records_logistics_record_id_fkey"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records_secure_view"
             referencedColumns: ["id"]
           },
           {
@@ -790,6 +818,59 @@ export type Database = {
       }
     }
     Views: {
+      logistics_records_secure_view: {
+        Row: {
+          any_text: string | null
+          auto_number: string | null
+          chain_id: string | null
+          chain_name: string | null
+          created_at: string | null
+          created_by_user_id: string | null
+          current_cost: number | null
+          driver_id: string | null
+          driver_name: string | null
+          driver_payable_cost: number | null
+          driver_phone: string | null
+          extra_cost: number | null
+          id: string | null
+          license_plate: string | null
+          loading_date: string | null
+          loading_location: string | null
+          loading_weight: number | null
+          payable_cost: number | null
+          project_id: string | null
+          project_name: string | null
+          remarks: string | null
+          transport_type: string | null
+          unloading_date: string | null
+          unloading_location: string | null
+          unloading_weight: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logistics_records_chain_id_fkey"
+            columns: ["chain_id"]
+            isOneToOne: false
+            referencedRelation: "partner_chains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logistics_records_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logistics_records_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       logistics_records_view: {
         Row: {
           any_text: string | null
