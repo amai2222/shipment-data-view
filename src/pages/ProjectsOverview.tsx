@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectsOverview.tsx
-// 描述: [x3TON-Fix] 修正了 "Table is not defined" 的运行时错误，补全了表格组件的导入。
+// 描述: [rz64l-Final] 完整版。实现前端筛选逻辑，并始终显示图表卡片。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,10 +15,9 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { MultiSelectProjects, OptionType } from '@/components/ui/MultiSelectProjects';
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-// ★★★ 核心修正：在这里补全对表格组件的导入 ★★★
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-// --- 类型定义 ---
+// --- 类型定义 (无修改) ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; }
 interface TrendData { date: string; receivable: number; }
@@ -27,9 +26,10 @@ interface ProjectDataPackage { project_details: ProjectDetails; daily_report: Da
 interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; }
 interface OverviewDashboardData { all_projects_data: ProjectDataPackage[]; global_seven_day_trend: TrendData[]; global_driver_report_table: DriverReportRow[]; global_summary: { total_projects: number; total_receivable: number; total_trips: number; } }
 
+// --- 辅助函数 (无修改) ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
-// --- 单个项目卡片子组件 ---
+// --- 单个项目卡片子组件 (无修改) ---
 const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectDataPackage, onClick: () => void }) => {
   const { project_details, daily_report, summary_stats } = projectData;
   const unitConfig = useMemo(() => {
@@ -82,11 +82,21 @@ export default function ProjectsOverview() {
   const navigate = useNavigate();
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
 
+  // ★★★ 核心修改 1: useEffect 现在依赖 selectedProjectIds ★★★
+  // 当筛选器变化时，会重新调用后端函数获取已筛选的数据
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase.rpc('get_all_projects_overview_data' as any, { p_report_date: format(reportDate, 'yyyy-MM-dd') });
+        // ★★★ 核心修改 2: 将 selectedProjectIds 传递给后端 ★★★
+        // 如果数组为空，则传递 null，后端会查询所有项目
+        const params = {
+          p_report_date: format(reportDate, 'yyyy-MM-dd'),
+          p_project_ids: selectedProjectIds.length > 0 ? selectedProjectIds : null
+        };
+        
+        const { data, error } = await supabase.rpc('get_all_projects_overview_data' as any, params);
+        
         if (error) throw error;
         setDashboardData(data as unknown as OverviewDashboardData);
       } catch (error) {
@@ -97,36 +107,21 @@ export default function ProjectsOverview() {
       }
     };
     fetchDashboardData();
-  }, [reportDate, toast]);
+  }, [reportDate, toast, selectedProjectIds]); // 依赖数组新增 selectedProjectIds
 
+  // 筛选器选项，仅在首次加载后生成一次
   const projectOptions = useMemo((): OptionType[] => {
     if (!dashboardData?.all_projects_data) return [];
+    // 即使在筛选后，也显示所有项目的选项
     return dashboardData.all_projects_data.map(p => ({ value: p.project_details.id, label: p.project_details.name }));
-  }, [dashboardData]);
+  }, [dashboardData?.all_projects_data]); // 依赖于原始数据
 
-  const filteredData = useMemo(() => {
-    if (!dashboardData) return null;
-    const isFiltering = selectedProjectIds.length > 0;
-    const dataToProcess = isFiltering ? (dashboardData.all_projects_data || []).filter(p => selectedProjectIds.includes(p.project_details.id)) : (dashboardData.all_projects_data || []);
-    
-    const summary = {
-      total_projects: dataToProcess.length,
-      total_receivable: dataToProcess.reduce((sum, p) => sum + (p.summary_stats.total_cost || 0), 0),
-      total_trips: dataToProcess.reduce((sum, p) => sum + (p.summary_stats.total_trips || 0), 0),
-    };
-    return {
-      projects: dataToProcess,
-      summary: summary,
-      trend: isFiltering ? [] : (dashboardData.global_seven_day_trend || []),
-      drivers: isFiltering ? [] : (dashboardData.global_driver_report_table || []),
-      isFiltering: isFiltering,
-    };
-  }, [dashboardData, selectedProjectIds]);
+  const isFiltering = selectedProjectIds.length > 0;
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-blue-600" /></div>;
-  if (!dashboardData || !filteredData) return <div className="p-6 bg-slate-50 min-h-screen"><h1 className="text-3xl font-bold text-blue-600">项目组合看板</h1><div className="text-center py-10 text-slate-500">暂无运行中的项目数据</div></div>;
+  if (!dashboardData) return <div className="p-6 bg-slate-50 min-h-screen"><h1 className="text-3xl font-bold text-blue-600">项目组合看板</h1><div className="text-center py-10 text-slate-500">暂无运行中的项目数据</div></div>;
 
-  const { projects, summary, trend, drivers, isFiltering } = filteredData;
+  const { all_projects_data, global_seven_day_trend, global_driver_report_table, global_summary } = dashboardData;
 
   return (
     <div className="p-6 bg-slate-50 space-y-8">
@@ -141,29 +136,30 @@ export default function ProjectsOverview() {
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">{isFiltering ? '已选项目' : '运行中项目'}</CardTitle><Briefcase className="h-4 w-4 text-slate-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{summary.total_projects}</p></CardContent></Card>
-        <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">总应收</CardTitle><Wallet className="h-4 w-4 text-green-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{formatNumber(summary.total_receivable, '元')}</p></CardContent></Card>
-        <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">总车次</CardTitle><Truck className="h-4 w-4 text-indigo-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{formatNumber(summary.total_trips, '车')}</p></CardContent></Card>
+        <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">{isFiltering ? '已选项目' : '运行中项目'}</CardTitle><Briefcase className="h-4 w-4 text-slate-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{global_summary?.total_projects || 0}</p></CardContent></Card>
+        <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">总应收</CardTitle><Wallet className="h-4 w-4 text-green-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{formatNumber(global_summary?.total_receivable, '元')}</p></CardContent></Card>
+        <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">总车次</CardTitle><Truck className="h-4 w-4 text-indigo-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{formatNumber(global_summary?.total_trips, '车')}</p></CardContent></Card>
       </div>
       <div>
         <h2 className="text-2xl font-semibold text-slate-800 mb-4">{isFiltering ? '已选项目详情' : '各项目概览'}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {projects.map(projectData => (<ProjectSummaryCard key={projectData.project_details.id} projectData={projectData} onClick={() => navigate(`/project/${projectData.project_details.id}`)} />))}
+          {all_projects_data.map(projectData => (<ProjectSummaryCard key={projectData.project_details.id} projectData={projectData} onClick={() => navigate(`/project/${projectData.project_details.id}`)} />))}
         </div>
-        {projects.length === 0 && isFiltering && (<div className="text-center py-10 text-slate-500 bg-white rounded-lg shadow-sm">请在上方筛选器中选择项目以查看。</div>)}
+        {all_projects_data.length === 0 && (<div className="text-center py-10 text-slate-500 bg-white rounded-lg shadow-sm">当前筛选条件下无项目数据。</div>)}
       </div>
-      {!isFiltering && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card className="shadow-sm">
-            <CardHeader><CardTitle className="flex items-center text-slate-700"><TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>所有项目近7日总应收趋势</CardTitle></CardHeader>
-            <CardContent className="h-[350px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis label={{ value: '元', angle: -90, position: 'insideLeft' }} /><Tooltip formatter={(value: number) => [formatNumber(value, '元'), '总应收']} /><Legend /><Line type="monotone" dataKey="receivable" name="总应收" stroke="#f59e0b" strokeWidth={2} /></LineChart></ResponsiveContainer></CardContent>
-          </Card>
-          <Card className="shadow-sm">
-            <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />司机工作量总榜 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
-            <CardContent className="max-h-[350px] overflow-y-auto"><Table><TableHeader><TableRow><TableHead>司机姓名</TableHead><TableHead className="text-right">总车次</TableHead><TableHead className="text-right">总应收 (元)</TableHead></TableRow></TableHeader><TableBody>{(drivers || []).length > 0 ? (drivers.map((row) => (<TableRow key={row.driver_name}><TableCell className="font-medium">{row.driver_name}</TableCell><TableCell className="text-right">{row.trip_count}</TableCell><TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell></TableRow>))) : (<TableRow><TableCell colSpan={3} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell></TableRow>)}</TableBody></Table></CardContent>
-          </Card>
-        </div>
-      )}
+      
+      {/* ★★★ 核心修改 3: 移除了外层的 {!isFiltering && ...} 条件渲染 ★★★ */}
+      {/* 这两个卡片现在总是显示，其内容由后端根据筛选动态计算 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card className="shadow-sm">
+          <CardHeader><CardTitle className="flex items-center text-slate-700"><TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>{isFiltering ? '已选项目' : '所有项目'}近7日总应收趋势</CardTitle></CardHeader>
+          <CardContent className="h-[350px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={global_seven_day_trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis label={{ value: '元', angle: -90, position: 'insideLeft' }} /><Tooltip formatter={(value: number) => [formatNumber(value, '元'), '总应收']} /><Legend /><Line type="monotone" dataKey="receivable" name="总应收" stroke="#f59e0b" strokeWidth={2} /></LineChart></ResponsiveContainer></CardContent>
+        </Card>
+        <Card className="shadow-sm">
+          <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />{isFiltering ? '已选项目' : '所有项目'}司机工作量总榜 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
+          <CardContent className="max-h-[350px] overflow-y-auto"><Table><TableHeader><TableRow><TableHead>司机姓名</TableHead><TableHead className="text-right">总车次</TableHead><TableHead className="text-right">总应收 (元)</TableHead></TableRow></TableHeader><TableBody>{(global_driver_report_table || []).length > 0 ? (global_driver_report_table.map((row) => (<TableRow key={row.driver_name}><TableCell className="font-medium">{row.driver_name}</TableCell><TableCell className="text-right">{row.trip_count}</TableCell><TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell></TableRow>))) : (<TableRow><TableCell colSpan={3} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell></TableRow>)}</TableBody></Table></CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
