@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [elOZy 最终审计版] 此代码已实现根据 billing_type_id 动态调整单位（吨/车/立方）和对应的数据展示。
+// 描述: [QKYDe 最终审计版] 此代码已修复项目切换时单位“闪烁”的BUG，确保始终按项目默认链路展示。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -106,7 +106,8 @@ export default function ProjectDashboard() {
 
   // 【核心修改】根据 billing_type_id 动态生成单位和数据
   const unitConfig = useMemo(() => {
-    const billingType = selectedProjectDetails?.billing_type_id;
+    // 【修复】直接从 allProjects 列表中查找，确保在数据加载期间也能获取到正确的 billing_type_id
+    const billingType = allProjects.find(p => p.id === selectedProjectId)?.billing_type_id;
     const stats = dashboardData?.summary_stats;
     const daily = dashboardData?.daily_report;
 
@@ -147,7 +148,7 @@ export default function ProjectDashboard() {
           getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage,
         };
     }
-  }, [selectedProjectDetails, dashboardData]);
+  }, [selectedProjectId, dashboardData, allProjects]); // 【修复】优化依赖项，确保在ID或数据变化时正确重新计算
 
   const progressPercentage = (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100;
 
@@ -283,7 +284,7 @@ export default function ProjectDashboard() {
         {/* 司机工作量报告表格 */}
         <div className="lg:col-span-3">
             <Card className="shadow-sm">
-              <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></Header>
               <CardContent>
                 <Table>
                   <TableHeader>
