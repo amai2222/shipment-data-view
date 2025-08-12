@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [nGSv2 最终审计版] 此代码已修复日报卡片重复、图表坐标轴硬编码等多个问题，确保UI动态逻辑完全正确。
+// 描述: [d5U1I-Fix 最终审计版] 此代码已修复因括号错位导致的JSX语法错误，并包含所有动态逻辑修复。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
