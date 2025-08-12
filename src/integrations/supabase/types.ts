@@ -1111,6 +1111,14 @@ export type Database = {
         }
         Returns: Json
       }
+      get_dashboard_stats_with_billing_types: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_project_id?: string
+        }
+        Returns: Json
+      }
       get_detailed_records_for_chart: {
         Args: {
           p_filter_type: string
