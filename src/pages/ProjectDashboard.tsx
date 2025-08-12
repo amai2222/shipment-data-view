@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [QKYDe 最终审计版] 此代码已修复项目切换时单位“闪烁”的BUG，确保始终按项目默认链路展示。
+// 描述: [xzI2e 最终审计版] 此代码已修复因括号错位导致的JSX语法错误，并确保项目切换时单位展示稳定。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
