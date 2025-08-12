@@ -73,7 +73,8 @@ export default function Partners() {
         ({ data, error } = await supabase
           .from('partners')
           .select(`
-            id, name, full_name, bank_account, bank_name, branch_name, tax_rate, created_at,
+            id, name, full_name, tax_rate, created_at,
+            partner_bank_details ( bank_account, bank_name, branch_name ),
             project_partners (
               level, tax_rate,
               projects ( id, name, auto_code )
@@ -84,7 +85,7 @@ export default function Partners() {
         ({ data, error } = await supabase
           .from('partners')
           .select(`
-            id, name, created_at,
+            id, name, full_name, tax_rate, created_at,
             project_partners (
               level,
               projects ( id, name, auto_code )
@@ -99,9 +100,9 @@ export default function Partners() {
         id: item.id,
         name: item.name,
         fullName: item.full_name || '',
-        bankAccount: item.bank_account || '',
-        bankName: item.bank_name || '',
-        branchName: item.branch_name || '',
+        bankAccount: item.partner_bank_details?.[0]?.bank_account || '',
+        bankName: item.partner_bank_details?.[0]?.bank_name || '',
+        branchName: item.partner_bank_details?.[0]?.branch_name || '',
         taxRate: Number(item.tax_rate),
         createdAt: item.created_at,
         projects: (item.project_partners || []).map((pp: any) => ({
@@ -139,25 +140,51 @@ export default function Partners() {
       }
 
       const partnerData = {
-        user_id: user.id, // 【修复】在插入对象中包含 user_id
+        user_id: user.id,
         name: formData.name.trim(),
         full_name: formData.fullName.trim() || null,
-        bank_account: formData.bankAccount.trim() || null,
-        bank_name: formData.bankName.trim() || null,
-        branch_name: formData.branchName.trim() || null,
         tax_rate: formData.taxRate
       };
 
       if (editingPartner) {
-        // 更新操作不需要修改 user_id，所以从对象中安全地移除它
+        // 更新 partners 基本信息
         const { user_id, ...updateData } = partnerData;
-        const { error } = await supabase.from('partners').update(updateData).eq('id', editingPartner.id);
-        if (error) throw error;
+        const { error: pErr } = await supabase.from('partners').update(updateData).eq('id', editingPartner.id);
+        if (pErr) throw pErr;
+
+        // 同步/创建银行信息（受更严格的RLS保护）
+        const bankPayload = {
+          partner_id: editingPartner.id,
+          bank_account: formData.bankAccount.trim() || null,
+          bank_name: formData.bankName.trim() || null,
+          branch_name: formData.branchName.trim() || null,
+          user_id: user.id,
+        };
+        const { error: bErr } = await supabase.from('partner_bank_details').upsert(bankPayload, { onConflict: 'partner_id' });
+        if (bErr) throw bErr;
         toast.success('合作方更新成功');
       } else {
-        // 新增操作将包含 user_id 的完整对象插入数据库
-        const { error } = await supabase.from('partners').insert([partnerData]);
-        if (error) throw error;
+        // 新增 partners 基本信息
+        const { data: inserted, error: insErr } = await supabase
+          .from('partners')
+          .insert([partnerData])
+          .select('id')
+          .maybeSingle();
+        if (insErr) throw insErr;
+
+        if (inserted) {
+          const hasBank = !!(formData.bankAccount.trim() || formData.bankName.trim() || formData.branchName.trim());
+          if (hasBank) {
+            const { error: bErr } = await supabase.from('partner_bank_details').insert({
+              partner_id: inserted.id,
+              bank_account: formData.bankAccount.trim() || null,
+              bank_name: formData.bankName.trim() || null,
+              branch_name: formData.branchName.trim() || null,
+              user_id: user.id,
+            });
+            if (bErr) throw bErr;
+          }
+        }
         toast.success('合作方添加成功');
       }
 
@@ -173,7 +200,7 @@ export default function Partners() {
     }
   };
 
-  const handleEdit = (partner: Partner) => {
+  const handleEdit = async (partner: Partner) => {
     setEditingPartner(partner);
     setFormData({
       name: partner.name,
@@ -183,6 +210,23 @@ export default function Partners() {
       branchName: partner.branchName || '',
       taxRate: partner.taxRate
     });
+
+    // 非财务/管理员用户可编辑但默认不展示，编辑时拉取自身可见的银行信息
+    if (!canViewSensitive) {
+      const { data: bd } = await supabase
+        .from('partner_bank_details')
+        .select('bank_account, bank_name, branch_name')
+        .eq('partner_id', partner.id)
+        .maybeSingle();
+      if (bd) {
+        setFormData(prev => ({
+          ...prev,
+          bankAccount: bd.bank_account || '',
+          bankName: bd.bank_name || '',
+          branchName: bd.branch_name || '',
+        }));
+      }
+    }
     setIsDialogOpen(true);
   };
 

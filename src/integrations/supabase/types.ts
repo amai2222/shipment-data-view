@@ -406,6 +406,44 @@ export type Database = {
           },
         ]
       }
+      partner_bank_details: {
+        Row: {
+          bank_account: string | null
+          bank_name: string | null
+          branch_name: string | null
+          created_at: string
+          partner_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          bank_account?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
+          created_at?: string
+          partner_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          bank_account?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
+          created_at?: string
+          partner_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_bank_details_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: true
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_chains: {
         Row: {
           billing_type_id: number | null
@@ -536,9 +574,6 @@ export type Database = {
       }
       partners: {
         Row: {
-          bank_account: string | null
-          bank_name: string | null
-          branch_name: string | null
           created_at: string
           full_name: string | null
           id: string
@@ -547,9 +582,6 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
-          bank_account?: string | null
-          bank_name?: string | null
-          branch_name?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
@@ -558,9 +590,6 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
-          bank_account?: string | null
-          bank_name?: string | null
-          branch_name?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
