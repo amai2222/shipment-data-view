@@ -1,5 +1,5 @@
 // 文件路径: src/components/ui/MultiSelectProjects.tsx
-// 描述: [9Xyrq-Component] 一个可复用的、支持多选的项目组合框组件。
+// 描述: [AzpCe-Fix] 一个可复用的、支持多选的项目组合框组件。
 
 import * as React from "react";
 import { Check, ChevronsUpDown, X } from "lucide-react";
