@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Partner } from '@/types';
 import { Trash2, Edit, Plus, Download, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // 扩展 Partner 类型，使其可以直接包含项目列表
 interface PartnerWithProjects extends Partner {
@@ -51,6 +52,8 @@ const DeleteConfirmButton = ({ partnerId, partnerName, onConfirm }: { partnerId:
 };
 
 export default function Partners() {
+  const { isAdmin, isFinance } = usePermissions();
+  const canViewSensitive = isAdmin || isFinance;
   const [partners, setPartners] = useState<PartnerWithProjects[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
@@ -65,16 +68,30 @@ export default function Partners() {
 
   const fetchPartners = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('partners')
-        .select(`
-          id, name, full_name, bank_account, bank_name, branch_name, tax_rate, created_at,
-          project_partners (
-            level, tax_rate,
-            projects ( id, name, auto_code )
-          )
-        `)
-        .order('name', { ascending: true });
+      let data: any, error: any;
+      if (canViewSensitive) {
+        ({ data, error } = await supabase
+          .from('partners')
+          .select(`
+            id, name, full_name, bank_account, bank_name, branch_name, tax_rate, created_at,
+            project_partners (
+              level, tax_rate,
+              projects ( id, name, auto_code )
+            )
+          `)
+          .order('name', { ascending: true }));
+      } else {
+        ({ data, error } = await supabase
+          .from('partners')
+          .select(`
+            id, name, created_at,
+            project_partners (
+              level,
+              projects ( id, name, auto_code )
+            )
+          `)
+          .order('name', { ascending: true }));
+      }
 
       if (error) throw error;
 
@@ -101,7 +118,7 @@ export default function Partners() {
       console.error('获取合作方失败:', error);
       toast.error('获取合作方失败');
     }
-  }, []);
+  }, [canViewSensitive]);
 
   useEffect(() => {
     fetchPartners();
@@ -184,7 +201,7 @@ export default function Partners() {
   const exportToExcel = () => {
     const exportData = partners.map(partner => ({
       '合作方名称': partner.name,
-      '默认税点': (partner.taxRate * 100).toFixed(2) + '%',
+      ...(canViewSensitive ? { '默认税点': (partner.taxRate * 100).toFixed(2) + '%' } : {}),
       '关联项目数': partner.projects.length,
       '创建时间': new Date(partner.createdAt).toLocaleDateString(),
     }));
@@ -301,8 +318,8 @@ export default function Partners() {
               <TableRow>
                 <TableHead>合作方名称</TableHead>
                 <TableHead>合作方全名</TableHead>
-                <TableHead>银行信息</TableHead>
-                <TableHead>默认税点</TableHead>
+                {canViewSensitive && <TableHead>银行信息</TableHead>}
+                {canViewSensitive && <TableHead>默认税点</TableHead>}
                 <TableHead>关联项目</TableHead>
                 <TableHead>创建时间</TableHead>
                 <TableHead>操作</TableHead>
@@ -315,33 +332,41 @@ export default function Partners() {
                   <TableCell className="text-sm">
                     {partner.fullName || <span className="text-muted-foreground">-</span>}
                   </TableCell>
-                  <TableCell className="text-sm">
-                    <div className="space-y-1">
-                      {partner.bankAccount && (
-                        <div><span className="font-medium">账户:</span> {partner.bankAccount}</div>
-                      )}
-                      {partner.bankName && (
-                        <div><span className="font-medium">银行:</span> {partner.bankName}</div>
-                      )}
-                      {partner.branchName && (
-                        <div><span className="font-medium">网点:</span> {partner.branchName}</div>
-                      )}
-                      {!partner.bankAccount && !partner.bankName && !partner.branchName && (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{(partner.taxRate * 100).toFixed(2)}%</TableCell>
+                  {canViewSensitive && (
+                    <TableCell className="text-sm">
+                      <div className="space-y-1">
+                        {partner.bankAccount && (
+                          <div><span className="font-medium">账户:</span> {partner.bankAccount}</div>
+                        )}
+                        {partner.bankName && (
+                          <div><span className="font-medium">银行:</span> {partner.bankName}</div>
+                        )}
+                        {partner.branchName && (
+                          <div><span className="font-medium">网点:</span> {partner.branchName}</div>
+                        )}
+                        {!partner.bankAccount && !partner.bankName && !partner.branchName && (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
+                  {canViewSensitive && (
+                    <TableCell>{(partner.taxRate * 100).toFixed(2)}%</TableCell>
+                  )}
                   <TableCell>
                     <div className="max-w-xs space-y-1">
                       {partner.projects.length > 0 ? (
                         <>
                           {partner.projects.slice(0, 2).map((project) => (
-                            <div key={project.projectId} className="text-xs flex items-center">
-                              <span className="font-mono bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md">{project.projectCode || 'N/A'}</span>
-                              <span className="text-muted-foreground ml-2 truncate">{project.projectName}</span>
-                              <span className="ml-2 text-orange-600 whitespace-nowrap">(Lv.{project.level}, {(project.taxRate * 100).toFixed(1)}%)</span>
-                            </div>
+                              <div key={project.projectId} className="text-xs flex items-center">
+                                <span className="font-mono bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md">{project.projectCode || 'N/A'}</span>
+                                <span className="text-muted-foreground ml-2 truncate">{project.projectName}</span>
+                                {canViewSensitive ? (
+                                  <span className="ml-2 text-orange-600 whitespace-nowrap">(Lv.{project.level}, {(project.taxRate * 100).toFixed(1)}%)</span>
+                                ) : (
+                                  <span className="ml-2 text-orange-600 whitespace-nowrap">(Lv.{project.level})</span>
+                                )}
+                              </div>
                           ))}
                           {partner.projects.length > 2 && (
                             <div className="text-xs text-muted-foreground mt-1">
