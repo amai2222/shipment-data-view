@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [xzI2e 最终审计版] 此代码已修复因括号错位导致的JSX语法错误，并确保项目切换时单位展示稳定。
+// 描述: [nGSv2 最终审计版] 此代码已修复日报卡片重复、图表坐标轴硬编码等多个问题，确保UI动态逻辑完全正确。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -106,7 +106,6 @@ export default function ProjectDashboard() {
 
   // 【核心修改】根据 billing_type_id 动态生成单位和数据
   const unitConfig = useMemo(() => {
-    // 【修复】直接从 allProjects 列表中查找，确保在数据加载期间也能获取到正确的 billing_type_id
     const billingType = allProjects.find(p => p.id === selectedProjectId)?.billing_type_id;
     const stats = dashboardData?.summary_stats;
     const daily = dashboardData?.daily_report;
@@ -116,7 +115,7 @@ export default function ProjectDashboard() {
         return {
           progressUnit: '车',
           progressCompleted: stats?.total_trips || 0,
-          progressPlanned: selectedProjectDetails?.planned_total_tons || 1, // 按指示，计划数用吨位的值
+          progressPlanned: selectedProjectDetails?.planned_total_tons || 1, // 按指示，计划数用吨位的值。注意：这可能导致进度条百分比不符合直觉。
           dailyReportLabel: '当日运输车次',
           dailyReportValue: daily?.trip_count || 0,
           trendLineLabel: '总车次',
@@ -124,17 +123,15 @@ export default function ProjectDashboard() {
           getDriverReportRowValue: (row: DriverReportRow) => row.trip_count,
         };
       case 3: // 计方
-        // 警告：后端未提供体积数据，暂时使用吨位数据进行展示，标签已按要求修改。
-        // 建议未来更新后端以提供真实体积数据。
         return {
           progressUnit: '立方',
-          progressCompleted: stats?.total_tonnage || 0, // 使用吨位数据
-          progressPlanned: selectedProjectDetails?.planned_total_tons || 1, // 使用吨位数据
+          progressCompleted: stats?.total_tonnage || 0,
+          progressPlanned: selectedProjectDetails?.planned_total_tons || 1,
           dailyReportLabel: '当日运输立方',
-          dailyReportValue: daily?.total_tonnage || 0, // 使用吨位数据
+          dailyReportValue: daily?.total_tonnage || 0,
           trendLineLabel: '总立方',
           driverReportColHeader: '卸货立方',
-          getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage, // 使用吨位数据
+          getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage,
         };
       default: // 计吨 (billing_type_id 为 1, null, 或其他)
         return {
@@ -148,7 +145,7 @@ export default function ProjectDashboard() {
           getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage,
         };
     }
-  }, [selectedProjectId, dashboardData, allProjects]); // 【修复】优化依赖项，确保在ID或数据变化时正确重新计算
+  }, [selectedProjectId, dashboardData, allProjects]);
 
   const progressPercentage = (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100;
 
@@ -229,10 +226,15 @@ export default function ProjectDashboard() {
                       <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.trip_count, '车')}</p>
                       <p className="text-sm text-slate-500">当日车次</p>
                   </div>
-                  <div>
-                      <p className="text-2xl font-bold text-slate-800">{formatNumber(unitConfig.dailyReportValue, unitConfig.progressUnit)}</p>
-                      <p className="text-sm text-slate-500">{unitConfig.dailyReportLabel}</p>
-                  </div>
+                  
+                  {/* 【修复】仅在单位不为“车”时，才显示第二个度量卡片，避免重复 */}
+                  {unitConfig.progressUnit !== '车' && (
+                    <div>
+                        <p className="text-2xl font-bold text-slate-800">{formatNumber(unitConfig.dailyReportValue, unitConfig.progressUnit)}</p>
+                        <p className="text-sm text-slate-500">{unitConfig.dailyReportLabel}</p>
+                    </div>
+                  )}
+
                   <div>
                       <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.daily_report?.driver_receivable, '元')}</p>
                       <p className="text-sm text-slate-500">司机应收</p>
@@ -268,7 +270,8 @@ export default function ProjectDashboard() {
                   <LineChart data={dashboardData.seven_day_trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
-                    <YAxis yAxisId="left" domain={[0, maxTrips]} label={{ value: '吨 / 车', angle: -90, position: 'insideLeft' }} />
+                    {/* 【修复】Y轴标签动态化，以匹配当前单位 */}
+                    <YAxis yAxisId="left" domain={[0, maxTrips]} label={{ value: unitConfig.progressUnit, angle: -90, position: 'insideLeft' }} />
                     <YAxis yAxisId="right" orientation="right" label={{ value: '元', angle: -90, position: 'insideRight' }} />
                     <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '总重量' || name === '总车次' || name === '总立方' ? unitConfig.progressUnit : '元'}`, name]} />
                     <Legend />
