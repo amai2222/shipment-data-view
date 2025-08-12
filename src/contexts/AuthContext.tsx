@@ -102,23 +102,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
 
-      let userEmail = usernameOrEmail;
       if (!usernameOrEmail.includes('@')) {
-        const { data, error: rpcError } = await supabase.rpc('get_user_by_username', {
-          username_input: usernameOrEmail,
+        // Secure path: call edge function to avoid exposing emails via RPC
+        const { data, error } = await supabase.functions.invoke('username-login', {
+          body: { username: usernameOrEmail, password }
         });
-        if (rpcError) {
-          console.error('RPC 调用失败:', rpcError);
-          return { error: '登录服务暂时不可用，请稍后重试' };
+        if (error || !data?.access_token || !data?.refresh_token) {
+          return { error: '用户名或密码错误' };
         }
-        if (!data) {
-          return { error: '用户名不存在或已被禁用' };
+        const { access_token, refresh_token } = data as any;
+        const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (setErr) {
+          return { error: '登录失败，请重试' };
         }
-        userEmail = String(data);
+        return {};
       }
 
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: userEmail,
+        email: usernameOrEmail,
         password,
       });
 
@@ -131,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('登录失败:', error);
       return { error: '登录过程中发生未知错误，请稍后重试' };
     } finally {
-      // 登录成功后由 onAuthStateChange 处理 loading
+      // 登录成功由 onAuthStateChange 处理 loading 状态
     }
   };
 
