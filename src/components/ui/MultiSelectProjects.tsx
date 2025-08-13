@@ -81,7 +81,7 @@ export function MultiSelectProjects({
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-popover border z-50">{/* 修复透明背景和z-index问题 */}
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command>
           <CommandInput placeholder="搜索项目..." />
           <CommandList>

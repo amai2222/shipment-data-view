@@ -16,7 +16,6 @@ import { useNavigate } from 'react-router-dom';
 import { MultiSelectProjects, OptionType } from '@/components/ui/MultiSelectProjects';
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useDataCache } from '@/hooks/useDataCache';
 
 // --- 类型定义 (无修改) ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
@@ -103,6 +102,8 @@ const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectData
 
 // --- 主组件 ---
 export default function ProjectsOverview() {
+  const [dashboardData, setDashboardData] = useState<OverviewDashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const navigate = useNavigate();
@@ -110,41 +111,37 @@ export default function ProjectsOverview() {
 
   // ★★★ 核心修改 1: useEffect 现在依赖 selectedProjectIds ★★★
   // 当筛选器变化时，会重新调用后端函数获取已筛选的数据
-  const { data: dashboardData, loading, error, refresh } = useDataCache(
-    `projects-overview-${format(reportDate, 'yyyy-MM-dd')}-${selectedProjectIds.join(',')}`,
-    async () => {
-      const params = {
-        p_report_date: format(reportDate, 'yyyy-MM-dd'),
-        p_project_ids: selectedProjectIds.length > 0 ? selectedProjectIds : null
-      };
-      
-      const { data, error } = await supabase.rpc('get_all_projects_overview_data' as any, params);
-      
-      if (error) throw error;
-      return data as unknown as OverviewDashboardData;
-    },
-    { ttl: 2 * 60 * 1000 } // 2分钟缓存
-  );
-
   useEffect(() => {
-    if (error) {
-      console.error("加载看板数据失败:", error);
-      toast({ title: "错误", description: `加载看板数据失败: ${error.message}`, variant: "destructive" });
-    }
-  }, [error, toast]);
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      try {
+        // ★★★ 核心修改 2: 将 selectedProjectIds 传递给后端 ★★★
+        // 如果数组为空，则传递 null，后端会查询所有项目
+        const params = {
+          p_report_date: format(reportDate, 'yyyy-MM-dd'),
+          p_project_ids: selectedProjectIds.length > 0 ? selectedProjectIds : null
+        };
+        
+        const { data, error } = await supabase.rpc('get_all_projects_overview_data' as any, params);
+        
+        if (error) throw error;
+        setDashboardData(data as unknown as OverviewDashboardData);
+      } catch (error) {
+        console.error("加载看板数据失败:", error);
+        toast({ title: "错误", description: `加载看板数据失败: ${(error as any).message}`, variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, [reportDate, toast, selectedProjectIds]); // 依赖数组新增 selectedProjectIds
 
-  // 获取所有项目选项（包括已完成的，用于筛选器）
-  const { data: allProjects = [] } = useDataCache(
-    'all-projects-options',
-    async () => {
-      const { data: projects } = await supabase
-        .from('projects')
-        .select('id, name')
-        .order('name');
-      return projects?.map(p => ({ value: p.id, label: p.name })) || [];
-    },
-    { ttl: 10 * 60 * 1000 } // 10分钟缓存
-  );
+  // 筛选器选项，仅在首次加载后生成一次
+  const projectOptions = useMemo((): OptionType[] => {
+    if (!dashboardData?.all_projects_data) return [];
+    // 即使在筛选后，也显示所有项目的选项
+    return dashboardData.all_projects_data.map(p => ({ value: p.project_details.id, label: p.project_details.name }));
+  }, [dashboardData?.all_projects_data]); // 依赖于原始数据
 
   const isFiltering = selectedProjectIds.length > 0;
 
@@ -158,7 +155,7 @@ export default function ProjectsOverview() {
       <div className="flex flex-wrap justify-between items-center gap-4">
         <h1 className="text-3xl font-bold text-blue-600">项目组合看板</h1>
         <div className="flex flex-wrap items-center gap-4">
-          <MultiSelectProjects options={allProjects} selected={selectedProjectIds} onChange={setSelectedProjectIds} className="w-[300px] lg:w-[400px]" />
+          <MultiSelectProjects options={projectOptions} selected={selectedProjectIds} onChange={setSelectedProjectIds} className="w-[300px] lg:w-[400px]" />
           <Popover>
             <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-slate-500")}><CalendarIcon className="mr-2 h-4 w-4" />{reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}</Button></PopoverTrigger>
             <PopoverContent className="w-auto p-0"><CalendarComponent mode="single" selected={reportDate} onSelect={(date) => date && setReportDate(date)} initialFocus /></PopoverContent>

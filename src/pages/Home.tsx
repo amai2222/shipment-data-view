@@ -17,16 +17,11 @@ import { Project } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 
-// 辅助函数：获取默认日期范围 (已修改为45天前到当日)
+// 辅助函数：获取默认日期范围
 const getDefaultDateRange = () => {
   const today = new Date();
-  const startDate = new Date();
-  startDate.setDate(today.getDate() - 45); // 设置为45天前
-
-  const endDateString = today.toISOString().split('T')[0];
-  const startDateString = startDate.toISOString().split('T')[0];
-  
-  return { startDate: startDateString, endDate: endDateString };
+  const year = today.getFullYear();
+  return { startDate: `${year}-01-01`, endDate: today.toISOString().split('T')[0] };
 };
 
 // 格式化为财务数字
@@ -311,22 +306,22 @@ export default function Home() {
         </CardContent>
       </Card>
 
-      {/* 动态显示统计卡片 (已修正条件渲染逻辑) */}
+      {/* 动态显示统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-blue-100 rounded-lg mr-4"><Package className="h-6 w-6 text-blue-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输次数</p><p className="text-2xl font-bold">{overviewStats?.totalRecords || 0}</p></div></CardContent></Card>
         
         {/* 按重量计费卡片 */}
-        {overviewStats?.weightRecordsCount > 0 && (
+        {overviewStats?.weightRecordsCount && overviewStats.weightRecordsCount > 0 && (
           <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-green-100 rounded-lg mr-4"><Truck className="h-6 w-6 text-green-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输重量</p><p className="text-2xl font-bold">{(overviewStats?.totalWeight || 0).toFixed(1)}吨</p></div></CardContent></Card>
         )}
         
         {/* 按车次计费卡片 */}
-        {overviewStats?.tripRecordsCount > 0 && (
+        {overviewStats?.tripRecordsCount && overviewStats.tripRecordsCount > 0 && (
           <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-purple-100 rounded-lg mr-4"><Truck className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输车次</p><p className="text-2xl font-bold">{overviewStats?.totalTrips || 0}车次</p></div></CardContent></Card>
         )}
         
         {/* 按体积计费卡片 */}
-        {overviewStats?.volumeRecordsCount > 0 && (
+        {overviewStats?.volumeRecordsCount && overviewStats.volumeRecordsCount > 0 && (
           <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-orange-100 rounded-lg mr-4"><Package className="h-6 w-6 text-orange-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输体积</p><p className="text-2xl font-bold">{(overviewStats?.totalVolume || 0).toFixed(1)}立方</p></div></CardContent></Card>
         )}
         
@@ -335,7 +330,7 @@ export default function Home() {
       
       <div className="space-y-6">
         {/* 重量统计图表 */}
-        {overviewStats?.weightRecordsCount > 0 && (
+        {overviewStats?.weightRecordsCount && overviewStats.weightRecordsCount > 0 && (
           <Card className="shadow-card">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>每日运输重量统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (吨)</CardTitle>
@@ -363,7 +358,7 @@ export default function Home() {
         )}
 
         {/* 车次统计图表 */}
-        {overviewStats?.tripRecordsCount > 0 && (
+        {overviewStats?.tripRecordsCount && overviewStats.tripRecordsCount > 0 && (
           <Card className="shadow-card">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>每日运输车次统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (车次)</CardTitle>
@@ -387,7 +382,7 @@ export default function Home() {
         )}
 
         {/* 体积统计图表 */}
-        {overviewStats?.volumeRecordsCount > 0 && (
+        {overviewStats?.volumeRecordsCount && overviewStats.volumeRecordsCount > 0 && (
           <Card className="shadow-card">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>每日运输体积统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (立方)</CardTitle>
