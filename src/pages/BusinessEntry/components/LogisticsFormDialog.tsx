@@ -102,8 +102,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   );
 
   const billingTypeId = selectedChain?.billing_type_id;
-  // Always show step 2 for multi-step flow, regardless of billing type
-  const showStep2 = true;
+  // Single step form - no need for step 2
+  const showStep2 = false;
 
   const quantityUnit = useMemo(() => {
     if (billingTypeId === 2) return '车';
@@ -569,6 +569,89 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         </div>
       </div>
 
+      {/* Loading and Unloading Quantities - moved here based on billing type */}
+      {billingTypeId === 2 && (
+        <div>
+          <Label htmlFor="tripCount">发车次数</Label>
+          <Input
+            id="tripCount"
+            type="number"
+            min="1"
+            value={formData.tripCount}
+            onChange={(e) => setFormData(prev => ({ ...prev, tripCount: e.target.value }))}
+            placeholder="输入发车次数"
+          />
+        </div>
+      )}
+
+      {billingTypeId === 3 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="loadingVolume">装货体积(立方) *</Label>
+            <Input
+              id="loadingVolume"
+              type="number"
+              step="0.1"
+              value={formData.loadingVolume}
+              onChange={(e) => setFormData(prev => ({ ...prev, loadingVolume: e.target.value }))}
+              placeholder="输入装货体积"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="unloadingVolume">卸货体积(立方)</Label>
+            <Input
+              id="unloadingVolume"
+              type="number"
+              step="0.1"
+              value={formData.unloadingVolume}
+              onChange={(e) => setFormData(prev => ({ ...prev, unloadingVolume: e.target.value }))}
+              placeholder="输入卸货体积"
+            />
+          </div>
+        </div>
+      )}
+
+      {(billingTypeId === 1 || !billingTypeId) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="loadingQuantity">装货数量</Label>
+            <Input
+              id="loadingQuantity"
+              type="number"
+              step="0.1"
+              value={formData.loadingQuantity}
+              onChange={(e) => setFormData(prev => ({ ...prev, loadingQuantity: e.target.value }))}
+              placeholder="输入装货数量"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="unloadingQuantity">卸货数量</Label>
+            <Input
+              id="unloadingQuantity"
+              type="number"
+              step="0.1"
+              value={formData.unloadingQuantity}
+              onChange={(e) => setFormData(prev => ({ ...prev, unloadingQuantity: e.target.value }))}
+              placeholder="输入卸货数量"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Remarks */}
+      <div>
+        <Label htmlFor="remarks">备注</Label>
+        <Textarea
+          id="remarks"
+          value={formData.remarks}
+          onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+          placeholder="输入备注信息"
+          rows={3}
+        />
+      </div>
+
     </div>
   );
 
@@ -712,38 +795,19 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {currentStep === 1 && renderStep1()}
-          {currentStep === 2 && renderStep2()}
+          {renderStep1()}
 
           {/* Action Buttons */}
-          <div className="flex justify-between pt-4">
-            <div>
-              {currentStep === 2 && (
-                <Button type="button" variant="outline" onClick={handleBack}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  上一步
-                </Button>
-              )}
-            </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
+              <X className="mr-2 h-4 w-4" />
+              取消
+            </Button>
             
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={onClose}>
-                <X className="mr-2 h-4 w-4" />
-                取消
-              </Button>
-              
-              {showStep2 && currentStep === 1 ? (
-                <Button type="button" onClick={handleNext}>
-                  下一步
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              ) : (
-                <Button type="submit" disabled={loading}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {loading ? '保存中...' : '保存'}
-                </Button>
-              )}
-            </div>
+            <Button type="submit" disabled={loading}>
+              <Save className="mr-2 h-4 w-4" />
+              {loading ? '保存中...' : '保存'}
+            </Button>
           </div>
         </form>
       </DialogContent>
