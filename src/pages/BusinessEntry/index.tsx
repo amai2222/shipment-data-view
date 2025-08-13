@@ -18,7 +18,7 @@ import { LogisticsTable } from './components/LogisticsTable';
 import { ImportDialog } from './components/ImportDialog';
 import { LogisticsFormDialog } from './components/LogisticsFormDialog';
 
-const SummaryDisplay = ({ totalSummary, activeFilters, projects }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters, projects: Project[] }) => {
+const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters, projects: Project[], records: LogisticsRecord[] }) => {
   const summaryTitle = useMemo(() => {
     const parts: string[] = [];
     // [最终修复] 1. 摘要标题逻辑使用 projectName
@@ -33,11 +33,56 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects }: { totalSummar
     return `${parts.join(' | ')} 合计`;
   }, [activeFilters, projects]);
 
+  // Calculate dynamic billing type statistics
+  const billingStats = useMemo(() => {
+    const stats = {
+      weight: { loading: 0, unloading: 0 },
+      trips: { loading: 0 },
+      volume: { loading: 0, unloading: 0 }
+    };
+
+    records.forEach(record => {
+      const billingTypeId = (record as any).billing_type_id || 1;
+      
+      if (billingTypeId === 1) { // 计重
+        stats.weight.loading += record.loading_weight || 0;
+        stats.weight.unloading += record.unloading_weight || 0;
+      } else if (billingTypeId === 2) { // 计车
+        stats.trips.loading += record.loading_weight || 0;
+      } else if (billingTypeId === 3) { // 计体积
+        stats.volume.loading += record.loading_weight || 0;
+        stats.volume.unloading += record.unloading_weight || 0;
+      }
+    });
+
+    return stats;
+  }, [records]);
+
   return (
     <div className="flex items-center justify-start flex-wrap gap-x-6 gap-y-2 rounded-lg border p-4 text-sm font-medium">
       <span className="font-bold">{summaryTitle}:</span>
-      <span>装: <span className="font-bold text-primary">{totalSummary.totalLoadingWeight.toFixed(2)}吨</span></span>
-      <span>卸: <span className="font-bold text-primary">{totalSummary.totalUnloadingWeight.toFixed(2)}吨</span></span>
+      
+      {/* 计重合计 */}
+      {billingStats.weight.loading > 0 || billingStats.weight.unloading > 0 ? (
+        <>
+          <span>计重合计 - 装: <span className="font-bold text-primary">{billingStats.weight.loading.toFixed(2)}吨</span></span>
+          <span>卸: <span className="font-bold text-primary">{billingStats.weight.unloading.toFixed(2)}吨</span></span>
+        </>
+      ) : null}
+      
+      {/* 计车合计 */}
+      {billingStats.trips.loading > 0 ? (
+        <span>计车合计 - 装: <span className="font-bold text-primary">{billingStats.trips.loading.toFixed(0)}车</span></span>
+      ) : null}
+      
+      {/* 计体积合计 */}
+      {billingStats.volume.loading > 0 || billingStats.volume.unloading > 0 ? (
+        <>
+          <span>计体积合计 - 装: <span className="font-bold text-primary">{billingStats.volume.loading.toFixed(2)}立方</span></span>
+          <span>卸: <span className="font-bold text-primary">{billingStats.volume.unloading.toFixed(2)}立方</span></span>
+        </>
+      ) : null}
+      
       <span>{totalSummary.actualCount}实际 / {totalSummary.returnCount}退货</span>
       <span>司机运费: <span className="font-bold text-primary">¥{totalSummary.totalCurrentCost.toFixed(2)}</span></span>
       <span>额外费用: <span className="font-bold text-orange-600">¥{totalSummary.totalExtraCost.toFixed(2)}</span></span>
@@ -160,7 +205,7 @@ export default function BusinessEntry() {
         </div>
       </div>
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
-      {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} projects={projects} />)}
+      {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} projects={projects} records={records} />)}
       {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, page: pagination.currentPage, size: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />)}
       <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />
       <LogisticsFormDialog
