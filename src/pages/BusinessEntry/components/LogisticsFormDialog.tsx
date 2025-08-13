@@ -131,15 +131,15 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   }, [formData.projectId]);
 
-  // Auto-select default chain
+  // Auto-select default chain whenever chains are loaded
   useEffect(() => {
-    if (chains.length > 0 && !formData.chainId && !editingRecord) {
+    if (chains.length > 0 && !editingRecord) {
       const defaultChain = chains.find(c => c.is_default);
       if (defaultChain) {
         setFormData(prev => ({ ...prev, chainId: defaultChain.id }));
       }
     }
-  }, [chains, formData.chainId, editingRecord]);
+  }, [chains, editingRecord]);
 
   const loadInitialData = async () => {
     // Initial data will be loaded when project is selected
@@ -518,6 +518,20 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
               />
             </div>
 
+            {/* Transport Type */}
+            <div>
+              <Label htmlFor="transportType">运输类型</Label>
+              <Select value={formData.transportType} onValueChange={(value) => setFormData(prev => ({ ...prev, transportType: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="实际运输">实际运输</SelectItem>
+                  <SelectItem value="退货">退货</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Loading Location */}
             <div>
               <Label>装货地点 *</Label>
@@ -567,20 +581,6 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 onChange={(e) => setFormData(prev => ({ ...prev, unloadingQuantity: e.target.value }))}
                 placeholder={`输入卸货数量(${quantityUnit})`}
               />
-            </div>
-
-            {/* Transport Type */}
-            <div>
-              <Label htmlFor="transportType">运输类型</Label>
-              <Select value={formData.transportType} onValueChange={(value) => setFormData(prev => ({ ...prev, transportType: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="实际运输">实际运输</SelectItem>
-                  <SelectItem value="退货">退货</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Current Cost */}
