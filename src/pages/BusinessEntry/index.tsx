@@ -110,15 +110,24 @@ export default function BusinessEntry() {
   const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates } = useExcelImport(() => { refetch(); });
   const isSummaryStale = useMemo(() => JSON.stringify(uiFilters) !== JSON.stringify(activeFilters), [uiFilters, activeFilters]);
 
-  const loadInitialOptions = useCallback(async () => {
-    try {
-      const { data, error } = await supabase.from('projects').select('id, name, start_date, end_date, manager, loading_address, unloading_address, project_status');
+  // 使用缓存优化项目加载
+  const { data: cachedProjects } = useAPICache(
+    'business-projects',
+    async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, start_date, end_date, manager, loading_address, unloading_address, project_status');
       if (error) throw error;
-      setProjects(data || []);
-    } catch (error) { toast({ title: "错误", description: "加载项目列表失败", variant: "destructive" }); }
-  }, [toast]);
+      return data || [];
+    },
+    []
+  );
 
-  useEffect(() => { loadInitialOptions(); }, [loadInitialOptions]);
+  useEffect(() => {
+    if (cachedProjects) {
+      setProjects(cachedProjects);
+    }
+  }, [cachedProjects]);
 
   const handleSearch = () => {
     setActiveFilters(uiFilters);
@@ -133,28 +142,35 @@ export default function BusinessEntry() {
 
   const exportToExcel = async () => {
     toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
+    
     try {
-      let query = supabase.from('logistics_records_view').select('*');
-      // [最终修复] 2. 导出逻辑与您的 SQL 函数逻辑完全匹配
-      if (activeFilters.projectName) query = query.eq('project_name', activeFilters.projectName);
-      if (activeFilters.driverName) query = query.ilike('driver_name', `%${activeFilters.driverName}%`);
-      if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
-      if (activeFilters.driverPhone) query = query.ilike('driver_phone', `%${activeFilters.driverPhone}%`);
-      if (activeFilters.startDate) query = query.gte('loading_date', activeFilters.startDate);
-      if (activeFilters.endDate) query = query.lte('loading_date', activeFilters.endDate);
-      
-      const { data, error } = await query.order('created_at', { ascending: false }).limit(10000);
-      if (error) throw error;
+      await performanceMonitor.measure(
+        'export-excel',
+        async () => {
+          let query = supabase.from('logistics_records_view').select('*');
+          // [最终修复] 2. 导出逻辑与您的 SQL 函数逻辑完全匹配
+          if (activeFilters.projectName) query = query.eq('project_name', activeFilters.projectName);
+          if (activeFilters.driverName) query = query.ilike('driver_name', `%${activeFilters.driverName}%`);
+          if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
+          if (activeFilters.driverPhone) query = query.ilike('driver_phone', `%${activeFilters.driverPhone}%`);
+          if (activeFilters.startDate) query = query.gte('loading_date', activeFilters.startDate);
+          if (activeFilters.endDate) query = query.lte('loading_date', activeFilters.endDate);
+          
+          const { data, error } = await query.order('created_at', { ascending: false }).limit(10000);
+          if (error) throw error;
 
-      const dataToExport = data.map((r: any) => ({
-        '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认', '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone, '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date, '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.driver_payable_cost, '备注': r.remarks,
-      }));
-      
-      const ws = XLSX.utils.json_to_sheet(dataToExport);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "运单记录");
-      XLSX.writeFile(wb, "运单记录.xlsx");
-      toast({ title: "成功", description: `已成功导出 ${data.length} 条记录！` });
+          const dataToExport = data.map((r: any) => ({
+            '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认', '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone, '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date, '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.driver_payable_cost, '备注': r.remarks,
+          }));
+          
+          const ws = XLSX.utils.json_to_sheet(dataToExport);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "运单记录");
+          XLSX.writeFile(wb, "运单记录.xlsx");
+          toast({ title: "成功", description: `已成功导出 ${data.length} 条记录！` });
+        },
+        { recordCount: activeFilters }
+      );
     } catch(e: any) {
       toast({ title: "错误", description: `导出失败: ${e.message}`, variant: "destructive" });
     }
