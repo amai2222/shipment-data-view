@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Package, Loader2, ChevronDown, ChevronRight, Link } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Edit, Trash2, Package, Loader2, ChevronDown, ChevronRight, Link, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SupabaseStorage } from "@/utils/supabase";
@@ -225,6 +226,31 @@ export default function Projects() {
       toast({ title: "删除失败", description: "删除项目时出现错误", variant: "destructive" });
     }
   };
+
+  const handleStatusChange = async (projectId: string, newStatus: string, projectName: string) => {
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ project_status: newStatus })
+        .eq('id', projectId);
+
+      if (error) throw error;
+
+      toast({ 
+        title: "状态更新成功", 
+        description: `项目"${projectName}"状态已更新为"${newStatus}"` 
+      });
+
+      await loadData();
+    } catch (error) {
+      console.error('更新项目状态失败:', error);
+      toast({ 
+        title: "状态更新失败", 
+        description: "更新项目状态时出现错误", 
+        variant: "destructive" 
+      });
+    }
+  };
   
   const addNewChain = () => {
     setSelectedChains(prev => [...prev, {
@@ -393,6 +419,16 @@ export default function Projects() {
                           财务负责人: {project.financeManager || '—'}
                           <span className="mx-2">·</span>
                           计划数: {project.plannedTotalTons ?? '—'}
+                          <span className="mx-2">·</span>
+                          状态: <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            (project as any).projectStatus === '进行中' ? 'bg-green-100 text-green-800' :
+                            (project as any).projectStatus === '已完成' ? 'bg-blue-100 text-blue-800' :
+                            (project as any).projectStatus === '已暂停' ? 'bg-yellow-100 text-yellow-800' :
+                            (project as any).projectStatus === '已取消' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {(project as any).projectStatus || '进行中'}
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -406,24 +442,41 @@ export default function Projects() {
                         <p className="text-sm font-medium">{project.unloadingAddress}</p>
                         <p className="text-xs text-muted-foreground">卸货地址</p>
                       </div>
-                      <div className="flex space-x-2 ml-4">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={(e) => { e.stopPropagation(); handleEdit(project); }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <ConfirmDialog 
-                          title="确认删除"
-                          description={`您确定要删除项目 "${project.name}" 吗？`}
-                          onConfirm={() => handleDelete(project.id, project.name)}
-                        >
-                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </ConfirmDialog>
-                      </div>
+                       <div className="flex space-x-2 ml-4">
+                         <div onClick={(e) => e.stopPropagation()}>
+                           <Select 
+                             value={(project as any).projectStatus || '进行中'} 
+                             onValueChange={(value) => handleStatusChange(project.id, value, project.name)}
+                           >
+                             <SelectTrigger className="w-24 h-8">
+                               <Settings className="h-3 w-3 mr-1" />
+                               <SelectValue />
+                             </SelectTrigger>
+                             <SelectContent>
+                               <SelectItem value="进行中">进行中</SelectItem>
+                               <SelectItem value="已完成">已完成</SelectItem>
+                               <SelectItem value="已暂停">已暂停</SelectItem>
+                               <SelectItem value="已取消">已取消</SelectItem>
+                             </SelectContent>
+                           </Select>
+                         </div>
+                         <Button 
+                           variant="outline" 
+                           size="sm" 
+                           onClick={(e) => { e.stopPropagation(); handleEdit(project); }}
+                         >
+                           <Edit className="h-4 w-4" />
+                         </Button>
+                         <ConfirmDialog 
+                           title="确认删除"
+                           description={`您确定要删除项目 "${project.name}" 吗？`}
+                           onConfirm={() => handleDelete(project.id, project.name)}
+                         >
+                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}>
+                             <Trash2 className="h-4 w-4" />
+                           </Button>
+                         </ConfirmDialog>
+                       </div>
                     </div>
                   </div>
                 </CardHeader>
