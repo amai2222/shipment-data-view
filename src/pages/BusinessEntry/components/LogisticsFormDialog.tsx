@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, Save, X } from "lucide-react";
+import { CalendarIcon, Save, X, ArrowLeft, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogisticsRecord, Project } from '../types';
@@ -14,6 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { zhCN } from "date-fns/locale";
 
 interface Driver {
   id: string;
@@ -58,6 +59,10 @@ interface FormData {
   currentCost: string;
   extraCost: string;
   remarks: string;
+  // New fields for step 2
+  loadingVolume: string;
+  unloadingVolume: string;
+  tripCount: string;
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -75,11 +80,15 @@ const INITIAL_FORM_DATA: FormData = {
   transportType: '实际运输',
   currentCost: '',
   extraCost: '',
-  remarks: ''
+  remarks: '',
+  loadingVolume: '',
+  unloadingVolume: '',
+  tripCount: '1'
 };
 
 export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, onSubmitSuccess }: LogisticsFormDialogProps) {
   const { toast } = useToast();
+  const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -92,12 +101,14 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     [chains, formData.chainId]
   );
 
+  const billingTypeId = selectedChain?.billing_type_id;
+  const showStep2 = billingTypeId === 2 || billingTypeId === 3;
+
   const quantityUnit = useMemo(() => {
-    const billingTypeId = selectedChain?.billing_type_id;
     if (billingTypeId === 2) return '车';
     if (billingTypeId === 3) return '立方';
     return '吨'; // default for billing_type_id = 1 or null
-  }, [selectedChain]);
+  }, [billingTypeId]);
 
   // Calculate driver receivable automatically
   const driverReceivable = useMemo(() => {
@@ -109,6 +120,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   // Load initial data
   useEffect(() => {
     if (isOpen) {
+      setCurrentStep(1);
       loadInitialData();
       if (editingRecord) {
         populateFormWithRecord(editingRecord);
@@ -212,33 +224,31 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       transportType: record.transport_type || '实际运输',
       currentCost: record.current_cost?.toString() || '',
       extraCost: record.extra_cost?.toString() || '',
-      remarks: record.remarks || ''
+      remarks: record.remarks || '',
+      loadingVolume: '',
+      unloadingVolume: '',
+      tripCount: '1'
     });
   };
 
-  const checkForDuplicate = async (): Promise<boolean> => {
-    if (!formData.driverName || !formData.licensePlate || !formData.loadingLocation || 
-        !formData.unloadingLocation || !formData.loadingDate || !formData.loadingQuantity) {
+  const validateStep1 = () => {
+    if (!formData.projectId || !formData.loadingDate || !formData.driverName || 
+        !formData.loadingLocation || !formData.unloadingLocation) {
+      toast({ title: "错误", description: "请填写所有必填字段", variant: "destructive" });
       return false;
     }
+    return true;
+  };
 
-    try {
-      const { data, error } = await supabase.rpc('check_logistics_record_duplicate', {
-        p_driver_name: formData.driverName,
-        p_license_plate: formData.licensePlate,
-        p_driver_phone: formData.driverPhone,
-        p_loading_location: formData.loadingLocation,
-        p_unloading_location: formData.unloadingLocation,
-        p_loading_date: format(formData.loadingDate, 'yyyy-MM-dd'),
-        p_loading_weight: parseFloat(formData.loadingQuantity),
-        p_exclude_id: editingRecord?.id || null
-      });
+  const handleNext = () => {
+    if (currentStep === 1 && validateStep1()) {
+      setCurrentStep(2);
+    }
+  };
 
-      if (error) throw error;
-      return data || false;
-    } catch (error) {
-      console.error('Error checking duplicate:', error);
-      return false;
+  const handleBack = () => {
+    if (currentStep === 2) {
+      setCurrentStep(1);
     }
   };
 
@@ -247,18 +257,6 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     setLoading(true);
 
     try {
-      // Check for duplicates
-      const isDuplicate = await checkForDuplicate();
-      if (isDuplicate) {
-        const confirmed = window.confirm(
-          `检测到重复的运单记录：\n司机：${formData.driverName}\n车牌：${formData.licensePlate}\n装货地点：${formData.loadingLocation}\n卸货地点：${formData.unloadingLocation}\n装货日期：${format(formData.loadingDate!, 'yyyy-MM-dd')}\n装货数量：${formData.loadingQuantity}${quantityUnit}\n\n确定要继续保存吗？`
-        );
-        if (!confirmed) {
-          setLoading(false);
-          return;
-        }
-      }
-
       // Get or create driver
       const { data: driverData, error: driverError } = await supabase.rpc('get_or_create_driver', {
         p_driver_name: formData.driverName,
@@ -285,6 +283,25 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       if (unloadingLocationId.error) throw unloadingLocationId.error;
 
       const project = projects.find(p => p.id === formData.projectId);
+
+      // Determine quantities based on billing type
+      let loadingWeight = null;
+      let unloadingWeight = null;
+
+      if (billingTypeId === 2) {
+        // For billing_type_id = 2, use trip count
+        loadingWeight = parseFloat(formData.tripCount) || null;
+        unloadingWeight = parseFloat(formData.tripCount) || null;
+      } else if (billingTypeId === 3) {
+        // For billing_type_id = 3, use volume
+        loadingWeight = parseFloat(formData.loadingVolume) || null;
+        unloadingWeight = parseFloat(formData.unloadingVolume) || null;
+      } else {
+        // Default: use weight
+        loadingWeight = parseFloat(formData.loadingQuantity) || null;
+        unloadingWeight = formData.unloadingQuantity ? parseFloat(formData.unloadingQuantity) : null;
+      }
+
       const recordData = {
         project_id: formData.projectId,
         project_name: project?.name || '',
@@ -297,8 +314,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         unloading_location: formData.unloadingLocation,
         loading_date: format(formData.loadingDate!, 'yyyy-MM-dd'),
         unloading_date: formData.unloadingDate ? format(formData.unloadingDate, 'yyyy-MM-dd') : null,
-        loading_weight: parseFloat(formData.loadingQuantity) || null,
-        unloading_weight: formData.unloadingQuantity ? parseFloat(formData.unloadingQuantity) : null,
+        loading_weight: loadingWeight,
+        unloading_weight: unloadingWeight,
         transport_type: formData.transportType,
         current_cost: parseFloat(formData.currentCost) || null,
         extra_cost: parseFloat(formData.extraCost) || null,
@@ -380,270 +397,351 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   };
 
+  const renderStep1 = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Project Selection */}
+        <div>
+          <Label htmlFor="project">项目 *</Label>
+          <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="选择项目" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Partner Chain */}
+        <div>
+          <Label htmlFor="chain">合作链路</Label>
+          <Select value={formData.chainId} onValueChange={(value) => setFormData(prev => ({ ...prev, chainId: value }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="选择合作链路" />
+            </SelectTrigger>
+            <SelectContent>
+              {chains.map((chain) => (
+                <SelectItem key={chain.id} value={chain.id}>
+                  {chain.chain_name}{chain.is_default ? ' (默认)' : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Loading Date */}
+        <div>
+          <Label>装货日期 *</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !formData.loadingDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {formData.loadingDate ? format(formData.loadingDate, "yyyy年MM月dd日", { locale: zhCN }) : "选择日期"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={formData.loadingDate}
+                onSelect={(date) => setFormData(prev => ({ ...prev, loadingDate: date }))}
+                initialFocus
+                className="pointer-events-auto"
+                locale={zhCN}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Unloading Date */}
+        <div>
+          <Label>卸货日期</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !formData.unloadingDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {formData.unloadingDate ? format(formData.unloadingDate, "yyyy年MM月dd日", { locale: zhCN }) : "选择日期"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={formData.unloadingDate}
+                onSelect={(date) => setFormData(prev => ({ ...prev, unloadingDate: date }))}
+                initialFocus
+                className="pointer-events-auto"
+                locale={zhCN}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Driver */}
+        <div>
+          <Label>司机 *</Label>
+          <SimpleCreatableCombobox
+            options={(drivers || []).map(d => ({ 
+              value: d.name, 
+              label: `${d.name} - ${d.license_plate || ''}` 
+            }))}
+            value={formData.driverName}
+            onValueChange={handleDriverSelect}
+            onCreateNew={handleCreateDriver}
+            placeholder="选择或输入司机"
+          />
+        </div>
+
+        {/* License Plate */}
+        <div>
+          <Label htmlFor="licensePlate">车牌号</Label>
+          <Input
+            id="licensePlate"
+            value={formData.licensePlate}
+            onChange={(e) => setFormData(prev => ({ ...prev, licensePlate: e.target.value }))}
+            placeholder="输入车牌号"
+          />
+        </div>
+
+        {/* Driver Phone */}
+        <div>
+          <Label htmlFor="driverPhone">司机电话</Label>
+          <Input
+            id="driverPhone"
+            value={formData.driverPhone}
+            onChange={(e) => setFormData(prev => ({ ...prev, driverPhone: e.target.value }))}
+            placeholder="输入司机电话"
+          />
+        </div>
+
+        {/* Transport Type */}
+        <div>
+          <Label htmlFor="transportType">运输类型</Label>
+          <Select value={formData.transportType} onValueChange={(value) => setFormData(prev => ({ ...prev, transportType: value }))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="实际运输">实际运输</SelectItem>
+              <SelectItem value="退货">退货</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Loading Location */}
+        <div>
+          <Label>装货地点 *</Label>
+          <SimpleCreatableCombobox
+            options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
+            value={formData.loadingLocation}
+            onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}
+            onCreateNew={(value) => handleCreateLocation(value, 'loading')}
+            placeholder="选择或输入装货地点"
+          />
+        </div>
+
+        {/* Unloading Location */}
+        <div>
+          <Label>卸货地点 *</Label>
+          <SimpleCreatableCombobox
+            options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
+            value={formData.unloadingLocation}
+            onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}
+            onCreateNew={(value) => handleCreateLocation(value, 'unloading')}
+            placeholder="选择或输入卸货地点"
+          />
+        </div>
+      </div>
+
+      {/* Remarks */}
+      <div>
+        <Label htmlFor="remarks">备注</Label>
+        <Textarea
+          id="remarks"
+          value={formData.remarks}
+          onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+          placeholder="输入备注信息"
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+
+  const renderStep2 = () => (
+    <div className="space-y-4">
+      {billingTypeId === 2 && (
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <Label htmlFor="tripCount">发车次数</Label>
+            <Input
+              id="tripCount"
+              type="number"
+              min="1"
+              value={formData.tripCount}
+              onChange={(e) => setFormData(prev => ({ ...prev, tripCount: e.target.value }))}
+              placeholder="输入发车次数"
+            />
+          </div>
+        </div>
+      )}
+
+      {billingTypeId === 3 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="loadingVolume">装货体积(立方) *</Label>
+            <Input
+              id="loadingVolume"
+              type="number"
+              step="0.1"
+              value={formData.loadingVolume}
+              onChange={(e) => setFormData(prev => ({ ...prev, loadingVolume: e.target.value }))}
+              placeholder="输入装货体积(立方)"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="unloadingVolume">卸货体积(立方)</Label>
+            <Input
+              id="unloadingVolume"
+              type="number"
+              step="0.1"
+              value={formData.unloadingVolume}
+              onChange={(e) => setFormData(prev => ({ ...prev, unloadingVolume: e.target.value }))}
+              placeholder="输入卸货体积(立方)"
+            />
+          </div>
+        </div>
+      )}
+
+      {(billingTypeId === 1 || !billingTypeId) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="loadingQuantity">装货数量(吨) *</Label>
+            <Input
+              id="loadingQuantity"
+              type="number"
+              step="0.1"
+              value={formData.loadingQuantity}
+              onChange={(e) => setFormData(prev => ({ ...prev, loadingQuantity: e.target.value }))}
+              placeholder="输入装货数量(吨)"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="unloadingQuantity">卸货数量(吨)</Label>
+            <Input
+              id="unloadingQuantity"
+              type="number"
+              step="0.1"
+              value={formData.unloadingQuantity}
+              onChange={(e) => setFormData(prev => ({ ...prev, unloadingQuantity: e.target.value }))}
+              placeholder="输入卸货数量(吨)"
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="currentCost">运费(元)</Label>
+          <Input
+            id="currentCost"
+            type="number"
+            step="0.01"
+            value={formData.currentCost}
+            onChange={(e) => setFormData(prev => ({ ...prev, currentCost: e.target.value }))}
+            placeholder="输入运费"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="extraCost">额外费用(元)</Label>
+          <Input
+            id="extraCost"
+            type="number"
+            step="0.01"
+            value={formData.extraCost}
+            onChange={(e) => setFormData(prev => ({ ...prev, extraCost: e.target.value }))}
+            placeholder="输入额外费用"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <Label htmlFor="driverReceivable">司机应收(元)</Label>
+          <Input
+            id="driverReceivable"
+            type="number"
+            value={driverReceivable.toFixed(2)}
+            disabled
+            className="bg-muted"
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editingRecord ? '编辑运单' : '新增运单'}
+            {showStep2 && (
+              <span className="ml-2 text-sm text-muted-foreground">
+                第 {currentStep} 步，共 2 步
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Project Selection */}
-            <div>
-              <Label htmlFor="project">项目 *</Label>
-              <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择项目" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Partner Chain */}
-            <div>
-              <Label htmlFor="chain">合作链路</Label>
-              <Select value={formData.chainId} onValueChange={(value) => setFormData(prev => ({ ...prev, chainId: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择合作链路" />
-                </SelectTrigger>
-                <SelectContent>
-                  {chains.map((chain) => (
-                    <SelectItem key={chain.id} value={chain.id}>
-                      {chain.chain_name}{chain.is_default ? ' (默认)' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Loading Date */}
-            <div>
-              <Label>装货日期 *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.loadingDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.loadingDate ? format(formData.loadingDate, "PPP") : "选择日期"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.loadingDate}
-                    onSelect={(date) => setFormData(prev => ({ ...prev, loadingDate: date }))}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Unloading Date */}
-            <div>
-              <Label>卸货日期</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.unloadingDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.unloadingDate ? format(formData.unloadingDate, "PPP") : "选择日期"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.unloadingDate}
-                    onSelect={(date) => setFormData(prev => ({ ...prev, unloadingDate: date }))}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Driver */}
-            <div>
-              <Label>司机 *</Label>
-              <SimpleCreatableCombobox
-                options={(drivers || []).map(d => ({ 
-                  value: d.name, 
-                  label: `${d.name} - ${d.license_plate || ''}` 
-                }))}
-                value={formData.driverName}
-                onValueChange={handleDriverSelect}
-                onCreateNew={handleCreateDriver}
-                placeholder="选择或输入司机"
-              />
-            </div>
-
-            {/* License Plate */}
-            <div>
-              <Label htmlFor="licensePlate">车牌号</Label>
-              <Input
-                id="licensePlate"
-                value={formData.licensePlate}
-                onChange={(e) => setFormData(prev => ({ ...prev, licensePlate: e.target.value }))}
-                placeholder="输入车牌号"
-              />
-            </div>
-
-            {/* Driver Phone */}
-            <div>
-              <Label htmlFor="driverPhone">司机电话</Label>
-              <Input
-                id="driverPhone"
-                value={formData.driverPhone}
-                onChange={(e) => setFormData(prev => ({ ...prev, driverPhone: e.target.value }))}
-                placeholder="输入司机电话"
-              />
-            </div>
-
-            {/* Transport Type */}
-            <div>
-              <Label htmlFor="transportType">运输类型</Label>
-              <Select value={formData.transportType} onValueChange={(value) => setFormData(prev => ({ ...prev, transportType: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="实际运输">实际运输</SelectItem>
-                  <SelectItem value="退货">退货</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Loading Location */}
-            <div>
-              <Label>装货地点 *</Label>
-              <SimpleCreatableCombobox
-                options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
-                value={formData.loadingLocation}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}
-                onCreateNew={(value) => handleCreateLocation(value, 'loading')}
-                placeholder="选择或输入装货地点"
-              />
-            </div>
-
-            {/* Unloading Location */}
-            <div>
-              <Label>卸货地点 *</Label>
-              <SimpleCreatableCombobox
-                options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
-                value={formData.unloadingLocation}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}
-                onCreateNew={(value) => handleCreateLocation(value, 'unloading')}
-                placeholder="选择或输入卸货地点"
-              />
-            </div>
-
-            {/* Loading Quantity */}
-            <div>
-              <Label htmlFor="loadingQuantity">装货数量({quantityUnit}) *</Label>
-              <Input
-                id="loadingQuantity"
-                type="number"
-                step="0.1"
-                value={formData.loadingQuantity}
-                onChange={(e) => setFormData(prev => ({ ...prev, loadingQuantity: e.target.value }))}
-                placeholder={`输入装货数量(${quantityUnit})`}
-                required
-              />
-            </div>
-
-            {/* Unloading Quantity */}
-            <div>
-              <Label htmlFor="unloadingQuantity">卸货数量({quantityUnit})</Label>
-              <Input
-                id="unloadingQuantity"
-                type="number"
-                step="0.1"
-                value={formData.unloadingQuantity}
-                onChange={(e) => setFormData(prev => ({ ...prev, unloadingQuantity: e.target.value }))}
-                placeholder={`输入卸货数量(${quantityUnit})`}
-              />
-            </div>
-
-            {/* Current Cost */}
-            <div>
-              <Label htmlFor="currentCost">运费(元)</Label>
-              <Input
-                id="currentCost"
-                type="number"
-                step="0.01"
-                value={formData.currentCost}
-                onChange={(e) => setFormData(prev => ({ ...prev, currentCost: e.target.value }))}
-                placeholder="输入运费"
-              />
-            </div>
-
-            {/* Extra Cost */}
-            <div>
-              <Label htmlFor="extraCost">额外费用(元)</Label>
-              <Input
-                id="extraCost"
-                type="number"
-                step="0.01"
-                value={formData.extraCost}
-                onChange={(e) => setFormData(prev => ({ ...prev, extraCost: e.target.value }))}
-                placeholder="输入额外费用"
-              />
-            </div>
-
-            {/* Driver Receivable (calculated) */}
-            <div>
-              <Label htmlFor="driverReceivable">司机应收(元)</Label>
-              <Input
-                id="driverReceivable"
-                type="number"
-                value={driverReceivable.toFixed(2)}
-                disabled
-                className="bg-muted"
-              />
-            </div>
-          </div>
-
-          {/* Remarks */}
-          <div>
-            <Label htmlFor="remarks">备注</Label>
-            <Textarea
-              id="remarks"
-              value={formData.remarks}
-              onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
-              placeholder="输入备注信息"
-              rows={3}
-            />
-          </div>
+          {currentStep === 1 && renderStep1()}
+          {currentStep === 2 && renderStep2()}
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
-              <X className="mr-2 h-4 w-4" />
-              取消
-            </Button>
-            <Button type="submit" disabled={loading}>
-              <Save className="mr-2 h-4 w-4" />
-              {loading ? '保存中...' : '保存'}
-            </Button>
+          <div className="flex justify-between pt-4">
+            <div>
+              {currentStep === 2 && (
+                <Button type="button" variant="outline" onClick={handleBack}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  上一步
+                </Button>
+              )}
+            </div>
+            
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                <X className="mr-2 h-4 w-4" />
+                取消
+              </Button>
+              
+              {showStep2 && currentStep === 1 ? (
+                <Button type="button" onClick={handleNext}>
+                  下一步
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              ) : (
+                <Button type="submit" disabled={loading}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {loading ? '保存中...' : '保存'}
+                </Button>
+              )}
+            </div>
           </div>
         </form>
       </DialogContent>
