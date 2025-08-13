@@ -23,7 +23,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, Pagi
 import { cn } from "@/lib/utils";
 
 // --- 类型定义 ---
-interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; loading_weight: number | null; unloading_weight: number | null; current_cost: number | null; payable_cost: number | null; extra_cost: number | null; license_plate: string | null; driver_phone: string | null; transport_type: string | null; remarks: string | null; chain_name: string | null; }
+interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; loading_weight: number | null; unloading_weight: number | null; current_cost: number | null; payable_cost: number | null; extra_cost: number | null; license_plate: string | null; driver_phone: string | null; transport_type: string | null; remarks: string | null; chain_name: string | null; billing_type_id: number; }
 interface PartnerPayable { partner_id: string; partner_name: string; level: number; total_payable: number; records_count: number; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { partner_costs: { partner_id: string; partner_name: string; level: number; payable_amount: number; }[]; }
 interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; }
@@ -97,6 +97,32 @@ export default function FinanceReconciliation() {
       style: 'currency',
       currency: 'CNY',
     }).format(value);
+  };
+
+  // 根据billing_type_id获取数量标签和显示函数
+  const getQuantityLabel = (billingTypeId: number) => {
+    switch (billingTypeId) {
+      case 2: return '车次';
+      case 3: return '体积(立方)';
+      default: return '重量(吨)';
+    }
+  };
+
+  const getQuantityDisplay = (record: any) => {
+    const billingTypeId = record.billing_type_id || 1;
+    if (billingTypeId === 2) {
+      return '1'; // 车次显示固定为1
+    } else if (billingTypeId === 3) {
+      // 体积显示
+      const loading = record.loading_weight || 0;
+      const unloading = record.unloading_weight || 0;
+      return `${loading} / ${unloading}`;
+    } else {
+      // 重量显示（默认）
+      const loading = record.loading_weight || 0;
+      const unloading = record.unloading_weight || 0;
+      return `${loading} / ${unloading}`;
+    }
   };
 
   // --- 事件处理器 ---
@@ -343,7 +369,7 @@ export default function FinanceReconciliation() {
             <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
               <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date || '未填写'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{viewingRecord.transport_type}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">{getQuantityLabel(viewingRecord.billing_type_id || 1)}</Label><p>{getQuantityDisplay(viewingRecord)}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div><div className="space-y-1"></div>
               <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono">{viewingRecord.extra_cost ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div><div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.payable_cost ? `¥${viewingRecord.payable_cost.toFixed(2)}` : '-'}</p></div>
               <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{viewingRecord.remarks || '无'}</p></div>
             </div>
