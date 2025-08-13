@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Truck, Upload, Download } from "lucide-react";
+import { Plus, Edit, Trash2, Truck, Upload, Download, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SupabaseStorage } from "@/utils/supabase";
@@ -19,6 +19,7 @@ export default function Drivers() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  const [quickFilter, setQuickFilter] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -26,6 +27,25 @@ export default function Drivers() {
     phone: "",
     projectIds: [] as string[],
   });
+
+  // 筛选后的司机列表
+  const filteredDrivers = useMemo(() => {
+    if (!quickFilter.trim()) return drivers;
+    
+    const filterText = quickFilter.toLowerCase();
+    return drivers.filter(driver => {
+      // 搜索司机姓名、车牌号、电话号码
+      const searchableText = [
+        driver.name,
+        driver.licensePlate,
+        driver.phone,
+        // 搜索关联的项目名称
+        ...(driver.projectIds?.map(id => projects.find(p => p.id === id)?.name).filter(Boolean) || [])
+      ].join(' ').toLowerCase();
+      
+      return searchableText.includes(filterText);
+    });
+  }, [drivers, projects, quickFilter]);
 
   // 加载司机数据
   useEffect(() => {
@@ -340,7 +360,7 @@ export default function Drivers() {
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>司机列表 ({drivers.length} 个司机)</CardTitle>
+            <CardTitle>司机列表 ({filteredDrivers.length} / {drivers.length} 个司机)</CardTitle>
             <div className="flex space-x-2">
               <input
                 ref={fileInputRef}
@@ -367,6 +387,19 @@ export default function Drivers() {
               </Button>
             </div>
           </div>
+          
+          {/* 快速筛选器 */}
+          <div className="mt-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="搜索司机姓名、车牌号、电话号码、关联项目..."
+                value={quickFilter}
+                onChange={(e) => setQuickFilter(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -381,8 +414,8 @@ export default function Drivers() {
                    <TableHead>操作</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {drivers.map((driver) => (
+               <TableBody>
+                 {filteredDrivers.map((driver) => (
                   <TableRow key={driver.id}>
                      <TableCell className="font-medium">{driver.name}</TableCell>
                      <TableCell className="font-mono">{driver.licensePlate}</TableCell>
@@ -414,13 +447,20 @@ export default function Drivers() {
                     </TableCell>
                   </TableRow>
                 ))}
-                 {drivers.length === 0 && (
-                   <TableRow>
-                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                       暂无司机数据
-                     </TableCell>
-                   </TableRow>
-                 )}
+                  {filteredDrivers.length === 0 && drivers.length > 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                        没有找到匹配的司机
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {drivers.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                        暂无司机数据
+                      </TableCell>
+                    </TableRow>
+                  )}
               </TableBody>
             </Table>
           </div>
