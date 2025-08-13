@@ -1288,14 +1288,14 @@ export type Database = {
       }
       get_logistics_summary_and_records: {
         Args: {
-          p_start_date: string
-          p_end_date: string
-          p_project_name: string
-          p_driver_name: string
-          p_license_plate: string
-          p_driver_phone: string
-          p_page_number: number
-          p_page_size: number
+          p_start_date?: string
+          p_end_date?: string
+          p_project_name?: string
+          p_driver_name?: string
+          p_license_plate?: string
+          p_driver_phone?: string
+          p_page_number?: number
+          p_page_size?: number
         }
         Returns: Json
       }
