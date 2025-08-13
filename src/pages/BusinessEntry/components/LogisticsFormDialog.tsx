@@ -326,10 +326,13 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         unloadingWeight = formData.unloadingQuantity ? parseFloat(formData.unloadingQuantity) : null;
       }
 
+      // Ensure we have a chain_id - use default if none selected
+      const chainId = formData.chainId || (chains.find(c => c.is_default)?.id) || null;
+
       const recordData = {
         project_id: formData.projectId,
         project_name: project?.name || '',
-        chain_id: formData.chainId || null,
+        chain_id: chainId,
         driver_id: driverData[0]?.driver_id,
         driver_name: formData.driverName,
         license_plate: formData.licensePlate,
