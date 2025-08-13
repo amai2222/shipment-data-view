@@ -214,6 +214,10 @@ export default function ProjectsOverview() {
                     <TableRow>
                       <TableHead>司机姓名</TableHead>
                       <TableHead className="text-right">车次</TableHead>
+                      <TableHead className="text-right">
+                        {projectData.project_details.billing_type_id === 2 ? '车次' : 
+                         projectData.project_details.billing_type_id === 3 ? '立方' : '吨数'}
+                      </TableHead>
                       <TableHead className="text-right">应收 (元)</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -223,12 +227,16 @@ export default function ProjectsOverview() {
                         <TableRow key={`${projectData.project_details.id}-${row.driver_name}`}>
                           <TableCell className="font-medium">{row.driver_name}</TableCell>
                           <TableCell className="text-right">{row.trip_count}</TableCell>
+                          <TableCell className="text-right">
+                            {projectData.project_details.billing_type_id === 2 ? 
+                             row.trip_count : formatNumber(row.total_tonnage)}
+                          </TableCell>
                           <TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={3} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell>
+                        <TableCell colSpan={4} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
