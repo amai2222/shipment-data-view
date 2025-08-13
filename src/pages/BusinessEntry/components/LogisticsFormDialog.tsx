@@ -9,7 +9,6 @@ import { CalendarIcon, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogisticsRecord, Project } from '../types';
-import { CreatableCombobox } from "@/components/CreatableCombobox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -447,12 +446,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             {/* Driver */}
             <div>
               <Label>司机 *</Label>
-              <CreatableCombobox
-                options={(drivers || []).map(d => ({ value: d.name, label: d.name }))}
-                value={formData.driverName}
-                onValueChange={handleDriverSelect}
-                placeholder="选择或输入司机"
-              />
+              <Select value={formData.driverName} onValueChange={handleDriverSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择司机" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(drivers || []).map((driver) => (
+                    <SelectItem key={driver.id} value={driver.name}>
+                      {driver.name} - {driver.license_plate}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* License Plate */}
@@ -480,23 +485,35 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             {/* Loading Location */}
             <div>
               <Label>装货地点 *</Label>
-              <CreatableCombobox
-                options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
-                value={formData.loadingLocation}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}
-                placeholder="选择或输入装货地点"
-              />
+              <Select value={formData.loadingLocation} onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择装货地点" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(locations || []).map((location) => (
+                    <SelectItem key={location.id} value={location.name}>
+                      {location.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Unloading Location */}
             <div>
               <Label>卸货地点 *</Label>
-              <CreatableCombobox
-                options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
-                value={formData.unloadingLocation}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}
-                placeholder="选择或输入卸货地点"
-              />
+              <Select value={formData.unloadingLocation} onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择卸货地点" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(locations || []).map((location) => (
+                    <SelectItem key={location.id} value={location.name}>
+                      {location.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Loading Quantity */}
