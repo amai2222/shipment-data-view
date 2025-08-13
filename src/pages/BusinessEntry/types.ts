@@ -8,6 +8,7 @@ export interface LogisticsRecord {
   project_name: string;
   chain_id: string | null;
   chain_name: string | null;
+  billing_type_id: number; // 新增billing_type_id字段
   driver_id: string;
   driver_name: string;
   loading_location: string;

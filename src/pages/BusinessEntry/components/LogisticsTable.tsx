@@ -44,9 +44,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
   const uniqueBillingTypes = useMemo(() => {
     const types = new Set<number>();
     records.forEach(record => {
-      // You would need to pass billing_type_id in the record data
-      // For now, let's assume it's always billing_type_id = 1 (tons) if not specified
-      const billingTypeId = (record as any).billing_type_id || 1;
+      const billingTypeId = record.billing_type_id || 1;
       types.add(billingTypeId);
     });
     return Array.from(types).sort();
@@ -113,7 +111,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               records.map((record) => {
                 // [核心修复] 恢复您被我删除的前端动态计算逻辑
                 const driverPayable = (record.current_cost || 0) + (record.extra_cost || 0);
-                const billingTypeId = (record as any).billing_type_id || 1;
+                const billingTypeId = record.billing_type_id || 1;
 
                 // 根据billing_type_id动态显示数据
                 const getWeightDisplay = () => {
@@ -226,13 +224,13 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                      <TableCell className="text-center font-semibold">{records.length} 条运单</TableCell>
                      <TableCell></TableCell>
                      <TableCell className="font-semibold font-mono">
-                       {records.filter(r => ((r as any).billing_type_id || 1) === 1).reduce((sum, r) => sum + (r.loading_weight || 0), 0).toFixed(1)} / {records.filter(r => ((r as any).billing_type_id || 1) === 1).reduce((sum, r) => sum + (r.unloading_weight || 0), 0).toFixed(1)}
+                       {records.filter(r => r.billing_type_id === 1).reduce((sum, r) => sum + (r.loading_weight || 0), 0).toFixed(1)} / {records.filter(r => r.billing_type_id === 1).reduce((sum, r) => sum + (r.unloading_weight || 0), 0).toFixed(1)}
                      </TableCell>
                      <TableCell className="font-semibold font-mono">
-                       {records.filter(r => ((r as any).billing_type_id || 1) === 2).reduce((sum, r) => sum + (r.loading_weight || 0), 0).toFixed(0)}
+                       {records.filter(r => r.billing_type_id === 2).reduce((sum, r) => sum + (r.loading_weight || 0), 0).toFixed(0)}
                      </TableCell>
                      <TableCell className="font-semibold font-mono">
-                       {records.filter(r => ((r as any).billing_type_id || 1) === 3).reduce((sum, r) => sum + (r.loading_weight || 0), 0).toFixed(1)} / {records.filter(r => ((r as any).billing_type_id || 1) === 3).reduce((sum, r) => sum + (r.unloading_weight || 0), 0).toFixed(1)}
+                       {records.filter(r => r.billing_type_id === 3).reduce((sum, r) => sum + (r.loading_weight || 0), 0).toFixed(1)} / {records.filter(r => r.billing_type_id === 3).reduce((sum, r) => sum + (r.unloading_weight || 0), 0).toFixed(1)}
                      </TableCell>
                      <TableCell className="font-semibold font-mono">
                        {formatCurrency(records.reduce((sum, r) => sum + (r.current_cost || 0), 0))} / {formatCurrency(records.reduce((sum, r) => sum + (r.extra_cost || 0), 0))}
