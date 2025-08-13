@@ -1208,6 +1208,17 @@ export type Database = {
         }
         Returns: Json
       }
+      get_finance_reconciliation_data_optimized: {
+        Args: {
+          p_project_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_partner_id?: string
+          p_page_number?: number
+          p_page_size?: number
+        }
+        Returns: Json
+      }
       get_finance_reconciliation_data_paginated: {
         Args: {
           p_project_id?: string
@@ -1415,6 +1426,17 @@ export type Database = {
         }[]
       }
       get_payment_invoice_data: {
+        Args: {
+          p_project_ids?: string[]
+          p_partner_ids?: string[]
+          p_start_date?: string
+          p_end_date?: string
+          p_page_number?: number
+          p_page_size?: number
+        }
+        Returns: Json
+      }
+      get_payment_invoice_data_optimized: {
         Args: {
           p_project_ids?: string[]
           p_partner_ids?: string[]
