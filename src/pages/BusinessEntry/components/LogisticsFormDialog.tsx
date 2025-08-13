@@ -9,7 +9,7 @@ import { CalendarIcon, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogisticsRecord, Project } from '../types';
-import { CreatableCombobox } from "@/components/CreatableCombobox";
+import { SimpleCreatableCombobox } from "@/components/SimpleCreatableCombobox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -484,7 +484,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             {/* Driver */}
             <div>
               <Label>司机 *</Label>
-              <CreatableCombobox
+              <SimpleCreatableCombobox
                 options={(drivers || []).map(d => ({ 
                   value: d.name, 
                   label: `${d.name} - ${d.license_plate || ''}` 
@@ -493,8 +493,6 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 onValueChange={handleDriverSelect}
                 onCreateNew={handleCreateDriver}
                 placeholder="选择或输入司机"
-                searchPlaceholder="搜索司机..."
-                emptyPlaceholder="未找到司机"
               />
             </div>
 
@@ -523,28 +521,24 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             {/* Loading Location */}
             <div>
               <Label>装货地点 *</Label>
-              <CreatableCombobox
+              <SimpleCreatableCombobox
                 options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
                 value={formData.loadingLocation}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}
                 onCreateNew={(value) => handleCreateLocation(value, 'loading')}
                 placeholder="选择或输入装货地点"
-                searchPlaceholder="搜索地点..."
-                emptyPlaceholder="未找到地点"
               />
             </div>
 
             {/* Unloading Location */}
             <div>
               <Label>卸货地点 *</Label>
-              <CreatableCombobox
+              <SimpleCreatableCombobox
                 options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
                 value={formData.unloadingLocation}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}
                 onCreateNew={(value) => handleCreateLocation(value, 'unloading')}
                 placeholder="选择或输入卸货地点"
-                searchPlaceholder="搜索地点..."
-                emptyPlaceholder="未找到地点"
               />
             </div>
 
