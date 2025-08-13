@@ -640,6 +640,42 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         </div>
       )}
 
+      {/* Cost Information */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="currentCost">运费(元) *</Label>
+          <Input
+            id="currentCost"
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.currentCost}
+            onChange={(e) => setFormData(prev => ({ ...prev, currentCost: e.target.value }))}
+            placeholder="输入运费"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="extraCost">额外费(元)</Label>
+          <Input
+            id="extraCost"
+            type="number"
+            step="0.01"
+            value={formData.extraCost}
+            onChange={(e) => setFormData(prev => ({ ...prev, extraCost: e.target.value }))}
+            placeholder="输入额外费用，支持负数"
+          />
+        </div>
+      </div>
+
+      {/* Driver Receivable Display */}
+      <div>
+        <Label className="font-semibold">司机应收(元)</Label>
+        <div className="mt-1 px-3 py-2 bg-muted rounded-md font-mono text-primary font-semibold text-lg">
+          ¥{driverReceivable.toFixed(2)}
+        </div>
+      </div>
+
       {/* Remarks */}
       <div>
         <Label htmlFor="remarks">备注</Label>
