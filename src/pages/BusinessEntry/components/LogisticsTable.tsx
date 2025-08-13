@@ -125,7 +125,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
 
                 const getTripCountDisplay = () => {
                   if (billingTypeId === 2) {
-                    return `${record.loading_weight || 0}`;
+                    return '1';
                   }
                   return '0';
                 };
