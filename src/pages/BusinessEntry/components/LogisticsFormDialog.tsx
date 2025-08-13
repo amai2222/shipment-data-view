@@ -9,6 +9,7 @@ import { CalendarIcon, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogisticsRecord, Project } from '../types';
+import { CreatableCombobox } from "@/components/CreatableCombobox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -117,12 +118,15 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   }, [isOpen, editingRecord]);
 
-  // Load partner chains when project changes
+  // Load partner chains and project-specific data when project changes
   useEffect(() => {
     if (formData.projectId) {
       loadPartnerChains(formData.projectId);
+      loadProjectDriversAndLocations(formData.projectId);
     } else {
       setChains([]);
+      setDrivers([]);
+      setLocations([]);
       setFormData(prev => ({ ...prev, chainId: '' }));
     }
   }, [formData.projectId]);
@@ -138,10 +142,32 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   }, [chains, formData.chainId, editingRecord]);
 
   const loadInitialData = async () => {
+    // Initial data will be loaded when project is selected
+  };
+
+  const loadProjectDriversAndLocations = async (projectId: string) => {
     try {
       const [driversRes, locationsRes] = await Promise.all([
-        supabase.from('drivers').select('id, name, license_plate, phone'),
-        supabase.from('locations').select('id, name')
+        supabase
+          .from('drivers')
+          .select('id, name, license_plate, phone')
+          .in('id', 
+            await supabase
+              .from('driver_projects')
+              .select('driver_id')
+              .eq('project_id', projectId)
+              .then(res => res.data?.map(dp => dp.driver_id) || [])
+          ),
+        supabase
+          .from('locations')
+          .select('id, name')
+          .in('id',
+            await supabase
+              .from('location_projects')
+              .select('location_id')
+              .eq('project_id', projectId)
+              .then(res => res.data?.map(lp => lp.location_id) || [])
+          )
       ]);
 
       if (driversRes.error) throw driversRes.error;
@@ -150,8 +176,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       setDrivers(driversRes.data || []);
       setLocations(locationsRes.data || []);
     } catch (error) {
-      console.error('Error loading initial data:', error);
-      toast({ title: "错误", description: "加载数据失败", variant: "destructive" });
+      console.error('Error loading project data:', error);
+      toast({ title: "错误", description: "加载项目数据失败", variant: "destructive" });
     }
   };
 
@@ -342,6 +368,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   };
 
+  const handleCreateDriver = (value: string) => {
+    setFormData(prev => ({ ...prev, driverName: value }));
+  };
+
+  const handleCreateLocation = (value: string, type: 'loading' | 'unloading') => {
+    if (type === 'loading') {
+      setFormData(prev => ({ ...prev, loadingLocation: value }));
+    } else {
+      setFormData(prev => ({ ...prev, unloadingLocation: value }));
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -446,18 +484,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             {/* Driver */}
             <div>
               <Label>司机 *</Label>
-              <Select value={formData.driverName} onValueChange={handleDriverSelect}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择司机" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(drivers || []).map((driver) => (
-                    <SelectItem key={driver.id} value={driver.name}>
-                      {driver.name} - {driver.license_plate}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CreatableCombobox
+                options={(drivers || []).map(d => ({ 
+                  value: d.name, 
+                  label: `${d.name} - ${d.license_plate || ''}` 
+                }))}
+                value={formData.driverName}
+                onValueChange={handleDriverSelect}
+                onCreateNew={handleCreateDriver}
+                placeholder="选择或输入司机"
+                searchPlaceholder="搜索司机..."
+                emptyPlaceholder="未找到司机"
+              />
             </div>
 
             {/* License Plate */}
@@ -485,35 +523,29 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             {/* Loading Location */}
             <div>
               <Label>装货地点 *</Label>
-              <Select value={formData.loadingLocation} onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择装货地点" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(locations || []).map((location) => (
-                    <SelectItem key={location.id} value={location.name}>
-                      {location.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CreatableCombobox
+                options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
+                value={formData.loadingLocation}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}
+                onCreateNew={(value) => handleCreateLocation(value, 'loading')}
+                placeholder="选择或输入装货地点"
+                searchPlaceholder="搜索地点..."
+                emptyPlaceholder="未找到地点"
+              />
             </div>
 
             {/* Unloading Location */}
             <div>
               <Label>卸货地点 *</Label>
-              <Select value={formData.unloadingLocation} onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择卸货地点" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(locations || []).map((location) => (
-                    <SelectItem key={location.id} value={location.name}>
-                      {location.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CreatableCombobox
+                options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
+                value={formData.unloadingLocation}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}
+                onCreateNew={(value) => handleCreateLocation(value, 'unloading')}
+                placeholder="选择或输入卸货地点"
+                searchPlaceholder="搜索地点..."
+                emptyPlaceholder="未找到地点"
+              />
             </div>
 
             {/* Loading Quantity */}
