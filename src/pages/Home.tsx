@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [最终修复版] 已实现图表数据过滤、弹窗分页和默认日期优化。
+// 描述: [最终修复版] 已实现图表标题动态化、数据过滤、弹窗分页和默认日期优化。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -200,7 +200,6 @@ export default function Home() {
     totalTrips: dailyCountStats.reduce((sum, day) => sum + (day.count || 0), 0),
   }), [dailyTransportStats, dailyCostStats, dailyCountStats]);
   
-  // --- 这里是新增的代码 ---
   // 【图表优化】创建过滤后的数据，仅包含有实际数值的日期
   const filteredDailyTransportStats = useMemo(() =>
     dailyTransportStats.filter(day => day.actualTransport > 0 || day.returns > 0),
@@ -216,6 +215,16 @@ export default function Home() {
     dailyCostStats.filter(day => day.totalCost > 0),
     [dailyCostStats]
   );
+  
+  // --- 这里是新增的代码 ---
+  // 【图表标题优化】根据筛选器动态生成项目名称
+  const selectedProjectName = useMemo(() => {
+    if (filterInputs.projectId === 'all') {
+      return '所有项目';
+    }
+    const selectedProject = projects.find(p => p.id === filterInputs.projectId);
+    return selectedProject ? selectedProject.name : '所有项目';
+  }, [filterInputs.projectId, projects]);
   // --- 新增代码结束 ---
 
   const totalDialogPages = Math.ceil(dialogPagination.totalCount / dialogPagination.pageSize);
@@ -279,7 +288,8 @@ export default function Home() {
       <div className="space-y-6">
         <Card className="shadow-card">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>每日运输量统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (吨)</CardTitle>
+            {/* --- 这里是修改点 1 --- */}
+            <CardTitle>{selectedProjectName} - 每日运输量统计 ({filterInputs.startDate} 至 {filterInputs.endDate}) (吨)</CardTitle>
             <div className="flex items-center space-x-2">
               <Switch id="log-scale-switch-home" checked={useLogScale} onCheckedChange={setUseLogScale} />
               <Label htmlFor="log-scale-switch-home" className="cursor-pointer text-sm">对数刻度</Label>
@@ -288,7 +298,6 @@ export default function Home() {
           <CardContent>
             <div className="h-96">
               <ResponsiveContainer width="100%" height="100%">
-                 {/* --- 这里是修改点 --- */}
                 <BarChart data={filteredDailyTransportStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={'preserveStartEnd'} />
@@ -303,11 +312,11 @@ export default function Home() {
           </CardContent>
         </Card>
         <Card className="shadow-card">
-          <CardHeader><CardTitle>运输日报 ({filterInputs.startDate} 至 {filterInputs.endDate})</CardTitle></CardHeader>
+           {/* --- 这里是修改点 2 --- */}
+          <CardHeader><CardTitle>{selectedProjectName} - 运输日报 ({filterInputs.startDate} 至 {filterInputs.endDate})</CardTitle></CardHeader>
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                 {/* --- 这里是修改点 --- */}
                 <LineChart data={filteredDailyCountStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={'preserveStartEnd'} />
@@ -321,11 +330,11 @@ export default function Home() {
           </CardContent>
         </Card>
         <Card className="shadow-card">
-          <CardHeader><CardTitle>每日运输费用分析 ({filterInputs.startDate} 至 {filterInputs.endDate}) (元)</CardTitle></CardHeader>
+           {/* --- 这里是修改点 3 --- */}
+          <CardHeader><CardTitle>{selectedProjectName} - 每日运输费用分析 ({filterInputs.startDate} 至 {filterInputs.endDate}) (元)</CardTitle></CardHeader>
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                 {/* --- 这里是修改点 --- */}
                 <BarChart data={filteredDailyCostStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={'preserveStartEnd'} />
