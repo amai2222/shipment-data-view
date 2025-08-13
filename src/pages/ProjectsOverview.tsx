@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, TrendingUp, Wallet, Truck, Users, Calendar as CalendarIcon, Briefcase } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -22,12 +22,32 @@ interface ProjectDetails { id: string; name: string; partner_name: string; start
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; }
 interface TrendData { date: string; receivable: number; }
 interface DriverReportRow { driver_name: string; trip_count: number; total_tonnage: number; total_driver_receivable: number; }
-interface ProjectDataPackage { project_details: ProjectDetails; daily_report: DailyReport; summary_stats: SummaryStats; }
+interface ProjectDataPackage { 
+  project_details: ProjectDetails; 
+  daily_report: DailyReport; 
+  summary_stats: SummaryStats; 
+  seven_day_trend: TrendData[];
+  driver_report_table: DriverReportRow[];
+}
 interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; }
 interface OverviewDashboardData { all_projects_data: ProjectDataPackage[]; global_seven_day_trend: TrendData[]; global_driver_report_table: DriverReportRow[]; global_summary: { total_projects: number; total_receivable: number; total_trips: number; } }
 
 // --- 辅助函数 (无修改) ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
+
+// --- 环形进度图组件 ---
+const CircularProgressChart = ({ value }: { value: number }) => {
+  const data = [{ name: 'progress', value: value, fill: 'hsl(var(--primary))' }];
+  return (
+    <ResponsiveContainer width="100%" height={80}>
+      <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="85%" barSize={8} data={data} startAngle={90} endAngle={-270}>
+        <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+        <RadialBar background={{ fill: 'hsl(var(--muted))' }} dataKey="value" cornerRadius={6} angleAxisId={0} />
+        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-sm font-bold fill-primary">{`${value.toFixed(1)}%`}</text>
+      </RadialBarChart>
+    </ResponsiveContainer>
+  );
+};
 
 // --- 单个项目卡片子组件 (无修改) ---
 const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectDataPackage, onClick: () => void }) => {
@@ -51,12 +71,19 @@ const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectData
       </CardHeader>
       <CardContent className="space-y-4 flex-grow">
         <div>
-          <div className="flex justify-between text-sm text-slate-600 mb-1">
+          <div className="flex justify-between text-sm text-slate-600 mb-2">
             <span>进度 ({unitConfig.progressUnit})</span>
             <span className="font-semibold">{progressPercentage.toFixed(1)}%</span>
           </div>
-          <Progress value={progressPercentage} />
-          <p className="text-xs text-right text-slate-500 mt-1">{formatNumber(unitConfig.progressCompleted)} / {formatNumber(unitConfig.progressPlanned)}</p>
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0">
+              <CircularProgressChart value={progressPercentage} />
+            </div>
+            <div className="flex-grow">
+              <Progress value={progressPercentage} />
+              <p className="text-xs text-right text-slate-500 mt-1">{formatNumber(unitConfig.progressCompleted)} / {formatNumber(unitConfig.progressPlanned)}</p>
+            </div>
+          </div>
         </div>
         <div className="border-t pt-4 grid grid-cols-2 gap-4 text-center">
           <div>
@@ -148,18 +175,69 @@ export default function ProjectsOverview() {
         {all_projects_data.length === 0 && (<div className="text-center py-10 text-slate-500 bg-white rounded-lg shadow-sm">当前筛选条件下无项目数据。</div>)}
       </div>
       
-      {/* ★★★ 核心修改 3: 移除了外层的 {!isFiltering && ...} 条件渲染 ★★★ */}
-      {/* 这两个卡片现在总是显示，其内容由后端根据筛选动态计算 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="shadow-sm">
-          <CardHeader><CardTitle className="flex items-center text-slate-700"><TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>{isFiltering ? '已选项目' : '所有项目'}近7日总应收趋势</CardTitle></CardHeader>
-          <CardContent className="h-[350px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={global_seven_day_trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis label={{ value: '元', angle: -90, position: 'insideLeft' }} /><Tooltip formatter={(value: number) => [formatNumber(value, '元'), '总应收']} /><Legend /><Line type="monotone" dataKey="receivable" name="总应收" stroke="#f59e0b" strokeWidth={2} /></LineChart></ResponsiveContainer></CardContent>
-        </Card>
-        <Card className="shadow-sm">
-          <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />{isFiltering ? '已选项目' : '所有项目'}司机工作量总榜 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
-          <CardContent className="max-h-[350px] overflow-y-auto"><Table><TableHeader><TableRow><TableHead>司机姓名</TableHead><TableHead className="text-right">总车次</TableHead><TableHead className="text-right">总应收 (元)</TableHead></TableRow></TableHeader><TableBody>{(global_driver_report_table || []).length > 0 ? (global_driver_report_table.map((row) => (<TableRow key={row.driver_name}><TableCell className="font-medium">{row.driver_name}</TableCell><TableCell className="text-right">{row.trip_count}</TableCell><TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell></TableRow>))) : (<TableRow><TableCell colSpan={3} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell></TableRow>)}</TableBody></Table></CardContent>
-        </Card>
-      </div>
+      {/* 各项目的7日趋势和司机工作量 */}
+      {all_projects_data.map(projectData => (
+        <div key={`charts-${projectData.project_details.id}`} className="space-y-6">
+          <h3 className="text-xl font-semibold text-slate-800">{projectData.project_details.name} - 详细数据</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center text-slate-700">
+                  <TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>
+                  {projectData.project_details.name} 近7日应收趋势
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={projectData.seven_day_trend || []} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis label={{ value: '元', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip formatter={(value: number) => [formatNumber(value, '元'), '应收']} />
+                    <Legend />
+                    <Line type="monotone" dataKey="receivable" name="应收" stroke="hsl(var(--primary))" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center text-slate-700">
+                  <Users className="mr-2 h-5 w-5 text-purple-500" />
+                  {projectData.project_details.name} 司机工作量 ({format(reportDate, "yyyy-MM-dd")})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="max-h-[300px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>司机姓名</TableHead>
+                      <TableHead className="text-right">车次</TableHead>
+                      <TableHead className="text-right">应收 (元)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(projectData.driver_report_table || []).length > 0 ? (
+                      projectData.driver_report_table.map((row) => (
+                        <TableRow key={`${projectData.project_details.id}-${row.driver_name}`}>
+                          <TableCell className="font-medium">{row.driver_name}</TableCell>
+                          <TableCell className="text-right">{row.trip_count}</TableCell>
+                          <TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={3} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
