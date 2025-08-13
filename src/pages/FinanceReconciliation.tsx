@@ -21,6 +21,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
+import { VirtualizedTable } from "@/components/VirtualizedTable";
 
 // --- 类型定义 ---
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; loading_weight: number | null; unloading_weight: number | null; current_cost: number | null; payable_cost: number | null; extra_cost: number | null; license_plate: string | null; driver_phone: string | null; transport_type: string | null; remarks: string | null; chain_name: string | null; billing_type_id: number; }
@@ -50,29 +51,57 @@ export default function FinanceReconciliation() {
 
   // --- 数据获取 ---
   const fetchInitialOptions = useCallback(async () => {
+    const startTime = performance.now();
     try {
-      const { data: projectsData } = await supabase.from('projects').select('id, name').order('name');
-      setProjects(projectsData || []);
-      const { data: partnersData } = await supabase.from('project_partners').select(`partner_id, level, partners!inner(name)`);
-      const uniquePartners = Array.from(new Map(partnersData?.map(p => [ p.partner_id, { id: p.partner_id, name: (p.partners as any).name, level: p.level } ]) || []).values()).sort((a, b) => a.level - b.level);
+      // 并行获取数据以提升性能
+      const [projectsResult, partnersResult] = await Promise.all([
+        supabase.from('projects').select('id, name').order('name'),
+        supabase.from('project_partners').select(`partner_id, level, partners!inner(name)`)
+      ]);
+      
+      setProjects(projectsResult.data || []);
+      const uniquePartners = Array.from(
+        new Map(
+          partnersResult.data?.map(p => [ 
+            p.partner_id, 
+            { id: p.partner_id, name: (p.partners as any).name, level: p.level } 
+          ]) || []
+        ).values()
+      ).sort((a, b) => a.level - b.level);
       setAllPartners(uniquePartners);
+      
+      const loadTime = performance.now() - startTime;
+      console.log(`初始数据加载时间: ${loadTime.toFixed(2)}ms`);
     } catch (error) {
+      console.error('加载筛选选项失败:', error);
       toast({ title: "错误", description: "加载筛选选项失败", variant: "destructive" });
     }
   }, [toast]);
 
   const fetchReportData = useCallback(async () => {
+    const startTime = performance.now();
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_finance_reconciliation_data' as any, {
+      const { data, error } = await supabase.rpc('get_finance_reconciliation_data_paginated' as any, {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
+        p_page_number: pagination.currentPage,
+        p_page_size: PAGE_SIZE,
       });
       if (error) throw error;
+      
       setReportData(data);
-      setPagination(prev => ({ ...prev, totalPages: Math.ceil(((data as any)?.count || 0) / PAGE_SIZE) || 1 }));
+      setPagination(prev => ({ 
+        ...prev, 
+        totalPages: (data as any)?.total_pages || 1 
+      }));
+      
+      const loadTime = performance.now() - startTime;
+      const recordCount = (data as any)?.records?.length || 0;
+      console.log(`财务数据加载完成: ${loadTime.toFixed(2)}ms, ${recordCount}条记录`);
+      
     } catch (error) {
       console.error("加载财务对账数据失败:", error);
       toast({ title: "错误", description: `加载财务对账数据失败: ${(error as any).message}`, variant: "destructive" });
