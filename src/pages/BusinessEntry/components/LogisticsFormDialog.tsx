@@ -161,6 +161,22 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   }, [chains, editingRecord]);
 
+  // Pre-populate driver data when editing and drivers are loaded
+  useEffect(() => {
+    if (editingRecord && drivers.length > 0) {
+      // Check if we have a matching driver by name
+      const matchingDriver = drivers.find(d => d.name === editingRecord.driver_name);
+      if (matchingDriver) {
+        setFormData(prev => ({
+          ...prev,
+          driverName: matchingDriver.name,
+          licensePlate: matchingDriver.license_plate || '',
+          driverPhone: matchingDriver.phone || ''
+        }));
+      }
+    }
+  }, [drivers, editingRecord]);
+
   const loadInitialData = async () => {
     // Initial data will be loaded when project is selected
   };
