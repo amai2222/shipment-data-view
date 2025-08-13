@@ -300,6 +300,7 @@ export type Database = {
       logistics_records: {
         Row: {
           auto_number: string
+          billing_type_id: number | null
           cargo_type: string | null
           chain_id: string | null
           created_at: string
@@ -328,6 +329,7 @@ export type Database = {
         }
         Insert: {
           auto_number: string
+          billing_type_id?: number | null
           cargo_type?: string | null
           chain_id?: string | null
           created_at?: string
@@ -356,6 +358,7 @@ export type Database = {
         }
         Update: {
           auto_number?: string
+          billing_type_id?: number | null
           cargo_type?: string | null
           chain_id?: string | null
           created_at?: string
