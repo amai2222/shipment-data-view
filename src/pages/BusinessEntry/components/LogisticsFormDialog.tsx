@@ -312,11 +312,16 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       let loadingWeight = null;
       let unloadingWeight = null;
 
-      if (billingTypeId === 2) {
+      // Get billing_type_id from the selected chain
+      const chainId = formData.chainId || (chains.find(c => c.is_default)?.id) || null;
+      const selectedChain = chains.find(c => c.id === chainId);
+      const recordBillingTypeId = selectedChain?.billing_type_id || 1;
+
+      if (recordBillingTypeId === 2) {
         // For billing_type_id = 2, use trip count
         loadingWeight = parseFloat(formData.tripCount) || null;
         unloadingWeight = parseFloat(formData.tripCount) || null;
-      } else if (billingTypeId === 3) {
+      } else if (recordBillingTypeId === 3) {
         // For billing_type_id = 3, use volume
         loadingWeight = parseFloat(formData.loadingVolume) || null;
         unloadingWeight = parseFloat(formData.unloadingVolume) || null;
@@ -325,9 +330,6 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         loadingWeight = parseFloat(formData.loadingQuantity) || null;
         unloadingWeight = formData.unloadingQuantity ? parseFloat(formData.unloadingQuantity) : null;
       }
-
-      // Ensure we have a chain_id - use default if none selected
-      const chainId = formData.chainId || (chains.find(c => c.is_default)?.id) || null;
 
       const recordData = {
         project_id: formData.projectId,
