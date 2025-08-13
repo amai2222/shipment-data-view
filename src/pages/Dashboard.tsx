@@ -25,7 +25,7 @@ export default function Dashboard() {
     from: Date | undefined;
     to: Date | undefined;
   }>({
-    from: subDays(new Date(), 7),
+    from: subDays(new Date(), 45),
     to: new Date(),
   });
   const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
