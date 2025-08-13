@@ -227,10 +227,11 @@ export default function ProjectsOverview() {
                         <TableRow key={`${projectData.project_details.id}-${row.driver_name}`}>
                           <TableCell className="font-medium">{row.driver_name}</TableCell>
                           <TableCell className="text-right">{row.trip_count}</TableCell>
-                          <TableCell className="text-right">
-                            {projectData.project_details.billing_type_id === 2 ? 
-                             row.trip_count : formatNumber(row.total_tonnage)}
-                          </TableCell>
+                           <TableCell className="text-right">
+                             {projectData.project_details.billing_type_id === 2 ? 
+                              row.trip_count : 
+                              formatNumber(row.total_tonnage, projectData.project_details.billing_type_id === 3 ? '立方' : '吨')}
+                           </TableCell>
                           <TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell>
                         </TableRow>
                       ))
