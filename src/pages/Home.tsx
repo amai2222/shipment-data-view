@@ -108,19 +108,10 @@ export default function Home() {
   const [filterInputs, setFilterInputs] = useState(() => ({ ...getDefaultDateRange(), projectId: 'all' }));
   const { toast } = useToast();
 
-  // 使用防抖优化搜索
-  const debouncedFilters = useDebounce(filterInputs, 300);
-  
   const handleSearch = useCallback(async (isInitialLoad = false) => {
     if (!isInitialLoad) setIsSearching(true);
-    
     try {
-      const data: DashboardData = await performanceMonitor.measure(
-        'api-dashboard-stats',
-        () => SupabaseStorage.getDashboardStats(debouncedFilters),
-        { filters: debouncedFilters }
-      );
-      
+      const data: DashboardData = await SupabaseStorage.getDashboardStats(filterInputs);
       setOverviewStats(data.overview);
       setDailyTransportStats(data.dailyTransportStats || []);
       setDailyTripStats(data.dailyTripStats || []);
@@ -133,24 +124,19 @@ export default function Home() {
     } finally {
       if (!isInitialLoad) setIsSearching(false);
     }
-  }, [debouncedFilters, toast]);
+  }, [filterInputs, toast]);
 
   const checkMigrationStatus = useCallback(async () => {
     setMigrationStatus(await DataMigration.checkMigrationStatus());
   }, []);
 
-  // 使用缓存优化项目加载
-  const { data: cachedProjects, loading: projectsLoading } = useAPICache(
-    'projects-list',
-    () => SupabaseStorage.getProjects() as Promise<Project[]>,
-    []
-  );
-
-  useEffect(() => {
-    if (cachedProjects) {
-      setProjects(cachedProjects);
+  const loadProjects = useCallback(async () => {
+    try {
+      setProjects(await SupabaseStorage.getProjects() as Project[]);
+    } catch (error) {
+      console.error("加载项目列表失败:", error);
     }
-  }, [cachedProjects]);
+  }, []);
 
   // 弹窗数据获取函数 - 使用新的带计费模式信息的函数
   const fetchDialogRecords = useCallback(async (page = 1) => {
@@ -184,13 +170,8 @@ export default function Home() {
     const initialLoad = async () => {
       setIsLoading(true);
       try {
-        await performanceMonitor.measure(
-          'initial-load',
-          async () => {
-            await checkMigrationStatus();
-            await handleSearch(true);
-          }
-        );
+        await Promise.all([loadProjects(), checkMigrationStatus()]);
+        await handleSearch(true);
       } catch (error) {
         console.error('Initial load error:', error);
         // 即使出错也不阻塞加载
@@ -199,7 +180,7 @@ export default function Home() {
       }
     };
     initialLoad();
-  }, [checkMigrationStatus, handleSearch]);
+  }, [loadProjects, checkMigrationStatus, handleSearch]);
 
   useEffect(() => {
     if (isDetailDialogOpen) {
