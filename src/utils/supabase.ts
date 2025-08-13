@@ -81,19 +81,61 @@ export class SupabaseStorage {
     if (error) throw error;
   }
 
-  static async getDashboardStats(filters: { startDate: string; endDate: string; projectId: string | null; }) {
-    const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
-      p_start_date: filters.startDate,
-      p_end_date: filters.endDate,
-      p_project_id: filters.projectId === 'all' ? null : filters.projectId,
-    });
+  static async getDashboardStats(filters: { startDate: string; endDate: string; projectId: string | null; }): Promise<any> {
+    try {
+      const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types', {
+        p_start_date: filters.startDate,
+        p_end_date: filters.endDate,
+        p_project_id: filters.projectId === 'all' ? null : filters.projectId,
+      });
 
-    if (error) {
-      console.error('RPC call to get_dashboard_stats_with_billing_types failed:', error);
-      throw error;
+      if (error) {
+        console.error('RPC call to get_dashboard_stats_with_billing_types failed:', error);
+        throw error;
+      }
+
+      return (data as any) || {
+        overview: {
+          totalRecords: 0,
+          totalWeight: 0,
+          totalVolume: 0,
+          totalTrips: 0,
+          totalCost: 0,
+          actualTransportCount: 0,
+          returnCount: 0,
+          weightRecordsCount: 0,
+          tripRecordsCount: 0,
+          volumeRecordsCount: 0
+        },
+        dailyTransportStats: [],
+        dailyTripStats: [],
+        dailyVolumeStats: [],
+        dailyCostStats: [],
+        dailyCountStats: []
+      };
+    } catch (error) {
+      console.error('Dashboard stats error:', error);
+      // 返回默认数据而不是抛出错误，避免阻塞加载
+      return {
+        overview: {
+          totalRecords: 0,
+          totalWeight: 0,
+          totalVolume: 0,
+          totalTrips: 0,
+          totalCost: 0,
+          actualTransportCount: 0,
+          returnCount: 0,
+          weightRecordsCount: 0,
+          tripRecordsCount: 0,
+          volumeRecordsCount: 0
+        },
+        dailyTransportStats: [],
+        dailyTripStats: [],
+        dailyVolumeStats: [],
+        dailyCostStats: [],
+        dailyCountStats: []
+      };
     }
-
-    return data;
   }
 
   static async getFilteredLogisticsRecordsWithBilling(

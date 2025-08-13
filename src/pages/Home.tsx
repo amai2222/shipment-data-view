@@ -169,9 +169,15 @@ export default function Home() {
   useEffect(() => {
     const initialLoad = async () => {
       setIsLoading(true);
-      await Promise.all([loadProjects(), checkMigrationStatus()]);
-      await handleSearch(true);
-      setIsLoading(false);
+      try {
+        await Promise.all([loadProjects(), checkMigrationStatus()]);
+        await handleSearch(true);
+      } catch (error) {
+        console.error('Initial load error:', error);
+        // 即使出错也不阻塞加载
+      } finally {
+        setIsLoading(false);
+      }
     };
     initialLoad();
   }, [loadProjects, checkMigrationStatus, handleSearch]);
