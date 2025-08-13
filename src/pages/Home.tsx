@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [最终修复版] 已实现图例格式化、弹窗分页和弹窗布局优化。
+// 描述: [最终修复版] 已实现图表数据过滤、弹窗分页和默认日期优化。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,6 @@ import { Project, LogisticsRecord } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 
-// --- 这里是已修改的代码 ---
 // 辅助函数：获取默认日期范围（从今天起前45天）
 const getDefaultDateRange = () => {
   const today = new Date();
@@ -201,7 +200,24 @@ export default function Home() {
     totalTrips: dailyCountStats.reduce((sum, day) => sum + (day.count || 0), 0),
   }), [dailyTransportStats, dailyCostStats, dailyCountStats]);
   
-  // 【弹窗分页 - UI】计算总页数
+  // --- 这里是新增的代码 ---
+  // 【图表优化】创建过滤后的数据，仅包含有实际数值的日期
+  const filteredDailyTransportStats = useMemo(() =>
+    dailyTransportStats.filter(day => day.actualTransport > 0 || day.returns > 0),
+    [dailyTransportStats]
+  );
+
+  const filteredDailyCountStats = useMemo(() =>
+    dailyCountStats.filter(day => day.count > 0),
+    [dailyCountStats]
+  );
+
+  const filteredDailyCostStats = useMemo(() =>
+    dailyCostStats.filter(day => day.totalCost > 0),
+    [dailyCostStats]
+  );
+  // --- 新增代码结束 ---
+
   const totalDialogPages = Math.ceil(dialogPagination.totalCount / dialogPagination.pageSize);
 
   if (isLoading) {
@@ -272,9 +288,10 @@ export default function Home() {
           <CardContent>
             <div className="h-96">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dailyTransportStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}>
+                 {/* --- 这里是修改点 --- */}
+                <BarChart data={filteredDailyTransportStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={0} />
+                  <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={'preserveStartEnd'} />
                   <YAxis scale={useLogScale ? "log" : "auto"} domain={useLogScale ? [0.1, 'dataMax'] : [0, 'dataMax']} allowDataOverflow tickFormatter={(value) => value.toString()} />
                   <Tooltip labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')} formatter={(value, name) => { const label = name === 'actualTransport' ? '有效运输量' : '退货量'; return [`${Number(value).toFixed(2)}`, label]; }} contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px' }} cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }} />
                   <Legend formatter={(value) => { if (value === 'actualTransport') { return `有效运输量 (${legendTotals.actualTransportTotal.toFixed(1)}吨) - 点击查看全部运单`; } return `退货量 (${legendTotals.returnsTotal.toFixed(1)}吨) - 点击查看全部运单`; }} wrapperStyle={{ paddingTop: '20px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }} onClick={handleLegendClick} />
@@ -290,9 +307,10 @@ export default function Home() {
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={dailyCountStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}>
+                 {/* --- 这里是修改点 --- */}
+                <LineChart data={filteredDailyCountStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={0} />
+                  <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={'preserveStartEnd'} />
                   <YAxis allowDecimals={false} domain={[0, 'dataMax + 1']} tickFormatter={(value) => value.toString()} />
                   <Tooltip labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')} formatter={(value) => [`${value} 次`, '运输次数']} contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px' }} cursor={{ stroke: 'rgba(59, 130, 246, 0.3)', strokeWidth: 2 }} />
                   <Legend formatter={() => `运输次数 (总计${legendTotals.totalTrips}次) - 点击查看全部运单`} wrapperStyle={{ paddingTop: '20px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }} onClick={handleLegendClick} />
@@ -307,14 +325,12 @@ export default function Home() {
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dailyCostStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}>
+                 {/* --- 这里是修改点 --- */}
+                <BarChart data={filteredDailyCostStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={0} />
-                  {/* 【图例格式化】Y轴刻度也使用财务格式 */}
+                  <XAxis dataKey="date" tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} interval={'preserveStartEnd'} />
                   <YAxis scale={useLogScale ? "log" : "auto"} domain={useLogScale ? [0.1, 'dataMax'] : [0, 'dataMax']} allowDataOverflow tickFormatter={(value) => `¥${Number(value).toLocaleString('zh-CN', {minimumFractionDigits: 0})}`} />
-                  {/* 【图例格式化】Tooltip提示也使用财务格式 */}
                   <Tooltip labelFormatter={(value) => new Date(value).toLocaleDateString('zh-CN')} formatter={(value) => [formatCurrency(value as number), '总费用']} contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px' }} cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }} />
-                  {/* 【图例格式化】图例也使用财务格式 */}
                   <Legend formatter={() => `总费用 (${formatCurrency(legendTotals.totalCostSum)}) - 点击查看全部运单`} wrapperStyle={{ paddingTop: '20px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }} onClick={handleLegendClick} />
                   <Bar dataKey="totalCost" fill="#10b981" name="totalCost" radius={[2, 2, 0, 0]} cursor="pointer" label={{ position: 'top', fontSize: 12, fill: '#374151', formatter: (value: number) => value > 0 ? `¥${Number(value).toFixed(0)}` : '' }} />
                 </BarChart>
