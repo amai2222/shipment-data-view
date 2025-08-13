@@ -448,7 +448,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <div>
               <Label>司机 *</Label>
               <CreatableCombobox
-                options={drivers.map(d => ({ value: d.name, label: d.name }))}
+                options={(drivers || []).map(d => ({ value: d.name, label: d.name }))}
                 value={formData.driverName}
                 onValueChange={handleDriverSelect}
                 placeholder="选择或输入司机"
@@ -481,7 +481,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <div>
               <Label>装货地点 *</Label>
               <CreatableCombobox
-                options={locations.map(l => ({ value: l.name, label: l.name }))}
+                options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
                 value={formData.loadingLocation}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, loadingLocation: value }))}
                 placeholder="选择或输入装货地点"
@@ -492,7 +492,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <div>
               <Label>卸货地点 *</Label>
               <CreatableCombobox
-                options={locations.map(l => ({ value: l.name, label: l.name }))}
+                options={(locations || []).map(l => ({ value: l.name, label: l.name }))}
                 value={formData.unloadingLocation}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, unloadingLocation: value }))}
                 placeholder="选择或输入卸货地点"
