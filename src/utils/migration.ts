@@ -111,13 +111,13 @@ export class DataMigration {
   // 检查数据迁移状态
   static async checkMigrationStatus() {
     try {
-      const supabaseRecords = await SupabaseStorage.getLogisticsRecords();
+      const supabaseRecords = await SupabaseStorage.getFilteredLogisticsRecordsFixed();
       const localRecords = LocalStorage.getLogisticsRecords();
       
       return {
-        supabaseCount: supabaseRecords.length,
+        supabaseCount: supabaseRecords.records.length,
         localCount: localRecords.length,
-        isMigrated: supabaseRecords.length > 0,
+        isMigrated: supabaseRecords.records.length > 0,
       };
     } catch (error) {
       console.error('Error checking migration status:', error);

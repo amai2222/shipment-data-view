@@ -392,6 +392,32 @@ export class SupabaseStorage {
   }
 
   // 使用数据库函数获取筛选后的物流记录
+  // 获取运单列表 - 使用新的固定函数名
+  static async getFilteredLogisticsRecordsFixed(
+    projectId?: string, 
+    driverId?: string, 
+    startDate?: string, 
+    endDate?: string, 
+    limit: number = 1000, 
+    offset: number = 0
+  ): Promise<{ records: any[], totalCount: number }> {
+    const { data, error } = await supabase.rpc('get_filtered_logistics_records_fixed', {
+      p_project_id: projectId || null,
+      p_driver_id: driverId || null,
+      p_start_date: startDate || null,
+      p_end_date: endDate || null,
+      p_limit: limit,
+      p_offset: offset
+    });
+
+    if (error) throw error;
+    
+    return {
+      records: (data as any)?.records || [],
+      totalCount: (data as any)?.totalCount || 0
+    };
+  }
+
   static async getFilteredLogisticsRecords(
     projectId?: string, 
     driverId?: string, 
@@ -400,24 +426,14 @@ export class SupabaseStorage {
     limit: number = 100,
     offset: number = 0
   ): Promise<{records: LogisticsRecord[], totalCount: number}> {
-    const { data, error } = await supabase
-      .rpc('get_filtered_logistics_records', {
-        p_project_id: projectId || null,
-        p_driver_id: driverId || null,
-        p_start_date: startDate || null,
-        p_end_date: endDate || null,
-        p_limit: limit,
-        p_offset: offset
-      });
+    const result = await this.getFilteredLogisticsRecordsFixed(projectId, driverId, startDate, endDate, limit, offset);
     
-    if (error) throw error;
-    
-    if (!data || data.length === 0) {
+    if (!result || result.records.length === 0) {
       return { records: [], totalCount: 0 };
     }
     
-    const totalCount = Number(data[0].total_count);
-    const records = data.map(record => ({
+    const totalCount = result.totalCount;
+    const records = result.records.map((record: any) => ({
       id: record.id,
       autoNumber: record.auto_number,
       projectId: record.project_id,

@@ -1144,24 +1144,15 @@ export type Database = {
         }
         Returns: Json
       }
-      get_filtered_logistics_records: {
-        Args:
-          | {
-              p_project_id?: string
-              p_driver_id?: string
-              p_start_date?: string
-              p_end_date?: string
-              p_limit?: number
-              p_offset?: number
-            }
-          | {
-              p_project_id?: string
-              p_driver_id?: string
-              p_start_date?: string
-              p_end_date?: string
-              p_limit?: number
-              p_offset?: number
-            }
+      get_filtered_logistics_records_fixed: {
+        Args: {
+          p_project_id?: string
+          p_driver_id?: string
+          p_start_date?: string
+          p_end_date?: string
+          p_limit?: number
+          p_offset?: number
+        }
         Returns: Json
       }
       get_filtered_logistics_records_with_billing: {
