@@ -44,6 +44,7 @@ export function SimpleCreatableCombobox({
   const handleCreateNew = () => {
     if (onCreateNew && searchValue.trim()) {
       onCreateNew(searchValue.trim());
+      onValueChange(searchValue.trim()); // Ensure the value is set in the form
       setOpen(false);
       setSearchValue("");
     }

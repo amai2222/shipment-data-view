@@ -102,7 +102,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   );
 
   const billingTypeId = selectedChain?.billing_type_id;
-  const showStep2 = billingTypeId === 2 || billingTypeId === 3;
+  // Always show step 2 for multi-step flow, regardless of billing type
+  const showStep2 = true;
 
   const quantityUnit = useMemo(() => {
     if (billingTypeId === 2) return '车';
@@ -568,17 +569,6 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         </div>
       </div>
 
-      {/* Remarks */}
-      <div>
-        <Label htmlFor="remarks">备注</Label>
-        <Textarea
-          id="remarks"
-          value={formData.remarks}
-          onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
-          placeholder="输入备注信息"
-          rows={3}
-        />
-      </div>
     </div>
   );
 
@@ -691,6 +681,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             className="bg-muted"
           />
         </div>
+      </div>
+
+      {/* Remarks moved to step 2 */}
+      <div>
+        <Label htmlFor="remarks">备注</Label>
+        <Textarea
+          id="remarks"
+          value={formData.remarks}
+          onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+          placeholder="输入备注信息"
+          rows={3}
+        />
       </div>
     </div>
   );
