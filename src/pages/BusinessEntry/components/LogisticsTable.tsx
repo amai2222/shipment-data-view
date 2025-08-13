@@ -1,10 +1,11 @@
 // 文件路径: src/pages/BusinessEntry/components/LogisticsTable.tsx
 // 描述: [BwxPy 最终复原版] 严格遵从您的指令。已在前端恢复“司机应收=运费+额外费”的动态计算逻辑。
 
+import { useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogisticsRecord, PaginationState } from '../types';
 
@@ -15,12 +16,14 @@ interface LogisticsTableProps {
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>;
   onDelete: (id: string, autoNumber: string) => void;
   onView: (record: LogisticsRecord) => void;
+  onEdit: (record: LogisticsRecord) => void;
   sortField?: string;
   sortDirection?: 'asc' | 'desc';
   onSort?: (field: string) => void;
+  billingTypes?: { [key: number]: string };
 }
 
-export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, sortField, sortDirection, onSort }: LogisticsTableProps) => {
+export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, billingTypes = {} }: LogisticsTableProps) => {
   
   const handlePageChange = (newPage: number) => {
     setPagination(p => ({ ...p, currentPage: newPage }));
@@ -35,6 +38,26 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
   const formatCurrency = (value: number | null | undefined) => {
     if (value == null) return '¥0.00';
     return `¥${value.toFixed(2)}`;
+  };
+
+  // Get unique billing types from records to determine column headers
+  const uniqueBillingTypes = useMemo(() => {
+    const types = new Set<number>();
+    records.forEach(record => {
+      // You would need to pass billing_type_id in the record data
+      // For now, let's assume it's always billing_type_id = 1 (tons) if not specified
+      const billingTypeId = (record as any).billing_type_id || 1;
+      types.add(billingTypeId);
+    });
+    return Array.from(types).sort();
+  }, [records]);
+
+  const getQuantityLabel = (billingTypeId: number) => {
+    switch (billingTypeId) {
+      case 2: return '车次';
+      case 3: return '立方';
+      default: return '重量 (吨)';
+    }
   };
 
   const SortableHeader = ({ field, children, className }: { field: string, children: React.ReactNode, className?: string }) => {
@@ -68,7 +91,13 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               <SortableHeader field="license_plate" className="w-[120px]">车牌号</SortableHeader>
               <SortableHeader field="driver_phone" className="w-[130px]">司机电话</SortableHeader>
               <SortableHeader field="loading_location" className="w-[120px]">路线</SortableHeader>
-              <SortableHeader field="loading_weight">装/卸重量 (吨)</SortableHeader>
+              {uniqueBillingTypes.length > 1 ? (
+                uniqueBillingTypes.map(typeId => (
+                  <SortableHeader key={typeId} field="loading_weight">装/卸{getQuantityLabel(typeId)}</SortableHeader>
+                ))
+              ) : (
+                <SortableHeader field="loading_weight">装/卸{getQuantityLabel(uniqueBillingTypes[0] || 1)}</SortableHeader>
+              )}
               <SortableHeader field="current_cost">运费 (元)</SortableHeader>
               <SortableHeader field="extra_cost">额外费 (元)</SortableHeader>
               <SortableHeader field="driver_payable_cost" className="font-bold">司机应收 (元)</SortableHeader>
@@ -103,7 +132,22 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                     <TableCell>{record.license_plate || '未填写'}</TableCell>
                     <TableCell className="font-mono">{record.driver_phone || '未填写'}</TableCell>
                     <TableCell>{formatRoute(record.loading_location, record.unloading_location)}</TableCell>
-                    <TableCell>{record.loading_weight || '-'} / {record.unloading_weight || '-'}</TableCell>
+                    {uniqueBillingTypes.length > 1 ? (
+                      uniqueBillingTypes.map(typeId => {
+                        const billingTypeId = (record as any).billing_type_id || 1;
+                        if (billingTypeId === typeId) {
+                          return (
+                            <TableCell key={typeId}>
+                              {record.loading_weight || '-'} / {record.unloading_weight || '-'}
+                            </TableCell>
+                          );
+                        } else {
+                          return <TableCell key={typeId}>-</TableCell>;
+                        }
+                      })
+                    ) : (
+                      <TableCell>{record.loading_weight || '-'} / {record.unloading_weight || '-'}</TableCell>
+                    )}
                     <TableCell className="font-mono">{formatCurrency(record.current_cost)}</TableCell>
                     <TableCell className="font-mono text-orange-600">{formatCurrency(record.extra_cost)}</TableCell>
                     {/* [核心修复] 使用刚刚在前端计算出的值 */}
@@ -126,6 +170,15 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEdit(record);
+                            }}
+                          >
+                            <Edit className="mr-2 h-4 w-4" />
+                            <span>编辑</span>
+                          </DropdownMenuItem>
                           <ConfirmDialog
                             title="确认删除"
                             description={`您确定要删除运单 "${record.auto_number}" 吗？此操作不可撤销。`}
@@ -144,7 +197,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={12} className="h-24 text-center">
+                <TableCell colSpan={12 + uniqueBillingTypes.length - 1} className="h-24 text-center">
                   没有找到匹配的记录。
                 </TableCell>
               </TableRow>

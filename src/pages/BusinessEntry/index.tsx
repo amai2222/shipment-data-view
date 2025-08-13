@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, FileDown, FileUp, Loader2, Search } from "lucide-react";
+import { Download, FileDown, FileUp, Loader2, Search, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,7 @@ import { useExcelImport } from './hooks/useExcelImport';
 import { FilterBar } from './components/FilterBar';
 import { LogisticsTable } from './components/LogisticsTable';
 import { ImportDialog } from './components/ImportDialog';
+import { LogisticsFormDialog } from './components/LogisticsFormDialog';
 
 const SummaryDisplay = ({ totalSummary, activeFilters, projects }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters, projects: Project[] }) => {
   const summaryTitle = useMemo(() => {
@@ -58,6 +59,8 @@ export default function BusinessEntry() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
   const [uiFilters, setUiFilters] = useState(INITIAL_FILTERS);
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch, sortField, sortDirection, handleSort } = useLogisticsData();
   const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates } = useExcelImport(() => { refetch(); });
   const isSummaryStale = useMemo(() => JSON.stringify(uiFilters) !== JSON.stringify(activeFilters), [uiFilters, activeFilters]);
@@ -120,6 +123,25 @@ export default function BusinessEntry() {
     XLSX.writeFile(wb, "运单导入模板.xlsx");
   };
 
+  const handleOpenAddDialog = () => {
+    setEditingRecord(null);
+    setIsFormDialogOpen(true);
+  };
+
+  const handleOpenEditDialog = (record: LogisticsRecord) => {
+    setEditingRecord(record);
+    setIsFormDialogOpen(true);
+  };
+
+  const handleFormDialogClose = () => {
+    setIsFormDialogOpen(false);
+    setEditingRecord(null);
+  };
+
+  const handleFormSubmitSuccess = () => {
+    refetch();
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -128,6 +150,10 @@ export default function BusinessEntry() {
           <p className="text-muted-foreground">查询、导入、导出和管理所有运单记录</p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={handleOpenAddDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            新增运单
+          </Button>
           <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
           <Button variant="outline" asChild disabled={loading || isImporting}><Label htmlFor="excel-upload" className="cursor-pointer flex items-center">{isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}导入Excel<Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={loading || isImporting}/></Label></Button>
           <Button onClick={exportToExcel} disabled={loading}><Download className="mr-2 h-4 w-4" />导出数据</Button>
@@ -135,8 +161,15 @@ export default function BusinessEntry() {
       </div>
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} projects={projects} />)}
-      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, page: pagination.currentPage, size: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />)}
+      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, page: pagination.currentPage, size: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />)}
       <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />
+      <LogisticsFormDialog
+        isOpen={isFormDialogOpen}
+        onClose={handleFormDialogClose}
+        editingRecord={editingRecord}
+        projects={projects}
+        onSubmitSuccess={handleFormSubmitSuccess}
+      />
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>

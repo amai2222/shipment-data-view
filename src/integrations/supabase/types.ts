@@ -1069,6 +1069,19 @@ export type Database = {
         }
         Returns: Database["public"]["CompositeTypes"]["waybill_fingerprint"][]
       }
+      check_logistics_record_duplicate: {
+        Args: {
+          p_driver_name: string
+          p_license_plate: string
+          p_driver_phone: string
+          p_loading_location: string
+          p_unloading_location: string
+          p_loading_date: string
+          p_loading_weight: number
+          p_exclude_id?: string
+        }
+        Returns: boolean
+      }
       create_waybill_with_check: {
         Args: {
           p_project_name: string
