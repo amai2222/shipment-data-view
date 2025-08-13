@@ -124,6 +124,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       setCurrentStep(1);
       loadInitialData();
       if (editingRecord) {
+        // For editing, first populate basic data, then load project-specific data
         populateFormWithRecord(editingRecord);
       } else {
         setFormData(INITIAL_FORM_DATA);
@@ -144,12 +145,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   }, [formData.projectId]);
 
-  // Auto-select default chain whenever chains are loaded
+  // Auto-select default chain for new records, or restore chain for editing
   useEffect(() => {
-    if (chains.length > 0 && !editingRecord) {
-      const defaultChain = chains.find(c => c.is_default);
-      if (defaultChain) {
-        setFormData(prev => ({ ...prev, chainId: defaultChain.id }));
+    if (chains.length > 0) {
+      if (editingRecord && editingRecord.chain_id) {
+        // For editing, restore the original chain
+        setFormData(prev => ({ ...prev, chainId: editingRecord.chain_id || '' }));
+      } else if (!editingRecord) {
+        // For new records, select default chain
+        const defaultChain = chains.find(c => c.is_default);
+        if (defaultChain) {
+          setFormData(prev => ({ ...prev, chainId: defaultChain.id }));
+        }
       }
     }
   }, [chains, editingRecord]);
@@ -212,7 +219,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const populateFormWithRecord = (record: LogisticsRecord) => {
     setFormData({
       projectId: record.project_id || '',
-      chainId: record.chain_id || '',
+      chainId: '', // Will be set after chains are loaded
       loadingDate: record.loading_date ? new Date(record.loading_date) : new Date(),
       unloadingDate: record.unloading_date ? new Date(record.unloading_date) : new Date(),
       driverName: record.driver_name || '',
@@ -336,7 +343,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_driver_name: recordData.driver_name,
           p_loading_location: recordData.loading_location,
           p_unloading_location: recordData.unloading_location,
-          p_loading_date: recordData.loading_date,
+          p_loading_date: `${recordData.loading_date}T00:00:00+00:00`,
           p_loading_weight: recordData.loading_weight,
           p_unloading_weight: recordData.unloading_weight,
           p_current_cost: recordData.current_cost,
@@ -345,7 +352,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_transport_type: recordData.transport_type,
           p_extra_cost: recordData.extra_cost,
           p_remarks: recordData.remarks,
-          p_unloading_date: recordData.unloading_date
+          p_unloading_date: recordData.unloading_date ? `${recordData.unloading_date}T00:00:00+00:00` : null
         });
         if (error) throw error;
         toast({ title: "成功", description: "运单已更新" });
