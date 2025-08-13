@@ -17,11 +17,20 @@ import { Project, LogisticsRecord } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 
-// 辅助函数：获取默认日期范围
+// --- 这里是已修改的代码 ---
+// 辅助函数：获取默认日期范围（从今天起前45天）
 const getDefaultDateRange = () => {
   const today = new Date();
-  const year = today.getFullYear();
-  return { startDate: `${year}-01-01`, endDate: today.toISOString().split('T')[0] };
+  const startDate = new Date();
+  startDate.setDate(today.getDate() - 45);
+
+  // 格式化日期为 YYYY-MM-DD
+  const formatISODate = (date: Date) => date.toISOString().split('T')[0];
+
+  return { 
+    startDate: formatISODate(startDate), 
+    endDate: formatISODate(today) 
+  };
 };
 
 // 【图例格式化】辅助函数：格式化为财务数字
@@ -245,7 +254,6 @@ export default function Home() {
         <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-green-100 rounded-lg mr-4"><Truck className="h-6 w-6 text-green-600" /></div><div><p className="text-sm font-medium text-muted-foreground">总运输重量</p><p className="text-2xl font-bold">{(overviewStats?.totalWeight || 0).toFixed(1)}吨</p></div></CardContent></Card>
         <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-yellow-100 rounded-lg mr-4"><TrendingUp className="h-6 w-6 text-yellow-600" /></div><div><p className="text-sm font-medium text-muted-foreground">司机应收汇总</p><p className="text-2xl font-bold">{formatCurrency(overviewStats?.totalCost)}</p></div></CardContent></Card>
         <Card className="shadow-card"><CardContent className="flex items-center p-6"><div className="p-2 bg-purple-100 rounded-lg mr-4"><BarChart3 className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm font-medium text-muted-foreground">实际运输/退货</p>
-        {/* --- 这里是已修复的代码 --- */}
         <p className="text-2xl font-bold">
             {overviewStats?.actualTransportCount ?? '—'} / {overviewStats?.returnCount ?? '—'}
         </p>
