@@ -98,16 +98,16 @@ export class SupabaseStorage {
 
   static async getFilteredLogisticsRecordsWithBilling(
     projectId?: string, 
-    driverId?: string, 
+    driverName?: string, 
     startDate?: string, 
     endDate?: string,
     limit: number = 100,
     offset: number = 0
   ): Promise<{records: any[], totalCount: number}> {
     const { data, error } = await supabase
-      .rpc('get_filtered_logistics_records_with_billing', {
+      .rpc('get_filtered_logistics_with_billing', {
         p_project_id: projectId || null,
-        p_driver_id: driverId || null,
+        p_driver_name: driverName || null,
         p_start_date: startDate || null,
         p_end_date: endDate || null,
         p_limit: limit,
@@ -122,7 +122,7 @@ export class SupabaseStorage {
     
     return { 
       records: (data as any)?.records || [], 
-      totalCount: (data as any)?.total_count || 0 
+      totalCount: (data as any)?.totalCount || 0 
     };
   }
 
