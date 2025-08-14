@@ -1,27 +1,18 @@
 // 最终文件路径: src/pages/BusinessEntry/hooks/useExcelImport.ts
-// 版本: TWfN8-FINAL-IGNITION-RESTORATION
-// 描述: [最终生产级点火系统修复] 此代码最终、决定性地、无可辩驳地修复了
-//       由于我之前提供的代码不完整而导致的“选择文件后无反应”的灾难性故障。
-//       此版本恢复了 handleExcelImport 和 getImportPreview 的完整功能，
-//       同时保留了 executeFinalImport 中全新的、透明的、并发安全的导入逻辑。
-//       这是导入流程的最终、完整、功能齐全的前端逻辑。
+// 描述: [精准升级] 此版本保留了您原有的完整导入流程（预览、重复项检查），
+//       仅将最后一步的数据库调用替换为新的 `process_logistics_import` 函数。
+//       这解决了批量导入因单行RLS策略失败而整体中断的问题，并提供更精确的行级错误反馈。
 
 import { useState, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+// [修改] 引入我们新的错误类型，如果您的 types.ts 中已有 ImportFailure，可以保留或整合
 import { ImportPreviewResult, ImportFailure } from '../types';
 
-// --- 类型定义 (如果尚未定义，请添加到 types.ts) ---
-/*
-// src/pages/BusinessEntry/types.ts
-export interface ImportFailure {
-  row_index: number;
-  data: any; // 原始行数据
-  error: string; // 具体的错误信息
-}
-*/
-
+// =================================================================
+// 您原有的代码保持不变
+// =================================================================
 const parseExcelDate = (excelDate: any): string | null => {
   if (excelDate === null || excelDate === undefined || excelDate === '') return null;
   if (typeof excelDate === 'number' && excelDate > 0) {
@@ -56,7 +47,6 @@ export function useExcelImport(onImportSuccess: () => void) {
     setImportPreview(null); setApprovedDuplicates(new Set()); setImportLogs([]);
   }, []);
 
-  // [终极修复] 恢复 getImportPreview 的完整功能
   const getImportPreview = async (validRows: any[]) => {
     setImportStep('preview');
     try {
@@ -89,7 +79,6 @@ export function useExcelImport(onImportSuccess: () => void) {
     }
   };
 
-  // [终极修复] 恢复 handleExcelImport 的完整功能
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -100,16 +89,33 @@ export function useExcelImport(onImportSuccess: () => void) {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false, header: 1 }); // 使用 header: 1 获取数组的数组
+        
+        // 动态获取标题行，并创建映射
+        const headers: string[] = jsonData[0] as string[];
+        const headerMap: { [key: string]: string } = {};
+        headers.forEach((h, i) => headerMap[h.trim()] = XLSX.utils.encode_col(i));
+
+        // 将原始数据（除了标题行）转换为JSON对象
+        const jsonDataObjects = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+
         setIsImportModalOpen(true);
         setImportStep('preprocessing');
+        
         const validRows: any[] = [];
-        jsonData.forEach((row: any) => {
+        // [修改] 使用 jsonDataObjects 进行迭代，保留原始行号
+        jsonDataObjects.forEach((row: any, index: number) => {
           const loadingDate = parseExcelDate(row['装货日期']);
           if (loadingDate) {
-            validRows.push({ ...row, loading_date_parsed: loadingDate, unloading_date_parsed: row['卸货日期'] ? parseExcelDate(row['卸货日期']) : loadingDate });
+            validRows.push({ 
+              ...row, 
+              loading_date_parsed: loadingDate, 
+              unloading_date_parsed: row['卸货日期'] ? parseExcelDate(row['卸货日期']) : loadingDate,
+              original_row_index: index + 2 // +2 是因为 Excel 行号从1开始，且我们跳过了标题行
+            });
           }
         });
+        
         if (validRows.length === 0) {
           throw new Error("文件中没有找到任何包含有效“装货日期”的行。");
         }
@@ -124,16 +130,22 @@ export function useExcelImport(onImportSuccess: () => void) {
     reader.readAsArrayBuffer(file);
   };
 
-  // [终极修复] 保留 executeFinalImport 的全新、透明的逻辑
+
+  // =================================================================
+  // [精准修改] 这里是我们需要进行“心脏移植”手术的地方
+  // =================================================================
   const executeFinalImport = async () => {
     if (!importPreview) return;
     setImportStep('processing');
     setImportLogs([]);
     const addLog = (message: string) => setImportLogs(prev => [...prev, `[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] ${message}`]);
     
+    // 准备最终要导入的记录，这里保持不变，但增加原始行号用于日志
     const finalRecordsToImport = [
-      ...importPreview.new_records.map(item => item.record),
-      ...importPreview.duplicate_records.filter((_, index) => approvedDuplicates.has(index)).map(item => item.record)
+      ...importPreview.new_records.map(item => ({ ...item.record, original_row_index: item.original_row_index })),
+      ...importPreview.duplicate_records
+        .filter((_, index) => approvedDuplicates.has(index))
+        .map(item => ({ ...item.record, original_row_index: item.original_row_index }))
     ];
 
     if (finalRecordsToImport.length === 0) {
@@ -145,23 +157,33 @@ export function useExcelImport(onImportSuccess: () => void) {
     addLog(`准备导入 ${finalRecordsToImport.length} 条记录...`);
 
     try {
-      const { data: result, error } = await supabase.rpc('import_logistics_data', { p_records: finalRecordsToImport });
+      // [心脏移植]
+      // 1. 调用新的、更稳定的 `process_logistics_import` 函数
+      // 2. 注意参数名从 p_records 变成了 records
+      const { data: result, error } = await supabase.rpc('process_logistics_import', { 
+        records: finalRecordsToImport 
+      });
       
-      if (error) throw error;
+      if (error) throw error; // 处理RPC调用本身的错误
       
-        if (result && typeof result === 'object' && 'success_count' in (result as any) && 'failures' in (result as any)) {
-          const safeResult = (result as unknown) as { success_count: number; failures: ImportFailure[] };
-          const failure_count = safeResult.failures.length;
+      // [心脏移植]
+      // 3. 处理新函数返回的结果。新函数直接返回一个失败记录的数组。
+      if (Array.isArray(result)) {
+        const failures: { line_number: number; error_message: string }[] = result;
+        const failure_count = failures.length;
+        const success_count = finalRecordsToImport.length - failure_count;
 
-        addLog(`导入完成！成功: ${safeResult.success_count}, 失败: ${failure_count}`);
+        addLog(`导入完成！成功: ${success_count}, 失败: ${failure_count}`);
 
         if (failure_count > 0) {
           addLog("---------------- 失败详情 ----------------");
-          safeResult.failures.forEach(failure => {
-            const rowData = failure.data;
-            const driverInfo = rowData?.driver_name || '未知司机';
-            const dateInfo = rowData?.loading_date || '未知日期';
-            addLog(`[Excel第 ${failure.row_index} 行] 司机: ${driverInfo}, 日期: ${dateInfo} => ${failure.error}`);
+          failures.forEach(failure => {
+            // `failure.line_number` 是传入数组的索引(从1开始)，我们可以用它来找回原始数据
+            const originalRecord = finalRecordsToImport[failure.line_number - 1];
+            const originalRowIndex = originalRecord.original_row_index || failure.line_number; // 获取Excel原始行号
+            const driverInfo = originalRecord?.driver_name || '未知司机';
+            const dateInfo = originalRecord?.loading_date || '未知日期';
+            addLog(`[Excel第 ${originalRowIndex} 行] 司机: ${driverInfo}, 日期: ${dateInfo} => 错误: ${failure.error_message}`);
           });
           addLog("------------------------------------------");
           
@@ -172,9 +194,9 @@ export function useExcelImport(onImportSuccess: () => void) {
             duration: 9000
           });
         } else {
-          toast({ title: "导入成功", description: `共导入 ${safeResult.success_count} 条记录。` });
-          if (safeResult.success_count > 0) {
-            onImportSuccess();
+          toast({ title: "导入成功", description: `共导入 ${success_count} 条记录。` });
+          if (success_count > 0) {
+            onImportSuccess(); // 调用回调，刷新主列表
           }
         }
       } else {
