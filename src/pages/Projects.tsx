@@ -1,7 +1,5 @@
-// [恢复原始版本]
 // 文件路径: src/pages/Projects.tsx
-// 描述: 此为用户提供的、未经任何修改的、原始的、正常工作的组件代码。
-//       用于将前端组件恢复到稳定状态。
+// 描述: 这是包含了所有修复的、最终的、完整的代码。
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,11 +62,9 @@ export default function Projects() {
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
   }[]>([]);
 
-  // 【核心修复与性能优化】重构 loadData 函数，彻底解决 N+1 查询问题
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      // 并行加载所有需要的数据
       const [projectsResponse, partnersResponse] = await Promise.all([
         supabase.rpc('get_projects_with_details'),
         supabase.from('partners').select('*').order('name', { ascending: true }),
@@ -77,7 +73,6 @@ export default function Projects() {
       const { data: projectsData, error: projectsError } = projectsResponse;
       if (projectsError) throw projectsError;
 
-      // 正确解析 RPC 返回的 JSON 结构 { projects, chains, partners }
       const payload = (projectsData as any) || {};
       const rawProjects: any[] = Array.isArray(payload.projects) ? payload.projects : [];
       const chainsMap: Record<string, any[]> = payload.chains || {};
@@ -88,10 +83,7 @@ export default function Projects() {
           ...c,
           partners: (partnersMap[p.id] || []).filter((pp: any) => pp.chainId === c.id)
         }));
-        return {
-          ...p,
-          partnerChains: chains,
-        } as ProjectWithDetails;
+        return { ...p, partnerChains: chains } as ProjectWithDetails;
       });
 
       setProjects(composedProjects);
@@ -132,7 +124,7 @@ export default function Projects() {
     const chainsWithPartners = (project.partnerChains || []).map(chain => ({
       id: `chain-existing-${chain.id}`, dbId: chain.id, chainName: chain.chainName,
       description: chain.description,
-      billingTypeId: Number((chain as any).billingTypeId) || 1,
+      billingTypeId: Number((chain as any).billing_type_id) || 1,
       partners: (chain.partners || []).map((pp) => ({
         id: `partner-existing-${pp.id}`, dbId: pp.id, partnerId: pp.partnerId,
         level: pp.level, taxRate: pp.taxRate,
@@ -357,15 +349,16 @@ export default function Projects() {
                               <Input value={chain.chainName} onChange={(e) => setSelectedChains(prev => prev.map((c, i) => i === chainIndex ? { ...c, chainName: e.target.value } : c))} placeholder="链路名称" className="w-40" disabled={isSubmitting}/>
                               <div className="flex items-center space-x-2">
                                 <Label className="text-xs">计费模式</Label>
+                                {/* 【【【最终修复】】】 */}
                                 <select
-                                  value={chain.billingTypeId ?? 1}
+                                  value={String(chain.billingTypeId ?? 1)}
                                   onChange={(e) => setSelectedChains(prev => prev.map((c, i) => i === chainIndex ? { ...c, billingTypeId: Number(e.target.value) } : c))}
                                   className="p-1 border rounded text-sm"
                                   disabled={isSubmitting}
                                 >
-                                  <option value={1}>计吨</option>
-                                  <option value={2}>计车</option>
-                                  <option value={3}>计方</option>
+                                  <option value="1">计吨</option>
+                                  <option value="2">计车</option>
+                                  <option value="3">计方</option>
                                 </select>
                               </div>
                             </div>
