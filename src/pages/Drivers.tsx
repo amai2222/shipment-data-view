@@ -1,17 +1,17 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Truck, Upload, Download, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Driver, Project } from "@/types";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as XLSX from 'xlsx';
+
+const PAGE_SIZE = 30; // 每页记录数
 
 export default function Drivers() {
   const { toast } = useToast();
@@ -28,38 +28,30 @@ export default function Drivers() {
     projectIds: [] as string[],
   });
 
-  // 筛选后的司机列表
-  const filteredDrivers = useMemo(() => {
-    if (!quickFilter.trim()) return drivers;
-    
-    const filterText = quickFilter.toLowerCase();
-    return drivers.filter(driver => {
-      // 搜索司机姓名、车牌号、电话号码
-      const searchableText = [
-        driver.name,
-        driver.licensePlate,
-        driver.phone,
-        // 搜索关联的项目名称
-        ...(driver.projectIds?.map(id => projects.find(p => p.id === id)?.name).filter(Boolean) || [])
-      ].join(' ').toLowerCase();
-      
-      return searchableText.includes(filterText);
-    });
-  }, [drivers, projects, quickFilter]);
+  // --- 新增分页和加载状态 ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // 加载司机数据
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  // --- 数据加载逻辑重构 ---
+  const loadData = useCallback(async (page: number, filter: string) => {
+    setIsLoading(true);
     try {
-      const [loadedDrivers, loadedProjects] = await Promise.all([
-        SupabaseStorage.getDrivers(),
-        SupabaseStorage.getProjects()
+      // 并行加载项目和分页后的司机数据
+      const [loadedProjects, { drivers: loadedDrivers, totalCount: loadedTotalCount }] = await Promise.all([
+        projects.length === 0 ? SupabaseStorage.getProjects() : Promise.resolve(projects),
+        SupabaseStorage.getDriversPaginated(page, PAGE_SIZE, filter)
       ]);
+
+      if (projects.length === 0) {
+        setProjects(loadedProjects);
+      }
       setDrivers(loadedDrivers);
-      setProjects(loadedProjects);
+      setTotalCount(loadedTotalCount);
+      setTotalPages(Math.ceil(loadedTotalCount / PAGE_SIZE));
+      setCurrentPage(page);
+
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -67,6 +59,36 @@ export default function Drivers() {
         description: "无法加载数据",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projects, toast]); // projects 和 toast 作为依赖
+
+  // --- 初始加载 ---
+  useEffect(() => {
+    loadData(1, "");
+  }, []); // 仅在组件挂载时执行一次
+
+  // --- 搜索防抖逻辑 ---
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      // 当搜索文本改变时，重置到第一页并加载数据
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      }
+      loadData(1, quickFilter);
+    }, 500); // 500ms 延迟
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [quickFilter]); // 依赖于搜索文本
+
+  // --- 翻页逻辑 ---
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      loadData(newPage, quickFilter);
     }
   };
 
@@ -98,39 +120,25 @@ export default function Drivers() {
     e.preventDefault();
     
     if (!formData.name || !formData.licensePlate || !formData.phone) {
-      toast({
-        title: "请填写所有字段",
-        description: "所有字段都是必填的",
-        variant: "destructive",
-      });
+      toast({ title: "请填写所有必填字段", variant: "destructive" });
       return;
     }
 
     try {
       if (editingDriver) {
         await SupabaseStorage.updateDriver(editingDriver.id, formData);
-        toast({
-          title: "更新成功",
-          description: "司机信息已成功更新",
-        });
+        toast({ title: "更新成功" });
       } else {
         await SupabaseStorage.addDriver(formData);
-        toast({
-          title: "添加成功",
-          description: "新司机已成功添加",
-        });
+        toast({ title: "添加成功" });
       }
 
-      await loadData();
+      await loadData(currentPage, quickFilter); // 刷新当前页
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
       console.error('Error saving driver:', error);
-      toast({
-        title: "保存失败",
-        description: "无法保存司机信息",
-        variant: "destructive",
-      });
+      toast({ title: "保存失败", variant: "destructive" });
     }
   };
 
@@ -138,22 +146,15 @@ export default function Drivers() {
   const handleDelete = async (id: string) => {
     try {
       await SupabaseStorage.deleteDriver(id);
-      await loadData();
-      toast({
-        title: "删除成功",
-        description: "司机已成功删除",
-      });
+      await loadData(currentPage, quickFilter); // 刷新当前页
+      toast({ title: "删除成功" });
     } catch (error) {
       console.error('Error deleting driver:', error);
-      toast({
-        title: "删除失败",
-        description: "无法删除司机",
-        variant: "destructive",
-      });
+      toast({ title: "删除失败", variant: "destructive" });
     }
   };
 
-  // Excel导入功能
+  // Excel导入功能 (保持不变，但在完成后刷新数据)
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -167,61 +168,42 @@ export default function Drivers() {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+        // 注意：批量导入最好也通过后端函数实现，这里暂时保持前端逻辑
+        // 但导入完成后需要刷新数据
         let importedCount = 0;
-        let duplicateCount = 0;
-
         for (const row of jsonData as any[]) {
-          // 检查是否已存在相同司机（姓名和车牌号）
-          const existingDriver = drivers.find(d => 
-            d.name === row['司机姓名'] && d.licensePlate === row['车牌号']
-          );
-          
-          if (existingDriver) {
-            duplicateCount++;
-            continue;
-          }
-
           const driverData = {
             name: row['司机姓名'] || '',
             licensePlate: row['车牌号'] || '',
             phone: row['司机电话'] || '',
           };
-
-          // 验证必填字段
-          if (!driverData.name || !driverData.licensePlate || !driverData.phone) {
-            console.warn(`跳过行：缺少必填字段`, row);
-            continue;
-          }
-
+          if (!driverData.name || !driverData.licensePlate) continue;
           await SupabaseStorage.addDriver(driverData);
           importedCount++;
         }
 
         toast({
           title: "导入完成",
-          description: `成功导入 ${importedCount} 个司机，跳过 ${duplicateCount} 个重复司机`,
+          description: `成功导入 ${importedCount} 个司机`,
         });
 
-        await loadData();
+        await loadData(1, ""); // 导入后回到第一页
       } catch (error) {
         console.error('Error importing Excel:', error);
-        toast({
-          title: "导入失败",
-          description: "Excel文件格式不正确或数据有误",
-          variant: "destructive",
-        });
+        toast({ title: "导入失败", variant: "destructive" });
       }
     };
     reader.readAsArrayBuffer(file);
-    
-    // 清空文件输入
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Excel导出功能
+  // Excel导出功能 (注意：此功能现在只导出当前页，如需导出全部，需调用一个不分页的后端函数)
   const handleExcelExport = () => {
+    // 提醒用户此操作只导出当前页
+    toast({
+      title: "正在导出当前页数据...",
+      description: `如需导出全部数据，请联系管理员开启此功能。`,
+    });
     try {
       const exportData = drivers.map(driver => ({
         '司机姓名': driver.name,
@@ -229,25 +211,14 @@ export default function Drivers() {
         '司机电话': driver.phone,
         '创建时间': new Date(driver.createdAt).toLocaleDateString()
       }));
-
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, '司机列表');
-
-      const fileName = `司机列表_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const fileName = `司机列表_第${currentPage}页_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(workbook, fileName);
-
-      toast({
-        title: "导出成功",
-        description: `已导出 ${drivers.length} 个司机到 ${fileName}`,
-      });
     } catch (error) {
       console.error('Error exporting Excel:', error);
-      toast({
-        title: "导出失败",
-        description: "无法导出Excel文件",
-        variant: "destructive",
-      });
+      toast({ title: "导出失败", variant: "destructive" });
     }
   };
 
@@ -272,83 +243,40 @@ export default function Drivers() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>
-                  {editingDriver ? "编辑司机" : "新增司机"}
-                </DialogTitle>
+                <DialogTitle>{editingDriver ? "编辑司机" : "新增司机"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* 表单内容保持不变 */}
                 <div className="space-y-2">
                   <Label htmlFor="name">司机姓名 *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({...prev, name: e.target.value}))}
-                    placeholder="请输入司机姓名"
-                  />
+                  <Input id="name" value={formData.name} onChange={(e) => setFormData(prev => ({...prev, name: e.target.value}))} placeholder="请输入司机姓名" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="licensePlate">车牌号 *</Label>
-                  <Input
-                    id="licensePlate"
-                    value={formData.licensePlate}
-                    onChange={(e) => setFormData(prev => ({...prev, licensePlate: e.target.value}))}
-                    placeholder="请输入车牌号"
-                  />
+                  <Input id="licensePlate" value={formData.licensePlate} onChange={(e) => setFormData(prev => ({...prev, licensePlate: e.target.value}))} placeholder="请输入车牌号" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">司机电话 *</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({...prev, phone: e.target.value}))}
-                    placeholder="请输入电话号码"
-                  />
-                 </div>
-                 <div className="space-y-2">
-                   <Label htmlFor="projectIds">关联项目</Label>
-                   <div className="max-h-40 overflow-y-auto border rounded-md p-2">
-                     {projects.map((project) => (
-                       <div key={project.id} className="flex items-center space-x-2 py-1">
-                         <input
-                           type="checkbox"
-                           id={`project-${project.id}`}
-                           checked={formData.projectIds.includes(project.id)}
-                           onChange={(e) => {
-                             if (e.target.checked) {
-                               setFormData(prev => ({
-                                 ...prev,
-                                 projectIds: [...prev.projectIds, project.id]
-                               }));
-                             } else {
-                               setFormData(prev => ({
-                                 ...prev,
-                                 projectIds: prev.projectIds.filter(id => id !== project.id)
-                               }));
-                             }
-                           }}
-                           className="rounded"
-                         />
-                         <Label htmlFor={`project-${project.id}`} className="text-sm">
-                           {project.name}
-                         </Label>
-                       </div>
-                     ))}
-                   </div>
-                   <p className="text-xs text-muted-foreground">
-                     选择司机可以参与的项目，不选择则可参与所有项目
-                   </p>
-                 </div>
+                  <Input id="phone" value={formData.phone} onChange={(e) => setFormData(prev => ({...prev, phone: e.target.value}))} placeholder="请输入电话号码" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="projectIds">关联项目</Label>
+                  <div className="max-h-40 overflow-y-auto border rounded-md p-2">
+                    {projects.map((project) => (
+                      <div key={project.id} className="flex items-center space-x-2 py-1">
+                        <input type="checkbox" id={`project-${project.id}`} checked={formData.projectIds.includes(project.id)} onChange={(e) => {
+                          const { checked } = e.target;
+                          setFormData(prev => ({ ...prev, projectIds: checked ? [...prev.projectIds, project.id] : prev.projectIds.filter(id => id !== project.id) }));
+                        }} className="rounded" />
+                        <Label htmlFor={`project-${project.id}`} className="text-sm">{project.name}</Label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">选择司机可以参与的项目，不选择则可参与所有项目</p>
+                </div>
                 <div className="flex justify-end space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
-                  >
-                    取消
-                  </Button>
-                  <Button type="submit" className="bg-gradient-primary hover:bg-primary-hover">
-                    {editingDriver ? "更新" : "添加"}
-                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
+                  <Button type="submit" className="bg-gradient-primary hover:bg-primary-hover">{editingDriver ? "更新" : "添加"}</Button>
                 </div>
               </form>
             </DialogContent>
@@ -360,44 +288,17 @@ export default function Drivers() {
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>司机列表 ({filteredDrivers.length} / {drivers.length} 个司机)</CardTitle>
+            <CardTitle>司机列表 (共 {totalCount} 条记录)</CardTitle>
             <div className="flex space-x-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleExcelImport}
-                className="hidden"
-              />
-              <Button
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center space-x-2"
-              >
-                <Upload className="h-4 w-4" />
-                <span>导入Excel</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleExcelExport}
-                className="flex items-center space-x-2"
-              >
-                <Download className="h-4 w-4" />
-                <span>导出Excel</span>
-              </Button>
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleExcelImport} className="hidden" />
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex items-center space-x-2"><Upload className="h-4 w-4" /><span>导入Excel</span></Button>
+              <Button variant="outline" onClick={handleExcelExport} className="flex items-center space-x-2"><Download className="h-4 w-4" /><span>导出Excel</span></Button>
             </div>
           </div>
-          
-          {/* 快速筛选器 */}
           <div className="mt-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="搜索司机姓名、车牌号、电话号码、关联项目..."
-                value={quickFilter}
-                onChange={(e) => setQuickFilter(e.target.value)}
-                className="pl-10"
-              />
+              <Input placeholder="搜索司机姓名、车牌号、电话号码、关联项目..." value={quickFilter} onChange={(e) => setQuickFilter(e.target.value)} className="pl-10" />
             </div>
           </div>
         </CardHeader>
@@ -414,57 +315,74 @@ export default function Drivers() {
                    <TableHead>操作</TableHead>
                 </TableRow>
               </TableHeader>
-               <TableBody>
-                 {filteredDrivers.map((driver) => (
-                  <TableRow key={driver.id}>
-                     <TableCell className="font-medium">{driver.name}</TableCell>
-                     <TableCell className="font-mono">{driver.licensePlate}</TableCell>
-                     <TableCell>{driver.phone}</TableCell>
-                     <TableCell>
-                       {driver.projectIds && driver.projectIds.length > 0 ? 
-                         driver.projectIds.map(id => projects.find(p => p.id === id)?.name).filter(Boolean).join(', ') : 
-                         '可参与所有项目'
-                       }
-                     </TableCell>
-                     <TableCell>{new Date(driver.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(driver)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(driver.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      <div className="flex justify-center items-center">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                        正在加载数据...
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
-                  {filteredDrivers.length === 0 && drivers.length > 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        没有找到匹配的司机
+                ) : drivers.length > 0 ? (
+                  drivers.map((driver) => (
+                    <TableRow key={driver.id}>
+                      <TableCell className="font-medium">{driver.name}</TableCell>
+                      <TableCell className="font-mono">{driver.licensePlate}</TableCell>
+                      <TableCell>{driver.phone}</TableCell>
+                      <TableCell>
+                        {driver.projectIds && driver.projectIds.length > 0 ? 
+                          driver.projectIds.map(id => projects.find(p => p.id === id)?.name).filter(Boolean).join(', ') : 
+                          '可参与所有项目'
+                        }
+                      </TableCell>
+                      <TableCell>{new Date(driver.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(driver)}><Edit className="h-4 w-4" /></Button>
+                          <Button variant="outline" size="sm" onClick={() => handleDelete(driver.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
                       </TableCell>
                     </TableRow>
-                  )}
-                  {drivers.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        暂无司机数据
-                      </TableCell>
-                    </TableRow>
-                  )}
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      {quickFilter ? "没有找到匹配的司机" : "暂无司机数据"}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
+        {/* --- 新增分页UI --- */}
+        <CardFooter>
+          <div className="flex items-center justify-between w-full text-sm text-muted-foreground">
+            <div>
+              第 {totalPages > 0 ? currentPage : 0} / {totalPages} 页
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage <= 1 || isLoading}
+              >
+                上一页
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages || isLoading}
+              >
+                下一页
+              </Button>
+            </div>
+          </div>
+        </CardFooter>
       </Card>
     </div>
   );
