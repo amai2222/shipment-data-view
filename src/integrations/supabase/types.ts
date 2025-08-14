@@ -1119,6 +1119,10 @@ export type Database = {
           | { p_report_date: string; p_project_ids?: string[] }
         Returns: Json
       }
+      get_all_projects_overview_data_v3: {
+        Args: { p_report_date: string; p_project_ids?: string[] }
+        Returns: Json
+      }
       get_dashboard_stats: {
         Args: {
           start_date_param: string
@@ -1143,6 +1147,22 @@ export type Database = {
           p_page_number: number
         }
         Returns: Json
+      }
+      get_drivers_paginated: {
+        Args: {
+          p_page_number: number
+          p_page_size: number
+          p_search_text: string
+        }
+        Returns: {
+          id: string
+          created_at: string
+          name: string
+          license_plate: string
+          phone: string
+          project_ids: string[]
+          total_records: number
+        }[]
       }
       get_filtered_logistics_records_fixed: {
         Args: {
@@ -1517,6 +1537,15 @@ export type Database = {
       get_projects_with_details_optimized: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      get_top_partner_daily_trend: {
+        Args: { start_date: string; end_date: string }
+        Returns: {
+          date: string
+          payable_amount: number
+          trip_count: number
+          partner_name: string
+        }[]
       }
       get_total_receivables: {
         Args: Record<PropertyKey, never>
