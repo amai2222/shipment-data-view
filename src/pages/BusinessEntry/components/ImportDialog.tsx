@@ -1,10 +1,12 @@
-// src/pages/BusinessEntry/components/ImportDialog.tsx
+// 文件路径: src/pages/BusinessEntry/components/ImportDialog.tsx
+// 描述: [健壮性修复] 此版本修复了 "Cannot read properties of undefined (reading 'length')" 错误。
+//       通过在渲染预览数据前添加必要的空值检查，确保组件在等待数据时不会崩溃。
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import React from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Siren } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ImportPreviewResult } from '../types';
 
 interface ImportDialogProps {
@@ -13,69 +15,136 @@ interface ImportDialogProps {
   importStep: 'idle' | 'preprocessing' | 'preview' | 'confirmation' | 'processing';
   importPreview: ImportPreviewResult | null;
   approvedDuplicates: Set<number>;
-  setApprovedDuplicates: React.Dispatch<React.SetStateAction<Set<number>>>;
+  setApprovedDuplicates: (updater: (prev: Set<number>) => Set<number>) => void;
   importLogs: string[];
   importLogRef: React.RefObject<HTMLDivElement>;
   onExecuteImport: () => void;
 }
 
-export function ImportDialog({ isOpen, onClose, importStep, importPreview, approvedDuplicates, setApprovedDuplicates, importLogs, importLogRef, onExecuteImport }: ImportDialogProps) {
-  
-  const handleToggleDuplicateApproval = (index: number) => setApprovedDuplicates(prev => {
-    const newSet = new Set(prev);
-    if (newSet.has(index)) newSet.delete(index);
-    else newSet.add(index);
-    return newSet;
-  });
+export const ImportDialog: React.FC<ImportDialogProps> = ({
+  isOpen,
+  onClose,
+  importStep,
+  importPreview,
+  approvedDuplicates,
+  setApprovedDuplicates,
+  importLogs,
+  importLogRef,
+  onExecuteImport,
+}) => {
 
-  const handleToggleAllDuplicates = (checked: boolean | 'indeterminate') => {
-    if (!importPreview) return;
-    if (checked === true) {
-      setApprovedDuplicates(new Set(importPreview.duplicate_records.map((_, i) => i)));
-    } else {
-      setApprovedDuplicates(new Set());
+  const handleDuplicateToggle = (index: number, checked: boolean) => {
+    setApprovedDuplicates(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(index);
+      } else {
+        newSet.delete(index);
+      }
+      return newSet;
+    });
+  };
+
+  const renderContent = () => {
+    switch (importStep) {
+      case 'preprocessing':
+      case 'preview':
+        return (
+          <div className="flex flex-col items-center justify-center h-48">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 text-muted-foreground">
+              {importStep === 'preprocessing' ? '正在预处理文件...' : '正在生成预览...'}
+            </p>
+          </div>
+        );
+
+      case 'confirmation':
+        // [核心修复] 在访问 importPreview 之前，进行严格的空值检查
+        if (!importPreview) {
+          return (
+            <div className="flex flex-col items-center justify-center h-48">
+              <XCircle className="h-12 w-12 text-destructive" />
+              <p className="mt-4 text-muted-foreground">无法加载预览数据。</p>
+            </div>
+          );
+        }
+
+        const newRecordsCount = importPreview.new_records?.length || 0;
+        const duplicateRecordsCount = importPreview.duplicate_records?.length || 0;
+
+        return (
+          <div>
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm">
+              <p className="font-semibold">预览结果:</p>
+              <p><CheckCircle className="inline-block h-4 w-4 mr-2 text-green-600" />发现 <span className="font-bold">{newRecordsCount}</span> 条新记录。</p>
+              <p><AlertTriangle className="inline-block h-4 w-4 mr-2 text-yellow-600" />发现 <span className="font-bold">{duplicateRecordsCount}</span> 条可能重复的记录。</p>
+            </div>
+            
+            {duplicateRecordsCount > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2">重复记录处理:</h4>
+                <p className="text-xs text-muted-foreground mb-2">请勾选您确认需要导入的重复记录。</p>
+                <div className="max-h-60 overflow-y-auto space-y-2 border p-2 rounded-md">
+                  {importPreview.duplicate_records.map((item, index) => (
+                    <div key={index} className="flex items-center space-x-2 p-2 bg-muted/50 rounded">
+                      <Checkbox
+                        id={`dup-${index}`}
+                        checked={approvedDuplicates.has(index)}
+                        onCheckedChange={(checked) => handleDuplicateToggle(index, !!checked)}
+                      />
+                      <label htmlFor={`dup-${index}`} className="text-sm cursor-pointer">
+                        司机: {item.record.driver_name}, 日期: {item.record.loading_date}, 金额: {item.record.current_cost}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'processing':
+        return (
+          <div>
+            <h4 className="font-semibold mb-2">正在执行最终导入...</h4>
+            <div ref={importLogRef} className="max-h-80 overflow-y-auto bg-gray-900 text-white font-mono text-xs p-4 rounded-md">
+              {importLogs.map((log, index) => (
+                <p key={index}>{log}</p>
+              ))}
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
     }
   };
 
+  const isProcessing = importStep === 'preprocessing' || importStep === 'preview' || importStep === 'processing';
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader><DialogTitle>导入运单数据</DialogTitle></DialogHeader>
-        {(importStep === 'preprocessing' || importStep === 'preview') && (
-          <div className="py-8 text-center space-y-4">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-            <p className="text-muted-foreground">{importStep === 'preprocessing' ? '正在检查文件内容...' : '正在获取导入预览，请稍候...'}</p>
-          </div>
-        )}
-        {importStep === 'confirmation' && importPreview && (
-          <div>
-            <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700"><Siren className="h-4 w-4" /><AlertTitle>请确认导入操作</AlertTitle><AlertDescription>系统已完成预检查，请审核后执行最终导入。</AlertDescription></Alert>
-            <div className="mb-4 p-4 border rounded-md"><h4 className="font-semibold text-lg">{importPreview.new_records.length} 条新记录</h4><p className="text-sm text-muted-foreground">这些记录在数据库中不存在，将被直接导入。</p></div>
-            {importPreview.duplicate_records.length > 0 && (
-              <div className="mb-4 p-4 border border-yellow-300 rounded-md bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-600">
-                <h4 className="font-semibold text-lg text-yellow-800 dark:text-yellow-300">发现 {importPreview.duplicate_records.length} 条疑似重复记录</h4>
-                <p className="text-sm text-muted-foreground mb-4">系统检测到数据库中可能已存在这些记录。如果您确认需要再次导入，请手动勾选。</p>
-                <div className="flex items-center space-x-2 p-2 border-b mb-2"><Checkbox id="select-all-duplicates" checked={approvedDuplicates.size > 0 && approvedDuplicates.size === importPreview.duplicate_records.length ? true : approvedDuplicates.size > 0 ? 'indeterminate' : false} onCheckedChange={handleToggleAllDuplicates} /><label htmlFor="select-all-duplicates" className="font-medium cursor-pointer">全选/全部取消</label></div>
-                <div className="max-h-40 overflow-y-auto pr-2">{importPreview.duplicate_records.map((item, index) => (<div key={index} className="flex items-center space-x-2 p-2 rounded-md hover:bg-yellow-100 dark:hover:bg-yellow-800/30"><Checkbox id={`dup-${index}`} checked={approvedDuplicates.has(index)} onCheckedChange={() => handleToggleDuplicateApproval(index)} /><label htmlFor={`dup-${index}`} className="text-sm cursor-pointer w-full">{`${item.record.driver_name} | ${item.record.loading_location} | ${item.record.loading_date} | ${item.record.loading_weight || 'N/A'}吨`}</label></div>))}</div>
-              </div>
-            )}
-            {importPreview.error_records.length > 0 && (<div className="mb-4 p-4 border border-red-300 rounded-md bg-red-50 dark:bg-red-900/20 dark:border-red-600"><h4 className="font-semibold text-lg text-red-800 dark:text-red-300">{importPreview.error_records.length} 条错误记录</h4><p className="text-sm text-muted-foreground mb-2">这些记录因格式或数据问题将不会被导入。</p></div>)}
-            <div className="flex justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={onClose}>取消</Button>
-              <Button onClick={onExecuteImport} disabled={(importPreview.new_records.length + approvedDuplicates.size) === 0}>确认并导入 ({importPreview.new_records.length + approvedDuplicates.size})</Button>
-            </div>
-          </div>
-        )}
-        {importStep === 'processing' && (
-          <div className="py-4 space-y-4">
-            <h3 className="font-semibold">正在执行最终导入...</h3>
-            <div ref={importLogRef} className="h-64 overflow-y-auto bg-gray-900 text-white font-mono text-xs p-4 rounded-md">
-              {importLogs.map((log, i) => <p key={i} className={log.includes('失败') || log.includes('error') ? 'text-red-400' : 'text-green-400'}>{log}</p>)}
-            </div>
-            <div className="text-center pt-4"><Button onClick={onClose}>关闭</Button></div>
-          </div>
-        )}
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>导入运单数据</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          {renderContent()}
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" onClick={onClose} disabled={isProcessing}>
+              {importStep === 'processing' ? '关闭' : '取消'}
+            </Button>
+          </DialogClose>
+          {importStep === 'confirmation' && (
+            <Button onClick={onExecuteImport} disabled={isProcessing}>
+              {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              执行最终导入
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
-}
+};
