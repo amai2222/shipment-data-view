@@ -111,7 +111,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     return '吨'; // default for billing_type_id = 1 or null
   }, [billingTypeId]);
 
-  // Calculate driver receivable automatically
+  // Calculate driver receivable automatically 
   const driverReceivable = useMemo(() => {
     const current = parseFloat(formData.currentCost) || 0;
     const extra = parseFloat(formData.extraCost) || 0;
@@ -178,7 +178,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   }, [drivers, editingRecord]);
 
   const loadInitialData = async () => {
-    // Initial data will be loaded when project is selected
+    // Initial data will be loaded when project is selected 1
   };
 
   const loadProjectDriversAndLocations = async (projectId: string) => {
