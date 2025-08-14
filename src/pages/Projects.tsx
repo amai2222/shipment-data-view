@@ -1,7 +1,5 @@
-// [恢复原始版本]
 // 文件路径: src/pages/Projects.tsx
-// 描述: 此为用户提供的、未经任何修改的、原始的、正常工作的组件代码。
-//       用于将前端组件恢复到稳定状态。
+// 描述: 这是修复了“计费模式”保存问题的完整代码。
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -132,7 +130,9 @@ export default function Projects() {
     const chainsWithPartners = (project.partnerChains || []).map(chain => ({
       id: `chain-existing-${chain.id}`, dbId: chain.id, chainName: chain.chainName,
       description: chain.description,
-      billingTypeId: Number((chain as any).billingTypeId) || 1,
+      // 【【【核心修复】】】
+      // 从数据库加载的字段是 snake_case (billing_type_id)，这里必须用它来读取
+      billingTypeId: Number((chain as any).billing_type_id) || 1,
       partners: (chain.partners || []).map((pp) => ({
         id: `partner-existing-${pp.id}`, dbId: pp.id, partnerId: pp.partnerId,
         level: pp.level, taxRate: pp.taxRate,
