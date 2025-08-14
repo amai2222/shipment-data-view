@@ -1,9 +1,8 @@
 // 文件路径: src/pages/BusinessEntry/components/LogisticsFormDialog.tsx
-// 描述: [最终修复] 此版本重构了表单的提交逻辑。
-//       它现在调用全新的 `upsert_logistics_record` 数据库函数，
-//       完整实现了您要求的“重复检查”、“查找或创建”和最终保存的全部流程。
+// 描述: [功能完整版] 此版本包含了所有业务所需的表单字段，
+//       并与最终的 `upsert_logistics_record` 数据库函数完全对接。
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -13,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { ConfirmDialog } from '@/components/ConfirmDialog'; // 假设您有这个确认对话框组件
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { LogisticsRecord, Project, PartnerChain, Driver, Location } from '../types';
+import { useDebounce } from '../hooks/use-debounce';
+import { ReactSelectCreatable } from './ReactSelectCreatable'; // 引入可创建的下拉框组件
 
-// 定义表单数据结构
 type FormData = Partial<LogisticsRecord>;
 
 interface LogisticsFormDialogProps {
@@ -37,15 +37,21 @@ export const LogisticsFormDialog: React.FC<LogisticsFormDialogProps> = ({
   const { toast } = useToast();
   const [formData, setFormData] = useState<FormData>({});
   const [chains, setChains] = useState<PartnerChain[]>([]);
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
+
+  // --- State for Creatable Selects ---
+  const [driverOptions, setDriverOptions] = useState<{ label: string; value: string; }[]>([]);
+  const [locationOptions, setLocationOptions] = useState<{ label: string; value: string; }[]>([]);
+  const [driverSearchTerm, setDriverSearchTerm] = useState('');
+  const [locationSearchTerm, setLocationSearchTerm] = useState('');
+  const debouncedDriverSearch = useDebounce(driverSearchTerm, 300);
+  const debouncedLocationSearch = useDebounce(locationSearchTerm, 300);
 
   // 初始化或当编辑记录变化时，更新表单数据
   useEffect(() => {
     if (isOpen) {
-      setFormData(editingRecord || {});
+      setFormData(editingRecord || { transport_type: '实际运输' });
     }
   }, [editingRecord, isOpen]);
 
@@ -68,9 +74,60 @@ export const LogisticsFormDialog: React.FC<LogisticsFormDialogProps> = ({
     };
     fetchChains();
   }, [formData.project_id, toast]);
-  
+
+  // --- Fetch options for Creatable Selects ---
+  const fetchDrivers = useCallback(async (searchTerm: string) => {
+    const { data, error } = await supabase
+      .from('drivers')
+      .select('name, phone, license_plate')
+      .or(`name.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%,license_plate.ilike.%${searchTerm}%`)
+      .limit(10);
+    if (data) {
+      setDriverOptions(data.map(d => ({
+        label: `${d.name} (${d.phone}) - ${d.license_plate}`,
+        value: JSON.stringify(d) // Store full object
+      })));
+    }
+  }, []);
+
+  const fetchLocations = useCallback(async (searchTerm: string) => {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('name')
+      .ilike('name', `%${searchTerm}%`)
+      .limit(10);
+    if (data) {
+      setLocationOptions(data.map(l => ({ label: l.name, value: l.name })));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (debouncedDriverSearch) fetchDrivers(debouncedDriverSearch);
+  }, [debouncedDriverSearch, fetchDrivers]);
+
+  useEffect(() => {
+    if (debouncedLocationSearch) fetchLocations(debouncedLocationSearch);
+  }, [debouncedLocationSearch, fetchLocations]);
+
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+  
+  const handleDriverSelect = (selectedOption: any) => {
+      if (selectedOption) {
+          try {
+              const driver = JSON.parse(selectedOption.value);
+              setFormData(prev => ({
+                  ...prev,
+                  driver_name: driver.name,
+                  driver_phone: driver.phone,
+                  license_plate: driver.license_plate
+              }));
+          } catch(e) {
+              // Handle new driver creation
+              setFormData(prev => ({ ...prev, driver_name: selectedOption.value }));
+          }
+      }
   };
 
   const callUpsertRpc = async (forceInsert = false) => {
@@ -105,7 +162,6 @@ export const LogisticsFormDialog: React.FC<LogisticsFormDialogProps> = ({
       const result = data as { status: string; message: string; record_id: string };
 
       if (result.status === 'duplicate') {
-        // 后端发现重复，弹出确认框
         setShowDuplicateConfirm(true);
       } else if (result.status === 'success') {
         toast({ title: "成功", description: result.message });
@@ -122,58 +178,101 @@ export const LogisticsFormDialog: React.FC<LogisticsFormDialogProps> = ({
   };
 
   const handleSubmit = () => {
-    callUpsertRpc(false); // 首次提交，不强制插入
+    callUpsertRpc(false);
   };
 
   const handleForceSubmit = () => {
     setShowDuplicateConfirm(false);
-    callUpsertRpc(true); // 用户确认后，强制插入
+    callUpsertRpc(true);
   };
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{editingRecord ? '编辑运单' : '新增运单'}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4">
-            {/* 表单字段... (这里只列出关键字段作为示例) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4">
             <div className="space-y-2">
               <Label>项目*</Label>
               <Select value={formData.project_id} onValueChange={(value) => handleInputChange('project_id', value)}>
                 <SelectTrigger><SelectValue placeholder="选择项目" /></SelectTrigger>
-                <SelectContent>
-                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-             <div className="space-y-2">
+            <div className="space-y-2">
               <Label>合作链路</Label>
               <Select value={formData.chain_id} onValueChange={(value) => handleInputChange('chain_id', value)}>
                 <SelectTrigger><SelectValue placeholder="选择合作链路" /></SelectTrigger>
+                <SelectContent>{chains.map(c => <SelectItem key={c.id} value={c.id}>{c.chain_name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>运输类型</Label>
+              <Select value={formData.transport_type} onValueChange={(value) => handleInputChange('transport_type', value)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {chains.map(c => <SelectItem key={c.id} value={c.id}>{c.chain_name}</SelectItem>)}
+                  <SelectItem value="实际运输">实际运输</SelectItem>
+                  <SelectItem value="退货运输">退货运输</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>司机信息 (姓名/电话/车牌)</Label>
+              <ReactSelectCreatable
+                options={driverOptions}
+                onInputChange={setDriverSearchTerm}
+                onChange={handleDriverSelect}
+                placeholder="搜索或创建新司机..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>装货地点</Label>
+              <ReactSelectCreatable
+                options={locationOptions}
+                onInputChange={setLocationSearchTerm}
+                onChange={(opt) => handleInputChange('loading_location', opt?.value)}
+                placeholder="搜索或创建新地点..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>卸货地点</Label>
+               <ReactSelectCreatable
+                options={locationOptions}
+                onInputChange={setLocationSearchTerm}
+                onChange={(opt) => handleInputChange('unloading_location', opt?.value)}
+                placeholder="搜索或创建新地点..."
+              />
             </div>
             <div className="space-y-2">
               <Label>装货日期*</Label>
               <Input type="date" value={formData.loading_date || ''} onChange={(e) => handleInputChange('loading_date', e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>司机姓名</Label>
-              <Input value={formData.driver_name || ''} onChange={(e) => handleInputChange('driver_name', e.target.value)} />
+              <Label>卸货日期</Label>
+              <Input type="date" value={formData.unloading_date || ''} onChange={(e) => handleInputChange('unloading_date', e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>司机电话</Label>
-              <Input value={formData.driver_phone || ''} onChange={(e) => handleInputChange('driver_phone', e.target.value)} />
+              <Label>装货重量</Label>
+              <Input type="number" value={formData.loading_weight || ''} onChange={(e) => handleInputChange('loading_weight', e.target.value ? parseFloat(e.target.value) : null)} />
             </div>
-             <div className="space-y-2">
-              <Label>车牌号</Label>
-              <Input value={formData.license_plate || ''} onChange={(e) => handleInputChange('license_plate', e.target.value)} />
+            <div className="space-y-2">
+              <Label>卸货重量</Label>
+              <Input type="number" value={formData.unloading_weight || ''} onChange={(e) => handleInputChange('unloading_weight', e.target.value ? parseFloat(e.target.value) : null)} />
             </div>
-            {/* ... 其他表单字段 ... */}
+            <div className="space-y-2">
+              <Label>运费金额</Label>
+              <Input type="number" value={formData.current_cost || ''} onChange={(e) => handleInputChange('current_cost', e.target.value ? parseFloat(e.target.value) : null)} />
+            </div>
+            <div className="space-y-2">
+              <Label>额外费用</Label>
+              <Input type="number" value={formData.extra_cost || ''} onChange={(e) => handleInputChange('extra_cost', e.target.value ? parseFloat(e.target.value) : null)} />
+            </div>
+            <div className="space-y-2 col-span-full">
+              <Label>备注</Label>
+              <Textarea value={formData.remarks || ''} onChange={(e) => handleInputChange('remarks', e.target.value)} />
+            </div>
           </div>
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">取消</Button></DialogClose>
@@ -185,7 +284,6 @@ export const LogisticsFormDialog: React.FC<LogisticsFormDialogProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* 重复数据确认对话框 */}
       <ConfirmDialog
         isOpen={showDuplicateConfirm}
         onClose={() => setShowDuplicateConfirm(false)}
