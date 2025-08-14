@@ -168,7 +168,42 @@ export class SupabaseStorage {
     };
   }
 
-  // 司机相关
+  // --- 司机相关 ---
+
+  // --- 新增：司机分页查询函数 (核心修复) ---
+  public static async getDriversPaginated(page: number, pageSize: number, searchText: string) {
+    const { data, error } = await supabase.rpc('get_drivers_paginated', {
+      p_page_number: page,
+      p_page_size: pageSize,
+      p_search_text: searchText,
+    });
+
+    if (error) {
+      console.error('Error fetching paginated drivers:', error);
+      throw error;
+    }
+    
+    if (!data || data.length === 0) {
+      return { drivers: [], totalCount: 0 };
+    }
+
+    // 使用我们在数据库函数中定义的 'total_records' 字段
+    const totalCount = data[0].total_records || 0;
+    
+    // 清理掉每条记录中的 total_records 字段，返回纯净的 driver 对象
+    const drivers = data.map(({ total_records, ...driver }) => ({
+        id: driver.id,
+        name: driver.name,
+        licensePlate: driver.license_plate,
+        phone: driver.phone,
+        projectIds: driver.project_ids || [],
+        createdAt: driver.created_at,
+    }) as Driver);
+
+    return { drivers, totalCount };
+  }
+  // --- 新增函数结束 ---
+
   static async getDrivers(): Promise<Driver[]> {
     const { data, error } = await supabase
       .from('drivers')
@@ -300,6 +335,7 @@ export class SupabaseStorage {
     if (error) throw error;
   }
   
+  // ... (您文件中的其他所有函数保持不变) ...
   // 地点相关
   static async getLocations(): Promise<Location[]> {
     const { data, error } = await supabase
