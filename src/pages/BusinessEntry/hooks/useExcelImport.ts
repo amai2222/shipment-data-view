@@ -145,7 +145,7 @@ export function useExcelImport(onImportSuccess: () => void) {
     addLog(`准备导入 ${finalRecordsToImport.length} 条记录...`);
 
     try {
-      const { data: result, error } = await supabase.rpc('import_logistics_data' as any, { p_records: finalRecordsToImport });
+      const { data: result, error } = await supabase.rpc('import_logistics_data', { p_records: finalRecordsToImport });
       
       if (error) throw error;
       

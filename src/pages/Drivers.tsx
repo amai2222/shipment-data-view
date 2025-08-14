@@ -38,18 +38,17 @@ export default function Drivers() {
   const loadData = useCallback(async (page: number, filter: string) => {
     setIsLoading(true);
     try {
-      // 并行加载项目和分页后的司机数据
-      const [loadedProjects, { drivers: loadedDrivers, totalCount: loadedTotalCount }] = await Promise.all([
-        projects.length === 0 ? SupabaseStorage.getProjects() : Promise.resolve(projects),
-        SupabaseStorage.getDriversPaginated(page, PAGE_SIZE, filter)
-      ]);
-
+      // 加载项目数据
       if (projects.length === 0) {
+        const loadedProjects = await SupabaseStorage.getProjects();
         setProjects(loadedProjects);
       }
+      
+      // 加载司机数据（暂时使用原有方法）
+      const loadedDrivers = await SupabaseStorage.getDrivers();
       setDrivers(loadedDrivers);
-      setTotalCount(loadedTotalCount);
-      setTotalPages(Math.ceil(loadedTotalCount / PAGE_SIZE));
+      setTotalCount(loadedDrivers.length);
+      setTotalPages(Math.ceil(loadedDrivers.length / PAGE_SIZE));
       setCurrentPage(page);
 
     } catch (error) {
