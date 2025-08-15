@@ -1,26 +1,15 @@
 // 最终文件路径: src/pages/BusinessEntry/hooks/useExcelImport.ts
-// 版本: TWfN8-FINAL-IGNITION-RESTORATION
-// 描述: [最终生产级点火系统修复] 此代码最终、决定性地、无可辩驳地修复了
-//       由于我之前提供的代码不完整而导致的“选择文件后无反应”的灾难性故障。
-//       此版本恢复了 handleExcelImport 和 getImportPreview 的完整功能，
-//       同时保留了 executeFinalImport 中全新的、透明的、并发安全的导入逻辑。
-//       这是导入流程的最终、完整、功能齐全的前端逻辑。
+// 版本: TWfN8-FINAL-IGNITION-RESTORATION (已修复 NaN 解析问题)
+// 描述: 此版本修复了重量字段的解析逻辑。通过在 parseFloat 之后
+//       增加 isNaN() 校验，确保只有当单元格内容为有效数字时才进行导入，
+//       对于空值、'-' 或其他非数字文本，则正确地将其处理为 null，
+//       解决了部分行“装货重量”丢失的问题。
 
 import { useState, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ImportPreviewResult, ImportFailure } from '../types';
-
-// --- 类型定义 (如果尚未定义，请添加到 types.ts) ---
-/*
-// src/pages/BusinessEntry/types.ts
-export interface ImportFailure {
-  row_index: number;
-  data: any; // 原始行数据
-  error: string; // 具体的错误信息
-}
-*/
 
 const parseExcelDate = (excelDate: any): string | null => {
   if (excelDate === null || excelDate === undefined || excelDate === '') return null;
@@ -56,29 +45,35 @@ export function useExcelImport(onImportSuccess: () => void) {
     setImportPreview(null); setApprovedDuplicates(new Set()); setImportLogs([]);
   }, []);
 
-  // 智能预览与重复数据校验
   const getImportPreview = async (validRows: any[]) => {
     setImportStep('preview');
     try {
-      const recordsToPreview = validRows.map(rowData => ({
-        project_name: rowData['项目名称']?.trim(),
-        chain_name: rowData['合作链路']?.trim() || null,
-        driver_name: rowData['司机姓名']?.trim(),
-        license_plate: rowData['车牌号']?.toString().trim() || null,
-        driver_phone: rowData['司机电话']?.toString().trim() || null,
-        loading_location: rowData['装货地点']?.trim(),
-        unloading_location: rowData['卸货地点']?.trim(),
-        loading_date: rowData.loading_date_parsed,
-        unloading_date: rowData.unloading_date_parsed,
-        loading_weight: rowData['装货重量'] ? parseFloat(rowData['装货重量']).toString() : null,
-        unloading_weight: rowData['卸货重量'] ? parseFloat(rowData['卸货重量']).toString() : null,
-        current_cost: rowData['运费金额'] ? parseFloat(rowData['运费金额']).toString() : '0',
-        extra_cost: rowData['额外费用'] ? parseFloat(rowData['额外费用']).toString() : '0',
-        transport_type: rowData['运输类型']?.trim() || '实际运输',
-        remarks: rowData['备注']?.toString().trim() || null
-      }));
+      const recordsToPreview = validRows.map(rowData => {
+        // [修复] 先解析，再校验 NaN，确保健壮性
+        const parsedLoadingWeight = parseFloat(rowData['装货重量']);
+        const parsedUnloadingWeight = parseFloat(rowData['卸货重量']);
+        const parsedCurrentCost = parseFloat(rowData['运费金额']);
+        const parsedExtraCost = parseFloat(rowData['额外费用']);
 
-      // 调用重复数据检查函数
+        return {
+          project_name: rowData['项目名称']?.trim(),
+          chain_name: rowData['合作链路']?.trim() || null,
+          driver_name: rowData['司机姓名']?.trim(),
+          license_plate: rowData['车牌号']?.toString().trim() || null,
+          driver_phone: rowData['司机电话']?.toString().trim() || null,
+          loading_location: rowData['装货地点']?.trim(),
+          unloading_location: rowData['卸货地点']?.trim(),
+          loading_date: rowData.loading_date_parsed,
+          unloading_date: rowData.unloading_date_parsed,
+          loading_weight: !isNaN(parsedLoadingWeight) ? parsedLoadingWeight.toString() : null,
+          unloading_weight: !isNaN(parsedUnloadingWeight) ? parsedUnloadingWeight.toString() : null,
+          current_cost: !isNaN(parsedCurrentCost) ? parsedCurrentCost.toString() : '0',
+          extra_cost: !isNaN(parsedExtraCost) ? parsedExtraCost.toString() : '0',
+          transport_type: rowData['运输类型']?.trim() || '实际运输',
+          remarks: rowData['备注']?.toString().trim() || null
+        };
+      });
+
       const { data: previewResult, error } = await supabase.rpc('preview_import_with_duplicates_check', { 
         p_records: recordsToPreview 
       });
@@ -95,16 +90,11 @@ export function useExcelImport(onImportSuccess: () => void) {
       setApprovedDuplicates(new Set());
       setImportStep('confirmation');
     } catch (error: any) {
-      toast({ 
-        title: "预览失败", 
-        description: error.message, 
-        variant: "destructive" 
-      });
+      toast({ title: "预览失败", description: error.message, variant: "destructive" });
       closeImportModal();
     }
   };
 
-  // [终极修复] 恢复 handleExcelImport 的完整功能
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -116,10 +106,21 @@ export function useExcelImport(onImportSuccess: () => void) {
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+
+        const cleanedJsonData = jsonData.map((row: any) => {
+          const cleanedRow: { [key: string]: any } = {};
+          for (const key in row) {
+            if (Object.prototype.hasOwnProperty.call(row, key)) {
+              cleanedRow[key.trim()] = row[key];
+            }
+          }
+          return cleanedRow;
+        });
+
         setIsImportModalOpen(true);
         setImportStep('preprocessing');
         const validRows: any[] = [];
-        jsonData.forEach((row: any) => {
+        cleanedJsonData.forEach((row: any) => {
           const loadingDate = parseExcelDate(row['装货日期']);
           if (loadingDate) {
             validRows.push({ ...row, loading_date_parsed: loadingDate, unloading_date_parsed: row['卸货日期'] ? parseExcelDate(row['卸货日期']) : loadingDate });
@@ -139,7 +140,6 @@ export function useExcelImport(onImportSuccess: () => void) {
     reader.readAsArrayBuffer(file);
   };
 
-  // 执行最终导入，只处理新记录和用户确认的重复记录
   const executeFinalImport = async () => {
     if (!importPreview) return;
     setImportStep('processing');
@@ -150,7 +150,6 @@ export function useExcelImport(onImportSuccess: () => void) {
       `[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] ${message}`
     ]);
     
-    // 合并新记录和用户确认的重复记录
     const finalRecordsToImport = [
       ...importPreview.new_records.map(item => item.record),
       ...importPreview.duplicate_records
@@ -159,10 +158,7 @@ export function useExcelImport(onImportSuccess: () => void) {
     ];
 
     if (finalRecordsToImport.length === 0) {
-      toast({ 
-        title: "操作完成", 
-        description: "没有选中任何需要导入的记录。" 
-      });
+      toast({ title: "操作完成", description: "没有选中任何需要导入的记录。" });
       setImportStep('confirmation');
       return;
     }
@@ -171,7 +167,6 @@ export function useExcelImport(onImportSuccess: () => void) {
     addLog(`其中新记录 ${importPreview.new_records.length} 条，强制导入重复记录 ${approvedDuplicates.size} 条`);
 
     try {
-      // 调用智能导入函数
       const { data: result, error } = await supabase.rpc('import_logistics_data', { 
         p_records: finalRecordsToImport 
       });
