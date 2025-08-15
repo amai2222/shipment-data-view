@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [CRASH-PROOF-FINAL] 最终防崩溃版。全面使用可选链处理潜在的null嵌套对象，根除崩溃源头。
+// 描述: [DIAGNOSTIC-STEP-2 / r9N7N] 恢复部分UI，用于定位渲染崩溃点。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -52,7 +52,9 @@ const formatNumber = (val: number | null | undefined, unit: string = '') => `${(
 
 // --- 环形进度图组件 ---
 const CircularProgressChart = ({ value }: { value: number }) => {
+  // 增加对无效值的防御
   const safeValue = isFinite(value) ? value : 0;
+  console.log(`[调试] CircularProgressChart 接收到的 value: ${value}, 安全处理后: ${safeValue}`);
   const data = [{ name: 'progress', value: safeValue, fill: '#2563eb' }];
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -68,42 +70,43 @@ const CircularProgressChart = ({ value }: { value: number }) => {
 // --- 主组件 ---
 export default function ProjectDashboard() {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
-
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
-  const [reportDate, setReportDate] = useState<Date>(new Date());
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalContent, setModalContent] = useState<{ date: string; records: DailyLogisticsRecord[] }>({ date: '', records: [] });
+  const [reportDate] = useState<Date>(new Date());
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        if (!projectId) { setLoading(false); return; }
-        
+        if (!projectId) { return; }
         const { data, error } = await supabase.rpc('get_project_dashboard_data_v2' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
-
         if (error) throw error;
-        setDashboardData(data as unknown as DashboardData);
-
+        setDashboardData(data);
       } catch (error) {
-        console.error("加载看板数据失败:", error);
-        toast({ title: "错误", description: `加载看板数据失败: ${(error as any).message}`, variant: "destructive" });
+        console.error("诊断代码捕获错误:", error);
       } finally {
         setLoading(false);
       }
     };
     fetchDashboardData();
-  }, [projectId, reportDate, toast]);
+  }, [projectId, reportDate]);
+
+  if (loading) {
+    return <div className="p-6">正在加载数据...</div>;
+  }
 
   const allProjects = dashboardData?.project_details || [];
-  const selectedProjectDetails = useMemo(() => allProjects.find(p => p.id === projectId), [allProjects, projectId]);
+  const selectedProjectDetails = allProjects.find(p => p.id === projectId);
 
+  if (!selectedProjectDetails) {
+    return <div className="p-6">当前项目数据不存在或加载失败。请确认URL中的项目ID是否正确。</div>;
+  }
+
+  // --- 隔离可疑计算 ---
+  console.log("[调试] 开始计算 unitConfig...");
   const unitConfig = useMemo(() => {
     const billingType = selectedProjectDetails?.billing_type_id;
     const stats = dashboardData?.summary_stats;
@@ -114,167 +117,38 @@ export default function ProjectDashboard() {
       default: return { progressUnit: '吨', progressCompleted: stats?.total_tonnage || 0, progressPlanned: selectedProjectDetails?.planned_total_tons || 1, dailyReportLabel: '当日运输吨数', dailyReportValue: daily?.total_tonnage || 0, trendLineLabel: '总重量', driverReportColHeader: '卸货吨数', getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage, };
     }
   }, [selectedProjectDetails, dashboardData]);
+  console.log("[调试] unitConfig 计算结果:", unitConfig);
 
   const progressPlannedSafe = unitConfig.progressPlanned || 1;
+  console.log("[调试] progressPlannedSafe:", progressPlannedSafe);
+
   const progressPercentage = (unitConfig.progressCompleted / progressPlannedSafe) * 100;
+  console.log("[调试] progressPercentage 计算结果 (传递给组件的值):", progressPercentage);
 
-  const handleDotClick = (e: any) => {
-    const date = e.payload.date;
-    const records = dashboardData?.daily_logistics_records?.[date] || [];
-    setModalContent({ date, records });
-    setIsModalOpen(true);
-  };
-
-  if (loading) {
-    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-blue-600" /></div>;
-  }
-
-  if (!selectedProjectDetails) {
-    return (
-      <div className="p-6 bg-slate-50 min-h-screen">
-        <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
-        <div className="text-center py-10 text-slate-500">当前项目不存在或加载失败。请从下拉框选择一个有效项目。</div>
-      </div>
-    );
-  }
-
-  const safeDriverReportTable = dashboardData?.driver_report_table || [];
-  const safeSevenDayTrend = dashboardData?.seven_day_trend || [];
-
+  // --- 只渲染最可疑的组件 ---
   return (
-    <div className="p-6 bg-slate-50 space-y-6">
-      <LogisticsRecordsModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        date={modalContent.date} 
-        records={modalContent.records} 
-      />
+    <div className="p-6">
+      <h1>诊断渲染页面</h1>
+      <p>此页面用于测试。请打开开发者工具的控制台查看 [调试] 日志。</p>
+      <hr style={{ margin: '20px 0' }} />
 
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
-        <div className="flex items-center gap-4">
-          <Select value={projectId || ''} onValueChange={(newId) => navigate(`/project/${newId}`)}>
-            <SelectTrigger className="w-[250px]"><SelectValue placeholder="请选择项目..." /></SelectTrigger>
-            <SelectContent>{allProjects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
-          </Select>
-          <Popover>
-            <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-slate-500")}><CalendarIcon className="mr-2 h-4 w-4" />{reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}</Button></PopoverTrigger>
-            <PopoverContent className="w-auto p-0"><CalendarComponent mode="single" selected={reportDate} onSelect={(date) => date && setReportDate(date)} initialFocus /></PopoverContent>
-          </Popover>
-        </div>
-      </div>
+      <Card className="shadow-sm">
+        <CardHeader><CardTitle>项目进度 ({selectedProjectDetails.name})</CardTitle></CardHeader>
+        <CardContent className="text-center space-y-4 pt-2">
+          
+          <p style={{ color: 'blue', fontWeight: 'bold' }}>即将渲染图表，传递的 value 是: {progressPercentage}</p>
+          {/* 步骤A: 先注释掉这个组件 */}
+          {/* <div className="h-40 w-full"><CircularProgressChart value={progressPercentage} /></div> */}
+          
+          <p style={{ color: 'blue', fontWeight: 'bold' }}>即将渲染进度条，传递的 value 是: {progressPercentage}</p>
+          {/* 步骤A: 先注释掉这个组件 */}
+          {/* <Progress value={progressPercentage} /> */}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        <div className="lg:col-span-1 space-y-6">
-            <Card className="shadow-sm">
-                <CardHeader><CardTitle className="flex items-center text-slate-700"><Target className="mr-2 h-5 w-5 text-blue-500"/>项目进度 ({selectedProjectDetails.name})</CardTitle></CardHeader>
-                <CardContent className="text-center space-y-4 pt-2">
-                    <div className="h-40 w-full"><CircularProgressChart value={progressPercentage} /></div>
-                    <Progress value={progressPercentage} />
-                    <div className="text-lg font-semibold text-slate-500">{formatNumber(unitConfig.progressCompleted, unitConfig.progressUnit)} / <span className="text-slate-800">{formatNumber(progressPlannedSafe, unitConfig.progressUnit)}</span></div>
-                </CardContent>
-            </Card>
-        </div>
-        <div className="lg:col-span-2 space-y-6">
-            <Card className="shadow-sm">
-               <CardHeader><CardTitle className="flex items-center text-slate-700"><CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>日报 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
-               <CardContent className="grid grid-cols-4 gap-4 text-center">
-                  {/* ★★★ 崩溃修复: 全面使用可选链(?.)来安全访问可能为null的嵌套对象 ★★★ */}
-                  <div>
-                      <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData?.daily_report?.trip_count)} / <span className="text-slate-500">{formatNumber(dashboardData?.summary_stats?.total_trips)}</span></p>
-                      <p className="text-sm text-slate-500">当日车次 / 总车次</p>
-                  </div>
-                  <div>
-                      <p className="text-2xl font-bold text-slate-800">{formatNumber(unitConfig.dailyReportValue)} / <span className="text-slate-500">{formatNumber(unitConfig.progressCompleted)}</span></p>
-                      <p className="text-sm text-slate-500">当日 / 总{unitConfig.progressUnit}</p>
-                  </div>
-                  <div>
-                      <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData?.daily_report?.driver_receivable, '元')}</p>
-                      <p className="text-sm text-slate-500">司机应收</p>
-                  </div>
-                  <div>
-                      <p className="text-2xl font-bold text-red-600">{formatNumber(dashboardData?.daily_report?.partner_payable, '元')}</p>
-                      <p className="text-sm text-slate-500">{selectedProjectDetails.partner_name || '合作方'}应付</p>
-                  </div>
-               </CardContent>
-            </Card>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="shadow-sm">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><Truck className="h-4 w-4 mr-2 text-slate-500"/>{selectedProjectDetails.name}已发总车次</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData?.summary_stats?.total_trips, '车')}</p></CardContent>
-                </Card>
-                <Card className="shadow-sm">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 mr-2 text-green-500"/>项目现应收</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData?.summary_stats?.total_cost, '元')}</p></CardContent>
-                </Card>
-                <Card className="shadow-sm">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><BarChartHorizontal className="h-4 w-4 mr-2 text-indigo-500"/>平均吨成本</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData?.summary_stats?.avg_cost, '元')}</p></CardContent>
-                </Card>
-            </div>
-        </div>
-        <div className="lg:col-span-3">
-            <Card className="shadow-sm">
-              <CardHeader><CardTitle className="flex items-center text-slate-700"><TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>{selectedProjectDetails.name} 近7日进度</CardTitle></CardHeader>
-              <CardContent className="h-[350px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={safeSevenDayTrend} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis yAxisId="left" label={{ value: unitConfig.progressUnit, angle: -90, position: 'insideLeft' }} />
-                    <YAxis yAxisId="right" orientation="right" label={{ value: '元', angle: -90, position: 'insideRight' }} />
-                    <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === unitConfig.trendLineLabel ? unitConfig.progressUnit : '元'}`, name]} />
-                    <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="trips" name="车次" stroke="#4338ca" strokeWidth={2} activeDot={{ r: 8, onClick: handleDotClick }}>
-                      <LabelList dataKey="trips" position="top" formatter={(value: number) => value > 0 ? `${value}车` : ''} />
-                    </Line>
-                    <Line yAxisId="left" type="monotone" dataKey="weight" name={unitConfig.trendLineLabel} stroke="#0d9488" strokeWidth={2} activeDot={{ r: 8, onClick: handleDotClick }}>
-                      <LabelList dataKey="weight" position="top" formatter={(value: number) => value > 0 ? `${value.toFixed(1)}${unitConfig.progressUnit}` : ''} />
-                    </Line>
-                    <Line yAxisId="right" type="monotone" dataKey="receivable" name="应收总额" stroke="#f59e0b" strokeWidth={2} activeDot={{ r: 8, onClick: handleDotClick }}>
-                       <LabelList dataKey="receivable" position="top" formatter={(value: number) => value > 0 ? `¥${Math.round(value)}` : ''} />
-                    </Line>
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-        </div>
-        <div className="lg:col-span-3">
-            <Card className="shadow-sm">
-              <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>司机</TableHead>
-                      <TableHead>车牌</TableHead>
-                      <TableHead>电话</TableHead>
-                      <TableHead className="text-right">出车次数 / 总车次</TableHead>
-                      <TableHead className="text-right">{unitConfig.driverReportColHeader}</TableHead>
-                      <TableHead className="text-right">司机应收 / 总应收 (元)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {safeDriverReportTable.length > 0 ? (
-                      safeDriverReportTable.map((row) => (
-                        <TableRow key={row.driver_name}>
-                          <TableCell className="font-medium">{row.driver_name}</TableCell>
-                          <TableCell>{row.license_plate || '—'}</TableCell>
-                          <TableCell>{row.phone || '—'}</TableCell>
-                          <TableCell className="text-right">{row.trip_count} / <span className="text-muted-foreground">{row.total_trips_in_project}</span></TableCell>
-                          <TableCell className="text-right">{formatNumber(unitConfig.getDriverReportRowValue(row))}</TableCell>
-                          <TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)} / <span className="text-muted-foreground">{formatNumber(row.total_receivable_in_project)}</span></TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow><TableCell colSpan={6} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-        </div>
-      </div>
+          <div className="text-lg font-semibold text-slate-500">
+            {formatNumber(unitConfig.progressCompleted, unitConfig.progressUnit)} / <span className="text-slate-800">{formatNumber(progressPlannedSafe, unitConfig.progressUnit)}</span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
