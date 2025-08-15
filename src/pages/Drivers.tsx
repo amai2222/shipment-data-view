@@ -36,17 +36,14 @@ export default function Drivers() {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  // [修正] 重构数据加载逻辑，使其真正使用后端的筛选和分页
   const loadData = useCallback(async (page: number, filter: string) => {
     setIsLoading(true);
     try {
-      // 项目数据只在需要时加载一次
       if (projects.length === 0) {
         const loadedProjects = await SupabaseStorage.getProjects();
         setProjects(loadedProjects);
       }
       
-      // 调用新的、支持分页和筛选的函数
       const { drivers: loadedDrivers, totalCount: loadedTotalCount } = await SupabaseStorage.getDrivers(filter, page, PAGE_SIZE);
       
       setDrivers(loadedDrivers || []);
@@ -66,22 +63,19 @@ export default function Drivers() {
     }
   }, [projects.length, toast]);
 
-  // [修正] 搜索防抖逻辑，现在只依赖 quickFilter
   useEffect(() => {
     const handler = setTimeout(() => {
-      // 当搜索文本改变时，总是重置到第一页并加载数据
       loadData(1, quickFilter);
-    }, 500); // 500ms 延迟
+    }, 500);
 
     return () => {
       clearTimeout(handler);
     };
   }, [quickFilter, loadData]);
 
-  // 初始加载
   useEffect(() => {
     loadData(1, "");
-  }, []); // 依赖为空数组，确保只在组件首次挂载时执行
+  }, []);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && !isLoading) {
