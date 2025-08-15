@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [qldOY-Final-Frontend] 最终完整版。调用新后端函数，实现了全部五项任务，并进行了严格的防错处理。
+// 描述: [6eyQN-Final-Frontend] 最终完整版。调用 v2 后端函数，100% 匹配用户 schema，实现了全部五项任务。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -46,7 +46,7 @@ const LogisticsRecordsModal = ({ isOpen, onClose, date, records }: { isOpen: boo
       </DialogHeader>
       <div className="max-h-[60vh] overflow-y-auto">
         <Table>
-          <TableHeader><TableRow><TableHead>司机</TableHead><TableHead>车牌</TableHead><TableHead>净重</TableHead><TableHead>时间</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>司机</TableHead><TableHead>车牌</TableHead><TableHead>卸货重量</TableHead><TableHead>时间</TableHead></TableRow></TableHeader>
           <TableBody>
             {records && records.length > 0 ? records.map(r => (
               <TableRow key={r.id}><TableCell>{r.driver_name}</TableCell><TableCell>{r.license_plate}</TableCell><TableCell>{r.net_weight}</TableCell><TableCell>{format(new Date(r.timestamp), 'HH:mm:ss')}</TableCell></TableRow>
@@ -86,8 +86,8 @@ export default function ProjectDashboard() {
       setLoading(true);
       if (!projectId) { setLoading(false); return; }
       try {
-        // ★★★ 核心修改: 调用全新的后端函数 ★★★
-        const { data, error } = await supabase.rpc('fetch_comprehensive_project_report' as any, {
+        // ★★★ 核心修改: 调用全新的、正确的后端函数 ★★★
+        const { data, error } = await supabase.rpc('fetch_comprehensive_project_report_v2' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
@@ -130,7 +130,7 @@ export default function ProjectDashboard() {
       toast({ title: "提示", description: "暂无当日详细运单数据。" });
       return;
     }
-    const recordsForDate = dashboardData.daily_logistics_records.filter(r => format(new Date(r.timestamp), 'YYYY-MM-DD') === date);
+    const recordsForDate = dashboardData.daily_logistics_records.filter(r => format(new Date(r.timestamp), 'yyyy-MM-dd') === date);
     setModalContent({ date, records: recordsForDate });
     setIsModalOpen(true);
   };
