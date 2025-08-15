@@ -1,26 +1,25 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [FINAL-VERSION / DJcrt] 最终完整版。基于正确的数据库结构，恢复所有UI和功能。
+// 描述: [FINAL-VERSION / oKu48] 最终完整版。基于正确的数据库结构和已授权的函数，恢复所有UI和功能。
 
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Target } from "lucide-react";
 import { RadialBarChart, RadialBar, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
 
 // --- 类型定义 ---
-// ★★★ 核心修正: 移除了不存在的 billing_type_id ★★★
+// 完全匹配您的数据库结构
 interface ProjectDetails { 
   id: string; 
   name: string; 
   start_date: string;
   planned_total_tons: number; 
 }
-// 模拟其他数据类型，以便UI能正常渲染
-interface SummaryStats { total_trips: number; total_tonnage: number; }
+// 暂时保留模拟的统计数据类型，下一步我们将获取真实数据
+interface SummaryStats { total_tonnage: number; }
 interface DashboardData { 
   project_details: ProjectDetails | null;
   summary_stats: SummaryStats | null; 
@@ -31,7 +30,6 @@ const formatNumber = (val: number | null | undefined, unit: string = '') => `${(
 
 // --- 环形进度图组件 (安全版) ---
 const CircularProgressChart = ({ value }: { value: number }) => {
-  // 增加对无效值的防御，确保组件永不崩溃
   const safeValue = isFinite(value) ? value : 0;
   const data = [{ name: 'progress', value: safeValue, fill: '#2563eb' }];
   return (
@@ -58,23 +56,20 @@ export default function ProjectDashboard() {
       setLoading(true);
       setError(null);
       try {
-        if (!projectId) {
-          throw new Error("URL中缺少项目ID。");
-        }
+        if (!projectId) throw new Error("URL中缺少项目ID。");
         
-        // ★★★ 核心修正: 调用最终正确的 `final` 函数 ★★★
         const { data, error: rpcError } = await supabase.rpc('get_project_dashboard_data_final' as any, { 
           p_selected_project_id: projectId, 
           p_report_date: format(reportDate, 'yyyy-MM-dd') 
         });
 
         if (rpcError) throw rpcError;
-        if (!data) throw new Error("数据库未返回项目数据。");
+        if (!data) throw new Error("数据库未返回项目数据，请检查ID是否正确或RLS策略。");
 
         // 为了恢复UI，我们暂时使用模拟的统计数据
         setDashboardData({
             project_details: data,
-            summary_stats: { total_trips: 150, total_tonnage: 8500.5 } // 模拟的统计数据
+            summary_stats: { total_tonnage: 8500.5 } // 模拟的统计数据
         });
 
       } catch (e: any) {
@@ -99,8 +94,6 @@ export default function ProjectDashboard() {
 
   // --- 数据计算逻辑 ---
   const unitConfig = useMemo(() => {
-    // ★★★ 核心修正: 由于没有 billing_type_id，我们默认使用“吨”作为单位 ★★★
-    // 这是最安全、最合理的默认行为
     return {
       progressUnit: '吨',
       progressCompleted: summary_stats?.total_tonnage || 0,
@@ -123,7 +116,6 @@ export default function ProjectDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4 pt-2">
-          {/* 安全地恢复UI组件 */}
           <div className="h-40 w-full">
             <CircularProgressChart value={progressPercentage} />
           </div>
@@ -134,10 +126,9 @@ export default function ProjectDashboard() {
         </CardContent>
       </Card>
 
-      {/* 提示信息：告知用户当前使用的是模拟数据 */}
       <div className="text-center text-sm text-slate-500 p-4 bg-yellow-100 border border-yellow-300 rounded-md">
         <p><strong>提示:</strong> 页面已成功恢复！</p>
-        <p>当前进度统计（如已完成吨数）使用的是模拟数据。下一步我们将为您创建获取真实统计数据的SQL函数。</p>
+        <p>当前进度统计（已完成吨数）使用的是模拟数据。下一步我们将为您创建获取真实统计数据的SQL函数。</p>
       </div>
     </div>
   );
