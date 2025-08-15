@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [xjXiU-FIXED] 逻辑顺序修正最终版。修复了因计算顺序错误导致的崩溃问题。
+// 描述: [CRASH-PROOF-FINAL] 最终防崩溃版。全面使用可选链处理潜在的null嵌套对象，根除崩溃源头。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -21,7 +21,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { LogisticsRecordsModal } from '@/components/LogisticsRecordsModal';
 
-// --- 类型定义 (无变化) ---
+// --- 类型定义 ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; }
 interface TrendData { date: string; trips: number; weight: number; receivable: number; }
@@ -39,26 +39,27 @@ interface DriverReportRow {
 }
 interface DailyLogisticsRecord { id: string; auto_number: string; driver_name: string; license_plate: string; loading_weight: number; unloading_weight: number; current_cost: number; }
 interface DashboardData { 
-  project_details: ProjectDetails[]; 
-  daily_report: DailyReport; 
+  project_details: ProjectDetails[] | null; 
+  daily_report: DailyReport | null; 
   seven_day_trend: TrendData[] | null;
-  summary_stats: SummaryStats; 
+  summary_stats: SummaryStats | null; 
   driver_report_table: DriverReportRow[] | null;
   daily_logistics_records: Record<string, DailyLogisticsRecord[]> | null;
 }
 
-// --- 辅助函数 (无变化) ---
+// --- 辅助函数 ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
-// --- 环形进度图组件 (无变化) ---
+// --- 环形进度图组件 ---
 const CircularProgressChart = ({ value }: { value: number }) => {
-  const data = [{ name: 'progress', value: isFinite(value) ? value : 0, fill: '#2563eb' }];
+  const safeValue = isFinite(value) ? value : 0;
+  const data = [{ name: 'progress', value: safeValue, fill: '#2563eb' }];
   return (
     <ResponsiveContainer width="100%" height="100%">
       <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="90%" barSize={12} data={data} startAngle={90} endAngle={-270}>
         <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
         <RadialBar background={{ fill: '#e2e8f0' }} dataKey="value" cornerRadius={10} angleAxisId={0} />
-        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-2xl font-bold fill-blue-600">{`${(isFinite(value) ? value : 0).toFixed(1)}%`}</text>
+        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-2xl font-bold fill-blue-600">{`${safeValue.toFixed(1)}%`}</text>
       </RadialBarChart>
     </ResponsiveContainer>
   );
@@ -100,50 +101,46 @@ export default function ProjectDashboard() {
     fetchDashboardData();
   }, [projectId, reportDate, toast]);
 
-  // ★★★ 逻辑修正第一步: 先处理加载状态 ★★★
-  if (loading) {
-    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-blue-600" /></div>;
-  }
-
-  // ★★★ 逻辑修正第二步: 确认核心数据是否存在 ★★★
   const allProjects = dashboardData?.project_details || [];
-  const selectedProjectDetails = allProjects.find(p => p.id === projectId);
+  const selectedProjectDetails = useMemo(() => allProjects.find(p => p.id === projectId), [allProjects, projectId]);
 
-  if (!dashboardData || !selectedProjectDetails) {
-    return (
-      <div className="p-6 bg-slate-50 min-h-screen">
-        <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
-        <div className="text-center py-10 text-slate-500">项目数据不存在或加载失败。请检查项目ID是否正确或刷新重试。</div>
-      </div>
-    );
-  }
-
-  // ★★★ 逻辑修正第三步: 在确保数据有效后，才进行所有派生状态的计算 ★★★
   const unitConfig = useMemo(() => {
-    const billingType = selectedProjectDetails.billing_type_id; // 无需可选链，因为已确认存在
-    const stats = dashboardData.summary_stats;
-    const daily = dashboardData.daily_report;
+    const billingType = selectedProjectDetails?.billing_type_id;
+    const stats = dashboardData?.summary_stats;
+    const daily = dashboardData?.daily_report;
     switch (billingType) {
-      case 2: return { progressUnit: '车', progressCompleted: stats.total_trips, progressPlanned: selectedProjectDetails.planned_total_tons, dailyReportLabel: '当日运输车次', dailyReportValue: daily.trip_count, trendLineLabel: '总车次', driverReportColHeader: '卸货车次', getDriverReportRowValue: (row: DriverReportRow) => row.trip_count, };
-      case 3: return { progressUnit: '立方', progressCompleted: stats.total_tonnage, progressPlanned: selectedProjectDetails.planned_total_tons, dailyReportLabel: '当日运输立方', dailyReportValue: daily.total_tonnage, trendLineLabel: '总立方', driverReportColHeader: '卸货立方', getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage, };
-      default: return { progressUnit: '吨', progressCompleted: stats.total_tonnage, progressPlanned: selectedProjectDetails.planned_total_tons, dailyReportLabel: '当日运输吨数', dailyReportValue: daily.total_tonnage, trendLineLabel: '总重量', driverReportColHeader: '卸货吨数', getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage, };
+      case 2: return { progressUnit: '车', progressCompleted: stats?.total_trips || 0, progressPlanned: selectedProjectDetails?.planned_total_tons || 1, dailyReportLabel: '当日运输车次', dailyReportValue: daily?.trip_count || 0, trendLineLabel: '总车次', driverReportColHeader: '卸货车次', getDriverReportRowValue: (row: DriverReportRow) => row.trip_count, };
+      case 3: return { progressUnit: '立方', progressCompleted: stats?.total_tonnage || 0, progressPlanned: selectedProjectDetails?.planned_total_tons || 1, dailyReportLabel: '当日运输立方', dailyReportValue: daily?.total_tonnage || 0, trendLineLabel: '总立方', driverReportColHeader: '卸货立方', getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage, };
+      default: return { progressUnit: '吨', progressCompleted: stats?.total_tonnage || 0, progressPlanned: selectedProjectDetails?.planned_total_tons || 1, dailyReportLabel: '当日运输吨数', dailyReportValue: daily?.total_tonnage || 0, trendLineLabel: '总重量', driverReportColHeader: '卸货吨数', getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage, };
     }
   }, [selectedProjectDetails, dashboardData]);
 
-  const progressPlannedSafe = unitConfig.progressPlanned || 1; // 避免除以0
+  const progressPlannedSafe = unitConfig.progressPlanned || 1;
   const progressPercentage = (unitConfig.progressCompleted / progressPlannedSafe) * 100;
 
   const handleDotClick = (e: any) => {
     const date = e.payload.date;
-    const records = dashboardData.daily_logistics_records?.[date] || [];
+    const records = dashboardData?.daily_logistics_records?.[date] || [];
     setModalContent({ date, records });
     setIsModalOpen(true);
   };
 
-  const safeDriverReportTable = dashboardData.driver_report_table || [];
-  const safeSevenDayTrend = dashboardData.seven_day_trend || [];
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-blue-600" /></div>;
+  }
 
-  // ★★★ 逻辑修正第四步: 现在可以安全地渲染UI了 ★★★
+  if (!selectedProjectDetails) {
+    return (
+      <div className="p-6 bg-slate-50 min-h-screen">
+        <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
+        <div className="text-center py-10 text-slate-500">当前项目不存在或加载失败。请从下拉框选择一个有效项目。</div>
+      </div>
+    );
+  }
+
+  const safeDriverReportTable = dashboardData?.driver_report_table || [];
+  const safeSevenDayTrend = dashboardData?.seven_day_trend || [];
+
   return (
     <div className="p-6 bg-slate-50 space-y-6">
       <LogisticsRecordsModal 
@@ -167,7 +164,7 @@ export default function ProjectDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg-grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-1 space-y-6">
             <Card className="shadow-sm">
                 <CardHeader><CardTitle className="flex items-center text-slate-700"><Target className="mr-2 h-5 w-5 text-blue-500"/>项目进度 ({selectedProjectDetails.name})</CardTitle></CardHeader>
@@ -182,8 +179,9 @@ export default function ProjectDashboard() {
             <Card className="shadow-sm">
                <CardHeader><CardTitle className="flex items-center text-slate-700"><CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>日报 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
                <CardContent className="grid grid-cols-4 gap-4 text-center">
+                  {/* ★★★ 崩溃修复: 全面使用可选链(?.)来安全访问可能为null的嵌套对象 ★★★ */}
                   <div>
-                      <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report.trip_count)} / <span className="text-slate-500">{formatNumber(dashboardData.summary_stats.total_trips)}</span></p>
+                      <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData?.daily_report?.trip_count)} / <span className="text-slate-500">{formatNumber(dashboardData?.summary_stats?.total_trips)}</span></p>
                       <p className="text-sm text-slate-500">当日车次 / 总车次</p>
                   </div>
                   <div>
@@ -191,11 +189,11 @@ export default function ProjectDashboard() {
                       <p className="text-sm text-slate-500">当日 / 总{unitConfig.progressUnit}</p>
                   </div>
                   <div>
-                      <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.daily_report.driver_receivable, '元')}</p>
+                      <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData?.daily_report?.driver_receivable, '元')}</p>
                       <p className="text-sm text-slate-500">司机应收</p>
                   </div>
                   <div>
-                      <p className="text-2xl font-bold text-red-600">{formatNumber(dashboardData.daily_report.partner_payable, '元')}</p>
+                      <p className="text-2xl font-bold text-red-600">{formatNumber(dashboardData?.daily_report?.partner_payable, '元')}</p>
                       <p className="text-sm text-slate-500">{selectedProjectDetails.partner_name || '合作方'}应付</p>
                   </div>
                </CardContent>
@@ -203,15 +201,15 @@ export default function ProjectDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="shadow-sm">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><Truck className="h-4 w-4 mr-2 text-slate-500"/>{selectedProjectDetails.name}已发总车次</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats.total_trips, '车')}</p></CardContent>
+                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData?.summary_stats?.total_trips, '车')}</p></CardContent>
                 </Card>
                 <Card className="shadow-sm">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 mr-2 text-green-500"/>项目现应收</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats.total_cost, '元')}</p></CardContent>
+                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData?.summary_stats?.total_cost, '元')}</p></CardContent>
                 </Card>
                 <Card className="shadow-sm">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><BarChartHorizontal className="h-4 w-4 mr-2 text-indigo-500"/>平均吨成本</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats.avg_cost, '元')}</p></CardContent>
+                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData?.summary_stats?.avg_cost, '元')}</p></CardContent>
                 </Card>
             </div>
         </div>
