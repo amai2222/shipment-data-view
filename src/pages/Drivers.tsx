@@ -1,3 +1,6 @@
+// 文件路径: src/pages/Drivers.tsx
+// 这是最终的、完整的、修复后的代码，请直接替换
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +14,7 @@ import { SupabaseStorage } from "@/utils/supabase";
 import { Driver, Project } from "@/types";
 import * as XLSX from 'xlsx';
 
-const PAGE_SIZE = 30; // 每页记录数
+const PAGE_SIZE = 30;
 
 export default function Drivers() {
   const { toast } = useToast();
@@ -28,81 +31,69 @@ export default function Drivers() {
     projectIds: [] as string[],
   });
 
-  // --- 新增分页和加载状态 ---
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  // --- 数据加载逻辑重构 ---
+  // [修正] 重构数据加载逻辑，使其真正使用后端的筛选和分页
   const loadData = useCallback(async (page: number, filter: string) => {
     setIsLoading(true);
     try {
-      // 加载项目数据
+      // 项目数据只在需要时加载一次
       if (projects.length === 0) {
         const loadedProjects = await SupabaseStorage.getProjects();
         setProjects(loadedProjects);
       }
       
-      // 加载司机数据（暂时使用原有方法）
-      const loadedDrivers = await SupabaseStorage.getDrivers();
-      setDrivers(loadedDrivers);
-      setTotalCount(loadedDrivers.length);
-      setTotalPages(Math.ceil(loadedDrivers.length / PAGE_SIZE));
+      // 调用新的、支持分页和筛选的函数
+      const { drivers: loadedDrivers, totalCount: loadedTotalCount } = await SupabaseStorage.getDrivers(filter, page, PAGE_SIZE);
+      
+      setDrivers(loadedDrivers || []);
+      setTotalCount(loadedTotalCount);
+      setTotalPages(Math.ceil(loadedTotalCount / PAGE_SIZE));
       setCurrentPage(page);
 
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
         title: "加载失败",
-        description: "无法加载数据",
+        description: "无法加载司机数据",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  }, [projects, toast]); // projects 和 toast 作为依赖
+  }, [projects.length, toast]);
 
-  // --- 初始加载 ---
-  useEffect(() => {
-    loadData(1, "");
-  }, []); // 仅在组件挂载时执行一次
-
-  // --- 搜索防抖逻辑 ---
+  // [修正] 搜索防抖逻辑，现在只依赖 quickFilter
   useEffect(() => {
     const handler = setTimeout(() => {
-      // 当搜索文本改变时，重置到第一页并加载数据
-      if (currentPage !== 1) {
-        setCurrentPage(1);
-      }
+      // 当搜索文本改变时，总是重置到第一页并加载数据
       loadData(1, quickFilter);
     }, 500); // 500ms 延迟
 
     return () => {
       clearTimeout(handler);
     };
-  }, [quickFilter]); // 依赖于搜索文本
+  }, [quickFilter, loadData]);
 
-  // --- 翻页逻辑 ---
+  // 初始加载
+  useEffect(() => {
+    loadData(1, "");
+  }, []); // 依赖为空数组，确保只在组件首次挂载时执行
+
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
+    if (newPage >= 1 && newPage <= totalPages && !isLoading) {
       loadData(newPage, quickFilter);
     }
   };
 
-  // 重置表单
   const resetForm = () => {
-    setFormData({
-      name: "",
-      licensePlate: "",
-      phone: "",
-      projectIds: [],
-    });
+    setFormData({ name: "", licensePlate: "", phone: "", projectIds: [] });
     setEditingDriver(null);
   };
 
-  // 打开编辑对话框
   const handleEdit = (driver: Driver) => {
     setFormData({
       name: driver.name,
@@ -114,15 +105,12 @@ export default function Drivers() {
     setIsDialogOpen(true);
   };
 
-  // 提交表单
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!formData.name || !formData.licensePlate || !formData.phone) {
       toast({ title: "请填写所有必填字段", variant: "destructive" });
       return;
     }
-
     try {
       if (editingDriver) {
         await SupabaseStorage.updateDriver(editingDriver.id, formData);
@@ -131,29 +119,28 @@ export default function Drivers() {
         await SupabaseStorage.addDriver(formData);
         toast({ title: "添加成功" });
       }
-
-      await loadData(currentPage, quickFilter); // 刷新当前页
+      await loadData(currentPage, quickFilter);
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
-      console.error('Error saving driver:', error);
       toast({ title: "保存失败", variant: "destructive" });
     }
   };
 
-  // 删除司机
   const handleDelete = async (id: string) => {
     try {
       await SupabaseStorage.deleteDriver(id);
-      await loadData(currentPage, quickFilter); // 刷新当前页
+      if (drivers.length === 1 && currentPage > 1) {
+        await loadData(currentPage - 1, quickFilter);
+      } else {
+        await loadData(currentPage, quickFilter);
+      }
       toast({ title: "删除成功" });
     } catch (error) {
-      console.error('Error deleting driver:', error);
       toast({ title: "删除失败", variant: "destructive" });
     }
   };
 
-  // Excel导入功能 (保持不变，但在完成后刷新数据)
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -167,14 +154,12 @@ export default function Drivers() {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-        // 注意：批量导入最好也通过后端函数实现，这里暂时保持前端逻辑
-        // 但导入完成后需要刷新数据
         let importedCount = 0;
         for (const row of jsonData as any[]) {
           const driverData = {
-            name: row['司机姓名'] || '',
-            licensePlate: row['车牌号'] || '',
-            phone: row['司机电话'] || '',
+            name: String(row['司机姓名'] || '').trim(),
+            licensePlate: String(row['车牌号'] || '').trim(),
+            phone: String(row['司机电话'] || '').trim(),
           };
           if (!driverData.name || !driverData.licensePlate) continue;
           await SupabaseStorage.addDriver(driverData);
@@ -186,9 +171,8 @@ export default function Drivers() {
           description: `成功导入 ${importedCount} 个司机`,
         });
 
-        await loadData(1, ""); // 导入后回到第一页
+        await loadData(1, "");
       } catch (error) {
-        console.error('Error importing Excel:', error);
         toast({ title: "导入失败", variant: "destructive" });
       }
     };
@@ -196,12 +180,9 @@ export default function Drivers() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Excel导出功能 (注意：此功能现在只导出当前页，如需导出全部，需调用一个不分页的后端函数)
   const handleExcelExport = () => {
-    // 提醒用户此操作只导出当前页
     toast({
       title: "正在导出当前页数据...",
-      description: `如需导出全部数据，请联系管理员开启此功能。`,
     });
     try {
       const exportData = drivers.map(driver => ({
@@ -216,14 +197,12 @@ export default function Drivers() {
       const fileName = `司机列表_第${currentPage}页_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(workbook, fileName);
     } catch (error) {
-      console.error('Error exporting Excel:', error);
       toast({ title: "导出失败", variant: "destructive" });
     }
   };
 
   return (
     <div className="space-y-8">
-      {/* 页面标题 */}
       <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
         <div className="flex items-center justify-between">
           <div>
@@ -245,7 +224,6 @@ export default function Drivers() {
                 <DialogTitle>{editingDriver ? "编辑司机" : "新增司机"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* 表单内容保持不变 */}
                 <div className="space-y-2">
                   <Label htmlFor="name">司机姓名 *</Label>
                   <Input id="name" value={formData.name} onChange={(e) => setFormData(prev => ({...prev, name: e.target.value}))} placeholder="请输入司机姓名" />
@@ -271,7 +249,7 @@ export default function Drivers() {
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-muted-foreground">选择司机可以参与的项目，不选择则可参与所有项目</p>
+                  <p className="text-xs text-muted-foreground">选择司机可以参与的项目</p>
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
@@ -283,7 +261,6 @@ export default function Drivers() {
         </div>
       </div>
 
-      {/* 司机列表 */}
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -297,7 +274,7 @@ export default function Drivers() {
           <div className="mt-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="搜索司机姓名、车牌号、电话号码、关联项目..." value={quickFilter} onChange={(e) => setQuickFilter(e.target.value)} className="pl-10" />
+              <Input placeholder="按姓名、车牌、电话模糊搜索..." value={quickFilter} onChange={(e) => setQuickFilter(e.target.value)} className="pl-10" />
             </div>
           </div>
         </CardHeader>
@@ -333,7 +310,7 @@ export default function Drivers() {
                       <TableCell>
                         {driver.projectIds && driver.projectIds.length > 0 ? 
                           driver.projectIds.map(id => projects.find(p => p.id === id)?.name).filter(Boolean).join(', ') : 
-                          '可参与所有项目'
+                          '未关联特定项目'
                         }
                       </TableCell>
                       <TableCell>{new Date(driver.createdAt).toLocaleDateString()}</TableCell>
@@ -356,7 +333,6 @@ export default function Drivers() {
             </Table>
           </div>
         </CardContent>
-        {/* --- 新增分页UI --- */}
         <CardFooter>
           <div className="flex items-center justify-between w-full text-sm text-muted-foreground">
             <div>
