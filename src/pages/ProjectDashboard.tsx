@@ -1,7 +1,7 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [FINAL-FIX / 5mL9g] 最终修复版。修复了因空值引用导致的致命运行时错误。
+// 描述: [BULLETPROOF-FIX / Fiz1N] 最终防弹修复版。彻底重构渲染逻辑，移除useMemo，确保在任何情况下都不会崩溃。
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -51,8 +51,11 @@ export default function ProjectDashboard() {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      // 保持 loading 为 true 直到所有操作完成
       setLoading(true);
       setError(null);
+      setDashboardData(null); // 重置数据状态
+
       try {
         if (!projectId) throw new Error("URL中缺少项目ID。");
         
@@ -79,29 +82,29 @@ export default function ProjectDashboard() {
     fetchDashboardData();
   }, [projectId, reportDate]);
 
-  const { project_details, summary_stats } = dashboardData || {};
+  // ★★★ 核心修正：渲染逻辑重构 ★★★
 
-  // --- 数据计算逻辑 ---
-  const unitConfig = useMemo(() => {
-    return {
-      progressUnit: '吨',
-      progressCompleted: summary_stats?.total_tonnage || 0,
-      // ★★★ 核心修正：在这里添加了可选链操作符 (?)，防止 project_details 为 null 时应用崩溃 ★★★
-      progressPlanned: project_details?.planned_total_tons || 1,
-    };
-  }, [project_details, summary_stats]);
-
+  // 第一道防线：处理加载状态。在加载完成前，不执行任何后续逻辑。
   if (loading) {
     return <div className="p-6 flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin" /> 正在加载...</div>;
   }
 
-  if (error || !project_details) {
+  // 第二道防线：处理错误或数据为空的状态。
+  if (error || !dashboardData?.project_details) {
     return <div className="p-6 text-center text-red-500">项目数据加载失败或不存在。<br/>{error}</div>;
   }
 
-  const progressPlannedSafe = unitConfig.progressPlanned;
-  const progressPercentage = (unitConfig.progressCompleted / progressPlannedSafe) * 100;
+  // 如果代码执行到这里，我们可以 100% 保证 `dashboardData.project_details` 是一个有效的对象。
+  
+  // ★★★ 核心修正：移除 useMemo，直接进行计算 ★★★
+  // 因为我们已经通过了上面的防线，这里的计算是绝对安全的。
+  const { project_details, summary_stats } = dashboardData;
+  const progressUnit = '吨';
+  const progressCompleted = summary_stats?.total_tonnage || 0;
+  const progressPlannedSafe = project_details.planned_total_tons || 1;
+  const progressPercentage = (progressCompleted / progressPlannedSafe) * 100;
 
+  // 第三步：渲染最终的、安全的UI
   return (
     <div className="p-6 bg-slate-50 space-y-6">
       <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
@@ -119,7 +122,7 @@ export default function ProjectDashboard() {
           </div>
           <Progress value={isFinite(progressPercentage) ? progressPercentage : 0} />
           <div className="text-lg font-semibold text-slate-500">
-            {formatNumber(unitConfig.progressCompleted, unitConfig.progressUnit)} / <span className="text-slate-800">{formatNumber(progressPlannedSafe, unitConfig.progressUnit)}</span>
+            {formatNumber(progressCompleted, progressUnit)} / <span className="text-slate-800">{formatNumber(progressPlannedSafe, progressUnit)}</span>
           </div>
         </CardContent>
       </Card>
