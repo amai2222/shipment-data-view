@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [FINAL-VERSION / oKu48] 最终完整版。基于正确的数据库结构和已授权的函数，恢复所有UI和功能。
+// 描述: [FINAL-FIX / 5mL9g] 最终修复版。修复了因空值引用导致的致命运行时错误。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
@@ -11,14 +11,12 @@ import { RadialBarChart, RadialBar, PolarAngleAxis, ResponsiveContainer } from '
 import { format } from 'date-fns';
 
 // --- 类型定义 ---
-// 完全匹配您的数据库结构
 interface ProjectDetails { 
   id: string; 
   name: string; 
   start_date: string;
   planned_total_tons: number; 
 }
-// 暂时保留模拟的统计数据类型，下一步我们将获取真实数据
 interface SummaryStats { total_tonnage: number; }
 interface DashboardData { 
   project_details: ProjectDetails | null;
@@ -64,9 +62,8 @@ export default function ProjectDashboard() {
         });
 
         if (rpcError) throw rpcError;
-        if (!data) throw new Error("数据库未返回项目数据，请检查ID是否正确或RLS策略。");
+        if (!data) throw new Error("数据库未返回项目数据。请确认ID是否正确，或检查RLS策略及函数权限。");
 
-        // 为了恢复UI，我们暂时使用模拟的统计数据
         setDashboardData({
             project_details: data,
             summary_stats: { total_tonnage: 8500.5 } // 模拟的统计数据
@@ -82,24 +79,25 @@ export default function ProjectDashboard() {
     fetchDashboardData();
   }, [projectId, reportDate]);
 
-  if (loading) {
-    return <div className="p-6 flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin" /> 正在加载...</div>;
-  }
-
-  if (error || !dashboardData?.project_details) {
-    return <div className="p-6 text-center text-red-500">项目数据加载失败或不存在。<br/>{error}</div>;
-  }
-
-  const { project_details, summary_stats } = dashboardData;
+  const { project_details, summary_stats } = dashboardData || {};
 
   // --- 数据计算逻辑 ---
   const unitConfig = useMemo(() => {
     return {
       progressUnit: '吨',
       progressCompleted: summary_stats?.total_tonnage || 0,
-      progressPlanned: project_details.planned_total_tons || 1,
+      // ★★★ 核心修正：在这里添加了可选链操作符 (?)，防止 project_details 为 null 时应用崩溃 ★★★
+      progressPlanned: project_details?.planned_total_tons || 1,
     };
   }, [project_details, summary_stats]);
+
+  if (loading) {
+    return <div className="p-6 flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin" /> 正在加载...</div>;
+  }
+
+  if (error || !project_details) {
+    return <div className="p-6 text-center text-red-500">项目数据加载失败或不存在。<br/>{error}</div>;
+  }
 
   const progressPlannedSafe = unitConfig.progressPlanned;
   const progressPercentage = (unitConfig.progressCompleted / progressPlannedSafe) * 100;
