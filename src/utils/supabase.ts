@@ -168,27 +168,41 @@ export class SupabaseStorage {
     };
   }
 
+  // ==================================================================
+  // 【【【 核心修复逻辑在这里 】】】
+  // ==================================================================
   // 司机相关
 
-  static async getDrivers(): Promise<Driver[]> {
-    const { data, error } = await supabase
-      .from('drivers')
-      .select(`
-        *,
-        driver_projects(project_id)
-      `)
-      .order('created_at', { ascending: false });
+  /**
+   * [修正] 获取司机列表，现在支持后端筛选和分页。
+   * @param filter - 搜索关键词
+   * @param page - 当前页码
+   * @param pageSize - 每页数量
+   * @returns 一个包含司机列表和总记录数的对象
+   */
+  static async getDrivers(filter: string, page: number, pageSize: number): Promise<{ drivers: Driver[], totalCount: number }> {
+    // 调用我们在 Supabase 中创建的新的数据库函数
+    const { data, error } = await supabase.rpc('get_drivers_paginated', {
+      p_filter: filter,
+      p_page_size: pageSize,
+      p_page_number: page,
+    });
 
-    if (error) throw error;
-    return data?.map(d => ({
-      id: d.id,
-      name: d.name,
-      licensePlate: d.license_plate,
-      phone: d.phone,
-      projectIds: d.driver_projects?.map((dp: any) => dp.project_id) || [],
-      createdAt: d.created_at,
-    })) || [];
+    if (error) {
+      console.error('Error fetching paginated drivers:', error);
+      throw error;
+    }
+    
+    // 数据库函数返回一个对象 { drivers: json, total_count: integer }
+    // 我们需要解析它并返回给前端
+    return {
+      drivers: (data.drivers as Driver[]) || [], // data.drivers 是一个JSON数组
+      totalCount: (data.total_count as number) || 0,
+    };
   }
+  // ==================================================================
+  // 【【【 修复结束 】】】
+  // ==================================================================
 
   static async getDriversByProject(projectId: string): Promise<Driver[]> {
     const { data, error } = await supabase
@@ -338,19 +352,16 @@ export class SupabaseStorage {
     })) || [];
   }
 
-  // 【【【核心修复逻辑在这里】】】
   static async addLocation(location: Omit<Location, 'id' | 'createdAt'>): Promise<Location> {
-    // 步骤1：获取当前登录用户的ID
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       throw new Error('无法获取用户信息，请重新登录后重试。');
     }
 
-    // 步骤2：在插入数据库时，将 user_id 一并加入
     const { data, error } = await supabase
       .from('locations')
       .insert([{ 
-        user_id: user.id, // 【修复】在这里添加 user_id
+        user_id: user.id,
         name: location.name,
       }])
       .select()
@@ -358,7 +369,6 @@ export class SupabaseStorage {
     
     if (error) throw error;
 
-    // 如果有项目关联，插入关联关系
     if (location.projectIds && location.projectIds.length > 0) {
       const { error: relationError } = await supabase
         .from('location_projects')
@@ -391,7 +401,6 @@ export class SupabaseStorage {
     
     if (error) throw error;
 
-    // 更新项目关联
     if (updates.projectIds !== undefined) {
       await supabase
         .from('location_projects')
