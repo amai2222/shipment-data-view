@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [eziHV-Final] 最终完整版。调用新的、重命名后的安全函数 get_project_dashboard_data_v2。
+// 描述: [CRASH-FIX-Final] 防崩溃最终版。增加了对潜在null值的健壮性处理。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -21,7 +21,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { LogisticsRecordsModal } from '@/components/LogisticsRecordsModal';
 
-// --- 类型定义 (与新的 v2 函数返回类型匹配) ---
+// --- 类型定义 ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; }
 interface TrendData { date: string; trips: number; weight: number; receivable: number; }
@@ -43,8 +43,8 @@ interface DashboardData {
   daily_report: DailyReport; 
   seven_day_trend: TrendData[]; 
   summary_stats: SummaryStats; 
-  driver_report_table: DriverReportRow[];
-  daily_logistics_records: Record<string, DailyLogisticsRecord[]>;
+  driver_report_table: DriverReportRow[] | null; // ★★★ 防崩溃修改: 允许为null
+  daily_logistics_records: Record<string, DailyLogisticsRecord[]> | null; // ★★★ 防崩溃修改: 允许为null
 }
 
 // --- 辅助函数 ---
@@ -69,7 +69,6 @@ export default function ProjectDashboard() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
 
-  // --- States ---
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -81,12 +80,8 @@ export default function ProjectDashboard() {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        if (!projectId) { 
-          setLoading(false); 
-          return; 
-        }
+        if (!projectId) { setLoading(false); return; }
         
-        // ★★★ 核心修改：调用新的、重命名后的安全函数 ★★★
         const { data, error } = await supabase.rpc('get_project_dashboard_data_v2' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
@@ -140,6 +135,9 @@ export default function ProjectDashboard() {
       </div>
     );
   }
+
+  // ★★★ 防崩溃修改: 将可能为null的数组转为空数组，确保安全调用 .map() ★★★
+  const safeDriverReportTable = dashboardData.driver_report_table || [];
 
   return (
     <div className="p-6 bg-slate-50 space-y-6">
@@ -217,7 +215,7 @@ export default function ProjectDashboard() {
               <CardHeader><CardTitle className="flex items-center text-slate-700"><TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>{selectedProjectDetails.name} 近7日进度</CardTitle></CardHeader>
               <CardContent className="h-[350px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dashboardData.seven_day_trend} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <LineChart data={dashboardData.seven_day_trend || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis yAxisId="left" label={{ value: unitConfig.progressUnit, angle: -90, position: 'insideLeft' }} />
@@ -254,8 +252,8 @@ export default function ProjectDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dashboardData.driver_report_table && dashboardData.driver_report_table.length > 0 ? (
-                      dashboardData.driver_report_table.map((row) => (
+                    {safeDriverReportTable.length > 0 ? (
+                      safeDriverReportTable.map((row) => (
                         <TableRow key={row.driver_name}>
                           <TableCell className="font-medium">{row.driver_name}</TableCell>
                           <TableCell>{row.license_plate || '—'}</TableCell>
