@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -153,13 +153,6 @@ export type Database = {
             foreignKeyName: "invoice_records_logistics_record_id_fkey"
             columns: ["logistics_record_id"]
             isOneToOne: false
-            referencedRelation: "logistics_records_secure_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_records_logistics_record_id_fkey"
-            columns: ["logistics_record_id"]
-            isOneToOne: false
             referencedRelation: "logistics_records_view"
             referencedColumns: ["id"]
           },
@@ -278,13 +271,6 @@ export type Database = {
             foreignKeyName: "logistics_partner_costs_logistics_record_id_fkey"
             columns: ["logistics_record_id"]
             isOneToOne: false
-            referencedRelation: "logistics_records_secure_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "logistics_partner_costs_logistics_record_id_fkey"
-            columns: ["logistics_record_id"]
-            isOneToOne: false
             referencedRelation: "logistics_records_view"
             referencedColumns: ["id"]
           },
@@ -386,6 +372,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_logistics_records_billing_type"
+            columns: ["billing_type_id"]
+            isOneToOne: false
+            referencedRelation: "billing_types"
+            referencedColumns: ["billing_type_id"]
+          },
           {
             foreignKeyName: "logistics_records_chain_id_fkey"
             columns: ["chain_id"]
@@ -523,13 +516,6 @@ export type Database = {
             foreignKeyName: "partner_payment_items_logistics_record_id_fkey"
             columns: ["logistics_record_id"]
             isOneToOne: false
-            referencedRelation: "logistics_records_secure_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "partner_payment_items_logistics_record_id_fkey"
-            columns: ["logistics_record_id"]
-            isOneToOne: false
             referencedRelation: "logistics_records_view"
             referencedColumns: ["id"]
           },
@@ -642,13 +628,6 @@ export type Database = {
             columns: ["logistics_record_id"]
             isOneToOne: false
             referencedRelation: "logistics_records"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_records_logistics_record_id_fkey"
-            columns: ["logistics_record_id"]
-            isOneToOne: false
-            referencedRelation: "logistics_records_secure_view"
             referencedColumns: ["id"]
           },
           {
@@ -850,59 +829,6 @@ export type Database = {
       }
     }
     Views: {
-      logistics_records_secure_view: {
-        Row: {
-          any_text: string | null
-          auto_number: string | null
-          chain_id: string | null
-          chain_name: string | null
-          created_at: string | null
-          created_by_user_id: string | null
-          current_cost: number | null
-          driver_id: string | null
-          driver_name: string | null
-          driver_payable_cost: number | null
-          driver_phone: string | null
-          extra_cost: number | null
-          id: string | null
-          license_plate: string | null
-          loading_date: string | null
-          loading_location: string | null
-          loading_weight: number | null
-          payable_cost: number | null
-          project_id: string | null
-          project_name: string | null
-          remarks: string | null
-          transport_type: string | null
-          unloading_date: string | null
-          unloading_location: string | null
-          unloading_weight: number | null
-          user_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "logistics_records_chain_id_fkey"
-            columns: ["chain_id"]
-            isOneToOne: false
-            referencedRelation: "partner_chains"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "logistics_records_driver_id_fkey"
-            columns: ["driver_id"]
-            isOneToOne: false
-            referencedRelation: "drivers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "logistics_records_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       logistics_records_view: {
         Row: {
           any_text: string | null
@@ -960,23 +886,23 @@ export type Database = {
     Functions: {
       add_logistics_record_with_costs: {
         Args: {
-          p_project_id: string
-          p_project_name: string
           p_chain_id: string
+          p_current_cost: number
           p_driver_id: string
           p_driver_name: string
-          p_loading_location: string
-          p_unloading_location: string
-          p_loading_date: string
-          p_loading_weight: number
-          p_unloading_weight: number
-          p_current_cost: number
-          p_license_plate: string
           p_driver_phone: string
-          p_transport_type: string
           p_extra_cost: number
+          p_license_plate: string
+          p_loading_date: string
+          p_loading_location: string
+          p_loading_weight: number
+          p_project_id: string
+          p_project_name: string
           p_remarks: string
+          p_transport_type: string
           p_unloading_date: string
+          p_unloading_location: string
+          p_unloading_weight: number
         }
         Returns: undefined
       }
@@ -986,10 +912,10 @@ export type Database = {
       }
       batch_cancel_by_filter: {
         Args: {
-          p_project_id?: string
-          p_start_date?: string
           p_end_date?: string
           p_partner_id?: string
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: number
       }
@@ -1001,12 +927,20 @@ export type Database = {
         Args: { p_records: Json }
         Returns: Json
       }
+      batch_import_logistics_records_backup_base: {
+        Args: { p_records: Json }
+        Returns: Json
+      }
+      "batch_import_logistics_records—buneng": {
+        Args: { p_records: Json }
+        Returns: Json
+      }
       batch_recalculate_by_filter: {
         Args: {
-          p_project_id: string
-          p_partner_id: string
-          p_start_date: string
           p_end_date: string
+          p_partner_id: string
+          p_project_id: string
+          p_start_date: string
         }
         Returns: undefined
       }
@@ -1017,10 +951,10 @@ export type Database = {
       calculate_partner_costs: {
         Args: { p_base_amount: number; p_project_id: string }
         Returns: {
+          base_amount: number
+          level: number
           partner_id: string
           partner_name: string
-          level: number
-          base_amount: number
           payable_amount: number
           tax_rate: number
         }[]
@@ -1028,38 +962,38 @@ export type Database = {
       calculate_partner_costs_for_project_v2: {
         Args: {
           p_base_amount: number
-          p_project_id: string
           p_loading_weight?: number
+          p_project_id: string
           p_unloading_weight?: number
         }
         Returns: {
+          base_amount: number
+          calculation_method: string
+          level: number
           partner_id: string
           partner_name: string
-          level: number
-          base_amount: number
           payable_amount: number
-          tax_rate: number
-          calculation_method: string
           profit_rate: number
+          tax_rate: number
         }[]
       }
       calculate_partner_costs_v2: {
         Args: {
           p_base_amount: number
-          p_project_id: string
           p_chain_id: string
           p_loading_weight: number
+          p_project_id: string
           p_unloading_weight: number
         }
         Returns: {
+          base_amount: number
+          calculation_method: string
+          level: number
           partner_id: string
           partner_name: string
-          level: number
-          base_amount: number
           payable_amount: number
-          tax_rate: number
-          calculation_method: string
           profit_rate: number
+          tax_rate: number
         }[]
       }
       cancel_payment_requests_by_ids: {
@@ -1075,29 +1009,29 @@ export type Database = {
       check_logistics_record_duplicate: {
         Args: {
           p_driver_name: string
-          p_license_plate: string
           p_driver_phone: string
-          p_loading_location: string
-          p_unloading_location: string
-          p_loading_date: string
-          p_loading_weight: number
           p_exclude_id?: string
+          p_license_plate: string
+          p_loading_date: string
+          p_loading_location: string
+          p_loading_weight: number
+          p_unloading_location: string
         }
         Returns: boolean
       }
       create_waybill_with_check: {
         Args: {
-          p_project_name: string
-          p_driver_name: string
           p_cooperative_partner: string
-          p_license_plate: string
-          p_loading_location: string
-          p_unloading_location: string
-          p_loading_date: string
-          p_loading_weight: number
-          p_unloading_weight: number
-          p_freight_cost: number
+          p_driver_name: string
           p_force_create?: boolean
+          p_freight_cost: number
+          p_license_plate: string
+          p_loading_date: string
+          p_loading_location: string
+          p_loading_weight: number
+          p_project_name: string
+          p_unloading_location: string
+          p_unloading_weight: number
         }
         Returns: Json
       }
@@ -1115,27 +1049,27 @@ export type Database = {
       }
       get_all_projects_overview_data: {
         Args:
+          | { p_project_ids?: string[]; p_report_date: string }
           | { p_report_date: string }
-          | { p_report_date: string; p_project_ids?: string[] }
         Returns: Json
       }
       get_all_projects_overview_data_v3: {
-        Args: { p_report_date: string; p_project_ids?: string[] }
+        Args: { p_project_ids?: string[]; p_report_date: string }
         Returns: Json
       }
       get_dashboard_stats: {
         Args: {
-          start_date_param: string
           end_date_param: string
           project_id_param?: string
+          start_date_param: string
         }
         Returns: Json
       }
       get_dashboard_stats_with_billing_types: {
         Args: {
-          p_start_date: string
           p_end_date: string
           p_project_id?: string
+          p_start_date: string
         }
         Returns: Json
       }
@@ -1143,10 +1077,25 @@ export type Database = {
         Args: {
           p_filter_type: string
           p_filter_value: string
-          p_page_size: number
           p_page_number: number
+          p_page_size: number
         }
         Returns: Json
+      }
+      get_distinct_drivers_for_project: {
+        Args: { p_project_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          license_plate: string
+          name: string
+          phone: string
+          user_id: string | null
+        }[]
+      }
+      get_distinct_locations_for_project: {
+        Args: { p_project_id: string }
+        Returns: string[]
       }
       get_drivers_paginated: {
         Args: {
@@ -1155,10 +1104,10 @@ export type Database = {
           p_search_text: string
         }
         Returns: {
-          id: string
           created_at: string
-          name: string
+          id: string
           license_plate: string
+          name: string
           phone: string
           project_ids: string[]
           total_records: number
@@ -1166,86 +1115,86 @@ export type Database = {
       }
       get_filtered_logistics_records_fixed: {
         Args: {
-          p_project_id?: string
           p_driver_id?: string
-          p_start_date?: string
           p_end_date?: string
           p_limit?: number
           p_offset?: number
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: Json
       }
       get_filtered_logistics_records_with_billing: {
         Args: {
-          p_project_id?: string
           p_driver_id?: string
-          p_start_date?: string
           p_end_date?: string
           p_limit?: number
           p_offset?: number
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: Json
       }
       get_filtered_logistics_with_billing: {
         Args: {
-          p_project_id?: string
           p_driver_name?: string
-          p_start_date?: string
           p_end_date?: string
           p_limit?: number
           p_offset?: number
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: Json
       }
       get_filtered_unpaid_ids: {
         Args: {
-          p_project_id?: string
-          p_start_date?: string
           p_end_date?: string
           p_partner_id?: string
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: string[]
       }
       get_finance_reconciliation_data: {
         Args: {
-          p_project_id?: string
-          p_start_date?: string
           p_end_date?: string
           p_partner_id?: string
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: Json
       }
       get_finance_reconciliation_data_optimized: {
         Args: {
-          p_project_id?: string
-          p_start_date?: string
           p_end_date?: string
-          p_partner_id?: string
           p_page_number?: number
           p_page_size?: number
+          p_partner_id?: string
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: Json
       }
       get_finance_reconciliation_data_paginated: {
         Args: {
-          p_project_id?: string
-          p_start_date?: string
           p_end_date?: string
-          p_partner_id?: string
           p_page_number?: number
           p_page_size?: number
+          p_partner_id?: string
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: Json
       }
       get_finance_reconciliation_data2: {
         Args: {
-          p_project_id?: string
-          p_start_date?: string
           p_end_date?: string
+          p_page_number?: number
+          p_page_size?: number
           p_partner_id?: string
           p_payment_status_array?: string[]
-          p_page_size?: number
-          p_page_number?: number
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: Json
       }
@@ -1255,68 +1204,81 @@ export type Database = {
       }
       get_logistics_records_paginated: {
         Args: {
-          p_start_date: string
           p_end_date: string
           p_page_number: number
           p_page_size: number
           p_project_name?: string
           p_search_term?: string
+          p_start_date: string
         }
         Returns: {
-          id: string
           auto_number: string
-          project_name: string
-          driver_name: string
-          loading_location: string
-          unloading_location: string
-          loading_date: string
-          unloading_date: string
-          loading_weight: number
-          unloading_weight: number
-          current_cost: number
-          payable_cost: number
-          license_plate: string
           cooperative_partner: string
+          current_cost: number
+          driver_name: string
+          id: string
+          license_plate: string
+          loading_date: string
+          loading_location: string
+          loading_weight: number
+          payable_cost: number
+          project_name: string
           remarks: string
+          unloading_date: string
+          unloading_location: string
+          unloading_weight: number
         }[]
       }
       get_logistics_records_paginated_old_sig: {
         Args: {
-          p_start_date: string
           p_end_date: string
-          p_project_name: string
-          p_search_term: string
           p_page_number: number
           p_page_size: number
+          p_project_name: string
+          p_search_term: string
+          p_start_date: string
         }
         Returns: {
-          id: string
           auto_number: string
-          project_name: string
-          driver_name: string
-          loading_location: string
-          unloading_location: string
-          loading_date: string
-          unloading_date: string
-          loading_weight: number
-          unloading_weight: number
-          current_cost: number
-          payable_cost: number
-          license_plate: string
           cooperative_partner: string
+          current_cost: number
+          driver_name: string
+          id: string
+          license_plate: string
+          loading_date: string
+          loading_location: string
+          loading_weight: number
+          payable_cost: number
+          project_name: string
           remarks: string
+          unloading_date: string
+          unloading_location: string
+          unloading_weight: number
         }[]
       }
       get_logistics_summary_and_records: {
         Args: {
-          p_start_date?: string
-          p_end_date?: string
-          p_project_name?: string
+          p_driver_name: string
+          p_driver_phone: string
+          p_end_date: string
+          p_license_plate: string
+          p_page_number: number
+          p_page_size: number
+          p_project_name: string
+          p_start_date: string
+        }
+        Returns: Json
+      }
+      get_logistics_summary_and_records_bak: {
+        Args: {
           p_driver_name?: string
-          p_license_plate?: string
           p_driver_phone?: string
+          p_end_date?: string
+          p_license_plate?: string
           p_page_number?: number
           p_page_size?: number
+          p_project_name?: string
+          p_start_date?: string
         }
         Returns: Json
       }
@@ -1391,38 +1353,38 @@ export type Database = {
       }
       get_paginated_logistics_records: {
         Args: {
-          p_page_size: number
-          p_offset: number
-          p_start_date?: string
           p_end_date?: string
+          p_offset: number
+          p_page_size: number
           p_search_query?: string
+          p_start_date?: string
         }
         Returns: Json
       }
       get_paginated_logistics_records_with_filters: {
         Args: {
-          p_page_size: number
-          p_offset: number
-          p_start_date?: string
           p_end_date?: string
-          p_search_query?: string
+          p_offset: number
+          p_page_size: number
           p_project_id?: string
+          p_search_query?: string
+          p_start_date?: string
         }
         Returns: Json
       }
       get_partner_payables_summary: {
         Args: {
-          p_project_id?: string
-          p_start_date?: string
           p_end_date?: string
           p_partner_id?: string
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: {
+          level: number
           partner_id: string
           partner_name: string
-          level: number
-          total_payable: number
           records_count: number
+          total_payable: number
         }[]
       }
       get_partner_ranking: {
@@ -1434,47 +1396,47 @@ export type Database = {
       }
       get_payment_invoice_data: {
         Args: {
-          p_project_ids?: string[]
-          p_partner_ids?: string[]
-          p_start_date?: string
           p_end_date?: string
           p_page_number?: number
           p_page_size?: number
+          p_partner_ids?: string[]
+          p_project_ids?: string[]
+          p_start_date?: string
         }
         Returns: Json
       }
       get_payment_invoice_data_optimized: {
         Args: {
-          p_project_ids?: string[]
-          p_partner_ids?: string[]
-          p_start_date?: string
           p_end_date?: string
           p_page_number?: number
           p_page_size?: number
+          p_partner_ids?: string[]
+          p_project_ids?: string[]
+          p_start_date?: string
         }
         Returns: Json
       }
       get_payment_request_data: {
         Args: {
-          p_project_id: string
-          p_start_date: string
           p_end_date: string
+          p_page_number: number
+          p_page_size: number
           p_partner_id: string
           p_payment_status_array: string[]
-          p_page_size: number
-          p_page_number: number
+          p_project_id: string
+          p_start_date: string
         }
         Returns: Json
       }
       get_payment_request_data_bak: {
         Args: {
-          p_project_id?: string
-          p_start_date?: string
           p_end_date?: string
+          p_page_number?: number
+          p_page_size?: number
           p_partner_id?: string
           p_payment_status_array?: string[]
-          p_page_size?: number
-          p_page_number?: number
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: Json
       }
@@ -1484,13 +1446,13 @@ export type Database = {
       }
       get_payment_request_list: {
         Args: {
-          p_project_id?: string
-          p_start_date?: string
           p_end_date?: string
+          p_page_number?: number
+          p_page_size?: number
           p_partner_id?: string
           p_payment_status_array?: string[]
-          p_page_size?: number
-          p_page_number?: number
+          p_project_id?: string
+          p_start_date?: string
         }
         Returns: Json
       }
@@ -1514,7 +1476,7 @@ export type Database = {
         }[]
       }
       get_project_dashboard_data: {
-        Args: { p_selected_project_id: string; p_report_date: string }
+        Args: { p_report_date: string; p_selected_project_id: string }
         Returns: Json
       }
       get_project_drivers_with_details: {
@@ -1539,12 +1501,12 @@ export type Database = {
         Returns: Json
       }
       get_top_partner_daily_trend: {
-        Args: { start_date: string; end_date: string }
+        Args: { end_date: string; start_date: string }
         Returns: {
           date: string
+          partner_name: string
           payable_amount: number
           trip_count: number
-          partner_name: string
         }[]
       }
       get_total_receivables: {
@@ -1552,20 +1514,24 @@ export type Database = {
         Returns: number
       }
       get_transport_overview: {
-        Args: { p_project_id: string; p_start_date: string; p_end_date: string }
+        Args: { p_end_date: string; p_project_id: string; p_start_date: string }
         Returns: Json
       }
       get_unified_dashboard_stats: {
         Args: {
-          start_date: string
           end_date: string
           project_id_filter?: string
+          start_date: string
         }
         Returns: Json
       }
       get_user_by_username: {
         Args: { username_input: string }
         Returns: string
+      }
+      get_user_projects: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       import_logistics_data: {
         Args: { p_records: Json }
@@ -1589,6 +1555,15 @@ export type Database = {
         Args: { p_records: Json }
         Returns: Json
       }
+      process_logistics_import: {
+        Args: {
+          records: Database["public"]["CompositeTypes"]["logistics_data_import_type"][]
+        }
+        Returns: {
+          error_message: string
+          line_number: number
+        }[]
+      }
       process_payment_application: {
         Args: { p_record_ids: string[] }
         Returns: string
@@ -1601,6 +1576,10 @@ export type Database = {
         Args: { p_record_id: string }
         Returns: undefined
       }
+      "recalculate_and_update_costs_for_record-old": {
+        Args: { p_record_id: string }
+        Returns: undefined
+      }
       recalculate_and_update_costs_for_records: {
         Args: { p_record_ids: string[] }
         Returns: undefined
@@ -1609,77 +1588,129 @@ export type Database = {
         Args: { p_record_ids: string[] }
         Returns: undefined
       }
+      resolve_and_preview_import: {
+        Args: {
+          p_records: Database["public"]["CompositeTypes"]["raw_import_record_input"][]
+        }
+        Returns: Json
+      }
       save_project_addresses_to_locations: {
         Args: {
-          p_project_id: string
           p_loading_address: string
+          p_project_id: string
           p_unloading_address: string
         }
         Returns: undefined
       }
       save_project_with_chains: {
-        Args: { project_id_in: string; project_data: Json; chains_data: Json }
+        Args: { chains_data: Json; project_data: Json; project_id_in: string }
+        Returns: undefined
+      }
+      save_project_with_chains_bak: {
+        Args: { chains_data: Json; project_data: Json; project_id_in: string }
         Returns: undefined
       }
       search_project_linked_items: {
         Args: {
-          p_project_id: string
           p_item_type: string
+          p_project_id: string
           p_search_term: string
         }
         Returns: Json
       }
       update_logistics_record_via_recalc: {
         Args: {
-          p_record_id: string
-          p_project_id: string
-          p_project_name: string
           p_chain_id: string
+          p_current_cost: number
           p_driver_id: string
           p_driver_name: string
-          p_loading_location: string
-          p_unloading_location: string
-          p_loading_date: string
-          p_loading_weight: number
-          p_unloading_weight: number
-          p_current_cost: number
-          p_license_plate: string
           p_driver_phone: string
-          p_transport_type: string
           p_extra_cost: number
+          p_license_plate: string
+          p_loading_date: string
+          p_loading_location: string
+          p_loading_weight: number
+          p_project_id: string
+          p_project_name: string
+          p_record_id: string
           p_remarks: string
+          p_transport_type: string
           p_unloading_date: string
+          p_unloading_location: string
+          p_unloading_weight: number
         }
         Returns: undefined
       }
       update_logistics_record_with_costs: {
         Args: {
-          p_record_id: string
-          p_project_id: string
-          p_project_name: string
           p_chain_id: string
+          p_current_cost: number
           p_driver_id: string
           p_driver_name: string
-          p_loading_location: string
-          p_unloading_location: string
-          p_loading_date: string
-          p_loading_weight: number
-          p_unloading_weight: number
-          p_current_cost: number
-          p_license_plate: string
-          p_driver_phone: string
-          p_transport_type: string
-          p_extra_cost: number
           p_driver_payable_cost: number
+          p_driver_phone: string
+          p_extra_cost: number
+          p_license_plate: string
+          p_loading_date: string
+          p_loading_location: string
+          p_loading_weight: number
+          p_project_id: string
+          p_project_name: string
+          p_record_id: string
           p_remarks: string
+          p_transport_type: string
+          p_unloading_location: string
+          p_unloading_weight: number
         }
         Returns: undefined
+      }
+      upsert_logistics_record: {
+        Args: {
+          p_chain_id: string
+          p_current_cost: number
+          p_driver_id: string
+          p_driver_name: string
+          p_driver_phone: string
+          p_extra_cost: number
+          p_force_insert?: boolean
+          p_license_plate: string
+          p_loading_date: string
+          p_loading_location: string
+          p_loading_weight: number
+          p_project_id: string
+          p_record_id: string
+          p_remarks: string
+          p_transport_type: string
+          p_unloading_date: string
+          p_unloading_location: string
+          p_unloading_weight: number
+        }
+        Returns: {
+          message: string
+          record_id: string
+          status: string
+        }[]
       }
     }
     Enums: {
       app_role: "admin" | "finance" | "business" | "partner" | "operator"
     }
     CompositeTypes: {
+      logistics_data_import_type: {
+        project_id: string | null
+        chain_id: string | null
+        driver_id: string | null
+        loading_location: string | null
+        unloading_location: string | null
+        loading_date: string | null
+        unloading_date: string | null
+        loading_weight: number | null
+        unloading_weight: number | null
+        current_cost: number | null
+        extra_cost: number | null
+        transport_type: string | null
+        remarks: string | null
+      }
       partner_chain_type: {
         id: string | null
         chainName: string | null
@@ -1693,6 +1724,21 @@ export type Database = {
         level: number | null
         payable_amount: number | null
       }
+      processed_import_record_output: {
+        project_id: string | null
+        chain_id: string | null
+        driver_id: string | null
+        loading_location: string | null
+        unloading_location: string | null
+        loading_date: string | null
+        unloading_date: string | null
+        loading_weight: number | null
+        unloading_weight: number | null
+        current_cost: number | null
+        extra_cost: number | null
+        transport_type: string | null
+        remarks: string | null
+      }
       project_partner_type: {
         id: string | null
         partnerId: string | null
@@ -1700,6 +1746,24 @@ export type Database = {
         taxRate: number | null
         calculationMethod: string | null
         profitRate: number | null
+      }
+      raw_import_record_input: {
+        project_name: string | null
+        chain_name: string | null
+        driver_name: string | null
+        license_plate: string | null
+        driver_phone: string | null
+        loading_location: string | null
+        unloading_location: string | null
+        loading_date: string | null
+        unloading_date: string | null
+        loading_weight: number | null
+        unloading_weight: number | null
+        current_cost: number | null
+        extra_cost: number | null
+        transport_type: string | null
+        remarks: string | null
+        original_row_index: number | null
       }
       waybill_fingerprint: {
         project_name_check: string | null
