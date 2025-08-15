@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [FINAL-IMPLEMENTATION] 最终实现版。包含所有5项功能增强，并调用 v2 安全函数。
+// 描述: [Xp5Xw-FINAL] 最终全功能实现版。包含所有5项功能增强，并调用 v2 安全函数。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
