@@ -11,32 +11,30 @@ import { CalendarIcon, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogisticsRecord, Project } from '../types';
-import { SimpleCreatableCombobox } from "@/components/SimpleCreatableCombobox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
 
-// ... (接口定义保持不变)
 interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 interface Location { id: string; name: string; }
 interface PartnerChain { id: string; chain_name: string; billing_type_id: number | null; is_default: boolean; }
 interface LogisticsFormDialogProps { isOpen: boolean; onClose: () => void; editingRecord?: LogisticsRecord | null; projects: Project[]; onSubmitSuccess: () => void; }
 
-// [修正] 简化 FormData，不再需要区分 volume 和 tripCount，后端会处理
+// [修改] FormData 现在存储 ID
 interface FormData {
   projectId: string;
   chainId: string;
+  driverId: string;
+  loadingLocationId: string;
+  unloadingLocationId: string;
   loadingDate: Date | undefined;
   unloadingDate: Date | undefined;
-  driverName: string;
   licensePlate: string;
   driverPhone: string;
-  loadingLocation: string;
-  unloadingLocation: string;
-  loading_weight: string; // 统一使用 loading_weight
-  unloading_weight: string; // 统一使用 unloading_weight
+  loading_weight: string;
+  unloading_weight: string;
   transportType: string;
   currentCost: string;
   extraCost: string;
@@ -46,13 +44,13 @@ interface FormData {
 const INITIAL_FORM_DATA: FormData = {
   projectId: '',
   chainId: '',
+  driverId: '',
+  loadingLocationId: '',
+  unloadingLocationId: '',
   loadingDate: new Date(),
   unloadingDate: new Date(),
-  driverName: '',
   licensePlate: '',
   driverPhone: '',
-  loadingLocation: '',
-  unloadingLocation: '',
   loading_weight: '',
   unloading_weight: '',
   transportType: '实际运输',
@@ -101,7 +99,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       setChains([]);
       setDrivers([]);
       setLocations([]);
-      setFormData(prev => ({ ...prev, chainId: '' }));
+      setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationId: '', unloadingLocationId: '' }));
     }
   }, [formData.projectId]);
 
@@ -115,20 +113,6 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       }
     }
   }, [chains, editingRecord]);
-
-  useEffect(() => {
-    if (editingRecord && drivers.length > 0) {
-      const matchingDriver = drivers.find(d => d.name === editingRecord.driver_name);
-      if (matchingDriver) {
-        setFormData(prev => ({
-          ...prev,
-          driverName: matchingDriver.name,
-          licensePlate: matchingDriver.license_plate || '',
-          driverPhone: matchingDriver.phone || ''
-        }));
-      }
-    }
-  }, [drivers, editingRecord]);
 
   const loadProjectSpecificData = async (projectId: string) => {
     try {
@@ -146,7 +130,6 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       setLocations(locationsRes.data || []);
       setChains(chainsRes.data || []);
     } catch (error) {
-      console.error('Error loading project data:', error);
       toast({ title: "错误", description: "加载项目关联数据失败", variant: "destructive" });
     }
   };
@@ -154,14 +137,14 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const populateFormWithRecord = (record: LogisticsRecord) => {
     setFormData({
       projectId: record.project_id || '',
-      chainId: '',
+      chainId: record.chain_id || '',
+      driverId: record.driver_id || '',
+      loadingLocationId: record.loading_location_id || '',
+      unloadingLocationId: record.unloading_location_id || '',
       loadingDate: record.loading_date ? new Date(record.loading_date) : new Date(),
       unloadingDate: record.unloading_date ? new Date(record.unloading_date) : new Date(),
-      driverName: record.driver_name || '',
       licensePlate: record.license_plate || '',
       driverPhone: record.driver_phone || '',
-      loadingLocation: record.loading_location || '',
-      unloadingLocation: record.unloading_location || '',
       loading_weight: record.loading_weight?.toString() || '',
       unloading_weight: record.unloading_weight?.toString() || '',
       transportType: record.transport_type || '实际运输',
@@ -171,32 +154,25 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     });
   };
 
-  // [修正] 核心修改：handleSubmit 函数
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // 简单的表单验证
-    if (!formData.projectId || !formData.loadingDate || !formData.driverName || !formData.loadingLocation || !formData.unloadingLocation) {
-      toast({ title: "验证失败", description: "项目、装货日期、司机和地点为必填项。", variant: "destructive" });
+    if (!formData.projectId || !formData.driverId || !formData.loadingLocationId || !formData.unloadingLocationId || !formData.loadingDate) {
+      toast({ title: "验证失败", description: "项目、司机和地点等必填项不能为空。", variant: "destructive" });
       return;
     }
     setLoading(true);
 
     try {
-      const project = projects.find(p => p.id === formData.projectId);
-      const chain = chains.find(c => c.id === formData.chainId);
-
-      // 准备一个干净的、与后端函数参数完全匹配的 p_record 对象
       const p_record = {
-        project_name: project?.name || '',
-        chain_name: chain?.chain_name || null,
-        driver_name: formData.driverName,
-        license_plate: formData.licensePlate,
-        driver_phone: formData.driverPhone,
-        loading_location: formData.loadingLocation,
-        unloading_location: formData.unloadingLocation,
+        project_id: formData.projectId,
+        chain_id: formData.chainId,
+        driver_id: formData.driverId,
+        loading_location_id: formData.loadingLocationId,
+        unloading_location_id: formData.unloadingLocationId,
         loading_date: formData.loadingDate.toISOString(),
         unloading_date: formData.unloadingDate ? formData.unloadingDate.toISOString() : null,
+        license_plate: formData.licensePlate,
+        driver_phone: formData.driverPhone,
         loading_weight: formData.loading_weight,
         unloading_weight: formData.unloading_weight,
         transport_type: formData.transportType,
@@ -206,39 +182,32 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       };
 
       if (editingRecord) {
-        // 编辑模式：调用更新函数
-        const { error } = await supabase.rpc('update_single_logistics_record', {
-          p_record_id: editingRecord.id,
-          p_record: p_record
-        });
+        const { error } = await supabase.rpc('update_single_logistics_record', { p_record_id: editingRecord.id, p_record });
         if (error) throw error;
         toast({ title: "成功", description: "运单已更新" });
       } else {
-        // 新增模式：调用创建函数
-        const { error } = await supabase.rpc('create_single_logistics_record', {
-          p_record: p_record
-        });
+        const { error } = await supabase.rpc('create_single_logistics_record', { p_record });
         if (error) throw error;
         toast({ title: "成功", description: "运单已创建" });
       }
-
       onSubmitSuccess();
       onClose();
     } catch (error: any) {
-      console.error('Error saving record:', error);
       toast({ title: "保存失败", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDriverSelect = (value: string) => {
-    const driver = drivers.find(d => d.name === value);
-    if (driver) {
-      setFormData(prev => ({ ...prev, driverName: driver.name, licensePlate: driver.license_plate || '', driverPhone: driver.phone || '' }));
-    } else {
-      setFormData(prev => ({ ...prev, driverName: value, licensePlate: '', driverPhone: '' }));
-    }
+  // [新增] 当选择司机时，自动填充车牌和电话
+  const handleDriverSelect = (driverId: string) => {
+    const driver = drivers.find(d => d.id === driverId);
+    setFormData(prev => ({
+      ...prev,
+      driverId: driverId,
+      licensePlate: driver?.license_plate || '',
+      driverPhone: driver?.phone || ''
+    }));
   };
 
   return (
@@ -247,6 +216,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         <DialogHeader><DialogTitle>{editingRecord ? '编辑运单' : '新增运单'}</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* ... 项目和合作链路部分保持不变 ... */}
             <div>
               <Label>项目 *</Label>
               <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}>
@@ -261,6 +231,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 <SelectContent>{chains.map((c) => (<SelectItem key={c.id} value={c.id}>{c.chain_name}{c.is_default ? ' (默认)' : ''}</SelectItem>))}</SelectContent>
               </Select>
             </div>
+            {/* ... 日期部分保持不变 ... */}
             <div>
               <Label>装货日期 *</Label>
               <Popover>
@@ -285,18 +256,25 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={formData.unloadingDate} onSelect={(date) => setFormData(prev => ({ ...prev, unloadingDate: date }))} initialFocus locale={zhCN} /></PopoverContent>
               </Popover>
             </div>
+            
+            {/* [修改] 司机改为下拉选择 */}
             <div>
               <Label>司机 *</Label>
-              <SimpleCreatableCombobox options={(drivers || []).map(d => ({ value: d.name, label: `${d.name} - ${d.license_plate || '无车牌'}` }))} value={formData.driverName} onValueChange={handleDriverSelect} onCreateNew={(val) => handleDriverSelect(val)} placeholder="选择或输入司机" disabled={!formData.projectId} />
+              <Select value={formData.driverId} onValueChange={handleDriverSelect} disabled={!formData.projectId}>
+                <SelectTrigger><SelectValue placeholder="选择司机" /></SelectTrigger>
+                <SelectContent>{drivers.map((d) => (<SelectItem key={d.id} value={d.id}>{d.name} - {d.license_plate || '无车牌'}</SelectItem>))}</SelectContent>
+              </Select>
             </div>
+            
             <div>
               <Label>车牌号</Label>
-              <Input value={formData.licensePlate} onChange={(e) => setFormData(prev => ({ ...prev, licensePlate: e.target.value }))} placeholder="输入车牌号" />
+              <Input value={formData.licensePlate} onChange={(e) => setFormData(prev => ({ ...prev, licensePlate: e.target.value }))} placeholder="选择司机后自动填充" />
             </div>
             <div>
               <Label>司机电话</Label>
-              <Input value={formData.driverPhone} onChange={(e) => setFormData(prev => ({ ...prev, driverPhone: e.target.value }))} placeholder="输入司机电话" />
+              <Input value={formData.driverPhone} onChange={(e) => setFormData(prev => ({ ...prev, driverPhone: e.target.value }))} placeholder="选择司机后自动填充" />
             </div>
+            {/* ... 运输类型保持不变 ... */}
             <div>
               <Label>运输类型</Label>
               <Select value={formData.transportType} onValueChange={(value) => setFormData(prev => ({ ...prev, transportType: value }))}>
@@ -304,15 +282,24 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 <SelectContent><SelectItem value="实际运输">实际运输</SelectItem><SelectItem value="退货">退货</SelectItem></SelectContent>
               </Select>
             </div>
+
+            {/* [修改] 地点改为下拉选择 */}
             <div>
               <Label>装货地点 *</Label>
-              <SimpleCreatableCombobox options={(locations || []).map(l => ({ value: l.name, label: l.name }))} value={formData.loadingLocation} onValueChange={(val) => setFormData(p => ({ ...p, loadingLocation: val }))} onCreateNew={(val) => setFormData(p => ({ ...p, loadingLocation: val }))} placeholder="选择或输入装货地点" disabled={!formData.projectId} />
+              <Select value={formData.loadingLocationId} onValueChange={(value) => setFormData(p => ({ ...p, loadingLocationId: value }))} disabled={!formData.projectId}>
+                <SelectTrigger><SelectValue placeholder="选择装货地点" /></SelectTrigger>
+                <SelectContent>{locations.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}</SelectContent>
+              </Select>
             </div>
             <div>
               <Label>卸货地点 *</Label>
-              <SimpleCreatableCombobox options={(locations || []).map(l => ({ value: l.name, label: l.name }))} value={formData.unloadingLocation} onValueChange={(val) => setFormData(p => ({ ...p, unloadingLocation: val }))} onCreateNew={(val) => setFormData(p => ({ ...p, unloadingLocation: val }))} placeholder="选择或输入卸货地点" disabled={!formData.projectId} />
+              <Select value={formData.unloadingLocationId} onValueChange={(value) => setFormData(p => ({ ...p, unloadingLocationId: value }))} disabled={!formData.projectId}>
+                <SelectTrigger><SelectValue placeholder="选择卸货地点" /></SelectTrigger>
+                <SelectContent>{locations.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}</SelectContent>
+              </Select>
             </div>
           </div>
+          {/* ... 后续表单部分保持不变 ... */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>装货{quantityLabel} *</Label>
