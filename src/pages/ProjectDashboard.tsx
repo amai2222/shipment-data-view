@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [6eyQN-Final-Frontend] 最终完整版。调用 v2 后端函数，100% 匹配用户 schema，实现了全部五项任务。
+// 描述: [qNGNh-Final-Sync] 最终同步版。此代码将调用您已验证成功的 v2 后端函数。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -21,7 +21,7 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-// --- 类型定义 (V2 - 匹配新后端函数) ---
+// --- 类型定义 (V2 - 匹配您已验证成功的后端函数) ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; }
 interface TrendData { date: string; trips: number; weight: number; receivable: number; }
@@ -36,7 +36,7 @@ interface DashboardDataV2 {
   driver_report_table: DriverReportRowV2[]; daily_logistics_records: LogisticsRecord[];
 }
 
-// --- 弹窗组件 (任务4) ---
+// --- 弹窗组件 ---
 const LogisticsRecordsModal = ({ isOpen, onClose, date, records }: { isOpen: boolean; onClose: () => void; date: string; records: LogisticsRecord[] }) => (
   <Dialog open={isOpen} onOpenChange={onClose}>
     <DialogContent className="max-w-3xl">
@@ -86,7 +86,7 @@ export default function ProjectDashboard() {
       setLoading(true);
       if (!projectId) { setLoading(false); return; }
       try {
-        // ★★★ 核心修改: 调用全新的、正确的后端函数 ★★★
+        // ★★★ 最终确认: 确保您的代码正在调用这个正确的、您已验证过的函数 ★★★
         const { data, error } = await supabase.rpc('fetch_comprehensive_project_report_v2' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
