@@ -28,7 +28,6 @@ interface DashboardData { project_details: ProjectDetails[]; daily_report: Daily
 // --- 辅助函数 (保持不变) ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
-// ★★★ 1.1: 调整环形图尺寸以适应更大的容器 ★★★
 const CircularProgressChart = ({ value }: { value: number }) => {
   const data = [{ name: 'progress', value: value, fill: 'hsl(var(--primary))' }];
   return (
@@ -141,12 +140,16 @@ export default function ProjectDashboard() {
         </div>
       </div>
 
-      {/* ★★★ 3.1: 使用 items-stretch 确保网格项等高，实现边框对齐 ★★★ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         <div className="lg:col-span-1">
             <Card className="shadow-sm flex flex-col h-full">
                 <CardHeader>
-                    <CardTitle className="flex items-center text-slate-700"><Target className="mr-2 h-5 w-5 text-blue-500"/>项目进度 ({selectedProjectDetails.name})</CardTitle>
+                    {/* ★★★ 1.1: 调整项目进度标题样式 ★★★ */}
+                    <CardTitle className="flex items-center text-lg">
+                        <Target className="mr-2 h-5 w-5 text-blue-500"/>
+                        <span className="text-blue-500">项目进度</span>
+                        <span className="ml-1 text-base font-normal text-slate-600">({selectedProjectDetails.name})</span>
+                    </CardTitle>
                     <p className="text-sm text-slate-500 pt-1">{selectedProjectDetails.partner_name}</p>
                 </CardHeader>
                 <CardContent className="flex-grow flex flex-col justify-center items-center space-y-4">
@@ -154,13 +157,11 @@ export default function ProjectDashboard() {
                         <span>进度 ({unitConfig.unit})</span>
                         <span className="font-semibold">{progressPercentage.toFixed(1)}%</span>
                     </div>
-                    {/* ★★★ 1.2: 放大环形图容器 ★★★ */}
                     <div className="w-36 h-36">
                         <CircularProgressChart value={progressPercentage} />
                     </div>
                     <div className="w-full">
                         <Progress value={progressPercentage} />
-                        {/* ★★★ 1.3: 调整进度数值样式：居中、放大、加粗 ★★★ */}
                         <p className="text-sm font-bold text-center text-slate-600 mt-2">
                             {formatNumber(unitConfig.progressCompleted, unitConfig.unit)} / {formatNumber(unitConfig.progressPlanned, unitConfig.unit)}
                         </p>
@@ -171,15 +172,18 @@ export default function ProjectDashboard() {
         <div className="lg:col-span-2">
             <Card className="shadow-sm flex flex-col h-full">
               <CardHeader className="pb-4">
-                <CardTitle className="flex items-center text-slate-700 text-lg">
-                  <CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>{format(reportDate, "yyyy-MM-dd")} 日报与汇总
+                {/* ★★★ 1.2: 调整日报与汇总标题样式 ★★★ */}
+                <CardTitle className="flex items-center text-lg">
+                  <CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>
+                  <span className="text-orange-500">日报与汇总</span>
+                  <span className="ml-1 text-base font-normal text-slate-600">({format(reportDate, "yyyy-MM-dd")})</span>
                 </CardTitle>
               </CardHeader>
-              {/* ★★★ 2.1: 为8个统计项添加独立的卡片边框 ★★★ */}
               <CardContent className="grid grid-cols-4 gap-4 flex-grow">
                   {/* --- 第一行: 日报数据 --- */}
                   <Card className="flex flex-col justify-center items-center p-2">
-                      <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.trip_count)}</p>
+                      {/* ★★★ 2.2: 为当日车次添加单位 "次" ★★★ */}
+                      <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.trip_count, '次')}</p>
                       <p className="text-sm text-slate-500 mt-1">当日车次</p>
                   </Card>
                   <Card className="flex flex-col justify-center items-center p-2">
@@ -195,28 +199,28 @@ export default function ProjectDashboard() {
                       <p className="text-sm text-slate-500 mt-1">{selectedProjectDetails.partner_name || '合作方'}应付</p>
                   </Card>
 
-                  {/* --- 第二行: 汇总数据 (居中对齐) --- */}
-                  {/* ★★★ 2.2: 将汇总数据改为居中对齐 ★★★ */}
+                  {/* --- 第二行: 汇总数据 --- */}
                   <Card className="flex flex-col justify-center items-center p-2">
-                    <p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p>
+                    <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p>
                     <div className="flex items-center text-sm text-slate-500 mt-1">
                       <Truck className="h-4 w-4 mr-2"/>已发总车次
                     </div>
                   </Card>
                   <Card className="flex flex-col justify-center items-center p-2">
-                    <p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_tonnage, unitConfig.unit)}</p>
+                    <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_tonnage, unitConfig.unit)}</p>
                     <div className="flex items-center text-sm text-slate-500 mt-1">
                       <Package className="h-4 w-4 mr-2"/>已发总数量
                     </div>
                   </Card>
+                  {/* ★★★ 2.1: 统一汇总卡片数值的颜色和字号 ★★★ */}
                   <Card className="flex flex-col justify-center items-center p-2">
-                    <p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.avg_cost, `元/${unitConfig.unit}`)}</p>
+                    <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.summary_stats?.avg_cost, `元/${unitConfig.unit}`)}</p>
                     <div className="flex items-center text-sm text-slate-500 mt-1">
                       <BarChartHorizontal className="h-4 w-4 mr-2"/>平均单位成本
                     </div>
                   </Card>
                   <Card className="flex flex-col justify-center items-center p-2">
-                    <p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_cost, '元')}</p>
+                    <p className="text-2xl font-bold text-red-600">{formatNumber(dashboardData.summary_stats?.total_cost, '元')}</p>
                     <div className="flex items-center text-sm text-slate-500 mt-1">
                       <Wallet className="h-4 w-4 mr-2"/>{selectedProjectDetails.partner_name || '合作方'}总应付
                     </div>
@@ -226,7 +230,14 @@ export default function ProjectDashboard() {
         </div>
         <div className="lg:col-span-3">
             <Card className="shadow-sm">
-              <CardHeader><CardTitle className="flex items-center text-slate-700"><TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>{selectedProjectDetails.name} 近7日进度</CardTitle></CardHeader>
+              <CardHeader>
+                {/* ★★★ 1.3: 调整近7日进度标题样式 ★★★ */}
+                <CardTitle className="flex items-center text-lg">
+                    <TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>
+                    <span className="text-teal-500">近7日进度</span>
+                    <span className="ml-1 text-base font-normal text-slate-600">({selectedProjectDetails.name})</span>
+                </CardTitle>
+              </CardHeader>
               <CardContent className="h-[350px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dashboardData.seven_day_trend} margin={{ top: 5, right: 40, left: 40, bottom: 5 }}>
@@ -255,9 +266,11 @@ export default function ProjectDashboard() {
         <div className="lg:col-span-3">
             <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center text-slate-700">
+                {/* ★★★ 1.4: 调整司机工作量报告标题样式 ★★★ */}
+                <CardTitle className="flex items-center text-lg">
                   <Users className="mr-2 h-5 w-5 text-purple-500" />
-                  {selectedProjectDetails.name} 司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})
+                  <span className="text-purple-500">司机工作量报告</span>
+                  <span className="ml-1 text-base font-normal text-slate-600">({selectedProjectDetails.name} - {format(reportDate, "yyyy-MM-dd")})</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
