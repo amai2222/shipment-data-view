@@ -183,9 +183,9 @@ export class SupabaseStorage {
   static async getDrivers(filter: string, page: number, pageSize: number): Promise<{ drivers: Driver[], totalCount: number }> {
     // 调用我们在 Supabase 中创建的新的数据库函数
     const { data, error } = await supabase.rpc('get_drivers_paginated', {
-      p_filter: filter,
-      p_page_size: pageSize,
       p_page_number: page,
+      p_page_size: pageSize,
+      p_search_text: filter,
     });
 
     if (error) {
@@ -193,11 +193,24 @@ export class SupabaseStorage {
       throw error;
     }
     
-    // 数据库函数返回一个对象 { drivers: json, total_count: integer }
-    // 我们需要解析它并返回给前端
+    // The function returns an array of driver objects with total_records
+    if (data && data.length > 0) {
+      return {
+        drivers: data.map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          licensePlate: d.license_plate,
+          phone: d.phone,
+          projectIds: d.project_ids,
+          createdAt: d.created_at
+        })),
+        totalCount: data[0].total_records || 0,
+      };
+    }
+    
     return {
-      drivers: (data.drivers as Driver[]) || [], // data.drivers 是一个JSON数组
-      totalCount: (data.total_count as number) || 0,
+      drivers: [],
+      totalCount: 0,
     };
   }
   // ==================================================================

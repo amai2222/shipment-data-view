@@ -51,10 +51,10 @@ export function LogisticsForm({
     const loadData = async () => {
       try {
         const [loadedDrivers, loadedLocations] = await Promise.all([
-          SupabaseStorage.getDrivers(),
+          SupabaseStorage.getDrivers('', 1, 100),
           SupabaseStorage.getLocations(),
         ]);
-        setDrivers(loadedDrivers);
+        setDrivers(loadedDrivers.drivers);
         setLocations(loadedLocations);
       } catch (error) {
         console.error('Error loading form data:', error);

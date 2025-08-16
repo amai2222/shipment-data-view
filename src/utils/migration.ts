@@ -64,7 +64,8 @@ export class DataMigration {
       
       // 获取Supabase中的项目和司机数据来进行关联
       const supabaseProjects = await SupabaseStorage.getProjects();
-      const supabaseDrivers = await SupabaseStorage.getDrivers();
+      const supabaseDriversResult = await SupabaseStorage.getDrivers('', 1, 1000);
+      const supabaseDrivers = supabaseDriversResult.drivers;
       
       for (const record of localRecords) {
         try {

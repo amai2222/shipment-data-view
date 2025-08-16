@@ -117,8 +117,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const loadProjectSpecificData = async (projectId: string) => {
     try {
       const [driversRes, locationsRes, chainsRes] = await Promise.all([
-        supabase.rpc('get_drivers_for_project', { p_project_id: projectId }),
-        supabase.rpc('get_locations_for_project', { p_project_id: projectId }),
+        supabase.from('drivers').select('*').limit(100),
+        supabase.from('locations').select('*').limit(100),
         supabase.from('partner_chains').select('id, chain_name, billing_type_id, is_default').eq('project_id', projectId)
       ]);
 
@@ -139,8 +139,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       projectId: record.project_id || '',
       chainId: record.chain_id || '',
       driverId: record.driver_id || '',
-      loadingLocationId: record.loading_location_id || '',
-      unloadingLocationId: record.unloading_location_id || '',
+      loadingLocationId: record.loading_location || '',
+      unloadingLocationId: record.unloading_location || '',
       loadingDate: record.loading_date ? new Date(record.loading_date) : new Date(),
       unloadingDate: record.unloading_date ? new Date(record.unloading_date) : new Date(),
       licensePlate: record.license_plate || '',
@@ -182,11 +182,57 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       };
 
       if (editingRecord) {
-        const { error } = await supabase.rpc('update_single_logistics_record', { p_record_id: editingRecord.id, p_record });
+        const { error } = await supabase.rpc('update_logistics_record_via_recalc', { 
+          p_record_id: editingRecord.id, 
+          p_project_id: formData.projectId,
+          p_project_name: projects.find(p => p.id === formData.projectId)?.name || '',
+          p_chain_id: formData.chainId,
+          p_driver_id: formData.driverId,
+          p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
+          p_loading_location: locations.find(l => l.id === formData.loadingLocationId)?.name || '',
+          p_unloading_location: locations.find(l => l.id === formData.unloadingLocationId)?.name || '',
+          p_loading_date: formData.loadingDate?.toISOString(),
+          p_loading_weight: parseFloat(formData.loading_weight) || 0,
+          p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
+          p_current_cost: parseFloat(formData.currentCost) || 0,
+          p_license_plate: formData.licensePlate,
+          p_driver_phone: formData.driverPhone,
+          p_transport_type: formData.transportType,
+          p_extra_cost: parseFloat(formData.extraCost) || 0,
+          p_remarks: formData.remarks,
+          p_unloading_date: formData.unloadingDate?.toISOString()
+        });
         if (error) throw error;
         toast({ title: "成功", description: "运单已更新" });
       } else {
-        const { error } = await supabase.rpc('create_single_logistics_record', { p_record });
+        // Generate auto number
+        const today = new Date();
+        const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
+        const timeStr = Math.floor(Date.now() / 1000).toString().slice(-5);
+        const autoNumber = `YDN${dateStr}-${timeStr}`;
+
+        const { error } = await supabase.from('logistics_records').insert({
+          auto_number: autoNumber,
+          project_id: formData.projectId,
+          project_name: projects.find(p => p.id === formData.projectId)?.name || '',
+          chain_id: formData.chainId,
+          driver_id: formData.driverId,
+          driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
+          loading_location: locations.find(l => l.id === formData.loadingLocationId)?.name || '',
+          unloading_location: locations.find(l => l.id === formData.unloadingLocationId)?.name || '',
+          loading_date: formData.loadingDate?.toISOString(),
+          unloading_date: formData.unloadingDate?.toISOString(),
+          loading_weight: parseFloat(formData.loading_weight) || 0,
+          unloading_weight: parseFloat(formData.unloading_weight) || 0,
+          current_cost: parseFloat(formData.currentCost) || 0,
+          extra_cost: parseFloat(formData.extraCost) || 0,
+          payable_cost: (parseFloat(formData.currentCost) || 0) + (parseFloat(formData.extraCost) || 0),
+          license_plate: formData.licensePlate,
+          driver_phone: formData.driverPhone,
+          transport_type: formData.transportType,
+          remarks: formData.remarks,
+          created_by_user_id: 'user'
+        });
         if (error) throw error;
         toast({ title: "成功", description: "运单已创建" });
       }
