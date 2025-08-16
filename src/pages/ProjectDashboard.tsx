@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [Rename] 更新了 Supabase RPC 调用，以匹配新的 v4 后端函数名。
+// 描述: [Definitive-Fix] 修正了 JSX 语法错误，并调用 v5 后端函数。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -74,8 +74,8 @@ export default function ProjectDashboard() {
           setLoading(false);
           return;
         }
-        // ★★★ 核心修改: 调用重命名后的 v4 后端函数 ★★★
-        const { data, error } = await supabase.rpc('get_project_dashboard_data_v4' as any, {
+        // ★★★ 核心修改: 调用最终的 v5 后端函数 ★★★
+        const { data, error } = await supabase.rpc('get_project_dashboard_data_v5' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
@@ -338,4 +338,4 @@ export default function ProjectDashboard() {
       </div>
     </div>
   );
-}```
+}
