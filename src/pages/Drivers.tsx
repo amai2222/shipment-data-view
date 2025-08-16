@@ -6,7 +6,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2 } from "lucide-react";
@@ -23,12 +22,7 @@ export default function Drivers() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
-  const [filters, setFilters] = useState({
-    name: "",
-    licensePlate: "",
-    phone: "",
-    projectId: "",
-  });
+  const [quickFilter, setQuickFilter] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -42,7 +36,7 @@ export default function Drivers() {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadData = useCallback(async (page: number, currentFilters = filters) => {
+  const loadData = useCallback(async (page: number, filter: string) => {
     setIsLoading(true);
     try {
       if (projects.length === 0) {
@@ -50,26 +44,11 @@ export default function Drivers() {
         setProjects(loadedProjects);
       }
       
-      // Build search string from multiple filters
-      const searchTerms = [
-        currentFilters.name,
-        currentFilters.licensePlate,
-        currentFilters.phone
-      ].filter(Boolean).join(' ');
+      const { drivers: loadedDrivers, totalCount: loadedTotalCount } = await SupabaseStorage.getDrivers(filter, page, PAGE_SIZE);
       
-      const { drivers: loadedDrivers, totalCount: loadedTotalCount } = await SupabaseStorage.getDrivers(searchTerms, page, PAGE_SIZE);
-      
-      // Apply project filter if specified
-      let filteredDrivers = loadedDrivers || [];
-      if (currentFilters.projectId) {
-        filteredDrivers = filteredDrivers.filter(driver => 
-          driver.projectIds?.includes(currentFilters.projectId)
-        );
-      }
-      
-      setDrivers(filteredDrivers);
-      setTotalCount(currentFilters.projectId ? filteredDrivers.length : loadedTotalCount);
-      setTotalPages(Math.ceil((currentFilters.projectId ? filteredDrivers.length : loadedTotalCount) / PAGE_SIZE));
+      setDrivers(loadedDrivers || []);
+      setTotalCount(loadedTotalCount);
+      setTotalPages(Math.ceil(loadedTotalCount / PAGE_SIZE));
       setCurrentPage(page);
 
     } catch (error) {
@@ -82,25 +61,25 @@ export default function Drivers() {
     } finally {
       setIsLoading(false);
     }
-  }, [projects.length, toast, filters]);
+  }, [projects.length, toast]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      loadData(1, filters);
+      loadData(1, quickFilter);
     }, 500);
 
     return () => {
       clearTimeout(handler);
     };
-  }, [filters, loadData]);
+  }, [quickFilter, loadData]);
 
   useEffect(() => {
-    loadData(1);
+    loadData(1, "");
   }, []);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && !isLoading) {
-      loadData(newPage);
+      loadData(newPage, quickFilter);
     }
   };
 
@@ -134,7 +113,7 @@ export default function Drivers() {
         await SupabaseStorage.addDriver(formData);
         toast({ title: "添加成功" });
       }
-      await loadData(currentPage);
+      await loadData(currentPage, quickFilter);
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
@@ -143,25 +122,16 @@ export default function Drivers() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("确定要删除这个司机吗？此操作不可撤销。")) {
-      return;
-    }
-    
     try {
       await SupabaseStorage.deleteDriver(id);
       if (drivers.length === 1 && currentPage > 1) {
-        await loadData(currentPage - 1);
+        await loadData(currentPage - 1, quickFilter);
       } else {
-        await loadData(currentPage);
+        await loadData(currentPage, quickFilter);
       }
       toast({ title: "删除成功" });
     } catch (error) {
-      console.error("Delete error:", error);
-      toast({ 
-        title: "删除失败", 
-        description: "可能该司机已关联到运单，请先删除相关运单再删除司机",
-        variant: "destructive" 
-      });
+      toast({ title: "删除失败", variant: "destructive" });
     }
   };
 
@@ -195,7 +165,7 @@ export default function Drivers() {
           description: `成功导入 ${importedCount} 个司机`,
         });
 
-        await loadData(1);
+        await loadData(1, "");
       } catch (error) {
         toast({ title: "导入失败", variant: "destructive" });
       }
@@ -295,47 +265,10 @@ export default function Drivers() {
               <Button variant="outline" onClick={handleExcelExport} className="flex items-center space-x-2"><Download className="h-4 w-4" /><span>导出Excel</span></Button>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="nameFilter">司机姓名</Label>
-              <Input 
-                id="nameFilter"
-                placeholder="按司机姓名搜索..." 
-                value={filters.name} 
-                onChange={(e) => setFilters(prev => ({...prev, name: e.target.value}))} 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="plateFilter">车牌号</Label>
-              <Input 
-                id="plateFilter"
-                placeholder="按车牌号搜索..." 
-                value={filters.licensePlate} 
-                onChange={(e) => setFilters(prev => ({...prev, licensePlate: e.target.value}))} 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phoneFilter">司机电话</Label>
-              <Input 
-                id="phoneFilter"
-                placeholder="按电话号码搜索..." 
-                value={filters.phone} 
-                onChange={(e) => setFilters(prev => ({...prev, phone: e.target.value}))} 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="projectFilter">项目</Label>
-              <Select value={filters.projectId} onValueChange={(value) => setFilters(prev => ({...prev, projectId: value}))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择项目" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">全部项目</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="mt-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="按姓名、车牌、电话模糊搜索..." value={quickFilter} onChange={(e) => setQuickFilter(e.target.value)} className="pl-10" />
             </div>
           </div>
         </CardHeader>
@@ -386,7 +319,7 @@ export default function Drivers() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                      {Object.values(filters).some(Boolean) ? "没有找到匹配的司机" : "暂无司机数据"}
+                      {quickFilter ? "没有找到匹配的司机" : "暂无司机数据"}
                     </TableCell>
                   </TableRow>
                 )}
