@@ -9,7 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon, Package } from "lucide-react";
+// ★★★ 1.1: 导入新的图标 ★★★
+import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon, Package, LayoutDashboard } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
   RadialBarChart, RadialBar, PolarAngleAxis
@@ -117,18 +118,29 @@ export default function ProjectDashboard() {
 
   return (
     <div className="p-6 bg-slate-50 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
+      {/* ★★★ 1.2: 重构整个 Header 区域 ★★★ */}
+      <div className="bg-blue-600 text-white p-4 rounded-lg shadow-md flex justify-between items-center">
+        <div>
+          <div className="flex items-center">
+            <LayoutDashboard className="h-7 w-7 mr-3" />
+            <h1 className="text-2xl font-bold">项目看板</h1>
+          </div>
+          <p className="text-sm text-blue-100 mt-1 ml-10">项目数据统计与分析</p>
+        </div>
         <div className="flex items-center gap-4">
           <Select value={projectId || ''} onValueChange={(newId) => navigate(`/project/${newId}`)}>
-            <SelectTrigger className="w-[250px]"><SelectValue placeholder="请选择项目..." /></SelectTrigger>
+            {/* ★★★ 1.3: 为筛选器适配深色背景 ★★★ */}
+            <SelectTrigger className="w-[250px] bg-blue-500 border-blue-400 text-white hover:bg-blue-400 focus:ring-white placeholder:text-blue-200">
+              <SelectValue placeholder="请选择项目..." />
+            </SelectTrigger>
             <SelectContent>
               {allProjects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
             </SelectContent>
           </Select>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant={"outline"} className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-slate-500")}>
+              {/* ★★★ 1.3: 为筛选器适配深色背景 ★★★ */}
+              <Button className={cn("w-[200px] justify-start text-left font-normal bg-blue-500 border-blue-400 text-white hover:bg-blue-400 hover:text-white", !reportDate && "text-blue-200")}>
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}
               </Button>
@@ -144,7 +156,6 @@ export default function ProjectDashboard() {
         <div className="lg:col-span-1">
             <Card className="shadow-sm flex flex-col h-full">
                 <CardHeader>
-                    {/* ★★★ 1.1: 调整项目进度标题样式 ★★★ */}
                     <CardTitle className="flex items-center text-lg">
                         <Target className="mr-2 h-5 w-5 text-blue-500"/>
                         <span className="text-blue-500">项目进度</span>
@@ -172,7 +183,6 @@ export default function ProjectDashboard() {
         <div className="lg:col-span-2">
             <Card className="shadow-sm flex flex-col h-full">
               <CardHeader className="pb-4">
-                {/* ★★★ 1.2: 调整日报与汇总标题样式 ★★★ */}
                 <CardTitle className="flex items-center text-lg">
                   <CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>
                   <span className="text-orange-500">日报与汇总</span>
@@ -180,9 +190,7 @@ export default function ProjectDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-4 gap-4 flex-grow">
-                  {/* --- 第一行: 日报数据 --- */}
                   <Card className="flex flex-col justify-center items-center p-2">
-                      {/* ★★★ 2.2: 为当日车次添加单位 "次" ★★★ */}
                       <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.trip_count, '次')}</p>
                       <p className="text-sm text-slate-500 mt-1">当日车次</p>
                   </Card>
@@ -198,8 +206,6 @@ export default function ProjectDashboard() {
                       <p className="text-2xl font-bold text-red-600">{formatNumber(dashboardData.daily_report?.partner_payable, '元')}</p>
                       <p className="text-sm text-slate-500 mt-1">{selectedProjectDetails.partner_name || '合作方'}应付</p>
                   </Card>
-
-                  {/* --- 第二行: 汇总数据 --- */}
                   <Card className="flex flex-col justify-center items-center p-2">
                     <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p>
                     <div className="flex items-center text-sm text-slate-500 mt-1">
@@ -212,7 +218,6 @@ export default function ProjectDashboard() {
                       <Package className="h-4 w-4 mr-2"/>已发总数量
                     </div>
                   </Card>
-                  {/* ★★★ 2.1: 统一汇总卡片数值的颜色和字号 ★★★ */}
                   <Card className="flex flex-col justify-center items-center p-2">
                     <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.summary_stats?.avg_cost, `元/${unitConfig.unit}`)}</p>
                     <div className="flex items-center text-sm text-slate-500 mt-1">
@@ -231,7 +236,6 @@ export default function ProjectDashboard() {
         <div className="lg:col-span-3">
             <Card className="shadow-sm">
               <CardHeader>
-                {/* ★★★ 1.3: 调整近7日进度标题样式 ★★★ */}
                 <CardTitle className="flex items-center text-lg">
                     <TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>
                     <span className="text-teal-500">近7日进度</span>
@@ -266,7 +270,6 @@ export default function ProjectDashboard() {
         <div className="lg:col-span-3">
             <Card className="shadow-sm">
               <CardHeader>
-                {/* ★★★ 1.4: 调整司机工作量报告标题样式 ★★★ */}
                 <CardTitle className="flex items-center text-lg">
                   <Users className="mr-2 h-5 w-5 text-purple-500" />
                   <span className="text-purple-500">司机工作量报告</span>
