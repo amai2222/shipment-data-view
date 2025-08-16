@@ -49,8 +49,6 @@ export default function ProjectDashboard() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [reportDate, setReportDate] = useState<Date>(new Date());
-  
-  // ★★★ 2.1: 为图表曲线的可见性创建状态 ★★★
   const [visibleLines, setVisibleLines] = useState({ weight: true, trips: true, receivable: true });
 
   useEffect(() => {
@@ -100,7 +98,6 @@ export default function ProjectDashboard() {
 
   const progressPercentage = (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100;
 
-  // ★★★ 2.2: 创建处理图例点击事件的函数 ★★★
   const handleLegendClick = (dataKey: string) => {
     setVisibleLines(prev => ({ ...prev, [dataKey]: !prev[dataKey] }));
   };
@@ -172,46 +169,66 @@ export default function ProjectDashboard() {
             </Card>
         </div>
         <div className="lg:col-span-2 space-y-6">
-            {/* ★★★ 1.1: 恢复当日运输量卡片，并将布局改为4列 ★★★ */}
-            <Card className="shadow-sm">
-               <CardHeader><CardTitle className="flex items-center text-slate-700"><CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>{format(reportDate, "yyyy-MM-dd")} 日报</CardTitle></CardHeader>
-               <CardContent className="grid grid-cols-4 gap-4 text-center pt-4">
+            {/* ★★★ 1.1: 将日报卡片拆分为四个独立的卡片，与下方对齐 ★★★ */}
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center text-slate-700 text-lg">
+                  <CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>{format(reportDate, "yyyy-MM-dd")} 日报
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-4 gap-4 text-center">
                   <div>
                       <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.trip_count)}</p>
-                      <p className="text-sm text-slate-500">当日车次</p>
+                      <p className="text-sm text-slate-500 mt-1">当日车次</p>
                   </div>
                   <div>
                       <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.total_tonnage, unitConfig.unit)}</p>
-                      <p className="text-sm text-slate-500">当日运输量</p>
+                      <p className="text-sm text-slate-500 mt-1">当日运输量</p>
                   </div>
                   <div>
                       <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.daily_report?.driver_receivable, '元')}</p>
-                      <p className="text-sm text-slate-500">司机应收</p>
+                      <p className="text-sm text-slate-500 mt-1">司机应收</p>
                   </div>
                   <div>
                       <p className="text-2xl font-bold text-red-600">{formatNumber(dashboardData.daily_report?.partner_payable, '元')}</p>
-                      <p className="text-sm text-slate-500">{selectedProjectDetails.partner_name || '合作方'}应付</p>
+                      <p className="text-sm text-slate-500 mt-1">{selectedProjectDetails.partner_name || '合作方'}应付</p>
                   </div>
-               </CardContent>
+              </CardContent>
             </Card>
+            
+            {/* ★★★ 1.2: 调整下方四个卡片的布局，使值在上，标题在下 ★★★ */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card className="shadow-sm">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><Truck className="h-4 w-4 mr-2 text-slate-500"/>已发总车次</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p></CardContent>
+                  <CardContent className="pt-6 flex flex-col items-start gap-1">
+                    <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p>
+                    <div className="flex items-center text-sm text-slate-500">
+                      <Truck className="h-4 w-4 mr-2"/>已发总车次
+                    </div>
+                  </CardContent>
                 </Card>
                 <Card className="shadow-sm">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><Package className="h-4 w-4 mr-2 text-slate-500"/>已发总数量</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_tonnage, unitConfig.unit)}</p></CardContent>
+                  <CardContent className="pt-6 flex flex-col items-start gap-1">
+                    <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_tonnage, unitConfig.unit)}</p>
+                    <div className="flex items-center text-sm text-slate-500">
+                      <Package className="h-4 w-4 mr-2"/>已发总数量
+                    </div>
+                  </CardContent>
                 </Card>
-                {/* ★★★ 1.3: 调整卡片顺序 ★★★ */}
                 <Card className="shadow-sm">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><BarChartHorizontal className="h-4 w-4 mr-2 text-indigo-500"/>平均单位成本</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.avg_cost, `元/${unitConfig.unit}`)}</p></CardContent>
+                  <CardContent className="pt-6 flex flex-col items-start gap-1">
+                    <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.avg_cost, `元/${unitConfig.unit}`)}</p>
+                    <div className="flex items-center text-sm text-slate-500">
+                      <BarChartHorizontal className="h-4 w-4 mr-2"/>平均单位成本
+                    </div>
+                  </CardContent>
                 </Card>
                 <Card className="shadow-sm">
-                  {/* ★★★ 1.2: 实现动态标题 ★★★ */}
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 mr-2 text-green-500"/>{selectedProjectDetails.partner_name || '合作方'}总应付</CardTitle></CardHeader>
-                  <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_cost, '元')}</p></CardContent>
+                  <CardContent className="pt-6 flex flex-col items-start gap-1">
+                    <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_cost, '元')}</p>
+                    <div className="flex items-center text-sm text-slate-500">
+                      <Wallet className="h-4 w-4 mr-2"/>{selectedProjectDetails.partner_name || '合作方'}总应付
+                    </div>
+                  </CardContent>
                 </Card>
             </div>
         </div>
@@ -227,7 +244,6 @@ export default function ProjectDashboard() {
                     <YAxis yAxisId="middle-trips" orientation="left" stroke="#4338ca" label={{ value: '车次', angle: -90, position: 'insideLeft', offset: -20, fill: '#4338ca' }} />
                     <YAxis yAxisId="right-cost" orientation="right" stroke="#f59e0b" label={{ value: '元', angle: -90, position: 'insideRight', fill: '#f59e0b' }} />
                     <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '数量' ? unitConfig.unit : '元'}`, name]} />
-                    {/* ★★★ 2.3: 绑定图例点击事件和样式 ★★★ */}
                     <Legend 
                       onClick={(e) => handleLegendClick(e.dataKey)} 
                       formatter={(value, entry) => {
@@ -236,7 +252,6 @@ export default function ProjectDashboard() {
                         return <span style={{ textDecoration: isVisible ? 'none' : 'line-through', color: isVisible ? '#333' : '#aaa' }}>{value}</span>;
                       }}
                     />
-                    {/* ★★★ 2.4: 根据状态控制曲线的显示/隐藏 ★★★ */}
                     <Line yAxisId="left-weight" type="monotone" dataKey="weight" name="数量" stroke="#0d9488" strokeWidth={2} hide={!visibleLines.weight} />
                     <Line yAxisId="middle-trips" type="monotone" dataKey="trips" name="车次" stroke="#4338ca" strokeWidth={2} hide={!visibleLines.trips} />
                     <Line yAxisId="right-cost" type="monotone" dataKey="receivable" name="应收总额" stroke="#f59e0b" strokeWidth={2} hide={!visibleLines.receivable} />
@@ -257,10 +272,12 @@ export default function ProjectDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>司机信息</TableHead>
+                      {/* ★★★ 2.1: 将司机信息恢复为三列 ★★★ */}
+                      <TableHead>司机</TableHead>
+                      <TableHead>车牌号</TableHead>
+                      <TableHead>电话</TableHead>
                       <TableHead className="text-right">当日出车</TableHead>
                       <TableHead className="text-right">总出车</TableHead>
-                      {/* ★★★ 3.2: 合并表头 ★★★ */}
                       {unitConfig.billingTypeId !== 2 && (
                         <TableHead className="text-right">当日数量 ({unitConfig.unit})</TableHead>
                       )}
@@ -271,13 +288,12 @@ export default function ProjectDashboard() {
                     {dashboardData.driver_report_table.length > 0 ? (
                       dashboardData.driver_report_table.map((row) => (
                         <TableRow key={row.driver_name}>
-                          <TableCell className="font-medium">
-                            {/* ★★★ 3.1: 将司机信息合并到一行显示 ★★★ */}
-                            <p className="text-sm">{`${row.driver_name} - ${row.license_plate || 'N/A'} - ${row.phone || 'N/A'}`}</p>
-                          </TableCell>
+                          {/* ★★★ 2.2: 恢复三列数据展示 ★★★ */}
+                          <TableCell className="font-medium">{row.driver_name}</TableCell>
+                          <TableCell>{row.license_plate || 'N/A'}</TableCell>
+                          <TableCell>{row.phone || 'N/A'}</TableCell>
                           <TableCell className="text-right">{row.daily_trip_count}</TableCell>
                           <TableCell className="text-right">{row.total_trip_count}</TableCell>
-                          {/* ★★★ 3.2: 合并单元格 ★★★ */}
                           {unitConfig.billingTypeId !== 2 && (
                             <TableCell className="text-right">{formatNumber(row.total_tonnage)}</TableCell>
                           )}
@@ -288,8 +304,8 @@ export default function ProjectDashboard() {
                       ))
                     ) : (
                       <TableRow>
-                        {/* 更新 colSpan 以匹配新的列数 */}
-                        <TableCell colSpan={unitConfig.billingTypeId !== 2 ? 5 : 4} className="h-24 text-center text-slate-500">
+                        {/* ★★★ 2.3: 更新 colSpan 以匹配新的列数 ★★★ */}
+                        <TableCell colSpan={unitConfig.billingTypeId !== 2 ? 7 : 6} className="h-24 text-center text-slate-500">
                           该日无司机工作记录
                         </TableCell>
                       </TableRow>
