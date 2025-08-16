@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [Final-Fix-V3] 适配全新的后端函数，彻底修复所有逻辑。
+// 描述: [Definitive-Final-Code] 恢复了所有UI控件，并整合了最终的数据修复方案。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -21,7 +21,7 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-// ★★★ 核心修改 1: 更新类型定义以匹配新的后端 ★★★
+// --- 类型定义 ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; }
 interface TrendData { date: string; trips: number; weight: number; receivable: number; }
@@ -31,8 +31,7 @@ interface DriverReportRowV2 {
   driver_name: string; phone: string; license_plate: string; trip_count: number; total_trips_in_project: number;
   total_tonnage: number; total_driver_receivable: number; total_receivable_in_project: number; total_partner_payable: number;
 }
-// project_details 不再是数组
-interface DashboardDataV3 {
+interface DashboardDataV4 {
   project_details: ProjectDetails; 
   daily_report: DailyReport; 
   seven_day_trend: TrendData[]; 
@@ -41,15 +40,15 @@ interface DashboardDataV3 {
   daily_logistics_records: LogisticsRecord[];
 }
 
-// --- 弹窗组件 (保持不变) ---
+// --- 弹窗组件 ---
 const LogisticsRecordsModal = ({ isOpen, onClose, date, records }: { isOpen: boolean; onClose: () => void; date: string; records: LogisticsRecord[] }) => (
   <Dialog open={isOpen} onOpenChange={onClose}><DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>运单记录 - {date}</DialogTitle><DialogDescription>以下是 {date} 当天的所有运单详情。</DialogDescription></DialogHeader><div className="max-h-[60vh] overflow-y-auto"><Table><TableHeader><TableRow><TableHead>司机</TableHead><TableHead>车牌</TableHead><TableHead>卸货重量</TableHead><TableHead>时间</TableHead></TableRow></TableHeader><TableBody>{records && records.length > 0 ? records.map(r => (<TableRow key={r.id}><TableCell>{r.driver_name}</TableCell><TableCell>{r.license_plate}</TableCell><TableCell>{r.net_weight}</TableCell><TableCell>{format(new Date(r.timestamp), 'HH:mm:ss')}</TableCell></TableRow>)) : <TableRow><TableCell colSpan={4} className="text-center h-24">当日无运单记录</TableCell></TableRow>}</TableBody></Table></div></DialogContent></Dialog>
 );
 
-// --- 辅助函数 (保持不变) ---
+// --- 辅助函数 ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
-// --- 环形图组件 (保持不变) ---
+// --- 环形图组件 ---
 const CircularProgressChart = ({ value }: { value: number }) => {
   const data = [{ name: 'progress', value: value, fill: 'hsl(var(--primary))' }];
   return (
@@ -67,25 +66,41 @@ const CircularProgressChart = ({ value }: { value: number }) => {
 export default function ProjectDashboard() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState<DashboardDataV3 | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardDataV4 | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{ date: string; records: LogisticsRecord[] }>({ date: '', records: [] });
+  
+  // ★★★ 核心修改 1: 新增状态以独立存储所有项目的列表，用于筛选器 ★★★
+  const [allProjects, setAllProjects] = useState<{ id: string; name: string }[]>([]);
 
+  // ★★★ 核心修改 2: 新增 useEffect 以在组件加载时获取所有项目列表 ★★★
+  useEffect(() => {
+    const fetchAllProjects = async () => {
+      const { data, error } = await supabase.from('projects').select('id, name');
+      if (error) {
+        toast({ title: "错误", description: "加载项目列表失败", variant: "destructive" });
+      } else {
+        setAllProjects(data || []);
+      }
+    };
+    fetchAllProjects();
+  }, [toast]);
+
+  // 主数据获取 useEffect (保持不变)
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
       if (!projectId) { setLoading(false); return; }
       try {
-        // ★★★ 核心修改 2: 调用最终的 V3 后端函数 ★★★
-        const { data, error } = await supabase.rpc('fetch_comprehensive_project_report_final_v3' as any, {
+        const { data, error } = await supabase.rpc('fetch_comprehensive_project_report_final_v4' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
         if (error) throw error;
-        setDashboardData(data as unknown as DashboardDataV3);
+        setDashboardData(data as unknown as DashboardDataV4);
       } catch (error) {
         toast({ title: "错误", description: `加载看板数据失败: ${(error as any).message}`, variant: "destructive" });
       } finally {
@@ -95,21 +110,17 @@ export default function ProjectDashboard() {
     fetchDashboardData();
   }, [projectId, reportDate, toast]);
 
-  // ★★★ 核心修改 3: 简化项目详情的获取，不再需要 .find() ★★★
   const selectedProjectDetails = dashboardData?.project_details;
 
   const unitConfig = useMemo(() => {
     if (!selectedProjectDetails || !dashboardData) {
       return { progressUnit: '吨', progressCompleted: 0, progressPlanned: 1, dailyReportValue: 0, trendLineName: '总重量', driverReportColHeader: '卸货吨数' };
     }
-
     const { billing_type_id, planned_total_tons } = selectedProjectDetails;
     const { summary_stats, daily_report } = dashboardData;
-    
     const typeId = parseInt(billing_type_id as any, 10);
     const isByTrip = typeId === 2;
     const isByVolume = typeId === 3;
-
     return {
       progressUnit: isByTrip ? '车' : (isByVolume ? '立方' : '吨'),
       progressCompleted: isByTrip ? summary_stats?.total_trips || 0 : summary_stats?.total_tonnage || 0,
@@ -138,10 +149,29 @@ export default function ProjectDashboard() {
   return (
     <div className="p-6 bg-slate-50 space-y-6">
       <LogisticsRecordsModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} date={modalContent.date} records={modalContent.records} />
+      {/* ★★★ 核心修改 3: 恢复完整的头部UI控件 ★★★ */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
         <div className="flex items-center gap-4">
-          {/* Dropdown for project selection can be added back if needed, but is not strictly necessary on a single project page */}
+          <Select value={projectId || ''} onValueChange={(newId) => navigate(`/project/${newId}`)}>
+            <SelectTrigger className="w-[250px]">
+              <SelectValue placeholder="请选择项目..." />
+            </SelectTrigger>
+            <SelectContent>
+              {allProjects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+            </SelectContent>
+          </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant={"outline"} className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-slate-500")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <CalendarComponent mode="single" selected={reportDate} onSelect={(date) => date && setReportDate(date)} initialFocus />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
