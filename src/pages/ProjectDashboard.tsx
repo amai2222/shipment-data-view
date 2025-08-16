@@ -318,7 +318,7 @@ export default function ProjectDashboard() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>司机信息</TableHead>
-                      <TableHead className="text-right">出车次数</TableHead>
+                      <TableHead className="text-right">当日出车/总出车</TableHead>
                       {unitConfig.showQuantityColumn && (
                         <TableHead className="text-right">{unitConfig.driverReportColHeader}</TableHead>
                       )}
