@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [Definitive-Final-Fix] 调用 v7 后端函数，该函数已基于真实表结构修正所有错误。
+// 描述: [Definitive-Final-Fix] 调用 v8 后端函数，该函数已修正所有语法和逻辑错误。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -74,8 +74,8 @@ export default function ProjectDashboard() {
           setLoading(false);
           return;
         }
-        // ★★★ 核心修改: 调用最终的 v7 后端函数 ★★★
-        const { data, error } = await supabase.rpc('get_project_dashboard_data_v7' as any, {
+        // ★★★ 核心修改: 调用最终的 v8 后端函数 ★★★
+        const { data, error } = await supabase.rpc('get_project_dashboard_data_v8' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
@@ -338,4 +338,4 @@ export default function ProjectDashboard() {
       </div>
     </div>
   );
-}
+}```
