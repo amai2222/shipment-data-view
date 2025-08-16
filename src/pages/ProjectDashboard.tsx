@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [Final-Fix] 借鉴 ProjectsOverview.tsx 的成功逻辑，彻底修复项目进度卡片。
+// 描述: [Final-Fix-V3] 适配全新的后端函数，彻底修复所有逻辑。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -16,13 +16,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, LabelList,
-  // ★★★ 核心修改 1: 导入新的图表组件 ★★★
   RadialBarChart, RadialBar, PolarAngleAxis
 } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-// --- 类型定义 (保持不变) ---
+// ★★★ 核心修改 1: 更新类型定义以匹配新的后端 ★★★
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; }
 interface TrendData { date: string; trips: number; weight: number; receivable: number; }
@@ -32,9 +31,14 @@ interface DriverReportRowV2 {
   driver_name: string; phone: string; license_plate: string; trip_count: number; total_trips_in_project: number;
   total_tonnage: number; total_driver_receivable: number; total_receivable_in_project: number; total_partner_payable: number;
 }
-interface DashboardDataV2 {
-  project_details: ProjectDetails[]; daily_report: DailyReport; seven_day_trend: TrendData[]; summary_stats: SummaryStats;
-  driver_report_table: DriverReportRowV2[]; daily_logistics_records: LogisticsRecord[];
+// project_details 不再是数组
+interface DashboardDataV3 {
+  project_details: ProjectDetails; 
+  daily_report: DailyReport; 
+  seven_day_trend: TrendData[]; 
+  summary_stats: SummaryStats;
+  driver_report_table: DriverReportRowV2[]; 
+  daily_logistics_records: LogisticsRecord[];
 }
 
 // --- 弹窗组件 (保持不变) ---
@@ -45,7 +49,7 @@ const LogisticsRecordsModal = ({ isOpen, onClose, date, records }: { isOpen: boo
 // --- 辅助函数 (保持不变) ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
-// ★★★ 核心修改 1: 引入成功的环形图组件 ★★★
+// --- 环形图组件 (保持不变) ---
 const CircularProgressChart = ({ value }: { value: number }) => {
   const data = [{ name: 'progress', value: value, fill: 'hsl(var(--primary))' }];
   return (
@@ -63,7 +67,7 @@ const CircularProgressChart = ({ value }: { value: number }) => {
 export default function ProjectDashboard() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState<DashboardDataV2 | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardDataV3 | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [reportDate, setReportDate] = useState<Date>(new Date());
@@ -75,12 +79,13 @@ export default function ProjectDashboard() {
       setLoading(true);
       if (!projectId) { setLoading(false); return; }
       try {
-        const { data, error } = await supabase.rpc('fetch_comprehensive_project_report_final_v2' as any, {
+        // ★★★ 核心修改 2: 调用最终的 V3 后端函数 ★★★
+        const { data, error } = await supabase.rpc('fetch_comprehensive_project_report_final_v3' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
         if (error) throw error;
-        setDashboardData(data as unknown as DashboardDataV2);
+        setDashboardData(data as unknown as DashboardDataV3);
       } catch (error) {
         toast({ title: "错误", description: `加载看板数据失败: ${(error as any).message}`, variant: "destructive" });
       } finally {
@@ -90,10 +95,9 @@ export default function ProjectDashboard() {
     fetchDashboardData();
   }, [projectId, reportDate, toast]);
 
-  const allProjects = dashboardData?.project_details || [];
-  const selectedProjectDetails = useMemo(() => allProjects.find(p => p.id === projectId), [allProjects, projectId]);
+  // ★★★ 核心修改 3: 简化项目详情的获取，不再需要 .find() ★★★
+  const selectedProjectDetails = dashboardData?.project_details;
 
-  // ★★★ 核心修改 2: 采用 ProjectsOverview.tsx 中更健壮的逻辑 ★★★
   const unitConfig = useMemo(() => {
     if (!selectedProjectDetails || !dashboardData) {
       return { progressUnit: '吨', progressCompleted: 0, progressPlanned: 1, dailyReportValue: 0, trendLineName: '总重量', driverReportColHeader: '卸货吨数' };
@@ -137,14 +141,12 @@ export default function ProjectDashboard() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
         <div className="flex items-center gap-4">
-          <Select value={projectId || ''} onValueChange={(newId) => navigate(`/project/${newId}`)}><SelectTrigger className="w-[250px]"><SelectValue placeholder="请选择项目..." /></SelectTrigger><SelectContent>{allProjects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select>
-          <Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-slate-500")}><CalendarIcon className="mr-2 h-4 w-4" />{reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><CalendarComponent mode="single" selected={reportDate} onSelect={(date) => date && setReportDate(date)} initialFocus /></PopoverContent></Popover>
+          {/* Dropdown for project selection can be added back if needed, but is not strictly necessary on a single project page */}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-1 space-y-6">
-          {/* ★★★ 核心修改 3: 采用新的卡片UI布局 ★★★ */}
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center text-slate-700">
