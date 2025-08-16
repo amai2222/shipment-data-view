@@ -20,12 +20,12 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-// --- 类型定义 (无修改) ---
+// --- 类型定义 (修改) ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
-interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; }
-interface TrendData { date: string; trips: number; weight: number; receivable: number; }
+interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; total_trip_count: number; }
+interface TrendData { date: string; trips: number; weight: number; receivable: number; payable_cost: number; logistics_record_ids: string[]; }
 interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; }
-interface DriverReportRow { driver_name: string; trip_count: number; total_tonnage: number; total_driver_receivable: number; total_partner_payable: number; }
+interface DriverReportRow { driver_name: string; license_plate: string; phone: string; trip_count: number; total_tonnage: number; total_driver_receivable: number; total_partner_payable: number; daily_trip_count: number; daily_receivable: number; total_trip_count: number; payable_cost: number; }
 interface DashboardData { project_details: ProjectDetails[]; daily_report: DailyReport; seven_day_trend: TrendData[]; summary_stats: SummaryStats; driver_report_table: DriverReportRow[]; }
 
 // --- 辅助函数 (无修改) ---
@@ -107,33 +107,39 @@ export default function ProjectDashboard() {
           progressUnit: '车',
           progressCompleted: stats?.total_trips || 0,
           progressPlanned: selectedProjectDetails?.planned_total_tons || 1,
-          dailyReportLabel: '当日运输车次',
+          dailyReportLabel: '当日/总运输量',
           dailyReportValue: daily?.trip_count || 0,
+          totalReportValue: daily?.total_trip_count || 0,
           trendLineLabel: '总车次',
           driverReportColHeader: '出车次数',
           getDriverReportRowValue: (row: DriverReportRow) => row.trip_count,
+          showQuantityColumn: false, // billing_type_id=2 隐藏卸货数量列
         };
       case 3: // 计方
         return {
           progressUnit: '立方',
           progressCompleted: stats?.total_tonnage || 0,
           progressPlanned: selectedProjectDetails?.planned_total_tons || 1,
-          dailyReportLabel: '当日运输立方',
+          dailyReportLabel: '当日/总运输量',
           dailyReportValue: daily?.total_tonnage || 0,
+          totalReportValue: stats?.total_tonnage || 0,
           trendLineLabel: '总立方',
-          driverReportColHeader: '卸货立方',
+          driverReportColHeader: '数量（立方）',
           getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage,
+          showQuantityColumn: true,
         };
       default: // 计吨
         return {
           progressUnit: '吨',
           progressCompleted: stats?.total_tonnage || 0,
           progressPlanned: selectedProjectDetails?.planned_total_tons || 1,
-          dailyReportLabel: '当日运输吨数',
+          dailyReportLabel: '当日/总运输量',
           dailyReportValue: daily?.total_tonnage || 0,
+          totalReportValue: stats?.total_tonnage || 0,
           trendLineLabel: '总重量',
-          driverReportColHeader: '卸货吨数',
+          driverReportColHeader: '数量（吨）',
           getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage,
+          showQuantityColumn: true,
         };
     }
   }, [selectedProjectDetails, dashboardData]);
@@ -150,6 +156,16 @@ export default function ProjectDashboard() {
   const handleLegendClick = (e: any) => {
     const { dataKey } = e;
     setVisibleLines(prev => ({ ...prev, [dataKey]: !prev[dataKey] }));
+  };
+
+  const handleDataPointClick = (data: any, index: number) => {
+    if (data && data.logistics_record_ids && data.logistics_record_ids.length > 0) {
+      // 这里可以打开弹窗显示运单信息
+      toast({
+        title: `${data.date} 运单信息`,
+        description: `车次: ${data.trips}车, ${unitConfig.progressUnit === '车' ? '' : `${unitConfig.trendLineLabel}: ${data.weight}${unitConfig.progressUnit}, `}应收: ¥${data.receivable?.toLocaleString()}`,
+      });
+    }
   };
   
   // --- 渲染 ---
@@ -206,18 +222,16 @@ export default function ProjectDashboard() {
         </div>
         <div className="lg:col-span-2 space-y-6">
             <Card className="shadow-sm">
-               <CardHeader><CardTitle className="flex items-center text-slate-700"><CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>日报</CardTitle></CardHeader>
+               <CardHeader><CardTitle className="flex items-center text-slate-700"><CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>{format(reportDate, "yyyy-MM-dd")} 日报</CardTitle></CardHeader>
                <CardContent className="grid grid-cols-4 gap-4 text-center">
                   <div>
-                      <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.trip_count, '车')}</p>
-                      <p className="text-sm text-slate-500">当日车次</p>
+                      <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.trip_count)}/{formatNumber(dashboardData.daily_report?.total_trip_count)}</p>
+                      <p className="text-sm text-slate-500">当日/总车次</p>
                   </div>
-                  {unitConfig.progressUnit !== '车' && (
-                    <div>
-                        <p className="text-2xl font-bold text-slate-800">{formatNumber(unitConfig.dailyReportValue, unitConfig.progressUnit)}</p>
-                        <p className="text-sm text-slate-500">{unitConfig.dailyReportLabel}</p>
-                    </div>
-                  )}
+                  <div>
+                      <p className="text-2xl font-bold text-slate-800">{formatNumber(unitConfig.dailyReportValue)}/{formatNumber(unitConfig.totalReportValue)} {unitConfig.progressUnit}</p>
+                      <p className="text-sm text-slate-500">{unitConfig.dailyReportLabel}</p>
+                  </div>
                   <div>
                       <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.daily_report?.driver_receivable, '元')}</p>
                       <p className="text-sm text-slate-500">司机应收</p>
@@ -230,7 +244,7 @@ export default function ProjectDashboard() {
             </Card>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="shadow-sm">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><Truck className="h-4 w-4 mr-2 text-slate-500"/>项目已发车次</CardTitle></CardHeader>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700"><Truck className="h-4 w-4 mr-2 text-slate-500"/>{selectedProjectDetails.name}已发总车次</CardTitle></CardHeader>
                   <CardContent><p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p></CardContent>
                 </Card>
                 <Card className="shadow-sm">
@@ -245,9 +259,54 @@ export default function ProjectDashboard() {
         </div>
         <div className="lg:col-span-3">
             <Card className="shadow-sm">
-              <CardHeader><CardTitle className="flex items-center text-slate-700"><TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>项目近7日进度 ({selectedProjectDetails.name})</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="flex items-center text-slate-700"><TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>{selectedProjectDetails.name} 近7日进度</CardTitle></CardHeader>
               <CardContent className="h-[350px]">
-                <ResponsiveContainer width="100%" height="100%"><LineChart data={dashboardData.seven_day_trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis yAxisId="left" domain={[0, maxTrips]} label={{ value: unitConfig.progressUnit, angle: -90, position: 'insideLeft' }} /><YAxis yAxisId="right" orientation="right" label={{ value: '元', angle: -90, position: 'insideRight' }} /><Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '总重量' || name === '总车次' || name === '总立方' ? unitConfig.progressUnit : '元'}`, name]} /><Legend /><Line yAxisId="left" type="monotone" dataKey="trips" name="车次" stroke="#4338ca" strokeWidth={2} hide={!visibleLines.trips} /><Line yAxisId="left" type="monotone" dataKey="weight" name={unitConfig.trendLineLabel} stroke="#0d9488" strokeWidth={2} hide={!visibleLines.weight} /><Line yAxisId="right" type="monotone" dataKey="receivable" name="应收总额" stroke="#f59e0b" strokeWidth={2} hide={!visibleLines.receivable} /></LineChart></ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dashboardData.seven_day_trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }} onClick={handleDataPointClick}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis yAxisId="left" domain={[0, maxTrips]} label={{ value: unitConfig.progressUnit, angle: -90, position: 'insideLeft' }} />
+                    <YAxis yAxisId="right" orientation="right" label={{ value: '元', angle: -90, position: 'insideRight' }} />
+                    <Tooltip 
+                      formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '总重量' || name === '总车次' || name === '总立方' ? unitConfig.progressUnit : '元'}`, name]}
+                      labelFormatter={(label) => `日期: ${label}`}
+                    />
+                    <Legend onClick={handleLegendClick} />
+                    <Line 
+                      yAxisId="left" 
+                      type="monotone" 
+                      dataKey="trips" 
+                      name="车次" 
+                      stroke="#4338ca" 
+                      strokeWidth={2} 
+                      hide={!visibleLines.trips}
+                      dot={{ fill: '#4338ca', strokeWidth: 2, r: 4, cursor: 'pointer' }}
+                      activeDot={{ r: 6, cursor: 'pointer' }}
+                    />
+                    <Line 
+                      yAxisId="left" 
+                      type="monotone" 
+                      dataKey="weight" 
+                      name={unitConfig.trendLineLabel} 
+                      stroke="#0d9488" 
+                      strokeWidth={2} 
+                      hide={!visibleLines.weight}
+                      dot={{ fill: '#0d9488', strokeWidth: 2, r: 4, cursor: 'pointer' }}
+                      activeDot={{ r: 6, cursor: 'pointer' }}
+                    />
+                    <Line 
+                      yAxisId="right" 
+                      type="monotone" 
+                      dataKey="receivable" 
+                      name="应收总额" 
+                      stroke="#f59e0b" 
+                      strokeWidth={2} 
+                      hide={!visibleLines.receivable}
+                      dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4, cursor: 'pointer' }}
+                      activeDot={{ r: 6, cursor: 'pointer' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
         </div>
@@ -256,8 +315,56 @@ export default function ProjectDashboard() {
               <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader><TableRow><TableHead>司机姓名</TableHead><TableHead className="text-right">出车次数</TableHead><TableHead className="text-right">{unitConfig.driverReportColHeader}</TableHead><TableHead className="text-right">司机应收 (元)</TableHead>{selectedProjectDetails.billing_type_id === 1 && (<TableHead className="text-right">{selectedProjectDetails.partner_name || '合作方'}应付 (元)</TableHead>)}</TableRow></TableHeader>
-                  <TableBody>{dashboardData.driver_report_table.length > 0 ? (dashboardData.driver_report_table.map((row) => (<TableRow key={row.driver_name}><TableCell className="font-medium">{row.driver_name}</TableCell><TableCell className="text-right">{row.trip_count}</TableCell><TableCell className="text-right">{formatNumber(unitConfig.getDriverReportRowValue(row))}</TableCell><TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell>{selectedProjectDetails.billing_type_id === 1 && (<TableCell className="text-right text-red-600 font-semibold">{formatNumber(row.total_partner_payable)}</TableCell>)}</TableRow>))) : (<TableRow><TableCell colSpan={selectedProjectDetails.billing_type_id === 1 ? 5 : 4} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell></TableRow>)}</TableBody>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>司机信息</TableHead>
+                      <TableHead className="text-right">出车次数</TableHead>
+                      {unitConfig.showQuantityColumn && (
+                        <TableHead className="text-right">{unitConfig.driverReportColHeader}</TableHead>
+                      )}
+                      <TableHead className="text-right">司机应收 (元)</TableHead>
+                      {selectedProjectDetails.billing_type_id === 1 && (
+                        <TableHead className="text-right">{selectedProjectDetails.partner_name || '合作方'}应付 (元)</TableHead>
+                      )}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dashboardData.driver_report_table.length > 0 ? (
+                      dashboardData.driver_report_table.map((row) => (
+                        <TableRow key={row.driver_name}>
+                          <TableCell className="font-medium">
+                            <div className="space-y-1">
+                              <div className="font-semibold">{row.driver_name}</div>
+                              <div className="text-sm text-slate-500">{row.license_plate}</div>
+                              <div className="text-sm text-slate-500">{row.phone}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {row.daily_trip_count} / {row.total_trip_count}
+                          </TableCell>
+                          {unitConfig.showQuantityColumn && (
+                            <TableCell className="text-right">
+                              {formatNumber(unitConfig.getDriverReportRowValue(row), unitConfig.progressUnit)}
+                            </TableCell>
+                          )}
+                          <TableCell className="text-right text-green-600 font-semibold">
+                            {formatNumber(row.daily_receivable)} / {formatNumber(row.payable_cost)}
+                          </TableCell>
+                          {selectedProjectDetails.billing_type_id === 1 && (
+                            <TableCell className="text-right text-red-600 font-semibold">
+                              {formatNumber(row.total_partner_payable)}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={selectedProjectDetails.billing_type_id === 1 ? (unitConfig.showQuantityColumn ? 5 : 4) : (unitConfig.showQuantityColumn ? 4 : 3)} className="h-24 text-center text-slate-500">
+                          该日无司机工作记录
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
                 </Table>
               </CardContent>
             </Card>
