@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [Definitive-Final-Fix] 调用 v8 后端函数，该函数已修正所有语法和逻辑错误。
+// 描述: [Feature-Transplant] 成功移植并适配了 ProjectsOverview.tsx 中的项目进度卡片组件。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -15,35 +15,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
-  RadialBarChart, RadialBar, PolarAngleAxis,
-  BarChart, Bar
+  // ★★★ 核心修改 1: 确保导入了环形图所需的组件 ★★★
+  RadialBarChart, RadialBar, PolarAngleAxis
 } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-// --- 类型定义 ---
+// --- 类型定义 (保持不变) ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; total_trip_count: number; }
+interface TrendData { date: string; trips: number; weight: number; receivable: number; payable_cost: number; logistics_record_ids: string[]; }
 interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; }
 interface DriverReportRow { driver_name: string; license_plate: string; phone: string; trip_count: number; total_tonnage: number; total_driver_receivable: number; total_partner_payable: number; daily_trip_count: number; daily_receivable: number; total_trip_count: number; payable_cost: number; }
-interface DailyTransportStats { date: string; actualTransport: number; returns: number; }
-interface DailyCostStats { date: string; totalCost: number; }
-interface DailyCountStats { date: string; count: number; }
+interface DashboardData { project_details: ProjectDetails[]; daily_report: DailyReport; seven_day_trend: TrendData[]; summary_stats: SummaryStats; driver_report_table: DriverReportRow[]; }
 
-interface DashboardData { 
-  project_details: ProjectDetails[]; 
-  daily_report: DailyReport; 
-  summary_stats: SummaryStats; 
-  driver_report_table: DriverReportRow[];
-  daily_transport_stats: DailyTransportStats[];
-  daily_count_stats: DailyCountStats[];
-  daily_cost_stats: DailyCostStats[];
-}
-
-// --- 辅助函数 ---
+// --- 辅助函数 (保持不变) ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
-// --- 环形进度图组件 ---
+// ★★★ 核心修改 2: 移植并适配环形进度图组件 ★★★
 const CircularProgressChart = ({ value }: { value: number }) => {
   const data = [{ name: 'progress', value: value, fill: 'hsl(var(--primary))' }];
   return (
@@ -64,6 +53,7 @@ export default function ProjectDashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [visibleLines, setVisibleLines] = useState({ trips: true, weight: true, receivable: true });
   const [reportDate, setReportDate] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -71,11 +61,11 @@ export default function ProjectDashboard() {
       setLoading(true);
       try {
         if (!projectId) {
+          console.warn("URL中未提供项目ID");
           setLoading(false);
           return;
         }
-        // ★★★ 核心修改: 调用最终的 v8 后端函数 ★★★
-        const { data, error } = await supabase.rpc('get_project_dashboard_data_v8' as any, {
+        const { data, error } = await supabase.rpc('get_project_dashboard_data' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
@@ -94,18 +84,23 @@ export default function ProjectDashboard() {
   const allProjects = dashboardData?.project_details || [];
   const selectedProjectDetails = useMemo(() => allProjects.find(p => p.id === projectId), [allProjects, projectId]);
 
+  // ★★★ 核心修改 3: 融合 ProjectsOverview.tsx 中更优的 unitConfig 逻辑 ★★★
   const unitConfig = useMemo(() => {
     const defaultConfig = {
       progressUnit: '吨', progressCompleted: 0, progressPlanned: 1, dailyReportLabel: '当日/总运输量',
       dailyReportValue: 0, totalReportValue: 0, trendLineLabel: '总重量', driverReportColHeader: '数量（吨）',
       getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage, showQuantityColumn: true,
     };
+
     if (!selectedProjectDetails || !dashboardData) return defaultConfig;
+
     const { billing_type_id, planned_total_tons } = selectedProjectDetails;
     const { summary_stats, daily_report } = dashboardData;
+    
     const typeId = parseInt(billing_type_id as any, 10);
     const isByTrip = typeId === 2;
     const isByVolume = typeId === 3;
+
     return {
       progressUnit: isByTrip ? '车' : (isByVolume ? '立方' : '吨'),
       progressCompleted: isByTrip ? summary_stats?.total_trips || 0 : summary_stats?.total_tonnage || 0,
@@ -122,6 +117,27 @@ export default function ProjectDashboard() {
 
   const progressPercentage = (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100;
 
+  const maxTrips = useMemo(() => {
+    const trendData = dashboardData?.seven_day_trend;
+    if (!trendData || trendData.length === 0) return 30;
+    const max = Math.max(...trendData.map(d => d.trips || 0));
+    return Math.max(30, Math.ceil(max / 10) * 10);
+  }, [dashboardData?.seven_day_trend]);
+  
+  const handleLegendClick = (e: any) => {
+    const { dataKey } = e;
+    setVisibleLines(prev => ({ ...prev, [dataKey]: !prev[dataKey] }));
+  };
+
+  const handleDataPointClick = (data: any, index: number) => {
+    if (data && data.logistics_record_ids && data.logistics_record_ids.length > 0) {
+      toast({
+        title: `${data.date} 运单信息`,
+        description: `车次: ${data.trips}车, ${unitConfig.progressUnit === '车' ? '' : `${unitConfig.trendLineLabel}: ${data.weight}${unitConfig.progressUnit}, `}应收: ¥${data.receivable?.toLocaleString()}`,
+      });
+    }
+  };
+  
   if (loading) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-blue-600" /></div>;
   }
@@ -134,13 +150,6 @@ export default function ProjectDashboard() {
       </div>
     );
   }
-
-  const legendTotals = {
-    actualTransportTotal: dashboardData.daily_transport_stats.reduce((sum, day) => sum + day.actualTransport, 0),
-    returnsTotal: dashboardData.daily_transport_stats.reduce((sum, day) => sum + day.returns, 0),
-    totalCostSum: dashboardData.daily_cost_stats.reduce((sum, day) => sum + day.totalCost, 0),
-    totalTrips: dashboardData.daily_count_stats.reduce((sum, day) => sum + day.count, 0),
-  };
 
   return (
     <div className="p-6 bg-slate-50 space-y-6">
@@ -168,6 +177,7 @@ export default function ProjectDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* ★★★ 核心修改 4: 替换为移植后的项目进度卡片UI ★★★ */}
         <div className="lg:col-span-1 space-y-6">
             <Card className="shadow-sm flex flex-col h-full">
                 <CardHeader>
@@ -232,68 +242,59 @@ export default function ProjectDashboard() {
                 </Card>
             </div>
         </div>
-        
         <div className="lg:col-span-3">
-          <Card className="shadow-card">
-            <CardHeader><CardTitle>每日运输量统计 (吨)</CardTitle></CardHeader>
-            <CardContent>
-              <div className="h-96">
+            <Card className="shadow-sm">
+              <CardHeader><CardTitle className="flex items-center text-slate-700"><TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>{selectedProjectDetails.name} 近7日进度</CardTitle></CardHeader>
+              <CardContent className="h-[350px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dashboardData.daily_transport_stats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <LineChart data={dashboardData.seven_day_trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }} onClick={handleDataPointClick}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" angle={-45} textAnchor="end" height={60} interval={Math.floor(dashboardData.daily_transport_stats.length / 15)} />
-                    <YAxis />
-                    <Tooltip formatter={(value, name) => [`${Number(value).toFixed(2)} 吨`, name === 'actualTransport' ? '有效运输' : '退货']} />
-                    <Legend formatter={(value) => value === 'actualTransport' ? `有效运输 (${legendTotals.actualTransportTotal.toFixed(1)}吨)` : `退货 (${legendTotals.returnsTotal.toFixed(1)}吨)`} />
-                    <Bar dataKey="actualTransport" fill="#4ade80" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="returns" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-3">
-          <Card className="shadow-card">
-            <CardHeader><CardTitle>运输日报 (车次)</CardTitle></CardHeader>
-            <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dashboardData.daily_count_stats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" angle={-45} textAnchor="end" height={60} interval={Math.floor(dashboardData.daily_count_stats.length / 15)} />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip formatter={(value) => [`${value} 次`, '运输次数']} />
-                    <Legend formatter={() => `运输次数 (总计 ${legendTotals.totalTrips} 次)`} />
-                    <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    <XAxis dataKey="date" />
+                    <YAxis yAxisId="left" domain={[0, maxTrips]} label={{ value: unitConfig.progressUnit, angle: -90, position: 'insideLeft' }} />
+                    <YAxis yAxisId="right" orientation="right" label={{ value: '元', angle: -90, position: 'insideRight' }} />
+                    <Tooltip 
+                      formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '总重量' || name === '总车次' || name === '总立方' ? unitConfig.progressUnit : '元'}`, name]}
+                      labelFormatter={(label) => `日期: ${label}`}
+                    />
+                    <Legend onClick={handleLegendClick} />
+                    <Line 
+                      yAxisId="left" 
+                      type="monotone" 
+                      dataKey="trips" 
+                      name="车次" 
+                      stroke="#4338ca" 
+                      strokeWidth={2} 
+                      hide={!visibleLines.trips}
+                      dot={{ fill: '#4338ca', strokeWidth: 2, r: 4, cursor: 'pointer' }}
+                      activeDot={{ r: 6, cursor: 'pointer' }}
+                    />
+                    <Line 
+                      yAxisId="left" 
+                      type="monotone" 
+                      dataKey="weight" 
+                      name={unitConfig.trendLineLabel} 
+                      stroke="#0d9488" 
+                      strokeWidth={2} 
+                      hide={!visibleLines.weight}
+                      dot={{ fill: '#0d9488', strokeWidth: 2, r: 4, cursor: 'pointer' }}
+                      activeDot={{ r: 6, cursor: 'pointer' }}
+                    />
+                    <Line 
+                      yAxisId="right" 
+                      type="monotone" 
+                      dataKey="receivable" 
+                      name="应收总额" 
+                      stroke="#f59e0b" 
+                      strokeWidth={2} 
+                      hide={!visibleLines.receivable}
+                      dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4, cursor: 'pointer' }}
+                      activeDot={{ r: 6, cursor: 'pointer' }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
         </div>
-
-        <div className="lg:col-span-3">
-          <Card className="shadow-card">
-            <CardHeader><CardTitle>每日运输费用分析 (元)</CardTitle></CardHeader>
-            <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dashboardData.daily_cost_stats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" angle={-45} textAnchor="end" height={60} interval={Math.floor(dashboardData.daily_cost_stats.length / 15)} />
-                    <YAxis />
-                    <Tooltip formatter={(value) => [`¥${Number(value).toFixed(2)}`, '总费用']} />
-                    <Legend formatter={() => `总费用 (¥${legendTotals.totalCostSum.toFixed(2)})`} />
-                    <Bar dataKey="totalCost" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         <div className="lg:col-span-3">
             <Card className="shadow-sm">
               <CardHeader><CardTitle className="flex items-center text-slate-700"><Users className="mr-2 h-5 w-5 text-purple-500" />司机工作量报告 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader>
@@ -303,9 +304,13 @@ export default function ProjectDashboard() {
                     <TableRow>
                       <TableHead>司机信息</TableHead>
                       <TableHead className="text-right">当日出车/总出车</TableHead>
-                      {unitConfig.showQuantityColumn && (<TableHead className="text-right">{unitConfig.driverReportColHeader}</TableHead>)}
+                      {unitConfig.showQuantityColumn && (
+                        <TableHead className="text-right">{unitConfig.driverReportColHeader}</TableHead>
+                      )}
                       <TableHead className="text-right">司机应收 (元)</TableHead>
-                      {selectedProjectDetails.billing_type_id === 1 && (<TableHead className="text-right">{selectedProjectDetails.partner_name || '合作方'}应付 (元)</TableHead>)}
+                      {selectedProjectDetails.billing_type_id === 1 && (
+                        <TableHead className="text-right">{selectedProjectDetails.partner_name || '合作方'}应付 (元)</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -319,15 +324,29 @@ export default function ProjectDashboard() {
                               <div className="text-sm text-slate-500">{row.phone}</div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-right">{row.daily_trip_count} / {row.total_trip_count}</TableCell>
-                          {unitConfig.showQuantityColumn && (<TableCell className="text-right">{formatNumber(unitConfig.getDriverReportRowValue(row), unitConfig.progressUnit)}</TableCell>)}
-                          <TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.daily_receivable)} / {formatNumber(row.payable_cost)}</TableCell>
-                          {selectedProjectDetails.billing_type_id === 1 && (<TableCell className="text-right text-red-600 font-semibold">{formatNumber(row.total_partner_payable)}</TableCell>)}
+                          <TableCell className="text-right">
+                            {row.daily_trip_count} / {row.total_trip_count}
+                          </TableCell>
+                          {unitConfig.showQuantityColumn && (
+                            <TableCell className="text-right">
+                              {formatNumber(unitConfig.getDriverReportRowValue(row), unitConfig.progressUnit)}
+                            </TableCell>
+                          )}
+                          <TableCell className="text-right text-green-600 font-semibold">
+                            {formatNumber(row.daily_receivable)} / {formatNumber(row.payable_cost)}
+                          </TableCell>
+                          {selectedProjectDetails.billing_type_id === 1 && (
+                            <TableCell className="text-right text-red-600 font-semibold">
+                              {formatNumber(row.total_partner_payable)}
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={selectedProjectDetails.billing_type_id === 1 ? (unitConfig.showQuantityColumn ? 5 : 4) : (unitConfig.showQuantityColumn ? 4 : 3)} className="h-24 text-center text-slate-500">该日无司机工作记录</TableCell>
+                        <TableCell colSpan={selectedProjectDetails.billing_type_id === 1 ? (unitConfig.showQuantityColumn ? 5 : 4) : (unitConfig.showQuantityColumn ? 4 : 3)} className="h-24 text-center text-slate-500">
+                          该日无司机工作记录
+                        </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -338,4 +357,4 @@ export default function ProjectDashboard() {
       </div>
     </div>
   );
-}```
+}
