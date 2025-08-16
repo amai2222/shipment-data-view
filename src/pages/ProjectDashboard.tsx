@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [Final-Logic-Fix] 彻底修复了 unitConfig 的计算逻辑，确保数值和单位同步切换。
+// 描述: [Final-Fix] 借鉴 ProjectsOverview.tsx 的成功逻辑，彻底修复项目进度卡片。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -16,7 +16,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, LabelList,
-  PieChart, Pie, Cell
+  // ★★★ 核心修改 1: 导入新的图表组件 ★★★
+  RadialBarChart, RadialBar, PolarAngleAxis
 } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -43,6 +44,20 @@ const LogisticsRecordsModal = ({ isOpen, onClose, date, records }: { isOpen: boo
 
 // --- 辅助函数 (保持不变) ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
+
+// ★★★ 核心修改 1: 引入成功的环形图组件 ★★★
+const CircularProgressChart = ({ value }: { value: number }) => {
+  const data = [{ name: 'progress', value: value, fill: 'hsl(var(--primary))' }];
+  return (
+    <ResponsiveContainer width="100%" height={120}>
+      <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="85%" barSize={10} data={data} startAngle={90} endAngle={-270}>
+        <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+        <RadialBar background={{ fill: 'hsl(var(--muted))' }} dataKey="value" cornerRadius={10} angleAxisId={0} />
+        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-3xl font-bold fill-primary">{`${value.toFixed(1)}%`}</text>
+      </RadialBarChart>
+    </ResponsiveContainer>
+  );
+};
 
 // --- 主组件 ---
 export default function ProjectDashboard() {
@@ -78,47 +93,27 @@ export default function ProjectDashboard() {
   const allProjects = dashboardData?.project_details || [];
   const selectedProjectDetails = useMemo(() => allProjects.find(p => p.id === projectId), [allProjects, projectId]);
 
-  // ★★★ 核心终极修复: 将所有计算逻辑归位到 switch 内部 ★★★
+  // ★★★ 核心修改 2: 采用 ProjectsOverview.tsx 中更健壮的逻辑 ★★★
   const unitConfig = useMemo(() => {
-    const defaultConfig = { progressUnit: '吨', progressCompleted: 0, progressPlanned: 1, dailyReportValue: 0, trendLineName: '总重量', driverReportColHeader: '卸货吨数' };
     if (!selectedProjectDetails || !dashboardData) {
-      return defaultConfig;
+      return { progressUnit: '吨', progressCompleted: 0, progressPlanned: 1, dailyReportValue: 0, trendLineName: '总重量', driverReportColHeader: '卸货吨数' };
     }
 
     const { billing_type_id, planned_total_tons } = selectedProjectDetails;
     const { summary_stats, daily_report } = dashboardData;
     
     const typeId = parseInt(billing_type_id as any, 10);
+    const isByTrip = typeId === 2;
+    const isByVolume = typeId === 3;
 
-    switch (typeId) {
-      case 2: // 按车计费
-        return {
-          progressUnit: '车',
-          progressCompleted: summary_stats?.total_trips || 0,
-          progressPlanned: planned_total_tons || 1,
-          dailyReportValue: daily_report?.trip_count || 0,
-          trendLineName: '总车次',
-          driverReportColHeader: '出车次数'
-        };
-      case 3: // 按立方计费
-        return {
-          progressUnit: '立方',
-          progressCompleted: summary_stats?.total_tonnage || 0,
-          progressPlanned: planned_total_tons || 1,
-          dailyReportValue: daily_report?.total_tonnage || 0,
-          trendLineName: '总立方',
-          driverReportColHeader: '卸货立方'
-        };
-      default: // 按吨计费 (billing_type_id = 1 或其他)
-        return {
-          progressUnit: '吨',
-          progressCompleted: summary_stats?.total_tonnage || 0,
-          progressPlanned: planned_total_tons || 1,
-          dailyReportValue: daily_report?.total_tonnage || 0,
-          trendLineName: '总重量',
-          driverReportColHeader: '卸货吨数'
-        };
-    }
+    return {
+      progressUnit: isByTrip ? '车' : (isByVolume ? '立方' : '吨'),
+      progressCompleted: isByTrip ? summary_stats?.total_trips || 0 : summary_stats?.total_tonnage || 0,
+      progressPlanned: planned_total_tons || 1,
+      dailyReportValue: isByTrip ? daily_report?.trip_count || 0 : daily_report?.total_tonnage || 0,
+      trendLineName: isByTrip ? '总车次' : (isByVolume ? '总立方' : '总重量'),
+      driverReportColHeader: isByTrip ? '出车次数' : (isByVolume ? '卸货立方' : '卸货吨数'),
+    };
   }, [selectedProjectDetails, dashboardData]);
 
   const handleDotClick = (data: any) => {
@@ -135,12 +130,6 @@ export default function ProjectDashboard() {
   if (!dashboardData || !selectedProjectDetails) return <div className="p-6 bg-slate-50 min-h-screen"><h1 className="text-3xl font-bold text-blue-600">项目看板</h1><div className="text-center py-10 text-slate-500">项目数据不存在或加载失败。</div></div>;
 
   const progressPercentage = (unitConfig.progressCompleted / (unitConfig.progressPlanned || 1)) * 100;
-  
-  const pieData = [
-    { name: 'Completed', value: progressPercentage },
-    { name: 'Remaining', value: 100 - progressPercentage },
-  ];
-  const PIE_COLORS = ['#3b82f6', '#e5e7eb'];
 
   return (
     <div className="p-6 bg-slate-50 space-y-6">
@@ -155,6 +144,7 @@ export default function ProjectDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-1 space-y-6">
+          {/* ★★★ 核心修改 3: 采用新的卡片UI布局 ★★★ */}
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center text-slate-700">
@@ -162,31 +152,7 @@ export default function ProjectDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="text-center space-y-4 pt-2">
-              <div className="relative h-40 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      startAngle={90}
-                      endAngle={-270}
-                      paddingAngle={0}
-                      dataKey="value"
-                      cornerRadius={5}
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} stroke={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-3xl font-bold text-blue-600">{progressPercentage.toFixed(1)}%</span>
-                </div>
-              </div>
+              <CircularProgressChart value={progressPercentage} />
               <Progress value={progressPercentage} />
               <div className="text-lg font-semibold text-slate-500">
                 {formatNumber(unitConfig.progressCompleted, unitConfig.progressUnit)} / <span className="text-slate-800">{formatNumber(unitConfig.progressPlanned, unitConfig.progressUnit)}</span>
