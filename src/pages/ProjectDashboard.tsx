@@ -60,7 +60,7 @@ export default function ProjectDashboard() {
       if (!projectId) { setLoading(false); return; }
       try {
         // ★★★ 核心修改: 调用全新的 V3 后端函数 ★★★
-        const { data, error } = await supabase.rpc('fetch_comprehensive_project_report_v3' as any, {
+        const { data, error } = await supabase.rpc('fetch_comprehensive_project_report_final_v2' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
