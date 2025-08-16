@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [X39OX-Final-Frontend] 最终版V3。实现了全部6项修改要求。
+// 描述: [Feature-Update] 1. 实现项目进度单位和数值的动态切换。 2. 增加环形进度图。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -15,12 +15,13 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon } from "lucide-react";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, LabelList
+  LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, LabelList,
+  PieChart, Pie, Cell // ★★★ 新增导入: PieChart, Pie, Cell 用于环形图 ★★★
 } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-// --- 类型定义 (V3) ---
+// --- 类型定义 (保持不变) ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; }
 interface TrendData { date: string; trips: number; weight: number; receivable: number; }
@@ -35,12 +36,12 @@ interface DashboardDataV2 {
   driver_report_table: DriverReportRowV2[]; daily_logistics_records: LogisticsRecord[];
 }
 
-// --- 弹窗组件 ---
+// --- 弹窗组件 (保持不变) ---
 const LogisticsRecordsModal = ({ isOpen, onClose, date, records }: { isOpen: boolean; onClose: () => void; date: string; records: LogisticsRecord[] }) => (
   <Dialog open={isOpen} onOpenChange={onClose}><DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>运单记录 - {date}</DialogTitle><DialogDescription>以下是 {date} 当天的所有运单详情。</DialogDescription></DialogHeader><div className="max-h-[60vh] overflow-y-auto"><Table><TableHeader><TableRow><TableHead>司机</TableHead><TableHead>车牌</TableHead><TableHead>卸货重量</TableHead><TableHead>时间</TableHead></TableRow></TableHeader><TableBody>{records && records.length > 0 ? records.map(r => (<TableRow key={r.id}><TableCell>{r.driver_name}</TableCell><TableCell>{r.license_plate}</TableCell><TableCell>{r.net_weight}</TableCell><TableCell>{format(new Date(r.timestamp), 'HH:mm:ss')}</TableCell></TableRow>)) : <TableRow><TableCell colSpan={4} className="text-center h-24">当日无运单记录</TableCell></TableRow>}</TableBody></Table></div></DialogContent></Dialog>
 );
 
-// --- 辅助函数 ---
+// --- 辅助函数 (保持不变) ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
 // --- 主组件 ---
@@ -59,7 +60,6 @@ export default function ProjectDashboard() {
       setLoading(true);
       if (!projectId) { setLoading(false); return; }
       try {
-        // ★★★ 核心修改: 调用全新的 V3 后端函数 ★★★
         const { data, error } = await supabase.rpc('fetch_comprehensive_project_report_final_v2' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
@@ -78,21 +78,30 @@ export default function ProjectDashboard() {
   const allProjects = dashboardData?.project_details || [];
   const selectedProjectDetails = useMemo(() => allProjects.find(p => p.id === projectId), [allProjects, projectId]);
 
+  // ★★★ 核心修改 1: 增强 unitConfig 逻辑，使其能动态切换数值和单位 ★★★
   const unitConfig = useMemo(() => {
-    if (!selectedProjectDetails || !dashboardData) {
-      return { progressUnit: '吨', progressCompleted: 0, progressPlanned: 1, dailyReportValue: 0, trendLineName: '总重量', driverReportColHeader: '卸货吨数' };
-    }
+    const defaultConfig = { progressUnit: '吨', progressCompleted: 0, progressPlanned: 1, dailyReportValue: 0, trendLineName: '总重量', driverReportColHeader: '卸货吨数' };
+    if (!selectedProjectDetails || !dashboardData) return defaultConfig;
+
     const { billing_type_id, planned_total_tons } = selectedProjectDetails;
     const { summary_stats, daily_report } = dashboardData;
-    
-    // ★★★ 核心修复 (问题1): 统一计算逻辑，只改变单位 ★★★
-    const progressCompleted = summary_stats?.total_tonnage || 0;
-    const dailyReportValue = daily_report?.total_tonnage || 0;
+
+    let progressCompleted: number;
+    let dailyReportValue: number;
 
     switch (billing_type_id) {
-      case 2: return { progressUnit: '车', progressCompleted, progressPlanned: planned_total_tons || 1, dailyReportValue, trendLineName: '总车次', driverReportColHeader: '出车次数' };
-      case 3: return { progressUnit: '立方', progressCompleted, progressPlanned: planned_total_tons || 1, dailyReportValue, trendLineName: '总立方', driverReportColHeader: '卸货立方' };
-      default: return { progressUnit: '吨', progressCompleted, progressPlanned: planned_total_tons || 1, dailyReportValue, trendLineName: '总重量', driverReportColHeader: '卸货吨数' };
+      case 2: // 按车计费
+        progressCompleted = summary_stats?.total_trips || 0;
+        dailyReportValue = daily_report?.trip_count || 0;
+        return { progressUnit: '车', progressCompleted, progressPlanned: planned_total_tons || 1, dailyReportValue, trendLineName: '总车次', driverReportColHeader: '出车次数' };
+      case 3: // 按立方计费
+        progressCompleted = summary_stats?.total_tonnage || 0; // 假设立方数据也存在 tonnage 字段，如果不是请修改
+        dailyReportValue = daily_report?.total_tonnage || 0;
+        return { progressUnit: '立方', progressCompleted, progressPlanned: planned_total_tons || 1, dailyReportValue, trendLineName: '总立方', driverReportColHeader: '卸货立方' };
+      default: // 按吨计费 (billing_type_id = 1 或其他)
+        progressCompleted = summary_stats?.total_tonnage || 0;
+        dailyReportValue = daily_report?.total_tonnage || 0;
+        return { progressUnit: '吨', progressCompleted, progressPlanned: planned_total_tons || 1, dailyReportValue, trendLineName: '总重量', driverReportColHeader: '卸货吨数' };
     }
   }, [selectedProjectDetails, dashboardData]);
 
@@ -110,6 +119,13 @@ export default function ProjectDashboard() {
   if (!dashboardData || !selectedProjectDetails) return <div className="p-6 bg-slate-50 min-h-screen"><h1 className="text-3xl font-bold text-blue-600">项目看板</h1><div className="text-center py-10 text-slate-500">项目数据不存在或加载失败。</div></div>;
 
   const progressPercentage = (unitConfig.progressCompleted / (unitConfig.progressPlanned || 1)) * 100;
+  
+  // ★★★ 核心修改 2: 为环形图准备数据和颜色 ★★★
+  const pieData = [
+    { name: 'Completed', value: progressPercentage },
+    { name: 'Remaining', value: 100 - progressPercentage },
+  ];
+  const PIE_COLORS = ['#3b82f6', '#e5e7eb']; // blue-500, gray-200
 
   return (
     <div className="p-6 bg-slate-50 space-y-6">
@@ -124,7 +140,45 @@ export default function ProjectDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-1 space-y-6">
-          <Card className="shadow-sm"><CardHeader><CardTitle className="flex items-center text-slate-700"><Target className="mr-2 h-5 w-5 text-blue-500"/>项目进度 ({selectedProjectDetails.name})</CardTitle></CardHeader><CardContent className="text-center space-y-4 pt-2"><Progress value={progressPercentage} /><div className="text-lg font-semibold text-slate-500">{formatNumber(unitConfig.progressCompleted, unitConfig.progressUnit)} / <span className="text-slate-800">{formatNumber(unitConfig.progressPlanned, unitConfig.progressUnit)}</span></div></CardContent></Card>
+          {/* ★★★ 核心修改 2: 实现项目进度卡片的新UI ★★★ */}
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center text-slate-700">
+                <Target className="mr-2 h-5 w-5 text-blue-500"/>项目进度 ({selectedProjectDetails.name})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-center space-y-4 pt-2">
+              <div className="relative h-40 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      startAngle={90}
+                      endAngle={-270}
+                      paddingAngle={0}
+                      dataKey="value"
+                      cornerRadius={5}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} stroke={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-3xl font-bold text-blue-600">{progressPercentage.toFixed(1)}%</span>
+                </div>
+              </div>
+              <Progress value={progressPercentage} />
+              <div className="text-lg font-semibold text-slate-500">
+                {formatNumber(unitConfig.progressCompleted, unitConfig.progressUnit)} / <span className="text-slate-800">{formatNumber(unitConfig.progressPlanned, unitConfig.progressUnit)}</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-sm"><CardHeader><CardTitle className="flex items-center text-slate-700"><CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>日报 ({format(reportDate, "yyyy-MM-dd")})</CardTitle></CardHeader><CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center pt-4">
@@ -144,7 +198,6 @@ export default function ProjectDashboard() {
             <CardHeader><CardTitle className="flex items-center text-slate-700"><TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>{selectedProjectDetails.name} 近7日进度</CardTitle></CardHeader>
             <CardContent className="h-[350px]">
               <ResponsiveContainer width="100%" height="100%">
-                {/* ★★★ 核心修复 (问题4): 重构图表，为车次线设置独立Y轴 ★★★ */}
                 <LineChart data={dashboardData.seven_day_trend} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
@@ -165,10 +218,8 @@ export default function ProjectDashboard() {
             <CardContent>
               <Table>
                 <TableHeader><TableRow>
-                  {/* ★★★ 核心修复 (问题5a): 合并司机信息列 ★★★ */}
                   <TableHead>司机信息</TableHead>
                   <TableHead className="text-right">出车次数</TableHead>
-                  {/* ★★★ 核心修复 (问题5b): 动态列标题 ★★★ */}
                   <TableHead className="text-right">{unitConfig.driverReportColHeader}</TableHead>
                   <TableHead className="text-right">司机应收 (元)</TableHead>
                 </TableRow></TableHeader>
