@@ -1,8 +1,8 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [HY4Kw-Final] 最终修正版。组件数据流完全由URL驱动，解决了跳转固定的问题。
+// 描述: [Feature-Transplant] 成功移植并适配了 ProjectsOverview.tsx 中的项目进度卡片组件。
 
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom'; // ★★★ 1. 导入 useParams 和 useNavigate
+import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,12 +15,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
+  // ★★★ 核心修改 1: 确保导入了环形图所需的组件 ★★★
   RadialBarChart, RadialBar, PolarAngleAxis
 } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-// --- 类型定义 (修改) ---
+// --- 类型定义 (保持不变) ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; total_trip_count: number; }
 interface TrendData { date: string; trips: number; weight: number; receivable: number; payable_cost: number; logistics_record_ids: string[]; }
@@ -28,18 +29,18 @@ interface SummaryStats { total_trips: number; total_cost: number; avg_cost: numb
 interface DriverReportRow { driver_name: string; license_plate: string; phone: string; trip_count: number; total_tonnage: number; total_driver_receivable: number; total_partner_payable: number; daily_trip_count: number; daily_receivable: number; total_trip_count: number; payable_cost: number; }
 interface DashboardData { project_details: ProjectDetails[]; daily_report: DailyReport; seven_day_trend: TrendData[]; summary_stats: SummaryStats; driver_report_table: DriverReportRow[]; }
 
-// --- 辅助函数 (无修改) ---
+// --- 辅助函数 (保持不变) ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
-// --- 环形进度图组件 (无修改) ---
+// ★★★ 核心修改 2: 移植并适配环形进度图组件 ★★★
 const CircularProgressChart = ({ value }: { value: number }) => {
-  const data = [{ name: 'progress', value: value, fill: '#2563eb' }];
+  const data = [{ name: 'progress', value: value, fill: 'hsl(var(--primary))' }];
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="90%" barSize={12} data={data} startAngle={90} endAngle={-270}>
+    <ResponsiveContainer width="100%" height={80}>
+      <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="85%" barSize={8} data={data} startAngle={90} endAngle={-270}>
         <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-        <RadialBar background={{ fill: '#e2e8f0' }} dataKey="value" cornerRadius={10} angleAxisId={0} />
-        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-2xl font-bold fill-blue-600">{`${value.toFixed(1)}%`}</text>
+        <RadialBar background={{ fill: 'hsl(var(--muted))' }} dataKey="value" cornerRadius={6} angleAxisId={0} />
+        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-sm font-bold fill-primary">{`${value.toFixed(1)}%`}</text>
       </RadialBarChart>
     </ResponsiveContainer>
   );
@@ -47,38 +48,29 @@ const CircularProgressChart = ({ value }: { value: number }) => {
 
 // --- 主组件 ---
 export default function ProjectDashboard() {
-  // ★★★ 2. 使用钩子从URL获取参数并控制导航 ★★★
-  const { projectId } = useParams<{ projectId: string }>(); // 从URL获取动态ID
-  const navigate = useNavigate(); // 用于在下拉框选择后更新URL
-
-  // --- States ---
+  const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [visibleLines, setVisibleLines] = useState({ trips: true, weight: true, receivable: true });
   const [reportDate, setReportDate] = useState<Date>(new Date());
 
-  // ★★★ 3. 重构数据获取逻辑，完全依赖URL中的projectId ★★★
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // 如果URL中没有projectId，则不执行任何操作
         if (!projectId) {
-          // 可以在这里处理ID不存在的情况，例如跳转到404或项目列表
           console.warn("URL中未提供项目ID");
           setLoading(false);
           return;
         }
-
         const { data, error } = await supabase.rpc('get_project_dashboard_data' as any, {
-          p_selected_project_id: projectId, // 直接使用从URL获取的ID
+          p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
-
         if (error) throw error;
         setDashboardData(data as unknown as DashboardData);
-
       } catch (error) {
         console.error("加载看板数据失败:", error);
         toast({ title: "错误", description: `加载看板数据失败: ${(error as any).message}`, variant: "destructive" });
@@ -87,61 +79,40 @@ export default function ProjectDashboard() {
       }
     };
     fetchDashboardData();
-  }, [projectId, reportDate, toast]); // 依赖项是URL中的projectId和日期
+  }, [projectId, reportDate, toast]);
 
-  // --- 辅助函数和计算 (逻辑微调) ---
   const allProjects = dashboardData?.project_details || [];
-  const selectedProjectDetails = useMemo(() => {
-    // 现在直接使用URL中的projectId来查找
-    return allProjects.find(p => p.id === projectId);
-  }, [allProjects, projectId]);
+  const selectedProjectDetails = useMemo(() => allProjects.find(p => p.id === projectId), [allProjects, projectId]);
 
+  // ★★★ 核心修改 3: 融合 ProjectsOverview.tsx 中更优的 unitConfig 逻辑 ★★★
   const unitConfig = useMemo(() => {
-    const billingType = selectedProjectDetails?.billing_type_id;
-    const stats = dashboardData?.summary_stats;
-    const daily = dashboardData?.daily_report;
+    const defaultConfig = {
+      progressUnit: '吨', progressCompleted: 0, progressPlanned: 1, dailyReportLabel: '当日/总运输量',
+      dailyReportValue: 0, totalReportValue: 0, trendLineLabel: '总重量', driverReportColHeader: '数量（吨）',
+      getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage, showQuantityColumn: true,
+    };
 
-    switch (billingType) {
-      case 2: // 计车
-        return {
-          progressUnit: '车',
-          progressCompleted: stats?.total_trips || 0,
-          progressPlanned: selectedProjectDetails?.planned_total_tons || 1,
-          dailyReportLabel: '当日/总运输量',
-          dailyReportValue: daily?.trip_count || 0,
-          totalReportValue: daily?.total_trip_count || 0,
-          trendLineLabel: '总车次',
-          driverReportColHeader: '出车次数',
-          getDriverReportRowValue: (row: DriverReportRow) => row.trip_count,
-          showQuantityColumn: false, // billing_type_id=2 隐藏卸货数量列
-        };
-      case 3: // 计方
-        return {
-          progressUnit: '立方',
-          progressCompleted: stats?.total_tonnage || 0,
-          progressPlanned: selectedProjectDetails?.planned_total_tons || 1,
-          dailyReportLabel: '当日/总运输量',
-          dailyReportValue: daily?.total_tonnage || 0,
-          totalReportValue: stats?.total_tonnage || 0,
-          trendLineLabel: '总立方',
-          driverReportColHeader: '数量（立方）',
-          getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage,
-          showQuantityColumn: true,
-        };
-      default: // 计吨
-        return {
-          progressUnit: '吨',
-          progressCompleted: stats?.total_tonnage || 0,
-          progressPlanned: selectedProjectDetails?.planned_total_tons || 1,
-          dailyReportLabel: '当日/总运输量',
-          dailyReportValue: daily?.total_tonnage || 0,
-          totalReportValue: stats?.total_tonnage || 0,
-          trendLineLabel: '总重量',
-          driverReportColHeader: '数量（吨）',
-          getDriverReportRowValue: (row: DriverReportRow) => row.total_tonnage,
-          showQuantityColumn: true,
-        };
-    }
+    if (!selectedProjectDetails || !dashboardData) return defaultConfig;
+
+    const { billing_type_id, planned_total_tons } = selectedProjectDetails;
+    const { summary_stats, daily_report } = dashboardData;
+    
+    const typeId = parseInt(billing_type_id as any, 10);
+    const isByTrip = typeId === 2;
+    const isByVolume = typeId === 3;
+
+    return {
+      progressUnit: isByTrip ? '车' : (isByVolume ? '立方' : '吨'),
+      progressCompleted: isByTrip ? summary_stats?.total_trips || 0 : summary_stats?.total_tonnage || 0,
+      progressPlanned: planned_total_tons || 1,
+      dailyReportLabel: '当日/总运输量',
+      dailyReportValue: isByTrip ? daily_report?.trip_count || 0 : daily_report?.total_tonnage || 0,
+      totalReportValue: isByTrip ? daily_report?.total_trip_count || 0 : summary_stats?.total_tonnage || 0,
+      trendLineLabel: isByTrip ? '总车次' : (isByVolume ? '总立方' : '总重量'),
+      driverReportColHeader: isByTrip ? '出车次数' : (isByVolume ? '数量（立方）' : '数量（吨）'),
+      getDriverReportRowValue: (row: DriverReportRow) => isByTrip ? row.trip_count : row.total_tonnage,
+      showQuantityColumn: !isByTrip,
+    };
   }, [selectedProjectDetails, dashboardData]);
 
   const progressPercentage = (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100;
@@ -160,7 +131,6 @@ export default function ProjectDashboard() {
 
   const handleDataPointClick = (data: any, index: number) => {
     if (data && data.logistics_record_ids && data.logistics_record_ids.length > 0) {
-      // 这里可以打开弹窗显示运单信息
       toast({
         title: `${data.date} 运单信息`,
         description: `车次: ${data.trips}车, ${unitConfig.progressUnit === '车' ? '' : `${unitConfig.trendLineLabel}: ${data.weight}${unitConfig.progressUnit}, `}应收: ¥${data.receivable?.toLocaleString()}`,
@@ -168,7 +138,6 @@ export default function ProjectDashboard() {
     }
   };
   
-  // --- 渲染 ---
   if (loading) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-blue-600" /></div>;
   }
@@ -187,7 +156,6 @@ export default function ProjectDashboard() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
         <div className="flex items-center gap-4">
-          {/* ★★★ 4. 修改下拉框，使其更新URL而不是内部状态 ★★★ */}
           <Select value={projectId || ''} onValueChange={(newId) => navigate(`/project/${newId}`)}>
             <SelectTrigger className="w-[250px]"><SelectValue placeholder="请选择项目..." /></SelectTrigger>
             <SelectContent>
@@ -208,22 +176,39 @@ export default function ProjectDashboard() {
         </div>
       </div>
 
-      {/* (以下渲染部分无需修改，因为所有数据源都已正确) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* ★★★ 核心修改 4: 替换为移植后的项目进度卡片UI ★★★ */}
         <div className="lg:col-span-1 space-y-6">
-            <Card className="shadow-sm">
-                <CardHeader><CardTitle className="flex items-center text-slate-700"><Target className="mr-2 h-5 w-5 text-blue-500"/>项目进度 ({selectedProjectDetails.name})</CardTitle></CardHeader>
-                <CardContent className="text-center space-y-4 pt-2">
-                    <div className="h-40 w-full"><CircularProgressChart value={progressPercentage} /></div>
-                    <Progress value={progressPercentage} />
-                    <div className="text-lg font-semibold text-slate-500">{formatNumber(unitConfig.progressCompleted, unitConfig.progressUnit)} / <span className="text-slate-800">{formatNumber(unitConfig.progressPlanned, unitConfig.progressUnit)}</span></div>
+            <Card className="shadow-sm flex flex-col h-full">
+                <CardHeader>
+                    <CardTitle className="flex items-center text-slate-700"><Target className="mr-2 h-5 w-5 text-blue-500"/>项目进度 ({selectedProjectDetails.name})</CardTitle>
+                    <p className="text-sm text-slate-500 pt-1">{selectedProjectDetails.partner_name}</p>
+                </CardHeader>
+                <CardContent className="space-y-4 flex-grow flex flex-col justify-center">
+                    <div>
+                        <div className="flex justify-between text-sm text-slate-600 mb-2">
+                            <span>进度 ({unitConfig.progressUnit})</span>
+                            <span className="font-semibold">{progressPercentage.toFixed(1)}%</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex-shrink-0 w-20 h-20">
+                                <CircularProgressChart value={progressPercentage} />
+                            </div>
+                            <div className="flex-grow">
+                                <Progress value={progressPercentage} />
+                                <p className="text-xs text-right text-slate-500 mt-1">
+                                    {formatNumber(unitConfig.progressCompleted)} / {formatNumber(unitConfig.progressPlanned)}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
         </div>
         <div className="lg:col-span-2 space-y-6">
             <Card className="shadow-sm">
                <CardHeader><CardTitle className="flex items-center text-slate-700"><CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>{format(reportDate, "yyyy-MM-dd")} 日报</CardTitle></CardHeader>
-               <CardContent className="grid grid-cols-4 gap-4 text-center">
+               <CardContent className="grid grid-cols-4 gap-4 text-center pt-4">
                   <div>
                       <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.trip_count)}/{formatNumber(dashboardData.daily_report?.total_trip_count)}</p>
                       <p className="text-sm text-slate-500">当日/总车次</p>
