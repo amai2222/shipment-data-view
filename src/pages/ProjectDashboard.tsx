@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [Logic-Fix] 修复了 billing_type_id 类型判断错误的问题。
+// 描述: [Final-Logic-Fix] 彻底修复了 unitConfig 的计算逻辑，确保数值和单位同步切换。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -78,32 +78,46 @@ export default function ProjectDashboard() {
   const allProjects = dashboardData?.project_details || [];
   const selectedProjectDetails = useMemo(() => allProjects.find(p => p.id === projectId), [allProjects, projectId]);
 
+  // ★★★ 核心终极修复: 将所有计算逻辑归位到 switch 内部 ★★★
   const unitConfig = useMemo(() => {
     const defaultConfig = { progressUnit: '吨', progressCompleted: 0, progressPlanned: 1, dailyReportValue: 0, trendLineName: '总重量', driverReportColHeader: '卸货吨数' };
-    if (!selectedProjectDetails || !dashboardData) return defaultConfig;
+    if (!selectedProjectDetails || !dashboardData) {
+      return defaultConfig;
+    }
 
     const { billing_type_id, planned_total_tons } = selectedProjectDetails;
     const { summary_stats, daily_report } = dashboardData;
-
-    // ★★★ 核心修复: 强制将 billing_type_id 转换为数字再进行判断 ★★★
+    
     const typeId = parseInt(billing_type_id as any, 10);
-
-    let progressCompleted: number;
-    let dailyReportValue: number;
 
     switch (typeId) {
       case 2: // 按车计费
-        progressCompleted = summary_stats?.total_trips || 0;
-        dailyReportValue = daily_report?.trip_count || 0;
-        return { progressUnit: '车', progressCompleted, progressPlanned: planned_total_tons || 1, dailyReportValue, trendLineName: '总车次', driverReportColHeader: '出车次数' };
+        return {
+          progressUnit: '车',
+          progressCompleted: summary_stats?.total_trips || 0,
+          progressPlanned: planned_total_tons || 1,
+          dailyReportValue: daily_report?.trip_count || 0,
+          trendLineName: '总车次',
+          driverReportColHeader: '出车次数'
+        };
       case 3: // 按立方计费
-        progressCompleted = summary_stats?.total_tonnage || 0;
-        dailyReportValue = daily_report?.total_tonnage || 0;
-        return { progressUnit: '立方', progressCompleted, progressPlanned: planned_total_tons || 1, dailyReportValue, trendLineName: '总立方', driverReportColHeader: '卸货立方' };
+        return {
+          progressUnit: '立方',
+          progressCompleted: summary_stats?.total_tonnage || 0,
+          progressPlanned: planned_total_tons || 1,
+          dailyReportValue: daily_report?.total_tonnage || 0,
+          trendLineName: '总立方',
+          driverReportColHeader: '卸货立方'
+        };
       default: // 按吨计费 (billing_type_id = 1 或其他)
-        progressCompleted = summary_stats?.total_tonnage || 0;
-        dailyReportValue = daily_report?.total_tonnage || 0;
-        return { progressUnit: '吨', progressCompleted, progressPlanned: planned_total_tons || 1, dailyReportValue, trendLineName: '总重量', driverReportColHeader: '卸货吨数' };
+        return {
+          progressUnit: '吨',
+          progressCompleted: summary_stats?.total_tonnage || 0,
+          progressPlanned: planned_total_tons || 1,
+          dailyReportValue: daily_report?.total_tonnage || 0,
+          trendLineName: '总重量',
+          driverReportColHeader: '卸货吨数'
+        };
     }
   }, [selectedProjectDetails, dashboardData]);
 
