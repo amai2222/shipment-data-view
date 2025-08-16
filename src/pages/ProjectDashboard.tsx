@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [Feature-Charts-Transplant] 移植了三个新的数据分析图表，并由新的后端函数驱动。
+// 描述: [Rename] 更新了 Supabase RPC 调用，以匹配新的 v4 后端函数名。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -16,39 +16,34 @@ import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, 
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
   RadialBarChart, RadialBar, PolarAngleAxis,
-  // ★★★ 核心修改 1: 导入 BarChart 和 Bar 用于新图表 ★★★
   BarChart, Bar
 } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-// --- 类型定义 (扩展) ---
+// --- 类型定义 ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; total_trip_count: number; }
 interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; }
 interface DriverReportRow { driver_name: string; license_plate: string; phone: string; trip_count: number; total_tonnage: number; total_driver_receivable: number; total_partner_payable: number; daily_trip_count: number; daily_receivable: number; total_trip_count: number; payable_cost: number; }
-
-// ★★★ 核心修改 2: 为新图表增加类型定义 ★★★
 interface DailyTransportStats { date: string; actualTransport: number; returns: number; }
 interface DailyCostStats { date: string; totalCost: number; }
 interface DailyCountStats { date: string; count: number; }
 
-// 扩展主数据接口
 interface DashboardData { 
   project_details: ProjectDetails[]; 
   daily_report: DailyReport; 
   summary_stats: SummaryStats; 
   driver_report_table: DriverReportRow[];
-  // 新增图表数据
   daily_transport_stats: DailyTransportStats[];
   daily_count_stats: DailyCountStats[];
   daily_cost_stats: DailyCostStats[];
 }
 
-// --- 辅助函数 (保持不变) ---
+// --- 辅助函数 ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
-// --- 环形进度图组件 (保持不变) ---
+// --- 环形进度图组件 ---
 const CircularProgressChart = ({ value }: { value: number }) => {
   const data = [{ name: 'progress', value: value, fill: 'hsl(var(--primary))' }];
   return (
@@ -79,8 +74,8 @@ export default function ProjectDashboard() {
           setLoading(false);
           return;
         }
-        // ★★★ 核心修改 3: 调用新的 v2 后端函数 ★★★
-        const { data, error } = await supabase.rpc('get_project_dashboard_data_v2' as any, {
+        // ★★★ 核心修改: 调用重命名后的 v4 后端函数 ★★★
+        const { data, error } = await supabase.rpc('get_project_dashboard_data_v4' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
@@ -100,7 +95,6 @@ export default function ProjectDashboard() {
   const selectedProjectDetails = useMemo(() => allProjects.find(p => p.id === projectId), [allProjects, projectId]);
 
   const unitConfig = useMemo(() => {
-    // (此部分逻辑保持不变)
     const defaultConfig = {
       progressUnit: '吨', progressCompleted: 0, progressPlanned: 1, dailyReportLabel: '当日/总运输量',
       dailyReportValue: 0, totalReportValue: 0, trendLineLabel: '总重量', driverReportColHeader: '数量（吨）',
@@ -141,7 +135,6 @@ export default function ProjectDashboard() {
     );
   }
 
-  // ★★★ 核心修改 4: 为新图表计算图例总数 ★★★
   const legendTotals = {
     actualTransportTotal: dashboardData.daily_transport_stats.reduce((sum, day) => sum + day.actualTransport, 0),
     returnsTotal: dashboardData.daily_transport_stats.reduce((sum, day) => sum + day.returns, 0),
@@ -240,7 +233,6 @@ export default function ProjectDashboard() {
             </div>
         </div>
         
-        {/* ★★★ 核心修改 5: 粘贴并适配三个新的图表组件 ★★★ */}
         <div className="lg:col-span-3">
           <Card className="shadow-card">
             <CardHeader><CardTitle>每日运输量统计 (吨)</CardTitle></CardHeader>
@@ -346,4 +338,4 @@ export default function ProjectDashboard() {
       </div>
     </div>
   );
-}
+}```
