@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [Definitive-Fix] 修正了 JSX 语法错误，并调用 v5 后端函数。
+// 描述: [Definitive-Fix] 调用 v6 后端函数，该函数已修正所有数据库列名错误。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -74,8 +74,8 @@ export default function ProjectDashboard() {
           setLoading(false);
           return;
         }
-        // ★★★ 核心修改: 调用最终的 v5 后端函数 ★★★
-        const { data, error } = await supabase.rpc('get_project_dashboard_data_v5' as any, {
+        // ★★★ 核心修改: 调用最终的 v6 后端函数 ★★★
+        const { data, error } = await supabase.rpc('get_project_dashboard_data_v6' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
