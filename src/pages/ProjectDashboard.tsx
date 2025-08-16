@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [Feature-Update] 1. 实现项目进度单位和数值的动态切换。 2. 增加环形进度图。
+// 描述: [Logic-Fix] 修复了 billing_type_id 类型判断错误的问题。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, LabelList,
-  PieChart, Pie, Cell // ★★★ 新增导入: PieChart, Pie, Cell 用于环形图 ★★★
+  PieChart, Pie, Cell
 } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -78,7 +78,6 @@ export default function ProjectDashboard() {
   const allProjects = dashboardData?.project_details || [];
   const selectedProjectDetails = useMemo(() => allProjects.find(p => p.id === projectId), [allProjects, projectId]);
 
-  // ★★★ 核心修改 1: 增强 unitConfig 逻辑，使其能动态切换数值和单位 ★★★
   const unitConfig = useMemo(() => {
     const defaultConfig = { progressUnit: '吨', progressCompleted: 0, progressPlanned: 1, dailyReportValue: 0, trendLineName: '总重量', driverReportColHeader: '卸货吨数' };
     if (!selectedProjectDetails || !dashboardData) return defaultConfig;
@@ -86,16 +85,19 @@ export default function ProjectDashboard() {
     const { billing_type_id, planned_total_tons } = selectedProjectDetails;
     const { summary_stats, daily_report } = dashboardData;
 
+    // ★★★ 核心修复: 强制将 billing_type_id 转换为数字再进行判断 ★★★
+    const typeId = parseInt(billing_type_id as any, 10);
+
     let progressCompleted: number;
     let dailyReportValue: number;
 
-    switch (billing_type_id) {
+    switch (typeId) {
       case 2: // 按车计费
         progressCompleted = summary_stats?.total_trips || 0;
         dailyReportValue = daily_report?.trip_count || 0;
         return { progressUnit: '车', progressCompleted, progressPlanned: planned_total_tons || 1, dailyReportValue, trendLineName: '总车次', driverReportColHeader: '出车次数' };
       case 3: // 按立方计费
-        progressCompleted = summary_stats?.total_tonnage || 0; // 假设立方数据也存在 tonnage 字段，如果不是请修改
+        progressCompleted = summary_stats?.total_tonnage || 0;
         dailyReportValue = daily_report?.total_tonnage || 0;
         return { progressUnit: '立方', progressCompleted, progressPlanned: planned_total_tons || 1, dailyReportValue, trendLineName: '总立方', driverReportColHeader: '卸货立方' };
       default: // 按吨计费 (billing_type_id = 1 或其他)
@@ -120,12 +122,11 @@ export default function ProjectDashboard() {
 
   const progressPercentage = (unitConfig.progressCompleted / (unitConfig.progressPlanned || 1)) * 100;
   
-  // ★★★ 核心修改 2: 为环形图准备数据和颜色 ★★★
   const pieData = [
     { name: 'Completed', value: progressPercentage },
     { name: 'Remaining', value: 100 - progressPercentage },
   ];
-  const PIE_COLORS = ['#3b82f6', '#e5e7eb']; // blue-500, gray-200
+  const PIE_COLORS = ['#3b82f6', '#e5e7eb'];
 
   return (
     <div className="p-6 bg-slate-50 space-y-6">
@@ -140,7 +141,6 @@ export default function ProjectDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-1 space-y-6">
-          {/* ★★★ 核心修改 2: 实现项目进度卡片的新UI ★★★ */}
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center text-slate-700">
