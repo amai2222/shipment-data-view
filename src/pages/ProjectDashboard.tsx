@@ -28,14 +28,15 @@ interface DashboardData { project_details: ProjectDetails[]; daily_report: Daily
 // --- 辅助函数 (保持不变) ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
+// ★★★ 1.1: 调整环形图尺寸以适应更大的容器 ★★★
 const CircularProgressChart = ({ value }: { value: number }) => {
   const data = [{ name: 'progress', value: value, fill: 'hsl(var(--primary))' }];
   return (
-    <ResponsiveContainer width="100%" height={80}>
-      <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="85%" barSize={8} data={data} startAngle={90} endAngle={-270}>
+    <ResponsiveContainer width="100%" height="100%">
+      <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="85%" barSize={10} data={data} startAngle={90} endAngle={-270}>
         <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
         <RadialBar background={{ fill: 'hsl(var(--muted))' }} dataKey="value" cornerRadius={6} angleAxisId={0} />
-        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-sm font-bold fill-primary">{`${value.toFixed(1)}%`}</text>
+        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-lg font-bold fill-primary">{`${value.toFixed(1)}%`}</text>
       </RadialBarChart>
     </ResponsiveContainer>
   );
@@ -96,7 +97,7 @@ export default function ProjectDashboard() {
     };
   }, [selectedProjectDetails, dashboardData]);
 
-  const progressPercentage = (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100;
+  const progressPercentage = (unitConfig.progressPlanned > 0) ? (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100 : 0;
 
   const handleLegendClick = (dataKey: string) => {
     setVisibleLines(prev => ({ ...prev, [dataKey]: !prev[dataKey] }));
@@ -140,87 +141,86 @@ export default function ProjectDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        <div className="lg:col-span-1 space-y-6">
+      {/* ★★★ 3.1: 使用 items-stretch 确保网格项等高，实现边框对齐 ★★★ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        <div className="lg:col-span-1">
             <Card className="shadow-sm flex flex-col h-full">
                 <CardHeader>
                     <CardTitle className="flex items-center text-slate-700"><Target className="mr-2 h-5 w-5 text-blue-500"/>项目进度 ({selectedProjectDetails.name})</CardTitle>
                     <p className="text-sm text-slate-500 pt-1">{selectedProjectDetails.partner_name}</p>
                 </CardHeader>
-                <CardContent className="space-y-4 flex-grow flex flex-col justify-center">
-                    <div>
-                        <div className="flex justify-between text-sm text-slate-600 mb-2">
-                            <span>进度 ({unitConfig.unit})</span>
-                            <span className="font-semibold">{progressPercentage.toFixed(1)}%</span>
-                        </div>
-                        <div className="flex flex-col items-center gap-4">
-                            <div className="w-24 h-24">
-                                <CircularProgressChart value={progressPercentage} />
-                            </div>
-                            <div className="w-full">
-                                <Progress value={progressPercentage} />
-                                {/* ★★★ 1. 为进度数值添加动态单位 ★★★ */}
-                                <p className="text-xs text-right text-slate-500 mt-1">
-                                    {formatNumber(unitConfig.progressCompleted, unitConfig.unit)} / {formatNumber(unitConfig.progressPlanned, unitConfig.unit)}
-                                </p>
-                            </div>
-                        </div>
+                <CardContent className="flex-grow flex flex-col justify-center items-center space-y-4">
+                    <div className="flex justify-between text-sm text-slate-600 w-full">
+                        <span>进度 ({unitConfig.unit})</span>
+                        <span className="font-semibold">{progressPercentage.toFixed(1)}%</span>
+                    </div>
+                    {/* ★★★ 1.2: 放大环形图容器 ★★★ */}
+                    <div className="w-36 h-36">
+                        <CircularProgressChart value={progressPercentage} />
+                    </div>
+                    <div className="w-full">
+                        <Progress value={progressPercentage} />
+                        {/* ★★★ 1.3: 调整进度数值样式：居中、放大、加粗 ★★★ */}
+                        <p className="text-sm font-bold text-center text-slate-600 mt-2">
+                            {formatNumber(unitConfig.progressCompleted, unitConfig.unit)} / {formatNumber(unitConfig.progressPlanned, unitConfig.unit)}
+                        </p>
                     </div>
                 </CardContent>
             </Card>
         </div>
-        <div className="lg:col-span-2 space-y-6">
-            {/* ★★★ 2. 将日报和汇总数据合并到一个卡片中 ★★★ */}
-            <Card>
+        <div className="lg:col-span-2">
+            <Card className="shadow-sm flex flex-col h-full">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center text-slate-700 text-lg">
                   <CalendarIcon className="mr-2 h-5 w-5 text-orange-500"/>{format(reportDate, "yyyy-MM-dd")} 日报与汇总
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-4 gap-x-4 gap-y-8">
+              {/* ★★★ 2.1: 为8个统计项添加独立的卡片边框 ★★★ */}
+              <CardContent className="grid grid-cols-4 gap-4 flex-grow">
                   {/* --- 第一行: 日报数据 --- */}
-                  <div className="text-center">
+                  <Card className="flex flex-col justify-center items-center p-2">
                       <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.trip_count)}</p>
                       <p className="text-sm text-slate-500 mt-1">当日车次</p>
-                  </div>
-                  <div className="text-center">
+                  </Card>
+                  <Card className="flex flex-col justify-center items-center p-2">
                       <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.daily_report?.total_tonnage, unitConfig.unit)}</p>
                       <p className="text-sm text-slate-500 mt-1">当日运输量</p>
-                  </div>
-                  <div className="text-center">
+                  </Card>
+                  <Card className="flex flex-col justify-center items-center p-2">
                       <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.daily_report?.driver_receivable, '元')}</p>
                       <p className="text-sm text-slate-500 mt-1">司机应收</p>
-                  </div>
-                  <div className="text-center">
+                  </Card>
+                  <Card className="flex flex-col justify-center items-center p-2">
                       <p className="text-2xl font-bold text-red-600">{formatNumber(dashboardData.daily_report?.partner_payable, '元')}</p>
                       <p className="text-sm text-slate-500 mt-1">{selectedProjectDetails.partner_name || '合作方'}应付</p>
-                  </div>
+                  </Card>
 
-                  {/* --- 第二行: 汇总数据 --- */}
-                  <div className="text-left">
-                    <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p>
+                  {/* --- 第二行: 汇总数据 (居中对齐) --- */}
+                  {/* ★★★ 2.2: 将汇总数据改为居中对齐 ★★★ */}
+                  <Card className="flex flex-col justify-center items-center p-2">
+                    <p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_trips, '车')}</p>
                     <div className="flex items-center text-sm text-slate-500 mt-1">
                       <Truck className="h-4 w-4 mr-2"/>已发总车次
                     </div>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_tonnage, unitConfig.unit)}</p>
+                  </Card>
+                  <Card className="flex flex-col justify-center items-center p-2">
+                    <p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_tonnage, unitConfig.unit)}</p>
                     <div className="flex items-center text-sm text-slate-500 mt-1">
                       <Package className="h-4 w-4 mr-2"/>已发总数量
                     </div>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.avg_cost, `元/${unitConfig.unit}`)}</p>
+                  </Card>
+                  <Card className="flex flex-col justify-center items-center p-2">
+                    <p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.avg_cost, `元/${unitConfig.unit}`)}</p>
                     <div className="flex items-center text-sm text-slate-500 mt-1">
                       <BarChartHorizontal className="h-4 w-4 mr-2"/>平均单位成本
                     </div>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-2xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_cost, '元')}</p>
+                  </Card>
+                  <Card className="flex flex-col justify-center items-center p-2">
+                    <p className="text-xl font-bold text-slate-800">{formatNumber(dashboardData.summary_stats?.total_cost, '元')}</p>
                     <div className="flex items-center text-sm text-slate-500 mt-1">
                       <Wallet className="h-4 w-4 mr-2"/>{selectedProjectDetails.partner_name || '合作方'}总应付
                     </div>
-                  </div>
+                  </Card>
               </CardContent>
             </Card>
         </div>
