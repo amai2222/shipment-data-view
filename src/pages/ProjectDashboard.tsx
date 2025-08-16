@@ -1,5 +1,5 @@
 // 文件路径: src/pages/ProjectDashboard.tsx
-// 描述: [Definitive-Final-Code] 恢复了所有UI控件，并整合了最终的数据修复方案。
+// 描述: [Definitive-Final-Code-V2] 调用 v5 后端函数，该函数动态获取 billing_type_id。
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -31,7 +31,7 @@ interface DriverReportRowV2 {
   driver_name: string; phone: string; license_plate: string; trip_count: number; total_trips_in_project: number;
   total_tonnage: number; total_driver_receivable: number; total_receivable_in_project: number; total_partner_payable: number;
 }
-interface DashboardDataV4 {
+interface DashboardDataV5 {
   project_details: ProjectDetails; 
   daily_report: DailyReport; 
   seven_day_trend: TrendData[]; 
@@ -66,17 +66,14 @@ const CircularProgressChart = ({ value }: { value: number }) => {
 export default function ProjectDashboard() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState<DashboardDataV4 | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardDataV5 | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{ date: string; records: LogisticsRecord[] }>({ date: '', records: [] });
-  
-  // ★★★ 核心修改 1: 新增状态以独立存储所有项目的列表，用于筛选器 ★★★
   const [allProjects, setAllProjects] = useState<{ id: string; name: string }[]>([]);
 
-  // ★★★ 核心修改 2: 新增 useEffect 以在组件加载时获取所有项目列表 ★★★
   useEffect(() => {
     const fetchAllProjects = async () => {
       const { data, error } = await supabase.from('projects').select('id, name');
@@ -89,18 +86,18 @@ export default function ProjectDashboard() {
     fetchAllProjects();
   }, [toast]);
 
-  // 主数据获取 useEffect (保持不变)
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
       if (!projectId) { setLoading(false); return; }
       try {
-        const { data, error } = await supabase.rpc('fetch_comprehensive_project_report_final_v4' as any, {
+        // ★★★ 核心终极修复: 调用 v5 后端函数 ★★★
+        const { data, error } = await supabase.rpc('fetch_comprehensive_project_report_final_v5' as any, {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
         if (error) throw error;
-        setDashboardData(data as unknown as DashboardDataV4);
+        setDashboardData(data as unknown as DashboardDataV5);
       } catch (error) {
         toast({ title: "错误", description: `加载看板数据失败: ${(error as any).message}`, variant: "destructive" });
       } finally {
@@ -149,7 +146,6 @@ export default function ProjectDashboard() {
   return (
     <div className="p-6 bg-slate-50 space-y-6">
       <LogisticsRecordsModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} date={modalContent.date} records={modalContent.records} />
-      {/* ★★★ 核心修改 3: 恢复完整的头部UI控件 ★★★ */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-blue-600">项目看板</h1>
         <div className="flex items-center gap-4">
@@ -248,4 +244,4 @@ export default function ProjectDashboard() {
       </div>
     </div>
   );
-}
+}```
