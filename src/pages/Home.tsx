@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [V2.3 最终恢复版] 恢复了“运输日报”总览图表，并修复了RPC调用。
+// 描述: [V2.4 最终功能增强版] 实现了总览图表点击交互，并优化了卡片标题样式。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,15 +27,13 @@ const BILLING_TYPE_MAP = {
 
 interface DailyStat { date: string; actualTransport: number; returns: number; }
 interface DailyStatsGroup { stats: DailyStat[]; totalActual: number; totalReturns: number; }
-interface DailyCostStat { date: string; totalCost: number; }
-// ★★★ 新增类型定义 ★★★
+interface DailyCostStat { date:string; totalCost: number; }
 interface DailyCountStat { date: string; count: number; }
 interface OverviewStats { totalRecords: number; totalCost: number; actualTransportCount: number; returnCount: number; }
 interface DashboardDataV2 {
   overview: OverviewStats;
   daily_stats_by_type: { [key in '1' | '2' | '3']?: DailyStatsGroup };
   dailyCostStats: DailyCostStat[];
-  // ★★★ 新增类型定义 ★★★
   dailyCountStats: DailyCountStat[];
 }
 
@@ -66,6 +64,7 @@ export default function Home() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [dialogRecords, setDialogRecords] = useState<LogisticsRecord[]>([]);
   const [isDialogLoading, setIsDialogLoading] = useState(false);
+  // ★★★ 核心修改 #1: dialogFilter 的 billingTypeId 现在可以是 null ★★★
   const [dialogFilter, setDialogFilter] = useState<{ projectId: string | null; date: string | null; billingTypeId: keyof typeof BILLING_TYPE_MAP | null }>({ projectId: null, date: null, billingTypeId: null });
   const [dialogPagination, setDialogPagination] = useState({ currentPage: 1, pageSize: 15, totalCount: 0 });
 
@@ -95,7 +94,6 @@ export default function Home() {
   }, [filterInputs, toast]);
 
   const fetchDialogRecords = useCallback(async (page = 1) => {
-    if (!dialogFilter.billingTypeId) return;
     setIsDialogLoading(true);
     setDialogPagination(prev => ({ ...prev, currentPage: page }));
     try {
@@ -103,11 +101,12 @@ export default function Home() {
       const startDate = dialogFilter.date ? dialogFilter.date : filterInputs.startDate;
       const endDate = dialogFilter.date ? dialogFilter.date : filterInputs.endDate;
       const offset = (page - 1) * dialogPagination.pageSize;
+      // ★★★ 核心修改 #2: 允许 billingTypeId 为空，以查询所有类型 ★★★
+      const typeId = dialogFilter.billingTypeId ? parseInt(dialogFilter.billingTypeId, 10) : undefined;
 
       const { records, totalCount } = await SupabaseStorage.getFilteredLogisticsRecords(
         projectId, undefined, startDate, endDate, 
-        dialogPagination.pageSize, offset, 
-        parseInt(dialogFilter.billingTypeId, 10)
+        dialogPagination.pageSize, offset, typeId
       );
       setDialogRecords(records);
       setDialogPagination(prev => ({ ...prev, totalCount: totalCount }));
@@ -136,14 +135,15 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (isDetailDialogOpen && dialogFilter.billingTypeId) {
+    if (isDetailDialogOpen) {
       fetchDialogRecords(1);
     }
-  }, [isDetailDialogOpen, dialogFilter, fetchDialogRecords]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDetailDialogOpen, dialogFilter]);
 
   // --- 事件处理 ---
 
-  const handleChartClick = useCallback((billingTypeId: keyof typeof BILLING_TYPE_MAP, data: any) => {
+  const handleTypeChartClick = useCallback((billingTypeId: keyof typeof BILLING_TYPE_MAP, data: any) => {
     if (data?.activePayload?.[0]) {
       const clickedDate = data.activePayload[0].payload.date;
       setDialogFilter({ projectId: filterInputs.projectId, date: clickedDate, billingTypeId });
@@ -151,10 +151,25 @@ export default function Home() {
     }
   }, [filterInputs.projectId]);
 
-  const handleLegendClick = useCallback((billingTypeId: keyof typeof BILLING_TYPE_MAP) => {
+  const handleTypeLegendClick = useCallback((billingTypeId: keyof typeof BILLING_TYPE_MAP) => {
     setDialogFilter({ projectId: filterInputs.projectId, date: null, billingTypeId });
     setIsDetailDialogOpen(true);
   }, [filterInputs.projectId]);
+
+  // ★★★ 核心修改 #3: 为总览图表新增事件处理器 ★★★
+  const handleOverviewChartClick = useCallback((data: any) => {
+    if (data?.activePayload?.[0]) {
+      const clickedDate = data.activePayload[0].payload.date;
+      setDialogFilter({ projectId: filterInputs.projectId, date: clickedDate, billingTypeId: null });
+      setIsDetailDialogOpen(true);
+    }
+  }, [filterInputs.projectId]);
+
+  const handleOverviewLegendClick = useCallback(() => {
+    setDialogFilter({ projectId: filterInputs.projectId, date: null, billingTypeId: null });
+    setIsDetailDialogOpen(true);
+  }, [filterInputs.projectId]);
+
 
   // --- 计算属性 ---
 
@@ -164,7 +179,7 @@ export default function Home() {
   }, [filterInputs.projectId, projects]);
 
   const totalDialogPages = Math.ceil(dialogPagination.totalCount / dialogPagination.pageSize);
-  const dialogUnit = dialogFilter.billingTypeId ? BILLING_TYPE_MAP[dialogFilter.billingTypeId]?.unit : '';
+  const dialogUnit = dialogFilter.billingTypeId ? BILLING_TYPE_MAP[dialogFilter.billingTypeId]?.unit : '数量';
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen"><RefreshCw className="h-8 w-8 animate-spin" /><span className="ml-2">正在初始化...</span></div>;
@@ -202,18 +217,23 @@ export default function Home() {
           return (
             <Card key={typeId}>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2">{typeInfo.icon && <typeInfo.icon className="h-5 w-5" />} {selectedProjectName} - 每日运输量 ({typeInfo.name})</CardTitle>
+                {/* ★★★ 核心修改 #4: 调整卡片标题样式 ★★★ */}
+                <CardTitle className="flex items-center gap-2">
+                  {typeInfo.icon && <typeInfo.icon className="h-5 w-5" />}
+                  <span className="text-base font-medium text-muted-foreground">({typeInfo.name})</span>
+                  <span>{selectedProjectName} - 每日运输量</span>
+                </CardTitle>
                 <div className="flex items-center space-x-2"><Switch id={`log-scale-${typeId}`} checked={useLogScale} onCheckedChange={setUseLogScale} /><Label htmlFor={`log-scale-${typeId}`} className="text-sm">对数刻度</Label></div>
               </CardHeader>
               <CardContent>
                 <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={filteredData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={(d) => handleChartClick(typeId as keyof typeof BILLING_TYPE_MAP, d)}>
+                    <BarChart data={filteredData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={(d) => handleTypeChartClick(typeId as keyof typeof BILLING_TYPE_MAP, d)}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} />
                       <YAxis scale={useLogScale ? "log" : "auto"} domain={useLogScale ? [0.1, 'dataMax'] : [0, 'dataMax']} tickFormatter={(val) => val.toString()} />
                       <Tooltip labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} formatter={(val, name) => [`${Number(val).toFixed(2)} ${typeInfo.unit}`, name === 'actualTransport' ? '有效运输' : '退货']} />
-                      <Legend onClick={() => handleLegendClick(typeId as keyof typeof BILLING_TYPE_MAP)} formatter={(val) => `${val === 'actualTransport' ? '有效运输' : '退货'} (总计 ${val === 'actualTransport' ? data.totalActual.toFixed(1) : data.totalReturns.toFixed(1)} ${typeInfo.unit})`} wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }} />
+                      <Legend onClick={() => handleTypeLegendClick(typeId as keyof typeof BILLING_TYPE_MAP)} formatter={(val) => `${val === 'actualTransport' ? '有效运输' : '退货'} (总计 ${val === 'actualTransport' ? data.totalActual.toFixed(1) : data.totalReturns.toFixed(1)} ${typeInfo.unit})`} wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }} />
                       <Bar dataKey="actualTransport" fill="#4ade80" name="actualTransport" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? val.toFixed(1) : '' }} />
                       <Bar dataKey="returns" fill="#ef4444" name="returns" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? val.toFixed(1) : '' }} />
                     </BarChart>
@@ -224,19 +244,19 @@ export default function Home() {
           );
         })}
 
-        {/* ★★★ 这里是恢复的“运输日报”图表 ★★★ */}
         {dashboardData?.dailyCountStats && dashboardData.dailyCountStats.length > 0 && (
           <Card>
             <CardHeader><CardTitle>{selectedProjectName} - 运输日报</CardTitle></CardHeader>
             <CardContent>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dashboardData.dailyCountStats.filter(d => d.count > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                  {/* ★★★ 核心修改 #5: 为“运输日报”图表绑定点击事件 ★★★ */}
+                  <LineChart data={dashboardData.dailyCountStats.filter(d => d.count > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleOverviewChartClick}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} />
                     <YAxis allowDecimals={false} domain={[0, 'dataMax + 1']} />
                     <Tooltip labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} formatter={(val) => [`${val} 次`, '运输次数']} />
-                    <Legend formatter={() => `运输次数 (总计 ${dashboardData.overview.totalRecords} 次)`} wrapperStyle={{ paddingTop: '20px' }} />
+                    <Legend onClick={handleOverviewLegendClick} formatter={() => `运输次数 (总计 ${dashboardData.overview.totalRecords} 次)`} wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }} />
                     <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? val.toString() : '' }} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -245,19 +265,19 @@ export default function Home() {
           </Card>
         )}
 
-        {/* 这是原有的“每日运输费用分析”图表 */}
         {dashboardData?.dailyCostStats && dashboardData.dailyCostStats.length > 0 && (
           <Card>
             <CardHeader><CardTitle>{selectedProjectName} - 每日运输费用分析</CardTitle></CardHeader>
             <CardContent>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dashboardData.dailyCostStats.filter(d => d.totalCost > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                  {/* ★★★ 核心修改 #6: 为“费用分析”图表绑定点击事件 ★★★ */}
+                  <BarChart data={dashboardData.dailyCostStats.filter(d => d.totalCost > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleOverviewChartClick}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} />
                     <YAxis tickFormatter={(val) => `¥${Number(val).toLocaleString()}`} />
                     <Tooltip labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} formatter={(val) => [formatCurrency(val as number), '总费用']} />
-                    <Legend formatter={() => `总费用 (${formatCurrency(dashboardData.overview.totalCost)})`} wrapperStyle={{ paddingTop: '20px' }} />
+                    <Legend onClick={handleOverviewLegendClick} formatter={() => `总费用 (${formatCurrency(dashboardData.overview.totalCost)})`} wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }} />
                     <Bar dataKey="totalCost" fill="#10b981" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? `¥${val.toFixed(0)}` : '' }} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -270,7 +290,12 @@ export default function Home() {
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center"><Eye className="mr-2" />{dialogFilter.date ? `${new Date(dialogFilter.date).toLocaleDateString('zh-CN')} 详细记录` : `全部筛选结果`} ({dialogFilter.billingTypeId ? BILLING_TYPE_MAP[dialogFilter.billingTypeId]?.name : ''})</DialogTitle>
+            {/* ★★★ 核心修改 #7: 动态调整弹窗标题 ★★★ */}
+            <DialogTitle className="flex items-center">
+              <Eye className="mr-2" />
+              {dialogFilter.date ? `${new Date(dialogFilter.date).toLocaleDateString('zh-CN')} 详细记录` : `全部筛选结果`} 
+              ({dialogFilter.billingTypeId ? BILLING_TYPE_MAP[dialogFilter.billingTypeId]?.name : '所有类型'})
+            </DialogTitle>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto">
           {isDialogLoading ? (
@@ -280,6 +305,7 @@ export default function Home() {
               <TableHeader><TableRow>
                 <TableHead>运单号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>车牌</TableHead>
                 <TableHead>装货地</TableHead><TableHead>卸货地</TableHead>
+                {/* ★★★ 核心修改 #8: 动态调整弹窗表头 ★★★ */}
                 <TableHead>装货量 ({dialogUnit})</TableHead>
                 <TableHead>卸货量 ({dialogUnit})</TableHead>
                 <TableHead>类型</TableHead><TableHead>司机应收</TableHead><TableHead>备注</TableHead>
