@@ -46,33 +46,33 @@ const App = () => (
             
             {/* --- 受保护的路由 --- */}
             <Route path="/" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
                 <AppLayout><TransportOverview /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/dashboard/transport" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
                 <AppLayout><TransportOverview /></AppLayout>
               </ProtectedRoute>
             } />
 
             {/* ★★★ 2. 添加新的“项目看板”概览页路由 ★★★ */}
             <Route path="/dashboard/project" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
                 <AppLayout><ProjectsOverview /></AppLayout>
               </ProtectedRoute>
             } />
 
             {/* ★★★ 3. 添加新的“项目详情”下钻页路由 ★★★ */}
             <Route path="/project/:projectId" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
                 <AppLayout><ProjectDashboard /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/dashboard/financial" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'viewer']}>
                 <AppLayout><FinancialOverview /></AppLayout>
               </ProtectedRoute>
             } />
@@ -86,19 +86,19 @@ const App = () => (
             
             {/* ... 其他路由保持不变 ... */}
             <Route path="/drivers" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
                 <AppLayout><Drivers /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/locations" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
                 <AppLayout><Locations /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/partners" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
                 <AppLayout><Partners /></AppLayout>
               </ProtectedRoute>
             } />
