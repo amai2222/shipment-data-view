@@ -21,7 +21,6 @@ import { LogisticsFormDialog } from './components/LogisticsFormDialog';
 const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters, projects: Project[], records: LogisticsRecord[] }) => {
   const summaryTitle = useMemo(() => {
     const parts: string[] = [];
-    // [最终修复] 1. 摘要标题逻辑使用 projectName
     if (activeFilters.projectName) { parts.push(`项目: ${activeFilters.projectName}`); }
     if (activeFilters.driverName) { parts.push(`司机: ${activeFilters.driverName}`); }
     if (activeFilters.licensePlate) { parts.push(`车牌: ${activeFilters.licensePlate}`); }
@@ -33,7 +32,6 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { to
     return `${parts.join(' | ')} 合计`;
   }, [activeFilters, projects]);
 
-  // Calculate dynamic billing type statistics
   const billingStats = useMemo(() => {
     const stats = {
       weight: { loading: 0, unloading: 0 },
@@ -62,7 +60,6 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { to
     <div className="flex items-center justify-start flex-wrap gap-x-6 gap-y-2 rounded-lg border p-4 text-sm font-medium">
       <span className="font-bold">{summaryTitle}:</span>
       
-      {/* 计重合计 */}
       {billingStats.weight.loading > 0 || billingStats.weight.unloading > 0 ? (
         <>
           <span>计重合计 - 装: <span className="font-bold text-primary">{billingStats.weight.loading.toFixed(2)}吨</span></span>
@@ -70,12 +67,10 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { to
         </>
       ) : null}
       
-      {/* 计车合计 */}
       {billingStats.trips.loading > 0 ? (
         <span>计车合计 - 装: <span className="font-bold text-primary">{billingStats.trips.loading.toFixed(0)}车</span></span>
       ) : null}
       
-      {/* 计体积合计 */}
       {billingStats.volume.loading > 0 || billingStats.volume.unloading > 0 ? (
         <>
           <span>计体积合计 - 装: <span className="font-bold text-primary">{billingStats.volume.loading.toFixed(2)}立方</span></span>
@@ -107,7 +102,10 @@ export default function BusinessEntry() {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch, sortField, sortDirection, handleSort } = useLogisticsData();
-  const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates } = useExcelImport(() => { refetch(); });
+  
+  // ★★★ 修改点 1: 更新从 useExcelImport hook 解构出的变量 ★★★
+  const { isImporting, isImportModalOpen, importStep, importPreview, duplicateResolutions, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setDuplicateResolutions } = useExcelImport(() => { refetch(); });
+  
   const isSummaryStale = useMemo(() => JSON.stringify(uiFilters) !== JSON.stringify(activeFilters), [uiFilters, activeFilters]);
 
   const loadInitialOptions = useCallback(async () => {
@@ -135,7 +133,6 @@ export default function BusinessEntry() {
     toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
     try {
       let query = supabase.from('logistics_records_view').select('*');
-      // [最终修复] 2. 导出逻辑与您的 SQL 函数逻辑完全匹配
       if (activeFilters.projectName) query = query.eq('project_name', activeFilters.projectName);
       if (activeFilters.driverName) query = query.ilike('driver_name', `%${activeFilters.driverName}%`);
       if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
@@ -207,7 +204,20 @@ export default function BusinessEntry() {
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} projects={projects} records={records} />)}
       {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, page: pagination.currentPage, size: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />)}
-      <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />
+      
+      {/* ★★★ 修改点 2: 更新传递给 ImportDialog 组件的 props ★★★ */}
+      <ImportDialog 
+        isOpen={isImportModalOpen} 
+        onClose={closeImportModal} 
+        importStep={importStep} 
+        importPreview={importPreview} 
+        duplicateResolutions={duplicateResolutions} 
+        setDuplicateResolutions={setDuplicateResolutions} 
+        importLogs={importLogs} 
+        importLogRef={importLogRef} 
+        onExecuteImport={executeFinalImport} 
+      />
+      
       <LogisticsFormDialog
         isOpen={isFormDialogOpen}
         onClose={handleFormDialogClose}
@@ -217,7 +227,7 @@ export default function BusinessEntry() {
       />
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
         <DialogContent className="sm:max-w-4xl">
-          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></Header>
           {viewingRecord && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
               <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
