@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [V2.9 最终版] 实现混合式搜索、重构汇总卡片UI、并优化图表标题格式。
+// 描述: [最终审核版] 实现了数据看板的全部功能，包括混合式搜索、动态卡片和所有UI优化。
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,9 +20,9 @@ import { supabase } from "@/integrations/supabase/client";
 // --- 类型定义 ---
 
 const BILLING_TYPE_MAP = {
-  '1': { name: '计重', unit: '吨', icon: Truck },
-  '2': { name: '计车', unit: '车', icon: Package },
-  '3': { name: '计体积', unit: '立方', icon: Cuboid },
+  '1': { name: '计重', unit: '吨', icon: Truck, color: 'text-green-600', bgColor: 'bg-green-100' },
+  '2': { name: '计车', unit: '车', icon: Package, color: 'text-sky-600', bgColor: 'bg-sky-100' },
+  '3': { name: '计体积', unit: '立方', icon: Cuboid, color: 'text-orange-600', bgColor: 'bg-orange-100' },
 };
 
 interface DailyStat { date: string; actualTransport: number; returns: number; }
@@ -32,6 +32,7 @@ interface DailyCountStat { date: string; count: number; }
 interface OverviewStats { totalRecords: number; totalCost: number; actualTransportCount: number; returnCount: number; }
 interface DashboardDataV2 {
   overview: OverviewStats;
+  totalQuantityByType: { [key in '1' | '2' | '3']?: number };
   daily_stats_by_type: { [key in '1' | '2' | '3']?: DailyStatsGroup };
   dailyCostStats: DailyCostStat[];
   dailyCountStats: DailyCountStat[];
@@ -67,9 +68,9 @@ export default function Home() {
   const [dialogFilter, setDialogFilter] = useState<{ projectId: string | null; date: string | null; billingTypeId: keyof typeof BILLING_TYPE_MAP | null }>({ projectId: null, date: null, billingTypeId: null });
   const [dialogPagination, setDialogPagination] = useState({ currentPage: 1, pageSize: 15, totalCount: 0 });
 
+  const [projectStatusFilter, setProjectStatusFilter] = useState('进行中');
   const [filterInputs, setFilterInputs] = useState(() => ({ ...getDefaultDateRange(), projectId: 'all' }));
   const { toast } = useToast();
-  // ★★★ 核心修改 #1: 用于防止项目自动筛选在首次加载时触发 ★★★
   const isInitialMount = useRef(true);
 
   // --- 数据获取 ---
@@ -119,23 +120,30 @@ export default function Home() {
     }
   }, [dialogFilter, filterInputs.startDate, filterInputs.endDate, toast, dialogPagination.pageSize]);
 
-  // 首次加载
+  // 根据状态筛选获取项目列表
   useEffect(() => {
-    const initialLoad = async () => {
+    const fetchProjects = async () => {
       try {
-        const projectsData = await SupabaseStorage.getProjects() as Project[];
+        const projectsData = await SupabaseStorage.getProjects(projectStatusFilter);
         setProjects(projectsData);
-        await handleSearch(true);
+        if (filterInputs.projectId !== 'all' && !projectsData.some(p => p.id === filterInputs.projectId)) {
+          setFilterInputs(p => ({ ...p, projectId: 'all' }));
+        }
       } catch (error) {
-        console.error("初始化加载失败:", error);
-        toast({ title: "初始化加载失败", variant: "destructive" });
+        console.error("加载项目列表失败:", error);
+        toast({ title: "加载项目列表失败", variant: "destructive" });
       }
     };
-    initialLoad();
-    // eslint-disable-next-line react-hooks-exhaustive-deps
+    fetchProjects();
+  }, [projectStatusFilter, filterInputs.projectId, toast]);
+
+  // 首次加载
+  useEffect(() => {
+    handleSearch(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ★★★ 核心修改 #2: 监听项目筛选变化，自动执行搜索 ★★★
+  // 监听项目状态和项目ID变化，自动执行搜索
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -143,7 +151,7 @@ export default function Home() {
     }
     handleSearch(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterInputs.projectId]);
+  }, [filterInputs.projectId, projectStatusFilter]);
 
   useEffect(() => {
     if (isDetailDialogOpen) {
@@ -153,7 +161,6 @@ export default function Home() {
   }, [isDetailDialogOpen, dialogFilter]);
 
   // --- 事件处理 ---
-
   const handleTypeChartClick = useCallback((billingTypeId: keyof typeof BILLING_TYPE_MAP, data: any) => {
     if (data?.activePayload?.[0]) {
       const clickedDate = data.activePayload[0].payload.date;
@@ -180,9 +187,7 @@ export default function Home() {
     setIsDetailDialogOpen(true);
   }, [filterInputs.projectId]);
 
-
   // --- 计算属性 ---
-
   const selectedProjectName = useMemo(() => {
     if (filterInputs.projectId === 'all') return '所有项目';
     return projects.find(p => p.id === filterInputs.projectId)?.name || '所有项目';
@@ -205,6 +210,17 @@ export default function Home() {
             <div className="space-y-1"><Label htmlFor="startDate" className="text-xs font-medium">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(p => ({...p, startDate: e.target.value}))} /></div>
             <div className="space-y-1"><Label htmlFor="endDate" className="text-xs font-medium">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(p => ({...p, endDate: e.target.value}))} /></div>
             <div className="space-y-1">
+              <Label htmlFor="projectStatusFilter" className="text-xs font-medium">项目状态</Label>
+              <Select value={projectStatusFilter} onValueChange={setProjectStatusFilter}>
+                <SelectTrigger id="projectStatusFilter"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="进行中">进行中</SelectItem>
+                  <SelectItem value="已完成">已完成</SelectItem>
+                  <SelectItem value="所有状态">所有状态</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="projectFilter" className="text-xs font-medium">项目筛选</Label>
               <Select value={filterInputs.projectId} onValueChange={(val) => setFilterInputs(p => ({...p, projectId: val}))}>
                 <SelectTrigger id="projectFilter"><SelectValue /></SelectTrigger>
@@ -222,8 +238,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ★★★ 核心修改 #3: 重构汇总卡片UI ★★★ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <Card>
           <CardContent className="flex items-center p-6">
             <div className="p-3 bg-blue-100 rounded-lg mr-4"><Package className="h-6 w-6 text-blue-600" /></div>
@@ -233,6 +248,26 @@ export default function Home() {
             </div>
           </CardContent>
         </Card>
+        
+        {dashboardData?.totalQuantityByType && Object.entries(dashboardData.totalQuantityByType)
+          .sort(([keyA], [keyB]) => parseInt(keyA) - parseInt(keyB))
+          .map(([typeId, total]) => {
+            const typeInfo = BILLING_TYPE_MAP[typeId as keyof typeof BILLING_TYPE_MAP];
+            if (!typeInfo || total <= 0) return null;
+            const Icon = typeInfo.icon;
+            return (
+              <Card key={typeId}>
+                <CardContent className="flex items-center p-6">
+                  <div className={`p-3 ${typeInfo.bgColor} rounded-lg mr-4`}><Icon className={`h-6 w-6 ${typeInfo.color}`} /></div>
+                  <div className="flex flex-col">
+                    <p className={`text-sm font-bold ${typeInfo.color}`}>{typeInfo.name}总量</p>
+                    <p className="text-2xl font-bold">{total.toFixed(2)} <span className="text-base font-normal">{typeInfo.unit}</span></p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+        })}
+
         <Card>
           <CardContent className="flex items-center p-6">
             <div className="p-3 bg-yellow-100 rounded-lg mr-4"><TrendingUp className="h-6 w-6 text-yellow-600" /></div>
@@ -262,8 +297,7 @@ export default function Home() {
           return (
             <Card key={typeId}>
               <CardHeader className="flex flex-row items-center justify-between">
-                {/* ★★★ 核心修改 #4: 调整图表卡片标题格式 ★★★ */}
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 flex-wrap">
                   {typeInfo.icon && <typeInfo.icon className="h-5 w-5" />}
                   <span>{selectedProjectName}</span>
                   <span className="font-bold">({typeInfo.name})</span>
