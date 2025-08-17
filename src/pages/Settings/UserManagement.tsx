@@ -243,7 +243,8 @@ export default function UserManagement() {
       finance: '财务',
       business: '业务',
       operator: '操作员',
-      partner: '合作方'
+      partner: '合作方',
+      viewer: '查看组'
     };
     return roleMap[role] || role;
   };
@@ -254,7 +255,8 @@ export default function UserManagement() {
       finance: 'default',
       business: 'secondary',
       operator: 'outline',
-      partner: 'default'
+      partner: 'default',
+      viewer: 'secondary'
     } as const;
     return variantMap[role] || 'default';
   };
@@ -315,6 +317,7 @@ export default function UserManagement() {
                     <SelectItem value="business">业务</SelectItem>
                     <SelectItem value="operator">操作员</SelectItem>
                     <SelectItem value="partner">合作方</SelectItem>
+                    <SelectItem value="viewer">查看组</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -377,6 +380,7 @@ export default function UserManagement() {
                         <SelectItem value="business">业务</SelectItem>
                         <SelectItem value="operator">操作员</SelectItem>
                         <SelectItem value="partner">合作方</SelectItem>
+                        <SelectItem value="viewer">查看组</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>

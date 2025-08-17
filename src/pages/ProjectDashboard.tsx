@@ -246,9 +246,9 @@ export default function ProjectDashboard() {
                     <YAxis yAxisId="right-cost" orientation="right" stroke="#f59e0b" label={{ value: '元', angle: -90, position: 'insideRight', fill: '#f59e0b' }} />
                     <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '数量' ? unitConfig.unit : '元'}`, name]} />
                     <Legend 
-                      onClick={(e) => handleLegendClick(e.dataKey)} 
-                      formatter={(value, entry) => {
-                        const { dataKey } = entry;
+                      onClick={(e: any) => handleLegendClick(e.dataKey as string)} 
+                      formatter={(value, entry: any) => {
+                        const dataKey = entry.dataKey as string;
                         const isVisible = visibleLines[dataKey as keyof typeof visibleLines];
                         return <span style={{ textDecoration: isVisible ? 'none' : 'line-through', color: isVisible ? '#333' : '#aaa' }}>{value}</span>;
                       }}

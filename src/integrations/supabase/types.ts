@@ -1019,6 +1019,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      create_single_logistics_record: {
+        Args: { p_record: Json }
+        Returns: Json
+      }
       create_waybill_with_check: {
         Args: {
           p_cooperative_partner: string
@@ -1038,6 +1042,34 @@ export type Database = {
       delete_records_by_project_name: {
         Args: { p_project_name: string }
         Returns: string
+      }
+      fetch_comprehensive_project_report: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Json
+      }
+      fetch_comprehensive_project_report_final_v2: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Json
+      }
+      fetch_comprehensive_project_report_final_v3: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Json
+      }
+      fetch_comprehensive_project_report_final_v4: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Json
+      }
+      fetch_comprehensive_project_report_final_v5: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Json
+      }
+      fetch_comprehensive_project_report_v2: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Json
+      }
+      fetch_comprehensive_project_report_v3: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Json
       }
       generate_auto_number: {
         Args: { loading_date_input: string }
@@ -1097,21 +1129,24 @@ export type Database = {
         Args: { p_project_id: string }
         Returns: string[]
       }
-      get_drivers_paginated: {
-        Args: {
-          p_page_number: number
-          p_page_size: number
-          p_search_text: string
-        }
+      get_drivers_for_project: {
+        Args: { p_project_id: string }
         Returns: {
-          created_at: string
           id: string
           license_plate: string
           name: string
           phone: string
-          project_ids: string[]
-          total_records: number
         }[]
+      }
+      get_drivers_paginated: {
+        Args:
+          | { p_filter: string; p_page_number: number; p_page_size: number }
+          | {
+              p_page_number: number
+              p_page_size: number
+              p_search_text: string
+            }
+        Returns: Database["public"]["CompositeTypes"]["paginated_drivers_result"]
       }
       get_filtered_logistics_records_fixed: {
         Args: {
@@ -1201,6 +1236,13 @@ export type Database = {
       get_financial_overview: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      get_locations_for_project: {
+        Args: { p_project_id: string }
+        Returns: {
+          id: string
+          name: string
+        }[]
       }
       get_logistics_records_paginated: {
         Args: {
@@ -1479,6 +1521,26 @@ export type Database = {
         Args: { p_report_date: string; p_selected_project_id: string }
         Returns: Json
       }
+      get_project_dashboard_data_bak0817: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Json
+      }
+      get_project_dashboard_data_final: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Json
+      }
+      get_project_dashboard_data_v2: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Database["public"]["CompositeTypes"]["dashboard_data_type_v2"]
+      }
+      get_project_dashboard_data_v3: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Json
+      }
+      get_project_dashboard_data_v8: {
+        Args: { p_report_date: string; p_selected_project_id: string }
+        Returns: Json
+      }
       get_project_drivers_with_details: {
         Args: { p_project_id: string }
         Returns: {
@@ -1664,6 +1726,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_single_logistics_record: {
+        Args: { p_record: Json; p_record_id: string }
+        Returns: Json
+      }
       upsert_logistics_record: {
         Args: {
           p_chain_id: string
@@ -1693,9 +1759,23 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "finance" | "business" | "partner" | "operator"
+      app_role:
+        | "admin"
+        | "finance"
+        | "business"
+        | "partner"
+        | "operator"
+        | "viewer"
     }
     CompositeTypes: {
+      dashboard_data_type_v2: {
+        project_details: Json | null
+        daily_report: Json | null
+        seven_day_trend: Json | null
+        summary_stats: Json | null
+        driver_report_table: Json | null
+        daily_logistics_records: Json | null
+      }
       logistics_data_import_type: {
         project_id: string | null
         chain_id: string | null
@@ -1710,6 +1790,10 @@ export type Database = {
         extra_cost: number | null
         transport_type: string | null
         remarks: string | null
+      }
+      paginated_drivers_result: {
+        drivers: Json | null
+        total_count: number | null
       }
       partner_chain_type: {
         id: string | null
@@ -1897,7 +1981,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "finance", "business", "partner", "operator"],
+      app_role: [
+        "admin",
+        "finance",
+        "business",
+        "partner",
+        "operator",
+        "viewer",
+      ],
     },
   },
 } as const

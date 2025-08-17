@@ -194,7 +194,7 @@ export class SupabaseStorage {
     }
     
     // The function returns an array of driver objects with total_records
-    if (data && data.length > 0) {
+    if (data && Array.isArray(data) && data.length > 0) {
       return {
         drivers: data.map((d: any) => ({
           id: d.id,

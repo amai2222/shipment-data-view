@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 // 定义用户角色类型，确保类型安全
-export type UserRole = 'admin' | 'finance' | 'business' | 'partner' | 'operator';
+export type UserRole = 'admin' | 'finance' | 'business' | 'partner' | 'operator' | 'viewer';
 
 // 定义用户档案的完整接口
 export interface UserProfile {

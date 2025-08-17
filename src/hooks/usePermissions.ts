@@ -63,6 +63,16 @@ export function usePermissions() {
       canCreateRecords: false,
       canDeleteRecords: false,
     },
+    viewer: {
+      canViewFinance: true,
+      canManageProjects: false,
+      canManagePartners: false,
+      canExportData: true,
+      canManageUsers: false,
+      canViewAllRecords: true,
+      canCreateRecords: false,
+      canDeleteRecords: false,
+    },
   };
 
   const permissions = profile ? rolePermissions[profile.role] : null;
@@ -76,5 +86,6 @@ export function usePermissions() {
     isBusiness: profile?.role === 'business',
     isOperator: profile?.role === 'operator',
     isPartner: profile?.role === 'partner',
+    isViewer: profile?.role === 'viewer',
   };
 }
