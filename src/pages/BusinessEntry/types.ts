@@ -1,4 +1,4 @@
-// 最终文件路径: src/pages/BusinessEntry/types.ts
+// 正确路径: src/pages/BusinessEntry/types.ts
 
 // 数据库原始记录类型
 export interface LogisticsRecord {
@@ -27,6 +27,9 @@ export interface LogisticsRecord {
   remarks: string | null;
   created_at?: string;
 }
+
+// [核心移除] - LogisticsFormData 类型已不再需要
+// export type LogisticsFormData = { ... };
 
 // 根据您提供的完整结构图，更新 Project 类型
 export interface Project {
@@ -67,23 +70,14 @@ export interface PaginationState {
   totalCount: number;
 }
 
-// ★★★ 修改后的导入预览类型 ★★★
-// 描述: 此类型已更新以支持新的V2导入流程。
-//       - `duplicate_records` 现在包含 `existing_record` 字段，用于在UI中进行并排比较。
-//       - `error_records` 的类型更加具体，以提供更好的开发体验。
+// 导入预览的类型
 export interface ImportPreviewResult {
   new_records: { record: any }[];
-  duplicate_records: {
-    record: any; // 来自Excel的新记录
-    existing_record: any; // 数据库中匹配到的现有记录
-  }[];
-  error_records: {
-    record: any; // 导致错误的原始记录
-    error: string; // 错误信息
-  }[];
+  duplicate_records: { record: any }[];
+  error_records: any[];
 }
 
-// 导入失败详情（用于最终导入后的日志展示）
+// 导入失败详情（用于日志展示）
 export interface ImportFailure {
   row_index: number;
   data: any;

@@ -1,17 +1,15 @@
 // 最终文件路径: src/pages/BusinessEntry/hooks/useExcelImport.ts
-// 描述: 此版本调用新的V2后端函数，实现了更优的性能和更强的用户交互。
+// 版本: TWfN8-FINAL-IGNITION-RESTORATION-V2 (增加表头校验)
+// 描述: 此版本在原基础上增加了前置的 Excel 表头校验逻辑。
+//       在解析数据前，系统会先检查所有必需的列名是否存在，
+//       如果缺少关键列，会立即终止并提示用户，
+//       从而彻底防止因列名错误导致的静默失败或数据错位问题。
 
 import { useState, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ImportPreviewResult } from '../types';
-
-// ★★★ 新增：定义用户对重复记录的处理决策 ★★★
-export type DuplicateResolution = 'overwrite' | 'skip' | 'new';
-export interface DuplicateResolutions {
-  [index: number]: DuplicateResolution;
-}
+import { ImportPreviewResult, ImportFailure } from '../types';
 
 const parseExcelDate = (excelDate: any): string | null => {
   if (excelDate === null || excelDate === undefined || excelDate === '') return null;
@@ -38,15 +36,13 @@ export function useExcelImport(onImportSuccess: () => void) {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importStep, setImportStep] = useState<'idle' | 'preprocessing' | 'preview' | 'confirmation' | 'processing'>('idle');
   const [importPreview, setImportPreview] = useState<ImportPreviewResult | null>(null);
-  const [duplicateResolutions, setDuplicateResolutions] = useState<DuplicateResolutions>({});
+  const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
   const [importLogs, setImportLogs] = useState<string[]>([]);
   const importLogRef = useRef<HTMLDivElement>(null);
 
   const closeImportModal = useCallback(() => {
     setIsImportModalOpen(false); setIsImporting(false); setImportStep('idle');
-    setImportPreview(null); 
-    setDuplicateResolutions({}); 
-    setImportLogs([]);
+    setImportPreview(null); setApprovedDuplicates(new Set()); setImportLogs([]);
   }, []);
 
   const getImportPreview = async (validRows: any[]) => {
@@ -77,8 +73,7 @@ export function useExcelImport(onImportSuccess: () => void) {
         };
       });
 
-      // ★★★ 修改：调用新的 preview_import_v2 函数 ★★★
-      const { data: previewResult, error } = await supabase.rpc('preview_import_v2', { 
+      const { data: previewResult, error } = await supabase.rpc('preview_import_with_duplicates_check', { 
         p_records: recordsToPreview 
       });
       
@@ -87,19 +82,11 @@ export function useExcelImport(onImportSuccess: () => void) {
       if (previewResult && typeof previewResult === 'object' && !Array.isArray(previewResult)) {
         const safePreview = previewResult as unknown as ImportPreviewResult;
         setImportPreview(safePreview);
-        
-        if (safePreview.duplicate_records) {
-          const initialResolutions: DuplicateResolutions = {};
-          safePreview.duplicate_records.forEach((_, index) => {
-            initialResolutions[index] = 'skip'; // 默认跳过
-          });
-          setDuplicateResolutions(initialResolutions);
-        }
-
       } else {
         throw new Error('预览数据格式错误');
       }
       
+      setApprovedDuplicates(new Set());
       setImportStep('confirmation');
     } catch (error: any) {
       toast({ title: "预览失败", description: error.message, variant: "destructive" });
@@ -107,8 +94,8 @@ export function useExcelImport(onImportSuccess: () => void) {
     }
   };
 
+  // ★★★ 函数已修改 ★★★
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    // ... (此函数逻辑保持不变，因为它只负责读取和初步解析文件) ...
     const file = event.target.files?.[0];
     if (!file) return;
     setIsImporting(true);
@@ -118,17 +105,25 @@ export function useExcelImport(onImportSuccess: () => void) {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        // ★★★ 新增：表头校验逻辑开始 ★★★
         const REQUIRED_HEADERS = [
           '项目名称', '司机姓名', '车牌号', '装货地点', '卸货地点', 
           '装货日期', '卸货日期', '装货重量', '卸货重量', '运费金额'
         ];
+        
         const headerRow = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
         const actualHeaders = new Set(headerRow.map(h => h.trim()));
+        
         const missingHeaders = REQUIRED_HEADERS.filter(h => !actualHeaders.has(h));
+
         if (missingHeaders.length > 0) {
           throw new Error(`文件缺少以下必需的列: ${missingHeaders.join(', ')}。请检查模板后重试。`);
         }
+        // ★★★ 新增：表头校验逻辑结束 ★★★
+
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+
         const cleanedJsonData = jsonData.map((row: any) => {
           const cleanedRow: { [key: string]: any } = {};
           for (const key in row) {
@@ -138,6 +133,7 @@ export function useExcelImport(onImportSuccess: () => void) {
           }
           return cleanedRow;
         });
+
         setIsImportModalOpen(true);
         setImportStep('preprocessing');
         const validRows: any[] = [];
@@ -170,59 +166,79 @@ export function useExcelImport(onImportSuccess: () => void) {
       ...prev, 
       `[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] ${message}`
     ]);
+    
+    const finalRecordsToImport = [
+      ...importPreview.new_records.map(item => item.record),
+      ...importPreview.duplicate_records
+        .filter((_, index) => approvedDuplicates.has(index))
+        .map(item => item.record)
+    ];
 
-    const recordsToInsert: any[] = [...importPreview.new_records.map(item => item.record)];
-    const recordsToUpdate: any[] = [];
-
-    importPreview.duplicate_records.forEach((dup, index) => {
-      const resolution = duplicateResolutions[index];
-      const { record: newRecord, existing_record: existingRecord } = dup;
-
-      if (resolution === 'new') {
-        recordsToInsert.push(newRecord);
-      } else if (resolution === 'overwrite') {
-        if (existingRecord && existingRecord.id) {
-          // 将现有记录的ID附加到新记录数据上，以便后端识别
-          recordsToUpdate.push({ ...newRecord, id: existingRecord.id });
-        }
-      }
-    });
-
-    const totalToProcess = recordsToInsert.length + recordsToUpdate.length;
-    if (totalToProcess === 0) {
-      toast({ title: "操作完成", description: "没有需要导入或覆盖的记录。" });
+    if (finalRecordsToImport.length === 0) {
+      toast({ title: "操作完成", description: "没有选中任何需要导入的记录。" });
       setImportStep('confirmation');
       return;
     }
 
-    addLog(`准备处理 ${totalToProcess} 条记录...`);
-    addLog(`其中新增 ${recordsToInsert.length} 条，覆盖 ${recordsToUpdate.length} 条。`);
+    addLog(`准备导入 ${finalRecordsToImport.length} 条记录...`);
+    addLog(`其中新记录 ${importPreview.new_records.length} 条，强制导入重复记录 ${approvedDuplicates.size} 条`);
 
     try {
-      // ★★★ 修改：调用新的 execute_import_v2 函数 ★★★
-      const { data, error } = await supabase.rpc('execute_import_v2', {
-        p_records_to_insert: recordsToInsert,
-        p_records_to_update: recordsToUpdate
+      const { data: result, error } = await supabase.rpc('import_logistics_data', { 
+        p_records: finalRecordsToImport 
       });
-
+      
       if (error) throw error;
+      
+      if (result && typeof result === 'object' && 'success_count' in (result as any) && 'failures' in (result as any)) {
+        const safeResult = (result as unknown) as { success_count: number; failures: ImportFailure[] };
+        const failure_count = safeResult.failures.length;
 
-      const { inserted_count, updated_count } = data;
-      const successCount = (inserted_count || 0) + (updated_count || 0);
-      const failureCount = totalToProcess - successCount;
+        addLog(`导入完成！成功: ${safeResult.success_count}, 失败: ${failure_count}`);
 
-      addLog("---------------- 导入总结 ----------------");
-      addLog(`处理完成！成功: ${successCount}, 失败: ${failureCount}`);
-      toast({
-        title: `导入完成`,
-        description: `成功处理 ${successCount} 条记录，失败 ${failureCount} 条。`,
-        variant: failureCount > 0 ? "destructive" : "default",
-      });
-      if (successCount > 0) onImportSuccess();
-
+        if (failure_count > 0) {
+          addLog("---------------- 失败详情 ----------------");
+          safeResult.failures.forEach(failure => {
+            const rowData = failure.data;
+            const driverInfo = rowData?.driver_name || '未知司机';
+            const dateInfo = rowData?.loading_date || '未知日期';
+            const projectInfo = rowData?.project_name || '未知项目';
+            addLog(`[Excel第 ${failure.row_index} 行] 项目: ${projectInfo}, 司机: ${driverInfo}, 日期: ${dateInfo} => ${failure.error}`);
+          });
+          addLog("------------------------------------------");
+          
+          toast({
+            title: `导入部分完成`,
+            description: `成功导入 ${safeResult.success_count} 条，失败 ${failure_count} 条。详情请查看导入日志。`,
+            variant: failure_count > safeResult.success_count ? "destructive" : "default",
+            duration: 9000
+          });
+        } else {
+          addLog("所有记录导入成功，系统已自动完成以下操作：");
+          addLog("✓ 自动创建新司机和地点信息");
+          addLog("✓ 自动关联司机和地点到对应项目");
+          addLog("✓ 自动计算合作方成本分摊");
+          addLog("✓ 自动生成运单编号");
+          
+          toast({ 
+            title: "导入成功", 
+            description: `共导入 ${safeResult.success_count} 条记录，已完成自动化处理。` 
+          });
+        }
+        
+        if (safeResult.success_count > 0) {
+          onImportSuccess();
+        }
+      } else {
+        throw new Error('导入结果格式与预期不符，收到了非法的响应。');
+      }
     } catch (error: any) {
       addLog(`发生致命错误: ${error.message}`);
-      toast({ title: "导入失败", description: `发生致命错误: ${error.message}`, variant: "destructive" });
+      toast({ 
+        title: "导入失败", 
+        description: `发生致命错误: ${error.message}`, 
+        variant: "destructive" 
+      });
     }
   };
 
@@ -231,12 +247,12 @@ export function useExcelImport(onImportSuccess: () => void) {
     isImportModalOpen,
     importStep,
     importPreview,
-    duplicateResolutions,
-    setDuplicateResolutions,
+    approvedDuplicates,
     importLogs,
     importLogRef,
     handleExcelImport,
     executeFinalImport,
     closeImportModal,
+    setApprovedDuplicates,
   };
 }
