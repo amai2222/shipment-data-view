@@ -54,7 +54,7 @@ export default function Projects() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "",
-    financeManager: "", plannedTotalTons: "",
+    financeManager: "", plannedTotalTons: "", projectStatus: "进行中", cargoType: "货品",
   });
   
   const [selectedChains, setSelectedChains] = useState<{
@@ -103,7 +103,7 @@ export default function Projects() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const resetForm = () => {
-    setFormData({ name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "", financeManager: "", plannedTotalTons: "" });
+    setFormData({ name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "", financeManager: "", plannedTotalTons: "", projectStatus: "进行中", cargoType: "货品" });
     setSelectedChains([]);
     setEditingProject(null);
   };
@@ -118,6 +118,8 @@ export default function Projects() {
       unloadingAddress: project.unloadingAddress,
       financeManager: project.financeManager || "",
       plannedTotalTons: (project.plannedTotalTons != null ? String(project.plannedTotalTons) : ""),
+      projectStatus: (project as any).projectStatus || "进行中",
+      cargoType: (project as any).cargoType || "货品",
     });
     setEditingProject(project);
     
@@ -171,6 +173,8 @@ export default function Projects() {
         unloading_address: formData.unloadingAddress,
         finance_manager: formData.financeManager || null,
         planned_total_tons: formData.plannedTotalTons ? Number(formData.plannedTotalTons) : null,
+        project_status: formData.projectStatus,
+        cargo_type: formData.cargoType,
       };
 
       const chainsPayload = selectedChains.map((chain, index) => ({
@@ -333,8 +337,23 @@ export default function Projects() {
                     <div className="space-y-2"><Label htmlFor="endDate">结束日期 *</Label><Input id="endDate" type="date" value={formData.endDate} onChange={(e) => setFormData(prev => ({...prev, endDate: e.target.value}))} disabled={isSubmitting}/></div>
                     <div className="space-y-2"><Label htmlFor="loadingAddress">装货地址 *</Label><Input id="loadingAddress" value={formData.loadingAddress} onChange={(e) => setFormData(prev => ({...prev, loadingAddress: e.target.value}))} placeholder="请输入装货地址" disabled={isSubmitting}/></div>
                     <div className="space-y-2"><Label htmlFor="unloadingAddress">卸货地址 *</Label><Input id="unloadingAddress" value={formData.unloadingAddress} onChange={(e) => setFormData(prev => ({...prev, unloadingAddress: e.target.value}))} placeholder="请输入卸货地址" disabled={isSubmitting}/></div>
-                    <div className="space-y-2"><Label htmlFor="financeManager">财务负责人</Label><Input id="financeManager" value={formData.financeManager} onChange={(e) => setFormData(prev => ({...prev, financeManager: e.target.value}))} placeholder="请输入财务负责人" disabled={isSubmitting}/></div>
-                    <div className="space-y-2"><Label htmlFor="plannedTotalTons">计划数</Label><Input id="plannedTotalTons" type="number" min="0" step="0.01" value={formData.plannedTotalTons} onChange={(e) => setFormData(prev => ({...prev, plannedTotalTons: e.target.value}))} placeholder="请输入计划数（纯数字）" disabled={isSubmitting}/></div>
+                     <div className="space-y-2"><Label htmlFor="financeManager">财务负责人</Label><Input id="financeManager" value={formData.financeManager} onChange={(e) => setFormData(prev => ({...prev, financeManager: e.target.value}))} placeholder="请输入财务负责人" disabled={isSubmitting}/></div>
+                     <div className="space-y-2"><Label htmlFor="plannedTotalTons">计划数</Label><Input id="plannedTotalTons" type="number" min="0" step="0.01" value={formData.plannedTotalTons} onChange={(e) => setFormData(prev => ({...prev, plannedTotalTons: e.target.value}))} placeholder="请输入计划数（纯数字）" disabled={isSubmitting}/></div>
+                     <div className="space-y-2">
+                       <Label htmlFor="projectStatus">项目状态</Label>
+                       <Select value={formData.projectStatus} onValueChange={(value) => setFormData(prev => ({...prev, projectStatus: value}))} disabled={isSubmitting}>
+                         <SelectTrigger>
+                           <SelectValue placeholder="选择项目状态" />
+                         </SelectTrigger>
+                         <SelectContent>
+                           <SelectItem value="进行中">进行中</SelectItem>
+                           <SelectItem value="已完成">已完成</SelectItem>
+                           <SelectItem value="已暂停">已暂停</SelectItem>
+                           <SelectItem value="已取消">已取消</SelectItem>
+                         </SelectContent>
+                       </Select>
+                     </div>
+                     <div className="space-y-2"><Label htmlFor="cargoType">货物名称</Label><Input id="cargoType" value={formData.cargoType} onChange={(e) => setFormData(prev => ({...prev, cargoType: e.target.value}))} placeholder="请输入货物名称" disabled={isSubmitting}/></div>
                   </div>
                 </div>
                 <div className="space-y-4 border-t pt-4">
