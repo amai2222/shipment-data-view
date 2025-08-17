@@ -117,58 +117,54 @@ export default function ProjectDashboard() {
 
   return (
     <div className="p-6 bg-slate-50 space-y-6">
-      {/* ★★★ 1.1: 调整 Header 背景色为更亮的蓝色 ★★★ */}
-      <div className="bg-blue-500 text-white p-4 rounded-lg shadow-md flex justify-between items-center">
-        <div>
-          <div className="flex items-center">
-            <LayoutDashboard className="h-7 w-7 mr-3" />
-            <h1 className="text-2xl font-bold">项目看板</h1>
-          </div>
-          <p className="text-sm text-blue-200 mt-1 ml-10">项目数据统计与分析</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Select value={projectId || ''} onValueChange={(newId) => navigate(`/project/${newId}`)}>
-            {/* ★★★ 1.2: 调整筛选器为白底黑字样式 ★★★ */}
-            <SelectTrigger className="w-[250px] bg-white text-slate-900 border-slate-300">
-              <SelectValue placeholder="请选择项目..." />
-            </SelectTrigger>
-            <SelectContent>
-              {allProjects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
-            </SelectContent>
-          </Select>
-          <Popover>
-            <PopoverTrigger asChild>
-              {/* ★★★ 1.2: 调整筛选器为白底黑字样式 ★★★ */}
-              <Button variant="outline" className={cn("w-[200px] justify-start text-left font-normal bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-900", !reportDate && "text-slate-500")}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <CalendarComponent mode="single" selected={reportDate} onSelect={(date) => date && setReportDate(date)} initialFocus />
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
+      {/* ★★★ 1. 移除顶部的 Header ★★★ */}
+      {/* The blue header div has been completely removed. */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         <div className="lg:col-span-1">
             <Card className="shadow-sm flex flex-col h-full">
-                <CardHeader>
-                    <CardTitle className="flex items-center text-lg">
-                        <Target className="mr-2 h-5 w-5 text-blue-500"/>
-                        <span className="text-blue-500">项目进度</span>
-                        <span className="ml-1 text-base font-normal text-slate-600">({selectedProjectDetails.name})</span>
-                    </CardTitle>
-                    <p className="text-sm text-slate-500 pt-1">{selectedProjectDetails.partner_name}</p>
+                {/* ★★★ 2. 将筛选器移动到此 CardHeader 中 ★★★ */}
+                <CardHeader className="flex flex-row justify-between items-start">
+                    <div>
+                        <CardTitle className="flex items-center text-lg">
+                            <Target className="mr-2 h-5 w-5 text-blue-500"/>
+                            <span className="text-blue-500">项目进度</span>
+                            <span className="ml-1 text-base font-normal text-slate-600">({selectedProjectDetails.name})</span>
+                        </CardTitle>
+                        <p className="text-sm text-slate-500 pt-1">{selectedProjectDetails.partner_name}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <Select value={projectId || ''} onValueChange={(newId) => navigate(`/project/${newId}`)}>
+                            <SelectTrigger className="w-[180px] bg-white text-slate-900 border-slate-300">
+                                <SelectValue placeholder="请选择项目..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allProjects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+                            </SelectContent>
+                        </Select>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className={cn("w-[150px] justify-start text-left font-normal bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-900", !reportDate && "text-slate-500")}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <CalendarComponent mode="single" selected={reportDate} onSelect={(date) => date && setReportDate(date)} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
                 </CardHeader>
-                <CardContent className="flex-grow flex flex-col justify-center items-center space-y-4">
+                {/* ★★★ 3. 调整 CardContent 布局以最大化环形图 ★★★ */}
+                <CardContent className="flex-grow flex flex-col justify-between p-4">
                     <div className="flex justify-between text-sm text-slate-600 w-full">
                         <span>进度 ({unitConfig.unit})</span>
                         <span className="font-semibold">{progressPercentage.toFixed(1)}%</span>
                     </div>
-                    <div className="w-36 h-36">
-                        <CircularProgressChart value={progressPercentage} />
+                    <div className="flex-grow flex justify-center items-center my-2">
+                        <div className="w-full h-full max-w-[220px] max-h-[220px]">
+                            <CircularProgressChart value={progressPercentage} />
+                        </div>
                     </div>
                     <div className="w-full">
                         <Progress value={progressPercentage} />
