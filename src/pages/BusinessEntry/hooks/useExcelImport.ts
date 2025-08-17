@@ -1,9 +1,9 @@
 // 最终文件路径: src/pages/BusinessEntry/hooks/useExcelImport.ts
-// 版本: TWfN8-FINAL-IGNITION-RESTORATION (已修复 NaN 解析问题)
-// 描述: 此版本修复了重量字段的解析逻辑。通过在 parseFloat 之后
-//       增加 isNaN() 校验，确保只有当单元格内容为有效数字时才进行导入，
-//       对于空值、'-' 或其他非数字文本，则正确地将其处理为 null，
-//       解决了部分行“装货重量”丢失的问题。
+// 版本: TWfN8-FINAL-IGNITION-RESTORATION-V2 (增加表头校验)
+// 描述: 此版本在原基础上增加了前置的 Excel 表头校验逻辑。
+//       在解析数据前，系统会先检查所有必需的列名是否存在，
+//       如果缺少关键列，会立即终止并提示用户，
+//       从而彻底防止因列名错误导致的静默失败或数据错位问题。
 
 import { useState, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
@@ -49,7 +49,6 @@ export function useExcelImport(onImportSuccess: () => void) {
     setImportStep('preview');
     try {
       const recordsToPreview = validRows.map(rowData => {
-        // [修复] 先解析，再校验 NaN，确保健壮性
         const parsedLoadingWeight = parseFloat(rowData['装货重量']);
         const parsedUnloadingWeight = parseFloat(rowData['卸货重量']);
         const parsedCurrentCost = parseFloat(rowData['运费金额']);
@@ -95,6 +94,7 @@ export function useExcelImport(onImportSuccess: () => void) {
     }
   };
 
+  // ★★★ 函数已修改 ★★★
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -105,6 +105,23 @@ export function useExcelImport(onImportSuccess: () => void) {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        // ★★★ 新增：表头校验逻辑开始 ★★★
+        const REQUIRED_HEADERS = [
+          '项目名称', '司机姓名', '车牌号', '装货地点', '卸货地点', 
+          '装货日期', '卸货日期', '装货重量', '卸货重量', '运费金额'
+        ];
+        
+        const headerRow = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
+        const actualHeaders = new Set(headerRow.map(h => h.trim()));
+        
+        const missingHeaders = REQUIRED_HEADERS.filter(h => !actualHeaders.has(h));
+
+        if (missingHeaders.length > 0) {
+          throw new Error(`文件缺少以下必需的列: ${missingHeaders.join(', ')}。请检查模板后重试。`);
+        }
+        // ★★★ 新增：表头校验逻辑结束 ★★★
+
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
         const cleanedJsonData = jsonData.map((row: any) => {
@@ -131,7 +148,7 @@ export function useExcelImport(onImportSuccess: () => void) {
         }
         await getImportPreview(validRows);
       } catch (error: any) {
-        toast({ title: "错误", description: `文件读取失败: ${error.message}`, variant: "destructive" });
+        toast({ title: "文件格式错误", description: `${error.message}`, variant: "destructive" });
         closeImportModal();
       } finally {
         if (event.target) event.target.value = '';
