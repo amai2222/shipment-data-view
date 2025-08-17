@@ -117,25 +117,24 @@ export default function ProjectDashboard() {
 
   return (
     <div className="p-6 bg-slate-50 space-y-6">
-      {/* ★★★ 1. 移除顶部的 Header ★★★ */}
-      {/* The blue header div has been completely removed. */}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-        <div className="lg:col-span-1">
+      {/* ★★★ 2.1: 调整网格布局以适应新的卡片尺寸 ★★★ */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
+        {/* ★★★ 2.2: 调整项目进度卡片的列宽 ★★★ */}
+        <div className="lg:col-span-2">
             <Card className="shadow-sm flex flex-col h-full">
-                {/* ★★★ 2. 将筛选器移动到此 CardHeader 中 ★★★ */}
-                <CardHeader className="flex flex-row justify-between items-start">
-                    <div>
-                        <CardTitle className="flex items-center text-lg">
+                {/* ★★★ 2.3: 调整 CardHeader 布局防止换行 ★★★ */}
+                <CardHeader className="flex flex-row justify-between items-center space-x-4">
+                    <div className="flex-shrink-0">
+                        <CardTitle className="flex items-center text-lg whitespace-nowrap">
                             <Target className="mr-2 h-5 w-5 text-blue-500"/>
                             <span className="text-blue-500">项目进度</span>
                             <span className="ml-1 text-base font-normal text-slate-600">({selectedProjectDetails.name})</span>
                         </CardTitle>
                         <p className="text-sm text-slate-500 pt-1">{selectedProjectDetails.partner_name}</p>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                         <Select value={projectId || ''} onValueChange={(newId) => navigate(`/project/${newId}`)}>
-                            <SelectTrigger className="w-[180px] bg-white text-slate-900 border-slate-300">
+                            <SelectTrigger className="w-auto min-w-[150px] bg-white text-slate-900 border-slate-300">
                                 <SelectValue placeholder="请选择项目..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -144,7 +143,7 @@ export default function ProjectDashboard() {
                         </Select>
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" className={cn("w-[150px] justify-start text-left font-normal bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-900", !reportDate && "text-slate-500")}>
+                                <Button variant="outline" className={cn("w-auto min-w-[130px] justify-start text-left font-normal bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-900", !reportDate && "text-slate-500")}>
                                     <CalendarIcon className="mr-2 h-4 w-4" />
                                     {reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}
                                 </Button>
@@ -155,16 +154,15 @@ export default function ProjectDashboard() {
                         </Popover>
                     </div>
                 </CardHeader>
-                {/* ★★★ 3. 调整 CardContent 布局以最大化环形图 ★★★ */}
-                <CardContent className="flex-grow flex flex-col justify-between p-4">
+                {/* ★★★ 1.1: 修复环形图显示问题 ★★★ */}
+                <CardContent className="flex-grow flex flex-col justify-center items-center p-4 space-y-4">
                     <div className="flex justify-between text-sm text-slate-600 w-full">
                         <span>进度 ({unitConfig.unit})</span>
                         <span className="font-semibold">{progressPercentage.toFixed(1)}%</span>
                     </div>
-                    <div className="flex-grow flex justify-center items-center my-2">
-                        <div className="w-full h-full max-w-[220px] max-h-[220px]">
-                            <CircularProgressChart value={progressPercentage} />
-                        </div>
+                    {/* ★★★ 1.2: 为环形图提供一个固定高宽比的容器 ★★★ */}
+                    <div className="w-full max-w-[200px] aspect-square">
+                        <CircularProgressChart value={progressPercentage} />
                     </div>
                     <div className="w-full">
                         <Progress value={progressPercentage} />
@@ -175,7 +173,8 @@ export default function ProjectDashboard() {
                 </CardContent>
             </Card>
         </div>
-        <div className="lg:col-span-2">
+        {/* ★★★ 2.2: 调整日报与汇总卡片的列宽 ★★★ */}
+        <div className="lg:col-span-3">
             <Card className="shadow-sm flex flex-col h-full">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center text-lg">
@@ -228,7 +227,7 @@ export default function ProjectDashboard() {
               </CardContent>
             </Card>
         </div>
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-5">
             <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
@@ -262,7 +261,7 @@ export default function ProjectDashboard() {
               </CardContent>
             </Card>
         </div>
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-5">
             <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
