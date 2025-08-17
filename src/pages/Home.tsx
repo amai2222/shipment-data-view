@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [V2.2 最终修复版] 修正了RPC函数的调用方式，解决了 "is not a function" 的运行时错误。
+// 描述: [V2.3 最终恢复版] 恢复了“运输日报”总览图表，并修复了RPC调用。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,9 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { BarChart3, TrendingUp, Truck, Package, Eye, RefreshCw, Search, ChevronLeft, ChevronRight, Cuboid } from "lucide-react";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Project, LogisticsRecord } from "@/types";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { useToast } from "@/hooks/use-toast";
-// ★★★ 核心修复点 1: 必须导入原始的 supabase 客户端 ★★★
 import { supabase } from "@/integrations/supabase/client";
 
 // --- 类型定义 ---
@@ -29,11 +28,15 @@ const BILLING_TYPE_MAP = {
 interface DailyStat { date: string; actualTransport: number; returns: number; }
 interface DailyStatsGroup { stats: DailyStat[]; totalActual: number; totalReturns: number; }
 interface DailyCostStat { date: string; totalCost: number; }
+// ★★★ 新增类型定义 ★★★
+interface DailyCountStat { date: string; count: number; }
 interface OverviewStats { totalRecords: number; totalCost: number; actualTransportCount: number; returnCount: number; }
 interface DashboardDataV2 {
   overview: OverviewStats;
   daily_stats_by_type: { [key in '1' | '2' | '3']?: DailyStatsGroup };
   dailyCostStats: DailyCostStat[];
+  // ★★★ 新增类型定义 ★★★
+  dailyCountStats: DailyCountStat[];
 }
 
 // --- 辅助函数 ---
@@ -75,7 +78,6 @@ export default function Home() {
     if (!isInitialLoad) setIsSearching(true);
     else setIsLoading(true);
     try {
-      // ★★★ 核心修复点 2: 必须使用原始的 supabase 客户端调用 rpc ★★★
       const { data, error } = await supabase.rpc('get_dashboard_stats_v2', {
         p_start_date: filterInputs.startDate,
         p_end_date: filterInputs.endDate,
@@ -102,7 +104,6 @@ export default function Home() {
       const endDate = dialogFilter.date ? dialogFilter.date : filterInputs.endDate;
       const offset = (page - 1) * dialogPagination.pageSize;
 
-      // 此处调用是正确的，因为它调用的是我们封装好的方法
       const { records, totalCount } = await SupabaseStorage.getFilteredLogisticsRecords(
         projectId, undefined, startDate, endDate, 
         dialogPagination.pageSize, offset, 
@@ -223,6 +224,28 @@ export default function Home() {
           );
         })}
 
+        {/* ★★★ 这里是恢复的“运输日报”图表 ★★★ */}
+        {dashboardData?.dailyCountStats && dashboardData.dailyCountStats.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle>{selectedProjectName} - 运输日报</CardTitle></CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dashboardData.dailyCountStats.filter(d => d.count > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} />
+                    <YAxis allowDecimals={false} domain={[0, 'dataMax + 1']} />
+                    <Tooltip labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} formatter={(val) => [`${val} 次`, '运输次数']} />
+                    <Legend formatter={() => `运输次数 (总计 ${dashboardData.overview.totalRecords} 次)`} wrapperStyle={{ paddingTop: '20px' }} />
+                    <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? val.toString() : '' }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 这是原有的“每日运输费用分析”图表 */}
         {dashboardData?.dailyCostStats && dashboardData.dailyCostStats.length > 0 && (
           <Card>
             <CardHeader><CardTitle>{selectedProjectName} - 每日运输费用分析</CardTitle></CardHeader>
