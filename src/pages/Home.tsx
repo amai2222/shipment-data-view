@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [V2.4 最终功能增强版] 实现了总览图表点击交互，并优化了卡片标题样式。
+// 描述: [V2.6 最终版] 优化了详情弹窗的显示，将单位从表头移至每行数据后。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,7 +64,6 @@ export default function Home() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [dialogRecords, setDialogRecords] = useState<LogisticsRecord[]>([]);
   const [isDialogLoading, setIsDialogLoading] = useState(false);
-  // ★★★ 核心修改 #1: dialogFilter 的 billingTypeId 现在可以是 null ★★★
   const [dialogFilter, setDialogFilter] = useState<{ projectId: string | null; date: string | null; billingTypeId: keyof typeof BILLING_TYPE_MAP | null }>({ projectId: null, date: null, billingTypeId: null });
   const [dialogPagination, setDialogPagination] = useState({ currentPage: 1, pageSize: 15, totalCount: 0 });
 
@@ -84,7 +83,8 @@ export default function Home() {
       });
       if (error) throw error;
       setDashboardData(data);
-    } catch (err: any) {
+    } catch (err: any)
+    {
       console.error('获取看板数据失败:', err);
       toast({ title: "数据加载失败", description: err.message, variant: "destructive" });
     } finally {
@@ -101,7 +101,6 @@ export default function Home() {
       const startDate = dialogFilter.date ? dialogFilter.date : filterInputs.startDate;
       const endDate = dialogFilter.date ? dialogFilter.date : filterInputs.endDate;
       const offset = (page - 1) * dialogPagination.pageSize;
-      // ★★★ 核心修改 #2: 允许 billingTypeId 为空，以查询所有类型 ★★★
       const typeId = dialogFilter.billingTypeId ? parseInt(dialogFilter.billingTypeId, 10) : undefined;
 
       const { records, totalCount } = await SupabaseStorage.getFilteredLogisticsRecords(
@@ -156,7 +155,6 @@ export default function Home() {
     setIsDetailDialogOpen(true);
   }, [filterInputs.projectId]);
 
-  // ★★★ 核心修改 #3: 为总览图表新增事件处理器 ★★★
   const handleOverviewChartClick = useCallback((data: any) => {
     if (data?.activePayload?.[0]) {
       const clickedDate = data.activePayload[0].payload.date;
@@ -179,7 +177,6 @@ export default function Home() {
   }, [filterInputs.projectId, projects]);
 
   const totalDialogPages = Math.ceil(dialogPagination.totalCount / dialogPagination.pageSize);
-  const dialogUnit = dialogFilter.billingTypeId ? BILLING_TYPE_MAP[dialogFilter.billingTypeId]?.unit : '数量';
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen"><RefreshCw className="h-8 w-8 animate-spin" /><span className="ml-2">正在初始化...</span></div>;
@@ -196,7 +193,16 @@ export default function Home() {
           <div className="flex items-end gap-2 flex-wrap">
             <div className="space-y-1"><Label htmlFor="startDate" className="text-xs font-medium">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(p => ({...p, startDate: e.target.value}))} /></div>
             <div className="space-y-1"><Label htmlFor="endDate" className="text-xs font-medium">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(p => ({...p, endDate: e.target.value}))} /></div>
-            <div className="space-y-1"><Label htmlFor="projectFilter" className="text-xs font-medium">项目筛选</Label><Select value={filterInputs.projectId} onValueChange={(val) => setFilterInputs(p => ({...p, projectId: val}))}><SelectTrigger id="projectFilter"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
+            <div className="space-y-1">
+              <Label htmlFor="projectFilter" className="text-xs font-medium">项目筛选</Label>
+              <Select value={filterInputs.projectId} onValueChange={(val) => setFilterInputs(p => ({...p, projectId: val}))}>
+                <SelectTrigger id="projectFilter"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">所有项目</SelectItem>
+                  {projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={() => handleSearch(false)} disabled={isSearching}>{isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}{isSearching ? '搜索中...' : '搜索'}</Button>
           </div>
         </div>
@@ -217,7 +223,6 @@ export default function Home() {
           return (
             <Card key={typeId}>
               <CardHeader className="flex flex-row items-center justify-between">
-                {/* ★★★ 核心修改 #4: 调整卡片标题样式 ★★★ */}
                 <CardTitle className="flex items-center gap-2">
                   {typeInfo.icon && <typeInfo.icon className="h-5 w-5" />}
                   <span className="text-base font-medium text-muted-foreground">({typeInfo.name})</span>
@@ -250,7 +255,6 @@ export default function Home() {
             <CardContent>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  {/* ★★★ 核心修改 #5: 为“运输日报”图表绑定点击事件 ★★★ */}
                   <LineChart data={dashboardData.dailyCountStats.filter(d => d.count > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleOverviewChartClick}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} />
@@ -271,7 +275,6 @@ export default function Home() {
             <CardContent>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  {/* ★★★ 核心修改 #6: 为“费用分析”图表绑定点击事件 ★★★ */}
                   <BarChart data={dashboardData.dailyCostStats.filter(d => d.totalCost > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleOverviewChartClick}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} />
@@ -290,7 +293,6 @@ export default function Home() {
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
           <DialogHeader>
-            {/* ★★★ 核心修改 #7: 动态调整弹窗标题 ★★★ */}
             <DialogTitle className="flex items-center">
               <Eye className="mr-2" />
               {dialogFilter.date ? `${new Date(dialogFilter.date).toLocaleDateString('zh-CN')} 详细记录` : `全部筛选结果`} 
@@ -305,24 +307,36 @@ export default function Home() {
               <TableHeader><TableRow>
                 <TableHead>运单号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>车牌</TableHead>
                 <TableHead>装货地</TableHead><TableHead>卸货地</TableHead>
-                {/* ★★★ 核心修改 #8: 动态调整弹窗表头 ★★★ */}
-                <TableHead>装货量 ({dialogUnit})</TableHead>
-                <TableHead>卸货量 ({dialogUnit})</TableHead>
+                {/* ★★★ 核心修改 #1: 简化表头，移除单位 ★★★ */}
+                <TableHead>装货量</TableHead>
+                <TableHead>卸货量</TableHead>
                 <TableHead>类型</TableHead><TableHead>司机应收</TableHead><TableHead>备注</TableHead>
               </TableRow></TableHeader>
               <TableBody>
-                {dialogRecords.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>{record.autoNumber}</TableCell><TableCell>{record.projectName || '-'}</TableCell>
-                    <TableCell>{record.driverName}</TableCell><TableCell>{record.licensePlate}</TableCell>
-                    <TableCell>{record.loadingLocation}</TableCell><TableCell>{record.unloadingLocation}</TableCell>
-                    <TableCell>{record.loadingWeight?.toFixed(2) || '-'}</TableCell>
-                    <TableCell>{record.unloadingWeight?.toFixed(2) || '-'}</TableCell>
-                    <TableCell><span className={`px-2 py-1 rounded-full text-xs ${record.transportType === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transportType}</span></TableCell>
-                    <TableCell>{formatCurrency(record.payableFee)}</TableCell>
-                    <TableCell className="max-w-[120px] truncate" title={record.remarks}>{record.remarks || '-'}</TableCell>
-                  </TableRow>
-                ))}
+                {dialogRecords.map((record) => {
+                  // ★★★ 核心修改 #2: 为每一行动态获取单位 ★★★
+                  const unit = record.billing_type_id 
+                    ? BILLING_TYPE_MAP[record.billing_type_id.toString() as keyof typeof BILLING_TYPE_MAP]?.unit || '' 
+                    : '';
+                  
+                  return (
+                    <TableRow key={record.id}>
+                      <TableCell>{record.autoNumber}</TableCell><TableCell>{record.projectName || '-'}</TableCell>
+                      <TableCell>{record.driverName}</TableCell><TableCell>{record.licensePlate}</TableCell>
+                      <TableCell>{record.loadingLocation}</TableCell><TableCell>{record.unloadingLocation}</TableCell>
+                      {/* ★★★ 核心修改 #3: 在数值后附加单位 ★★★ */}
+                      <TableCell>
+                        {record.loadingWeight != null ? `${record.loadingWeight.toFixed(2)} ${unit}`.trim() : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {record.unloadingWeight != null ? `${record.unloadingWeight.toFixed(2)} ${unit}`.trim() : '-'}
+                      </TableCell>
+                      <TableCell><span className={`px-2 py-1 rounded-full text-xs ${record.transportType === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transportType}</span></TableCell>
+                      <TableCell>{formatCurrency(record.payableFee)}</TableCell>
+                      <TableCell className="max-w-[120px] truncate" title={record.remarks}>{record.remarks || '-'}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           ) : (<div className="flex items-center justify-center h-full text-muted-foreground">没有符合条件的记录</div>)}
