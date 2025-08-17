@@ -96,44 +96,17 @@ export class SupabaseStorage {
 
       return (data as any) || {
         overview: {
-          totalRecords: 0,
-          totalWeight: 0,
-          totalVolume: 0,
-          totalTrips: 0,
-          totalCost: 0,
-          actualTransportCount: 0,
-          returnCount: 0,
-          weightRecordsCount: 0,
-          tripRecordsCount: 0,
-          volumeRecordsCount: 0
+          totalRecords: 0, totalWeight: 0, totalVolume: 0, totalTrips: 0, totalCost: 0, actualTransportCount: 0, returnCount: 0, weightRecordsCount: 0, tripRecordsCount: 0, volumeRecordsCount: 0
         },
-        dailyTransportStats: [],
-        dailyTripStats: [],
-        dailyVolumeStats: [],
-        dailyCostStats: [],
-        dailyCountStats: []
+        dailyTransportStats: [], dailyTripStats: [], dailyVolumeStats: [], dailyCostStats: [], dailyCountStats: []
       };
     } catch (error) {
       console.error('Dashboard stats error:', error);
-      // 返回默认数据而不是抛出错误，避免阻塞加载
       return {
         overview: {
-          totalRecords: 0,
-          totalWeight: 0,
-          totalVolume: 0,
-          totalTrips: 0,
-          totalCost: 0,
-          actualTransportCount: 0,
-          returnCount: 0,
-          weightRecordsCount: 0,
-          tripRecordsCount: 0,
-          volumeRecordsCount: 0
+          totalRecords: 0, totalWeight: 0, totalVolume: 0, totalTrips: 0, totalCost: 0, actualTransportCount: 0, returnCount: 0, weightRecordsCount: 0, tripRecordsCount: 0, volumeRecordsCount: 0
         },
-        dailyTransportStats: [],
-        dailyTripStats: [],
-        dailyVolumeStats: [],
-        dailyCostStats: [],
-        dailyCountStats: []
+        dailyTransportStats: [], dailyTripStats: [], dailyVolumeStats: [], dailyCostStats: [], dailyCountStats: []
       };
     }
   }
@@ -168,20 +141,7 @@ export class SupabaseStorage {
     };
   }
 
-  // ==================================================================
-  // 【【【 核心修复逻辑在这里 】】】
-  // ==================================================================
-  // 司机相关
-
-  /**
-   * [修正] 获取司机列表，现在支持后端筛选和分页。
-   * @param filter - 搜索关键词
-   * @param page - 当前页码
-   * @param pageSize - 每页数量
-   * @returns 一个包含司机列表和总记录数的对象
-   */
   static async getDrivers(filter: string, page: number, pageSize: number): Promise<{ drivers: Driver[], totalCount: number }> {
-    // 调用我们在 Supabase 中创建的新的数据库函数
     const { data, error } = await supabase.rpc('get_drivers_paginated', {
       p_page_number: page,
       p_page_size: pageSize,
@@ -193,7 +153,6 @@ export class SupabaseStorage {
       throw error;
     }
     
-    // The function returns an array of driver objects with total_records
     if (data && Array.isArray(data) && data.length > 0) {
       return {
         drivers: data.map((d: any) => ({
@@ -213,26 +172,17 @@ export class SupabaseStorage {
       totalCount: 0,
     };
   }
-  // ==================================================================
-  // 【【【 修复结束 】】】
-  // ==================================================================
 
   static async getDriversByProject(projectId: string): Promise<Driver[]> {
     const { data, error } = await supabase
       .from('drivers')
-      .select(`
-        *,
-        driver_projects!inner(project_id)
-      `)
+      .select(`*, driver_projects!inner(project_id)`)
       .eq('driver_projects.project_id', projectId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
     return data?.map(d => ({
-      id: d.id,
-      name: d.name,
-      licensePlate: d.license_plate,
-      phone: d.phone,
+      id: d.id, name: d.name, licensePlate: d.license_plate, phone: d.phone,
       projectIds: d.driver_projects?.map((dp: any) => dp.project_id) || [],
       createdAt: d.created_at,
     })) || [];
@@ -240,107 +190,61 @@ export class SupabaseStorage {
   
   static async addDriver(driver: Omit<Driver, 'id' | 'createdAt'>): Promise<Driver> {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        throw new Error('无法获取用户信息，请重新登录后重试。');
-    }
+    if (!user) throw new Error('无法获取用户信息，请重新登录后重试。');
 
     const { data, error } = await supabase
       .from('drivers')
-      .insert([{
-        user_id: user.id,
-        name: driver.name,
-        license_plate: driver.licensePlate,
-        phone: driver.phone,
-      }])
-      .select()
-      .single();
+      .insert([{ user_id: user.id, name: driver.name, license_plate: driver.licensePlate, phone: driver.phone }])
+      .select().single();
 
     if (error) throw error;
 
     if (driver.projectIds && driver.projectIds.length > 0) {
       const { error: relationError } = await supabase
         .from('driver_projects')
-        .insert(
-          driver.projectIds.map(projectId => ({
-            driver_id: data.id,
-            project_id: projectId,
-            user_id: user.id,
-          }))
-        );
-
+        .insert(driver.projectIds.map(projectId => ({ driver_id: data.id, project_id: projectId, user_id: user.id })));
       if (relationError) throw relationError;
     }
 
     return {
-      id: data.id,
-      name: data.name,
-      licensePlate: data.license_plate,
-      phone: data.phone,
-      projectIds: driver.projectIds || [],
-      createdAt: data.created_at,
+      id: data.id, name: data.name, licensePlate: data.license_plate, phone: data.phone,
+      projectIds: driver.projectIds || [], createdAt: data.created_at,
     };
   }
 
   static async updateDriver(id: string, updates: Partial<Driver>): Promise<void> {
     const { error } = await supabase
       .from('drivers')
-      .update({
-        name: updates.name,
-        license_plate: updates.licensePlate,
-        phone: updates.phone,
-      })
+      .update({ name: updates.name, license_plate: updates.licensePlate, phone: updates.phone })
       .eq('id', id);
-
     if (error) throw error;
 
     if (updates.projectIds !== undefined) {
-      await supabase
-        .from('driver_projects')
-        .delete()
-        .eq('driver_id', id);
-
+      await supabase.from('driver_projects').delete().eq('driver_id', id);
       if (updates.projectIds.length > 0) {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
-        if (!currentUser) {
-          throw new Error('无法获取用户信息，请重新登录后重试。');
-        }
+        if (!currentUser) throw new Error('无法获取用户信息，请重新登录后重试。');
         const { error: relationError } = await supabase
           .from('driver_projects')
-          .insert(
-            updates.projectIds.map(projectId => ({
-              driver_id: id,
-              project_id: projectId,
-              user_id: currentUser.id,
-            }))
-          );
-
+          .insert(updates.projectIds.map(projectId => ({ driver_id: id, project_id: projectId, user_id: currentUser.id })));
         if (relationError) throw relationError;
       }
     }
   }
 
   static async deleteDriver(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('drivers')
-      .delete()
-      .eq('id', id);
-
+    const { error } = await supabase.from('drivers').delete().eq('id', id);
     if (error) throw error;
   }
-  // 地点相关
+
   static async getLocations(): Promise<Location[]> {
     const { data, error } = await supabase
       .from('locations')
-      .select(`
-        *,
-        location_projects(project_id)
-      `)
+      .select(`*, location_projects(project_id)`)
       .order('created_at', { ascending: false });
-    
     if (error) throw error;
     return data?.map(l => ({
-      id: l.id,
-      name: l.name,
+      id: l.id, name: l.name,
       projectIds: l.location_projects?.map((lp: any) => lp.project_id) || [],
       createdAt: l.created_at,
     })) || [];
@@ -349,17 +253,12 @@ export class SupabaseStorage {
   static async getLocationsByProject(projectId: string): Promise<Location[]> {
     const { data, error } = await supabase
       .from('locations')
-      .select(`
-        *,
-        location_projects!inner(project_id)
-      `)
+      .select(`*, location_projects!inner(project_id)`)
       .eq('location_projects.project_id', projectId)
       .order('created_at', { ascending: false });
-    
     if (error) throw error;
     return data?.map(l => ({
-      id: l.id,
-      name: l.name,
+      id: l.id, name: l.name,
       projectIds: l.location_projects?.map((lp: any) => lp.project_id) || [],
       createdAt: l.created_at,
     })) || [];
@@ -367,111 +266,68 @@ export class SupabaseStorage {
 
   static async addLocation(location: Omit<Location, 'id' | 'createdAt'>): Promise<Location> {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error('无法获取用户信息，请重新登录后重试。');
-    }
+    if (!user) throw new Error('无法获取用户信息，请重新登录后重试。');
 
     const { data, error } = await supabase
       .from('locations')
-      .insert([{ 
-        user_id: user.id,
-        name: location.name,
-      }])
-      .select()
-      .single();
-    
+      .insert([{ user_id: user.id, name: location.name }])
+      .select().single();
     if (error) throw error;
 
     if (location.projectIds && location.projectIds.length > 0) {
       const { error: relationError } = await supabase
         .from('location_projects')
-        .insert(
-          location.projectIds.map(projectId => ({
-            location_id: data.id,
-            project_id: projectId,
-            user_id: user.id,
-          }))
-        );
-      
+        .insert(location.projectIds.map(projectId => ({ location_id: data.id, project_id: projectId, user_id: user.id })));
       if (relationError) throw relationError;
     }
-    
-    return {
-      id: data.id,
-      name: data.name,
-      projectIds: location.projectIds || [],
-      createdAt: data.created_at,
-    };
+    return { id: data.id, name: data.name, projectIds: location.projectIds || [], createdAt: data.created_at };
   }
 
   static async updateLocation(id: string, updates: Partial<Location>): Promise<void> {
-    const { error } = await supabase
-      .from('locations')
-      .update({ 
-        name: updates.name,
-      })
-      .eq('id', id);
-    
+    const { error } = await supabase.from('locations').update({ name: updates.name }).eq('id', id);
     if (error) throw error;
 
     if (updates.projectIds !== undefined) {
-      await supabase
-        .from('location_projects')
-        .delete()
-        .eq('location_id', id);
-      
+      await supabase.from('location_projects').delete().eq('location_id', id);
       if (updates.projectIds.length > 0) {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          throw new Error('无法获取用户信息，请重新登录后重试。');
-        }
+        if (!user) throw new Error('无法获取用户信息，请重新登录后重试。');
         const { error: relationError } = await supabase
           .from('location_projects')
-          .insert(
-            updates.projectIds.map(projectId => ({
-              location_id: id,
-              project_id: projectId,
-              user_id: user.id,
-            }))
-          );
-        
+          .insert(updates.projectIds.map(projectId => ({ location_id: id, project_id: projectId, user_id: user.id })));
         if (relationError) throw relationError;
       }
     }
   }
 
   static async deleteLocation(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('locations')
-      .delete()
-      .eq('id', id);
-    
+    const { error } = await supabase.from('locations').delete().eq('id', id);
     if (error) throw error;
   }
 
-  // 物流记录相关 - 兼容性方法
   static async getLogisticsRecords(): Promise<LogisticsRecord[]> {
     const result = await this.getFilteredLogisticsRecords(undefined, undefined, undefined, undefined, 1000, 0);
     return result.records;
   }
 
-  // 使用数据库函数获取筛选后的物流记录
-  // 获取运单列表 - 使用新的固定函数名
-  static async getFilteredLogisticsRecordsFixed(
+  // ★★★ 新增一个私有方法来调用新的 V2 后端函数 ★★★
+  private static async getFilteredLogisticsRecordsV2(
     projectId?: string, 
     driverId?: string, 
     startDate?: string, 
     endDate?: string, 
     limit: number = 1000, 
-    offset: number = 0
+    offset: number = 0,
+    billingTypeId?: number
   ): Promise<{ records: any[], totalCount: number }> {
-    const { data, error } = await supabase.rpc('get_filtered_logistics_records_fixed', {
+    const { data, error } = await supabase.rpc('get_filtered_logistics_records_v2', {
       p_project_id: projectId || null,
       p_driver_id: driverId || null,
       p_start_date: startDate || null,
       p_end_date: endDate || null,
       p_limit: limit,
-      p_offset: offset
+      p_offset: offset,
+      p_billing_type_id: billingTypeId || null
     });
 
     if (error) throw error;
@@ -482,15 +338,17 @@ export class SupabaseStorage {
     };
   }
 
+  // ★★★ 修改现有的公共方法，使其调用新的 V2 方法 ★★★
   static async getFilteredLogisticsRecords(
     projectId?: string, 
     driverId?: string, 
     startDate?: string, 
     endDate?: string,
     limit: number = 100,
-    offset: number = 0
+    offset: number = 0,
+    billingTypeId?: number // 新增的参数
   ): Promise<{records: LogisticsRecord[], totalCount: number}> {
-    const result = await this.getFilteredLogisticsRecordsFixed(projectId, driverId, startDate, endDate, limit, offset);
+    const result = await this.getFilteredLogisticsRecordsV2(projectId, driverId, startDate, endDate, limit, offset, billingTypeId);
     
     if (!result || result.records.length === 0) {
       return { records: [], totalCount: 0 };
@@ -516,13 +374,40 @@ export class SupabaseStorage {
       transportType: record.transport_type as "实际运输" | "退货",
       currentFee: record.current_cost,
       extraFee: record.extra_cost,
-      payableFee: record.payable_cost,
+      payableFee: record.driver_payable_cost, // 修正以匹配后端函数
       remarks: record.remarks,
       createdAt: record.created_at,
       createdByUserId: record.created_by_user_id,
+      billing_type_id: record.billing_type_id,
     }));
     
     return { records, totalCount };
+  }
+
+  // 您现有的 getFilteredLogisticsRecordsFixed 函数保持不变
+  static async getFilteredLogisticsRecordsFixed(
+    projectId?: string, 
+    driverId?: string, 
+    startDate?: string, 
+    endDate?: string, 
+    limit: number = 1000, 
+    offset: number = 0
+  ): Promise<{ records: any[], totalCount: number }> {
+    const { data, error } = await supabase.rpc('get_filtered_logistics_records_fixed', {
+      p_project_id: projectId || null,
+      p_driver_id: driverId || null,
+      p_start_date: startDate || null,
+      p_end_date: endDate || null,
+      p_limit: limit,
+      p_offset: offset
+    });
+
+    if (error) throw error;
+    
+    return {
+      records: (data as any)?.records || [],
+      totalCount: (data as any)?.totalCount || 0
+    };
   }
 
   static async addLogisticsRecord(record: Omit<LogisticsRecord, 'id' | 'autoNumber' | 'createdAt'>): Promise<LogisticsRecord> {
@@ -797,17 +682,8 @@ export class SupabaseStorage {
     }
   }
 
-
-/**
-   * (统一函数) 调用 RPC 函数: get_project_dashboard_data
-   * 一次性获取项目看板所需的所有数据
-   * @param {string | null} projectId - 当前选中的项目ID, 首次加载可传 null
-   */
   static async getProjectDashboardData(projectId: string | null) {
     const today = new Date().toISOString().split('T')[0];
-
-    // 如果 projectId 为 null (通常是首次加载), 后端可能需要处理这种情况
-    // 我们的后端函数设计为即使 p_selected_project_id 为 null, 也会返回 recent_projects
     const { data, error } = await supabase.rpc('get_project_dashboard_data' as any, {
       p_selected_project_id: projectId,
       p_report_date: today,
