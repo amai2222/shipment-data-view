@@ -9,7 +9,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-// ★★★ 1.1: 导入新的图标 ★★★
 import { Loader2, TrendingUp, Target, Truck, Wallet, BarChartHorizontal, Users, Calendar as CalendarIcon, Package, LayoutDashboard } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
@@ -118,19 +117,19 @@ export default function ProjectDashboard() {
 
   return (
     <div className="p-6 bg-slate-50 space-y-6">
-      {/* ★★★ 1.2: 重构整个 Header 区域 ★★★ */}
-      <div className="bg-blue-600 text-white p-4 rounded-lg shadow-md flex justify-between items-center">
+      {/* ★★★ 1.1: 调整 Header 背景色为更亮的蓝色 ★★★ */}
+      <div className="bg-blue-500 text-white p-4 rounded-lg shadow-md flex justify-between items-center">
         <div>
           <div className="flex items-center">
             <LayoutDashboard className="h-7 w-7 mr-3" />
             <h1 className="text-2xl font-bold">项目看板</h1>
           </div>
-          <p className="text-sm text-blue-100 mt-1 ml-10">项目数据统计与分析</p>
+          <p className="text-sm text-blue-200 mt-1 ml-10">项目数据统计与分析</p>
         </div>
         <div className="flex items-center gap-4">
           <Select value={projectId || ''} onValueChange={(newId) => navigate(`/project/${newId}`)}>
-            {/* ★★★ 1.3: 为筛选器适配深色背景 ★★★ */}
-            <SelectTrigger className="w-[250px] bg-blue-500 border-blue-400 text-white hover:bg-blue-400 focus:ring-white placeholder:text-blue-200">
+            {/* ★★★ 1.2: 调整筛选器为白底黑字样式 ★★★ */}
+            <SelectTrigger className="w-[250px] bg-white text-slate-900 border-slate-300">
               <SelectValue placeholder="请选择项目..." />
             </SelectTrigger>
             <SelectContent>
@@ -139,8 +138,8 @@ export default function ProjectDashboard() {
           </Select>
           <Popover>
             <PopoverTrigger asChild>
-              {/* ★★★ 1.3: 为筛选器适配深色背景 ★★★ */}
-              <Button className={cn("w-[200px] justify-start text-left font-normal bg-blue-500 border-blue-400 text-white hover:bg-blue-400 hover:text-white", !reportDate && "text-blue-200")}>
+              {/* ★★★ 1.2: 调整筛选器为白底黑字样式 ★★★ */}
+              <Button variant="outline" className={cn("w-[200px] justify-start text-left font-normal bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-900", !reportDate && "text-slate-500")}>
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}
               </Button>
