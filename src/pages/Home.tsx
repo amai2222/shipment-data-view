@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [V2.7 最终版] 实现了自动筛选、美化汇总卡片、并优化了详情弹窗表格。
+// 描述: [V2.9 最终版] 实现混合式搜索、重构汇总卡片UI、并优化图表标题格式。
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,13 +69,15 @@ export default function Home() {
 
   const [filterInputs, setFilterInputs] = useState(() => ({ ...getDefaultDateRange(), projectId: 'all' }));
   const { toast } = useToast();
-  // ★★★ 核心修改 #1: 用于实现自动筛选，避免首次加载时触发两次搜索 ★★★
+  // ★★★ 核心修改 #1: 用于防止项目自动筛选在首次加载时触发 ★★★
   const isInitialMount = useRef(true);
 
   // --- 数据获取 ---
 
-  const handleSearch = useCallback(async () => {
-    setIsSearching(true);
+  const handleSearch = useCallback(async (isInitialLoad = false) => {
+    if (isInitialLoad) setIsLoading(true);
+    else setIsSearching(true);
+    
     try {
       const { data, error } = await supabase.rpc('get_dashboard_stats_v2', {
         p_start_date: filterInputs.startDate,
@@ -88,7 +90,8 @@ export default function Home() {
       console.error('获取看板数据失败:', err);
       toast({ title: "数据加载失败", description: err.message, variant: "destructive" });
     } finally {
-      setIsSearching(false);
+      if (isInitialLoad) setIsLoading(false);
+      else setIsSearching(false);
     }
   }, [filterInputs, toast]);
 
@@ -119,45 +122,28 @@ export default function Home() {
   // 首次加载
   useEffect(() => {
     const initialLoad = async () => {
-      setIsLoading(true);
       try {
-        const [projectsData] = await Promise.all([
-          SupabaseStorage.getProjects() as Promise<Project[]>,
-        ]);
+        const projectsData = await SupabaseStorage.getProjects() as Project[];
         setProjects(projectsData);
-        
-        // 首次加载数据
-        const { data, error } = await supabase.rpc('get_dashboard_stats_v2', {
-          p_start_date: filterInputs.startDate,
-          p_end_date: filterInputs.endDate,
-          p_project_id: filterInputs.projectId === 'all' ? null : filterInputs.projectId,
-        });
-        if (error) throw error;
-        setDashboardData(data);
-
+        await handleSearch(true);
       } catch (error) {
         console.error("初始化加载失败:", error);
         toast({ title: "初始化加载失败", variant: "destructive" });
-      } finally {
-        setIsLoading(false);
       }
     };
     initialLoad();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks-exhaustive-deps
   }, []);
 
-  // ★★★ 核心修改 #2: 监听筛选条件变化，自动执行搜索 ★★★
+  // ★★★ 核心修改 #2: 监听项目筛选变化，自动执行搜索 ★★★
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-    const handler = setTimeout(() => {
-      handleSearch();
-    }, 500); // 添加一个防抖，避免日期选择时频繁请求
-    return () => clearTimeout(handler);
-  }, [filterInputs, handleSearch]);
-
+    handleSearch(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterInputs.projectId]);
 
   useEffect(() => {
     if (isDetailDialogOpen) {
@@ -212,9 +198,8 @@ export default function Home() {
     <div className="space-y-6 p-4 md:p-6">
       <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 sticky top-4 z-10 shadow-sm">
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-          <div className="flex items-center">
+          <div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center"><BarChart3 className="mr-2" />数据看板</h1>
-            {isSearching && <RefreshCw className="ml-3 h-5 w-5 animate-spin text-blue-500" />}
           </div>
           <div className="flex items-end gap-2 flex-wrap">
             <div className="space-y-1"><Label htmlFor="startDate" className="text-xs font-medium">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(p => ({...p, startDate: e.target.value}))} /></div>
@@ -229,19 +214,46 @@ export default function Home() {
                 </SelectContent>
               </Select>
             </div>
-            {/* ★★★ 核心修改 #3: 移除了搜索按钮 ★★★ */}
+            <Button onClick={() => handleSearch(false)} disabled={isSearching}>
+              {isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+              {isSearching ? '搜索中...' : '搜索'}
+            </Button>
           </div>
         </div>
       </header>
 
+      {/* ★★★ 核心修改 #3: 重构汇总卡片UI ★★★ */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card><CardContent className="flex items-center p-6"><div className="p-3 bg-blue-100 rounded-lg mr-4"><Package className="h-6 w-6 text-blue-600" /></div><div><p className="text-sm text-muted-foreground">总运输次数</p><p className="text-2xl font-bold text-blue-600">{dashboardData?.overview?.totalRecords || 0}</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center p-6"><div className="p-3 bg-yellow-100 rounded-lg mr-4"><TrendingUp className="h-6 w-6 text-yellow-600" /></div><div><p className="text-sm text-muted-foreground">司机应收汇总</p><p className="text-2xl font-bold text-yellow-600">{formatCurrency(dashboardData?.overview?.totalCost)}</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center p-6"><div className="p-3 bg-purple-100 rounded-lg mr-4"><BarChart3 className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm text-muted-foreground">实际运输/退货</p><p className="text-2xl font-bold text-purple-600">{dashboardData?.overview?.actualTransportCount ?? '—'} / {dashboardData?.overview?.returnCount ?? '—'}</p></div></CardContent></Card>
+        <Card>
+          <CardContent className="flex items-center p-6">
+            <div className="p-3 bg-blue-100 rounded-lg mr-4"><Package className="h-6 w-6 text-blue-600" /></div>
+            <div className="flex flex-col">
+              <p className="text-sm font-bold text-blue-600">总运输次数</p>
+              <p className="text-2xl font-bold">{dashboardData?.overview?.totalRecords || 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center p-6">
+            <div className="p-3 bg-yellow-100 rounded-lg mr-4"><TrendingUp className="h-6 w-6 text-yellow-600" /></div>
+            <div className="flex flex-col">
+              <p className="text-sm font-bold text-yellow-600">司机应收汇总</p>
+              <p className="text-2xl font-bold">{formatCurrency(dashboardData?.overview?.totalCost)}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center p-6">
+            <div className="p-3 bg-purple-100 rounded-lg mr-4"><BarChart3 className="h-6 w-6 text-purple-600" /></div>
+            <div className="flex flex-col">
+              <p className="text-sm font-bold text-purple-600">实际运输/退货</p>
+              <p className="text-2xl font-bold">{dashboardData?.overview?.actualTransportCount ?? '—'} / {dashboardData?.overview?.returnCount ?? '—'}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
       
       <div className="space-y-6">
-        {/* ... 图表部分代码保持不变 ... */}
         {Object.entries(dashboardData?.daily_stats_by_type || {}).map(([typeId, data]) => {
           const typeInfo = BILLING_TYPE_MAP[typeId as keyof typeof BILLING_TYPE_MAP];
           if (!typeInfo || !data) return null;
@@ -250,10 +262,12 @@ export default function Home() {
           return (
             <Card key={typeId}>
               <CardHeader className="flex flex-row items-center justify-between">
+                {/* ★★★ 核心修改 #4: 调整图表卡片标题格式 ★★★ */}
                 <CardTitle className="flex items-center gap-2">
                   {typeInfo.icon && <typeInfo.icon className="h-5 w-5" />}
-                  <span className="text-base font-medium text-muted-foreground">({typeInfo.name})</span>
-                  <span>{selectedProjectName} - 每日运输量</span>
+                  <span>{selectedProjectName}</span>
+                  <span className="font-bold">({typeInfo.name})</span>
+                  <span>- 每日运输量</span>
                 </CardTitle>
                 <div className="flex items-center space-x-2"><Switch id={`log-scale-${typeId}`} checked={useLogScale} onCheckedChange={setUseLogScale} /><Label htmlFor={`log-scale-${typeId}`} className="text-sm">对数刻度</Label></div>
               </CardHeader>
@@ -333,7 +347,6 @@ export default function Home() {
             <Table>
               <TableHeader><TableRow>
                 <TableHead>运单号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>车牌</TableHead>
-                {/* ★★★ 核心修改 #4: 合并装卸地为“线路” ★★★ */}
                 <TableHead>线路</TableHead>
                 <TableHead>装货量</TableHead><TableHead>卸货量</TableHead>
                 <TableHead>类型</TableHead><TableHead>司机应收</TableHead><TableHead>备注</TableHead>
@@ -343,12 +356,10 @@ export default function Home() {
                   const unit = record.billing_type_id 
                     ? BILLING_TYPE_MAP[record.billing_type_id.toString() as keyof typeof BILLING_TYPE_MAP]?.unit || '' 
                     : '';
-                  // ★★★ 核心修改 #5: 创建线路字符串 ★★★
                   const route = `${record.loadingLocation?.substring(0, 2) || ''}-${record.unloadingLocation?.substring(0, 2) || ''}`;
                   
                   return (
                     <TableRow key={record.id}>
-                      {/* ★★★ 核心修改 #6: 应用 nowrap 和 truncate 样式 ★★★ */}
                       <TableCell className="whitespace-nowrap">{record.autoNumber}</TableCell>
                       <TableCell className="whitespace-nowrap max-w-[150px] truncate" title={record.projectName}>{record.projectName || '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{record.driverName}</TableCell>
