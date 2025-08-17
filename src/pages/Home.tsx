@@ -1,5 +1,5 @@
 // 文件路径: src/pages/Home.tsx
-// 描述: [V2重构版] 实现动态图表、后端数据驱动、UI布局优化。
+// 描述: [V2.2 最终修复版] 修正了RPC函数的调用方式，解决了 "is not a function" 的运行时错误。
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,10 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { BarChart3, TrendingUp, Truck, Package, Eye, RefreshCw, Search, ChevronLeft, ChevronRight, Cuboid } from "lucide-react";
-import { SupabaseStorage } from "@/utils/supabase"; // 假设您的Supabase调用封装在这里
-import { Project, LogisticsRecord } from "@/types"; // 假设您的类型定义在这里
+import { SupabaseStorage } from "@/utils/supabase";
+import { Project, LogisticsRecord } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
+// ★★★ 核心修复点 1: 必须导入原始的 supabase 客户端 ★★★
+import { supabase } from "@/integrations/supabase/client";
 
 // --- 类型定义 ---
 
@@ -73,7 +75,8 @@ export default function Home() {
     if (!isInitialLoad) setIsSearching(true);
     else setIsLoading(true);
     try {
-      const { data, error } = await SupabaseStorage.rpc('get_dashboard_stats_v2', {
+      // ★★★ 核心修复点 2: 必须使用原始的 supabase 客户端调用 rpc ★★★
+      const { data, error } = await supabase.rpc('get_dashboard_stats_v2', {
         p_start_date: filterInputs.startDate,
         p_end_date: filterInputs.endDate,
         p_project_id: filterInputs.projectId === 'all' ? null : filterInputs.projectId,
@@ -99,6 +102,7 @@ export default function Home() {
       const endDate = dialogFilter.date ? dialogFilter.date : filterInputs.endDate;
       const offset = (page - 1) * dialogPagination.pageSize;
 
+      // 此处调用是正确的，因为它调用的是我们封装好的方法
       const { records, totalCount } = await SupabaseStorage.getFilteredLogisticsRecords(
         projectId, undefined, startDate, endDate, 
         dialogPagination.pageSize, offset, 
@@ -117,9 +121,14 @@ export default function Home() {
   useEffect(() => {
     const initialLoad = async () => {
       setIsLoading(true);
-      const projectsData = await SupabaseStorage.getProjects() as Project[];
-      setProjects(projectsData);
-      await handleSearch(true); // handleSearch will set isLoading to false
+      try {
+        const projectsData = await SupabaseStorage.getProjects() as Project[];
+        setProjects(projectsData);
+      } catch (error) {
+        console.error("加载项目列表失败:", error);
+        toast({ title: "加载项目列表失败", variant: "destructive" });
+      }
+      await handleSearch(true);
     };
     initialLoad();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,13 +264,13 @@ export default function Home() {
               <TableBody>
                 {dialogRecords.map((record) => (
                   <TableRow key={record.id}>
-                    <TableCell>{record.auto_number}</TableCell><TableCell>{record.project_name || '-'}</TableCell>
-                    <TableCell>{record.driver_name}</TableCell><TableCell>{record.license_plate}</TableCell>
-                    <TableCell>{record.loading_location}</TableCell><TableCell>{record.unloading_location}</TableCell>
-                    <TableCell>{record.loading_weight?.toFixed(2) || '-'}</TableCell>
-                    <TableCell>{record.unloading_weight?.toFixed(2) || '-'}</TableCell>
-                    <TableCell><span className={`px-2 py-1 rounded-full text-xs ${record.transport_type === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transport_type}</span></TableCell>
-                    <TableCell>{formatCurrency(record.driver_payable_cost)}</TableCell>
+                    <TableCell>{record.autoNumber}</TableCell><TableCell>{record.projectName || '-'}</TableCell>
+                    <TableCell>{record.driverName}</TableCell><TableCell>{record.licensePlate}</TableCell>
+                    <TableCell>{record.loadingLocation}</TableCell><TableCell>{record.unloadingLocation}</TableCell>
+                    <TableCell>{record.loadingWeight?.toFixed(2) || '-'}</TableCell>
+                    <TableCell>{record.unloadingWeight?.toFixed(2) || '-'}</TableCell>
+                    <TableCell><span className={`px-2 py-1 rounded-full text-xs ${record.transportType === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transportType}</span></TableCell>
+                    <TableCell>{formatCurrency(record.payableFee)}</TableCell>
                     <TableCell className="max-w-[120px] truncate" title={record.remarks}>{record.remarks || '-'}</TableCell>
                   </TableRow>
                 ))}
