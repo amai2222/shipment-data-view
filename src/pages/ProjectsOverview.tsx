@@ -1,6 +1,6 @@
 // 文件路径: src/pages/ProjectsOverview.tsx
-// 描述: [rz64l-Final-V2] 完整版。根据用户要求，美化了所有卡片表头，
-//       增加了总计数据展示，并优化了字体样式。
+// 描述: [rz64l-Final-V3] 完整版。根据用户要求，重命名并美化了主标题和卡片，
+//       优化了项目卡片中的单位显示，并增加了日期上下文信息。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,7 +73,8 @@ const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectData
       <CardContent className="space-y-4 flex-grow">
         <div>
           <div className="flex justify-between text-sm text-slate-600 mb-2">
-            <span>进度 ({unitConfig.progressUnit})</span>
+            {/* ★★★ 2. 去掉 "进度" 后的单位 ★★★ */}
+            <span>进度</span>
             <span className="font-semibold">{progressPercentage.toFixed(1)}%</span>
           </div>
           <div className="flex items-center gap-4">
@@ -82,11 +83,13 @@ const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectData
             </div>
             <div className="flex-grow">
               <Progress value={progressPercentage} />
-              <p className="text-xs text-right text-slate-500 mt-1">{formatNumber(unitConfig.progressCompleted)} / {formatNumber(unitConfig.progressPlanned)}</p>
+              {/* ★★★ 2. 为进度条下方的数字加上单位 ★★★ */}
+              <p className="text-xs text-right text-slate-500 mt-1">
+                {formatNumber(unitConfig.progressCompleted, unitConfig.progressUnit)} / {formatNumber(unitConfig.progressPlanned, unitConfig.progressUnit)}
+              </p>
             </div>
           </div>
         </div>
-        {/* ★★★ 4. 增加总车次和总应收统计 ★★★ */}
         <div className="border-t pt-4 grid grid-cols-2 gap-4 text-center">
           <div className="flex flex-col items-center">
             <p className="text-lg font-bold text-slate-800">{formatNumber(daily_report?.trip_count, '车')}</p>
@@ -146,17 +149,17 @@ export default function ProjectsOverview() {
   const isFiltering = selectedProjectIds.length > 0;
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-blue-600" /></div>;
-  if (!dashboardData) return <div className="p-6 bg-slate-50 min-h-screen"><h1 className="text-3xl font-bold text-blue-600">项目组合看板</h1><div className="text-center py-10 text-slate-500">暂无运行中的项目数据</div></div>;
+  if (!dashboardData) return <div className="p-6 bg-slate-50 min-h-screen"><h1 className="text-3xl font-bold text-slate-800">项目综合看板</h1><div className="text-center py-10 text-slate-500">暂无运行中的项目数据</div></div>;
 
   const { all_projects_data, global_seven_day_trend, global_driver_report_table, global_summary } = dashboardData;
 
   return (
     <div className="p-6 bg-slate-50 space-y-8">
       <div className="flex flex-wrap justify-between items-center gap-4">
-        {/* ★★★ 1. 主标题增加图标 ★★★ */}
-        <h1 className="text-3xl font-bold text-blue-600 flex items-center">
-          <BarChart2 className="mr-3 h-8 w-8" />
-          项目组合看板
+        {/* ★★★ 1. 主标题改名并改为黑色 ★★★ */}
+        <h1 className="text-3xl font-bold text-slate-800 flex items-center">
+          <BarChart2 className="mr-3 h-8 w-8 text-blue-600" />
+          项目综合看板
         </h1>
         <div className="flex flex-wrap items-center gap-4">
           <MultiSelectProjects options={projectOptions} selected={selectedProjectIds} onChange={setSelectedProjectIds} className="w-[300px] lg:w-[400px]" />
@@ -166,17 +169,42 @@ export default function ProjectsOverview() {
           </Popover>
         </div>
       </div>
+      {/* ★★★ 1. 调整小卡片布局和颜色 ★★★ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">{isFiltering ? '已选项目' : '运行中项目'}</CardTitle><Briefcase className="h-4 w-4 text-slate-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{global_summary?.total_projects || 0}</p></CardContent></Card>
-        {/* ★★★ 2. "总应收" 改为 "总垫付" ★★★ */}
-        <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">总垫付</CardTitle><Wallet className="h-4 w-4 text-green-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{formatNumber(global_summary?.total_receivable, '元')}</p></CardContent></Card>
-        <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">总车次</CardTitle><Truck className="h-4 w-4 text-indigo-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{formatNumber(global_summary?.total_trips, '车')}</p></CardContent></Card>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-sm font-medium text-slate-700">
+              <Briefcase className="mr-2 h-4 w-4 text-slate-500"/>
+              {isFiltering ? '已选项目' : '运行中项目'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent><p className="text-2xl font-bold text-slate-800">{global_summary?.total_projects || 0}</p></CardContent>
+        </Card>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-sm font-medium text-green-600">
+              <Wallet className="mr-2 h-4 w-4"/>
+              总垫付
+            </CardTitle>
+          </CardHeader>
+          <CardContent><p className="text-2xl font-bold text-green-600">{formatNumber(global_summary?.total_receivable, '元')}</p></CardContent>
+        </Card>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-sm font-medium text-indigo-600">
+              <Truck className="mr-2 h-4 w-4"/>
+              总车次
+            </CardTitle>
+          </CardHeader>
+          <CardContent><p className="text-2xl font-bold text-indigo-600">{formatNumber(global_summary?.total_trips, '车')}</p></CardContent>
+        </Card>
       </div>
       <div>
-        {/* ★★★ 1. 章节标题增加图标 ★★★ */}
-        <h2 className="text-2xl font-semibold text-slate-800 mb-4 flex items-center">
+        {/* ★★★ 2. 章节标题增加日期并美化 ★★★ */}
+        <h2 className="text-2xl font-bold text-slate-700 mb-4 flex items-center">
           <ListChecks className="mr-3 h-6 w-6" />
-          {isFiltering ? '已选项目详情' : '各项目概览'}
+          <span>{isFiltering ? '已选项目详情' : '各项目概览'}</span>
+          <span className="text-base font-normal text-slate-500 ml-2">({format(reportDate, "yyyy-MM-dd")})</span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {all_projects_data.map(projectData => (<ProjectSummaryCard key={projectData.project_details.id} projectData={projectData} onClick={() => navigate(`/project/${projectData.project_details.id}`)} />))}
@@ -190,7 +218,6 @@ export default function ProjectsOverview() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="shadow-sm">
               <CardHeader>
-                {/* ★★★ 1. 卡片标题增加图标并统一颜色 ★★★ */}
                 <CardTitle className="flex items-center text-teal-500">
                   <TrendingUp className="mr-2 h-5 w-5"/>
                   {projectData.project_details.name} 近7日应收趋势
@@ -212,7 +239,6 @@ export default function ProjectsOverview() {
             
             <Card className="shadow-sm">
               <CardHeader>
-                {/* ★★★ 1 & 3. 卡片标题增加图标、统一颜色，并调整日期字体大小 ★★★ */}
                 <CardTitle className="flex items-center text-purple-500">
                   <Users className="mr-2 h-5 w-5" />
                   <span>{projectData.project_details.name} 司机工作量</span>
