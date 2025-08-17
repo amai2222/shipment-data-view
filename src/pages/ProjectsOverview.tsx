@@ -1,5 +1,6 @@
 // 文件路径: src/pages/ProjectsOverview.tsx
-// 描述: [rz64l-Final] 完整版。实现前端筛选逻辑，并始终显示图表卡片。
+// 描述: [rz64l-Final-V2] 完整版。根据用户要求，美化了所有卡片表头，
+//       增加了总计数据展示，并优化了字体样式。
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, TrendingUp, Wallet, Truck, Users, Calendar as CalendarIcon, Briefcase } from "lucide-react";
+import { Loader2, TrendingUp, Wallet, Truck, Users, Calendar as CalendarIcon, Briefcase, BarChart2, ListChecks } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -35,7 +36,7 @@ interface OverviewDashboardData { all_projects_data: ProjectDataPackage[]; globa
 // --- 辅助函数 (无修改) ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
-// --- 环形进度图组件 ---
+// --- 环形进度图组件 (无修改) ---
 const CircularProgressChart = ({ value }: { value: number }) => {
   const data = [{ name: 'progress', value: value, fill: 'hsl(var(--primary))' }];
   return (
@@ -49,7 +50,7 @@ const CircularProgressChart = ({ value }: { value: number }) => {
   );
 };
 
-// --- 单个项目卡片子组件 (无修改) ---
+// --- 单个项目卡片子组件 (★★★ 已修改 ★★★) ---
 const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectDataPackage, onClick: () => void }) => {
   const { project_details, daily_report, summary_stats } = projectData;
   const unitConfig = useMemo(() => {
@@ -85,14 +86,19 @@ const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectData
             </div>
           </div>
         </div>
+        {/* ★★★ 4. 增加总车次和总应收统计 ★★★ */}
         <div className="border-t pt-4 grid grid-cols-2 gap-4 text-center">
-          <div>
+          <div className="flex flex-col items-center">
             <p className="text-lg font-bold text-slate-800">{formatNumber(daily_report?.trip_count, '车')}</p>
             <p className="text-xs text-slate-500">当日车次</p>
+            <p className="text-sm font-semibold text-slate-600 mt-1">{formatNumber(summary_stats?.total_trips, '车')}</p>
+            <p className="text-xs text-slate-500">总车次</p>
           </div>
-          <div>
+          <div className="flex flex-col items-center">
             <p className="text-lg font-bold text-green-600">{formatNumber(daily_report?.driver_receivable, '元')}</p>
             <p className="text-xs text-slate-500">当日应收</p>
+            <p className="text-sm font-semibold text-green-700 mt-1">{formatNumber(summary_stats?.total_cost, '元')}</p>
+            <p className="text-xs text-slate-500">总应收</p>
           </div>
         </div>
       </CardContent>
@@ -100,7 +106,7 @@ const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectData
   );
 };
 
-// --- 主组件 ---
+// --- 主组件 (★★★ 已修改 ★★★) ---
 export default function ProjectsOverview() {
   const [dashboardData, setDashboardData] = useState<OverviewDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,14 +115,10 @@ export default function ProjectsOverview() {
   const navigate = useNavigate();
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
 
-  // ★★★ 核心修改 1: useEffect 现在依赖 selectedProjectIds ★★★
-  // 当筛选器变化时，会重新调用后端函数获取已筛选的数据
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // ★★★ 核心修改 2: 将 selectedProjectIds 传递给后端 ★★★
-        // 如果数组为空，则传递 null，后端会查询所有项目
         const params = {
           p_report_date: format(reportDate, 'yyyy-MM-dd'),
           p_project_ids: selectedProjectIds.length > 0 ? selectedProjectIds : null
@@ -134,14 +136,12 @@ export default function ProjectsOverview() {
       }
     };
     fetchDashboardData();
-  }, [reportDate, toast, selectedProjectIds]); // 依赖数组新增 selectedProjectIds
+  }, [reportDate, toast, selectedProjectIds]);
 
-  // 筛选器选项，仅在首次加载后生成一次
   const projectOptions = useMemo((): OptionType[] => {
     if (!dashboardData?.all_projects_data) return [];
-    // 即使在筛选后，也显示所有项目的选项
     return dashboardData.all_projects_data.map(p => ({ value: p.project_details.id, label: p.project_details.name }));
-  }, [dashboardData?.all_projects_data]); // 依赖于原始数据
+  }, [dashboardData?.all_projects_data]);
 
   const isFiltering = selectedProjectIds.length > 0;
 
@@ -153,7 +153,11 @@ export default function ProjectsOverview() {
   return (
     <div className="p-6 bg-slate-50 space-y-8">
       <div className="flex flex-wrap justify-between items-center gap-4">
-        <h1 className="text-3xl font-bold text-blue-600">项目组合看板</h1>
+        {/* ★★★ 1. 主标题增加图标 ★★★ */}
+        <h1 className="text-3xl font-bold text-blue-600 flex items-center">
+          <BarChart2 className="mr-3 h-8 w-8" />
+          项目组合看板
+        </h1>
         <div className="flex flex-wrap items-center gap-4">
           <MultiSelectProjects options={projectOptions} selected={selectedProjectIds} onChange={setSelectedProjectIds} className="w-[300px] lg:w-[400px]" />
           <Popover>
@@ -164,26 +168,31 @@ export default function ProjectsOverview() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">{isFiltering ? '已选项目' : '运行中项目'}</CardTitle><Briefcase className="h-4 w-4 text-slate-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{global_summary?.total_projects || 0}</p></CardContent></Card>
-        <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">总应收</CardTitle><Wallet className="h-4 w-4 text-green-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{formatNumber(global_summary?.total_receivable, '元')}</p></CardContent></Card>
+        {/* ★★★ 2. "总应收" 改为 "总垫付" ★★★ */}
+        <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">总垫付</CardTitle><Wallet className="h-4 w-4 text-green-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{formatNumber(global_summary?.total_receivable, '元')}</p></CardContent></Card>
         <Card className="shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-slate-700">总车次</CardTitle><Truck className="h-4 w-4 text-indigo-500"/></CardHeader><CardContent><p className="text-2xl font-bold text-slate-800">{formatNumber(global_summary?.total_trips, '车')}</p></CardContent></Card>
       </div>
       <div>
-        <h2 className="text-2xl font-semibold text-slate-800 mb-4">{isFiltering ? '已选项目详情' : '各项目概览'}</h2>
+        {/* ★★★ 1. 章节标题增加图标 ★★★ */}
+        <h2 className="text-2xl font-semibold text-slate-800 mb-4 flex items-center">
+          <ListChecks className="mr-3 h-6 w-6" />
+          {isFiltering ? '已选项目详情' : '各项目概览'}
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {all_projects_data.map(projectData => (<ProjectSummaryCard key={projectData.project_details.id} projectData={projectData} onClick={() => navigate(`/project/${projectData.project_details.id}`)} />))}
         </div>
         {all_projects_data.length === 0 && (<div className="text-center py-10 text-slate-500 bg-white rounded-lg shadow-sm">当前筛选条件下无项目数据。</div>)}
       </div>
       
-      {/* 各项目的7日趋势和司机工作量 */}
       {all_projects_data.map(projectData => (
         <div key={`charts-${projectData.project_details.id}`} className="space-y-6">
           <h3 className="text-xl font-semibold text-slate-800">{projectData.project_details.name} - 详细数据</h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center text-slate-700">
-                  <TrendingUp className="mr-2 h-5 w-5 text-teal-500"/>
+                {/* ★★★ 1. 卡片标题增加图标并统一颜色 ★★★ */}
+                <CardTitle className="flex items-center text-teal-500">
+                  <TrendingUp className="mr-2 h-5 w-5"/>
                   {projectData.project_details.name} 近7日应收趋势
                 </CardTitle>
               </CardHeader>
@@ -203,9 +212,11 @@ export default function ProjectsOverview() {
             
             <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center text-slate-700">
-                  <Users className="mr-2 h-5 w-5 text-purple-500" />
-                  {projectData.project_details.name} 司机工作量 ({format(reportDate, "yyyy-MM-dd")})
+                {/* ★★★ 1 & 3. 卡片标题增加图标、统一颜色，并调整日期字体大小 ★★★ */}
+                <CardTitle className="flex items-center text-purple-500">
+                  <Users className="mr-2 h-5 w-5" />
+                  <span>{projectData.project_details.name} 司机工作量</span>
+                  <span className="text-sm font-normal text-slate-500 ml-2">({format(reportDate, "yyyy-MM-dd")})</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="max-h-[300px] overflow-y-auto">
