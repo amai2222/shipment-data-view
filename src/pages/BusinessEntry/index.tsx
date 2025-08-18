@@ -9,6 +9,7 @@ import { Download, FileDown, FileUp, Loader2, Search, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
+import { usePermissions } from "@/hooks/usePermissions";
 
 import { Project, LogisticsRecord } from './types';
 import { useLogisticsData, INITIAL_FILTERS, TotalSummary, LogisticsFilters } from './hooks/useLogisticsData';
@@ -101,6 +102,7 @@ const StaleDataPrompt = () => (
 
 export default function BusinessEntry() {
   const { toast } = useToast();
+  const { isAdmin } = usePermissions();
   const [projects, setProjects] = useState<Project[]>([]);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
   const [uiFilters, setUiFilters] = useState(INITIAL_FILTERS);
@@ -200,14 +202,22 @@ export default function BusinessEntry() {
             新增运单
           </Button>
           <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
-          <Button variant="outline" asChild disabled={loading || isImporting}><Label htmlFor="excel-upload" className="cursor-pointer flex items-center">{isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}导入Excel<Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={loading || isImporting}/></Label></Button>
+          {isAdmin && (
+            <Button variant="outline" asChild disabled={loading || isImporting}>
+              <Label htmlFor="excel-upload" className="cursor-pointer flex items-center">
+                {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+                导入Excel
+                <Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={loading || isImporting}/>
+              </Label>
+            </Button>
+          )}
           <Button onClick={exportToExcel} disabled={loading}><Download className="mr-2 h-4 w-4" />导出数据</Button>
         </div>
       </div>
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} projects={projects} records={records} />)}
       {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, page: pagination.currentPage, size: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />)}
-      <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />
+      {isAdmin && <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
       <LogisticsFormDialog
         isOpen={isFormDialogOpen}
         onClose={handleFormDialogClose}

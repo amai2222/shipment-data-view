@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { forceReimportData } from "@/utils/importData";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // 菜单配置
 const menuItems = [
@@ -86,11 +87,20 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
+  const { isAdmin } = usePermissions();
+
+  // 根据权限过滤菜单项
+  const filteredMenuItems = menuItems.filter(group => {
+    if (group.title === "设置" && !isAdmin) {
+      return false; // 非管理员隐藏设置菜单
+    }
+    return true;
+  });
 
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     // 初始化时展开包含当前路由的分组
     const initialOpen: string[] = [];
-    menuItems.forEach(group => {
+    filteredMenuItems.forEach(group => {
       if (group.items.some(item => currentPath === item.url)) {
         initialOpen.push(group.title);
       }
@@ -127,7 +137,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="bg-gradient-to-b from-secondary to-background">
-        {menuItems.map((group) => {
+        {filteredMenuItems.map((group) => {
           const isGroupOpen = openGroups.includes(group.title);
           const hasActiveItem = group.items.some(item => isActive(item.url));
 
