@@ -55,6 +55,7 @@ export interface LogisticsRecord {
   remarks?: string;
   createdAt: string;
   createdByUserId: string;
+  billing_type_id?: number;
 }
 
 // 合作方数据类型

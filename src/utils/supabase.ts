@@ -1,17 +1,20 @@
-// 文件路径: src/utils/supabase.ts
-// 这是最终的、完整的、修复后的代码，请直接替换
-
 import { supabase } from '@/integrations/supabase/client';
 import { Project, Driver, Location, LogisticsRecord } from '@/types';
 
 // 数据库操作工具类
 export class SupabaseStorage {
   // 项目相关
-  static async getProjects(): Promise<Project[]> {
-    const { data, error } = await supabase
+  static async getProjects(status?: string): Promise<Project[]> {
+    let query = supabase
       .from('projects')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (status && status !== '所有状态') {
+      query = query.eq('project_status', status);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     return data?.map(p => ({
@@ -23,6 +26,8 @@ export class SupabaseStorage {
       loadingAddress: p.loading_address,
       unloadingAddress: p.unloading_address,
       autoCode: p.auto_code,
+      plannedTotalTons: p.planned_total_tons,
+      financeManager: p.finance_manager,
       createdAt: p.created_at,
     })) || [];
   }
@@ -52,6 +57,8 @@ export class SupabaseStorage {
       loadingAddress: data.loading_address,
       unloadingAddress: data.unloading_address,
       autoCode: data.auto_code,
+      plannedTotalTons: data.planned_total_tons,
+      financeManager: data.finance_manager,
       createdAt: data.created_at,
     };
   }
@@ -310,35 +317,6 @@ export class SupabaseStorage {
     return result.records;
   }
 
-  // ★★★ 新增一个私有方法来调用新的 V2 后端函数 ★★★
-  private static async getFilteredLogisticsRecordsV2(
-    projectId?: string, 
-    driverId?: string, 
-    startDate?: string, 
-    endDate?: string, 
-    limit: number = 1000, 
-    offset: number = 0,
-    billingTypeId?: number
-  ): Promise<{ records: any[], totalCount: number }> {
-    const { data, error } = await supabase.rpc('get_filtered_logistics_records_v2', {
-      p_project_id: projectId || null,
-      p_driver_id: driverId || null,
-      p_start_date: startDate || null,
-      p_end_date: endDate || null,
-      p_limit: limit,
-      p_offset: offset,
-      p_billing_type_id: billingTypeId || null
-    });
-
-    if (error) throw error;
-    
-    return {
-      records: (data as any)?.records || [],
-      totalCount: (data as any)?.totalCount || 0
-    };
-  }
-
-  // ★★★ 修改现有的公共方法，使其调用新的 V2 方法 ★★★
   static async getFilteredLogisticsRecords(
     projectId?: string, 
     driverId?: string, 
@@ -346,16 +324,25 @@ export class SupabaseStorage {
     endDate?: string,
     limit: number = 100,
     offset: number = 0,
-    billingTypeId?: number // 新增的参数
+    billingTypeId?: number
   ): Promise<{records: LogisticsRecord[], totalCount: number}> {
-    const result = await this.getFilteredLogisticsRecordsV2(projectId, driverId, startDate, endDate, limit, offset, billingTypeId);
+    const { data, error } = await supabase.rpc('get_filtered_logistics_records_fixed', {
+      p_project_id: projectId || null,
+      p_driver_id: driverId || null,
+      p_start_date: startDate || null,
+      p_end_date: endDate || null,
+      p_limit: limit,
+      p_offset: offset
+    });
+
+    if (error) throw error;
     
-    if (!result || result.records.length === 0) {
+    if (!data || !(data as any).records) {
       return { records: [], totalCount: 0 };
     }
     
-    const totalCount = result.totalCount;
-    const records = result.records.map((record: any) => ({
+    const totalCount = (data as any).totalCount || 0;
+    const records = (data as any).records.map((record: any) => ({
       id: record.id,
       autoNumber: record.auto_number,
       projectId: record.project_id,
@@ -374,7 +361,7 @@ export class SupabaseStorage {
       transportType: record.transport_type as "实际运输" | "退货",
       currentFee: record.current_cost,
       extraFee: record.extra_cost,
-      payableFee: record.driver_payable_cost, // 修正以匹配后端函数
+      payableFee: record.payable_cost,
       remarks: record.remarks,
       createdAt: record.created_at,
       createdByUserId: record.created_by_user_id,
@@ -384,7 +371,6 @@ export class SupabaseStorage {
     return { records, totalCount };
   }
 
-  // 您现有的 getFilteredLogisticsRecordsFixed 函数保持不变
   static async getFilteredLogisticsRecordsFixed(
     projectId?: string, 
     driverId?: string, 
@@ -524,11 +510,6 @@ export class SupabaseStorage {
   }
 
   static async deleteLogisticsRecord(id: string): Promise<void> {
-    await supabase
-      .from('logistics_partner_costs')
-      .delete()
-      .eq('logistics_record_id', id);
-
     const { error } = await supabase
       .from('logistics_records')
       .delete()
@@ -538,38 +519,59 @@ export class SupabaseStorage {
   }
 
   static async generateAutoNumber(): Promise<string> {
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hour = String(now.getHours()).padStart(2, '0');
+    const minute = String(now.getMinutes()).padStart(2, '0');
+    const second = String(now.getSeconds()).padStart(2, '0');
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
     
-    const { data, error } = await supabase
-      .from('logistics_records')
-      .select('auto_number')
-      .like('auto_number', `${dateStr}%`);
-    
-    if (error) throw error;
-    
-    const todayRecords = data || [];
-    const sequenceNumber = (todayRecords.length + 1).toString().padStart(3, "0");
-    return `${dateStr}-${sequenceNumber}`;
+    return `${year}${month}${day}${hour}${minute}${second}${ms}`;
   }
 
-  static async findOrCreateLocation(name: string, projectIds?: string[]): Promise<Location> {
-    const { data: existing } = await supabase
-      .from('locations')
-      .select('*')
-      .eq('name', name)
-      .single();
-    
-    if (existing) {
-      return {
-        id: existing.id,
-        name: existing.name,
-        projectIds: [],
-        createdAt: existing.created_at,
-      };
+  private static async generatePartnerCosts(
+    recordId: string, 
+    baseCost: number, 
+    projectId: string,
+    loadingWeight?: number,
+    unloadingWeight?: number
+  ): Promise<void> {
+    try {
+      const { data, error } = await supabase.rpc('calculate_partner_costs_for_project_v2', {
+        p_base_amount: baseCost,
+        p_project_id: projectId,
+        p_loading_weight: loadingWeight || null,
+        p_unloading_weight: unloadingWeight || null
+      });
+
+      if (error) throw error;
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('无法获取用户信息，请重新登录后重试。');
+
+        const costInserts = data.map((cost: any) => ({
+          logistics_record_id: recordId,
+          partner_id: cost.partner_id,
+          level: cost.level,
+          base_amount: cost.base_amount,
+          payable_amount: cost.payable_amount,
+          tax_rate: cost.tax_rate,
+          user_id: user.id
+        }));
+
+        const { error: insertError } = await supabase
+          .from('logistics_partner_costs')
+          .insert(costInserts);
+
+        if (insertError) throw insertError;
+      }
+    } catch (error) {
+      console.error('Error generating partner costs:', error);
+      throw error;
     }
-    
-    return await this.addLocation({ name, projectIds });
   }
 
   static async getPartnerChains(projectId: string): Promise<any[]> {
@@ -577,203 +579,9 @@ export class SupabaseStorage {
       .from('partner_chains')
       .select('*')
       .eq('project_id', projectId)
-      .order('created_at', { ascending: true });
-    
+      .order('created_at', { ascending: false });
+
     if (error) throw error;
     return data || [];
-  }
-
-  static async getDefaultChainId(projectId: string): Promise<string | null> {
-    const { data, error } = await supabase
-      .from('partner_chains')
-      .select('id')
-      .eq('project_id', projectId)
-      .eq('is_default', true)
-      .single();
-    
-    if (error) {
-      const { data: firstChain } = await supabase
-        .from('partner_chains')
-        .select('id')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single();
-      
-      return firstChain?.id || null;
-    }
-    
-    return data?.id || null;
-  }
-
-  static async generatePartnerCosts(logisticsRecordId: string, baseCost: number, projectId: string, loadingWeight?: number, unloadingWeight?: number): Promise<void> {
-    try {
-      const { data: partnerCosts, error } = await supabase
-        .rpc('calculate_partner_costs_v2', {
-          p_base_amount: baseCost,
-          p_project_id: projectId,
-          p_chain_id: null as unknown as string, // 使用项目默认链路
-          p_loading_weight: loadingWeight || null,
-          p_unloading_weight: unloadingWeight || null
-        });
-
-      if (error) throw error;
-
-      if (partnerCosts && partnerCosts.length > 0) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          throw new Error('无法获取用户信息，请重新登录后重试。');
-        }
-        const costRecords = partnerCosts.map((cost: any) => ({
-          logistics_record_id: logisticsRecordId,
-          partner_id: cost.partner_id,
-          level: cost.level,
-          base_amount: cost.base_amount,
-          payable_amount: cost.payable_amount,
-          tax_rate: cost.tax_rate,
-          user_id: user.id,
-        }));
-
-        const { error: insertError } = await supabase
-          .from('logistics_partner_costs')
-          .insert(costRecords);
-
-        if (insertError) throw insertError;
-      }
-    } catch (error) {
-      console.error('Error generating partner costs:', error);
-    }
-  }
-
-  static async fixExistingRecordsPartnerCosts(): Promise<void> {
-    try {
-      const { error: deleteError } = await supabase
-        .from('logistics_partner_costs')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-
-      if (deleteError) throw deleteError;
-      console.log('已清除所有现有合作方成本记录');
-
-      const { data: records, error } = await supabase
-        .from('logistics_records')
-        .select('id, current_cost, project_id, auto_number, loading_weight, unloading_weight')
-        .not('current_cost', 'is', null)
-        .gt('current_cost', 0);
-
-      if (error) throw error;
-
-      console.log(`找到 ${records?.length || 0} 条需要重新生成的记录`);
-
-      for (const record of records || []) {
-        await this.generatePartnerCosts(
-          record.id, 
-          record.current_cost, 
-          record.project_id,
-          record.loading_weight,
-          record.unloading_weight
-        );
-        console.log(`为运单 ${record.auto_number} 重新生成了合作方成本`);
-      }
-
-      console.log('修复完成 - 所有合作方成本已按正确公式重新计算');
-    } catch (error) {
-      console.error('修复现有记录时出错:', error);
-    }
-  }
-
-  static async getProjectDashboardData(projectId: string | null) {
-    const today = new Date().toISOString().split('T')[0];
-    const { data, error } = await supabase.rpc('get_project_dashboard_data' as any, {
-      p_selected_project_id: projectId,
-      p_report_date: today,
-    });
-
-    if (error) {
-        console.error("Supabase RPC Error (get_project_dashboard_data):", error);
-        throw error;
-    }
-    
-    return data;
-  }
-static async getProjects(status?: string): Promise<Project[]> {
-    const statusColumn = 'project_status'; 
-
-    let query = supabase.from('projects').select('*');
-
-    // 如果传入了有效的 status (不是 '所有状态')，则添加筛选条件
-    if (status && status !== '所有状态') {
-      query = query.eq(statusColumn, status);
-    }
-
-    const { data, error } = await query.order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching projects:', error);
-      throw error;
-    }
-    return data || [];
-  }
-
-  static async getFilteredLogisticsRecords(
-    projectId?: string,
-    driverId?: string,
-    startDate?: string,
-    endDate?: string,
-    limit: number = 15,
-    offset: number = 0,
-    billingTypeId?: number
-  ): Promise<{ records: LogisticsRecord[], totalCount: number }> {
-    let query = supabase
-      .from('logistics_records')
-      .select(`
-        *,
-        projects (name),
-        drivers (name)
-      `, { count: 'exact' });
-
-    if (projectId) {
-      query = query.eq('project_id', projectId);
-    }
-    if (driverId) {
-      query = query.eq('driver_id', driverId);
-    }
-    if (startDate) {
-      query = query.gte('loading_date', startDate);
-    }
-    if (endDate) {
-      const nextDay = new Date(endDate);
-      nextDay.setDate(nextDay.getDate() + 1);
-      query = query.lt('loading_date', nextDay.toISOString().split('T')[0]);
-    }
-    if (billingTypeId !== undefined) {
-      query = query.eq('billing_type_id', billingTypeId);
-    }
-
-    query = query.range(offset, offset + limit - 1).order('loading_date', { ascending: false });
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      console.error('Error fetching logistics records:', error);
-      throw error;
-    }
-
-    const records = data.map((item: any) => ({
-      ...item,
-      projectName: item.projects?.name,
-      driverName: item.drivers?.name,
-      payableFee: item.payable_cost,
-      autoNumber: item.auto_number,
-      licensePlate: item.license_plate,
-      loadingLocation: item.loading_location,
-      unloadingLocation: item.unloading_location,
-      loadingWeight: item.loading_weight,
-      unloadingWeight: item.unloading_weight,
-      transportType: item.transport_type,
-      billing_type_id: item.billing_type_id,
-    }));
-
-    return { records, totalCount: count || 0 };
   }
 }

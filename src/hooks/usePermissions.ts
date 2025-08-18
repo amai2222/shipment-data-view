@@ -25,10 +25,10 @@ export function usePermissions() {
     },
     finance: {
       canViewFinance: true,
-      canManageProjects: false,
+      canManageProjects: true,
       canManagePartners: true,
       canExportData: true,
-      canManageUsers: false,
+      canManageUsers: true,
       canViewAllRecords: true,
       canCreateRecords: false,
       canDeleteRecords: false,

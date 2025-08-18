@@ -80,13 +80,13 @@ export default function Home() {
     else setIsSearching(true);
     
     try {
-      const { data, error } = await supabase.rpc('get_dashboard_stats_v2', {
+      const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types', {
         p_start_date: filterInputs.startDate,
         p_end_date: filterInputs.endDate,
         p_project_id: filterInputs.projectId === 'all' ? null : filterInputs.projectId,
       });
       if (error) throw error;
-      setDashboardData(data);
+      setDashboardData(data as any);
     } catch (err: any) {
       console.error('获取看板数据失败:', err);
       toast({ title: "数据加载失败", description: err.message, variant: "destructive" });
