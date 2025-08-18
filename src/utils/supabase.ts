@@ -696,4 +696,84 @@ export class SupabaseStorage {
     
     return data;
   }
+static async getProjects(status?: string): Promise<Project[]> {
+    const statusColumn = 'project_status'; 
+
+    let query = supabase.from('projects').select('*');
+
+    // 如果传入了有效的 status (不是 '所有状态')，则添加筛选条件
+    if (status && status !== '所有状态') {
+      query = query.eq(statusColumn, status);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching projects:', error);
+      throw error;
+    }
+    return data || [];
+  }
+
+  static async getFilteredLogisticsRecords(
+    projectId?: string,
+    driverId?: string,
+    startDate?: string,
+    endDate?: string,
+    limit: number = 15,
+    offset: number = 0,
+    billingTypeId?: number
+  ): Promise<{ records: LogisticsRecord[], totalCount: number }> {
+    let query = supabase
+      .from('logistics_records')
+      .select(`
+        *,
+        projects (name),
+        drivers (name)
+      `, { count: 'exact' });
+
+    if (projectId) {
+      query = query.eq('project_id', projectId);
+    }
+    if (driverId) {
+      query = query.eq('driver_id', driverId);
+    }
+    if (startDate) {
+      query = query.gte('loading_date', startDate);
+    }
+    if (endDate) {
+      const nextDay = new Date(endDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      query = query.lt('loading_date', nextDay.toISOString().split('T')[0]);
+    }
+    if (billingTypeId !== undefined) {
+      query = query.eq('billing_type_id', billingTypeId);
+    }
+
+    query = query.range(offset, offset + limit - 1).order('loading_date', { ascending: false });
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Error fetching logistics records:', error);
+      throw error;
+    }
+
+    const records = data.map((item: any) => ({
+      ...item,
+      projectName: item.projects?.name,
+      driverName: item.drivers?.name,
+      payableFee: item.payable_cost,
+      autoNumber: item.auto_number,
+      licensePlate: item.license_plate,
+      loadingLocation: item.loading_location,
+      unloadingLocation: item.unloading_location,
+      loadingWeight: item.loading_weight,
+      unloadingWeight: item.unloading_weight,
+      transportType: item.transport_type,
+      billing_type_id: item.billing_type_id,
+    }));
+
+    return { records, totalCount: count || 0 };
+  }
 }
