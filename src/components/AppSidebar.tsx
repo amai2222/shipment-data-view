@@ -89,9 +89,13 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { isAdmin } = usePermissions();
 
+  // 添加调试日志
+  console.log('AppSidebar - 当前用户是管理员:', isAdmin);
+
   // 根据权限过滤菜单项
   const filteredMenuItems = menuItems.filter(group => {
     if (group.title === "设置" && !isAdmin) {
+      console.log('隐藏设置菜单 - 非管理员用户');
       return false; // 非管理员隐藏设置菜单
     }
     return true;

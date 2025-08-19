@@ -1,3 +1,4 @@
+
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 
 export function usePermissions() {
@@ -28,7 +29,7 @@ export function usePermissions() {
       canManageProjects: true,
       canManagePartners: true,
       canExportData: true,
-      canManageUsers: true,
+      canManageUsers: false,
       canViewAllRecords: true,
       canCreateRecords: false,
       canDeleteRecords: false,
@@ -76,6 +77,10 @@ export function usePermissions() {
   };
 
   const permissions = profile ? rolePermissions[profile.role] : null;
+
+  // 添加调试日志
+  console.log('当前用户角色:', profile?.role);
+  console.log('权限检查 - isAdmin:', profile?.role === 'admin');
 
   return {
     permissions,
