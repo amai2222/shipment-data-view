@@ -83,7 +83,7 @@ export default function FinanceReconciliation() {
     setLoading(true);
     try {
       // 使用优化的分页函数，包含billing_type_id
-      const { data, error } = await supabase.rpc('get_finance_reconciliation_data_optimized' as any, {
+      const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner' as any, {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
