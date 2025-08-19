@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // --- 类型定义 ---
 interface PaymentRequest {
@@ -39,6 +40,7 @@ export default function PaymentRequestsList() {
   const [loading, setLoading] = useState(true);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { isAdmin } = usePermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(null);
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
@@ -262,7 +264,8 @@ export default function PaymentRequestsList() {
 
       <div className="flex justify-between items-center">
         <div/>
-        <ConfirmDialog
+        {isAdmin && (
+          <ConfirmDialog
           title={`确认作废 ${selectionCount} 张申请单`}
           description="此操作将删除选中的申请单，并将所有关联运单的状态恢复为“未支付”。此操作不可逆，请谨慎操作。"
           onConfirm={handleCancelRequests}
@@ -271,7 +274,8 @@ export default function PaymentRequestsList() {
             {isCancelling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
             一键作废 ({selectionCount})
           </Button>
-        </ConfirmDialog>
+          </ConfirmDialog>
+        )}
       </div>
 
       {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && isAllOnPageSelected && totalRequestsCount > requests.length && (
@@ -297,9 +301,9 @@ export default function PaymentRequestsList() {
               <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
             ) : (
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>
+                 <TableHeader>
+                   <TableRow>
+                     {isAdmin && <TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>}
                     <TableHead>申请编号</TableHead>
                     <TableHead>申请时间</TableHead>
                     <TableHead>状态</TableHead>
@@ -315,9 +319,11 @@ export default function PaymentRequestsList() {
                         data-state={selection.selectedIds.has(req.id) ? "selected" : undefined}
                         className="hover:bg-muted/50"
                       >
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(req.id)} onCheckedChange={() => handleRequestSelect(req.id)} />
-                        </TableCell>
+                        {isAdmin && (
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(req.id)} onCheckedChange={() => handleRequestSelect(req.id)} />
+                          </TableCell>
+                        )}
                         <TableCell className="font-mono cursor-pointer" onClick={() => handleViewDetails(req)}>{req.request_id}</TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{getStatusBadge(req.status)}</TableCell>
@@ -331,7 +337,7 @@ export default function PaymentRequestsList() {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan={6} className="h-24 text-center">暂无付款申请记录。</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={isAdmin ? 6 : 5} className="h-24 text-center">暂无付款申请记录。</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

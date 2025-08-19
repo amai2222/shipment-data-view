@@ -1,7 +1,8 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps) {
   const { user, profile, loading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   if (loading) {
     return (
@@ -35,6 +37,16 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
         <p className="text-sm text-muted-foreground mt-2">
           需要以下角色之一: {requiredRoles.join(', ')}
         </p>
+        <div className="mt-6">
+          <Button 
+            onClick={() => navigate('/home')} 
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            返回首页
+          </Button>
+        </div>
       </div>
     );
   }
