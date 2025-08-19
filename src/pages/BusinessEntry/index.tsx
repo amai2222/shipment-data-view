@@ -197,10 +197,12 @@ export default function BusinessEntry() {
           <p className="text-muted-foreground">查询、导入、导出和管理所有运单记录</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleOpenAddDialog}>
-            <Plus className="mr-2 h-4 w-4" />
-            新增运单
-          </Button>
+          {isAdmin && (
+            <Button onClick={handleOpenAddDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              新增运单
+            </Button>
+          )}
           <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
           {isAdmin && (
             <Button variant="outline" asChild disabled={loading || isImporting}>
