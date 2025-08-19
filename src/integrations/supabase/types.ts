@@ -1043,6 +1043,10 @@ export type Database = {
         Args: { p_project_name: string }
         Returns: string
       }
+      execute_import_v2: {
+        Args: { p_records_to_insert: Json; p_records_to_update: Json }
+        Returns: Json
+      }
       fetch_comprehensive_project_report: {
         Args: { p_report_date: string; p_selected_project_id: string }
         Returns: Json
@@ -1094,6 +1098,14 @@ export type Database = {
           end_date_param: string
           project_id_param?: string
           start_date_param: string
+        }
+        Returns: Json
+      }
+      get_dashboard_stats_v2: {
+        Args: {
+          p_end_date: string
+          p_project_id?: string
+          p_start_date: string
         }
         Returns: Json
       }
@@ -1156,6 +1168,18 @@ export type Database = {
           p_offset?: number
           p_project_id?: string
           p_start_date?: string
+        }
+        Returns: Json
+      }
+      get_filtered_logistics_records_v2: {
+        Args: {
+          p_billing_type_id: number
+          p_driver_id: string
+          p_end_date: string
+          p_limit: number
+          p_offset: number
+          p_project_id: string
+          p_start_date: string
         }
         Returns: Json
       }
@@ -1612,6 +1636,10 @@ export type Database = {
         Returns: {
           user_email: string
         }[]
+      }
+      preview_import_v2: {
+        Args: { p_records: Json }
+        Returns: Json
       }
       preview_import_with_duplicates_check: {
         Args: { p_records: Json }
