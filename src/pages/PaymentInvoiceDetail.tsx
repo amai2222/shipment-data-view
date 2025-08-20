@@ -153,28 +153,31 @@ export default function PaymentInvoiceDetail() {
 
       // Transform the data to match PaymentInvoiceRecord format
       const responseData = recordsData as any;
-      const transformedRecords: PaymentInvoiceRecord[] = (responseData?.records || []).map((rec: any) => {
-        const topLevelPartner = rec.partner_costs?.find((cost: any) => cost.level === Math.max(...rec.partner_costs.map((c: any) => c.level)));
-        
-        return {
-          id: rec.id,
-          auto_number: rec.auto_number,
-          project_name: rec.project_name || '',
-          partner_id: topLevelPartner?.partner_id || '',
-          partner_name: topLevelPartner?.partner_name || '',
-          driver_name: rec.driver_name,
-          loading_date: rec.loading_date,
-          route: `${rec.loading_location} → ${rec.unloading_location}`,
-          loading_weight: rec.loading_weight || 0,
-          partner_payable: topLevelPartner?.payable_amount || 0,
-          paid_amount: 0, // Would need to calculate from payment_records
-          invoiced_amount: 0, // Would need to calculate from invoice_records
-          pending_payment: topLevelPartner?.payable_amount || 0,
-          pending_invoice: topLevelPartner?.payable_amount || 0,
-          payment_status: '待付款',
-          invoice_status: '待开票',
-          level: topLevelPartner?.level || 1
-        };
+      const transformedRecords: PaymentInvoiceRecord[] = [];
+      
+      (responseData?.records || []).forEach((rec: any) => {
+        // 为每个运单的每个合作方创建一行记录
+        (rec.partner_costs || []).forEach((partnerCost: any) => {
+          transformedRecords.push({
+            id: `${rec.id}-${partnerCost.partner_id}`, // 组合ID确保唯一性
+            auto_number: rec.auto_number,
+            project_name: rec.project_name || '',
+            partner_id: partnerCost.partner_id,
+            partner_name: partnerCost.partner_name,
+            driver_name: rec.driver_name,
+            loading_date: rec.loading_date,
+            route: `${rec.loading_location} → ${rec.unloading_location}`,
+            loading_weight: rec.loading_weight || 0,
+            partner_payable: partnerCost.payable_amount || 0,
+            paid_amount: 0, // Would need to calculate from payment_records
+            invoiced_amount: 0, // Would need to calculate from invoice_records
+            pending_payment: partnerCost.payable_amount || 0,
+            pending_invoice: partnerCost.payable_amount || 0,
+            payment_status: '待付款',
+            invoice_status: '待开票',
+            level: partnerCost.level || 1
+          });
+        });
       });
 
       setRecords(transformedRecords);
@@ -563,6 +566,7 @@ export default function PaymentInvoiceDetail() {
                   </TableHead>
                   <TableHead>运单号</TableHead>
                   <TableHead>合作方</TableHead>
+                  <TableHead>级别</TableHead>
                   <TableHead>司机</TableHead>
                   <TableHead>装车日期</TableHead>
                   <TableHead>路线</TableHead>
@@ -588,6 +592,9 @@ export default function PaymentInvoiceDetail() {
                     </TableCell>
                     <TableCell>{record.auto_number}</TableCell>
                     <TableCell>{record.partner_name}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">Level {record.level}</Badge>
+                    </TableCell>
                     <TableCell>{record.driver_name}</TableCell>
                     <TableCell>{record.loading_date}</TableCell>
                     <TableCell>{record.route}</TableCell>
