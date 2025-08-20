@@ -23,6 +23,7 @@ import PaymentRequest from "./pages/PaymentRequest";
 import FinancialOverview from "./pages/FinancialOverview";
 import FinanceReconciliation from "./pages/FinanceReconciliation";
 import PaymentInvoice from "./pages/PaymentInvoice";
+import PaymentInvoiceDetail from "./pages/PaymentInvoiceDetail";
 import NotFound from "./pages/NotFound";
 import PaymentRequestsList from "./pages/PaymentRequestsList";
 import UserManagement from "./pages/Settings/UserManagement";
@@ -130,6 +131,12 @@ const App = () => (
             <Route path="/finance/payment-invoice" element={
               <ProtectedRoute requiredRoles={['admin', 'finance']}>
                 <AppLayout><PaymentInvoice /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/finance/payment-invoice/:requestId" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+                <AppLayout><PaymentInvoiceDetail /></AppLayout>
               </ProtectedRoute>
             } />
             
