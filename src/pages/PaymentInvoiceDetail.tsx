@@ -5,15 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 
 interface PaymentInvoiceRecord {
@@ -33,14 +30,20 @@ interface PaymentInvoiceRecord {
   pending_invoice: number;
   payment_status: string;
   invoice_status: string;
-  latest_payment_date?: string;
-  latest_invoice_date?: string;
   level: number;
 }
 
-interface Project {
-  id: string;
-  name: string;
+interface PartnerSummary {
+  partner_id: string;
+  partner_name: string;
+  level: number;
+  total_records: number;
+  total_payable: number;
+  total_paid: number;
+  total_invoiced: number;
+  total_pending_payment: number;
+  total_pending_invoice: number;
+  records: PaymentInvoiceRecord[];
 }
 
 interface Partner {
@@ -51,23 +54,23 @@ interface Partner {
 export default function PaymentInvoiceDetail() {
   const { requestId } = useParams<{ requestId: string }>();
   const navigate = useNavigate();
-  const [records, setRecords] = useState<PaymentInvoiceRecord[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [partnerSummaries, setPartnerSummaries] = useState<PartnerSummary[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
-  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  const [selectedPartners, setSelectedPartners] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [totalCount, setTotalCount] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 20;
 
-  // 对话框状态
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  // Dialog states
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedPartnerSummary, setSelectedPartnerSummary] = useState<PartnerSummary | null>(null);
   
-  // 付款表单数据
+  const [singlePaymentDialogOpen, setSinglePaymentDialogOpen] = useState(false);
+  const [singleInvoiceDialogOpen, setSingleInvoiceDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<PaymentInvoiceRecord | null>(null);
+  
+  const [batchPaymentDialogOpen, setBatchPaymentDialogOpen] = useState(false);
+  const [batchInvoiceDialogOpen, setBatchInvoiceDialogOpen] = useState(false);
+  const [selectedPartnerForBatch, setSelectedPartnerForBatch] = useState<PartnerSummary | null>(null);
+
+  // Form states
   const [paymentForm, setPaymentForm] = useState({
     partner_id: '',
     amount: '',
@@ -75,7 +78,6 @@ export default function PaymentInvoiceDetail() {
     remarks: ''
   });
 
-  // 开票表单数据
   const [invoiceForm, setInvoiceForm] = useState({
     partner_id: '',
     amount: '',
@@ -85,31 +87,11 @@ export default function PaymentInvoiceDetail() {
   });
 
   useEffect(() => {
-    loadProjects();
     loadPartners();
     if (requestId) {
       loadPaymentRequestData();
     }
   }, [requestId]);
-
-  const loadProjects = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, name')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setProjects(data || []);
-    } catch (error) {
-      console.error('加载项目失败:', error);
-      toast({
-        title: "错误",
-        description: "加载项目列表失败",
-        variant: "destructive",
-      });
-    }
-  };
 
   const loadPartners = async () => {
     try {
@@ -135,7 +117,7 @@ export default function PaymentInvoiceDetail() {
     
     setLoading(true);
     try {
-      // First, get the payment request details
+      // Get the payment request details
       const { data: requestData, error: requestError } = await supabase
         .from('payment_requests')
         .select('*')
@@ -144,22 +126,21 @@ export default function PaymentInvoiceDetail() {
 
       if (requestError) throw requestError;
 
-      // Then get the logistics records data for this request
+      // Get the logistics records data for this request
       const { data: recordsData, error: recordsError } = await supabase.rpc('get_payment_request_data_v2', {
         p_record_ids: requestData.logistics_record_ids,
       });
 
       if (recordsError) throw recordsError;
 
-      // Transform the data to match PaymentInvoiceRecord format
+      // Transform data and group by partner
       const responseData = recordsData as any;
-      const transformedRecords: PaymentInvoiceRecord[] = [];
+      const allRecords: PaymentInvoiceRecord[] = [];
       
       (responseData?.records || []).forEach((rec: any) => {
-        // 为每个运单的每个合作方创建一行记录
         (rec.partner_costs || []).forEach((partnerCost: any) => {
-          transformedRecords.push({
-            id: `${rec.id}-${partnerCost.partner_id}`, // 组合ID确保唯一性
+          allRecords.push({
+            id: `${rec.id}-${partnerCost.partner_id}`,
             auto_number: rec.auto_number,
             project_name: rec.project_name || '',
             partner_id: partnerCost.partner_id,
@@ -169,8 +150,8 @@ export default function PaymentInvoiceDetail() {
             route: `${rec.loading_location} → ${rec.unloading_location}`,
             loading_weight: rec.loading_weight || 0,
             partner_payable: partnerCost.payable_amount || 0,
-            paid_amount: 0, // Would need to calculate from payment_records
-            invoiced_amount: 0, // Would need to calculate from invoice_records
+            paid_amount: 0,
+            invoiced_amount: 0,
             pending_payment: partnerCost.payable_amount || 0,
             pending_invoice: partnerCost.payable_amount || 0,
             payment_status: '待付款',
@@ -180,8 +161,34 @@ export default function PaymentInvoiceDetail() {
         });
       });
 
-      setRecords(transformedRecords);
-      setTotalCount(transformedRecords.length);
+      // Group by partner
+      const partnerGroups = allRecords.reduce((groups: { [key: string]: PaymentInvoiceRecord[] }, record) => {
+        const key = `${record.partner_id}-${record.level}`;
+        if (!groups[key]) {
+          groups[key] = [];
+        }
+        groups[key].push(record);
+        return groups;
+      }, {});
+
+      // Create partner summaries
+      const summaries: PartnerSummary[] = Object.values(partnerGroups).map(records => {
+        const firstRecord = records[0];
+        return {
+          partner_id: firstRecord.partner_id,
+          partner_name: firstRecord.partner_name,
+          level: firstRecord.level,
+          total_records: records.length,
+          total_payable: records.reduce((sum, r) => sum + r.partner_payable, 0),
+          total_paid: records.reduce((sum, r) => sum + r.paid_amount, 0),
+          total_invoiced: records.reduce((sum, r) => sum + r.invoiced_amount, 0),
+          total_pending_payment: records.reduce((sum, r) => sum + r.pending_payment, 0),
+          total_pending_invoice: records.reduce((sum, r) => sum + r.pending_invoice, 0),
+          records: records
+        };
+      });
+
+      setPartnerSummaries(summaries.sort((a, b) => a.level - b.level));
     } catch (error) {
       console.error('加载付款申请数据失败:', error);
       toast({
@@ -194,58 +201,59 @@ export default function PaymentInvoiceDetail() {
     }
   };
 
-  const handleReset = () => {
-    setSelectedProjects([]);
-    setSelectedPartners([]);
-    setDateRange(undefined);
-    setRecords([]);
-    setSelectedRecords([]);
-    setCurrentPage(1);
-    setTotalCount(0);
+  const handleRowClick = (partnerSummary: PartnerSummary) => {
+    setSelectedPartnerSummary(partnerSummary);
+    setDetailDialogOpen(true);
   };
 
-  const handleSelectRecord = (recordId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedRecords([...selectedRecords, recordId]);
-    } else {
-      setSelectedRecords(selectedRecords.filter(id => id !== recordId));
-    }
+  const handleSinglePayment = (record: PaymentInvoiceRecord) => {
+    setSelectedRecord(record);
+    setPaymentForm({
+      partner_id: record.partner_id,
+      amount: record.pending_payment.toString(),
+      date: format(new Date(), 'yyyy-MM-dd'),
+      remarks: ''
+    });
+    setSinglePaymentDialogOpen(true);
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedRecords(records.map(r => r.id));
-    } else {
-      setSelectedRecords([]);
-    }
+  const handleSingleInvoice = (record: PaymentInvoiceRecord) => {
+    setSelectedRecord(record);
+    setInvoiceForm({
+      partner_id: record.partner_id,
+      amount: record.pending_invoice.toString(),
+      invoice_number: '',
+      date: format(new Date(), 'yyyy-MM-dd'),
+      remarks: ''
+    });
+    setSingleInvoiceDialogOpen(true);
   };
 
-  const handleBatchPayment = () => {
-    if (selectedRecords.length === 0) {
-      toast({
-        title: "提示",
-        description: "请先选择要付款的运单",
-        variant: "destructive",
-      });
-      return;
-    }
-    setPaymentDialogOpen(true);
+  const handleBatchPayment = (partnerSummary: PartnerSummary) => {
+    setSelectedPartnerForBatch(partnerSummary);
+    setPaymentForm({
+      partner_id: partnerSummary.partner_id,
+      amount: partnerSummary.total_pending_payment.toString(),
+      date: format(new Date(), 'yyyy-MM-dd'),
+      remarks: ''
+    });
+    setBatchPaymentDialogOpen(true);
   };
 
-  const handleBatchInvoice = () => {
-    if (selectedRecords.length === 0) {
-      toast({
-        title: "提示",
-        description: "请先选择要开票的运单",
-        variant: "destructive",
-      });
-      return;
-    }
-    setInvoiceDialogOpen(true);
+  const handleBatchInvoice = (partnerSummary: PartnerSummary) => {
+    setSelectedPartnerForBatch(partnerSummary);
+    setInvoiceForm({
+      partner_id: partnerSummary.partner_id,
+      amount: partnerSummary.total_pending_invoice.toString(),
+      invoice_number: '',
+      date: format(new Date(), 'yyyy-MM-dd'),
+      remarks: ''
+    });
+    setBatchInvoiceDialogOpen(true);
   };
 
-  const submitPayment = async () => {
-    if (!paymentForm.partner_id || !paymentForm.amount) {
+  const submitSinglePayment = async () => {
+    if (!selectedRecord || !paymentForm.partner_id || !paymentForm.amount) {
       toast({
         title: "错误",
         description: "请填写完整的付款信息",
@@ -255,16 +263,119 @@ export default function PaymentInvoiceDetail() {
     }
 
     try {
-      // 计算每个运单的付款金额
-      const amountPerRecord = parseFloat(paymentForm.amount) / selectedRecords.length;
-
-      // 获取当前用户
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
 
-      // 为每个选中的运单创建付款记录
-      const paymentRecords = selectedRecords.map(recordId => ({
-        logistics_record_id: recordId,
+      const recordId = selectedRecord.id.split('-')[0]; // Get the original logistics_record_id
+
+      const { error } = await supabase
+        .from('payment_records')
+        .insert([{
+          logistics_record_id: recordId,
+          partner_id: paymentForm.partner_id,
+          payment_amount: parseFloat(paymentForm.amount),
+          payment_date: paymentForm.date,
+          remarks: paymentForm.remarks,
+          user_id: userId
+        }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "成功",
+        description: "付款记录已创建",
+      });
+
+      setSinglePaymentDialogOpen(false);
+      setPaymentForm({
+        partner_id: '',
+        amount: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        remarks: ''
+      });
+      loadPaymentRequestData();
+    } catch (error) {
+      console.error('付款失败:', error);
+      toast({
+        title: "错误",
+        description: "付款操作失败",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const submitSingleInvoice = async () => {
+    if (!selectedRecord || !invoiceForm.partner_id || !invoiceForm.amount) {
+      toast({
+        title: "错误",
+        description: "请填写完整的开票信息",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+
+      const recordId = selectedRecord.id.split('-')[0]; // Get the original logistics_record_id
+
+      const { error } = await supabase
+        .from('invoice_records')
+        .insert([{
+          logistics_record_id: recordId,
+          partner_id: invoiceForm.partner_id,
+          invoice_amount: parseFloat(invoiceForm.amount),
+          invoice_number: invoiceForm.invoice_number,
+          invoice_date: invoiceForm.date,
+          remarks: invoiceForm.remarks,
+          user_id: userId
+        }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "成功",
+        description: "开票记录已创建",
+      });
+
+      setSingleInvoiceDialogOpen(false);
+      setInvoiceForm({
+        partner_id: '',
+        amount: '',
+        invoice_number: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        remarks: ''
+      });
+      loadPaymentRequestData();
+    } catch (error) {
+      console.error('开票失败:', error);
+      toast({
+        title: "错误",
+        description: "开票操作失败",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const submitBatchPayment = async () => {
+    if (!selectedPartnerForBatch || !paymentForm.partner_id || !paymentForm.amount) {
+      toast({
+        title: "错误",
+        description: "请填写完整的付款信息",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+
+      const amountPerRecord = parseFloat(paymentForm.amount) / selectedPartnerForBatch.records.length;
+
+      const paymentRecords = selectedPartnerForBatch.records.map(record => ({
+        logistics_record_id: record.id.split('-')[0],
         partner_id: paymentForm.partner_id,
         payment_amount: amountPerRecord,
         payment_date: paymentForm.date,
@@ -280,30 +391,29 @@ export default function PaymentInvoiceDetail() {
 
       toast({
         title: "成功",
-        description: `已为 ${selectedRecords.length} 条运单记录付款`,
+        description: `已为 ${selectedPartnerForBatch.records.length} 条运单记录付款`,
       });
 
-      setPaymentDialogOpen(false);
+      setBatchPaymentDialogOpen(false);
       setPaymentForm({
         partner_id: '',
         amount: '',
         date: format(new Date(), 'yyyy-MM-dd'),
         remarks: ''
       });
-      setSelectedRecords([]);
-      loadPaymentRequestData(); // 重新查询数据
+      loadPaymentRequestData();
     } catch (error) {
-      console.error('付款失败:', error);
+      console.error('批量付款失败:', error);
       toast({
         title: "错误",
-        description: "付款操作失败",
+        description: "批量付款操作失败",
         variant: "destructive",
       });
     }
   };
 
-  const submitInvoice = async () => {
-    if (!invoiceForm.partner_id || !invoiceForm.amount) {
+  const submitBatchInvoice = async () => {
+    if (!selectedPartnerForBatch || !invoiceForm.partner_id || !invoiceForm.amount) {
       toast({
         title: "错误",
         description: "请填写完整的开票信息",
@@ -313,16 +423,13 @@ export default function PaymentInvoiceDetail() {
     }
 
     try {
-      // 计算每个运单的开票金额
-      const amountPerRecord = parseFloat(invoiceForm.amount) / selectedRecords.length;
-
-      // 获取当前用户
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
 
-      // 为每个选中的运单创建开票记录
-      const invoiceRecords = selectedRecords.map(recordId => ({
-        logistics_record_id: recordId,
+      const amountPerRecord = parseFloat(invoiceForm.amount) / selectedPartnerForBatch.records.length;
+
+      const invoiceRecords = selectedPartnerForBatch.records.map(record => ({
+        logistics_record_id: record.id.split('-')[0],
         partner_id: invoiceForm.partner_id,
         invoice_amount: amountPerRecord,
         invoice_number: invoiceForm.invoice_number,
@@ -339,10 +446,10 @@ export default function PaymentInvoiceDetail() {
 
       toast({
         title: "成功",
-        description: `已为 ${selectedRecords.length} 条运单记录开票`,
+        description: `已为 ${selectedPartnerForBatch.records.length} 条运单记录开票`,
       });
 
-      setInvoiceDialogOpen(false);
+      setBatchInvoiceDialogOpen(false);
       setInvoiceForm({
         partner_id: '',
         amount: '',
@@ -350,13 +457,12 @@ export default function PaymentInvoiceDetail() {
         date: format(new Date(), 'yyyy-MM-dd'),
         remarks: ''
       });
-      setSelectedRecords([]);
-      loadPaymentRequestData(); // 重新查询数据
+      loadPaymentRequestData();
     } catch (error) {
-      console.error('开票失败:', error);
+      console.error('批量开票失败:', error);
       toast({
         title: "错误",
-        description: "开票操作失败",
+        description: "批量开票操作失败",
         variant: "destructive",
       });
     }
@@ -383,233 +489,70 @@ export default function PaymentInvoiceDetail() {
         <Button variant="outline" onClick={() => navigate('/finance/payment-invoice')}>
           ← 返回申请单列表
         </Button>
-        <h1 className="text-3xl font-bold">运单财务明细</h1>
+        <h1 className="text-3xl font-bold">合作方财务汇总</h1>
         <div />
       </div>
 
-
-      {/* 操作栏 */}
-      <div className="flex gap-2">
-        <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              onClick={handleBatchPayment}
-              disabled={selectedRecords.length === 0}
-              variant="default"
-            >
-              批量付款 ({selectedRecords.length})
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>付款信息</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>合作方</Label>
-                <Select 
-                  value={paymentForm.partner_id} 
-                  onValueChange={(value) => setPaymentForm({...paymentForm, partner_id: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择合作方" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {partners.map(partner => (
-                      <SelectItem key={partner.id} value={partner.id}>
-                        {partner.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>付款金额</Label>
-                <Input
-                  type="number"
-                  value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
-                  placeholder="请输入付款金额"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>付款日期</Label>
-                <Input
-                  type="date"
-                  value={paymentForm.date}
-                  onChange={(e) => setPaymentForm({...paymentForm, date: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>备注</Label>
-                <Textarea
-                  value={paymentForm.remarks}
-                  onChange={(e) => setPaymentForm({...paymentForm, remarks: e.target.value})}
-                  placeholder="请输入备注信息"
-                />
-              </div>
-
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
-                  取消
-                </Button>
-                <Button onClick={submitPayment}>
-                  确定付款
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              onClick={handleBatchInvoice}
-              disabled={selectedRecords.length === 0}
-              variant="secondary"
-            >
-              批量开票 ({selectedRecords.length})
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>开票信息</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>合作方</Label>
-                <Select 
-                  value={invoiceForm.partner_id} 
-                  onValueChange={(value) => setInvoiceForm({...invoiceForm, partner_id: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择合作方" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {partners.map(partner => (
-                      <SelectItem key={partner.id} value={partner.id}>
-                        {partner.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>开票金额</Label>
-                <Input
-                  type="number"
-                  value={invoiceForm.amount}
-                  onChange={(e) => setInvoiceForm({...invoiceForm, amount: e.target.value})}
-                  placeholder="请输入开票金额"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>发票号码</Label>
-                <Input
-                  value={invoiceForm.invoice_number}
-                  onChange={(e) => setInvoiceForm({...invoiceForm, invoice_number: e.target.value})}
-                  placeholder="请输入发票号码"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>开票日期</Label>
-                <Input
-                  type="date"
-                  value={invoiceForm.date}
-                  onChange={(e) => setInvoiceForm({...invoiceForm, date: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>备注</Label>
-                <Textarea
-                  value={invoiceForm.remarks}
-                  onChange={(e) => setInvoiceForm({...invoiceForm, remarks: e.target.value})}
-                  placeholder="请输入备注信息"
-                />
-              </div>
-
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>
-                  取消
-                </Button>
-                <Button onClick={submitInvoice}>
-                  确定开票
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* 数据表格 */}
+      {/* 合作方汇总表格 */}
       <Card>
         <CardHeader>
-          <CardTitle>运单财务明细</CardTitle>
+          <CardTitle>合作方汇总列表</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={selectedRecords.length === records.length && records.length > 0}
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>运单号</TableHead>
                   <TableHead>合作方</TableHead>
                   <TableHead>级别</TableHead>
-                  <TableHead>司机</TableHead>
-                  <TableHead>装车日期</TableHead>
-                  <TableHead>路线</TableHead>
-                  <TableHead>装货重量</TableHead>
-                  <TableHead>应付金额</TableHead>
+                  <TableHead>运单数量</TableHead>
+                  <TableHead>总应付金额</TableHead>
                   <TableHead>待付金额</TableHead>
                   <TableHead>已付金额</TableHead>
                   <TableHead>待开票金额</TableHead>
                   <TableHead>已开票金额</TableHead>
-                  <TableHead>付款状态</TableHead>
-                  <TableHead>开票状态</TableHead>
                   <TableHead>操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {records.map((record) => (
-                  <TableRow key={record.id}>
+                {partnerSummaries.map((summary) => (
+                  <TableRow 
+                    key={`${summary.partner_id}-${summary.level}`} 
+                    className="cursor-pointer hover:bg-muted"
+                    onClick={() => handleRowClick(summary)}
+                  >
+                    <TableCell>{summary.partner_name}</TableCell>
                     <TableCell>
-                      <Checkbox
-                        checked={selectedRecords.includes(record.id)}
-                        onCheckedChange={(checked) => handleSelectRecord(record.id, checked as boolean)}
-                      />
+                      <Badge variant="secondary">Level {summary.level}</Badge>
                     </TableCell>
-                    <TableCell>{record.auto_number}</TableCell>
-                    <TableCell>{record.partner_name}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">Level {record.level}</Badge>
-                    </TableCell>
-                    <TableCell>{record.driver_name}</TableCell>
-                    <TableCell>{record.loading_date}</TableCell>
-                    <TableCell>{record.route}</TableCell>
-                    <TableCell>{record.loading_weight}吨</TableCell>
-                    <TableCell>¥{record.partner_payable.toFixed(2)}</TableCell>
-                    <TableCell>¥{record.pending_payment.toFixed(2)}</TableCell>
-                    <TableCell>¥{record.paid_amount.toFixed(2)}</TableCell>
-                    <TableCell>¥{record.pending_invoice.toFixed(2)}</TableCell>
-                    <TableCell>¥{record.invoiced_amount.toFixed(2)}</TableCell>
-                    <TableCell>{getStatusBadge(record.payment_status)}</TableCell>
-                    <TableCell>{getStatusBadge(record.invoice_status)}</TableCell>
+                    <TableCell>{summary.total_records}</TableCell>
+                    <TableCell>¥{summary.total_payable.toFixed(2)}</TableCell>
+                    <TableCell>¥{summary.total_pending_payment.toFixed(2)}</TableCell>
+                    <TableCell>¥{summary.total_paid.toFixed(2)}</TableCell>
+                    <TableCell>¥{summary.total_pending_invoice.toFixed(2)}</TableCell>
+                    <TableCell>¥{summary.total_invoiced.toFixed(2)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="outline">付款</Button>
-                        <Button size="sm" variant="outline">开票</Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBatchPayment(summary);
+                          }}
+                        >
+                          批量付款
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBatchInvoice(summary);
+                          }}
+                        >
+                          批量开票
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -618,13 +561,341 @@ export default function PaymentInvoiceDetail() {
             </Table>
           </div>
 
-          {records.length === 0 && (
+          {partnerSummaries.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              暂无数据，请设置筛选条件后点击查询
+              暂无数据
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* 运单明细对话框 */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              运单明细 - {selectedPartnerSummary?.partner_name} (Level {selectedPartnerSummary?.level})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>运单号</TableHead>
+                  <TableHead>司机</TableHead>
+                  <TableHead>装车日期</TableHead>
+                  <TableHead>路线</TableHead>
+                  <TableHead>装货重量</TableHead>
+                  <TableHead>应付金额</TableHead>
+                  <TableHead>付款状态</TableHead>
+                  <TableHead>开票状态</TableHead>
+                  <TableHead>操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedPartnerSummary?.records.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell>{record.auto_number}</TableCell>
+                    <TableCell>{record.driver_name}</TableCell>
+                    <TableCell>{record.loading_date}</TableCell>
+                    <TableCell>{record.route}</TableCell>
+                    <TableCell>{record.loading_weight}吨</TableCell>
+                    <TableCell>¥{record.partner_payable.toFixed(2)}</TableCell>
+                    <TableCell>{getStatusBadge(record.payment_status)}</TableCell>
+                    <TableCell>{getStatusBadge(record.invoice_status)}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleSinglePayment(record)}
+                        >
+                          付款
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleSingleInvoice(record)}
+                        >
+                          开票
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 单个运单付款对话框 */}
+      <Dialog open={singlePaymentDialogOpen} onOpenChange={setSinglePaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>单笔付款 - {selectedRecord?.auto_number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>合作方</Label>
+              <Select 
+                value={paymentForm.partner_id} 
+                onValueChange={(value) => setPaymentForm({...paymentForm, partner_id: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择合作方" />
+                </SelectTrigger>
+                <SelectContent>
+                  {partners.map(partner => (
+                    <SelectItem key={partner.id} value={partner.id}>
+                      {partner.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>付款金额</Label>
+              <Input
+                type="number"
+                value={paymentForm.amount}
+                onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+                placeholder="请输入付款金额"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>付款日期</Label>
+              <Input
+                type="date"
+                value={paymentForm.date}
+                onChange={(e) => setPaymentForm({...paymentForm, date: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>备注</Label>
+              <Textarea
+                value={paymentForm.remarks}
+                onChange={(e) => setPaymentForm({...paymentForm, remarks: e.target.value})}
+                placeholder="请输入备注信息"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setSinglePaymentDialogOpen(false)}>
+                取消
+              </Button>
+              <Button onClick={submitSinglePayment}>
+                确定付款
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 单个运单开票对话框 */}
+      <Dialog open={singleInvoiceDialogOpen} onOpenChange={setSingleInvoiceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>单笔开票 - {selectedRecord?.auto_number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>合作方</Label>
+              <Select 
+                value={invoiceForm.partner_id} 
+                onValueChange={(value) => setInvoiceForm({...invoiceForm, partner_id: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择合作方" />
+                </SelectTrigger>
+                <SelectContent>
+                  {partners.map(partner => (
+                    <SelectItem key={partner.id} value={partner.id}>
+                      {partner.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>开票金额</Label>
+              <Input
+                type="number"
+                value={invoiceForm.amount}
+                onChange={(e) => setInvoiceForm({...invoiceForm, amount: e.target.value})}
+                placeholder="请输入开票金额"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>发票号码</Label>
+              <Input
+                value={invoiceForm.invoice_number}
+                onChange={(e) => setInvoiceForm({...invoiceForm, invoice_number: e.target.value})}
+                placeholder="请输入发票号码"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>开票日期</Label>
+              <Input
+                type="date"
+                value={invoiceForm.date}
+                onChange={(e) => setInvoiceForm({...invoiceForm, date: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>备注</Label>
+              <Textarea
+                value={invoiceForm.remarks}
+                onChange={(e) => setInvoiceForm({...invoiceForm, remarks: e.target.value})}
+                placeholder="请输入备注信息"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setSingleInvoiceDialogOpen(false)}>
+                取消
+              </Button>
+              <Button onClick={submitSingleInvoice}>
+                确定开票
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量付款对话框 */}
+      <Dialog open={batchPaymentDialogOpen} onOpenChange={setBatchPaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              批量付款 - {selectedPartnerForBatch?.partner_name} ({selectedPartnerForBatch?.total_records} 条运单)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>合作方</Label>
+              <Select 
+                value={paymentForm.partner_id} 
+                onValueChange={(value) => setPaymentForm({...paymentForm, partner_id: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择合作方" />
+                </SelectTrigger>
+                <SelectContent>
+                  {partners.map(partner => (
+                    <SelectItem key={partner.id} value={partner.id}>
+                      {partner.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>付款金额</Label>
+              <Input
+                type="number"
+                value={paymentForm.amount}
+                onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+                placeholder="请输入付款金额"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>付款日期</Label>
+              <Input
+                type="date"
+                value={paymentForm.date}
+                onChange={(e) => setPaymentForm({...paymentForm, date: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>备注</Label>
+              <Textarea
+                value={paymentForm.remarks}
+                onChange={(e) => setPaymentForm({...paymentForm, remarks: e.target.value})}
+                placeholder="请输入备注信息"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setBatchPaymentDialogOpen(false)}>
+                取消
+              </Button>
+              <Button onClick={submitBatchPayment}>
+                确定付款
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量开票对话框 */}
+      <Dialog open={batchInvoiceDialogOpen} onOpenChange={setBatchInvoiceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              批量开票 - {selectedPartnerForBatch?.partner_name} ({selectedPartnerForBatch?.total_records} 条运单)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>合作方</Label>
+              <Select 
+                value={invoiceForm.partner_id} 
+                onValueChange={(value) => setInvoiceForm({...invoiceForm, partner_id: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择合作方" />
+                </SelectTrigger>
+                <SelectContent>
+                  {partners.map(partner => (
+                    <SelectItem key={partner.id} value={partner.id}>
+                      {partner.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>开票金额</Label>
+              <Input
+                type="number"
+                value={invoiceForm.amount}
+                onChange={(e) => setInvoiceForm({...invoiceForm, amount: e.target.value})}
+                placeholder="请输入开票金额"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>发票号码</Label>
+              <Input
+                value={invoiceForm.invoice_number}
+                onChange={(e) => setInvoiceForm({...invoiceForm, invoice_number: e.target.value})}
+                placeholder="请输入发票号码"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>开票日期</Label>
+              <Input
+                type="date"
+                value={invoiceForm.date}
+                onChange={(e) => setInvoiceForm({...invoiceForm, date: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>备注</Label>
+              <Textarea
+                value={invoiceForm.remarks}
+                onChange={(e) => setInvoiceForm({...invoiceForm, remarks: e.target.value})}
+                placeholder="请输入备注信息"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setBatchInvoiceDialogOpen(false)}>
+                取消
+              </Button>
+              <Button onClick={submitBatchInvoice}>
+                确定开票
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
