@@ -212,7 +212,7 @@ export default function PaymentInvoice() {
                   <SelectValue placeholder="选择司机" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部司机</SelectItem>
+                  <SelectItem value="all">全部司机</SelectItem>
                   {drivers.map((driver, index) => (
                     <SelectItem key={index} value={driver.name}>
                       {driver.name}
