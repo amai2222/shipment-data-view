@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useFilterState } from '@/hooks/useFilterState';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 interface PaymentRequest {
   id: string;
@@ -25,18 +26,25 @@ interface FilterState {
   projectId: string;
   startDate: string;
   endDate: string;
+  requestId: string;
+  driverName: string;
+  loadingDate: string;
 }
 
 const initialFilterState: FilterState = {
   projectId: 'all',
   startDate: '',
   endDate: '',
+  requestId: '',
+  driverName: '',
+  loadingDate: '',
 };
 
 export default function PaymentInvoice() {
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
+  const [drivers, setDrivers] = useState<Array<{ name: string }>>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -64,6 +72,29 @@ export default function PaymentInvoice() {
       toast({ 
         title: "错误", 
         description: `加载项目失败: ${(error as any).message}`, 
+        variant: "destructive" 
+      });
+    }
+  }, [toast]);
+
+  // Load drivers
+  const loadDrivers = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('logistics_records')
+        .select('driver_name')
+        .not('driver_name', 'is', null);
+      
+      if (error) throw error;
+      
+      // Get unique driver names
+      const uniqueDrivers = [...new Set(data?.map(record => record.driver_name) || [])];
+      setDrivers(uniqueDrivers.map(name => ({ name })));
+    } catch (error) {
+      console.error('加载司机失败:', error);
+      toast({ 
+        title: "错误", 
+        description: `加载司机失败: ${(error as any).message}`, 
         variant: "destructive" 
       });
     }
@@ -99,7 +130,8 @@ export default function PaymentInvoice() {
 
   useEffect(() => {
     loadProjects();
-  }, [loadProjects]);
+    loadDrivers();
+  }, [loadProjects, loadDrivers]);
 
   useEffect(() => {
     loadPaymentRequests();
@@ -154,6 +186,53 @@ export default function PaymentInvoice() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">申请单号</label>
+              <Input
+                type="text"
+                placeholder="输入申请单号"
+                value={uiFilters.requestId}
+                onChange={(e) => 
+                  setUiFilters(prev => ({ ...prev, requestId: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">司机</label>
+              <Select
+                value={uiFilters.driverName}
+                onValueChange={(value) => 
+                  setUiFilters(prev => ({ ...prev, driverName: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择司机" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">全部司机</SelectItem>
+                  {drivers.map((driver, index) => (
+                    <SelectItem key={index} value={driver.name}>
+                      {driver.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">装货日期</label>
+              <Input
+                type="date"
+                value={uiFilters.loadingDate}
+                onChange={(e) => 
+                  setUiFilters(prev => ({ ...prev, loadingDate: e.target.value }))
+                }
+              />
             </div>
           </div>
           

@@ -57,6 +57,7 @@ export default function PaymentInvoiceDetail() {
   const [partnerSummaries, setPartnerSummaries] = useState<PartnerSummary[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(false);
+  const [requestData, setRequestData] = useState<any>(null);
 
   // Dialog states
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -125,6 +126,8 @@ export default function PaymentInvoiceDetail() {
         .single();
 
       if (requestError) throw requestError;
+      
+      setRequestData(requestData);
 
       // Get the logistics records data for this request
       const { data: recordsData, error: recordsError } = await supabase.rpc('get_payment_request_data_v2', {
@@ -489,14 +492,16 @@ export default function PaymentInvoiceDetail() {
         <Button variant="outline" onClick={() => navigate('/finance/payment-invoice')}>
           ← 返回申请单列表
         </Button>
-        <h1 className="text-3xl font-bold">合作方财务汇总</h1>
+        <h1 className="text-3xl font-bold">
+          编号【{requestData?.request_id || requestId}】付款申请单明细
+        </h1>
         <div />
       </div>
 
       {/* 合作方汇总表格 */}
       <Card>
         <CardHeader>
-          <CardTitle>合作方汇总列表</CardTitle>
+          <CardTitle>按申请单付款开票</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
