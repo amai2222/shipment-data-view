@@ -899,7 +899,7 @@ export default function PaymentInvoiceDetail() {
                   setPaymentForm({...paymentForm, payment_images: files});
                 }}
               />
-              {paymentForm.payment_images.length > 0 && (
+              {paymentForm.payment_images && paymentForm.payment_images.length > 0 && (
                 <div className="grid grid-cols-3 gap-2 mt-2">
                   {paymentForm.payment_images.map((file, index) => (
                     <div key={index} className="relative">
@@ -911,7 +911,7 @@ export default function PaymentInvoiceDetail() {
                       <button
                         type="button"
                         onClick={() => {
-                          const newImages = paymentForm.payment_images.filter((_, i) => i !== index);
+                          const newImages = (paymentForm.payment_images || []).filter((_, i) => i !== index);
                           setPaymentForm({...paymentForm, payment_images: newImages});
                         }}
                         className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
@@ -1006,7 +1006,7 @@ export default function PaymentInvoiceDetail() {
                   setInvoiceForm({...invoiceForm, invoice_images: files});
                 }}
               />
-              {invoiceForm.invoice_images.length > 0 && (
+              {invoiceForm.invoice_images && invoiceForm.invoice_images.length > 0 && (
                 <div className="grid grid-cols-3 gap-2 mt-2">
                   {invoiceForm.invoice_images.map((file, index) => (
                     <div key={index} className="relative">
@@ -1018,7 +1018,7 @@ export default function PaymentInvoiceDetail() {
                       <button
                         type="button"
                         onClick={() => {
-                          const newImages = invoiceForm.invoice_images.filter((_, i) => i !== index);
+                          const newImages = (invoiceForm.invoice_images || []).filter((_, i) => i !== index);
                           setInvoiceForm({...invoiceForm, invoice_images: newImages});
                         }}
                         className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
