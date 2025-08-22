@@ -486,6 +486,53 @@ export default function PaymentInvoiceDetail() {
     }
   };
 
+  // Helper functions for dynamic button names
+  const getHighestLevel = () => {
+    return Math.max(...partnerSummaries.map(p => p.level));
+  };
+
+  const getLowestLevel = () => {
+    return Math.min(...partnerSummaries.map(p => p.level));
+  };
+
+  const getPartnerNameByLevel = (level: number) => {
+    const partner = partnerSummaries.find(p => p.level === level);
+    return partner?.partner_name || '';
+  };
+
+  const getPaymentButtonText = (summary: PartnerSummary) => {
+    const highestLevel = getHighestLevel();
+    const lowestLevel = getLowestLevel();
+    
+    if (summary.level === highestLevel) {
+      // 最高级合作方
+      return `确认 【${summary.partner_name}】已付款`;
+    } else {
+      // 非最高级合作方
+      const lowerLevelPartnerName = getPartnerNameByLevel(summary.level - 1);
+      return `向【${lowerLevelPartnerName || '下一级合作方'}】付款`;
+    }
+  };
+
+  const getInvoiceButtonText = (summary: PartnerSummary) => {
+    const highestLevel = getHighestLevel();
+    const lowestLevel = getLowestLevel();
+    
+    if (summary.level === lowestLevel) {
+      // 最低级合作方
+      return `确认【${summary.partner_name}】收票`;
+    } else {
+      // 非最低级合作方
+      const higherLevelPartnerName = getPartnerNameByLevel(summary.level + 1);
+      return `向【${higherLevelPartnerName || '上一级合作方'}】开票`;
+    }
+  };
+
+  const getPaymentButtonVariant = (summary: PartnerSummary) => {
+    const highestLevel = getHighestLevel();
+    return summary.level === highestLevel ? "destructive" : "outline";
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -536,30 +583,30 @@ export default function PaymentInvoiceDetail() {
                     <TableCell>¥{summary.total_paid.toFixed(2)}</TableCell>
                     <TableCell>¥{summary.total_pending_invoice.toFixed(2)}</TableCell>
                     <TableCell>¥{summary.total_invoiced.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleBatchPayment(summary);
-                          }}
-                        >
-                          批量付款
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleBatchInvoice(summary);
-                          }}
-                        >
-                          批量开票
-                        </Button>
-                      </div>
-                    </TableCell>
+                     <TableCell>
+                       <div className="flex gap-1">
+                         <Button 
+                           size="sm" 
+                           variant={getPaymentButtonVariant(summary)}
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             handleBatchPayment(summary);
+                           }}
+                         >
+                           {getPaymentButtonText(summary)}
+                         </Button>
+                         <Button 
+                           size="sm" 
+                           variant="outline"
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             handleBatchInvoice(summary);
+                           }}
+                         >
+                           {getInvoiceButtonText(summary)}
+                         </Button>
+                       </div>
+                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
