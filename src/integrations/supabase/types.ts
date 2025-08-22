@@ -110,6 +110,7 @@ export type Database = {
           id: string
           invoice_amount: number
           invoice_date: string
+          invoice_image_urls: string[] | null
           invoice_number: string | null
           logistics_record_id: string
           partner_id: string
@@ -122,6 +123,7 @@ export type Database = {
           id?: string
           invoice_amount?: number
           invoice_date?: string
+          invoice_image_urls?: string[] | null
           invoice_number?: string | null
           logistics_record_id: string
           partner_id: string
@@ -134,6 +136,7 @@ export type Database = {
           id?: string
           invoice_amount?: number
           invoice_date?: string
+          invoice_image_urls?: string[] | null
           invoice_number?: string | null
           logistics_record_id?: string
           partner_id?: string
@@ -590,34 +593,40 @@ export type Database = {
       }
       payment_records: {
         Row: {
+          bank_receipt_number: string | null
           created_at: string
           id: string
           logistics_record_id: string
           partner_id: string
           payment_amount: number
           payment_date: string
+          payment_image_urls: string[] | null
           remarks: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          bank_receipt_number?: string | null
           created_at?: string
           id?: string
           logistics_record_id: string
           partner_id: string
           payment_amount?: number
           payment_date?: string
+          payment_image_urls?: string[] | null
           remarks?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          bank_receipt_number?: string | null
           created_at?: string
           id?: string
           logistics_record_id?: string
           partner_id?: string
           payment_amount?: number
           payment_date?: string
+          payment_image_urls?: string[] | null
           remarks?: string | null
           updated_at?: string
           user_id?: string | null
@@ -1213,6 +1222,17 @@ export type Database = {
           p_start_date?: string
         }
         Returns: string[]
+      }
+      get_finance_reconciliation_by_partner: {
+        Args: {
+          p_end_date?: string
+          p_page_number?: number
+          p_page_size?: number
+          p_partner_id?: string
+          p_project_id?: string
+          p_start_date?: string
+        }
+        Returns: Json
       }
       get_finance_reconciliation_data: {
         Args: {

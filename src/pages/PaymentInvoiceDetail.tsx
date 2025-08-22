@@ -76,7 +76,9 @@ export default function PaymentInvoiceDetail() {
     partner_id: '',
     amount: '',
     date: format(new Date(), 'yyyy-MM-dd'),
-    remarks: ''
+    remarks: '',
+    bank_receipt_number: '',
+    payment_images: [] as File[]
   });
 
   const [invoiceForm, setInvoiceForm] = useState({
@@ -84,7 +86,8 @@ export default function PaymentInvoiceDetail() {
     amount: '',
     invoice_number: '',
     date: format(new Date(), 'yyyy-MM-dd'),
-    remarks: ''
+    remarks: '',
+    invoice_images: [] as File[]
   });
 
   useEffect(() => {
@@ -215,7 +218,9 @@ export default function PaymentInvoiceDetail() {
       partner_id: record.partner_id,
       amount: record.pending_payment.toString(),
       date: format(new Date(), 'yyyy-MM-dd'),
-      remarks: ''
+      remarks: '',
+      bank_receipt_number: '',
+      payment_images: []
     });
     setSinglePaymentDialogOpen(true);
   };
@@ -227,7 +232,8 @@ export default function PaymentInvoiceDetail() {
       amount: record.pending_invoice.toString(),
       invoice_number: '',
       date: format(new Date(), 'yyyy-MM-dd'),
-      remarks: ''
+      remarks: '',
+      invoice_images: []
     });
     setSingleInvoiceDialogOpen(true);
   };
@@ -238,7 +244,9 @@ export default function PaymentInvoiceDetail() {
       partner_id: partnerSummary.partner_id,
       amount: partnerSummary.total_pending_payment.toString(),
       date: format(new Date(), 'yyyy-MM-dd'),
-      remarks: ''
+      remarks: '',
+      bank_receipt_number: '',
+      payment_images: []
     });
     setBatchPaymentDialogOpen(true);
   };
@@ -250,7 +258,8 @@ export default function PaymentInvoiceDetail() {
       amount: partnerSummary.total_pending_invoice.toString(),
       invoice_number: '',
       date: format(new Date(), 'yyyy-MM-dd'),
-      remarks: ''
+      remarks: '',
+      invoice_images: []
     });
     setBatchInvoiceDialogOpen(true);
   };
@@ -294,7 +303,9 @@ export default function PaymentInvoiceDetail() {
         partner_id: '',
         amount: '',
         date: format(new Date(), 'yyyy-MM-dd'),
-        remarks: ''
+        remarks: '',
+        bank_receipt_number: '',
+        payment_images: []
       });
       loadPaymentRequestData();
     } catch (error) {
@@ -348,7 +359,8 @@ export default function PaymentInvoiceDetail() {
         amount: '',
         invoice_number: '',
         date: format(new Date(), 'yyyy-MM-dd'),
-        remarks: ''
+        remarks: '',
+        invoice_images: []
       });
       loadPaymentRequestData();
     } catch (error) {
@@ -402,7 +414,9 @@ export default function PaymentInvoiceDetail() {
         partner_id: '',
         amount: '',
         date: format(new Date(), 'yyyy-MM-dd'),
-        remarks: ''
+        remarks: '',
+        bank_receipt_number: '',
+        payment_images: []
       });
       loadPaymentRequestData();
     } catch (error) {
@@ -458,7 +472,8 @@ export default function PaymentInvoiceDetail() {
         amount: '',
         invoice_number: '',
         date: format(new Date(), 'yyyy-MM-dd'),
-        remarks: ''
+        remarks: '',
+        invoice_images: []
       });
       loadPaymentRequestData();
     } catch (error) {
@@ -507,8 +522,11 @@ export default function PaymentInvoiceDetail() {
     if (summary.level === highestLevel) {
       // 最高级合作方
       return `确认 【${summary.partner_name}】已付款`;
+    } else if (summary.level === lowestLevel) {
+      // 最低级合作方
+      return `向【${summary.partner_name}】付款`;
     } else {
-      // 非最高级合作方
+      // 中级合作方
       const lowerLevelPartnerName = getPartnerNameByLevel(summary.level - 1);
       return `向【${lowerLevelPartnerName || '下一级合作方'}】付款`;
     }
@@ -530,7 +548,12 @@ export default function PaymentInvoiceDetail() {
 
   const getPaymentButtonVariant = (summary: PartnerSummary) => {
     const highestLevel = getHighestLevel();
-    return summary.level === highestLevel ? "destructive" : "outline";
+    return summary.level === highestLevel ? "destructive" : "default";
+  };
+
+  const getInvoiceButtonVariant = (summary: PartnerSummary) => {
+    const lowestLevel = getLowestLevel();
+    return summary.level === lowestLevel ? "destructive" : "default";
   };
 
   return (
@@ -597,7 +620,7 @@ export default function PaymentInvoiceDetail() {
                          </Button>
                          <Button 
                            size="sm" 
-                           variant="outline"
+                           variant={getInvoiceButtonVariant(summary)}
                            onClick={(e) => {
                              e.stopPropagation();
                              handleBatchInvoice(summary);
@@ -815,7 +838,7 @@ export default function PaymentInvoiceDetail() {
 
       {/* 批量付款对话框 */}
       <Dialog open={batchPaymentDialogOpen} onOpenChange={setBatchPaymentDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               批量付款 - {selectedPartnerForBatch?.partner_name} ({selectedPartnerForBatch?.total_records} 条运单)
@@ -858,6 +881,49 @@ export default function PaymentInvoiceDetail() {
               />
             </div>
             <div className="space-y-2">
+              <Label>电子银行回单编号 (可选)</Label>
+              <Input
+                value={paymentForm.bank_receipt_number}
+                onChange={(e) => setPaymentForm({...paymentForm, bank_receipt_number: e.target.value})}
+                placeholder="请输入银行回单编号"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>上传银行回单图片 (可选)</Label>
+              <Input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setPaymentForm({...paymentForm, payment_images: files});
+                }}
+              />
+              {paymentForm.payment_images.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {paymentForm.payment_images.map((file, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={`Payment image ${index + 1}`}
+                        className="w-full h-20 object-cover rounded border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newImages = paymentForm.payment_images.filter((_, i) => i !== index);
+                          setPaymentForm({...paymentForm, payment_images: newImages});
+                        }}
+                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
               <Label>备注</Label>
               <Textarea
                 value={paymentForm.remarks}
@@ -879,7 +945,7 @@ export default function PaymentInvoiceDetail() {
 
       {/* 批量开票对话框 */}
       <Dialog open={batchInvoiceDialogOpen} onOpenChange={setBatchInvoiceDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               批量开票 - {selectedPartnerForBatch?.partner_name} ({selectedPartnerForBatch?.total_records} 条运单)
@@ -928,6 +994,41 @@ export default function PaymentInvoiceDetail() {
                 value={invoiceForm.date}
                 onChange={(e) => setInvoiceForm({...invoiceForm, date: e.target.value})}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>上传发票图片 (可选)</Label>
+              <Input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setInvoiceForm({...invoiceForm, invoice_images: files});
+                }}
+              />
+              {invoiceForm.invoice_images.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {invoiceForm.invoice_images.map((file, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={`Invoice image ${index + 1}`}
+                        className="w-full h-20 object-cover rounded border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newImages = invoiceForm.invoice_images.filter((_, i) => i !== index);
+                          setInvoiceForm({...invoiceForm, invoice_images: newImages});
+                        }}
+                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>备注</Label>
