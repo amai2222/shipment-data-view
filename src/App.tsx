@@ -27,6 +27,7 @@ import PaymentInvoiceDetail from "./pages/PaymentInvoiceDetail";
 import NotFound from "./pages/NotFound";
 import PaymentRequestsList from "./pages/PaymentRequestsList";
 import UserManagement from "./pages/Settings/UserManagement";
+import PermissionManagement from "./pages/Settings/PermissionManagement";
 
 // ★★★ 1. 导入我们新创建的两个页面 ★★★
 import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
@@ -143,6 +144,12 @@ const App = () => (
             <Route path="/settings/users" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <AppLayout><UserManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings/permissions" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><PermissionManagement /></AppLayout>
               </ProtectedRoute>
             } />
             

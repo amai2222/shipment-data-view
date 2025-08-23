@@ -78,6 +78,7 @@ const menuItems = [
     icon: Settings,
     items: [
       { title: "用户管理", url: "/settings/users", icon: UserCog },
+      { title: "权限管理", url: "/settings/permissions", icon: Settings },
     ]
   }
 ];
