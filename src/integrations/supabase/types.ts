@@ -836,6 +836,88 @@ export type Database = {
         }
         Relationships: []
       }
+      role_permission_templates: {
+        Row: {
+          created_at: string
+          function_permissions: string[] | null
+          id: string
+          menu_permissions: string[] | null
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          function_permissions?: string[] | null
+          id?: string
+          menu_permissions?: string[] | null
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          function_permissions?: string[] | null
+          id?: string
+          menu_permissions?: string[] | null
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_permissions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          function_permissions: string[] | null
+          id: string
+          menu_permissions: string[] | null
+          project_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          function_permissions?: string[] | null
+          id?: string
+          menu_permissions?: string[] | null
+          project_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          function_permissions?: string[] | null
+          id?: string
+          menu_permissions?: string[] | null
+          project_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permissions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_permissions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       logistics_records_view: {
