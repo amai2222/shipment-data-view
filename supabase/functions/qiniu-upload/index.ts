@@ -1,7 +1,7 @@
 // 文件路径: supabase/functions/qiniu-upload/index.ts
-// 版本: V6 (添加 'scale' 根目录)
-// 描述: 在所有上传路径前添加 "scale/" 前缀，将文件归档到指定目录下。
-//      同时保留了 V5 版本对中文字符编码的修复。
+// 版本: V7 (指定存储类型为归档直读)
+// 描述: 在上传策略(putPolicy)中添加 "fileType: 4"，确保文件以“归档直读”模式存储。
+//      同时保留了 V6 版本的所有功能。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
@@ -79,13 +79,14 @@ serve(async (req) => {
       const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
       const newFileName = `${projectName}-${date}-${licensePlate}-第${tripNumber}车次-${index + 1}${fileExtension}`;
       
-      // ★★★ 关键修改: 在最终路径前添加 "scale/" 前缀 ★★★
       const qiniuKey = `scale/${folderName}/${newFileName}`;
 
       const putPolicy = {
         scope: `${QINIU_BUCKET}:${qiniuKey}`,
         deadline: Math.floor(Date.now() / 1000) + 3600,
-        returnBody: '{"key":"$(key)","hash":"$(etag)"}'
+        returnBody: '{"key":"$(key)","hash":"$(etag)"}',
+        // ★★★ 关键修改: 指定文件存储类型为归档直读 ★★★
+        fileType: 4 
       }
       
       const encodedPutPolicy = safeUrlsafeBase64Encode(JSON.stringify(putPolicy));
