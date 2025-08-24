@@ -1,7 +1,7 @@
 // 文件路径: supabase/functions/qiniu-upload/index.ts
-// 版本: V5 (修复中文编码问题)
-// 描述: 修复了当项目名称等包含中文字符时，btoa 函数编码失败的致命错误。
-//      引入了一个安全的 Base64 编码辅助函数来正确处理 UTF-8 字符。
+// 版本: V6 (添加 'scale' 根目录)
+// 描述: 在所有上传路径前添加 "scale/" 前缀，将文件归档到指定目录下。
+//      同时保留了 V5 版本对中文字符编码的修复。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
@@ -10,21 +10,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// ★ 新增: 安全的 Base64 编码函数，可以正确处理中文字符 ★
 function safeUrlsafeBase64Encode(str: string): string {
-  // 1. 将字符串编码为 UTF-8 字节数组
   const utf8Bytes = new TextEncoder().encode(str);
-  
-  // 2. 将字节数组转换为二进制字符串，这是 btoa 可以处理的格式
   let binaryString = '';
   utf8Bytes.forEach(byte => {
     binaryString += String.fromCharCode(byte);
   });
-  
-  // 3. 使用 btoa 进行 Base64 编码
   const base64 = btoa(binaryString);
-  
-  // 4. 转换为 URL 安全的 Base64 格式
   return base64.replace(/\+/g, '-').replace(/\//g, '_');
 }
 
@@ -86,7 +78,9 @@ serve(async (req) => {
       const folderName = `${projectName}-${date}-${licensePlate}-第${tripNumber}车次`;
       const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
       const newFileName = `${projectName}-${date}-${licensePlate}-第${tripNumber}车次-${index + 1}${fileExtension}`;
-      const qiniuKey = `${folderName}/${newFileName}`;
+      
+      // ★★★ 关键修改: 在最终路径前添加 "scale/" 前缀 ★★★
+      const qiniuKey = `scale/${folderName}/${newFileName}`;
 
       const putPolicy = {
         scope: `${QINIU_BUCKET}:${qiniuKey}`,
@@ -94,9 +88,7 @@ serve(async (req) => {
         returnBody: '{"key":"$(key)","hash":"$(etag)"}'
       }
       
-      // ★ 修改: 使用新的安全编码函数，替换掉有问题的 btoa ★
       const encodedPutPolicy = safeUrlsafeBase64Encode(JSON.stringify(putPolicy));
-      
       const sign = await generateSign(encodedPutPolicy, QINIU_SECRET_KEY)
       const uploadToken = `${QINIU_ACCESS_KEY}:${sign}:${encodedPutPolicy}`
       
