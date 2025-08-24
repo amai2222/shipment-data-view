@@ -19,10 +19,18 @@ import { LogisticsTable } from './components/LogisticsTable';
 import { ImportDialog } from './components/ImportDialog';
 import { LogisticsFormDialog } from './components/LogisticsFormDialog';
 
+// [新增] 全局货币格式化函数
+const formatCurrency = (value: number | null | undefined): string => {
+  if (value == null || isNaN(value)) return '¥0.00';
+  return new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+  }).format(value);
+};
+
 const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters, projects: Project[], records: LogisticsRecord[] }) => {
   const summaryTitle = useMemo(() => {
     const parts: string[] = [];
-    // [最终修复] 1. 摘要标题逻辑使用 projectName
     if (activeFilters.projectName) { parts.push(`项目: ${activeFilters.projectName}`); }
     if (activeFilters.driverName) { parts.push(`司机: ${activeFilters.driverName}`); }
     if (activeFilters.licensePlate) { parts.push(`车牌: ${activeFilters.licensePlate}`); }
@@ -34,11 +42,11 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { to
     return `${parts.join(' | ')} 合计`;
   }, [activeFilters, projects]);
 
-  // Calculate dynamic billing type statistics
+  // [重构] 动态计算不同计费类型的统计数据
   const billingStats = useMemo(() => {
     const stats = {
       weight: { loading: 0, unloading: 0 },
-      trips: { loading: 0 },
+      trips: { count: 0 },
       volume: { loading: 0, unloading: 0 }
     };
 
@@ -49,7 +57,7 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { to
         stats.weight.loading += record.loading_weight || 0;
         stats.weight.unloading += record.unloading_weight || 0;
       } else if (billingTypeId === 2) { // 计车
-        stats.trips.loading += record.loading_weight || 0;
+        stats.trips.count += 1; // 修正：每条记录计为1车
       } else if (billingTypeId === 3) { // 计体积
         stats.volume.loading += record.loading_weight || 0;
         stats.volume.unloading += record.unloading_weight || 0;
@@ -63,31 +71,26 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { to
     <div className="flex items-center justify-start flex-wrap gap-x-6 gap-y-2 rounded-lg border p-4 text-sm font-medium">
       <span className="font-bold">{summaryTitle}:</span>
       
-      {/* 计重合计 */}
-      {billingStats.weight.loading > 0 || billingStats.weight.unloading > 0 ? (
-        <>
-          <span>计重合计 - 装: <span className="font-bold text-primary">{billingStats.weight.loading.toFixed(2)}吨</span></span>
-          <span>卸: <span className="font-bold text-primary">{billingStats.weight.unloading.toFixed(2)}吨</span></span>
-        </>
-      ) : null}
-      
-      {/* 计车合计 */}
-      {billingStats.trips.loading > 0 ? (
-        <span>计车合计 - 装: <span className="font-bold text-primary">{billingStats.trips.loading.toFixed(0)}车</span></span>
-      ) : null}
-      
-      {/* 计体积合计 */}
-      {billingStats.volume.loading > 0 || billingStats.volume.unloading > 0 ? (
-        <>
-          <span>计体积合计 - 装: <span className="font-bold text-primary">{billingStats.volume.loading.toFixed(2)}立方</span></span>
-          <span>卸: <span className="font-bold text-primary">{billingStats.volume.unloading.toFixed(2)}立方</span></span>
-        </>
-      ) : null}
-      
+      {/* [重排] 核心财务与计数指标前置 */}
       <span>{totalSummary.actualCount}实际 / {totalSummary.returnCount}退货</span>
-      <span>司机运费: <span className="font-bold text-primary">¥{totalSummary.totalCurrentCost.toFixed(2)}</span></span>
-      <span>额外费用: <span className="font-bold text-orange-600">¥{totalSummary.totalExtraCost.toFixed(2)}</span></span>
-      <span>司机应收: <span className="font-bold text-green-600">¥{totalSummary.totalDriverPayableCost.toFixed(2)}</span></span>
+      <span>司机运费: <span className="font-bold text-primary">{formatCurrency(totalSummary.totalCurrentCost)}</span></span>
+      <span>额外费用: <span className="font-bold text-orange-600">{formatCurrency(totalSummary.totalExtraCost)}</span></span>
+      <span>司机应收: <span className="font-bold text-green-600">{formatCurrency(totalSummary.totalDriverPayableCost)}</span></span>
+
+      {/* [重排] 计重合计 */}
+      {billingStats.weight.loading > 0 && (
+        <span>计重合计: 装 <span className="font-bold text-primary">{billingStats.weight.loading.toFixed(2)}吨</span> / 卸 <span className="font-bold text-primary">{billingStats.weight.unloading.toFixed(2)}吨</span></span>
+      )}
+      
+      {/* [重排] 计车合计 */}
+      {billingStats.trips.count > 0 && (
+        <span>计车合计: <span className="font-bold text-primary">{billingStats.trips.count}车</span></span>
+      )}
+      
+      {/* [重排] 计体积合计 */}
+      {billingStats.volume.loading > 0 && (
+        <span>计体积合计: 装 <span className="font-bold text-primary">{billingStats.volume.loading.toFixed(2)}立方</span> / 卸 <span className="font-bold text-primary">{billingStats.volume.unloading.toFixed(2)}立方</span></span>
+      )}
     </div>
   );
 };
@@ -137,7 +140,6 @@ export default function BusinessEntry() {
     toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
     try {
       let query = supabase.from('logistics_records_view').select('*');
-      // [最终修复] 2. 导出逻辑与您的 SQL 函数逻辑完全匹配
       if (activeFilters.projectName) query = query.eq('project_name', activeFilters.projectName);
       if (activeFilters.driverName) query = query.ilike('driver_name', `%${activeFilters.driverName}%`);
       if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
@@ -244,9 +246,10 @@ export default function BusinessEntry() {
               <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{viewingRecord.current_cost != null ? `¥${viewingRecord.current_cost.toFixed(2)}` : '-'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono text-orange-600">{viewingRecord.extra_cost != null ? `¥${viewingRecord.extra_cost.toFixed(2)}` : '-'}</p></div>
-              <div className="space-y-1 col-span-1 md:col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{viewingRecord.driver_payable_cost != null ? `¥${viewingRecord.driver_payable_cost.toFixed(2)}` : '-'}</p></div>
+              {/* [格式化] 应用 formatCurrency 函数 */}
+              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{formatCurrency(viewingRecord.current_cost)}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono text-orange-600">{formatCurrency(viewingRecord.extra_cost)}</p></div>
+              <div className="space-y-1 col-span-1 md:col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{formatCurrency(viewingRecord.driver_payable_cost)}</p></div>
               <div className="col-span-1 md:col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px] whitespace-pre-wrap">{viewingRecord.remarks || '无'}</p></div>
             </div>
           )}
