@@ -1,21 +1,20 @@
 // 最终文件路径: src/pages/BusinessEntry/hooks/useLogisticsData.ts
+// 描述: [最终修正版] 更新了 TotalSummary 接口以接收后端计算好的所有合计数据。
 
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogisticsRecord } from '../types';
 
-// [最终修复] 1. 接口定义与您的 SQL 函数参数完全匹配
 export interface LogisticsFilters {
   startDate: string;
   endDate: string;
-  projectName: string; // 使用 projectName
+  projectName: string;
   driverName: string;
   licensePlate: string;
-  driverPhone: string; // 恢复 driverPhone
+  driverPhone: string;
 }
 
-// [最终修复] 2. 初始筛选器与新接口匹配
 export const INITIAL_FILTERS: LogisticsFilters = {
   startDate: "",
   endDate: "",
@@ -27,24 +26,32 @@ export const INITIAL_FILTERS: LogisticsFilters = {
 
 const PAGE_SIZE = 25;
 
+// [核心修正] 接口定义与后端函数返回的 summary 对象完全匹配
 export interface TotalSummary {
-  totalLoadingWeight: number;
-  totalUnloadingWeight: number;
   totalCurrentCost: number;
   totalExtraCost: number;
   totalDriverPayableCost: number;
   actualCount: number;
   returnCount: number;
+  totalWeightLoading: number;
+  totalWeightUnloading: number;
+  totalTripsLoading: number;
+  totalVolumeLoading: number;
+  totalVolumeUnloading: number;
 }
 
+// [核心修正] 初始值也包含所有新字段
 const INITIAL_SUMMARY: TotalSummary = {
-  totalLoadingWeight: 0,
-  totalUnloadingWeight: 0,
   totalCurrentCost: 0,
   totalExtraCost: 0,
   totalDriverPayableCost: 0,
   actualCount: 0,
   returnCount: 0,
+  totalWeightLoading: 0,
+  totalWeightUnloading: 0,
+  totalTripsLoading: 0,
+  totalVolumeLoading: 0,
+  totalVolumeUnloading: 0,
 };
 
 export function useLogisticsData() {
@@ -57,10 +64,9 @@ export function useLogisticsData() {
   const [sortField, setSortField] = useState<string>('auto_number');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  const loadPaginatedRecords = useCallback(async (page: number, filters: LogisticsFilters) => {
+  const loadPaginatedRecords = useCallback(async (page: number, filters: LogisticsFilters, currentSortField: string, currentSortDirection: 'asc' | 'desc') => {
     setLoading(true);
     try {
-      // [最终修复] 3. RPC 调用参数与您的 SQL 函数定义完全匹配
       const { data, error } = await supabase.rpc('get_logistics_summary_and_records' as any, {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
@@ -74,16 +80,15 @@ export function useLogisticsData() {
 
       if (error) throw error;
       
-      // 您的函数返回一个 JSONB 对象，而不是数组
       const responseData = (data as any) || {};
       
       const sortedRecords = (responseData.records || []).sort((a: any, b: any) => {
-        const aVal = a[sortField] || '';
-        const bVal = b[sortField] || '';
-        if (sortDirection === 'asc') {
-          return aVal > bVal ? 1 : -1;
+        const aVal = a[currentSortField] || '';
+        const bVal = b[currentSortField] || '';
+        if (currentSortDirection === 'asc') {
+          return String(aVal).localeCompare(String(bVal));
         } else {
-          return aVal < bVal ? 1 : -1;
+          return String(bVal).localeCompare(String(aVal));
         }
       });
       
@@ -91,6 +96,7 @@ export function useLogisticsData() {
       setTotalSummary(responseData.summary || INITIAL_SUMMARY);
       setPagination(prev => ({ 
         ...prev, 
+        currentPage: page,
         totalPages: Math.ceil((responseData.count || 0) / PAGE_SIZE) || 1,
         totalCount: responseData.count || 0
       }));
@@ -105,16 +111,12 @@ export function useLogisticsData() {
   }, [toast]);
 
   useEffect(() => {
-    loadPaginatedRecords(pagination.currentPage, activeFilters);
-  }, [pagination.currentPage, activeFilters, loadPaginatedRecords, sortField, sortDirection]);
+    loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection);
+  }, [pagination.currentPage, activeFilters, sortField, sortDirection, loadPaginatedRecords]);
 
   const handleSort = useCallback((field: string) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
-    }
+    setSortDirection(prevDirection => sortField === field ? (prevDirection === 'asc' ? 'desc' : 'asc') : 'desc');
+    setSortField(field);
   }, [sortField]);
 
   const handleDelete = useCallback(async (id: string) => {
@@ -122,19 +124,15 @@ export function useLogisticsData() {
       const { error } = await supabase.from('logistics_records').delete().eq('id', id);
       if (error) throw error;
       toast({ title: "成功", description: "运单记录已删除" });
-      await loadPaginatedRecords(pagination.currentPage, activeFilters);
+      await loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection);
     } catch (error: any) {
       toast({ title: "删除失败", description: error.message, variant: "destructive" });
     }
-  }, [toast, loadPaginatedRecords, pagination.currentPage, activeFilters]);
+  }, [toast, loadPaginatedRecords, pagination.currentPage, activeFilters, sortField, sortDirection]);
 
   const refetch = useCallback(() => {
-    if (pagination.currentPage !== 1) {
-      setPagination(p => ({ ...p, currentPage: 1 }));
-    } else {
-      loadPaginatedRecords(1, activeFilters);
-    }
-  }, [loadPaginatedRecords, activeFilters, pagination.currentPage]);
+    loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection);
+  }, [loadPaginatedRecords, activeFilters, pagination.currentPage, sortField, sortDirection]);
 
   return {
     records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch,
