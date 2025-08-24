@@ -1,5 +1,5 @@
 // 最终文件路径: src/pages/BusinessEntry/index.tsx
-// 描述: [最终修正版] 已根据您的指示，精确修正了合计卡片中 billing_type_id=2 (计车) 的统计逻辑。
+// 描述: [最终修正版] 删除了前端的合计逻辑，现在 SummaryDisplay 组件直接使用后端返回的、包含所有结果的 totalSummary。
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,6 @@ import { LogisticsTable } from './components/LogisticsTable';
 import { ImportDialog } from './components/ImportDialog';
 import { LogisticsFormDialog } from './components/LogisticsFormDialog';
 
-// 全局货币格式化函数
 const formatCurrency = (value: number | null | undefined): string => {
   if (value == null || isNaN(value)) return '¥0.00';
   return new Intl.NumberFormat('zh-CN', {
@@ -29,7 +28,8 @@ const formatCurrency = (value: number | null | undefined): string => {
   }).format(value);
 };
 
-const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters, projects: Project[], records: LogisticsRecord[] }) => {
+// [核心修正] 组件现在只接收 totalSummary 和 activeFilters，不再需要 records
+const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters }) => {
   const summaryTitle = useMemo(() => {
     const parts: string[] = [];
     if (activeFilters.projectName) { parts.push(`项目: ${activeFilters.projectName}`); }
@@ -41,56 +41,30 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { to
     else if (activeFilters.endDate) { parts.push(`日期: 截至 ${activeFilters.endDate}`); }
     if (parts.length === 0) { return "全部记录合计"; }
     return `${parts.join(' | ')} 合计`;
-  }, [activeFilters, projects]);
+  }, [activeFilters]);
 
-  // [逻辑修正] 严格按照您的业务规则重新实现统计逻辑
-  const billingStats = useMemo(() => {
-    const stats = {
-      weight: { loading: 0, unloading: 0 },
-      trips: { loading: 0 }, // 修正结构
-      volume: { loading: 0, unloading: 0 }
-    };
-
-    records.forEach(record => {
-      const billingTypeId = (record as any).billing_type_id || 1;
-      
-      if (billingTypeId === 1) { // 计重
-        stats.weight.loading += record.loading_weight || 0;
-        stats.weight.unloading += record.unloading_weight || 0;
-      } else if (billingTypeId === 2) { // 计车
-        stats.trips.loading += record.loading_weight || 0; // 修正：累加 loading_weight
-      } else if (billingTypeId === 3) { // 计体积
-        stats.volume.loading += record.loading_weight || 0;
-        stats.volume.unloading += record.unloading_weight || 0;
-      }
-    });
-
-    return stats;
-  }, [records]);
+  // [核心修正] 彻底删除了在前端计算 billingStats 的 useMemo 逻辑
 
   return (
     <div className="flex items-center justify-start flex-wrap gap-x-6 gap-y-2 rounded-lg border p-4 text-sm font-medium">
       <span className="font-bold">{summaryTitle}:</span>
       
-      {/* 核心财务与计数指标前置 */}
       <span>{totalSummary.actualCount}实际 / {totalSummary.returnCount}退货</span>
       <span>司机运费: <span className="font-bold text-primary">{formatCurrency(totalSummary.totalCurrentCost)}</span></span>
       <span>额外费用: <span className="font-bold text-orange-600">{formatCurrency(totalSummary.totalExtraCost)}</span></span>
       <span>司机应收: <span className="font-bold text-green-600">{formatCurrency(totalSummary.totalDriverPayableCost)}</span></span>
 
-      {/* 计重合计 */}
-      {billingStats.weight.loading > 0 && (
-        <span>计重合计: 装 <span className="font-bold text-primary">{billingStats.weight.loading.toFixed(2)}吨</span> / 卸 <span className="font-bold text-primary">{billingStats.weight.unloading.toFixed(2)}吨</span></span>
+      {/* [核心修正] 直接使用 totalSummary 中的字段，这些字段是所有结果的总和 */}
+      {totalSummary.totalWeightLoading > 0 && (
+        <span>计重合计: 装 <span className="font-bold text-primary">{totalSummary.totalWeightLoading.toFixed(2)}吨</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalWeightUnloading.toFixed(2)}吨</span></span>
       )}
       
-      {/* 计车合计 */}
-      {billingStats.trips.loading > 0 && (
-        <span>计车合计: <span className="font-bold text-primary">{billingStats.trips.loading.toFixed(0)}车</span></span>
+      {totalSummary.totalTripsLoading > 0 && (
+        <span>计车合计: <span className="font-bold text-primary">{totalSummary.totalTripsLoading.toFixed(0)}车</span></span>
       )}
       
-      {/* 计体积合计 */}
-      {billingStats.volume.loading > 0 && (
-        <span>计体积合计: 装 <span className="font-bold text-primary">{billingStats.volume.loading.toFixed(2)}立方</span> / 卸 <span className="font-bold text-primary">{billingStats.volume.unloading.toFixed(2)}立方</span></span>
+      {totalSummary.totalVolumeLoading > 0 && (
+        <span>计体积合计: 装 <span className="font-bold text-primary">{totalSummary.totalVolumeLoading.toFixed(2)}立方</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalVolumeUnloading.toFixed(2)}立方</span></span>
       )}
     </div>
   );
@@ -220,7 +194,7 @@ export default function BusinessEntry() {
         </div>
       </div>
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
-      {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} projects={projects} records={records} />)}
+      {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
       {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, page: pagination.currentPage, size: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />)}
       {isAdmin && <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
       <LogisticsFormDialog
@@ -247,7 +221,6 @@ export default function BusinessEntry() {
               <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
-              {/* [格式化] 应用 formatCurrency 函数 */}
               <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{formatCurrency(viewingRecord.current_cost)}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono text-orange-600">{formatCurrency(viewingRecord.extra_cost)}</p></div>
               <div className="space-y-1 col-span-1 md:col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{formatCurrency(viewingRecord.driver_payable_cost)}</p></div>
