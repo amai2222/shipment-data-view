@@ -80,7 +80,7 @@ const PageSummaryFooter = ({ records }: { records: LogisticsRecord[] }) => {
       <span className="font-bold">本页合计:</span>
       <span className="ml-2">运费 {formatCurrency(pageSummary.currentCost)}</span>
       <span className="ml-2">额外 {formatCurrency(pageSummary.extraCost)}</span>
-      <span className="ml-2">应收 <span className="font-semibold text-primary">{formatCurrency(pageSummary.payableCost)}</span></span>
+      <span className="ml-2">应付款司机 <span className="font-semibold text-primary">{formatCurrency(pageSummary.payableCost)}</span></span>
     </div>
   );
 };
