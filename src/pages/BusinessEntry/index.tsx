@@ -1,4 +1,5 @@
 // 最终文件路径: src/pages/BusinessEntry/index.tsx
+// 描述: [最终修正版] 已根据您的指示，精确修正了合计卡片中 billing_type_id=2 (计车) 的统计逻辑。
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import { LogisticsTable } from './components/LogisticsTable';
 import { ImportDialog } from './components/ImportDialog';
 import { LogisticsFormDialog } from './components/LogisticsFormDialog';
 
-// [新增] 全局货币格式化函数
+// 全局货币格式化函数
 const formatCurrency = (value: number | null | undefined): string => {
   if (value == null || isNaN(value)) return '¥0.00';
   return new Intl.NumberFormat('zh-CN', {
@@ -42,11 +43,11 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { to
     return `${parts.join(' | ')} 合计`;
   }, [activeFilters, projects]);
 
-  // [重构] 动态计算不同计费类型的统计数据
+  // [逻辑修正] 严格按照您的业务规则重新实现统计逻辑
   const billingStats = useMemo(() => {
     const stats = {
       weight: { loading: 0, unloading: 0 },
-      trips: { count: 0 },
+      trips: { loading: 0 }, // 修正结构
       volume: { loading: 0, unloading: 0 }
     };
 
@@ -57,7 +58,7 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { to
         stats.weight.loading += record.loading_weight || 0;
         stats.weight.unloading += record.unloading_weight || 0;
       } else if (billingTypeId === 2) { // 计车
-        stats.trips.count += 1; // 修正：每条记录计为1车
+        stats.trips.loading += record.loading_weight || 0; // 修正：累加 loading_weight
       } else if (billingTypeId === 3) { // 计体积
         stats.volume.loading += record.loading_weight || 0;
         stats.volume.unloading += record.unloading_weight || 0;
@@ -71,23 +72,23 @@ const SummaryDisplay = ({ totalSummary, activeFilters, projects, records }: { to
     <div className="flex items-center justify-start flex-wrap gap-x-6 gap-y-2 rounded-lg border p-4 text-sm font-medium">
       <span className="font-bold">{summaryTitle}:</span>
       
-      {/* [重排] 核心财务与计数指标前置 */}
+      {/* 核心财务与计数指标前置 */}
       <span>{totalSummary.actualCount}实际 / {totalSummary.returnCount}退货</span>
       <span>司机运费: <span className="font-bold text-primary">{formatCurrency(totalSummary.totalCurrentCost)}</span></span>
       <span>额外费用: <span className="font-bold text-orange-600">{formatCurrency(totalSummary.totalExtraCost)}</span></span>
       <span>司机应收: <span className="font-bold text-green-600">{formatCurrency(totalSummary.totalDriverPayableCost)}</span></span>
 
-      {/* [重排] 计重合计 */}
+      {/* 计重合计 */}
       {billingStats.weight.loading > 0 && (
         <span>计重合计: 装 <span className="font-bold text-primary">{billingStats.weight.loading.toFixed(2)}吨</span> / 卸 <span className="font-bold text-primary">{billingStats.weight.unloading.toFixed(2)}吨</span></span>
       )}
       
-      {/* [重排] 计车合计 */}
-      {billingStats.trips.count > 0 && (
-        <span>计车合计: <span className="font-bold text-primary">{billingStats.trips.count}车</span></span>
+      {/* 计车合计 */}
+      {billingStats.trips.loading > 0 && (
+        <span>计车合计: <span className="font-bold text-primary">{billingStats.trips.loading.toFixed(0)}车</span></span>
       )}
       
-      {/* [重排] 计体积合计 */}
+      {/* 计体积合计 */}
       {billingStats.volume.loading > 0 && (
         <span>计体积合计: 装 <span className="font-bold text-primary">{billingStats.volume.loading.toFixed(2)}立方</span> / 卸 <span className="font-bold text-primary">{billingStats.volume.unloading.toFixed(2)}立方</span></span>
       )}
