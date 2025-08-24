@@ -15,7 +15,8 @@ import {
   ChevronDown,
   ClipboardList,
   Settings,
-  UserCog
+  UserCog,
+  Weight
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ const menuItems = [
     icon: FileText,
     items: [
       { title: "运单录入", url: "/business-entry", icon: Plus },
+      { title: "磅单录入", url: "/scale-records", icon: Weight },
       { title: "付款申请", url: "/payment-request", icon: DollarSign },
       { title: "申请单管理", url: "/payment-requests-list", icon: ClipboardList },
     ]

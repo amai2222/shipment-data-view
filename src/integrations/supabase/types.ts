@@ -863,6 +863,57 @@ export type Database = {
         }
         Relationships: []
       }
+      scale_records: {
+        Row: {
+          billing_type_id: number
+          created_at: string
+          created_by_user_id: string
+          driver_name: string | null
+          id: string
+          image_urls: string[] | null
+          license_plate: string | null
+          loading_date: string
+          project_id: string
+          project_name: string
+          trip_number: number
+          updated_at: string
+          user_id: string
+          valid_quantity: number | null
+        }
+        Insert: {
+          billing_type_id?: number
+          created_at?: string
+          created_by_user_id?: string
+          driver_name?: string | null
+          id?: string
+          image_urls?: string[] | null
+          license_plate?: string | null
+          loading_date: string
+          project_id: string
+          project_name: string
+          trip_number: number
+          updated_at?: string
+          user_id?: string
+          valid_quantity?: number | null
+        }
+        Update: {
+          billing_type_id?: number
+          created_at?: string
+          created_by_user_id?: string
+          driver_name?: string | null
+          id?: string
+          image_urls?: string[] | null
+          license_plate?: string | null
+          loading_date?: string
+          project_id?: string
+          project_name?: string
+          trip_number?: number
+          updated_at?: string
+          user_id?: string
+          valid_quantity?: number | null
+        }
+        Relationships: []
+      }
       user_permissions: {
         Row: {
           created_at: string

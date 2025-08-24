@@ -28,6 +28,7 @@ import NotFound from "./pages/NotFound";
 import PaymentRequestsList from "./pages/PaymentRequestsList";
 import UserManagement from "./pages/Settings/UserManagement";
 import PermissionManagement from "./pages/Settings/PermissionManagement";
+import ScaleRecords from "./pages/ScaleRecords";
 
 // ★★★ 1. 导入我们新创建的两个页面 ★★★
 import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
@@ -108,6 +109,12 @@ const App = () => (
             <Route path="/business-entry" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
                 <AppLayout><BusinessEntry /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/scale-records" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+                <AppLayout><ScaleRecords /></AppLayout>
               </ProtectedRoute>
             } />
             
