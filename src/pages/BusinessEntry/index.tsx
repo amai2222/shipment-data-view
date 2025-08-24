@@ -1,5 +1,5 @@
 // 最终文件路径: src/pages/BusinessEntry/index.tsx
-// 描述: [最终完整版] 实现了三项核心修改：运费格式调整、司机应收字段修正、行点击查看详情功能。
+// 描述: [最终完整版] 修复了分页栏布局，使其保持单行显示，并完成了分页控件的汉化。
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -70,13 +70,13 @@ const PageSummaryFooter = ({ records }: { records: LogisticsRecord[] }) => {
     return records.reduce((acc, record) => {
       acc.currentCost += record.current_cost || 0;
       acc.extraCost += record.extra_cost || 0;
-      acc.payableCost += record.payable_cost || 0; // 使用 payable_cost 进行本页合计
+      acc.payableCost += record.payable_cost || 0;
       return acc;
     }, { currentCost: 0, extraCost: 0, payableCost: 0 });
   }, [records]);
 
   return (
-    <div className="text-sm text-muted-foreground">
+    <div className="text-sm text-muted-foreground whitespace-nowrap">
       <span className="font-bold">本页合计:</span>
       <span className="ml-2">运费 {formatCurrency(pageSummary.currentCost)}</span>
       <span className="ml-2">额外 {formatCurrency(pageSummary.extraCost)}</span>
@@ -193,7 +193,6 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
               const billingTypeId = record.billing_type_id || 1;
               const unit = getBillingUnit(billingTypeId);
               return (
-                // [修改 1] 使整行可点击以查看详情，并添加悬停效果
                 <TableRow 
                   key={record.id} 
                   onClick={() => onView(record)}
@@ -213,11 +212,9 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
                       `${record.loading_weight?.toFixed(2) || '0.00'} / ${record.unloading_weight?.toFixed(2) || '0.00'} ${unit}`
                     )}
                   </TableCell>
-                  {/* [修改 2] 格式化“运费/额外费”为单行 */}
                   <TableCell>
                     {`${formatCurrency(record.current_cost)} / ${record.extra_cost || 0}`}
                   </TableCell>
-                  {/* [修改 3] “司机应收”字段修正为 payable_cost */}
                   <TableCell className="font-bold text-primary">{formatCurrency(record.payable_cost)}</TableCell>
                   <TableCell>
                     <Badge variant={record.transport_type === '实际运输' ? 'default' : 'secondary'}>
@@ -240,9 +237,12 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
           )}
         </TableBody>
       </Table>
+      {/* [核心修正] 调整了此处的 Flexbox 布局并汉化了分页按钮 */}
       <div className="flex items-center justify-between p-4 border-t">
-        {records.length > 0 ? <PageSummaryFooter records={records} /> : <div></div>}
-        <div className="flex-1 text-center text-sm text-muted-foreground">共 {pagination.totalCount} 条记录</div>
+        <div className="flex items-center gap-4">
+          {records.length > 0 && <PageSummaryFooter records={records} />}
+          <div className="text-sm text-muted-foreground whitespace-nowrap">共 {pagination.totalCount} 条记录</div>
+        </div>
         <Pagination>
           <PaginationContent>
             <PaginationItem>
