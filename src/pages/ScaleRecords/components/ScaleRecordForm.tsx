@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, X } from 'lucide-react';
@@ -45,9 +46,27 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
 
   const { toast } = useToast();
 
+  const [projectDrivers, setProjectDrivers] = useState<Driver[]>([]);
+
+  // 为Combobox准备数据
+  const driverOptions = useMemo(() => {
+    return projectDrivers.map(driver => ({
+      value: driver.license_plate,
+      label: `${driver.license_plate} - ${driver.name}`
+    }));
+  }, [projectDrivers]);
+
   useEffect(() => {
     loadBillingTypes();
   }, []);
+
+  useEffect(() => {
+    if (formData.projectId) {
+      loadProjectDrivers();
+      // 当项目改变时清空车牌号选择
+      setFormData(prev => ({ ...prev, licensePlate: '' }));
+    }
+  }, [formData.projectId]);
 
   useEffect(() => {
     if (formData.projectId && formData.loadingDate && formData.licensePlate) {
@@ -66,6 +85,30 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
       setBillingTypes(data || []);
     } catch (error) {
       console.error('Error loading billing types:', error);
+    }
+  };
+
+  const loadProjectDrivers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('driver_projects')
+        .select(`
+          drivers (
+            id,
+            name,
+            license_plate
+          )
+        `)
+        .eq('project_id', formData.projectId);
+
+      if (error) throw error;
+      
+      // 提取司机信息
+      const drivers = data?.map(item => item.drivers).filter(Boolean) || [];
+      setProjectDrivers(drivers as Driver[]);
+    } catch (error) {
+      console.error('Error loading project drivers:', error);
+      setProjectDrivers([]);
     }
   };
 
@@ -184,7 +227,7 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
 
       // Get project name
       const selectedProject = projects.find(p => p.id === formData.projectId);
-      const selectedDriver = drivers.find(d => d.license_plate === formData.licensePlate);
+      const selectedDriver = projectDrivers.find(d => d.license_plate === formData.licensePlate);
 
       // Save record to database
       const { error } = await supabase
@@ -251,21 +294,14 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
 
         <div>
           <Label htmlFor="licensePlate">车牌号 *</Label>
-          <Select 
-            value={formData.licensePlate} 
+          <Combobox
+            options={driverOptions}
+            value={formData.licensePlate}
             onValueChange={(value) => setFormData(prev => ({ ...prev, licensePlate: value }))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="选择车牌号" />
-            </SelectTrigger>
-            <SelectContent>
-              {drivers.map((driver) => (
-                <SelectItem key={driver.id} value={driver.license_plate}>
-                  {driver.license_plate} - {driver.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="选择或搜索车牌号"
+            searchPlaceholder="搜索车牌号或司机姓名..."
+            emptyMessage="未找到匹配的车牌号"
+          />
         </div>
 
         <div>
