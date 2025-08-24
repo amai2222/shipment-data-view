@@ -121,7 +121,7 @@ export default function ScaleRecords() {
         .order('loading_date', { ascending: false })
         .order('trip_number', { ascending: false });
 
-      if (activeFilters.projectId) {
+      if (activeFilters.projectId && activeFilters.projectId !== 'all') {
         query = query.eq('project_id', activeFilters.projectId);
       }
 
@@ -204,14 +204,14 @@ export default function ScaleRecords() {
             <div>
               <Label htmlFor="project">项目</Label>
               <Select 
-                value={uiFilters.projectId} 
-                onValueChange={(value) => setUiFilters(prev => ({ ...prev, projectId: value }))}
+                value={uiFilters.projectId || "all"} 
+                onValueChange={(value) => setUiFilters(prev => ({ ...prev, projectId: value === "all" ? "" : value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择项目" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部项目</SelectItem>
+                  <SelectItem value="all">全部项目</SelectItem>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
                       {project.name}
