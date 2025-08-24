@@ -1,5 +1,5 @@
 // 文件路径: src/pages/BusinessEntry/components/LogisticsTable.tsx
-// 描述: [BwxPy 最终复原版] 严格遵从您的指令。已在前端恢复“司机应收=运费+额外费”的动态计算逻辑。
+// 描述: [最终修正版] 实现了单排显示、列合并、动态数量单位和统一的财务格式化。
 
 import { useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -35,28 +35,57 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
     return `${start} → ${end}`;
   };
 
-  const formatCurrency = (value: number | null | undefined) => {
-    if (value == null) return '¥0.00';
-    return `¥${value.toFixed(2)}`;
+  // [修改] 升级为标准的财务格式化函数
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (value == null || isNaN(value)) return '¥0.00';
+    return new Intl.NumberFormat('zh-CN', {
+      style: 'currency',
+      currency: 'CNY',
+    }).format(value);
   };
 
-  // Get unique billing types from records to determine column headers
-  const uniqueBillingTypes = useMemo(() => {
-    const types = new Set<number>();
-    records.forEach(record => {
-      const billingTypeId = record.billing_type_id || 1;
-      types.add(billingTypeId);
-    });
-    return Array.from(types).sort();
-  }, [records]);
-
-  const getQuantityLabel = (billingTypeId: number) => {
+  // [新增] 统一的数量显示函数，根据 billing_type_id 动态返回带单位的字符串
+  const getQuantityDisplay = (record: LogisticsRecord) => {
+    const billingTypeId = record.billing_type_id || 1;
+    const loading = record.loading_weight || 0;
+    const unloading = record.unloading_weight || 0;
     switch (billingTypeId) {
-      case 2: return '车次';
-      case 3: return '立方';
-      default: return '重量 (吨)';
+      case 1: return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 吨`;
+      case 2: return `1 车`;
+      case 3: return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 立方`;
+      default: return '-';
     }
   };
+
+  // [新增] 使用 useMemo 优化合计行计算
+  const summaryTotals = useMemo(() => {
+    const totals = {
+      weight: { loading: 0, unloading: 0 },
+      trips: { count: 0 },
+      volume: { loading: 0, unloading: 0 },
+      currentCost: 0,
+      extraCost: 0,
+      driverPayable: 0,
+    };
+
+    records.forEach(r => {
+      const billingTypeId = r.billing_type_id || 1;
+      if (billingTypeId === 1) {
+        totals.weight.loading += r.loading_weight || 0;
+        totals.weight.unloading += r.unloading_weight || 0;
+      } else if (billingTypeId === 2) {
+        totals.trips.count += 1;
+      } else if (billingTypeId === 3) {
+        totals.volume.loading += r.loading_weight || 0;
+        totals.volume.unloading += r.unloading_weight || 0;
+      }
+      totals.currentCost += r.current_cost || 0;
+      totals.extraCost += r.extra_cost || 0;
+      totals.driverPayable += (r.current_cost || 0) + (r.extra_cost || 0);
+    });
+
+    return totals;
+  }, [records]);
 
   const SortableHeader = ({ field, children, className }: { field: string, children: React.ReactNode, className?: string }) => {
     const getSortIcon = () => {
@@ -79,7 +108,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -88,9 +117,8 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               <SortableHeader field="loading_date" className="w-[100px]">装货日期</SortableHeader>
               <SortableHeader field="driver_name">司机信息</SortableHeader>
               <SortableHeader field="loading_location" className="w-[120px]">路线</SortableHeader>
-              <SortableHeader field="loading_weight" className="w-[100px]">重量(吨)</SortableHeader>
-              <SortableHeader field="loading_weight" className="w-[100px]">出车次数</SortableHeader>
-              <SortableHeader field="loading_weight" className="w-[100px]">体积(立方)</SortableHeader>
+              {/* [修改] 合并为单一的“数量”列 */}
+              <SortableHeader field="loading_weight" className="w-[150px]">数量</SortableHeader>
               <SortableHeader field="current_cost" className="w-[120px]">运费/额外费</SortableHeader>
               <SortableHeader field="driver_payable_cost" className="w-[100px]">司机应收</SortableHeader>
               <SortableHeader field="transport_type" className="w-[100px]">状态</SortableHeader>
@@ -100,7 +128,8 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={12} className="h-24 text-center">
+                {/* [修改] 更新 colSpan */}
+                <TableCell colSpan={10} className="h-24 text-center">
                   <div className="flex justify-center items-center">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     正在加载数据...
@@ -109,37 +138,13 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               </TableRow>
             ) : records.length > 0 ? (
               records.map((record) => {
-                // [核心修复] 恢复您被我删除的前端动态计算逻辑
                 const driverPayable = (record.current_cost || 0) + (record.extra_cost || 0);
-                const billingTypeId = record.billing_type_id || 1;
-
-                // 根据billing_type_id动态显示数据
-                const getWeightDisplay = () => {
-                  if (billingTypeId === 1) {
-                    return `${record.loading_weight || 0} / ${record.unloading_weight || 0}`;
-                  }
-                  return '0 / 0';
-                };
-
-                const getTripCountDisplay = () => {
-                  if (billingTypeId === 2) {
-                    return '1';
-                  }
-                  return '0';
-                };
-
-                const getVolumeDisplay = () => {
-                  if (billingTypeId === 3) {
-                    return `${record.loading_weight || 0} / ${record.unloading_weight || 0}`;
-                  }
-                  return '0 / 0';
-                };
-
                 return (
                   <TableRow 
                     key={record.id} 
                     onClick={() => onView(record)}
-                    className="cursor-pointer hover:bg-muted/50"
+                    // [修改] 添加 whitespace-nowrap 以实现单排显示
+                    className="cursor-pointer hover:bg-muted/50 whitespace-nowrap"
                   >
                     <TableCell className="font-mono">{record.auto_number}</TableCell>
                     <TableCell>{record.project_name}</TableCell>
@@ -153,9 +158,8 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                       </div>
                     </TableCell>
                     <TableCell>{formatRoute(record.loading_location, record.unloading_location)}</TableCell>
-                    <TableCell className="font-mono text-sm">{getWeightDisplay()}</TableCell>
-                    <TableCell className="font-mono text-sm">{getTripCountDisplay()}</TableCell>
-                    <TableCell className="font-mono text-sm">{getVolumeDisplay()}</TableCell>
+                    {/* [修改] 使用统一的显示函数 */}
+                    <TableCell className="font-mono text-sm">{getQuantityDisplay(record)}</TableCell>
                     <TableCell className="font-mono text-sm">
                       {formatCurrency(record.current_cost)} / {formatCurrency(record.extra_cost)}
                     </TableCell>
@@ -207,44 +211,41 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={12} className="h-24 text-center">
+                {/* [修改] 更新 colSpan */}
+                <TableCell colSpan={10} className="h-24 text-center">
                   没有找到匹配的记录。
                 </TableCell>
               </TableRow>
-                  )}
-              </TableBody>
+            )}
+          </TableBody>
               
-              {/* Summary Row */}
-              {records.length > 0 && (
-                <tfoot className="bg-muted/50 font-medium">
-                  <TableRow>
-                    <TableCell className="font-semibold">合计</TableCell>
-                    <TableCell></TableCell>
-                    <TableCell></TableCell>
-                     <TableCell className="text-center font-semibold">{records.length} 条运单</TableCell>
-                     <TableCell></TableCell>
-                     <TableCell className="font-semibold font-mono">
-                       {records.filter(r => r.billing_type_id === 1).reduce((sum, r) => sum + (r.loading_weight || 0), 0).toFixed(1)} / {records.filter(r => r.billing_type_id === 1).reduce((sum, r) => sum + (r.unloading_weight || 0), 0).toFixed(1)}
-                     </TableCell>
-                     <TableCell className="font-semibold font-mono">
-                       {records.filter(r => r.billing_type_id === 2).reduce((sum, r) => sum + (r.loading_weight || 0), 0).toFixed(0)}
-                     </TableCell>
-                     <TableCell className="font-semibold font-mono">
-                       {records.filter(r => r.billing_type_id === 3).reduce((sum, r) => sum + (r.loading_weight || 0), 0).toFixed(1)} / {records.filter(r => r.billing_type_id === 3).reduce((sum, r) => sum + (r.unloading_weight || 0), 0).toFixed(1)}
-                     </TableCell>
-                     <TableCell className="font-semibold font-mono">
-                       {formatCurrency(records.reduce((sum, r) => sum + (r.current_cost || 0), 0))} / {formatCurrency(records.reduce((sum, r) => sum + (r.extra_cost || 0), 0))}
-                     </TableCell>
-                     <TableCell className="font-semibold font-mono text-primary">
-                       {formatCurrency(records.reduce((sum, r) => sum + ((r.current_cost || 0) + (r.extra_cost || 0)), 0))}
-                     </TableCell>
-                     <TableCell></TableCell>
-                     <TableCell></TableCell>
-                  </TableRow>
-                </tfoot>
-              )}
-            </Table>
-          </div>
+          {/* [重构] 合计行逻辑 */}
+          {records.length > 0 && (
+            <tfoot className="bg-muted/50 font-medium whitespace-nowrap">
+              <TableRow>
+                <TableCell className="font-semibold">合计</TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell className="text-center font-semibold">{records.length} 条运单</TableCell>
+                <TableCell></TableCell>
+                <TableCell className="font-semibold font-mono text-xs">
+                  {summaryTotals.weight.loading > 0 && <div>计重: {summaryTotals.weight.loading.toFixed(2)} / {summaryTotals.weight.unloading.toFixed(2)} 吨</div>}
+                  {summaryTotals.trips.count > 0 && <div>计车: {summaryTotals.trips.count} 车</div>}
+                  {summaryTotals.volume.loading > 0 && <div>计体积: {summaryTotals.volume.loading.toFixed(2)} / {summaryTotals.volume.unloading.toFixed(2)} 立方</div>}
+                </TableCell>
+                <TableCell className="font-semibold font-mono">
+                  {formatCurrency(summaryTotals.currentCost)} / {formatCurrency(summaryTotals.extraCost)}
+                </TableCell>
+                <TableCell className="font-semibold font-mono text-primary">
+                  {formatCurrency(summaryTotals.driverPayable)}
+                </TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+            </tfoot>
+          )}
+        </Table>
+      </div>
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="flex-1 text-sm text-muted-foreground">
           第 {pagination.currentPage} 页 / 共 {Math.ceil(pagination.totalCount / pagination.pageSize)} 页 (总计 {pagination.totalCount} 条记录)
