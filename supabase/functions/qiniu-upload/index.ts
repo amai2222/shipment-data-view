@@ -1,6 +1,6 @@
 // 文件路径: supabase/functions/qiniu-upload/index.ts
-// 版本: V2 (修正上传地址并优化配置)
-// 描述: 此版本从环境变量读取所有七牛云配置，包括正确的上传地址，解决了硬编码导致的上传失败问题。
+// 版本: V4 (新命名规则: 项目名称-日期-车牌-车次)
+// 描述: 此版本根据新的命名规则，将“项目名称”作为文件夹和文件名的前缀。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
@@ -9,7 +9,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// HMAC-SHA1 签名函数 (与您原版相同，逻辑正确)
 async function generateSign(data: string, secretKey: string): Promise<string> {
   const encoder = new TextEncoder()
   const keyData = encoder.encode(secretKey)
@@ -25,7 +24,6 @@ async function generateSign(data: string, secretKey: string): Promise<string> {
   
   const signature = await crypto.subtle.sign('HMAC', cryptoKey, dataToSign)
   
-  // 将 ArrayBuffer 转换为 Base64 URL Safe 字符串
   const signatureBytes = new Uint8Array(signature)
   let binaryString = ''
   for (let i = 0; i < signatureBytes.byteLength; i++) {
@@ -36,40 +34,53 @@ async function generateSign(data: string, secretKey: string): Promise<string> {
 
 
 serve(async (req) => {
-  // 处理 CORS 预检请求
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // ★★★ 优化点 1: 从环境变量中读取所有配置 ★★★
     const QINIU_ACCESS_KEY = Deno.env.get('QINIU_ACCESS_KEY')
     const QINIU_SECRET_KEY = Deno.env.get('QINIU_SECRET_KEY')
     const QINIU_BUCKET = Deno.env.get('QINIU_BUCKET')
     const QINIU_DOMAIN = Deno.env.get('QINIU_DOMAIN')
-    const QINIU_UPLOAD_URL = Deno.env.get('QINIU_UPLOAD_URL') // <-- 使用正确的上传地址
+    const QINIU_UPLOAD_URL = Deno.env.get('QINIU_UPLOAD_URL')
 
     if (!QINIU_ACCESS_KEY || !QINIU_SECRET_KEY || !QINIU_BUCKET || !QINIU_DOMAIN || !QINIU_UPLOAD_URL) {
       throw new Error('Qiniu environment variables are not fully configured in Supabase Secrets.')
     }
 
-    const { files, folder = 'default-folder' } = await req.json()
+    const { files, namingParams } = await req.json()
     
     if (!files || !Array.isArray(files) || files.length === 0) {
       throw new Error('Files array is required and cannot be empty.')
     }
+    // ★★★ 修改点 1: 校验中增加 projectName ★★★
+    if (!namingParams || !namingParams.projectName || !namingParams.date || !namingParams.licensePlate || !namingParams.tripNumber) {
+        throw new Error('namingParams object with projectName, date, licensePlate, and tripNumber is required.')
+    }
 
     const uploadedUrls: string[] = []
     
-    for (const file of files) {
+    for (const [index, file] of files.entries()) {
       const { fileName, fileData } = file
+      // ★★★ 修改点 2: 从 namingParams 中解构出 projectName ★★★
+      const { projectName, date, licensePlate, tripNumber } = namingParams;
       
-      const timestamp = Date.now()
-      const uniqueFileName = `${folder}/${timestamp}-${fileName}`
+      // ★★★ 修改点 3: 根据新规则构建文件夹名称 ★★★
+      // 新规则: 项目名称-日期-车牌-车次
+      const folderName = `${projectName}-${date}-${licensePlate}-第${tripNumber}车次`;
       
+      const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+      
+      // ★★★ 修改点 4: 根据新规则构建文件名称 ★★★
+      // 新规则: 项目名称-日期-车牌-车次-自动编号
+      const newFileName = `${projectName}-${date}-${licensePlate}-第${tripNumber}车次-${index + 1}${fileExtension}`;
+
+      const qiniuKey = `${folderName}/${newFileName}`;
+
       const putPolicy = {
-        scope: `${QINIU_BUCKET}:${uniqueFileName}`,
-        deadline: Math.floor(Date.now() / 1000) + 3600, // 1小时有效期
+        scope: `${QINIU_BUCKET}:${qiniuKey}`,
+        deadline: Math.floor(Date.now() / 1000) + 3600,
         returnBody: '{"key":"$(key)","hash":"$(etag)"}'
       }
       
@@ -80,11 +91,10 @@ serve(async (req) => {
       const binaryData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0))
       
       const formData = new FormData()
-      formData.append('key', uniqueFileName)
+      formData.append('key', qiniuKey)
       formData.append('token', uploadToken)
       formData.append('file', new Blob([binaryData]), fileName)
       
-      // ★★★ 修正点: 使用从环境变量获取的正确上传地址 ★★★
       const uploadResponse = await fetch(QINIU_UPLOAD_URL, {
         method: 'POST',
         body: formData
