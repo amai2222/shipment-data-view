@@ -1,5 +1,5 @@
 // 最终文件路径: src/pages/BusinessEntry/index.tsx
-// 描述: [最终完整版] 优化了 LogisticsTable 的显示，日期格式改为 YYYY-MM-DD，司机信息合并为单行，并提供了完整的代码。
+// 描述: [最终完整版] 实现了四项UI优化：总合计单行显示、路线文字简化、增加本页合计、分页控件汉化。
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ const formatCurrency = (value: number | null | undefined): string => {
   }).format(value);
 };
 
+// [修改 1] 总合计卡片强制单行显示
 const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters }) => {
   const summaryTitle = useMemo(() => {
     const parts: string[] = [];
@@ -46,25 +47,46 @@ const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSu
   }, [activeFilters]);
 
   return (
-    <div className="flex items-center justify-start flex-wrap gap-x-6 gap-y-2 rounded-lg border p-4 text-sm font-medium">
-      <span className="font-bold">{summaryTitle}:</span>
+    <div className="flex items-center justify-start gap-x-6 rounded-lg border p-4 text-sm font-medium flex-nowrap overflow-x-auto scrollbar-thin">
+      <span className="font-bold whitespace-nowrap">{summaryTitle}:</span>
       
-      <span>{totalSummary.actualCount}实际 / {totalSummary.returnCount}退货</span>
-      <span>司机运费: <span className="font-bold text-primary">{formatCurrency(totalSummary.totalCurrentCost)}</span></span>
-      <span>额外费用: <span className="font-bold text-orange-600">{formatCurrency(totalSummary.totalExtraCost)}</span></span>
-      <span>司机应收: <span className="font-bold text-green-600">{formatCurrency(totalSummary.totalDriverPayableCost)}</span></span>
+      <span className="whitespace-nowrap">{totalSummary.actualCount}实际 / {totalSummary.returnCount}退货</span>
+      <span className="whitespace-nowrap">司机运费: <span className="font-bold text-primary">{formatCurrency(totalSummary.totalCurrentCost)}</span></span>
+      <span className="whitespace-nowrap">额外费用: <span className="font-bold text-orange-600">{formatCurrency(totalSummary.totalExtraCost)}</span></span>
+      <span className="whitespace-nowrap">司机应收: <span className="font-bold text-green-600">{formatCurrency(totalSummary.totalDriverPayableCost)}</span></span>
 
       {totalSummary.totalWeightLoading > 0 && (
-        <span>计重合计: 装 <span className="font-bold text-primary">{totalSummary.totalWeightLoading.toFixed(2)}吨</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalWeightUnloading.toFixed(2)}吨</span></span>
+        <span className="whitespace-nowrap">计重合计: 装 <span className="font-bold text-primary">{totalSummary.totalWeightLoading.toFixed(2)}吨</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalWeightUnloading.toFixed(2)}吨</span></span>
       )}
       
       {totalSummary.totalTripsLoading > 0 && (
-        <span>计车合计: <span className="font-bold text-primary">{totalSummary.totalTripsLoading.toFixed(0)}车</span></span>
+        <span className="whitespace-nowrap">计车合计: <span className="font-bold text-primary">{totalSummary.totalTripsLoading.toFixed(0)}车</span></span>
       )}
       
       {totalSummary.totalVolumeLoading > 0 && (
-        <span>计体积合计: 装 <span className="font-bold text-primary">{totalSummary.totalVolumeLoading.toFixed(2)}立方</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalVolumeUnloading.toFixed(2)}立方</span></span>
+        <span className="whitespace-nowrap">计体积合计: 装 <span className="font-bold text-primary">{totalSummary.totalVolumeLoading.toFixed(2)}立方</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalVolumeUnloading.toFixed(2)}立方</span></span>
       )}
+    </div>
+  );
+};
+
+// [新增] 本页合计组件
+const PageSummaryFooter = ({ records }: { records: LogisticsRecord[] }) => {
+  const pageSummary = useMemo(() => {
+    return records.reduce((acc, record) => {
+      acc.currentCost += record.current_cost || 0;
+      acc.extraCost += record.extra_cost || 0;
+      acc.payableCost += record.driver_payable_cost || 0;
+      return acc;
+    }, { currentCost: 0, extraCost: 0, payableCost: 0 });
+  }, [records]);
+
+  return (
+    <div className="text-sm text-muted-foreground">
+      <span className="font-bold">本页合计:</span>
+      <span className="ml-2">运费 {formatCurrency(pageSummary.currentCost)}</span>
+      <span className="ml-2">额外 {formatCurrency(pageSummary.extraCost)}</span>
+      <span className="ml-2">应收 <span className="font-semibold text-primary">{formatCurrency(pageSummary.payableCost)}</span></span>
     </div>
   );
 };
@@ -184,7 +206,8 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
                   <TableCell>
                     {[record.driver_name, record.license_plate, record.driver_phone].filter(Boolean).join(' - ')}
                   </TableCell>
-                  <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
+                  {/* [修改 2] 路线文字简化 */}
+                  <TableCell>{record.loading_location?.substring(0, 2)} → {record.unloading_location?.substring(0, 2)}</TableCell>
                   <TableCell>
                     {billingTypeId === 2 ? (
                       `${record.loading_weight?.toFixed(0) || '0'} ${unit}`
@@ -220,16 +243,22 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
           )}
         </TableBody>
       </Table>
+      {/* [修改 3 & 4] 增加本页合计并汉化分页 */}
       <div className="flex items-center justify-between p-4 border-t">
+        {records.length > 0 ? <PageSummaryFooter records={records} /> : <div></div>}
         <div className="text-sm text-muted-foreground">共 {pagination.totalCount} 条记录</div>
         <Pagination>
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(pagination.currentPage - 1); }} disabled={pagination.currentPage <= 1} />
+              <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(pagination.currentPage - 1); }} disabled={pagination.currentPage <= 1}>
+                上一页
+              </PaginationPrevious>
             </PaginationItem>
             {renderPaginationItems()}
             <PaginationItem>
-              <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(pagination.currentPage + 1); }} disabled={pagination.currentPage >= pagination.totalPages} />
+              <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(pagination.currentPage + 1); }} disabled={pagination.currentPage >= pagination.totalPages}>
+                下一页
+              </PaginationNext>
             </PaginationItem>
           </PaginationContent>
         </Pagination>
