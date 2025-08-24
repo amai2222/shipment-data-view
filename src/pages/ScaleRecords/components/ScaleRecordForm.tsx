@@ -30,6 +30,13 @@ interface ScaleRecordFormProps {
   onSuccess: () => void;
 }
 
+interface NamingParams {
+  date: string;
+  licensePlate: string;
+  tripNumber: number;
+  projectName: string;
+}
+
 export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFormProps) {
   const [formData, setFormData] = useState({
     projectId: '',
@@ -48,7 +55,6 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
 
   const [projectDrivers, setProjectDrivers] = useState<Driver[]>([]);
 
-  // 为Combobox准备数据
   const driverOptions = useMemo(() => {
     return projectDrivers.map(driver => ({
       value: driver.license_plate,
@@ -63,7 +69,6 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
   useEffect(() => {
     if (formData.projectId) {
       loadProjectDrivers();
-      // 当项目改变时清空车牌号选择
       setFormData(prev => ({ ...prev, licensePlate: '' }));
     }
   }, [formData.projectId]);
@@ -103,7 +108,6 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
 
       if (error) throw error;
       
-      // 提取司机信息
       const drivers = data?.map(item => item.drivers).filter(Boolean) || [];
       setProjectDrivers(drivers as Driver[]);
     } catch (error) {
@@ -166,7 +170,7 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const uploadFiles = async (): Promise<string[]> => {
+  const uploadFiles = async (namingParams: NamingParams): Promise<string[]> => {
     if (selectedFiles.length === 0) return [];
 
     const filesToUpload = selectedFiles.map(file => ({
@@ -174,14 +178,13 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
       fileData: ''
     }));
 
-    // Convert files to base64
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       const reader = new FileReader();
       await new Promise((resolve) => {
         reader.onload = () => {
           const base64 = reader.result as string;
-          filesToUpload[i].fileData = base64.split(',')[1]; // Remove data:image/...;base64, prefix
+          filesToUpload[i].fileData = base64.split(',')[1];
           resolve(null);
         };
         reader.readAsDataURL(file);
@@ -189,7 +192,10 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
     }
 
     const { data, error } = await supabase.functions.invoke('qiniu-upload', {
-      body: { files: filesToUpload, folder: 'scale-records' }
+      body: { 
+        files: filesToUpload,
+        namingParams: namingParams 
+      }
     });
 
     if (error) throw error;
@@ -202,34 +208,28 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
     e.preventDefault();
     
     if (!formData.projectId) {
-      toast({
-        title: "错误",
-        description: "请选择项目",
-        variant: "destructive",
-      });
+      toast({ title: "错误", description: "请选择项目", variant: "destructive" });
       return;
     }
 
     if (!formData.licensePlate) {
-      toast({
-        title: "错误",
-        description: "请选择车牌号",
-        variant: "destructive",
-      });
+      toast({ title: "错误", description: "请选择车牌号", variant: "destructive" });
       return;
     }
 
     setUploading(true);
 
     try {
-      // Upload images first
-      const imageUrls = await uploadFiles();
-
-      // Get project name
       const selectedProject = projects.find(p => p.id === formData.projectId);
       const selectedDriver = projectDrivers.find(d => d.license_plate === formData.licensePlate);
 
-      // Save record to database
+      const imageUrls = await uploadFiles({
+        date: formData.loadingDate,
+        licensePlate: formData.licensePlate,
+        tripNumber: formData.tripNumber,
+        projectName: selectedProject?.name || 'UnknownProject'
+      });
+
       const { error } = await supabase
         .from('scale_records')
         .insert({
@@ -355,7 +355,6 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
         </div>
       </div>
 
-      {/* File Upload Section */}
       <div>
         <Label>磅单图片</Label>
         <div className="mt-2">
