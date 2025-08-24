@@ -1,12 +1,31 @@
 // 文件路径: supabase/functions/qiniu-upload/index.ts
-// 版本: V4 (新命名规则: 项目名称-日期-车牌-车次)
-// 描述: 此版本根据新的命名规则，将“项目名称”作为文件夹和文件名的前缀。
+// 版本: V5 (修复中文编码问题)
+// 描述: 修复了当项目名称等包含中文字符时，btoa 函数编码失败的致命错误。
+//      引入了一个安全的 Base64 编码辅助函数来正确处理 UTF-8 字符。
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// ★ 新增: 安全的 Base64 编码函数，可以正确处理中文字符 ★
+function safeUrlsafeBase64Encode(str: string): string {
+  // 1. 将字符串编码为 UTF-8 字节数组
+  const utf8Bytes = new TextEncoder().encode(str);
+  
+  // 2. 将字节数组转换为二进制字符串，这是 btoa 可以处理的格式
+  let binaryString = '';
+  utf8Bytes.forEach(byte => {
+    binaryString += String.fromCharCode(byte);
+  });
+  
+  // 3. 使用 btoa 进行 Base64 编码
+  const base64 = btoa(binaryString);
+  
+  // 4. 转换为 URL 安全的 Base64 格式
+  return base64.replace(/\+/g, '-').replace(/\//g, '_');
 }
 
 async function generateSign(data: string, secretKey: string): Promise<string> {
@@ -54,7 +73,6 @@ serve(async (req) => {
     if (!files || !Array.isArray(files) || files.length === 0) {
       throw new Error('Files array is required and cannot be empty.')
     }
-    // ★★★ 修改点 1: 校验中增加 projectName ★★★
     if (!namingParams || !namingParams.projectName || !namingParams.date || !namingParams.licensePlate || !namingParams.tripNumber) {
         throw new Error('namingParams object with projectName, date, licensePlate, and tripNumber is required.')
     }
@@ -63,19 +81,11 @@ serve(async (req) => {
     
     for (const [index, file] of files.entries()) {
       const { fileName, fileData } = file
-      // ★★★ 修改点 2: 从 namingParams 中解构出 projectName ★★★
       const { projectName, date, licensePlate, tripNumber } = namingParams;
       
-      // ★★★ 修改点 3: 根据新规则构建文件夹名称 ★★★
-      // 新规则: 项目名称-日期-车牌-车次
       const folderName = `${projectName}-${date}-${licensePlate}-第${tripNumber}车次`;
-      
       const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
-      
-      // ★★★ 修改点 4: 根据新规则构建文件名称 ★★★
-      // 新规则: 项目名称-日期-车牌-车次-自动编号
       const newFileName = `${projectName}-${date}-${licensePlate}-第${tripNumber}车次-${index + 1}${fileExtension}`;
-
       const qiniuKey = `${folderName}/${newFileName}`;
 
       const putPolicy = {
@@ -84,7 +94,9 @@ serve(async (req) => {
         returnBody: '{"key":"$(key)","hash":"$(etag)"}'
       }
       
-      const encodedPutPolicy = btoa(JSON.stringify(putPolicy))
+      // ★ 修改: 使用新的安全编码函数，替换掉有问题的 btoa ★
+      const encodedPutPolicy = safeUrlsafeBase64Encode(JSON.stringify(putPolicy));
+      
       const sign = await generateSign(encodedPutPolicy, QINIU_SECRET_KEY)
       const uploadToken = `${QINIU_ACCESS_KEY}:${sign}:${encodedPutPolicy}`
       
