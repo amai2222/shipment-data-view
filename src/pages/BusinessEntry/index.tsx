@@ -1,22 +1,25 @@
 // 最终文件路径: src/pages/BusinessEntry/index.tsx
-// 描述: [最终修正版] 删除了前端的合计逻辑，现在 SummaryDisplay 组件直接使用后端返回的、包含所有结果的 totalSummary。
+// 描述: [最终完整版] 优化了 LogisticsTable 的显示，日期格式改为 YYYY-MM-DD，司机信息合并为单行，并提供了完整的代码。
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, FileDown, FileUp, Loader2, Search, Plus } from "lucide-react";
+import { Download, FileDown, FileUp, Loader2, Search, Plus, MoreHorizontal, ArrowUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
+import { Badge } from "@/components/ui/badge";
 
 import { Project, LogisticsRecord } from './types';
 import { useLogisticsData, INITIAL_FILTERS, TotalSummary, LogisticsFilters } from './hooks/useLogisticsData';
 import { useExcelImport } from './hooks/useExcelImport';
 import { FilterBar } from './components/FilterBar';
-import { LogisticsTable } from './components/LogisticsTable';
 import { ImportDialog } from './components/ImportDialog';
 import { LogisticsFormDialog } from './components/LogisticsFormDialog';
 
@@ -28,7 +31,6 @@ const formatCurrency = (value: number | null | undefined): string => {
   }).format(value);
 };
 
-// [核心修正] 组件现在只接收 totalSummary 和 activeFilters，不再需要 records
 const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters }) => {
   const summaryTitle = useMemo(() => {
     const parts: string[] = [];
@@ -43,8 +45,6 @@ const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSu
     return `${parts.join(' | ')} 合计`;
   }, [activeFilters]);
 
-  // [核心修正] 彻底删除了在前端计算 billingStats 的 useMemo 逻辑
-
   return (
     <div className="flex items-center justify-start flex-wrap gap-x-6 gap-y-2 rounded-lg border p-4 text-sm font-medium">
       <span className="font-bold">{summaryTitle}:</span>
@@ -54,7 +54,6 @@ const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSu
       <span>额外费用: <span className="font-bold text-orange-600">{formatCurrency(totalSummary.totalExtraCost)}</span></span>
       <span>司机应收: <span className="font-bold text-green-600">{formatCurrency(totalSummary.totalDriverPayableCost)}</span></span>
 
-      {/* [核心修正] 直接使用 totalSummary 中的字段，这些字段是所有结果的总和 */}
       {totalSummary.totalWeightLoading > 0 && (
         <span>计重合计: 装 <span className="font-bold text-primary">{totalSummary.totalWeightLoading.toFixed(2)}吨</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalWeightUnloading.toFixed(2)}吨</span></span>
       )}
@@ -66,6 +65,175 @@ const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSu
       {totalSummary.totalVolumeLoading > 0 && (
         <span>计体积合计: 装 <span className="font-bold text-primary">{totalSummary.totalVolumeLoading.toFixed(2)}立方</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalVolumeUnloading.toFixed(2)}立方</span></span>
       )}
+    </div>
+  );
+};
+
+const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort }: {
+  records: LogisticsRecord[];
+  loading: boolean;
+  pagination: { currentPage: number; totalPages: number; totalCount: number; pageSize: number; };
+  setPagination: React.Dispatch<React.SetStateAction<any>>;
+  onDelete: (id: string) => void;
+  onView: (record: LogisticsRecord) => void;
+  onEdit: (record: LogisticsRecord) => void;
+  sortField: string;
+  sortDirection: 'asc' | 'desc';
+  onSort: (field: string) => void;
+}) => {
+  const { isAdmin } = usePermissions();
+
+  const SortableHeader = ({ field, children }: { field: string; children: React.ReactNode }) => (
+    <Button variant="ghost" onClick={() => onSort(field)} className="px-2 py-1 h-auto -ml-2">
+      {children}
+      <ArrowUpDown className="ml-2 h-3 w-3" />
+    </Button>
+  );
+
+  const getBillingUnit = (billingTypeId: number | null | undefined) => {
+    switch (billingTypeId) {
+      case 1: return '吨';
+      case 2: return '车';
+      case 3: return '立方';
+      default: return '吨';
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= pagination.totalPages) {
+      setPagination((p: any) => ({ ...p, currentPage: page }));
+    }
+  };
+
+  const renderPaginationItems = () => {
+    const { currentPage, totalPages } = pagination;
+    const pageNumbers = [];
+    const maxPagesToShow = 5;
+    const half = Math.floor(maxPagesToShow / 2);
+
+    if (totalPages <= maxPagesToShow + 2) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      pageNumbers.push(1);
+      if (currentPage > half + 2) {
+        pageNumbers.push(-1); // Ellipsis
+      }
+      let start = Math.max(2, currentPage - half);
+      let end = Math.min(totalPages - 1, currentPage + half);
+      if (currentPage <= half + 1) {
+        end = maxPagesToShow;
+      }
+      if (currentPage >= totalPages - half) {
+        start = totalPages - maxPagesToShow + 1;
+      }
+      for (let i = start; i <= end; i++) {
+        pageNumbers.push(i);
+      }
+      if (currentPage < totalPages - half - 1) {
+        pageNumbers.push(-1); // Ellipsis
+      }
+      pageNumbers.push(totalPages);
+    }
+
+    return pageNumbers.map((page, index) =>
+      page === -1 ? (
+        <PaginationItem key={`ellipsis-${index}`}><PaginationEllipsis /></PaginationItem>
+      ) : (
+        <PaginationItem key={page}>
+          <PaginationLink href="#" onClick={(e) => { e.preventDefault(); handlePageChange(page); }} isActive={currentPage === page}>
+            {page}
+          </PaginationLink>
+        </PaginationItem>
+      )
+    );
+  };
+
+  return (
+    <div className="border rounded-lg">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead><SortableHeader field="auto_number">运单编号</SortableHeader></TableHead>
+            <TableHead><SortableHeader field="project_name">项目</SortableHeader></TableHead>
+            <TableHead><SortableHeader field="loading_date">装货日期</SortableHeader></TableHead>
+            <TableHead><SortableHeader field="driver_name">司机信息</SortableHeader></TableHead>
+            <TableHead>路线</TableHead>
+            <TableHead>数量</TableHead>
+            <TableHead><SortableHeader field="current_cost">运费/额外费</SortableHeader></TableHead>
+            <TableHead><SortableHeader field="driver_payable_cost">司机应收</SortableHeader></TableHead>
+            <TableHead>状态</TableHead>
+            <TableHead>操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {loading ? (
+            <TableRow><TableCell colSpan={10} className="text-center h-24"><Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" /></TableCell></TableRow>
+          ) : records.length === 0 ? (
+            <TableRow><TableCell colSpan={10} className="text-center h-24">没有找到任何记录。</TableCell></TableRow>
+          ) : (
+            records.map((record) => {
+              const billingTypeId = record.billing_type_id || 1;
+              const unit = getBillingUnit(billingTypeId);
+              return (
+                <TableRow key={record.id}>
+                  <TableCell className="font-mono">{record.auto_number}</TableCell>
+                  <TableCell>{record.project_name}</TableCell>
+                  <TableCell>{record.loading_date ? record.loading_date.substring(0, 10) : 'N/A'}</TableCell>
+                  <TableCell>
+                    {[record.driver_name, record.license_plate, record.driver_phone].filter(Boolean).join(' - ')}
+                  </TableCell>
+                  <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
+                  <TableCell>
+                    {billingTypeId === 2 ? (
+                      `${record.loading_weight?.toFixed(0) || '0'} ${unit}`
+                    ) : (
+                      `${record.loading_weight?.toFixed(2) || '0.00'} / ${record.unloading_weight?.toFixed(2) || '0.00'} ${unit}`
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span>{formatCurrency(record.current_cost)}</span>
+                      {record.extra_cost > 0 && <span className="text-xs text-orange-600">{formatCurrency(record.extra_cost)}</span>}
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-bold text-primary">{formatCurrency(record.driver_payable_cost)}</TableCell>
+                  <TableCell>
+                    <Badge variant={record.transport_type === '实际运输' ? 'default' : 'secondary'}>
+                      {record.transport_type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onView(record)}>查看详情</DropdownMenuItem>
+                        {isAdmin && <DropdownMenuItem onClick={() => onEdit(record)}>编辑</DropdownMenuItem>}
+                        {isAdmin && <DropdownMenuItem className="text-red-600" onClick={() => onDelete(record.id)}>删除</DropdownMenuItem>}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
+      <div className="flex items-center justify-between p-4 border-t">
+        <div className="text-sm text-muted-foreground">共 {pagination.totalCount} 条记录</div>
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(pagination.currentPage - 1); }} disabled={pagination.currentPage <= 1} />
+            </PaginationItem>
+            {renderPaginationItems()}
+            <PaginationItem>
+              <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(pagination.currentPage + 1); }} disabled={pagination.currentPage >= pagination.totalPages} />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      </div>
     </div>
   );
 };
