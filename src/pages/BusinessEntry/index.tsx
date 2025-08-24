@@ -1,5 +1,5 @@
 // 最终文件路径: src/pages/BusinessEntry/index.tsx
-// 描述: [最终完整版] 实现了四项UI优化：总合计单行显示、路线文字简化、增加本页合计、分页控件汉化。
+// 描述: [最终完整版] 实现了三项核心修改：运费格式调整、司机应收字段修正、行点击查看详情功能。
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,6 @@ const formatCurrency = (value: number | null | undefined): string => {
   }).format(value);
 };
 
-// [修改 1] 总合计卡片强制单行显示
 const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters }) => {
   const summaryTitle = useMemo(() => {
     const parts: string[] = [];
@@ -49,20 +48,16 @@ const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSu
   return (
     <div className="flex items-center justify-start gap-x-6 rounded-lg border p-4 text-sm font-medium flex-nowrap overflow-x-auto scrollbar-thin">
       <span className="font-bold whitespace-nowrap">{summaryTitle}:</span>
-      
       <span className="whitespace-nowrap">{totalSummary.actualCount}实际 / {totalSummary.returnCount}退货</span>
       <span className="whitespace-nowrap">司机运费: <span className="font-bold text-primary">{formatCurrency(totalSummary.totalCurrentCost)}</span></span>
       <span className="whitespace-nowrap">额外费用: <span className="font-bold text-orange-600">{formatCurrency(totalSummary.totalExtraCost)}</span></span>
       <span className="whitespace-nowrap">司机应收: <span className="font-bold text-green-600">{formatCurrency(totalSummary.totalDriverPayableCost)}</span></span>
-
       {totalSummary.totalWeightLoading > 0 && (
         <span className="whitespace-nowrap">计重合计: 装 <span className="font-bold text-primary">{totalSummary.totalWeightLoading.toFixed(2)}吨</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalWeightUnloading.toFixed(2)}吨</span></span>
       )}
-      
       {totalSummary.totalTripsLoading > 0 && (
         <span className="whitespace-nowrap">计车合计: <span className="font-bold text-primary">{totalSummary.totalTripsLoading.toFixed(0)}车</span></span>
       )}
-      
       {totalSummary.totalVolumeLoading > 0 && (
         <span className="whitespace-nowrap">计体积合计: 装 <span className="font-bold text-primary">{totalSummary.totalVolumeLoading.toFixed(2)}立方</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalVolumeUnloading.toFixed(2)}立方</span></span>
       )}
@@ -70,13 +65,12 @@ const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSu
   );
 };
 
-// [新增] 本页合计组件
 const PageSummaryFooter = ({ records }: { records: LogisticsRecord[] }) => {
   const pageSummary = useMemo(() => {
     return records.reduce((acc, record) => {
       acc.currentCost += record.current_cost || 0;
       acc.extraCost += record.extra_cost || 0;
-      acc.payableCost += record.driver_payable_cost || 0;
+      acc.payableCost += record.payable_cost || 0; // 使用 payable_cost 进行本页合计
       return acc;
     }, { currentCost: 0, extraCost: 0, payableCost: 0 });
   }, [records]);
@@ -184,7 +178,7 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
             <TableHead>路线</TableHead>
             <TableHead>数量</TableHead>
             <TableHead><SortableHeader field="current_cost">运费/额外费</SortableHeader></TableHead>
-            <TableHead><SortableHeader field="driver_payable_cost">司机应收</SortableHeader></TableHead>
+            <TableHead><SortableHeader field="payable_cost">司机应收</SortableHeader></TableHead>
             <TableHead>状态</TableHead>
             <TableHead>操作</TableHead>
           </TableRow>
@@ -199,14 +193,18 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
               const billingTypeId = record.billing_type_id || 1;
               const unit = getBillingUnit(billingTypeId);
               return (
-                <TableRow key={record.id}>
+                // [修改 1] 使整行可点击以查看详情，并添加悬停效果
+                <TableRow 
+                  key={record.id} 
+                  onClick={() => onView(record)}
+                  className="cursor-pointer hover:bg-muted/50"
+                >
                   <TableCell className="font-mono">{record.auto_number}</TableCell>
                   <TableCell>{record.project_name}</TableCell>
                   <TableCell>{record.loading_date ? record.loading_date.substring(0, 10) : 'N/A'}</TableCell>
                   <TableCell>
                     {[record.driver_name, record.license_plate, record.driver_phone].filter(Boolean).join(' - ')}
                   </TableCell>
-                  {/* [修改 2] 路线文字简化 */}
                   <TableCell>{record.loading_location?.substring(0, 2)} → {record.unloading_location?.substring(0, 2)}</TableCell>
                   <TableCell>
                     {billingTypeId === 2 ? (
@@ -215,19 +213,18 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
                       `${record.loading_weight?.toFixed(2) || '0.00'} / ${record.unloading_weight?.toFixed(2) || '0.00'} ${unit}`
                     )}
                   </TableCell>
+                  {/* [修改 2] 格式化“运费/额外费”为单行 */}
                   <TableCell>
-                    <div className="flex flex-col">
-                      <span>{formatCurrency(record.current_cost)}</span>
-                      {record.extra_cost > 0 && <span className="text-xs text-orange-600">{formatCurrency(record.extra_cost)}</span>}
-                    </div>
+                    {`${formatCurrency(record.current_cost)} / ${record.extra_cost || 0}`}
                   </TableCell>
-                  <TableCell className="font-bold text-primary">{formatCurrency(record.driver_payable_cost)}</TableCell>
+                  {/* [修改 3] “司机应收”字段修正为 payable_cost */}
+                  <TableCell className="font-bold text-primary">{formatCurrency(record.payable_cost)}</TableCell>
                   <TableCell>
                     <Badge variant={record.transport_type === '实际运输' ? 'default' : 'secondary'}>
                       {record.transport_type}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -243,10 +240,9 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
           )}
         </TableBody>
       </Table>
-      {/* [修改 3 & 4] 增加本页合计并汉化分页 */}
       <div className="flex items-center justify-between p-4 border-t">
         {records.length > 0 ? <PageSummaryFooter records={records} /> : <div></div>}
-        <div className="text-sm text-muted-foreground">共 {pagination.totalCount} 条记录</div>
+        <div className="flex-1 text-center text-sm text-muted-foreground">共 {pagination.totalCount} 条记录</div>
         <Pagination>
           <PaginationContent>
             <PaginationItem>
@@ -323,7 +319,7 @@ export default function BusinessEntry() {
       if (error) throw error;
 
       const dataToExport = data.map((r: any) => ({
-        '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认', '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone, '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date, '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.driver_payable_cost, '备注': r.remarks,
+        '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认', '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone, '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date, '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.payable_cost, '备注': r.remarks,
       }));
       
       const ws = XLSX.utils.json_to_sheet(dataToExport);
@@ -420,7 +416,7 @@ export default function BusinessEntry() {
               <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{formatCurrency(viewingRecord.current_cost)}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono text-orange-600">{formatCurrency(viewingRecord.extra_cost)}</p></div>
-              <div className="space-y-1 col-span-1 md:col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{formatCurrency(viewingRecord.driver_payable_cost)}</p></div>
+              <div className="space-y-1 col-span-1 md:col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{formatCurrency(viewingRecord.payable_cost)}</p></div>
               <div className="col-span-1 md:col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px] whitespace-pre-wrap">{viewingRecord.remarks || '无'}</p></div>
             </div>
           )}
