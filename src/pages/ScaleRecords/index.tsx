@@ -1,6 +1,6 @@
-import React, auseState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; // [核心修正] 修正了 auseState 的拼写错误并添加了 {}
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card'; // 移除了 CardHeader 和 CardTitle 的导入
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,8 +15,6 @@ import { ScaleRecordForm } from './components/ScaleRecordForm';
 import { ImageViewer } from './components/ImageViewer';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
-
-// --- 以下所有接口定义和状态管理都完整保留 ---
 
 interface Project {
   id: string;
@@ -83,8 +81,6 @@ export default function ScaleRecords() {
     loadRecords();
   }, [activeFilters]);
 
-  // --- 以下所有数据加载和事件处理函数都完整保留 ---
-
   const loadProjects = async () => {
     try {
       const { data, error } = await supabase.from('projects').select('id, name').order('name');
@@ -145,13 +141,9 @@ export default function ScaleRecords() {
 
   return (
     <div className="space-y-6">
-      {/* 移除了 h1 标题以匹配新设计 */}
-
-      {/* 筛选区域：重构为单行 Flex 布局 */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-end justify-between gap-4">
-            {/* 左侧：筛选输入控件组 */}
             <div className="flex items-end gap-4 flex-grow">
               <div className="flex-1 min-w-[180px]">
                 <Label htmlFor="project">项目</Label>
@@ -191,14 +183,12 @@ export default function ScaleRecords() {
               </div>
             </div>
 
-            {/* 右侧：操作按钮组 */}
             <div className="flex items-end gap-2">
               <Button variant="outline" onClick={handleClear}>清除</Button>
               <Button onClick={handleSearch} disabled={!isStale}>
                 <Search className="h-4 w-4 mr-2" />
                 搜索
               </Button>
-              {/* “添加磅单”按钮的 Dialog 组件被移动到这里，功能完全保留 */}
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
                 <DialogTrigger asChild>
                   <Button>
@@ -216,7 +206,6 @@ export default function ScaleRecords() {
         </CardContent>
       </Card>
 
-      {/* 磅单记录列表：这部分代码和逻辑完全没有变化 */}
       <Card>
         <CardContent className="pt-6">
           {loading ? (
@@ -266,7 +255,6 @@ export default function ScaleRecords() {
         </CardContent>
       </Card>
 
-      {/* 图片查看器：这部分代码和逻辑完全没有变化 */}
       <Dialog open={showImageViewer} onOpenChange={setShowImageViewer}>
         <DialogContent className="max-w-4xl">
           <DialogHeader><DialogTitle>磅单图片</DialogTitle></DialogHeader>
