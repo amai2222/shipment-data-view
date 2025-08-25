@@ -46,6 +46,7 @@ const MENU_PERMISSIONS = [
     group: '业务录入',
     permissions: [
       { key: 'business.entry', label: '运单录入' },
+      { key: 'business.scale_records', label: '磅单录入' },
       { key: 'business.payment_request', label: '付款申请' },
       { key: 'business.payment_list', label: '申请单管理' }
     ]
@@ -76,6 +77,15 @@ const FUNCTION_PERMISSIONS = [
       { key: 'data.delete', label: '删除数据' },
       { key: 'data.export', label: '导出数据' },
       { key: 'data.import', label: '导入数据' }
+    ]
+  },
+  {
+    group: '磅单管理',
+    permissions: [
+      { key: 'scale_records.create', label: '新增磅单' },
+      { key: 'scale_records.edit', label: '编辑磅单' },
+      { key: 'scale_records.view', label: '查看磅单' },
+      { key: 'scale_records.delete', label: '删除磅单' }
     ]
   },
   {
