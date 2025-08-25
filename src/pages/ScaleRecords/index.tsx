@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { useFilterState } from '@/hooks/useFilterState';
 import { ScaleRecordForm } from './components/ScaleRecordForm';
 import { ImageViewer } from './components/ImageViewer';
-// ★ 修改点 1: 引入新的 DateRangePicker 组件和相关类型
+// 引入您的 DateRangePicker 组件和相关类型
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 
@@ -165,7 +165,7 @@ export default function ScaleRecords() {
     setShowImageViewer(true);
   };
 
-  // ★ 修改点 2: 创建一个处理日期范围变化的函数
+  // ★ 核心修改 1: 这个函数现在将作为 `setDate` prop 的值传递给您的组件
   const handleDateRangeChange = (dateRange: DateRange | undefined) => {
     setUiFilters(prev => ({
       ...prev,
@@ -178,9 +178,7 @@ export default function ScaleRecords() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">磅单录入</h1>
 
-      {/* ★ 修改点 3: 新的布局容器，将筛选和添加按钮放在一行 */}
       <div className="flex justify-between items-start gap-4">
-        {/* Filter Section */}
         <Card className="flex-grow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -189,7 +187,6 @@ export default function ScaleRecords() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* ★ 修改点 4: 调整网格布局为3列 */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="project">项目</Label>
@@ -211,15 +208,16 @@ export default function ScaleRecords() {
                 </Select>
               </div>
 
-              {/* ★ 修改点 5: 使用新的 DateRangePicker 组件 */}
               <div>
                 <Label htmlFor="date-range">日期范围</Label>
                 <DateRangePicker
+                  // `date` prop 负责将 state 中的字符串转换为组件需要的 Date 对象
                   date={{
                     from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined,
                     to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined,
                   }}
-                  onDateChange={handleDateRangeChange}
+                  // ★ 核心修改 2: 使用 `setDate` prop 来匹配您新组件的 API
+                  setDate={handleDateRangeChange}
                 />
               </div>
 
@@ -246,7 +244,6 @@ export default function ScaleRecords() {
           </CardContent>
         </Card>
 
-        {/* ★ 修改点 6: 将添加按钮移到筛选卡片旁边 */}
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>
             <Button className="flex-shrink-0">
