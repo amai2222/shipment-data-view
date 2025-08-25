@@ -6,13 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Plus, Search, Image as ImageIcon } from 'lucide-react';
+import { Plus, Search, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useFilterState } from '@/hooks/useFilterState';
 import { ScaleRecordForm } from './components/ScaleRecordForm';
 import { ImageViewer } from './components/ImageViewer';
+// ★ 修改点 1: 引入新的 DateRangePicker 组件和相关类型
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { DateRange } from 'react-day-picker';
 
 interface Project {
   id: string;
@@ -90,11 +93,6 @@ export default function ScaleRecords() {
       setProjects(data || []);
     } catch (error) {
       console.error('Error loading projects:', error);
-      toast({
-        title: "错误",
-        description: "加载项目失败",
-        variant: "destructive",
-      });
     }
   };
 
@@ -167,13 +165,91 @@ export default function ScaleRecords() {
     setShowImageViewer(true);
   };
 
+  // ★ 修改点 2: 创建一个处理日期范围变化的函数
+  const handleDateRangeChange = (dateRange: DateRange | undefined) => {
+    setUiFilters(prev => ({
+      ...prev,
+      startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '',
+      endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '',
+    }));
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">磅单录入</h1>
+      <h1 className="text-3xl font-bold">磅单录入</h1>
+
+      {/* ★ 修改点 3: 新的布局容器，将筛选和添加按钮放在一行 */}
+      <div className="flex justify-between items-start gap-4">
+        {/* Filter Section */}
+        <Card className="flex-grow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              筛选条件
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* ★ 修改点 4: 调整网格布局为3列 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="project">项目</Label>
+                <Select 
+                  value={uiFilters.projectId || "all"} 
+                  onValueChange={(value) => setUiFilters(prev => ({ ...prev, projectId: value === "all" ? "" : value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择项目" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部项目</SelectItem>
+                    {projects.filter(project => project.id && project.id.trim() !== '').map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* ★ 修改点 5: 使用新的 DateRangePicker 组件 */}
+              <div>
+                <Label htmlFor="date-range">日期范围</Label>
+                <DateRangePicker
+                  date={{
+                    from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined,
+                    to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined,
+                  }}
+                  onDateChange={handleDateRangeChange}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="licensePlate">车牌号</Label>
+                <Input
+                  id="licensePlate"
+                  placeholder="输入车牌号"
+                  value={uiFilters.licensePlate}
+                  onChange={(e) => setUiFilters(prev => ({ ...prev, licensePlate: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={handleClear}>
+                清除
+              </Button>
+              <Button onClick={handleSearch} disabled={!isStale}>
+                {isStale && <Search className="h-4 w-4 mr-2" />}
+                搜索
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ★ 修改点 6: 将添加按钮移到筛选卡片旁边 */}
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="flex-shrink-0">
               <Plus className="h-4 w-4 mr-2" />
               添加磅单
             </Button>
@@ -190,79 +266,6 @@ export default function ScaleRecords() {
           </DialogContent>
         </Dialog>
       </div>
-
-      {/* Filter Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            筛选条件
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="project">项目</Label>
-              <Select 
-                value={uiFilters.projectId || "all"} 
-                onValueChange={(value) => setUiFilters(prev => ({ ...prev, projectId: value === "all" ? "" : value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="选择项目" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部项目</SelectItem>
-                  {projects.filter(project => project.id && project.id.trim() !== '').map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="startDate">开始日期</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={uiFilters.startDate}
-                onChange={(e) => setUiFilters(prev => ({ ...prev, startDate: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="endDate">结束日期</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={uiFilters.endDate}
-                onChange={(e) => setUiFilters(prev => ({ ...prev, endDate: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="licensePlate">车牌号</Label>
-              <Input
-                id="licensePlate"
-                placeholder="输入车牌号"
-                value={uiFilters.licensePlate}
-                onChange={(e) => setUiFilters(prev => ({ ...prev, licensePlate: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={handleClear}>
-              清除
-            </Button>
-            <Button onClick={handleSearch} disabled={!isStale}>
-              {isStale && <Search className="h-4 w-4 mr-2" />}
-              搜索
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Records List */}
       <Card>
