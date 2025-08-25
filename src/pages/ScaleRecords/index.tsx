@@ -7,7 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Plus, Search, Image as ImageIcon, Trash2, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -17,32 +19,89 @@ import { ImageViewer } from './components/ImageViewer';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 
+// 接口定义
 interface Project { id: string; name: string; }
 interface Driver { id: string; name: string; license_plate: string; }
 interface ScaleRecord { id: string; project_id: string; project_name: string; loading_date: string; trip_number: number; valid_quantity: number | null; billing_type_id: number; image_urls: string[]; license_plate: string | null; driver_name: string | null; created_at: string; }
 interface FilterState { projectId: string; startDate: string; endDate: string; licensePlate: string; }
 
 const initialFilterState: FilterState = { projectId: '', startDate: '', endDate: '', licensePlate: '' };
+const PAGE_SIZE = 10; // 定义每页显示的记录数
 
 export default function ScaleRecords() {
+  // 基础状态
   const [projects, setProjects] = useState<Project[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [records, setRecords] = useState<ScaleRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // 弹窗状态
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  
+  // 删除相关状态
   const [deleteTarget, setDeleteTarget] = useState<ScaleRecord | null>(null);
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  
+  // 数据与选择状态
+  const [totalRecordsCount, setTotalRecordsCount] = useState(0);
+  const [isSelectingAll, setIsSelectingAll] = useState(false);
 
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // 自定义 Hooks
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState<FilterState>(initialFilterState);
   const { toast } = useToast();
 
-  useEffect(() => { loadProjects(); loadDrivers(); loadRecords(); }, [activeFilters]);
+  // 效果钩子
+  useEffect(() => {
+    loadProjects();
+    loadDrivers();
+  }, []);
 
+  useEffect(() => {
+    loadRecords();
+  }, [activeFilters, currentPage]);
+
+  useEffect(() => {
+    if (isStale) {
+      setCurrentPage(1);
+    }
+  }, [isStale]);
+
+  // 数据加载函数
   const loadProjects = async () => { try { const { data, error } = await supabase.from('projects').select('id, name').order('name'); if (error) throw error; setProjects(data || []); } catch (error) { console.error('Error loading projects:', error); } };
   const loadDrivers = async () => { try { const { data, error } = await supabase.from('drivers').select('id, name, license_plate').order('name'); if (error) throw error; setDrivers(data || []); } catch (error) { console.error('Error loading drivers:', error); } };
-  const loadRecords = async () => { setLoading(true); try { let query = supabase.from('scale_records').select('*').order('loading_date', { ascending: false }).order('trip_number', { ascending: false }); if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId); if (activeFilters.startDate) query = query.gte('loading_date', activeFilters.startDate); if (activeFilters.endDate) query = query.lte('loading_date', activeFilters.endDate); if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`); const { data, error } = await query; if (error) throw error; setRecords(data || []); } catch (error) { console.error('Error loading records:', error); toast({ title: "错误", description: "加载磅单记录失败", variant: "destructive" }); } finally { setLoading(false); } };
 
+  const loadRecords = async () => {
+    setLoading(true);
+    try {
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = supabase.from('scale_records').select('*', { count: 'exact' }).order('loading_date', { ascending: false }).order('trip_number', { ascending: false });
+      if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId);
+      if (activeFilters.startDate) query = query.gte('loading_date', activeFilters.startDate);
+      if (activeFilters.endDate) query = query.lte('loading_date', activeFilters.endDate);
+      if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
+      
+      const { data, error, count } = await query.range(from, to);
+      if (error) throw error;
+      
+      setRecords(data || []);
+      setTotalRecordsCount(count || 0);
+    } catch (error) {
+      console.error('Error loading records:', error);
+      toast({ title: "错误", description: "加载磅单记录失败", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 事件处理函数
   const handleDelete = async (recordToDelete: ScaleRecord) => {
     if (recordToDelete.image_urls && recordToDelete.image_urls.length > 0) {
       const { error: functionError } = await supabase.functions.invoke('qiniu-delete', { body: { urls: recordToDelete.image_urls } });
@@ -56,16 +115,15 @@ export default function ScaleRecords() {
     if (dbError) {
       toast({ title: "删除失败", description: "无法从数据库中删除记录，请重试。", variant: "destructive" });
     } else {
-      setRecords(prevRecords => prevRecords.filter(r => r.id !== recordToDelete.id));
       toast({ title: "成功", description: "记录已删除" });
+      loadRecords(); // 重新加载以反映删除
     }
     setDeleteTarget(null);
   };
 
-  // ★ 核心修正: 已恢复到您原始的、安全可靠的函数逻辑
   const handleRecordAdded = () => {
     setShowAddDialog(false);
-    loadRecords(); // 重新加载整个列表，确保新添加的数据格式完整
+    loadRecords();
     toast({ title: "成功", description: "磅单记录已添加" });
   };
 
@@ -78,17 +136,115 @@ export default function ScaleRecords() {
     setUiFilters(prev => ({ ...prev, startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' }));
   };
 
+  const handleSelectRecord = (recordId: string) => {
+    setSelectedRecordIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(recordId)) {
+        newSet.delete(recordId);
+      } else {
+        newSet.add(recordId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const idsToDelete = Array.from(selectedRecordIds);
+    if (idsToDelete.length === 0) return;
+
+    try {
+      const { data: recordsToDelete, error: fetchError } = await supabase.from('scale_records').select('image_urls').in('id', idsToDelete);
+      if (fetchError) throw fetchError;
+
+      const urlsToDelete = recordsToDelete.flatMap(r => r.image_urls).filter(Boolean);
+      if (urlsToDelete.length > 0) {
+        const { error: functionError } = await supabase.functions.invoke('qiniu-delete', { body: { urls: urlsToDelete } });
+        if (functionError) throw new Error("删除云存储图片失败");
+      }
+
+      const { error: dbError } = await supabase.from('scale_records').delete().in('id', idsToDelete);
+      if (dbError) throw dbError;
+
+      toast({ title: "成功", description: `已成功删除 ${idsToDelete.length} 条记录。` });
+      setSelectedRecordIds(new Set());
+      loadRecords();
+    } catch (error) {
+      console.error("Bulk delete error:", error);
+      toast({ title: "删除失败", description: "操作失败，请检查控制台错误信息。", variant: "destructive" });
+    } finally {
+      setShowBulkDeleteDialog(false);
+    }
+  };
+
+  const handleSelectPage = (select = true) => {
+    const currentPageIds = records.map(r => r.id);
+    setSelectedRecordIds(prev => {
+      const newSet = new Set(prev);
+      if (select) {
+        currentPageIds.forEach(id => newSet.add(id));
+      } else {
+        currentPageIds.forEach(id => newSet.delete(id));
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllMatching = async () => {
+    setIsSelectingAll(true);
+    try {
+      let query = supabase.from('scale_records').select('id');
+      if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId);
+      if (activeFilters.startDate) query = query.gte('loading_date', activeFilters.startDate);
+      if (activeFilters.endDate) query = query.lte('loading_date', activeFilters.endDate);
+      if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
+      
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const allIds = data.map(item => item.id);
+      setSelectedRecordIds(new Set(allIds));
+    } catch (error) {
+      console.error("Error selecting all matching records:", error);
+      toast({ title: "错误", description: "无法获取所有记录，请重试。", variant: "destructive" });
+    } finally {
+      setIsSelectingAll(false);
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  // 计算派生状态
+  const totalPages = Math.ceil(totalRecordsCount / PAGE_SIZE);
+  const isAnyOnPageSelected = records.length > 0 && records.some(r => selectedRecordIds.has(r.id));
+  const isAllOnPageSelected = records.length > 0 && records.every(r => selectedRecordIds.has(r.id));
+  const headerCheckboxState = isAllOnPageSelected ? true : (isAnyOnPageSelected ? 'indeterminate' : false);
+  const isAllMatchingSelected = selectedRecordIds.size === totalRecordsCount && totalRecordsCount > 0;
+
   return (
     <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-end justify-between gap-4">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
             <div className="flex items-end gap-4 flex-grow">
               <div className="flex-1 min-w-[180px]"><Label htmlFor="project">项目</Label><Select value={uiFilters.projectId || "all"} onValueChange={(value) => setUiFilters(prev => ({ ...prev, projectId: value === "all" ? "" : value }))}><SelectTrigger><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent><SelectItem value="all">全部项目</SelectItem>{projects.filter(p => p.id && p.id.trim() !== '').map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
               <div className="flex-1 min-w-[280px]"><Label htmlFor="date-range">日期范围</Label><DateRangePicker date={{ from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined, }} setDate={handleDateRangeChange} /></div>
               <div className="flex-1 min-w-[180px]"><Label htmlFor="licensePlate">车牌号</Label><Input id="licensePlate" placeholder="输入车牌号" value={uiFilters.licensePlate} onChange={(e) => setUiFilters(prev => ({ ...prev, licensePlate: e.target.value }))} /></div>
             </div>
-            <div className="flex items-end gap-2"><Button variant="outline" onClick={handleClear}>清除</Button><Button onClick={handleSearch} disabled={!isStale}><Search className="h-4 w-4 mr-2" />搜索</Button><Dialog open={showAddDialog} onOpenChange={setShowAddDialog}><DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />添加磅单</Button></DialogTrigger><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>添加磅单记录</DialogTitle></DialogHeader><ScaleRecordForm projects={projects} drivers={drivers} onSuccess={handleRecordAdded} /></DialogContent></Dialog></div>
+            <div className="flex items-end gap-2">
+              {selectedRecordIds.size > 0 && (
+                <Button variant="destructive" onClick={() => setShowBulkDeleteDialog(true)}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  删除选中 ({selectedRecordIds.size})
+                </Button>
+              )}
+              <Button variant="outline" onClick={handleClear}>清除</Button>
+              <Button onClick={handleSearch} disabled={!isStale}><Search className="h-4 w-4 mr-2" />搜索</Button>
+              <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}><DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />添加磅单</Button></DialogTrigger><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>添加磅单记录</DialogTitle></DialogHeader><ScaleRecordForm projects={projects} drivers={drivers} onSuccess={handleRecordAdded} /></DialogContent></Dialog>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -97,19 +253,93 @@ export default function ScaleRecords() {
         <CardContent className="pt-6">
           {loading ? ( <div className="text-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div><p className="mt-2 text-muted-foreground">加载中...</p></div> ) : 
            records.length === 0 ? ( <div className="text-center py-8"><p className="text-muted-foreground">暂无磅单记录</p></div> ) : (
-            <div className="space-y-4">
-              {records.map((record) => (
-                <div key={record.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => record.image_urls.length > 0 && handleImageClick(record.image_urls)}>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-grow space-y-2">
-                      <div className="flex items-center gap-2 flex-wrap"><h3 className="font-semibold text-lg">{record.project_name}</h3><Badge variant="outline">第{record.trip_number}车次</Badge>{record.image_urls.length > 0 && (<Badge variant="secondary" className="flex items-center gap-1"><ImageIcon className="h-3 w-3" />{record.image_urls.length}张图片</Badge>)}</div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-4 flex-wrap"><p>装车日期: {format(new Date(record.loading_date), 'yyyy-MM-dd')}</p>{record.license_plate && <p>车牌号: {record.license_plate}</p>}{record.driver_name && <p>司机: {record.driver_name}</p>}{record.valid_quantity && <p>有效数量: {record.valid_quantity}吨</p>}</div>
-                    </div>
-                    <div className="flex flex-col items-end space-y-2 ml-4"><p className="text-sm text-muted-foreground whitespace-nowrap">{format(new Date(record.created_at), 'yyyy-MM-dd HH:mm')}</p><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(record); }}><Trash2 className="h-4 w-4" /></Button></div>
+            <>
+              <div className="space-y-2">
+                {isAllMatchingSelected && (
+                  <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-3 flex items-center justify-between">
+                    <p className="text-sm font-medium">已选中所有 {totalRecordsCount} 条记录。</p>
+                    <Button variant="link" className="p-0 h-auto text-blue-800" onClick={() => setSelectedRecordIds(new Set())}>清除选择</Button>
                   </div>
+                )}
+                <div className="flex items-center border-b pb-2 text-sm font-medium text-muted-foreground">
+                  <div className="w-12 flex-shrink-0 flex items-center justify-center">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Checkbox checked={headerCheckboxState} />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onSelect={() => handleSelectPage(true)}>选择当前页 ({records.length})</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleSelectPage(false)}>取消选择当前页</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={handleSelectAllMatching} disabled={isSelectingAll}>
+                          {isSelectingAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          选择所有 {totalRecordsCount} 条记录
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="flex-1 min-w-[200px]">项目名称 / 车次</div>
+                  <div className="w-32 flex-shrink-0">装车日期</div>
+                  <div className="w-32 flex-shrink-0">车牌号 / 司机</div>
+                  <div className="w-28 flex-shrink-0">有效数量</div>
+                  <div className="w-28 flex-shrink-0 text-center">图片</div>
+                  <div className="w-40 flex-shrink-0 text-right">操作</div>
                 </div>
-              ))}
-            </div>
+                {records.map((record) => (
+                  <div key={record.id} className="flex items-center border rounded-lg p-2 hover:bg-muted/50 transition-colors">
+                    <div className="w-12 flex-shrink-0 flex items-center justify-center">
+                      <Checkbox checked={selectedRecordIds.has(record.id)} onCheckedChange={() => handleSelectRecord(record.id)} />
+                    </div>
+                    <div className="flex-1 min-w-[200px]">
+                      <p className="font-semibold">{record.project_name}</p>
+                      <p className="text-sm text-muted-foreground">第 {record.trip_number} 车次</p>
+                    </div>
+                    <div className="w-32 flex-shrink-0 text-sm">{format(new Date(record.loading_date), 'yyyy-MM-dd')}</div>
+                    <div className="w-32 flex-shrink-0 text-sm">
+                      <p>{record.license_plate || 'N/A'}</p>
+                      <p className="text-muted-foreground">{record.driver_name || 'N/A'}</p>
+                    </div>
+                    <div className="w-28 flex-shrink-0 text-sm">{record.valid_quantity ? `${record.valid_quantity} 吨` : 'N/A'}</div>
+                    <div className="w-28 flex-shrink-0 text-center">
+                      {record.image_urls.length > 0 ? (
+                        <Button variant="ghost" size="sm" onClick={() => handleImageClick(record.image_urls)}>
+                          <ImageIcon className="h-4 w-4 mr-2" />{record.image_urls.length}
+                        </Button>
+                      ) : (<span className="text-xs text-muted-foreground">无图片</span>)}
+                    </div>
+                    <div className="w-40 flex-shrink-0 flex justify-end items-center gap-2">
+                      <p className="text-xs text-muted-foreground">{format(new Date(record.created_at), 'yy-MM-dd HH:mm')}</p>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(record)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-end space-x-2 pt-4">
+                  <span className="text-sm text-muted-foreground">
+                    共 {totalRecordsCount} 条记录
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    上一页
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    第 {currentPage} 页 / 共 {totalPages} 页
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                  >
+                    下一页
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -120,6 +350,21 @@ export default function ScaleRecords() {
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>确定要删除吗？</AlertDialogTitle><AlertDialogDescription>此操作将永久删除该条磅单记录及其所有关联图片。此操作无法撤销。</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel onClick={() => setDeleteTarget(null)}>取消</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(deleteTarget!)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">删除</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确定要批量删除吗？</AlertDialogTitle>
+            <AlertDialogDescription>
+              此操作将永久删除选中的 <span className="font-bold text-destructive">{selectedRecordIds.size}</span> 条磅单记录及其所有关联图片。此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">确认删除</AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
