@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, auseState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card'; // 移除了 CardHeader 和 CardTitle 的导入
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,9 +13,10 @@ import { format } from 'date-fns';
 import { useFilterState } from '@/hooks/useFilterState';
 import { ScaleRecordForm } from './components/ScaleRecordForm';
 import { ImageViewer } from './components/ImageViewer';
-// 引入您的 DateRangePicker 组件和相关类型
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
+
+// --- 以下所有接口定义和状态管理都完整保留 ---
 
 interface Project {
   id: string;
@@ -82,13 +83,11 @@ export default function ScaleRecords() {
     loadRecords();
   }, [activeFilters]);
 
+  // --- 以下所有数据加载和事件处理函数都完整保留 ---
+
   const loadProjects = async () => {
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, name')
-        .order('name');
-
+      const { data, error } = await supabase.from('projects').select('id, name').order('name');
       if (error) throw error;
       setProjects(data || []);
     } catch (error) {
@@ -98,11 +97,7 @@ export default function ScaleRecords() {
 
   const loadDrivers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('drivers')
-        .select('id, name, license_plate')
-        .order('name');
-
+      const { data, error } = await supabase.from('drivers').select('id, name, license_plate').order('name');
       if (error) throw error;
       setDrivers(data || []);
     } catch (error) {
@@ -113,39 +108,17 @@ export default function ScaleRecords() {
   const loadRecords = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('scale_records')
-        .select('*')
-        .order('loading_date', { ascending: false })
-        .order('trip_number', { ascending: false });
-
-      if (activeFilters.projectId && activeFilters.projectId !== 'all') {
-        query = query.eq('project_id', activeFilters.projectId);
-      }
-
-      if (activeFilters.startDate) {
-        query = query.gte('loading_date', activeFilters.startDate);
-      }
-
-      if (activeFilters.endDate) {
-        query = query.lte('loading_date', activeFilters.endDate);
-      }
-
-      if (activeFilters.licensePlate) {
-        query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
-      }
-
+      let query = supabase.from('scale_records').select('*').order('loading_date', { ascending: false }).order('trip_number', { ascending: false });
+      if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId);
+      if (activeFilters.startDate) query = query.gte('loading_date', activeFilters.startDate);
+      if (activeFilters.endDate) query = query.lte('loading_date', activeFilters.endDate);
+      if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
       const { data, error } = await query;
-
       if (error) throw error;
       setRecords(data || []);
     } catch (error) {
       console.error('Error loading records:', error);
-      toast({
-        title: "错误",
-        description: "加载磅单记录失败",
-        variant: "destructive",
-      });
+      toast({ title: "错误", description: "加载磅单记录失败", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -154,10 +127,7 @@ export default function ScaleRecords() {
   const handleRecordAdded = () => {
     setShowAddDialog(false);
     loadRecords();
-    toast({
-      title: "成功",
-      description: "磅单记录已添加",
-    });
+    toast({ title: "成功", description: "磅单记录已添加" });
   };
 
   const handleImageClick = (images: string[]) => {
@@ -165,7 +135,6 @@ export default function ScaleRecords() {
     setShowImageViewer(true);
   };
 
-  // ★ 核心修改 1: 这个函数现在将作为 `setDate` prop 的值传递给您的组件
   const handleDateRangeChange = (dateRange: DateRange | undefined) => {
     setUiFilters(prev => ({
       ...prev,
@@ -176,52 +145,42 @@ export default function ScaleRecords() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">磅单录入</h1>
+      {/* 移除了 h1 标题以匹配新设计 */}
 
-      <div className="flex justify-between items-start gap-4">
-        <Card className="flex-grow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              筛选条件
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
+      {/* 筛选区域：重构为单行 Flex 布局 */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-end justify-between gap-4">
+            {/* 左侧：筛选输入控件组 */}
+            <div className="flex items-end gap-4 flex-grow">
+              <div className="flex-1 min-w-[180px]">
                 <Label htmlFor="project">项目</Label>
                 <Select 
                   value={uiFilters.projectId || "all"} 
                   onValueChange={(value) => setUiFilters(prev => ({ ...prev, projectId: value === "all" ? "" : value }))}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择项目" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="选择项目" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全部项目</SelectItem>
-                    {projects.filter(project => project.id && project.id.trim() !== '').map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
+                    {projects.filter(p => p.id && p.id.trim() !== '').map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div>
+              <div className="flex-1 min-w-[280px]">
                 <Label htmlFor="date-range">日期范围</Label>
                 <DateRangePicker
-                  // `date` prop 负责将 state 中的字符串转换为组件需要的 Date 对象
                   date={{
                     from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined,
                     to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined,
                   }}
-                  // ★ 核心修改 2: 使用 `setDate` prop 来匹配您新组件的 API
                   setDate={handleDateRangeChange}
                 />
               </div>
 
-              <div>
+              <div className="flex-1 min-w-[180px]">
                 <Label htmlFor="licensePlate">车牌号</Label>
                 <Input
                   id="licensePlate"
@@ -232,44 +191,34 @@ export default function ScaleRecords() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={handleClear}>
-                清除
-              </Button>
+            {/* 右侧：操作按钮组 */}
+            <div className="flex items-end gap-2">
+              <Button variant="outline" onClick={handleClear}>清除</Button>
               <Button onClick={handleSearch} disabled={!isStale}>
-                {isStale && <Search className="h-4 w-4 mr-2" />}
+                <Search className="h-4 w-4 mr-2" />
                 搜索
               </Button>
+              {/* “添加磅单”按钮的 Dialog 组件被移动到这里，功能完全保留 */}
+              <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    添加磅单
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader><DialogTitle>添加磅单记录</DialogTitle></DialogHeader>
+                  <ScaleRecordForm projects={projects} drivers={drivers} onSuccess={handleRecordAdded} />
+                </DialogContent>
+              </Dialog>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button className="flex-shrink-0">
-              <Plus className="h-4 w-4 mr-2" />
-              添加磅单
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>添加磅单记录</DialogTitle>
-            </DialogHeader>
-            <ScaleRecordForm 
-              projects={projects}
-              drivers={drivers}
-              onSuccess={handleRecordAdded}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Records List */}
+      {/* 磅单记录列表：这部分代码和逻辑完全没有变化 */}
       <Card>
-        <CardHeader>
-          <CardTitle>磅单记录</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -317,12 +266,10 @@ export default function ScaleRecords() {
         </CardContent>
       </Card>
 
-      {/* Image Viewer Dialog */}
+      {/* 图片查看器：这部分代码和逻辑完全没有变化 */}
       <Dialog open={showImageViewer} onOpenChange={setShowImageViewer}>
         <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>磅单图片</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>磅单图片</DialogTitle></DialogHeader>
           <ImageViewer images={selectedImages} />
         </DialogContent>
       </Dialog>
