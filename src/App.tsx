@@ -25,6 +25,7 @@ import FinanceReconciliation from "./pages/FinanceReconciliation";
 import PaymentInvoice from "./pages/PaymentInvoice";
 import PaymentInvoiceDetail from "./pages/PaymentInvoiceDetail";
 import NotFound from "./pages/NotFound";
+import NotFoundWithStaticFileCheck from "./components/NotFoundWithStaticFileCheck";
 import PaymentRequestsList from "./pages/PaymentRequestsList";
 import UserManagement from "./pages/Settings/UserManagement";
 import PermissionManagement from "./pages/Settings/PermissionManagement";
@@ -160,8 +161,8 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* --- 404路由 --- */}
-            <Route path="*" element={<NotFound />} />
+            {/* --- 404路由 - 排除静态文件扩展名 --- */}
+            <Route path="*" element={<NotFoundWithStaticFileCheck />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
