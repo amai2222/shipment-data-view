@@ -475,13 +475,13 @@ export default function PermissionManagement() {
                 {selectedUser && (
                   <div className="space-y-2">
                     <Label>选择项目 (可选)</Label>
-                    <Select value={selectedProject || ''} onValueChange={(value) => setSelectedProject(value || null)}>
+                    <Select value={selectedProject || 'global'} onValueChange={(value) => setSelectedProject(value === 'global' ? null : value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="选择项目或全局权限" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">全局权限</SelectItem>
-                        {projects.map(project => (
+                        <SelectItem value="global">全局权限</SelectItem>
+                        {projects.filter(project => project.id && project.id.trim() !== '').map(project => (
                           <SelectItem key={project.id} value={project.id}>
                             {project.name}
                           </SelectItem>
