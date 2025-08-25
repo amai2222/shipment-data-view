@@ -246,13 +246,21 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
         <Pagination>
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(pagination.currentPage - 1); }} disabled={pagination.currentPage <= 1}>
+              <PaginationPrevious 
+                href="#" 
+                onClick={(e) => { e.preventDefault(); if (pagination.currentPage > 1) handlePageChange(pagination.currentPage - 1); }}
+                className={pagination.currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+              >
                 上一页
               </PaginationPrevious>
             </PaginationItem>
             {renderPaginationItems()}
             <PaginationItem>
-              <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(pagination.currentPage + 1); }} disabled={pagination.currentPage >= pagination.totalPages}>
+              <PaginationNext 
+                href="#" 
+                onClick={(e) => { e.preventDefault(); if (pagination.currentPage < pagination.totalPages) handlePageChange(pagination.currentPage + 1); }}
+                className={pagination.currentPage >= pagination.totalPages ? "pointer-events-none opacity-50" : ""}
+              >
                 下一页
               </PaginationNext>
             </PaginationItem>
@@ -388,7 +396,7 @@ export default function BusinessEntry() {
       </div>
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
-      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, page: pagination.currentPage, size: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />)}
+      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, currentPage: pagination.currentPage, pageSize: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />)}
       {isAdmin && <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
       <LogisticsFormDialog
         isOpen={isFormDialogOpen}

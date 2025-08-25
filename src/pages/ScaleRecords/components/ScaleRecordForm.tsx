@@ -272,7 +272,7 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
               <SelectValue placeholder="选择项目" />
             </SelectTrigger>
             <SelectContent>
-              {projects.map((project) => (
+              {projects.filter(project => project.id && project.id.trim() !== '').map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   {project.name}
                 </SelectItem>

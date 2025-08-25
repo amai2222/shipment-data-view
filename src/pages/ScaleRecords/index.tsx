@@ -212,7 +212,7 @@ export default function ScaleRecords() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部项目</SelectItem>
-                  {projects.map((project) => (
+                  {projects.filter(project => project.id && project.id.trim() !== '').map((project) => (
                     <SelectItem key={project.id} value={project.id}>
                       {project.name}
                     </SelectItem>
