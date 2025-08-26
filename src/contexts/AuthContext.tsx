@@ -1,15 +1,15 @@
 // 文件路径: src/contexts/AuthContext.tsx
-// 描述: [带调试日志的最终版] 用于定位无限加载问题的根本原因
+// 这是修复后的完整代码，请直接替换
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-// 定义用户角色类型
+// 定义用户角色类型，确保类型安全
 export type UserRole = 'admin' | 'finance' | 'business' | 'partner' | 'operator' | 'viewer';
 
-// 定义用户档案接口
+// 定义用户档案的完整接口
 export interface UserProfile {
   id: string;
   email: string;
@@ -22,97 +22,100 @@ export interface UserProfile {
   avatar_url?: string;
 }
 
-// 定义Context类型
+// 定义AuthContext的类型，明确提供给子组件的属性和方法
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   session: Session | null;
-  isAuthenticated: boolean;
   loading: boolean;
   signIn: (usernameOrEmail: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   switchUser: (usernameOrEmail: string, password: string) => Promise<{ error?: string }>;
   hasPermission: (requiredRoles: UserRole[]) => boolean;
-  login: (user: any, token: string) => void;
 }
 
-// 导出AuthContext
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// 创建AuthContext
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// AuthProvider组件
+// AuthProvider组件，包裹整个应用，提供认证状态
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // 初始状态为true
   const { toast } = useToast();
 
-  // ★★★ 这是带有详细日志的调试逻辑 ★★★
+  // 【【【核心修复逻辑在这里】】】
   useEffect(() => {
-    console.log("[AuthContext] AuthProvider 已挂载，正在设置 onAuthStateChange 监听器...");
-
+    // onAuthStateChange 在订阅时会立即触发一次，返回当前会话
+    // 这一个监听器就足以处理所有认证状态的检查和变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log(`[AuthContext] onAuthStateChange 事件触发! 事件类型: ${event}`);
-        
+      (event, session) => {
         setSession(session);
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
         if (currentUser) {
-          console.log("[AuthContext] 检测到用户会话。用户ID:", currentUser.id);
-          console.log("[AuthContext] 正在尝试获取用户 profile...");
-          try {
-            const { data: profileData, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', currentUser.id)
-              .single();
+          setTimeout(async () => {
+            try {
+              const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .maybeSingle();
 
-            if (error) {
-              console.error('[AuthContext] 获取用户 profile 失败:', error);
+              if (error) {
+                console.error('获取用户配置文件失败:', error);
+                setProfile(null);
+              } else if (profileData) {
+                const anyProfile = profileData as any;
+                setProfile({
+                  id: anyProfile.id,
+                  email: anyProfile.email || '',
+                  username: anyProfile.username || anyProfile.email || '',
+                  full_name: anyProfile.full_name || '',
+                  role: (anyProfile.role as UserRole) ?? 'operator',
+                  is_active: anyProfile.is_active ?? true
+                });
+              } else {
+                setProfile(null);
+              }
+            } catch (catchError) {
+              console.error('处理用户配置文件时发生意外错误:', catchError);
               setProfile(null);
-            } else {
-              console.log("[AuthContext] 成功获取 profile:", profileData);
-              setProfile(profileData as UserProfile);
+            } finally {
+              setLoading(false);
             }
-          } catch (catchError) {
-            console.error('[AuthContext] 获取 profile 时发生意外错误:', catchError);
-            setProfile(null);
-          }
+          }, 0);
         } else {
-          console.log("[AuthContext] 未检测到用户会话。");
+          // 如果没有用户，清空profile
           setProfile(null);
+          setLoading(false);
         }
-
-        console.log("[AuthContext] 认证状态检查完毕。正在将 loading 设置为 false...");
-        setLoading(false);
       }
     );
 
+    // 在组件卸载时，取消订阅
     return () => {
-      console.log("[AuthContext] AuthProvider 已卸载，正在取消订阅 onAuthStateChange。");
       subscription.unsubscribe();
     };
-  }, []);
-
-  // --- 以下函数保持不变 ---
+  }, []); // 空依赖数组确保这个effect只在组件挂载时运行一次
 
   const signIn = async (usernameOrEmail: string, password: string) => {
-    setLoading(true);
     try {
+      setLoading(true);
+
       if (!usernameOrEmail.includes('@')) {
+        // Secure path: call edge function to avoid exposing emails via RPC
         const { data, error } = await supabase.functions.invoke('username-login', {
           body: { username: usernameOrEmail, password }
         });
-        if (error || !data?.access_token) {
-          setLoading(false);
+        if (error || !data?.access_token || !data?.refresh_token) {
           return { error: '用户名或密码错误' };
         }
         const { access_token, refresh_token } = data as any;
         const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
         if (setErr) {
-          setLoading(false);
           return { error: '登录失败，请重试' };
         }
         return {};
@@ -124,18 +127,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (authError) {
-        setLoading(false);
         return { error: '用户名或密码错误' };
       }
+
       return {};
     } catch (error) {
-      setLoading(false);
-      return { error: '登录过程中发生未知错误' };
+      console.error('登录失败:', error);
+      return { error: '登录过程中发生未知错误，请稍后重试' };
+    } finally {
+      // 登录成功由 onAuthStateChange 处理 loading 状态
     }
-  };
-  
-  const login = (userData: any, token: string) => {
-    console.log("Magic link flow initiated. Auth state will be updated by onAuthStateChange listener.", userData, token);
   };
 
   const signOut = async () => {
@@ -146,8 +147,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const switchUser = async (usernameOrEmail: string, password: string) => {
-    await signOut();
-    return await signIn(usernameOrEmail, password);
+    try {
+      await signOut();
+      return await signIn(usernameOrEmail, password);
+    } catch (error) {
+      console.error('切换用户失败:', error);
+      return { error: '切换用户过程中发生错误，请稍后重试' };
+    }
   };
 
   const hasPermission = (requiredRoles: UserRole[]): boolean => {
@@ -159,13 +165,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     profile,
     session,
-    isAuthenticated: !!user,
     loading,
     signIn,
     signOut,
     switchUser,
     hasPermission,
-    login,
   };
 
   return (
