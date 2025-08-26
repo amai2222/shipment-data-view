@@ -1,5 +1,5 @@
 // 正确路径: src/components/ui/date-range-picker.tsx
-// 描述: [交互优化版] 实现了更直观的“两点式”日期范围选择
+// 描述: [交互最终优化版] 增加了“应用”和“清除”按钮，使日期选择更清晰、更简单。
 
 "use client"
 
@@ -38,28 +38,31 @@ export function DateRangePicker({
     switch (range) {
       case "7d": fromDate = subDays(today, 6); break;
       case "1m": fromDate = subMonths(today, 1); break;
-      case "3m": fromDate = subMonths(today, 3); break;
       case "6m": fromDate = subMonths(today, 6); break;
+      case "3m": fromDate = subMonths(today, 3); break;
       case "1y": fromDate = subYears(today, 1); break;
     }
     setDate({ from: fromDate, to: today });
     setOpen(false);
   };
 
-  // ★★★ 核心修复逻辑 ★★★
-  // 简化了日期选择处理函数，使其更符合直觉
+  // ★★★ 核心交互升级逻辑 ★★★
+  // onSelect 只负责更新日期状态，不关闭弹窗
   const handleDateSelect = (range: DateRange | undefined) => {
-    // 1. 无论用户点击了什么，都立即更新父组件的状态
-    //    这会让日历UI实时反映用户的第一次点击（选择了起始日期）
     setDate(range);
+  };
 
-    // 2. 只有当用户完成了范围选择（即起始和结束日期都已确定）时，才关闭弹窗
-    if (range?.from && range?.to) {
-      // 如果用户两次点击的是同一个日期，`react-day-picker`会自动将 from 和 to 设为同一天
-      // 这自然地实现了“选择单日”的功能
-      setOpen(false);
+  const handleApply = () => {
+    // 如果用户只选了一个起始日期就按“应用”，则自动将其设为单日范围
+    if (date?.from && !date.to) {
+      setDate({ from: date.from, to: date.from });
     }
-    // 如果只点击了起始日期 (range.to 未定义)，则什么都不做，保持弹窗打开，等待用户点击结束日期
+    setOpen(false);
+  };
+  
+  const handleClear = () => {
+    setDate(undefined);
+    setOpen(false);
   };
 
   return (
@@ -78,7 +81,6 @@ export function DateRangePicker({
             <CalendarIcon className="mr-2 h-4 w-4" />
             {date?.from ? (
               date.to ? (
-                // 使用 toDateString() 比较日期，避免时间部分的影响
                 date.from.toDateString() === date.to.toDateString() ? (
                   format(date.from, "yyyy-MM-dd")
                 ) : (
@@ -95,23 +97,37 @@ export function DateRangePicker({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 flex" align="start">
-          <div className="flex flex-col space-y-2 border-r p-4">
-            <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("7d")}>最近一周</Button>
-            <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("1m")}>最近一个月</Button>
-            <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("3m")}>最近三个月</Button>
-            <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("6m")}>最近六个月</Button>
-            <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("1y")}>最近一年</Button>
+        <PopoverContent className="w-auto p-0" align="start">
+          {/* 使用 flex-col 布局来容纳日历和下方的按钮栏 */}
+          <div className="flex flex-col">
+            <div className="flex">
+              <div className="flex flex-col space-y-2 border-r p-4">
+                <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("7d")}>最近一周</Button>
+                <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("1m")}>最近一个月</Button>
+                <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("3m")}>最近三个月</Button>
+                <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("6m")}>最近六个月</Button>
+                <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("1y")}>最近一年</Button>
+              </div>
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={date?.from}
+                selected={date}
+                onSelect={handleDateSelect}
+                numberOfMonths={2}
+                locale={zhCN}
+              />
+            </div>
+            {/* ★★★ 新增的按钮栏 ★★★ */}
+            <div className="flex items-center justify-end gap-2 p-3 border-t">
+              <Button variant="ghost" onClick={handleClear}>
+                清除
+              </Button>
+              <Button onClick={handleApply}>
+                应用
+              </Button>
+            </div>
           </div>
-          <Calendar
-            initialFocus
-            mode="range"
-            defaultMonth={date?.from}
-            selected={date}
-            onSelect={handleDateSelect}
-            numberOfMonths={2}
-            locale={zhCN}
-          />
         </PopoverContent>
       </Popover>
     </div>
