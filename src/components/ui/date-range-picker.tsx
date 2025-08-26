@@ -1,5 +1,5 @@
 // 正确路径: src/components/ui/date-range-picker.tsx
-// 描述: [交互最终优化版] 增加了“应用”和“清除”按钮，使日期选择更清晰、更简单。
+// 描述: [交互与时区最终修复版] 修复了时区导致的日期偏差，并优化了交互逻辑。
 
 "use client"
 
@@ -24,13 +24,43 @@ interface DateRangePickerProps extends React.HTMLAttributes<HTMLDivElement> {
   disabled?: boolean;
 }
 
+/**
+ * [时区修复函数] 将一个本地时区的Date对象，转换为一个代表其UTC日期的新Date对象。
+ * 例如，对于中国时区的 "2025-08-24 00:00:00 GMT+0800"，
+ * 它会返回一个代表 "2025-08-24 00:00:00 UTC" 的新Date对象。
+ */
+const toUTCDate = (date: Date): Date => {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+};
+
+/**
+ * [时区修复函数] 使用UTC年、月、日来格式化日期，忽略本地时区。
+ */
+const formatInUTC = (date: Date): string => {
+  const year = date.getUTCFullYear();
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const day = date.getUTCDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+
 export function DateRangePicker({
   className,
-  date,
-  setDate,
+  date: parentDate, // 从父组件接收的日期
+  setDate: setParentDate, // 更新父组件日期的方法
   disabled,
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
+  // 使用一个临时的本地状态来处理日历上的交互，避免直接影响父组件
+  const [localDate, setLocalDate] = React.useState<DateRange | undefined>(parentDate);
+
+  // 当弹窗打开时，将父组件的日期同步到本地状态
+  React.useEffect(() => {
+    if (open) {
+      setLocalDate(parentDate);
+    }
+  }, [open, parentDate]);
+
 
   const handlePresetClick = (range: "7d" | "1m" | "3m" | "6m" | "1y") => {
     const today = new Date();
@@ -38,30 +68,44 @@ export function DateRangePicker({
     switch (range) {
       case "7d": fromDate = subDays(today, 6); break;
       case "1m": fromDate = subMonths(today, 1); break;
-      case "6m": fromDate = subMonths(today, 6); break;
       case "3m": fromDate = subMonths(today, 3); break;
+      case "6m": fromDate = subMonths(today, 6); break;
       case "1y": fromDate = subYears(today, 1); break;
     }
-    setDate({ from: fromDate, to: today });
+    // 对于预设，直接更新父组件并关闭
+    setParentDate({ from: fromDate, to: today });
     setOpen(false);
   };
 
-  // ★★★ 核心交互升级逻辑 ★★★
-  // onSelect 只负责更新日期状态，不关闭弹窗
+  // 在日历上选择时，只更新本地状态
   const handleDateSelect = (range: DateRange | undefined) => {
-    setDate(range);
+    setLocalDate(range);
   };
 
+  // 点击“应用”按钮时，才将本地选择的日期（经过时区修正）传递给父组件
   const handleApply = () => {
-    // 如果用户只选了一个起始日期就按“应用”，则自动将其设为单日范围
-    if (date?.from && !date.to) {
-      setDate({ from: date.from, to: date.from });
+    let finalRange = localDate;
+
+    // 如果只选了一个日期，则自动设为单日范围
+    if (localDate?.from && !localDate.to) {
+      finalRange = { from: localDate.from, to: localDate.from };
     }
+
+    // ★★★ 核心时区修正 ★★★
+    if (finalRange?.from) {
+      const adjustedFrom = toUTCDate(finalRange.from);
+      const adjustedTo = finalRange.to ? toUTCDate(finalRange.to) : undefined;
+      setParentDate({ from: adjustedFrom, to: adjustedTo });
+    } else {
+      setParentDate(undefined);
+    }
+    
     setOpen(false);
   };
   
   const handleClear = () => {
-    setDate(undefined);
+    setLocalDate(undefined);
+    setParentDate(undefined);
     setOpen(false);
   };
 
@@ -74,23 +118,23 @@ export function DateRangePicker({
             variant={"outline"}
             className={cn(
               "w-full justify-start text-left font-normal",
-              !date && "text-muted-foreground"
+              !parentDate && "text-muted-foreground"
             )}
             disabled={disabled}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {date?.from ? (
-              date.to ? (
-                date.from.toDateString() === date.to.toDateString() ? (
-                  format(date.from, "yyyy-MM-dd")
+            {parentDate?.from ? (
+              parentDate.to ? (
+                // ★★★ 使用UTC格式化函数来显示日期 ★★★
+                formatInUTC(parentDate.from) === formatInUTC(parentDate.to) ? (
+                  formatInUTC(parentDate.from)
                 ) : (
                   <>
-                    {format(date.from, "yyyy-MM-dd")} -{" "}
-                    {format(date.to, "yyyy-MM-dd")}
+                    {formatInUTC(parentDate.from)} - {formatInUTC(parentDate.to)}
                   </>
                 )
               ) : (
-                format(date.from, "yyyy-MM-dd")
+                formatInUTC(parentDate.from)
               )
             ) : (
               <span>选择日期范围</span>
@@ -98,7 +142,6 @@ export function DateRangePicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          {/* 使用 flex-col 布局来容纳日历和下方的按钮栏 */}
           <div className="flex flex-col">
             <div className="flex">
               <div className="flex flex-col space-y-2 border-r p-4">
@@ -111,14 +154,13 @@ export function DateRangePicker({
               <Calendar
                 initialFocus
                 mode="range"
-                defaultMonth={date?.from}
-                selected={date}
+                defaultMonth={localDate?.from}
+                selected={localDate}
                 onSelect={handleDateSelect}
                 numberOfMonths={2}
                 locale={zhCN}
               />
             </div>
-            {/* ★★★ 新增的按钮栏 ★★★ */}
             <div className="flex items-center justify-end gap-2 p-3 border-t">
               <Button variant="ghost" onClick={handleClear}>
                 清除
