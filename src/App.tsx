@@ -1,41 +1,72 @@
-// 文件路径: src/App.tsx
-// 描述: [qZpSO-Final] 已集成新的两级项目看板路由
-
+// src/App.tsx
+import { useContext } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, AuthContext } from "@/contexts/AuthContext";
 import { AppLayout } from "./components/AppLayout";
 
-// --- 页面组件导入 ---
-import Home from "./pages/Home";
+// --- Page Component Imports ---
 import Auth from "./pages/Auth";
 import TransportOverview from "./pages/TransportOverview";
+import ProjectsOverview from "./pages/ProjectsOverview";
+import ProjectDashboard from "./pages/ProjectDashboard";
+import FinancialOverview from "./pages/FinancialOverview";
 import Projects from "./pages/Projects";
 import Drivers from "./pages/Drivers";
 import Locations from "./pages/Locations";
 import Partners from "./pages/Partners";
 import BusinessEntry from "./pages/BusinessEntry";
+import ScaleRecords from "./pages/ScaleRecords";
 import PaymentRequest from "./pages/PaymentRequest";
-import FinancialOverview from "./pages/FinancialOverview";
+import PaymentRequestsList from "./pages/PaymentRequestsList";
 import FinanceReconciliation from "./pages/FinanceReconciliation";
 import PaymentInvoice from "./pages/PaymentInvoice";
 import PaymentInvoiceDetail from "./pages/PaymentInvoiceDetail";
-import NotFound from "./pages/NotFound";
-import NotFoundWithStaticFileCheck from "./components/NotFoundWithStaticFileCheck";
-import PaymentRequestsList from "./pages/PaymentRequestsList";
 import UserManagement from "./pages/Settings/UserManagement";
 import PermissionManagement from "./pages/Settings/PermissionManagement";
-import ScaleRecords from "./pages/ScaleRecords";
+import NotFoundWithStaticFileCheck from "./components/NotFoundWithStaticFileCheck";
 
-// ★★★ 1. 导入我们新创建的两个页面 ★★★
-import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
-import ProjectDashboard from "./pages/ProjectDashboard"; // 改造后的详情页
+// ★★★ 1. Import the new callback and error pages ★★★
+import AuthCallback from './pages/AuthCallback'; // Assuming you have created this file as per previous instructions
+import AuthError from './pages/AuthError';     // A simple page to show login errors
 
 const queryClient = new QueryClient();
+
+// ★★★ 2. Create the corrected ProtectedRoute logic ★★★
+const ProtectedRoute = ({ children, requiredRoles }: { children: React.ReactNode; requiredRoles: string[] }) => {
+  const auth = useContext(AuthContext);
+
+  // Show a loading spinner while checking authentication state
+  if (auth.loading) {
+    return <div>Loading...</div>;
+  }
+
+  // If authenticated, check for roles
+  if (auth.isAuthenticated) {
+    if (auth.hasPermission(requiredRoles as any)) {
+      return <>{children}</>;
+    } else {
+      // Optional: Redirect to an "Access Denied" page if role doesn't match
+      return <Navigate to="/unauthorized" />;
+    }
+  }
+
+  // --- This is the core logic for auto-login ---
+  // If not authenticated, automatically redirect to Work WeChat for authorization
+  const corpId = import.meta.env.VITE_WORK_WECHAT_CORPID;
+  const redirectUri = encodeURIComponent(`${import.meta.env.VITE_APP_URL}/auth/callback`);
+  const url = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${corpId}&redirect_uri=${redirectUri}&response_type=code&scope=snsapi_base#wechat_redirect`;
+
+  // Execute the redirect
+  window.location.href = url;
+
+  // Display a message while redirecting
+  return <div>Redirecting to Work WeChat for authentication...</div>;
+};
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -45,10 +76,15 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* --- 公开路由 --- */}
+            {/* --- Public Routes --- */}
             <Route path="/auth" element={<Auth />} />
             
-            {/* --- 受保护的路由 --- */}
+            {/* ★★★ 3. Add the essential callback and error routes ★★★ */}
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth-error" element={<AuthError />} />
+            <Route path="/unauthorized" element={<div>Access Denied</div>} />
+
+            {/* --- Protected Routes --- */}
             <Route path="/" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
                 <AppLayout><TransportOverview /></AppLayout>
@@ -61,14 +97,12 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-            {/* ★★★ 2. 添加新的“项目看板”概览页路由 ★★★ */}
             <Route path="/dashboard/project" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
                 <AppLayout><ProjectsOverview /></AppLayout>
               </ProtectedRoute>
             } />
 
-            {/* ★★★ 3. 添加新的“项目详情”下钻页路由 ★★★ */}
             <Route path="/project/:projectId" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
                 <AppLayout><ProjectDashboard /></AppLayout>
@@ -81,14 +115,12 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* 您原有的“项目管理”路由，保持不变 */}
             <Route path="/projects" element={
               <ProtectedRoute requiredRoles={['admin', 'business']}>
                 <AppLayout><Projects /></AppLayout>
               </ProtectedRoute>
             } />
             
-            {/* ... 其他路由保持不变 ... */}
             <Route path="/drivers" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
                 <AppLayout><Drivers /></AppLayout>
@@ -161,7 +193,6 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* --- 404路由 - 排除静态文件扩展名 --- */}
             <Route path="*" element={<NotFoundWithStaticFileCheck />} />
           </Routes>
         </BrowserRouter>
