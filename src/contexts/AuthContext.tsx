@@ -17,6 +17,9 @@ export interface UserProfile {
   full_name: string;
   role: UserRole;
   is_active: boolean;
+  work_wechat_userid?: string;
+  work_wechat_department?: number[];
+  avatar_url?: string;
 }
 
 // 定义AuthContext的类型，明确提供给子组件的属性和方法

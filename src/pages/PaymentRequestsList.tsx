@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Loader2, FileSpreadsheet, Trash2 } from 'lucide-react';
+import { PaymentApproval } from '@/components/PaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -329,10 +330,25 @@ export default function PaymentRequestsList() {
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{getStatusBadge(req.status)}</TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-center">
-                          <Button variant="default" size="sm" onClick={(e) => handleExport(e, req)} disabled={exportingId === req.id}>
-                            {exportingId === req.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-                            导出
-                          </Button>
+                          <div className="flex items-center gap-2 justify-center">
+                            <Button variant="default" size="sm" onClick={(e) => handleExport(e, req)} disabled={exportingId === req.id}>
+                              {exportingId === req.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+                              导出
+                            </Button>
+                            {req.status === 'Pending' && (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <PaymentApproval
+                                  paymentRequestId={req.id}
+                                  amount={partnerTotals.reduce((sum, pt) => sum + pt.total_amount, 0)}
+                                  description={`付款申请单 ${req.request_id} - ${req.record_count} 条运单`}
+                                  onApprovalSubmitted={() => {
+                                    fetchPaymentRequests();
+                                    toast({ title: "提交成功", description: "企业微信审批已提交" });
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))

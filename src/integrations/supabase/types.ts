@@ -657,6 +657,7 @@ export type Database = {
       }
       payment_requests: {
         Row: {
+          approval_result: Json | null
           created_at: string
           created_by: string | null
           id: string
@@ -666,8 +667,10 @@ export type Database = {
           request_id: string
           status: string
           user_id: string
+          work_wechat_sp_no: string | null
         }
         Insert: {
+          approval_result?: Json | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -677,8 +680,10 @@ export type Database = {
           request_id: string
           status?: string
           user_id: string
+          work_wechat_sp_no?: string | null
         }
         Update: {
+          approval_result?: Json | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -688,11 +693,13 @@ export type Database = {
           request_id?: string
           status?: string
           user_id?: string
+          work_wechat_sp_no?: string | null
         }
         Relationships: []
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string | null
           email: string | null
           full_name: string | null
@@ -701,8 +708,11 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"] | null
           updated_at: string | null
           username: string | null
+          work_wechat_department: number[] | null
+          work_wechat_userid: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string | null
           email?: string | null
           full_name?: string | null
@@ -711,8 +721,11 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string | null
           username?: string | null
+          work_wechat_department?: number[] | null
+          work_wechat_userid?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string | null
           email?: string | null
           full_name?: string | null
@@ -721,6 +734,8 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string | null
           username?: string | null
+          work_wechat_department?: number[] | null
+          work_wechat_userid?: string | null
         }
         Relationships: []
       }
@@ -975,6 +990,7 @@ export type Database = {
         Row: {
           any_text: string | null
           auto_number: string | null
+          billing_type_id: number | null
           chain_id: string | null
           chain_name: string | null
           created_at: string | null
@@ -1001,6 +1017,13 @@ export type Database = {
           user_id: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_logistics_records_billing_type"
+            columns: ["billing_type_id"]
+            isOneToOne: false
+            referencedRelation: "billing_types"
+            referencedColumns: ["billing_type_id"]
+          },
           {
             foreignKeyName: "logistics_records_chain_id_fkey"
             columns: ["chain_id"]
@@ -1357,6 +1380,17 @@ export type Database = {
         Returns: string[]
       }
       get_finance_reconciliation_by_partner: {
+        Args: {
+          p_end_date: string
+          p_page_number: number
+          p_page_size: number
+          p_partner_id: string
+          p_project_id: string
+          p_start_date: string
+        }
+        Returns: Json
+      }
+      get_finance_reconciliation_by_partner_old: {
         Args: {
           p_end_date?: string
           p_page_number?: number
