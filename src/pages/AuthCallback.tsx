@@ -1,7 +1,8 @@
-// src/pages/AuthCallback.tsx
-import { useEffect, useContext } from 'react';
+// 文件路径: src/pages/AuthCallback.tsx
+// 描述: 接收企业微信回调，调用后端函数，并跳转到魔法链接以完成登录。
+
+import { useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-// 注意：我们不再需要 AuthContext 了，因为登录状态由 Supabase 的 onAuthStateChange 自动处理
 import { supabase } from '../integrations/supabase/client';
 
 const AuthCallback = () => {
@@ -13,13 +14,12 @@ const AuthCallback = () => {
 
     const handleLogin = async (authCode: string) => {
       try {
-        console.log("接收到 code，正在调用后端函数...");
+        console.log("接收到 code，正在调用后端函数 'work-wechat-auth'...");
 
-        // 从环境变量中获取 corpId 和 agentId，并传给后端
         const corpId = import.meta.env.VITE_WORK_WECHAT_CORPID;
         const agentId = import.meta.env.VITE_WORK_WECHAT_AGENTID;
 
-        const { data, error } = await supabase.functions.invoke('work-wechat-auth', { // 函数名已更新
+        const { data, error } = await supabase.functions.invoke('work-wechat-auth', {
           body: JSON.stringify({
             code: authCode,
             corpId: corpId,
@@ -28,16 +28,15 @@ const AuthCallback = () => {
         });
 
         if (error) {
-          throw error;
+          throw new Error(`后端函数调用失败: ${error.message}`);
         }
 
-        console.log("后端返回成功, 正在准备跳转到魔法链接...");
+        console.log("后端返回成功, 准备跳转到魔法链接...");
         
-        // 关键一步：从后端返回的数据中获取 auth_url
         const authUrl = data?.auth_url;
 
         if (authUrl) {
-          // 将页面重定向到魔法链接，以完成Supabase的会话设置
+          // 关键一步：重定向到魔法链接，以完成Supabase的会话设置
           window.location.href = authUrl;
         } else {
           throw new Error("后端未返回有效的 auth_url。");
@@ -58,7 +57,7 @@ const AuthCallback = () => {
   }, [searchParams, navigate]);
 
   return (
-    <div style={{ padding: '2rem', textAlign: 'center' }}>
+    <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'sans-serif' }}>
       正在通过企业微信安全登录，请稍候...
     </div>
   );
