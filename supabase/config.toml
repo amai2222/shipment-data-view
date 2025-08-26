@@ -2,3 +2,9 @@ project_id = "mnwzvtvyauyxwowjjsmf"
 
 [functions.username-login]
 verify_jwt = false
+
+[functions.work-wechat-auth]
+verify_jwt = false
+
+[functions.work-wechat-approval]
+verify_jwt = false
