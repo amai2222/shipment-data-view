@@ -11,6 +11,8 @@ import { useNavigate } from 'react-router-dom';
 import { useFilterState } from '@/hooks/useFilterState';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { DateRange } from 'react-day-picker';
 
 interface PaymentRequest {
   id: string;
@@ -24,20 +26,16 @@ interface PaymentRequest {
 
 interface FilterState {
   projectId: string;
-  startDate: string;
-  endDate: string;
   requestId: string;
   driverName: string;
-  loadingDate: string;
+  dateRange: DateRange | undefined;
 }
 
 const initialFilterState: FilterState = {
   projectId: 'all',
-  startDate: '',
-  endDate: '',
   requestId: '',
-  driverName: '',
-  loadingDate: '',
+  driverName: 'all',
+  dateRange: undefined,
 };
 
 export default function PaymentInvoice() {
@@ -57,7 +55,6 @@ export default function PaymentInvoice() {
     handleClear,
   } = useFilterState(initialFilterState);
 
-  // Load projects
   const loadProjects = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -77,7 +74,6 @@ export default function PaymentInvoice() {
     }
   }, [toast]);
 
-  // Load drivers
   const loadDrivers = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -87,8 +83,7 @@ export default function PaymentInvoice() {
       
       if (error) throw error;
       
-      // Get unique driver names
-      const uniqueDrivers = [...new Set(data?.map(record => record.driver_name) || [])];
+      const uniqueDrivers = [...new Set(data?.map(record => record.driver_name).filter(Boolean) || [])];
       setDrivers(uniqueDrivers.map(name => ({ name })));
     } catch (error) {
       console.error('加载司机失败:', error);
@@ -100,19 +95,62 @@ export default function PaymentInvoice() {
     }
   }, [toast]);
 
-  // Load payment requests with filters
   const loadPaymentRequests = useCallback(async () => {
     setLoading(true);
     try {
       let query = supabase
         .from('payment_requests')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
 
-      // Apply filters - for now we'll just load all requests
-      // In a real implementation, you'd filter by project/date if needed
+      // --- 动态筛选逻辑 ---
+
+      // 1. 按申请单号筛选 (直接作用于主表)
+      if (activeFilters.requestId) {
+        query = query.ilike('request_id', `%${activeFilters.requestId}%`);
+      }
+
+      // 2. 整合所有需要关联 `logistics_records` 表的筛选条件
+      const hasLogisticsFilter = 
+        activeFilters.projectId !== 'all' || 
+        activeFilters.driverName !== 'all' || 
+        activeFilters.dateRange;
+
+      if (hasLogisticsFilter) {
+        let logisticsQuery = supabase.from('logistics_records').select('id');
+
+        // 按项目筛选
+        if (activeFilters.projectId !== 'all') {
+          logisticsQuery = logisticsQuery.eq('project_id', activeFilters.projectId);
+        }
+        // 按司机筛选
+        if (activeFilters.driverName !== 'all') {
+          logisticsQuery = logisticsQuery.eq('driver_name', activeFilters.driverName);
+        }
+        // 按装货日期范围筛选
+        if (activeFilters.dateRange?.from) {
+          logisticsQuery = logisticsQuery.gte('loading_date', activeFilters.dateRange.from.toISOString());
+        }
+        if (activeFilters.dateRange?.to) {
+          const toDate = new Date(activeFilters.dateRange.to);
+          toDate.setHours(23, 59, 59, 999); // 包含当天
+          logisticsQuery = logisticsQuery.lte('loading_date', toDate.toISOString());
+        }
+
+        const { data: recordIds, error: recordError } = await logisticsQuery;
+        if (recordError) throw recordError;
+
+        const ids = recordIds.map(r => r.id);
+        if (ids.length > 0) {
+          query = query.overlaps('logistics_record_ids', ids);
+        } else {
+          // 如果没有匹配的运单，则付款申请肯定也为空
+          setRequests([]);
+          setLoading(false);
+          return;
+        }
+      }
       
-      const { data, error } = await query;
+      const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) throw error;
       setRequests((data as PaymentRequest[]) || []);
@@ -148,7 +186,6 @@ export default function PaymentInvoice() {
   };
 
   const handleRequestClick = (request: PaymentRequest) => {
-    // Navigate to detail page with request ID
     navigate(`/finance/payment-invoice/${request.id}`);
   };
 
@@ -159,7 +196,6 @@ export default function PaymentInvoice() {
         <p className="text-muted-foreground">选择付款申请单查看运单财务明细并进行批量付款与开票操作。</p>
       </div>
 
-      {/* Filter Section */}
       <Card>
         <CardHeader>
           <CardTitle>筛选条件</CardTitle>
@@ -225,13 +261,13 @@ export default function PaymentInvoice() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">装货日期</label>
-              <Input
-                type="date"
-                value={uiFilters.loadingDate}
-                onChange={(e) => 
-                  setUiFilters(prev => ({ ...prev, loadingDate: e.target.value }))
+              <label className="text-sm font-medium text-foreground">装货日期范围</label>
+              <DateRangePicker
+                date={uiFilters.dateRange}
+                setDate={(range) => 
+                  setUiFilters(prev => ({ ...prev, dateRange: range }))
                 }
+                className="w-full"
               />
             </div>
           </div>
@@ -251,7 +287,6 @@ export default function PaymentInvoice() {
         </CardContent>
       </Card>
 
-      {/* Payment Requests List */}
       <Card>
         <CardHeader>
           <CardTitle>付款申请单列表</CardTitle>
@@ -295,7 +330,7 @@ export default function PaymentInvoice() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={5} className="h-24 text-center">
-                        暂无付款申请记录。
+                        没有找到符合条件的付款申请记录。
                       </TableCell>
                     </TableRow>
                   )}
