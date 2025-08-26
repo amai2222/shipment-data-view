@@ -95,35 +95,32 @@ export default function PaymentInvoice() {
     }
   }, [toast]);
 
-  // --- 这是修改后的核心函数 ---
+  // --- 核心修改：调用数据库 RPC 函数 ---
   const loadPaymentRequests = useCallback(async () => {
     setLoading(true);
     try {
-      // 准备要发送到后端的筛选条件
-      // 注意：Date 对象需要转换为 ISO 字符串，以便通过 JSON 传输
-      const filtersForBackend = {
-        ...activeFilters,
-        dateRange: activeFilters.dateRange 
-          ? {
-              from: activeFilters.dateRange.from?.toISOString(),
-              to: activeFilters.dateRange.to?.toISOString(),
-            }
-          : undefined,
+      // 1. 准备要发送到数据库函数的参数
+      //    键名必须与 SQL 函数中定义的参数名完全匹配
+      const params = {
+        p_request_id: activeFilters.requestId || null,
+        p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
+        p_driver_name: activeFilters.driverName === 'all' ? null : activeFilters.driverName,
+        p_start_date: activeFilters.dateRange?.from ? activeFilters.dateRange.from.toISOString() : null,
+        p_end_date: activeFilters.dateRange?.to ? activeFilters.dateRange.to.toISOString() : null,
       };
 
-      // 调用 Edge Function
-      const { data, error } = await supabase.functions.invoke('get-filtered-payment-requests', {
-        body: { filters: filtersForBackend },
-      });
+      // 2. 如果有结束日期，调整其时间以确保包含当天的所有记录
+      if (params.p_end_date) {
+          const toDate = new Date(params.p_end_date);
+          toDate.setUTCHours(23, 59, 59, 999);
+          params.p_end_date = toDate.toISOString();
+      }
+
+      // 3. 调用 RPC 函数
+      const { data, error } = await supabase.rpc('get_filtered_payment_requests', params);
 
       if (error) {
-        // 如果函数本身返回错误（例如500），则抛出
-        throw new Error(error.message);
-      }
-      
-      // 注意：如果函数内部逻辑出错，错误信息可能在 data.error 中
-      if (data && data.error) {
-        throw new Error(data.error);
+        throw error;
       }
 
       setRequests((data as PaymentRequest[]) || []);
@@ -163,7 +160,6 @@ export default function PaymentInvoice() {
     navigate(`/finance/payment-invoice/${request.id}`);
   };
 
-  // --- UI 部分无需任何修改 ---
   return (
     <div className="space-y-6">
       <div>
