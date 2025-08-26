@@ -1,5 +1,5 @@
 // 正确路径: src/components/ui/date-range-picker.tsx
-// 描述: [交互与时区最终修复版] 修复了时区导致的日期偏差，并优化了交互逻辑。
+// 描述: [最终交互优化版] 实现了极致简洁的交互逻辑，并修复了时区问题。
 
 "use client"
 
@@ -24,18 +24,12 @@ interface DateRangePickerProps extends React.HTMLAttributes<HTMLDivElement> {
   disabled?: boolean;
 }
 
-/**
- * [时区修复函数] 将一个本地时区的Date对象，转换为一个代表其UTC日期的新Date对象。
- * 例如，对于中国时区的 "2025-08-24 00:00:00 GMT+0800"，
- * 它会返回一个代表 "2025-08-24 00:00:00 UTC" 的新Date对象。
- */
+// [时区修复函数] 将本地时区的Date对象，转换为代表其UTC日期的新Date对象。
 const toUTCDate = (date: Date): Date => {
   return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
 };
 
-/**
- * [时区修复函数] 使用UTC年、月、日来格式化日期，忽略本地时区。
- */
+// [时区修复函数] 使用UTC年、月、日来格式化日期，忽略本地时区。
 const formatInUTC = (date: Date): string => {
   const year = date.getUTCFullYear();
   const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
@@ -43,15 +37,14 @@ const formatInUTC = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-
 export function DateRangePicker({
   className,
-  date: parentDate, // 从父组件接收的日期
-  setDate: setParentDate, // 更新父组件日期的方法
+  date: parentDate,
+  setDate: setParentDate,
   disabled,
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
-  // 使用一个临时的本地状态来处理日历上的交互，避免直接影响父组件
+  // 使用一个临时的本地状态来处理日历上的交互
   const [localDate, setLocalDate] = React.useState<DateRange | undefined>(parentDate);
 
   // 当弹窗打开时，将父组件的日期同步到本地状态
@@ -60,7 +53,6 @@ export function DateRangePicker({
       setLocalDate(parentDate);
     }
   }, [open, parentDate]);
-
 
   const handlePresetClick = (range: "7d" | "1m" | "3m" | "6m" | "1y") => {
     const today = new Date();
@@ -72,46 +64,48 @@ export function DateRangePicker({
       case "6m": fromDate = subMonths(today, 6); break;
       case "1y": fromDate = subYears(today, 1); break;
     }
-    // 对于预设，直接更新父组件并关闭
-    setParentDate({ from: fromDate, to: today });
+    // 对于预设，直接应用时区修正并更新父组件
+    setParentDate({ from: toUTCDate(fromDate), to: toUTCDate(today) });
     setOpen(false);
   };
 
-  // 在日历上选择时，只更新本地状态
+  // ★★★ 这是最终的核心交互逻辑 ★★★
   const handleDateSelect = (range: DateRange | undefined) => {
-    setLocalDate(range);
-  };
-
-  // 点击“应用”按钮时，才将本地选择的日期（经过时区修正）传递给父组件
-  const handleApply = () => {
-    let finalRange = localDate;
-
-    // 如果只选了一个日期，则自动设为单日范围
-    if (localDate?.from && !localDate.to) {
-      finalRange = { from: localDate.from, to: localDate.from };
-    }
-
-    // ★★★ 核心时区修正 ★★★
-    if (finalRange?.from) {
-      const adjustedFrom = toUTCDate(finalRange.from);
-      const adjustedTo = finalRange.to ? toUTCDate(finalRange.to) : undefined;
-      setParentDate({ from: adjustedFrom, to: adjustedTo });
-    } else {
+    // 检查是否是第二次点击，并且点击的是同一个日期
+    if (localDate?.from && !localDate.to && range?.from && range.to &&
+        range.from.getTime() === range.to.getTime() &&
+        localDate.from.getTime() === range.from.getTime()) {
+      // 如果是，则清除选择并关闭
+      setLocalDate(undefined);
       setParentDate(undefined);
+      setOpen(false);
+      return;
     }
-    
-    setOpen(false);
+
+    // 正常更新本地日期状态
+    setLocalDate(range);
+
+    // 如果范围选择完成，则应用时区修正，更新父组件并关闭
+    if (range?.from && range.to) {
+      setParentDate({ from: toUTCDate(range.from), to: toUTCDate(range.to) });
+      setOpen(false);
+    }
   };
-  
-  const handleClear = () => {
-    setLocalDate(undefined);
-    setParentDate(undefined);
-    setOpen(false);
+
+  // 处理当用户只选了一个日期就关闭弹窗的情况
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) { // 当弹窗将要关闭时
+      if (localDate?.from && !localDate.to) {
+        // 将单个日期设为单日范围，并应用时区修正
+        setParentDate({ from: toUTCDate(localDate.from), to: toUTCDate(localDate.from) });
+      }
+    }
+    setOpen(isOpen);
   };
 
   return (
     <div className={cn("grid gap-2", className)}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
             id="date"
@@ -124,15 +118,10 @@ export function DateRangePicker({
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {parentDate?.from ? (
-              parentDate.to ? (
-                // ★★★ 使用UTC格式化函数来显示日期 ★★★
-                formatInUTC(parentDate.from) === formatInUTC(parentDate.to) ? (
-                  formatInUTC(parentDate.from)
-                ) : (
-                  <>
-                    {formatInUTC(parentDate.from)} - {formatInUTC(parentDate.to)}
-                  </>
-                )
+              parentDate.to && formatInUTC(parentDate.from) !== formatInUTC(parentDate.to) ? (
+                <>
+                  {formatInUTC(parentDate.from)} - {formatInUTC(parentDate.to)}
+                </>
               ) : (
                 formatInUTC(parentDate.from)
               )
@@ -141,35 +130,25 @@ export function DateRangePicker({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <div className="flex flex-col">
-            <div className="flex">
-              <div className="flex flex-col space-y-2 border-r p-4">
-                <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("7d")}>最近一周</Button>
-                <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("1m")}>最近一个月</Button>
-                <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("3m")}>最近三个月</Button>
-                <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("6m")}>最近六个月</Button>
-                <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("1y")}>最近一年</Button>
-              </div>
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={localDate?.from}
-                selected={localDate}
-                onSelect={handleDateSelect}
-                numberOfMonths={2}
-                locale={zhCN}
-              />
-            </div>
-            <div className="flex items-center justify-end gap-2 p-3 border-t">
-              <Button variant="ghost" onClick={handleClear}>
-                清除
-              </Button>
-              <Button onClick={handleApply}>
-                应用
-              </Button>
-            </div>
+        <PopoverContent className="w-auto p-0 flex" align="start">
+          <div className="flex flex-col space-y-2 border-r p-4">
+            <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("7d")}>最近一周</Button>
+            <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("1m")}>最近一个月</Button>
+            <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("3m")}>最近三个月</Button>
+            <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("6m")}>最近六个月</Button>
+            <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("1y")}>最近一年</Button>
           </div>
+          <Calendar
+            initialFocus
+            mode="range"
+            defaultMonth={localDate?.from}
+            selected={localDate}
+            onSelect={handleDateSelect}
+            numberOfMonths={2}
+            locale={zhCN}
+            // ★★★ 去掉“今天”的蓝点高亮 ★★★
+            modifiers={{ today: [] }}
+          />
         </PopoverContent>
       </Popover>
     </div>
