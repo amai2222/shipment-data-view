@@ -28,7 +28,7 @@ interface PaymentRequest {
 interface FilterState {
   projectId: string;
   requestId: string;
-  driverQuery: string;
+  driverQuery: string; // 确保这里是 driverQuery
   loadingDateRange: DateRange | undefined;
   applicationDateRange: DateRange | undefined;
   logisticsRecordNumbers: string[];
@@ -37,7 +37,7 @@ interface FilterState {
 const initialFilterState: FilterState = {
   projectId: 'all',
   requestId: '',
-  driverQuery: '',
+  driverQuery: '', // 确保这里是 driverQuery
   loadingDateRange: undefined,
   applicationDateRange: undefined,
   logisticsRecordNumbers: [],
@@ -82,10 +82,11 @@ export default function PaymentInvoice() {
   const loadPaymentRequests = useCallback(async () => {
     setLoading(true);
     try {
+      // --- 关键修正点在这里 ---
       const params = {
         p_request_id: activeFilters.requestId || null,
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
-        p_driver_query: activeFilters.driverQuery || null,
+        p_driver_query: activeFilters.driverQuery || null, // 必须使用 p_driver_query
         p_start_date: activeFilters.loadingDateRange?.from ? activeFilters.loadingDateRange.from.toISOString() : null,
         p_end_date: activeFilters.loadingDateRange?.to ? activeFilters.loadingDateRange.to.toISOString() : null,
         p_application_start_date: activeFilters.applicationDateRange?.from ? activeFilters.applicationDateRange.from.toISOString() : null,
