@@ -1,5 +1,5 @@
 // 文件路径: src/contexts/AuthContext.tsx
-// 描述: [最终修正版] 修复了导致无限加载的问题
+// 描述: [带调试日志的最终版] 用于定位无限加载问题的根本原因
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
@@ -47,50 +47,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // ★★★ 这是修复无限加载问题的核心逻辑 ★★★
+  // ★★★ 这是带有详细日志的调试逻辑 ★★★
   useEffect(() => {
-    // onAuthStateChange 会在订阅时及后续认证状态变化时触发
+    console.log("[AuthContext] AuthProvider 已挂载，正在设置 onAuthStateChange 监听器...");
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      // 1. 将回调函数设为 async，以便在内部使用 await
-      async (_event, session) => {
+      async (event, session) => {
+        console.log(`[AuthContext] onAuthStateChange 事件触发! 事件类型: ${event}`);
+        
         setSession(session);
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
-        // 2. 移除不必要的 setTimeout，直接处理逻辑
         if (currentUser) {
+          console.log("[AuthContext] 检测到用户会话。用户ID:", currentUser.id);
+          console.log("[AuthContext] 正在尝试获取用户 profile...");
           try {
             const { data: profileData, error } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', currentUser.id)
-              .single(); // .single() 确保只返回一条记录
+              .single();
 
             if (error) {
-              console.error('获取用户配置文件失败:', error);
+              console.error('[AuthContext] 获取用户 profile 失败:', error);
               setProfile(null);
             } else {
+              console.log("[AuthContext] 成功获取 profile:", profileData);
               setProfile(profileData as UserProfile);
             }
           } catch (catchError) {
-            console.error('处理用户配置文件时发生意外错误:', catchError);
+            console.error('[AuthContext] 获取 profile 时发生意外错误:', catchError);
             setProfile(null);
           }
         } else {
-          // 如果没有用户，清空profile
+          console.log("[AuthContext] 未检测到用户会话。");
           setProfile(null);
         }
 
-        // 3. 无论成功与否，只要检查完毕，就将loading设为false
+        console.log("[AuthContext] 认证状态检查完毕。正在将 loading 设置为 false...");
         setLoading(false);
       }
     );
 
-    // 在组件卸载时，取消订阅以防止内存泄漏
     return () => {
+      console.log("[AuthContext] AuthProvider 已卸载，正在取消订阅 onAuthStateChange。");
       subscription.unsubscribe();
     };
-  }, []); // 空依赖数组确保这个effect只在组件挂载时运行一次
+  }, []);
 
   // --- 以下函数保持不变 ---
 
