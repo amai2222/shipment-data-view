@@ -95,72 +95,46 @@ export default function PaymentInvoice() {
     }
   }, [toast]);
 
+  // --- 这是修改后的核心函数 ---
   const loadPaymentRequests = useCallback(async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('payment_requests')
-        .select('*');
+      // 准备要发送到后端的筛选条件
+      // 注意：Date 对象需要转换为 ISO 字符串，以便通过 JSON 传输
+      const filtersForBackend = {
+        ...activeFilters,
+        dateRange: activeFilters.dateRange 
+          ? {
+              from: activeFilters.dateRange.from?.toISOString(),
+              to: activeFilters.dateRange.to?.toISOString(),
+            }
+          : undefined,
+      };
 
-      // --- 动态筛选逻辑 ---
+      // 调用 Edge Function
+      const { data, error } = await supabase.functions.invoke('get-filtered-payment-requests', {
+        body: { filters: filtersForBackend },
+      });
 
-      // 1. 按申请单号筛选 (直接作用于主表)
-      if (activeFilters.requestId) {
-        query = query.ilike('request_id', `%${activeFilters.requestId}%`);
-      }
-
-      // 2. 整合所有需要关联 `logistics_records` 表的筛选条件
-      const hasLogisticsFilter = 
-        activeFilters.projectId !== 'all' || 
-        activeFilters.driverName !== 'all' || 
-        activeFilters.dateRange;
-
-      if (hasLogisticsFilter) {
-        let logisticsQuery = supabase.from('logistics_records').select('id');
-
-        // 按项目筛选
-        if (activeFilters.projectId !== 'all') {
-          logisticsQuery = logisticsQuery.eq('project_id', activeFilters.projectId);
-        }
-        // 按司机筛选
-        if (activeFilters.driverName !== 'all') {
-          logisticsQuery = logisticsQuery.eq('driver_name', activeFilters.driverName);
-        }
-        // 按装货日期范围筛选
-        if (activeFilters.dateRange?.from) {
-          logisticsQuery = logisticsQuery.gte('loading_date', activeFilters.dateRange.from.toISOString());
-        }
-        if (activeFilters.dateRange?.to) {
-          const toDate = new Date(activeFilters.dateRange.to);
-          toDate.setHours(23, 59, 59, 999); // 包含当天
-          logisticsQuery = logisticsQuery.lte('loading_date', toDate.toISOString());
-        }
-
-        const { data: recordIds, error: recordError } = await logisticsQuery;
-        if (recordError) throw recordError;
-
-        const ids = recordIds.map(r => r.id);
-        if (ids.length > 0) {
-          query = query.overlaps('logistics_record_ids', ids);
-        } else {
-          // 如果没有匹配的运单，则付款申请肯定也为空
-          setRequests([]);
-          setLoading(false);
-          return;
-        }
+      if (error) {
+        // 如果函数本身返回错误（例如500），则抛出
+        throw new Error(error.message);
       }
       
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) throw error;
+      // 注意：如果函数内部逻辑出错，错误信息可能在 data.error 中
+      if (data && data.error) {
+        throw new Error(data.error);
+      }
+
       setRequests((data as PaymentRequest[]) || []);
     } catch (error) {
       console.error('加载付款申请失败:', error);
-      toast({ 
-        title: "错误", 
-        description: `加载付款申请失败: ${(error as any).message}`, 
-        variant: "destructive" 
+      toast({
+        title: "错误",
+        description: `加载付款申请失败: ${(error as any).message}`,
+        variant: "destructive"
       });
+      setRequests([]); // 出错时清空列表
     } finally {
       setLoading(false);
     }
@@ -189,6 +163,7 @@ export default function PaymentInvoice() {
     navigate(`/finance/payment-invoice/${request.id}`);
   };
 
+  // --- UI 部分无需任何修改 ---
   return (
     <div className="space-y-6">
       <div>
