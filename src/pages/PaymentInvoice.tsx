@@ -105,10 +105,12 @@ export default function PaymentInvoice() {
           params.p_application_end_date = toDate.toISOString();
       }
 
-      const { data, error } = await supabase.rpc('get_filtered_payment_requests', params);
+      const { data, error } = await supabase.functions.invoke('get-filtered-payment-requests', {
+        body: params
+      });
 
       if (error) throw error;
-      setRequests((data as PaymentRequest[]) || []);
+      setRequests((data?.records as PaymentRequest[]) || []);
     } catch (error) {
       console.error('加载付款申请失败:', error);
       toast({

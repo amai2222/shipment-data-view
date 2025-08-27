@@ -40,18 +40,13 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
   // 企业微信认证
   const handleWorkWechatAuth = async () => {
     try {
-      if (!isInWorkWechat()) {
-        toast.error('请在企业微信中打开此应用');
-        return;
-      }
-
       // 获取企业微信授权码
       const code = new URLSearchParams(window.location.search).get('code');
       
       if (!code) {
         // 重定向到企业微信授权页面
-        const redirectUri = encodeURIComponent(window.location.href);
-        const authUrl = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${corpId}&redirect_uri=${redirectUri}&response_type=code&scope=snsapi_base&agentid=${agentId}&state=STATE#wechat_redirect`;
+        const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
+        const authUrl = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${corpId}&redirect_uri=${redirectUri}&response_type=code&scope=snsapi_base&agentid=${agentId}&state=AUTH#wechat_redirect`;
         window.location.href = authUrl;
         return;
       }
@@ -87,13 +82,11 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
     }
   };
 
-  // 在企业微信环境中自动触发认证
+  // 在企业微信环境中自动触发认证或检测URL中的code
   useEffect(() => {
-    if (isInWorkWechat() && !user) {
-      const code = new URLSearchParams(window.location.search).get('code');
-      if (code) {
-        handleWorkWechatAuth();
-      }
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (code && !user) {
+      handleWorkWechatAuth();
     }
   }, []);
 
@@ -106,33 +99,19 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isInWorkWechat() ? (
-          <Button 
-            onClick={handleWorkWechatAuth}
-            className="w-full bg-green-600 hover:bg-green-700"
-            size="lg"
-          >
-            企业微信授权登录
-          </Button>
-        ) : (
-          <div className="text-center space-y-4">
-            <p className="text-muted-foreground">
-              请在企业微信中打开此应用
-            </p>
-            <Button 
-              onClick={() => {
-                // 生成企业微信应用链接
-                const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-                const workWechatUrl = `wxwork://message/?username=${corpId}&url=${encodeURIComponent(appUrl)}`;
-                window.location.href = workWechatUrl;
-              }}
-              variant="outline"
-              className="w-full"
-            >
-              在企业微信中打开
-            </Button>
-          </div>
-        )}
+        <Button 
+          onClick={handleWorkWechatAuth}
+          className="w-full bg-green-600 hover:bg-green-700"
+          size="lg"
+        >
+          企业微信授权登录
+        </Button>
+        
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground">
+            点击按钮将跳转到企业微信进行身份验证
+          </p>
+        </div>
         
         <div className="text-center">
           <p className="text-sm text-muted-foreground">
