@@ -43,15 +43,21 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
       // 获取企业微信授权码
       const code = new URLSearchParams(window.location.search).get('code');
       
+      console.log('当前URL:', window.location.href);
+      console.log('获取到的code:', code);
+      
       if (!code) {
         // 重定向到企业微信授权页面
         const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
         const authUrl = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${corpId}&redirect_uri=${redirectUri}&response_type=code&scope=snsapi_base&agentid=${agentId}&state=AUTH#wechat_redirect`;
+        console.log('跳转到企业微信授权页面:', authUrl);
         window.location.href = authUrl;
         return;
       }
 
       toast.info('正在验证企业微信身份...');
+
+      console.log('准备调用后端认证:', { code, corpId, agentId });
 
       // 调用后端认证接口
       const { data, error } = await supabase.functions.invoke('work-wechat-auth', {
@@ -62,23 +68,27 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
         }
       });
 
+      console.log('后端认证响应:', { data, error });
+
       if (error) {
         console.error('企业微信认证失败:', error);
-        toast.error('企业微信认证失败');
+        toast.error(`企业微信认证失败: ${error.message || '网络错误'}`);
         return;
       }
 
-      if (data.success && data.auth_url) {
+      if (data?.success && data?.auth_url) {
         toast.success('企业微信认证成功，正在登录...');
+        console.log('认证成功，跳转到:', data.auth_url);
         // 重定向到Supabase认证URL完成登录
         window.location.href = data.auth_url;
       } else {
-        toast.error('企业微信认证失败');
+        console.error('认证响应异常:', data);
+        toast.error(`企业微信认证失败: ${data?.error || '未知错误'}`);
       }
 
     } catch (error) {
       console.error('企业微信认证错误:', error);
-      toast.error('企业微信认证失败');
+      toast.error(`企业微信认证失败: ${error.message || '网络连接错误'}`);
     }
   };
 

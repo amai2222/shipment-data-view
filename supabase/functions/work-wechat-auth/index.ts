@@ -37,14 +37,18 @@ serve(async (req) => {
     console.log('企业微信认证请求:', { code, corpId, agentId });
 
     // 1. 获取企业微信访问令牌
+    console.log('准备获取企业微信令牌，参数:', { corpId, secretLength: workWechatSecret?.length });
+    
     const tokenResponse = await fetch(
       `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${corpId}&corpsecret=${workWechatSecret}`
     );
     const tokenData: WorkWechatTokenResponse = await tokenResponse.json();
     
+    console.log('企业微信令牌响应:', tokenData);
+    
     if (!tokenData.access_token) {
       console.error('获取企业微信令牌失败:', tokenData);
-      throw new Error('获取企业微信访问令牌失败');
+      throw new Error(`获取企业微信访问令牌失败: ${JSON.stringify(tokenData)}`);
     }
 
     console.log('企业微信令牌获取成功');
@@ -55,9 +59,11 @@ serve(async (req) => {
     );
     const userData = await userResponse.json();
     
+    console.log('企业微信用户信息响应:', userData);
+    
     if (!userData.UserId) {
       console.error('获取用户信息失败:', userData);
-      throw new Error('获取用户信息失败');
+      throw new Error(`获取用户信息失败: ${JSON.stringify(userData)}`);
     }
 
     console.log('获取用户ID成功:', userData.UserId);
