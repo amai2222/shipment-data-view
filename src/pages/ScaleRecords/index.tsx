@@ -26,7 +26,7 @@ interface ScaleRecord { id: string; project_id: string; project_name: string; lo
 interface FilterState { projectId: string; startDate: string; endDate: string; licensePlate: string; }
 
 const initialFilterState: FilterState = { projectId: '', startDate: '', endDate: '', licensePlate: '' };
-const PAGE_SIZE = 10; // 定义每页显示的记录数
+const PAGE_SIZE = 15; // 定义每页显示的记录数
 
 export default function ScaleRecords() {
   // 基础状态
