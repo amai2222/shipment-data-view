@@ -1,17 +1,17 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const workWechatSecret = Deno.env.get('WORK_WECHAT_SECRET')!;
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// 使用 Service Key 初始化 Supabase Admin 客户端
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 interface WorkWechatUserInfo {
   UserId: string;
@@ -77,92 +77,83 @@ serve(async (req) => {
     
     console.log('用户详细信息:', userDetail);
 
-    // 4. 检查用户是否已存在
-    const { data: existingProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('work_wechat_userid', userData.UserId)
-      .single();
+    // ==================== 核心修改逻辑开始 ====================
 
-    if (profileError && profileError.code !== 'PGRST116') {
-      console.error('查询用户档案失败:', profileError);
-      throw new Error('查询用户档案失败');
+    // 确保用户有邮箱，如果没有则使用企业微信ID创建一个占位邮箱
+    const email = userDetail.email || `${userData.UserId}@company.local`;
+    let authUserId: string;
+    let isNewUser = false;
+
+    // 4. 首先通过邮箱检查认证用户 (auth.users) 是否存在
+    const { data: existingAuthUser, error: getAuthUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+
+    if (getAuthUserError && getAuthUserError.name !== 'UserNotFoundError') {
+      console.error('通过邮箱查找认证用户失败:', getAuthUserError);
+      throw getAuthUserError; // 抛出未知错误
     }
 
-    let profile;
-    
-    if (existingProfile) {
-      // 用户已存在，更新信息
-      const { data: updatedProfile, error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          full_name: userDetail.name,
-          avatar_url: userDetail.avatar,
-          work_wechat_department: userDetail.department,
-          updated_at: new Date().toISOString()
-        })
-        .eq('work_wechat_userid', userData.UserId)
-        .select()
-        .single();
-
-      if (updateError) {
-        console.error('更新用户档案失败:', updateError);
-        throw new Error('更新用户档案失败');
-      }
-      
-      profile = updatedProfile;
-      console.log('用户档案更新成功');
+    if (existingAuthUser?.user) {
+      // 4a. 如果认证用户已存在，直接使用其 ID
+      console.log(`认证用户 ${email} 已存在.`);
+      authUserId = existingAuthUser.user.id;
     } else {
-      // 新用户，创建档案
-      const email = userDetail.email || `${userData.UserId}@company.local`;
-      
-      // 首先创建认证用户
-      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+      // 4b. 如果认证用户不存在，则创建新的认证用户
+      console.log(`认证用户 ${email} 不存在，准备创建...`);
+      isNewUser = true;
+      const { data: newAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
         email,
-        email_confirm: true,
+        email_confirm: true, // 邮箱来自可信源，直接确认为已验证
+        password: Math.random().toString(36).slice(-12), // 设置一个安全的随机密码
         user_metadata: {
           full_name: userDetail.name,
-          work_wechat_userid: userData.UserId
+          avatar_url: userDetail.avatar,
+          work_wechat_userid: userData.UserId // 在元数据中也存一份企微ID
         }
       });
 
-      if (authError) {
-        console.error('创建认证用户失败:', authError);
-        throw new Error('创建认证用户失败');
-      }
-
-      // 创建用户档案
-      const { data: newProfile, error: insertError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authUser.user.id,
-          email,
-          full_name: userDetail.name,
-          work_wechat_userid: userData.UserId,
-          avatar_url: userDetail.avatar,
-          work_wechat_department: userDetail.department,
-          role: 'viewer', // 默认角色
-          is_active: true
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('创建用户档案失败:', insertError);
-        throw new Error('创建用户档案失败');
+      if (createAuthError) {
+        console.error('创建认证用户失败:', createAuthError);
+        // 直接抛出原始的 AuthApiError
+        throw createAuthError;
       }
       
-      profile = newProfile;
-      console.log('新用户档案创建成功');
+      authUserId = newAuthUser.user.id;
+      console.log(`新认证用户 ${email} 创建成功.`);
     }
 
-    // 5. 生成会话令牌
-    const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
+    // 5. 使用 upsert 来创建或更新用户的公开信息 (profiles 表)
+    // 无论用户是新是旧，都确保 profiles 表中的数据是最新的
+    const { data: profile, error: upsertProfileError } = await supabaseAdmin
+      .from('profiles')
+      .upsert({
+        id: authUserId, // 关键：使用 auth user 的 ID 作为主键
+        email: email,
+        full_name: userDetail.name,
+        avatar_url: userDetail.avatar,
+        work_wechat_userid: userData.UserId,
+        work_wechat_department: userDetail.department,
+        role: isNewUser ? 'viewer' : undefined, // 只有新用户才设置默认角色
+        is_active: true,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'id', // 如果 ID 冲突，则执行更新
+      })
+      .select()
+      .single();
+
+    if (upsertProfileError) {
+      console.error('Upsert 用户档案失败:', upsertProfileError);
+      throw new Error('创建或更新用户档案失败');
+    }
+    
+    console.log('用户档案同步成功:', profile);
+
+    // ==================== 核心修改逻辑结束 ====================
+
+    // 6. 为用户生成会话令牌 (Magic Link)
+    const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: profile.email,
-      options: {
-        redirectTo: `${Deno.env.get('SUPABASE_URL')}/auth/v1/callback`
-      }
     });
 
     if (sessionError) {
@@ -175,15 +166,17 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       user: profile,
-      auth_url: sessionData.properties?.action_link
+      ...sessionData.properties, // 直接展开 sessionData 的属性
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('企业微信认证错误:', error);
+    console.error('企业微信认证完整错误:', error);
     return new Response(JSON.stringify({ 
-      error: error.message || '企业微信认证失败' 
+      // 返回更详细的错误信息，便于前端调试
+      error: error.message || '企业微信认证失败',
+      error_details: error,
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
