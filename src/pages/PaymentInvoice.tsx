@@ -107,18 +107,12 @@ export default function PaymentInvoice() {
           params.p_application_end_date = toDate.toISOString();
       }
 
-      // 使用正确的 edge function 名称
-      const { data, error } = await supabase.functions.invoke('get-filtered-payment-requests', {
-        body: params
-      });
+      // --- 关键修正：使用 supabase.rpc 调用数据库函数 ---
+      const { data, error } = await supabase.rpc('get_filtered_payment_requests', params);
 
       if (error) throw error;
-      // 检查数据结构并设置
-      if (data && Array.isArray(data)) {
-        setRequests(data as PaymentRequest[]);
-      } else {
-        setRequests([]);
-      }
+      // RPC 直接返回数据数组，无需访问 .records
+      setRequests((data as PaymentRequest[]) || []);
     } catch (error) {
       console.error('加载付款申请失败:', error);
       toast({
