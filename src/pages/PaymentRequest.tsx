@@ -82,7 +82,6 @@ export default function PaymentRequest() {
         p_payment_status_array: statusArray,
         p_page_size: PAGE_SIZE,
         p_page_number: pagination.currentPage,
-        p_driver_names: activeFilters.driverNames.length > 0 ? activeFilters.driverNames : null,
       });
       if (error) throw error;
       setReportData(data);

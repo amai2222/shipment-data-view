@@ -76,7 +76,7 @@ serve(async (req) => {
     
     console.log('用户详细信息:', userDetail);
 
-    // 4. 检查用户是否已存在
+    // 4. 检查用户是否已存在（先检查企业微信用户ID）
     const { data: existingProfile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
@@ -112,47 +112,83 @@ serve(async (req) => {
       profile = updatedProfile;
       console.log('用户档案更新成功');
     } else {
-      // 新用户，创建档案
+      // 新用户，先检查是否有相同邮箱的用户
       const email = userDetail.email || `${userData.UserId}@company.local`;
       
-      // 首先创建认证用户
-      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-        email,
-        email_confirm: true,
-        user_metadata: {
-          full_name: userDetail.name,
-          work_wechat_userid: userData.UserId
-        }
-      });
-
-      if (authError) {
-        console.error('创建认证用户失败:', authError);
-        throw new Error('创建认证用户失败');
-      }
-
-      // 创建用户档案
-      const { data: newProfile, error: insertError } = await supabase
+      // 检查是否已有相同邮箱的档案
+      const { data: existingEmailProfile, error: emailCheckError } = await supabase
         .from('profiles')
-        .insert({
-          id: authUser.user.id,
-          email,
-          full_name: userDetail.name,
-          work_wechat_userid: userData.UserId,
-          avatar_url: userDetail.avatar,
-          work_wechat_department: userDetail.department,
-          role: 'viewer', // 默认角色
-          is_active: true
-        })
-        .select()
+        .select('*')
+        .eq('email', email)
         .single();
 
-      if (insertError) {
-        console.error('创建用户档案失败:', insertError);
-        throw new Error('创建用户档案失败');
+      if (emailCheckError && emailCheckError.code !== 'PGRST116') {
+        console.error('检查邮箱失败:', emailCheckError);
+        throw new Error('检查邮箱失败');
       }
-      
-      profile = newProfile;
-      console.log('新用户档案创建成功');
+
+      if (existingEmailProfile) {
+        // 用户存在但没有企业微信ID，更新现有档案
+        const { data: updatedProfile, error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: userDetail.name,
+            avatar_url: userDetail.avatar,
+            work_wechat_userid: userData.UserId,
+            work_wechat_department: userDetail.department,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingEmailProfile.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('更新现有用户档案失败:', updateError);
+          throw new Error('更新现有用户档案失败');
+        }
+        
+        profile = updatedProfile;
+        console.log('现有用户档案更新成功');
+      } else {
+        // 完全新用户，创建认证用户和档案
+        const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+          email,
+          email_confirm: true,
+          user_metadata: {
+            full_name: userDetail.name,
+            work_wechat_userid: userData.UserId
+          }
+        });
+
+        if (authError) {
+          console.error('创建认证用户失败:', authError);
+          throw new Error('创建认证用户失败');
+        }
+
+        // 创建用户档案
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authUser.user.id,
+            email,
+            full_name: userDetail.name,
+            work_wechat_userid: userData.UserId,
+            avatar_url: userDetail.avatar,
+            work_wechat_department: userDetail.department,
+            role: 'viewer', // 默认角色
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('创建用户档案失败:', insertError);
+          throw new Error('创建用户档案失败');
+        }
+        
+        profile = newProfile;
+        console.log('新用户档案创建成功');
+      }
     }
 
     // 5. 生成会话令牌
