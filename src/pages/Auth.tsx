@@ -1,6 +1,4 @@
-// src/pages/Auth.tsx --- 恢复用的“安全”版本
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -11,20 +9,23 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, User, Lock, Truck, AlertCircle } from 'lucide-react';
 import { WorkWechatAuth } from '@/components/WorkWechatAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
 
 export default function Auth() {
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { session, signIn } = useAuth();
+  const { user, signIn } = useAuth();
   const location = useLocation();
-  const { toast } = useToast();
 
-  const isInWorkWechat = () => /wxwork/i.test(navigator.userAgent);
+  // 检测是否在企业微信环境中
+  const isInWorkWechat = () => {
+    const ua = navigator.userAgent.toLowerCase();
+    return ua.includes('wxwork');
+  };
 
-  if (session) {
+  // 如果已经登录，重定向到目标页面
+  if (user) {
     const from = location.state?.from?.pathname || '/home';
     return <Navigate to={from} replace />;
   }
@@ -42,7 +43,7 @@ export default function Auth() {
     
     try {
       const result = await signIn(usernameOrEmail, password);
-      if (result && result.error) {
+      if (result.error) {
         setError(result.error);
       }
     } catch (err) {
@@ -50,6 +51,11 @@ export default function Auth() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleWorkWechatSuccess = () => {
+    const from = location.state?.from?.pathname || '/home';
+    window.location.href = from;
   };
 
   return (
@@ -68,13 +74,11 @@ export default function Auth() {
         <Tabs defaultValue={isInWorkWechat() ? "wechat" : "password"} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="wechat">企业微信</TabsTrigger>
-            <TabsTrigger value="password">用户名/密码</Tabs-Trigger>
+            <TabsTrigger value="password">用户名/密码</TabsTrigger>
           </TabsList>
           
           <TabsContent value="wechat" className="mt-6">
-            <WorkWechatAuth onSuccess={() => {
-                toast({ title: '请在企业微信中继续操作' });
-             }} />
+            <WorkWechatAuth onSuccess={handleWorkWechatSuccess} />
           </TabsContent>
           
           <TabsContent value="password" className="mt-6">
@@ -84,7 +88,7 @@ export default function Auth() {
                 <CardDescription className="text-center">
                   请输入您的用户名或邮箱和密码
                 </CardDescription>
-              </Header>
+              </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {error && (
