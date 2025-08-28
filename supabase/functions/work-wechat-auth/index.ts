@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-// --- 核心修改：使用更稳定的主版本号导入 ---
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -35,35 +34,26 @@ serve(async (req) => {
 
   try {
     const { code, corpId, agentId } = await req.json();
-    
     console.log('企业微信认证请求:', { code, corpId, agentId });
 
     // 1. 获取企业微信访问令牌
-    console.log('准备获取企业微信令牌...');
-    
     const tokenResponse = await fetch(
       `http://129.226.191.86:3000/cgi-bin/gettoken?corpid=${corpId}&corpsecret=${workWechatSecret}`
     );
     const tokenData: WorkWechatTokenResponse = await tokenResponse.json();
-    
     if (!tokenData.access_token) {
-      console.error('获取企业微信令牌失败:', tokenData);
       throw new Error(`获取企业微信访问令牌失败: ${JSON.stringify(tokenData)}`);
     }
-
     console.log('企业微信令牌获取成功');
 
-    // 2. 通过code获取用户 UserId
+    // 2. 获取用户 UserId
     const userResponse = await fetch(
       `http://129.226.191.86:3000/cgi-bin/user/getuserinfo?access_token=${tokenData.access_token}&code=${code}`
     );
     const userData = await userResponse.json();
-    
     if (!userData.UserId) {
-      console.error('获取用户信息失败:', userData);
       throw new Error(`获取用户信息失败: ${JSON.stringify(userData)}`);
     }
-
     console.log('获取用户ID成功:', userData.UserId);
 
     // 3. 获取用户详细信息
@@ -71,34 +61,38 @@ serve(async (req) => {
       `http://129.226.191.86:3000/cgi-bin/user/get?access_token=${tokenData.access_token}&userid=${userData.UserId}`
     );
     const userDetail: WorkWechatUserInfo = await userDetailResponse.json();
-    
     console.log('用户详细信息:', userDetail);
 
-    // 确保用户有邮箱，如果没有则使用企业微信ID创建一个占位邮箱
+    // ==================== 最终修复逻辑开始 ====================
+
     const email = userDetail.email || `${userData.UserId}@company.local`;
     let authUserId: string;
     let isNewUser = false;
 
-    // 4. 首先通过邮箱检查认证用户 (auth.users) 是否存在
-    const { data: existingAuthUser, error: getAuthUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+    // 4. 调用我们创建的 RPC 函数来查找用户
+    console.log(`通过 RPC 查询邮箱: ${email}`);
+    const { data: existingUserId, error: rpcError } = await supabaseAdmin.rpc(
+      'get_user_id_by_email', 
+      { p_email: email }
+    );
 
-    if (getAuthUserError && getAuthUserError.name !== 'UserNotFoundError') {
-      console.error('通过邮箱查找认证用户失败:', getAuthUserError);
-      throw getAuthUserError; // 抛出未知错误
+    if (rpcError) {
+      console.error('RPC 函数调用失败:', rpcError);
+      throw rpcError;
     }
 
-    if (existingAuthUser?.user) {
-      // 4a. 如果认证用户已存在，直接使用其 ID
-      console.log(`认证用户 ${email} 已存在.`);
-      authUserId = existingAuthUser.user.id;
+    if (existingUserId) {
+      // 4a. 如果 RPC 返回了用户 ID，说明用户已存在
+      console.log(`认证用户 ${email} 已存在，ID: ${existingUserId}`);
+      authUserId = existingUserId;
     } else {
-      // 4b. 如果认证用户不存在，则创建新的认证用户
+      // 4b. 如果 RPC 返回 null，说明用户不存在，则创建新用户
       console.log(`认证用户 ${email} 不存在，准备创建...`);
       isNewUser = true;
       const { data: newAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
         email,
-        email_confirm: true, // 邮箱来自可信源，直接确认为已验证
-        password: Math.random().toString(36).slice(-12), // 设置一个安全的随机密码
+        email_confirm: true,
+        password: Math.random().toString(36).slice(-12),
         user_metadata: {
           full_name: userDetail.name,
           avatar_url: userDetail.avatar,
@@ -128,9 +122,7 @@ serve(async (req) => {
         role: isNewUser ? 'viewer' : undefined,
         is_active: true,
         updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'id',
-      })
+      }, { onConflict: 'id' })
       .select()
       .single();
 
@@ -140,6 +132,8 @@ serve(async (req) => {
     }
     
     console.log('用户档案同步成功:', profile);
+
+    // ==================== 最终修复逻辑结束 ====================
 
     // 6. 为用户生成会话令牌 (Magic Link)
     const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
