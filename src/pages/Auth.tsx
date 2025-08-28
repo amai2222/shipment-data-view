@@ -1,12 +1,8 @@
-// src/pages/Auth.tsx
+// src/pages/Auth.tsx --- 恢复用的“安全”版本
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-
-// --- 您可以保留这些UI组件用于非企微环境 ---
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,103 +11,35 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, User, Lock, Truck, AlertCircle } from 'lucide-react';
 import { WorkWechatAuth } from '@/components/WorkWechatAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Auth() {
-  // --- 保留您原始的 state 和 hooks ---
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { session, signIn } = useAuth(); // 注意这里我从 useAuth 中获取了 session
+  const { session, signIn } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
-  
-  // 增加一个专门用于企微自动登录的加载状态，避免影响密码登录
-  const [isWechatAuthLoading, setIsWechatAuthLoading] = useState(true);
 
-  // --- 新增的 useEffect，专门处理企业微信自动登录流程 ---
-  useEffect(() => {
-    const isWorkWechat = /wxwork/i.test(navigator.userAgent);
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const urlError = urlParams.get('error');
+  const isInWorkWechat = () => /wxwork/i.test(navigator.userAgent);
 
-    // 如果有错误参数，说明用户可能拒绝了授权
-    if (urlError) {
-      toast({
-        title: '授权失败',
-        description: '您取消了企业微信授权或授权已过期。',
-        variant: 'destructive',
-      });
-      setIsWechatAuthLoading(false);
-      return;
-    }
-
-    // 核心条件：如果 未登录 且 在企微环境 且 URL中没有code，才发起跳转
-    if (!session && isWorkWechat && !code) {
-      console.log('企微环境自动登录启动...');
-      const corpId = import.meta.env.VITE_WECOM_CORP_ID;
-      const agentId = import.meta.env.VITE_WECOM_AGENT_ID;
-      if (!corpId || !agentId) {
-        console.error("环境变量 VITE_WECOM_CORP_ID 或 VITE_WECOM_AGENT_ID 未设置");
-        setIsWechatAuthLoading(false); // 停止加载，显示页面让用户手动点击
-        return;
-      }
-      const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
-      const state = Math.random().toString(36).substring(7);
-      const oauthUrl = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${corpId}&redirect_uri=${redirectUri}&response_type=code&scope=snsapi_base&agentid=${agentId}&state=${state}#wechat_redirect`;
-      window.location.href = oauthUrl;
-      return; // 跳转后无需再执行后续逻辑
-    }
-
-    // 状态2: 如果URL中有code，说明是从企微授权后返回的，开始处理
-    if (code && !session) {
-      console.log('检测到code，开始调用后端函数...');
-      supabase.functions.invoke('work-wechat-auth', {
-        body: { 
-          code,
-          corpId: import.meta.env.VITE_WECOM_CORP_ID,
-          agentId: import.meta.env.VITE_WECOM_AGENT_ID,
-        },
-      }).then(({ data, error }) => {
-        if (error || (data && data.error)) {
-          const errorMsg = error?.message || data?.error || '调用认证服务时出错。';
-          toast({ title: '认证失败', description: errorMsg, variant: 'destructive' });
-          setIsWechatAuthLoading(false);
-          window.history.replaceState({}, document.title, window.location.pathname);
-        } else if (data.action_link) {
-          console.log('获取到魔法链接，跳转登录...');
-          window.location.href = data.action_link;
-        } else {
-          toast({ title: '认证失败', description: '未知错误，请联系管理员。', variant: 'destructive' });
-          setIsWechatAuthLoading(false);
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      });
-      return; // 正在处理code，显示加载动画
-    }
-
-    // 所有自动登录条件都不满足，则停止加载
-    setIsWechatAuthLoading(false);
-
-  }, [session, toast]);
-
-
-  // --- 保留您原有的登录后跳转逻辑 ---
   if (session) {
     const from = location.state?.from?.pathname || '/home';
     return <Navigate to={from} replace />;
   }
 
-  // --- 保留您原有的密码登录提交逻辑 ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
     if (!usernameOrEmail.trim() || !password.trim()) {
       setError('请输入用户名/邮箱和密码');
       return;
     }
+
     setIsLoading(true);
+    
     try {
       const result = await signIn(usernameOrEmail, password);
       if (result && result.error) {
@@ -123,19 +51,6 @@ export default function Auth() {
       setIsLoading(false);
     }
   };
-
-  // 在企微自动登录流程中，显示加载界面
-  if (isWechatAuthLoading) {
-     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100">
-        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-        <p className="text-gray-600">企业微信登录检测中...</p>
-      </div>
-    );
-  }
-
-  // --- 保留您完整的原始 JSX 渲染逻辑 ---
-  const isInWorkWechat = () => /wxwork/i.test(navigator.userAgent);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -153,7 +68,7 @@ export default function Auth() {
         <Tabs defaultValue={isInWorkWechat() ? "wechat" : "password"} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="wechat">企业微信</TabsTrigger>
-            <TabsTrigger value="password">用户名/密码</TabsTrigger>
+            <TabsTrigger value="password">用户名/密码</Tabs-Trigger>
           </TabsList>
           
           <TabsContent value="wechat" className="mt-6">
