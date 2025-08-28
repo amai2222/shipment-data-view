@@ -1,5 +1,6 @@
 // 正确路径: src/components/ui/date-range-picker.tsx
 // 描述: [最终交互优化版] 实现了极致简洁的交互逻辑，并修复了时区问题。
+// 新增逻辑: 用户通过两次点击同一个日期，即可完成单日范围的选择。
 
 "use client"
 
@@ -69,25 +70,18 @@ export function DateRangePicker({
     setOpen(false);
   };
 
-  // ★★★ 这是最终的核心交互逻辑 ★★★
+  // ★★★ 交互逻辑优化 ★★★
+  // 移除了“二次点击同一天则清空”的逻辑，使其变为“确认选择”
   const handleDateSelect = (range: DateRange | undefined) => {
-    // 检查是否是第二次点击，并且点击的是同一个日期
-    if (localDate?.from && !localDate.to && range?.from && range.to &&
-        range.from.getTime() === range.to.getTime() &&
-        localDate.from.getTime() === range.from.getTime()) {
-      // 如果是，则清除选择并关闭
-      setLocalDate(undefined);
-      setParentDate(undefined);
-      setOpen(false);
-      return;
-    }
-
-    // 正常更新本地日期状态
+    // 步骤 1: 始终使用传入的 range 更新本地状态，以确保日历UI实时响应用户的点击
     setLocalDate(range);
 
-    // 如果范围选择完成，则应用时区修正，更新父组件并关闭
+    // 步骤 2: 检查范围是否已完整选择（即 from 和 to 都有值）
+    // 无论是选择了一个时间段，还是通过两次点击同一天选择单日，此条件都会满足
     if (range?.from && range.to) {
+      // 步骤 3: 将最终确定的日期（已修正时区）传递给父组件
       setParentDate({ from: toUTCDate(range.from), to: toUTCDate(range.to) });
+      // 步骤 4: 关闭弹窗，完成选择流程
       setOpen(false);
     }
   };
