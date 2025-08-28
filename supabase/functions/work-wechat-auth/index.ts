@@ -40,7 +40,7 @@ serve(async (req) => {
     console.log('准备获取企业微信令牌，参数:', { corpId, secretLength: workWechatSecret?.length });
     
     const tokenResponse = await fetch(
-      `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${corpId}&corpsecret=${workWechatSecret}`
+      `http://129.226.191.86:3000/cgi-bin/gettoken?corpid=${corpId}&corpsecret=${workWechatSecret}`
     );
     const tokenData: WorkWechatTokenResponse = await tokenResponse.json();
     
@@ -55,7 +55,7 @@ serve(async (req) => {
 
     // 2. 通过code获取用户信息
     const userResponse = await fetch(
-      `https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo?access_token=${tokenData.access_token}&code=${code}`
+      `http://129.226.191.86:3000/cgi-bin/user/getuserinfo?access_token=${tokenData.access_token}&code=${code}`
     );
     const userData = await userResponse.json();
     
@@ -70,7 +70,7 @@ serve(async (req) => {
 
     // 3. 获取用户详细信息
     const userDetailResponse = await fetch(
-      `https://qyapi.weixin.qq.com/cgi-bin/user/get?access_token=${tokenData.access_token}&userid=${userData.UserId}`
+      `http://129.226.191.86:3000/cgi-bin/user/get?access_token=${tokenData.access_token}&userid=${userData.UserId}`
     );
     const userDetail: WorkWechatUserInfo = await userDetailResponse.json();
     
