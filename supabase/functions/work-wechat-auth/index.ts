@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
+// --- 核心修改：使用更稳定的主版本号导入 ---
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,8 +74,6 @@ serve(async (req) => {
     
     console.log('用户详细信息:', userDetail);
 
-    // ==================== 核心修改逻辑开始 ====================
-
     // 确保用户有邮箱，如果没有则使用企业微信ID创建一个占位邮箱
     const email = userDetail.email || `${userData.UserId}@company.local`;
     let authUserId: string;
@@ -103,13 +102,12 @@ serve(async (req) => {
         user_metadata: {
           full_name: userDetail.name,
           avatar_url: userDetail.avatar,
-          work_wechat_userid: userData.UserId // 在元数据中也存一份企微ID
+          work_wechat_userid: userData.UserId
         }
       });
 
       if (createAuthError) {
         console.error('创建认证用户失败:', createAuthError);
-        // 直接抛出原始的 AuthApiError，这样前端可以获得更详细的错误信息
         throw createAuthError;
       }
       
@@ -118,21 +116,20 @@ serve(async (req) => {
     }
 
     // 5. 使用 upsert 来创建或更新用户的公开信息 (profiles 表)
-    // 无论用户是新是旧，都确保 profiles 表中的数据是最新的
     const { data: profile, error: upsertProfileError } = await supabaseAdmin
       .from('profiles')
       .upsert({
-        id: authUserId, // 关键：使用 auth user 的 ID 作为主键
+        id: authUserId,
         email: email,
         full_name: userDetail.name,
         avatar_url: userDetail.avatar,
         work_wechat_userid: userData.UserId,
         work_wechat_department: userDetail.department,
-        role: isNewUser ? 'viewer' : undefined, // 只有新用户才设置默认角色
+        role: isNewUser ? 'viewer' : undefined,
         is_active: true,
         updated_at: new Date().toISOString()
       }, {
-        onConflict: 'id', // 如果 ID 冲突，则执行更新
+        onConflict: 'id',
       })
       .select()
       .single();
@@ -143,8 +140,6 @@ serve(async (req) => {
     }
     
     console.log('用户档案同步成功:', profile);
-
-    // ==================== 核心修改逻辑结束 ====================
 
     // 6. 为用户生成会话令牌 (Magic Link)
     const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
