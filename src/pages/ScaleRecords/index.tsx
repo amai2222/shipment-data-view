@@ -1,4 +1,4 @@
-import React, 'useState', useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -245,7 +245,6 @@ export default function ScaleRecords() {
                   </div>
                 )}
                 
-                {/* ★★★ 核心修改 1: 重构表头，拆分列并调整宽度 ★★★ */}
                 <div className="flex items-center border-b pb-2 text-sm font-medium text-muted-foreground">
                   <div className="w-12 flex-shrink-0 flex items-center justify-center">
                     <DropdownMenu>
@@ -270,7 +269,6 @@ export default function ScaleRecords() {
                   <div className="w-40 flex-shrink-0 text-right px-2">创建时间</div>
                 </div>
 
-                {/* ★★★ 核心修改 2: 重构数据行，匹配新表头 ★★★ */}
                 {records.map((record) => (
                   <div 
                     key={record.id} 
