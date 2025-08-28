@@ -74,15 +74,13 @@ export default function PaymentRequest() {
     setLoading(true);
     try {
       const statusArray = activeFilters.paymentStatus === 'all' ? null : [activeFilters.paymentStatus];
-      const { data, error } = await supabase.rpc('get_payment_request_data', {
+      const { data, error } = await supabase.rpc('get_finance_reconciliation_data_optimized', {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
-        p_payment_status_array: statusArray,
         p_page_size: PAGE_SIZE,
         p_page_number: pagination.currentPage,
-        p_driver_names: activeFilters.driverNames.length > 0 ? activeFilters.driverNames : null,
       });
       if (error) throw error;
       setReportData(data);

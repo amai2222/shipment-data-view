@@ -55,6 +55,12 @@ const App = () => (
               </ProtectedRoute>
             } />
             
+            <Route path="/home" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+                <AppLayout><TransportOverview /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
             <Route path="/dashboard/transport" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
                 <AppLayout><TransportOverview /></AppLayout>

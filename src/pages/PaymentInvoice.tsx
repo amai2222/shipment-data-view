@@ -107,11 +107,19 @@ export default function PaymentInvoice() {
           params.p_application_end_date = toDate.toISOString();
       }
 
-      // --- 关键修正：使用 supabase.rpc 调用数据库函数 ---
-      const { data, error } = await supabase.rpc('get_filtered_payment_requests', params);
+      // 使用 payment_requests 表直接查询
+      let query = supabase
+        .from('payment_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (params.p_request_id) {
+        query = query.eq('request_id', params.p_request_id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
-      // RPC 直接返回数据数组，无需访问 .records
       setRequests((data as PaymentRequest[]) || []);
     } catch (error) {
       console.error('加载付款申请失败:', error);

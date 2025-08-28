@@ -26,7 +26,7 @@ export default function Auth() {
 
   // 如果已经登录，重定向到目标页面
   if (user) {
-    const from = location.state?.from?.pathname || '/home';
+    const from = location.state?.from?.pathname || '/';
     return <Navigate to={from} replace />;
   }
 
@@ -54,7 +54,7 @@ export default function Auth() {
   };
 
   const handleWorkWechatSuccess = () => {
-    const from = location.state?.from?.pathname || '/home';
+    const from = location.state?.from?.pathname || '/';
     window.location.href = from;
   };
 
