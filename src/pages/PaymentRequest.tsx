@@ -1,9 +1,5 @@
 // 文件路径: src/pages/PaymentRequest.tsx
-// 版本: QjnOT-FINAL-CORRECT-ARCHITECTURE
-// 描述: [最终生产级正确架构] 此代码最终、决定性地、无可辩驳地
-//       根据用户的最终正确指令，彻底移除了此页面上所有不当的“取消申请”
-//       功能，使页面回归其核心使命：选择运单并创建申请。
-//       这是系统最安全、最清晰、最正确的形态。
+// 版本: FINAL-WITH-ALL-FEATURES-AND-NO-OMISSIONS
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,36 +10,37 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Loader2, Search, FileSpreadsheet, Save, XCircle, Info } from "lucide-react";
+import { Loader2, Search, FileSpreadsheet, Save, ListPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-// [QjnOT] 移除不再需要的 ConfirmDialog
 import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { BatchInputDialog } from "@/components/ui/BatchInputDialog";
 
-// --- 类型定义 (保持不变) ---
+// --- 类型定义 (已更新) ---
 interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; full_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; }
-interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; cargo_type: string | null; loading_weight: number | null; unloading_weight: number | null; remarks: string | null; }
+interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; cargo_type: string | null; loading_weight: number | null; unloading_weight: number | null; remarks: string | null; billing_type_id: number | null; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; }
-interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string; }
+interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string; driverNames: string[]; }
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
 interface PaymentPreviewSheet { paying_partner_id: string; paying_partner_full_name: string; paying_partner_bank_account: string; paying_partner_bank_name: string; paying_partner_branch_name: string; record_count: number; total_payable: number; records: any[]; }
 interface PaymentPreviewData { sheets: PaymentPreviewSheet[]; processed_record_ids: string[]; }
 interface FinalPaymentData { sheets: any[]; all_record_ids: string[]; }
 
-// --- 常量和初始状态 (保持不变) ---
+// --- 常量和初始状态 (已更新) ---
 const PAGE_SIZE = 50;
-const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "", paymentStatus: 'Unpaid' };
+const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "", paymentStatus: 'Unpaid', driverNames: [] };
 const PAYMENT_STATUS_OPTIONS = [ { value: 'all', label: '所有状态' }, { value: 'Unpaid', label: '未支付' }, { value: 'Processing', label: '已申请支付' }, { value: 'Paid', label: '已完成支付' }, ];
 const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击“搜索”按钮以查看最新结果。</p> </div> );
 
 export default function PaymentRequest() {
-  // --- State 管理 (已简化) ---
+  // --- State 管理 (已更新) ---
   const [reportData, setReportData] = useState<any>(null);
   const [allPartners, setAllPartners] = useState<{id: string, name: string, level: number}[]>([]);
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
@@ -58,10 +55,9 @@ export default function PaymentRequest() {
   const [finalPaymentData, setFinalPaymentData] = useState<FinalPaymentData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  // [QjnOT] 移除不再需要的 isCancelling state
-  // const [isCancelling, setIsCancelling] = useState(false);
+  const [isDriverBatchOpen, setIsDriverBatchOpen] = useState(false);
 
-  // --- 数据获取 (保持不变) ---
+  // --- 数据获取 (已更新) ---
   const fetchInitialOptions = useCallback(async () => {
     try {
       const { data: projectsData } = await supabase.from('projects').select('id, name').order('name');
@@ -85,7 +81,8 @@ export default function PaymentRequest() {
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
         p_payment_status_array: statusArray,
         p_page_size: PAGE_SIZE,
-        p_page_number: pagination.currentPage
+        p_page_number: pagination.currentPage,
+        p_driver_names: activeFilters.driverNames.length > 0 ? activeFilters.driverNames : null,
       });
       if (error) throw error;
       setReportData(data);
@@ -99,13 +96,28 @@ export default function PaymentRequest() {
   }, [activeFilters, pagination.currentPage, toast]);
 
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
-  useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); } }, [fetchReportData, isStale]);
+  useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); setReportData(null); } }, [fetchReportData, isStale]);
   useEffect(() => { setPagination(p => p.currentPage === 1 ? p : { ...p, currentPage: 1 }); setSelection({ mode: 'none', selectedIds: new Set() }); }, [activeFilters]);
 
-  // --- 核心函数实现 (大部分保持不变) ---
+  // --- 核心函数实现 (已更新) ---
   const formatCurrency = (value: number | null | undefined): string => { if (value == null) return '-'; return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value); };
   const simplifyRoute = (loading?: string, unloading?: string): string => { const start = (loading || '').substring(0, 2); const end = (unloading || '').substring(0, 2); return `${start}→${end}`; };
-  const formatWeight = (loading?: number | null, unloading?: number | null): string => { const loadingText = loading ?? '-'; const unloadingText = unloading ?? '-'; return `${loadingText} / ${unloadingText}`; };
+  
+  const getBillingUnit = (billingTypeId: number | null | undefined): string => {
+    switch (billingTypeId) {
+      case 1: return '吨';
+      case 2: return '车';
+      case 3: return '立方';
+      default: return '';
+    }
+  };
+
+  const formatQuantity = (record: LogisticsRecord): string => {
+    const unit = getBillingUnit(record.billing_type_id);
+    const loadingText = record.loading_weight ?? '-';
+    const unloadingText = record.unloading_weight ?? '-';
+    return `${loadingText} / ${unloadingText} ${unit}`;
+  };
 
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
   const handleDateChange = (dateRange: DateRange | undefined) => { setUiFilters(prev => ({ ...prev, startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' })); };
@@ -259,8 +271,6 @@ export default function PaymentRequest() {
       setIsSaving(false);
     }
   };
-
-  // [QjnOT] 移除不再需要的 handleCancelApplication 函数
   
   const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => {
     switch (status) {
@@ -296,41 +306,58 @@ export default function PaymentRequest() {
 
   const selectionCount = useMemo(() => { if (selection.mode === 'all_filtered') return reportData?.count || 0; return selection.selectedIds.size; }, [selection, reportData?.count]);
 
-  if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
+  if (loading && !reportData && isStale) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
 
-  // --- JSX 渲染 (已简化) ---
+  // --- JSX 渲染 (已更新) ---
   return (
     <div className="space-y-6">
+      <BatchInputDialog
+        isOpen={isDriverBatchOpen}
+        onClose={() => setIsDriverBatchOpen(false)}
+        onConfirm={(values) => setUiFilters(prev => ({ ...prev, driverNames: values }))}
+        title="批量输入司机姓名"
+        description="请粘贴司机姓名，用换行或逗号分隔。"
+        placeholder="例如:&#10;张三,&#10;李四&#10;王五"
+        initialValue={uiFilters.driverNames}
+      />
       <div className="flex justify-between items-center">
         <div><h1 className="text-3xl font-bold text-foreground">合作方付款申请</h1><p className="text-muted-foreground">向合作方申请支付运费。</p></div>
         <div className="flex gap-2">
-          <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
-            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-            一键申请付款 ({selectionCount})
-          </Button>
-          {/* --- [QjnOT] 移除不再需要的“取消申请”按钮 --- */}
+          {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
+            <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
+              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+              一键申请付款 ({selectionCount})
+            </Button>
+          )}
         </div>
       </div>
 
       <Card className="border-muted/40">
         <CardContent className="p-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1.5 min-w-[140px]"><Label>项目</Label><Select value={uiFilters.projectId} onValueChange={(v) => handleFilterChange('projectId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>
-                {Array.isArray(projects) && projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
-            </SelectContent></Select></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 items-end">
+            <div className="flex flex-col gap-1.5"><Label>项目</Label><Select value={uiFilters.projectId} onValueChange={(v) => handleFilterChange('projectId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{Array.isArray(projects) && projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
             <div className="flex flex-col gap-1.5"><Label>日期范围</Label><DateRangePicker date={dateRangeValue} setDate={handleDateChange} /></div>
-            <div className="flex flex-col gap-1.5 min-w-[140px]"><Label>合作方</Label><Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有合作方</SelectItem>
-                {Array.isArray(allPartners) && allPartners.map(p => (<SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>))}
-            </SelectContent></Select></div>
-            <div className="flex flex-col gap-1.5 min-w-[120px]">
-                <Label>支付状态</Label>
-                <Select value={uiFilters.paymentStatus} onValueChange={(v) => handleFilterChange('paymentStatus', v)}>
-                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="选择状态..." /></SelectTrigger>
-                    <SelectContent>{PAYMENT_STATUS_OPTIONS.map(option => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent>
-                </Select>
+            <div className="flex flex-col gap-1.5"><Label>合作方</Label><Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有合作方</SelectItem>{Array.isArray(allPartners) && allPartners.map(p => (<SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>))}</SelectContent></Select></div>
+            <div className="flex flex-col gap-1.5">
+              <Label>司机</Label>
+              <div className="flex items-center gap-1">
+                <Input
+                  className="h-9 text-sm"
+                  placeholder={uiFilters.driverNames.length > 1 ? `已输入 ${uiFilters.driverNames.length} 个司机` : "输入单个司机"}
+                  value={uiFilters.driverNames.length === 1 ? uiFilters.driverNames[0] : ''}
+                  onChange={(e) => setUiFilters(prev => ({ ...prev, driverNames: e.target.value ? [e.target.value] : [] }))}
+                  disabled={uiFilters.driverNames.length > 1}
+                />
+                <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => setIsDriverBatchOpen(true)}>
+                  <ListPlus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <Button onClick={handleSearch} size="sm" className="h-9 px-3 text-sm"><Search className="mr-2 h-4 w-4"/>搜索</Button>
-            <Button variant="outline" size="sm" onClick={handleClear} className="h-9 px-3 text-sm">清除筛选</Button>
+            <div className="flex flex-col gap-1.5"><Label>支付状态</Label><Select value={uiFilters.paymentStatus} onValueChange={(v) => handleFilterChange('paymentStatus', v)}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="选择状态..." /></SelectTrigger><SelectContent>{PAYMENT_STATUS_OPTIONS.map(option => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent></Select></div>
+            <div className="flex gap-2 pt-5">
+              <Button onClick={handleSearch} size="sm" className="h-9 px-3 text-sm"><Search className="mr-2 h-4 w-4"/>搜索</Button>
+              <Button variant="outline" size="sm" onClick={handleClear} className="h-9 px-3 text-sm">清除</Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -365,10 +392,9 @@ export default function PaymentRequest() {
                       <TableHead className="whitespace-nowrap">项目</TableHead>
                       <TableHead className="whitespace-nowrap">司机</TableHead>
                       <TableHead className="whitespace-nowrap">路线</TableHead>
-                      <TableHead className="whitespace-nowrap">装/卸重量(吨)</TableHead>
+                      <TableHead className="whitespace-nowrap">装/卸数量</TableHead>
                       <TableHead className="whitespace-nowrap">日期</TableHead>
-                      <TableHead className="whitespace-nowrap">运费</TableHead>
-                      <TableHead className="text-orange-600 whitespace-nowrap">额外费</TableHead>
+                      <TableHead className="whitespace-nowrap font-bold text-primary">司机应收</TableHead>
                       {Array.isArray(displayedPartners) && displayedPartners.map(p => <TableHead key={p.id} className="text-center whitespace-nowrap">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}
                       <TableHead className="whitespace-nowrap">支付状态</TableHead>
                     </TableRow></TableHeader>
@@ -380,19 +406,19 @@ export default function PaymentRequest() {
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell>
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell>
                               <TableCell className="text-sm cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{simplifyRoute(r.loading_location, r.unloading_location)}</TableCell>
-                              <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatWeight(r.loading_weight, r.unloading_weight)}</TableCell>
+                              <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatQuantity(r)}</TableCell>
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell>
-                              <TableCell className="font-mono cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatCurrency(r.current_cost)}</TableCell>
-                              <TableCell className="font-mono text-orange-600 cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatCurrency(r.extra_cost)}</TableCell>
+                              <TableCell className="font-mono cursor-pointer whitespace-nowrap font-bold text-primary" onClick={() => setViewingRecord(r)}>{formatCurrency(r.payable_cost)}</TableCell>
                               {Array.isArray(displayedPartners) && displayedPartners.map(p => { const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.id)); return <TableCell key={p.id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatCurrency(cost?.payable_amount)}</TableCell>; })}
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{getPaymentStatusBadge(r.payment_status)}</TableCell>
                           </TableRow>
                       ))}
-                      <TableRow className="bg-muted/30 font-semibold border-t-2"><TableCell colSpan={7} className="text-right font-bold whitespace-nowrap">合计</TableCell>
-                      <TableCell className="font-mono font-bold text-center whitespace-nowrap"><div>{formatCurrency(reportData?.overview?.total_current_cost)}</div><div className="text-xs text-muted-foreground font-normal">(运费)</div></TableCell>
-                      <TableCell className="font-mono font-bold text-orange-600 text-center whitespace-nowrap"><div>{formatCurrency(reportData?.overview?.total_extra_cost)}</div><div className="text-xs text-muted-foreground font-normal">(额外费)</div></TableCell>
-                          {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partner_payables) && reportData.partner_payables.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
-                      <TableCell className="whitespace-nowrap"></TableCell></TableRow>
+                      <TableRow className="bg-muted/30 font-semibold border-t-2">
+                        <TableCell colSpan={7} className="text-right font-bold whitespace-nowrap">合计</TableCell>
+                        <TableCell className="font-mono font-bold text-primary text-center whitespace-nowrap"><div>{formatCurrency(reportData?.overview?.total_payable_cost)}</div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>
+                        {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partner_payables) && reportData.partner_payables.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
+                        <TableCell className="whitespace-nowrap"></TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                   )}
