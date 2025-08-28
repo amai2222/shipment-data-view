@@ -1,39 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 
-// 1. 增强 Props 接口，使其更通用
 interface BatchInputDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (values: string[]) => void;
-  title: string; // 新增：动态标题
-  description: string; // 新增：动态描述
-  placeholder: string; // 新增：动态占位符
-  initialValue?: string[]; // 新增：支持传入初始值
 }
 
-export function BatchInputDialog({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  title, 
-  description, 
-  placeholder, 
-  initialValue = [] 
-}: BatchInputDialogProps) {
+export function BatchInputDialog({ isOpen, onClose, onConfirm }: BatchInputDialogProps) {
   const [inputValue, setInputValue] = useState('');
 
-  // 2. 新增 useEffect，用于在弹窗打开时设置初始值
-  useEffect(() => {
-    if (isOpen) {
-      // 将传入的数组用换行符连接成字符串
-      setInputValue(initialValue.join('\n'));
-    }
-  }, [isOpen, initialValue]);
-
   const handleConfirm = () => {
+    // 通过换行符或逗号分割，去除首尾空格，并过滤掉空字符串
     const values = inputValue
       .split(/[\n,]+/)
       .map(item => item.trim())
@@ -47,15 +27,14 @@ export function BatchInputDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          {/* 3. 使用 Props 替换写死的文本 */}
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>批量输入运单号</DialogTitle>
         </DialogHeader>
         <div className="py-4">
           <p className="text-sm text-muted-foreground mb-2">
-            {description}
+            请粘贴运单号，用换行或逗号分隔。
           </p>
           <Textarea
-            placeholder={placeholder}
+            placeholder="例如:&#10;YDH-001,&#10;YDH-002&#10;YDH-003"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             rows={10}
