@@ -66,7 +66,7 @@ async function submitApproval(req: Request) {
 
   // 1. 获取访问令牌
   const tokenResponse = await fetch(
-    `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${corpId}&corpsecret=${workWechatSecret}`
+    `http://129.226.191.86:3000/cgi-bin/gettoken?corpid=${corpId}&corpsecret=${workWechatSecret}`
   );
   const tokenData = await tokenResponse.json();
   
@@ -119,7 +119,7 @@ async function submitApproval(req: Request) {
 
   // 3. 提交审批申请
   const approvalResponse = await fetch(
-    `https://qyapi.weixin.qq.com/cgi-bin/oa/applyevent?access_token=${tokenData.access_token}`,
+    `http://129.226.191.86:3000/cgi-bin/oa/applyevent?access_token=${tokenData.access_token}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
