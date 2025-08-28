@@ -1,3 +1,6 @@
+// 文件路径: src/pages/PaymentInvoice.tsx
+// 版本: FINAL-WITH-RPC-FIX
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,7 +31,7 @@ interface PaymentRequest {
 interface FilterState {
   projectId: string;
   requestId: string;
-  driverQuery: string; // 确保这里是 driverQuery
+  driverQuery: string;
   loadingDateRange: DateRange | undefined;
   applicationDateRange: DateRange | undefined;
   logisticsRecordNumbers: string[];
@@ -37,7 +40,7 @@ interface FilterState {
 const initialFilterState: FilterState = {
   projectId: 'all',
   requestId: '',
-  driverQuery: '', // 确保这里是 driverQuery
+  driverQuery: '',
   loadingDateRange: undefined,
   applicationDateRange: undefined,
   logisticsRecordNumbers: [],
@@ -82,11 +85,10 @@ export default function PaymentInvoice() {
   const loadPaymentRequests = useCallback(async () => {
     setLoading(true);
     try {
-      // --- 关键修正点在这里 ---
       const params = {
         p_request_id: activeFilters.requestId || null,
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
-        p_driver_query: activeFilters.driverQuery || null, // 必须使用 p_driver_query
+        p_driver_query: activeFilters.driverQuery || null,
         p_start_date: activeFilters.loadingDateRange?.from ? activeFilters.loadingDateRange.from.toISOString() : null,
         p_end_date: activeFilters.loadingDateRange?.to ? activeFilters.loadingDateRange.to.toISOString() : null,
         p_application_start_date: activeFilters.applicationDateRange?.from ? activeFilters.applicationDateRange.from.toISOString() : null,
@@ -105,12 +107,12 @@ export default function PaymentInvoice() {
           params.p_application_end_date = toDate.toISOString();
       }
 
-      const { data, error } = await supabase.functions.invoke('get-filtered-payment-requests', {
-        body: params
-      });
+      // --- 关键修正：使用 supabase.rpc 调用数据库函数 ---
+      const { data, error } = await supabase.rpc('get_filtered_payment_requests', params);
 
       if (error) throw error;
-      setRequests((data?.records as PaymentRequest[]) || []);
+      // RPC 直接返回数据数组，无需访问 .records
+      setRequests((data as PaymentRequest[]) || []);
     } catch (error) {
       console.error('加载付款申请失败:', error);
       toast({
@@ -156,6 +158,10 @@ export default function PaymentInvoice() {
         isOpen={isBatchDialogOpen}
         onClose={() => setIsBatchDialogOpen(false)}
         onConfirm={handleBatchConfirm}
+        title="批量输入运单号"
+        description="请粘贴运单号，用换行或逗号分隔。"
+        placeholder="例如:&#10;YDH-001,&#10;YDH-002&#10;YDH-003"
+        initialValue={uiFilters.logisticsRecordNumbers}
       />
       <div>
         <h1 className="text-3xl font-bold text-foreground">付款与开票</h1>
