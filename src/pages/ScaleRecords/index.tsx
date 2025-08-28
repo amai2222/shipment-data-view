@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, 'useState', useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -41,6 +41,7 @@ export default function ScaleRecords() {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   
   // 删除相关状态
+  const [deleteTarget, setDeleteTarget] = useState<ScaleRecord | null>(null);
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   
@@ -243,6 +244,8 @@ export default function ScaleRecords() {
                     <Button variant="link" className="p-0 h-auto text-blue-800" onClick={() => setSelectedRecordIds(new Set())}>清除选择</Button>
                   </div>
                 )}
+                
+                {/* ★★★ 核心修改 1: 重构表头，拆分列并调整宽度 ★★★ */}
                 <div className="flex items-center border-b pb-2 text-sm font-medium text-muted-foreground">
                   <div className="w-12 flex-shrink-0 flex items-center justify-center">
                     <DropdownMenu>
@@ -257,47 +260,52 @@ export default function ScaleRecords() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <div className="flex-1 min-w-[200px]">项目名称</div>
-                  <div className="w-32 flex-shrink-0">装车日期</div>
-                  <div className="w-32 flex-shrink-0">车牌号 / 司机</div>
-                  <div className="w-28 flex-shrink-0">车次</div>
-                  <div className="w-28 flex-shrink-0">有效数量</div>
-                  <div className="w-28 flex-shrink-0 text-center">图片</div>
-                  <div className="w-40 flex-shrink-0 text-right">创建时间</div>
+                  <div className="flex-1 min-w-[200px] px-2">项目名称</div>
+                  <div className="w-28 flex-shrink-0 px-2">装车日期</div>
+                  <div className="w-28 flex-shrink-0 px-2">车牌号</div>
+                  <div className="w-24 flex-shrink-0 px-2">司机</div>
+                  <div className="w-24 flex-shrink-0 px-2">车次</div>
+                  <div className="w-28 flex-shrink-0 px-2">有效数量</div>
+                  <div className="w-24 flex-shrink-0 text-center px-2">图片</div>
+                  <div className="w-40 flex-shrink-0 text-right px-2">创建时间</div>
                 </div>
+
+                {/* ★★★ 核心修改 2: 重构数据行，匹配新表头 ★★★ */}
                 {records.map((record) => (
                   <div 
                     key={record.id} 
                     onClick={() => handleImageClick(record.image_urls)}
-                    className={`flex items-center border rounded-lg p-2 hover:bg-muted/50 transition-colors text-sm ${record.image_urls && record.image_urls.length > 0 ? 'cursor-pointer' : ''}`}
+                    className={`flex items-center border rounded-lg p-2 hover:bg-muted/50 transition-colors text-sm ${record.image_urls.length > 0 ? 'cursor-pointer' : ''}`}
                   >
                     <div className="w-12 flex-shrink-0 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                       <Checkbox checked={selectedRecordIds.has(record.id)} onCheckedChange={() => handleSelectRecord(record.id)} />
                     </div>
-                    <div className="flex-1 min-w-[200px] font-semibold truncate pr-2" title={record.project_name}>
+                    
+                    <div className="flex-1 min-w-[200px] font-semibold truncate px-2" title={record.project_name}>
                       {record.project_name}
                     </div>
-                    <div className="w-32 flex-shrink-0">{format(new Date(record.loading_date), 'yyyy-MM-dd')}</div>
-                    <div className="w-32 flex-shrink-0">
-                      <p>{record.license_plate || 'N/A'}</p>
-                      <p className="text-muted-foreground">{record.driver_name || 'N/A'}</p>
-                    </div>
-                    <div className="w-28 flex-shrink-0">第 {record.trip_number} 车次</div>
-                    <div className="w-28 flex-shrink-0">{record.valid_quantity ? `${record.valid_quantity} 吨` : 'N/A'}</div>
-                    <div className="w-28 flex-shrink-0 text-center flex items-center justify-center gap-2">
-                      {record.image_urls && record.image_urls.length > 0 ? (
+                    <div className="w-28 flex-shrink-0 px-2">{format(new Date(record.loading_date), 'yyyy-MM-dd')}</div>
+                    <div className="w-28 flex-shrink-0 px-2">{record.license_plate || 'N/A'}</div>
+                    <div className="w-24 flex-shrink-0 px-2">{record.driver_name || 'N/A'}</div>
+                    <div className="w-24 flex-shrink-0 px-2">第 {record.trip_number} 车次</div>
+                    <div className="w-28 flex-shrink-0 px-2">{record.valid_quantity ? `${record.valid_quantity} 吨` : 'N/A'}</div>
+                    
+                    <div className="w-24 flex-shrink-0 text-center flex items-center justify-center gap-2 px-2">
+                      {record.image_urls.length > 0 ? (
                         <>
                           <ImageIcon className="h-4 w-4 text-muted-foreground" />
                           <span>{record.image_urls.length}</span>
                         </>
                       ) : (<span className="text-xs text-muted-foreground">无图片</span>)}
                     </div>
-                    <div className="w-40 flex-shrink-0 flex justify-end items-center">
+                    
+                    <div className="w-40 flex-shrink-0 flex justify-end items-center px-2">
                       <p className="text-xs text-muted-foreground">{format(new Date(record.created_at), 'yy-MM-dd HH:mm')}</p>
                     </div>
                   </div>
                 ))}
               </div>
+              
               {totalPages > 1 && (
                 <div className="flex items-center justify-end space-x-2 pt-4">
                   <span className="text-sm text-muted-foreground">
