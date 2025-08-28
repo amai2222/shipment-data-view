@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -38,14 +38,12 @@ serve(async (req) => {
     console.log('企业微信认证请求:', { code, corpId, agentId });
 
     // 1. 获取企业微信访问令牌
-    console.log('准备获取企业微信令牌，参数:', { corpId, secretLength: workWechatSecret?.length });
+    console.log('准备获取企业微信令牌...');
     
     const tokenResponse = await fetch(
       `http://129.226.191.86:3000/cgi-bin/gettoken?corpid=${corpId}&corpsecret=${workWechatSecret}`
     );
     const tokenData: WorkWechatTokenResponse = await tokenResponse.json();
-    
-    console.log('企业微信令牌响应:', tokenData);
     
     if (!tokenData.access_token) {
       console.error('获取企业微信令牌失败:', tokenData);
@@ -54,13 +52,11 @@ serve(async (req) => {
 
     console.log('企业微信令牌获取成功');
 
-    // 2. 通过code获取用户信息
+    // 2. 通过code获取用户 UserId
     const userResponse = await fetch(
       `http://129.226.191.86:3000/cgi-bin/user/getuserinfo?access_token=${tokenData.access_token}&code=${code}`
     );
     const userData = await userResponse.json();
-    
-    console.log('企业微信用户信息响应:', userData);
     
     if (!userData.UserId) {
       console.error('获取用户信息失败:', userData);
@@ -113,7 +109,7 @@ serve(async (req) => {
 
       if (createAuthError) {
         console.error('创建认证用户失败:', createAuthError);
-        // 直接抛出原始的 AuthApiError
+        // 直接抛出原始的 AuthApiError，这样前端可以获得更详细的错误信息
         throw createAuthError;
       }
       
@@ -166,7 +162,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       user: profile,
-      ...sessionData.properties, // 直接展开 sessionData 的属性
+      ...sessionData.properties,
+      session: sessionData.session,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -174,7 +171,6 @@ serve(async (req) => {
   } catch (error) {
     console.error('企业微信认证完整错误:', error);
     return new Response(JSON.stringify({ 
-      // 返回更详细的错误信息，便于前端调试
       error: error.message || '企业微信认证失败',
       error_details: error,
     }), {
