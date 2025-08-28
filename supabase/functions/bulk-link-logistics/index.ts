@@ -1,13 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
-console.log("bulk-link-logistics function initialized");
+console.log("bulk-link-logistics function initialized with new sorting logic");
 
-// 定义返回给前端的数据结构
 interface LinkResult {
   id: string;
   status: 'success' | 'not_found' | 'error';
-  logistics_number?: string | null; // ★★★ 修改点 ★★★
+  logistics_number?: string | null;
   error?: string;
 }
 
@@ -30,6 +29,7 @@ Deno.serve(async (req) => {
     const results: LinkResult[] = await Promise.all(
       scale_record_ids.map(async (id: string): Promise<LinkResult> => {
         try {
+          // 1. 获取磅单记录的匹配信息和关键的 trip_number
           const { data: scaleRecord, error: scaleError } = await supabaseAdmin
             .from('scale_records')
             .select('project_id, loading_date, license_plate, trip_number')
@@ -37,35 +37,44 @@ Deno.serve(async (req) => {
             .single();
 
           if (scaleError) throw new Error(`Scale record fetch failed: ${scaleError.message}`);
+          if (!scaleRecord.trip_number || scaleRecord.trip_number <= 0) {
+            return { id, status: 'not_found', error: 'Invalid trip_number in scale_record' };
+          }
 
-          const { data: logisticRecord, error: logisticError } = await supabaseAdmin
+          // ★★★ 核心逻辑修改 ★★★
+          // 2. 查找所有匹配的物流记录 (候选池)，并按 auto_number 排序
+          const { data: logisticRecords, error: logisticError } = await supabaseAdmin
             .from('logistics_records')
             .select('auto_number')
             .eq('project_id', scaleRecord.project_id)
             .eq('license_plate', scaleRecord.license_plate)
-            .eq('trip_number', scaleRecord.trip_number)
+            // 注意：这里不再用 trip_number 作为查询条件
             .gte('loading_date', `${scaleRecord.loading_date}T00:00:00Z`)
             .lt('loading_date', `${scaleRecord.loading_date}T23:59:59Z`)
-            .maybeSingle();
+            .order('auto_number', { ascending: true }); // 关键：按运单号升序排列
 
           if (logisticError) throw new Error(`Logistics lookup failed: ${logisticError.message}`);
 
-          if (!logisticRecord || !logisticRecord.auto_number) {
+          // 3. 根据 trip_number 定位正确的记录
+          // 检查候选池中的记录数量是否足够
+          if (logisticRecords && logisticRecords.length >= scaleRecord.trip_number) {
+            // 数组索引是 0-based，而 trip_number 是 1-based，所以需要 -1
+            const targetRecord = logisticRecords[scaleRecord.trip_number - 1];
+            const logisticsNumber = targetRecord.auto_number;
+
+            // 4. 更新磅单记录
+            const { error: updateError } = await supabaseAdmin
+              .from('scale_records')
+              .update({ logistics_number: logisticsNumber })
+              .eq('id', id);
+
+            if (updateError) throw new Error(`Update failed: ${updateError.message}`);
+
+            return { id, status: 'success', logistics_number: logisticsNumber };
+          } else {
+            // 如果候选池数量不足，则匹配失败
             return { id, status: 'not_found' };
           }
-
-          const logisticsNumber = logisticRecord.auto_number;
-
-          // ★★★ 修改点 ★★★
-          const { error: updateError } = await supabaseAdmin
-            .from('scale_records')
-            .update({ logistics_number: logisticsNumber }) // 更新正确的字段
-            .eq('id', id);
-
-          if (updateError) throw new Error(`Update failed: ${updateError.message}`);
-
-          // ★★★ 修改点 ★★★
-          return { id, status: 'success', logistics_number: logisticsNumber }; // 返回正确的字段名
 
         } catch (error) {
           return { id, status: 'error', error: error.message };
