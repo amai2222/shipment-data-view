@@ -26,7 +26,7 @@ interface ScaleRecord { id: string; project_id: string; project_name: string; lo
 interface FilterState { projectId: string; startDate: string; endDate: string; licensePlate: string; }
 
 const initialFilterState: FilterState = { projectId: '', startDate: '', endDate: '', licensePlate: '' };
-const PAGE_SIZE = 15; // 定义每页显示的记录数
+const PAGE_SIZE = 15;
 
 export default function ScaleRecords() {
   // 基础状态
@@ -245,6 +245,7 @@ export default function ScaleRecords() {
                   </div>
                 )}
                 
+                {/* ★★★ 核心修改 1: 表头列宽调整 ★★★ */}
                 <div className="flex items-center border-b pb-2 text-sm font-medium text-muted-foreground">
                   <div className="w-12 flex-shrink-0 flex items-center justify-center">
                     <DropdownMenu>
@@ -259,7 +260,8 @@ export default function ScaleRecords() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <div className="flex-1 min-w-[200px] px-2">项目名称</div>
+                  {/* 修改点: 移除了 flex-1，改为固定的 w-64 */}
+                  <div className="w-64 flex-shrink-0 px-2">项目名称</div>
                   <div className="w-28 flex-shrink-0 px-2">装车日期</div>
                   <div className="w-28 flex-shrink-0 px-2">车牌号</div>
                   <div className="w-24 flex-shrink-0 px-2">司机</div>
@@ -269,6 +271,7 @@ export default function ScaleRecords() {
                   <div className="w-40 flex-shrink-0 text-right px-2">创建时间</div>
                 </div>
 
+                {/* ★★★ 核心修改 2: 数据行列宽调整 ★★★ */}
                 {records.map((record) => (
                   <div 
                     key={record.id} 
@@ -279,7 +282,8 @@ export default function ScaleRecords() {
                       <Checkbox checked={selectedRecordIds.has(record.id)} onCheckedChange={() => handleSelectRecord(record.id)} />
                     </div>
                     
-                    <div className="flex-1 min-w-[200px] font-semibold truncate px-2" title={record.project_name}>
+                    {/* 修改点: 移除了 flex-1，改为固定的 w-64，并保留 truncate */}
+                    <div className="w-64 flex-shrink-0 font-semibold truncate px-2" title={record.project_name}>
                       {record.project_name}
                     </div>
                     <div className="w-28 flex-shrink-0 px-2">{format(new Date(record.loading_date), 'yyyy-MM-dd')}</div>
