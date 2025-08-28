@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Search, Image as ImageIcon, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Search, Image as ImageIcon, Trash2, Loader2, Link2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -19,10 +19,10 @@ import { ImageViewer } from './components/ImageViewer';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 
-// 接口定义
+// 接口定义 (已更新)
 interface Project { id: string; name: string; }
 interface Driver { id: string; name: string; license_plate: string; }
-interface ScaleRecord { id: string; project_id: string; project_name: string; loading_date: string; trip_number: number; valid_quantity: number | null; billing_type_id: number; image_urls: string[]; license_plate: string | null; driver_name: string | null; created_at: string; }
+interface ScaleRecord { id: string; project_id: string; project_name: string; loading_date: string; trip_number: number; valid_quantity: number | null; billing_type_id: number; image_urls: string[]; license_plate: string | null; driver_name: string | null; created_at: string; logistics_number: string | null; }
 interface FilterState { projectId: string; startDate: string; endDate: string; licensePlate: string; }
 
 const initialFilterState: FilterState = { projectId: '', startDate: '', endDate: '', licensePlate: '' };
@@ -41,13 +41,13 @@ export default function ScaleRecords() {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   
   // 删除相关状态
-  const [deleteTarget, setDeleteTarget] = useState<ScaleRecord | null>(null);
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   
   // 数据与选择状态
   const [totalRecordsCount, setTotalRecordsCount] = useState(0);
   const [isSelectingAll, setIsSelectingAll] = useState(false);
+  const [isBulkLinking, setIsBulkLinking] = useState(false); // 新增：批量关联加载状态
 
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
@@ -56,7 +56,6 @@ export default function ScaleRecords() {
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState<FilterState>(initialFilterState);
   const { toast } = useToast();
 
-  // 效果钩子
   useEffect(() => {
     loadProjects();
     loadDrivers();
@@ -72,7 +71,6 @@ export default function ScaleRecords() {
     }
   }, [isStale]);
 
-  // 数据加载函数
   const loadProjects = async () => { try { const { data, error } = await supabase.from('projects').select('id, name').order('name'); if (error) throw error; setProjects(data || []); } catch (error) { console.error('Error loading projects:', error); } };
   const loadDrivers = async () => { try { const { data, error } = await supabase.from('drivers').select('id, name, license_plate').order('name'); if (error) throw error; setDrivers(data || []); } catch (error) { console.error('Error loading drivers:', error); } };
 
@@ -101,7 +99,48 @@ export default function ScaleRecords() {
     }
   };
 
-  // 事件处理函数
+  // 新增：批量关联运单号的函数
+  const handleBulkLinkWaybills = async () => {
+    const idsToLink = Array.from(selectedRecordIds);
+    if (idsToLink.length === 0) return;
+
+    setIsBulkLinking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('bulk-link-logistics', {
+        body: { scale_record_ids: idsToLink },
+      });
+
+      if (error) throw error;
+
+      const results = data.results;
+      const successfulUpdates = results.filter((r: any) => r.status === 'success');
+      const notFoundCount = results.filter((r: any) => r.status === 'not_found').length;
+
+      if (successfulUpdates.length > 0) {
+        const updatesMap = new Map(successfulUpdates.map((u: any) => [u.id, u.logistics_number]));
+        
+        setRecords(prevRecords =>
+          prevRecords.map(record => 
+            updatesMap.has(record.id)
+              ? { ...record, logistics_number: updatesMap.get(record.id) }
+              : record
+          )
+        );
+      }
+      
+      toast({
+        title: "批量关联完成",
+        description: `成功 ${successfulUpdates.length} 条，未找到匹配 ${notFoundCount} 条。`,
+      });
+
+    } catch (error) {
+      console.error("Error during bulk link:", error);
+      toast({ title: "操作失败", description: "批量关联时发生错误，请检查控制台。", variant: "destructive" });
+    } finally {
+      setIsBulkLinking(false);
+    }
+  };
+
   const handleRecordAdded = () => {
     setShowAddDialog(false);
     loadRecords();
@@ -200,7 +239,6 @@ export default function ScaleRecords() {
     }
   };
 
-  // 计算派生状态
   const totalPages = Math.ceil(totalRecordsCount / PAGE_SIZE);
   const isAnyOnPageSelected = records.length > 0 && records.some(r => selectedRecordIds.has(r.id));
   const isAllOnPageSelected = records.length > 0 && records.every(r => selectedRecordIds.has(r.id));
@@ -219,10 +257,16 @@ export default function ScaleRecords() {
             </div>
             <div className="flex items-end gap-2">
               {selectedRecordIds.size > 0 && (
-                <Button variant="destructive" onClick={() => setShowBulkDeleteDialog(true)}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  删除选中 ({selectedRecordIds.size})
-                </Button>
+                <>
+                  <Button variant="destructive" onClick={() => setShowBulkDeleteDialog(true)}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    删除选中 ({selectedRecordIds.size})
+                  </Button>
+                  <Button onClick={handleBulkLinkWaybills} disabled={isBulkLinking}>
+                    {isBulkLinking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Link2 className="h-4 w-4 mr-2" />}
+                    关联运单 ({selectedRecordIds.size})
+                  </Button>
+                </>
               )}
               <Button variant="outline" onClick={handleClear}>清除</Button>
               <Button onClick={handleSearch} disabled={!isStale}><Search className="h-4 w-4 mr-2" />搜索</Button>
@@ -245,7 +289,6 @@ export default function ScaleRecords() {
                   </div>
                 )}
                 
-                {/* ★★★ 核心修改 1: 表头列宽调整 ★★★ */}
                 <div className="flex items-center border-b pb-2 text-sm font-medium text-muted-foreground">
                   <div className="w-12 flex-shrink-0 flex items-center justify-center">
                     <DropdownMenu>
@@ -260,18 +303,17 @@ export default function ScaleRecords() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  {/* 修改点: 移除了 flex-1，改为固定的 w-64 */}
                   <div className="w-64 flex-shrink-0 px-2">项目名称</div>
                   <div className="w-28 flex-shrink-0 px-2">装车日期</div>
                   <div className="w-28 flex-shrink-0 px-2">车牌号</div>
                   <div className="w-24 flex-shrink-0 px-2">司机</div>
                   <div className="w-24 flex-shrink-0 px-2">车次</div>
                   <div className="w-28 flex-shrink-0 px-2">有效数量</div>
+                  <div className="w-32 flex-shrink-0 px-2">运单号</div>
                   <div className="w-24 flex-shrink-0 text-center px-2">图片</div>
                   <div className="w-40 flex-shrink-0 text-right px-2">创建时间</div>
                 </div>
 
-                {/* ★★★ 核心修改 2: 数据行列宽调整 ★★★ */}
                 {records.map((record) => (
                   <div 
                     key={record.id} 
@@ -282,7 +324,6 @@ export default function ScaleRecords() {
                       <Checkbox checked={selectedRecordIds.has(record.id)} onCheckedChange={() => handleSelectRecord(record.id)} />
                     </div>
                     
-                    {/* 修改点: 移除了 flex-1，改为固定的 w-64，并保留 truncate */}
                     <div className="w-64 flex-shrink-0 font-semibold truncate px-2" title={record.project_name}>
                       {record.project_name}
                     </div>
@@ -291,6 +332,14 @@ export default function ScaleRecords() {
                     <div className="w-24 flex-shrink-0 px-2">{record.driver_name || 'N/A'}</div>
                     <div className="w-24 flex-shrink-0 px-2">第 {record.trip_number} 车次</div>
                     <div className="w-28 flex-shrink-0 px-2">{record.valid_quantity ? `${record.valid_quantity} 吨` : 'N/A'}</div>
+                    
+                    <div className="w-32 flex-shrink-0 px-2">
+                      {record.logistics_number ? (
+                        <span className="text-xs font-mono bg-muted px-2 py-1 rounded">{record.logistics_number}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">未关联</span>
+                      )}
+                    </div>
                     
                     <div className="w-24 flex-shrink-0 text-center flex items-center justify-center gap-2 px-2">
                       {record.image_urls.length > 0 ? (
