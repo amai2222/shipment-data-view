@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-// --- 保留您所有的UI组件 ---
+// --- 您可以保留这些UI组件用于非企微环境 ---
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,9 +34,21 @@ export default function Auth() {
     const isWorkWechat = /wxwork/i.test(navigator.userAgent);
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
+    const urlError = urlParams.get('error');
 
-    // 状态1: 如果在企微环境、未登录、且URL没有code，则自动跳转授权
-    if (isWorkWechat && !session && !code) {
+    // 如果有错误参数，说明用户可能拒绝了授权
+    if (urlError) {
+      toast({
+        title: '授权失败',
+        description: '您取消了企业微信授权或授权已过期。',
+        variant: 'destructive',
+      });
+      setIsWechatAuthLoading(false);
+      return;
+    }
+
+    // 核心条件：如果 未登录 且 在企微环境 且 URL中没有code，才发起跳转
+    if (!session && isWorkWechat && !code) {
       console.log('企微环境自动登录启动...');
       const corpId = import.meta.env.VITE_WECOM_CORP_ID;
       const agentId = import.meta.env.VITE_WECOM_AGENT_ID;
@@ -86,7 +98,7 @@ export default function Auth() {
 
 
   // --- 保留您原有的登录后跳转逻辑 ---
-  if (session) { // 使用 session 判断
+  if (session) {
     const from = location.state?.from?.pathname || '/home';
     return <Navigate to={from} replace />;
   }
@@ -101,12 +113,10 @@ export default function Auth() {
     }
     setIsLoading(true);
     try {
-      // 假设您的 signIn 返回 { error: string | null }
       const result = await signIn(usernameOrEmail, password);
-      if (result.error) {
+      if (result && result.error) {
         setError(result.error);
       }
-      // 成功后，session会更新，上面的 if(session) 会自动处理跳转
     } catch (err) {
       setError('登录失败，请重试');
     } finally {
@@ -147,10 +157,7 @@ export default function Auth() {
           </TabsList>
           
           <TabsContent value="wechat" className="mt-6">
-             {/* 这里的 WorkWechatAuth 主要是为了在非企微浏览器中提供一个“扫码”或“点击”的入口 */}
             <WorkWechatAuth onSuccess={() => {
-                // onSuccess 现在可以留空，因为自动流程会处理一切
-                // 或者用于处理手动点击后的成功提示
                 toast({ title: '请在企业微信中继续操作' });
              }} />
           </TabsContent>
