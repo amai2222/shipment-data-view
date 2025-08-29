@@ -888,6 +888,7 @@ export type Database = {
           image_urls: string[] | null
           license_plate: string | null
           loading_date: string
+          logistics_number: string | null
           project_id: string
           project_name: string
           trip_number: number
@@ -904,6 +905,7 @@ export type Database = {
           image_urls?: string[] | null
           license_plate?: string | null
           loading_date: string
+          logistics_number?: string | null
           project_id: string
           project_name: string
           trip_number: number
@@ -920,6 +922,7 @@ export type Database = {
           image_urls?: string[] | null
           license_plate?: string | null
           loading_date?: string
+          logistics_number?: string | null
           project_id?: string
           project_name?: string
           trip_number?: number
@@ -983,6 +986,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_roles: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -1249,9 +1276,11 @@ export type Database = {
         Returns: string
       }
       get_all_projects_overview_data: {
-        Args:
-          | { p_project_ids?: string[]; p_report_date: string }
-          | { p_report_date: string }
+        Args: { p_project_ids?: string[]; p_report_date: string }
+        Returns: Json
+      }
+      get_all_projects_overview_data_0827: {
+        Args: { p_report_date: string }
         Returns: Json
       }
       get_all_projects_overview_data_v3: {
@@ -1316,13 +1345,23 @@ export type Database = {
         }[]
       }
       get_drivers_paginated: {
-        Args:
-          | { p_filter: string; p_page_number: number; p_page_size: number }
-          | {
-              p_page_number: number
-              p_page_size: number
-              p_search_text: string
-            }
+        Args: {
+          p_page_number: number
+          p_page_size: number
+          p_search_text: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          license_plate: string
+          name: string
+          phone: string
+          project_ids: string[]
+          total_records: number
+        }[]
+      }
+      get_drivers_paginated_0827: {
+        Args: { p_filter: string; p_page_number: number; p_page_size: number }
         Returns: Database["public"]["CompositeTypes"]["paginated_drivers_result"]
       }
       get_filtered_logistics_records_fixed: {
@@ -1369,6 +1408,53 @@ export type Database = {
           p_start_date?: string
         }
         Returns: Json
+      }
+      get_filtered_payment_requests: {
+        Args: {
+          p_application_end_date: string
+          p_application_start_date: string
+          p_driver_query: string
+          p_end_date: string
+          p_project_id: string
+          p_record_autonumbers: string[]
+          p_request_id: string
+          p_start_date: string
+        }
+        Returns: {
+          approval_result: Json | null
+          created_at: string
+          created_by: string | null
+          id: string
+          logistics_record_ids: string[] | null
+          notes: string | null
+          record_count: number
+          request_id: string
+          status: string
+          user_id: string
+          work_wechat_sp_no: string | null
+        }[]
+      }
+      get_filtered_payment_requests_0827: {
+        Args: {
+          p_driver_name: string
+          p_end_date: string
+          p_project_id: string
+          p_request_id: string
+          p_start_date: string
+        }
+        Returns: {
+          approval_result: Json | null
+          created_at: string
+          created_by: string | null
+          id: string
+          logistics_record_ids: string[] | null
+          notes: string | null
+          record_count: number
+          request_id: string
+          status: string
+          user_id: string
+          work_wechat_sp_no: string | null
+        }[]
       }
       get_filtered_unpaid_ids: {
         Args: {
@@ -1671,6 +1757,19 @@ export type Database = {
       }
       get_payment_request_data: {
         Args: {
+          p_driver_names: string[]
+          p_end_date: string
+          p_page_number: number
+          p_page_size: number
+          p_partner_id: string
+          p_payment_status_array: string[]
+          p_project_id: string
+          p_start_date: string
+        }
+        Returns: Json
+      }
+      get_payment_request_data_0827: {
+        Args: {
           p_end_date: string
           p_page_number: number
           p_page_size: number
@@ -1802,9 +1901,20 @@ export type Database = {
         Args: { username_input: string }
         Returns: string
       }
+      get_user_id_by_email: {
+        Args: { p_email: string }
+        Returns: string
+      }
       get_user_projects: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       import_logistics_data: {
         Args: { p_records: Json }
@@ -1815,7 +1925,7 @@ export type Database = {
         Returns: boolean
       }
       is_finance_or_admin: {
-        Args: Record<PropertyKey, never>
+        Args: { _user_id?: string }
         Returns: boolean
       }
       login_with_username_or_email: {

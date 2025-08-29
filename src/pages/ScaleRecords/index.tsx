@@ -89,7 +89,7 @@ export default function ScaleRecords() {
       const { data, error, count } = await query.range(from, to);
       if (error) throw error;
       
-      setRecords(data || []);
+      setRecords((data as any[]) || []);
       setTotalRecordsCount(count || 0);
     } catch (error) {
       console.error('Error loading records:', error);
@@ -122,7 +122,7 @@ export default function ScaleRecords() {
         setRecords(prevRecords =>
           prevRecords.map(record => 
             updatesMap.has(record.id)
-              ? { ...record, logistics_number: updatesMap.get(record.id) }
+              ? { ...record, logistics_number: updatesMap.get(record.id) as string }
               : record
           )
         );
