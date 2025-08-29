@@ -66,76 +66,57 @@ serve(async (req) => {
     // ==================== 最终修复逻辑开始 ====================
 
     const email = userDetail.email || `${userData.UserId}@company.local`;
+
+    // 4. 简化用户处理逻辑：直接尝试创建，如果失败则说明用户已存在
+    console.log(`处理用户邮箱: ${email}`);
     let authUserId: string;
     let isNewUser = false;
 
-    // 4. 先尝试通过邮箱查询 auth.users 表中是否存在用户
-    console.log(`查询是否存在用户: ${email}`);
-    const { data: existingUsers, error: queryError } = await supabaseAdmin.auth.admin.listUsers({
-      page: 1,
-      perPage: 1000
-    });
-
-    if (queryError) {
-      console.error('查询用户列表失败:', queryError);
-      throw queryError;
-    }
-
-    const existingUser = existingUsers.users.find(user => user.email === email);
-
-    if (existingUser) {
-      // 4a. 如果用户已存在，直接使用现有用户ID
-      console.log(`认证用户 ${email} 已存在，ID: ${existingUser.id}`);
-      authUserId = existingUser.id;
-    } else {
-      // 4b. 如果用户不存在，则创建新用户
-      console.log(`认证用户 ${email} 不存在，准备创建...`);
-      isNewUser = true;
-      
-      try {
-        const { data: newAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
-          email,
-          email_confirm: true,
-          password: Math.random().toString(36).slice(-12),
-          user_metadata: {
-            full_name: userDetail.name,
-            avatar_url: userDetail.avatar,
-            work_wechat_userid: userData.UserId
-          }
-        });
-
-        if (createAuthError) {
-          // 如果创建失败且错误是用户已存在，再次查询获取用户ID
-          if (createAuthError.message && createAuthError.message.includes('already been registered')) {
-            console.log('用户在创建过程中已被创建，重新查询...');
-            const { data: retryUsers, error: retryError } = await supabaseAdmin.auth.admin.listUsers({
-              page: 1,
-              perPage: 1000
-            });
-            
-            if (!retryError) {
-              const retryUser = retryUsers.users.find(user => user.email === email);
-              if (retryUser) {
-                authUserId = retryUser.id;
-                isNewUser = false;
-                console.log(`找到已存在用户: ${authUserId}`);
-              } else {
-                throw new Error('用户创建失败且无法找到已存在用户');
-              }
-            } else {
-              throw createAuthError;
-            }
-          } else {
-            throw createAuthError;
-          }
-        } else {
-          authUserId = newAuthUser.user.id;
-          console.log(`新认证用户 ${email} 创建成功: ${authUserId}`);
+    try {
+      // 直接尝试创建用户
+      const { data: newAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        password: Math.random().toString(36).slice(-12),
+        user_metadata: {
+          full_name: userDetail.name,
+          avatar_url: userDetail.avatar,
+          work_wechat_userid: userData.UserId
         }
-      } catch (error) {
-        console.error('创建认证用户时发生错误:', error);
-        throw error;
+      });
+
+      if (createAuthError) {
+        // 如果创建失败且错误是用户已存在，这是正常情况
+        if (createAuthError.message && createAuthError.message.includes('already been registered')) {
+          console.log(`用户 ${email} 已存在，将更新其档案信息`);
+          // 用户已存在，我们需要找到这个用户的ID
+          // 使用 RPC 函数查找用户ID
+          const { data: existingUserId, error: rpcError } = await supabaseAdmin.rpc(
+            'get_user_id_by_email', 
+            { p_email: email }
+          );
+          
+          if (rpcError || !existingUserId) {
+            console.error('无法找到已存在用户的ID:', rpcError);
+            throw new Error('用户已存在但无法获取用户ID');
+          }
+          
+          authUserId = existingUserId;
+          isNewUser = false;
+        } else {
+          // 其他创建错误
+          console.error('创建用户时发生未知错误:', createAuthError);
+          throw createAuthError;
+        }
+      } else {
+        // 用户创建成功
+        authUserId = newAuthUser.user.id;
+        isNewUser = true;
+        console.log(`新用户 ${email} 创建成功: ${authUserId}`);
       }
+    } catch (error) {
+      console.error('处理用户时发生错误:', error);
+      throw error;
     }
 
     // 5. 使用 upsert 来创建或更新用户的公开信息 (profiles 表)
