@@ -63,33 +63,33 @@ serve(async (req) => {
     const userDetail: WorkWechatUserInfo = await userDetailResponse.json();
     console.log('用户详细信息:', userDetail);
 
-    // ==================== 优化的用户处理逻辑 ====================
+    // ==================== 使用 Admin 客户端直接查找用户 ====================
 
     const email = userDetail.email || `${userData.UserId}@company.local`;
 
-    // 4. 优化用户处理逻辑：先查找现有用户，然后决定是否创建
+    // 4. 使用 Supabase Admin 客户端直接查找用户
     console.log(`处理用户邮箱: ${email}`);
     console.log(`企业微信用户ID: ${userData.UserId}`);
     let authUserId: string;
     let isNewUser = false;
 
     try {
-      // 首先尝试通过邮箱查找现有用户
-      console.log('尝试查找现有用户...');
-      const { data: existingUserId, error: rpcError } = await supabaseAdmin.rpc(
-        'get_user_id_by_email', 
-        { p_email: email }
-      );
+      // 使用 Admin 客户端查找现有用户
+      console.log('使用 Admin 客户端查找现有用户...');
+      const { data: userList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
       
-      if (rpcError) {
-        console.error('查找用户时发生错误:', rpcError);
-        throw new Error(`查找用户失败: ${rpcError.message}`);
+      if (listError) {
+        console.error('查找用户列表时发生错误:', listError);
+        throw new Error(`查找用户失败: ${listError.message}`);
       }
 
-      if (existingUserId) {
+      // 在用户列表中查找匹配的邮箱
+      const existingUser = userList.users.find(user => user.email === email);
+
+      if (existingUser) {
         // 用户已存在
-        console.log(`找到现有用户: ${existingUserId}`);
-        authUserId = existingUserId;
+        console.log(`找到现有用户: ${existingUser.id}`);
+        authUserId = existingUser.id;
         isNewUser = false;
       } else {
         // 用户不存在，创建新用户
