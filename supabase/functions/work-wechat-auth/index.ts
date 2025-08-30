@@ -63,53 +63,55 @@ serve(async (req) => {
     const userDetail: WorkWechatUserInfo = await userDetailResponse.json();
     console.log('用户详细信息:', userDetail);
 
-    // ==================== 使用 Admin 客户端直接查找用户 ====================
+    // ==================== 使用 profiles 表查找用户的优化逻辑 ====================
 
     const email = userDetail.email || `${userData.UserId}@company.local`;
 
-    // 4. 使用 Supabase Admin 客户端直接查找用户
+    // 4. 先尝试创建用户，如果失败则从 profiles 表查找现有用户
     console.log(`处理用户邮箱: ${email}`);
     console.log(`企业微信用户ID: ${userData.UserId}`);
     let authUserId: string;
     let isNewUser = false;
 
     try {
-      // 使用 Admin 客户端查找现有用户
-      console.log('使用 Admin 客户端查找现有用户...');
-      const { data: userList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-      
-      if (listError) {
-        console.error('查找用户列表时发生错误:', listError);
-        throw new Error(`查找用户失败: ${listError.message}`);
-      }
-
-      // 在用户列表中查找匹配的邮箱
-      const existingUser = userList.users.find(user => user.email === email);
-
-      if (existingUser) {
-        // 用户已存在
-        console.log(`找到现有用户: ${existingUser.id}`);
-        authUserId = existingUser.id;
-        isNewUser = false;
-      } else {
-        // 用户不存在，创建新用户
-        console.log('用户不存在，创建新用户...');
-        const { data: newAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
-          email,
-          email_confirm: true,
-          password: Math.random().toString(36).slice(-12),
-          user_metadata: {
-            full_name: userDetail.name,
-            avatar_url: userDetail.avatar,
-            work_wechat_userid: userData.UserId
-          }
-        });
-
-        if (createAuthError) {
-          console.error('创建用户时发生错误:', createAuthError);
-          throw new Error(`用户创建失败: ${createAuthError.message}`);
+      // 直接尝试创建用户
+      const { data: newAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        password: Math.random().toString(36).slice(-12),
+        user_metadata: {
+          full_name: userDetail.name,
+          avatar_url: userDetail.avatar,
+          work_wechat_userid: userData.UserId
         }
+      });
 
+      if (createAuthError) {
+        // 如果创建失败且错误是用户已存在，这是正常情况
+        if (createAuthError.message && createAuthError.message.includes('already been registered')) {
+          console.log(`用户 ${email} 已存在，从 profiles 表查找用户ID`);
+          
+          // 从 profiles 表查找用户ID
+          const { data: profile, error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .eq('email', email)
+            .single();
+          
+          if (profileError || !profile) {
+            console.error('无法从 profiles 表找到用户:', profileError);
+            throw new Error(`用户已存在但无法获取用户档案: ${profileError?.message || '未找到档案'}`);
+          }
+          
+          authUserId = profile.id;
+          isNewUser = false;
+          console.log(`从 profiles 表找到用户ID: ${authUserId}`);
+        } else {
+          // 其他创建错误
+          console.error('创建用户时发生未知错误:', createAuthError);
+          throw createAuthError;
+        }
+      } else {
         // 用户创建成功
         authUserId = newAuthUser.user.id;
         isNewUser = true;
