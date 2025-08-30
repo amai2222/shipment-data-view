@@ -21,8 +21,8 @@ interface WorkWechatAuthProps {
 
 export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
   const { user } = useAuth();
-  const corpId = import.meta.env.VITE_WORK_WECHAT_CORPID;
-  const agentId = import.meta.env.VITE_WORK_WECHAT_AGENTID;
+  const corpId = "ww074db5e6770417d9";
+  const agentId = "1000002";
 
   // 检测是否在企业微信环境中
   const isInWorkWechat = () => {
@@ -81,11 +81,35 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
           return;
         }
 
-        if (data?.success && data?.auth_url) {
+        if (data?.success) {
           toast.success('企业微信认证成功，正在登录...');
-          console.log('认证成功，跳转到:', data.auth_url);
-          // 重定向到Supabase认证URL完成登录
-          window.location.href = data.auth_url;
+          console.log('认证成功，返回数据:', data);
+          
+          // 检查是否有 auth_url (Magic Link)
+          if (data.auth_url) {
+            console.log('使用 Magic Link 登录:', data.auth_url);
+            window.location.href = data.auth_url;
+          } else if (data.session) {
+            // 如果有会话数据，直接设置会话
+            console.log('设置用户会话');
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: data.session.access_token,
+              refresh_token: data.session.refresh_token,
+            });
+            
+            if (sessionError) {
+              console.error('设置会话失败:', sessionError);
+              toast.error('登录失败，请重试');
+            } else {
+              toast.success('登录成功！');
+              // 清除URL参数并跳转
+              window.history.replaceState({}, '', '/');
+              if (onSuccess) onSuccess();
+            }
+          } else {
+            console.error('认证成功但缺少登录信息');
+            toast.error('认证成功但登录信息不完整');
+          }
         } else {
           console.error('认证响应异常:', data);
           toast.error(`企业微信认证失败: ${data?.error || '未知错误'}`);
