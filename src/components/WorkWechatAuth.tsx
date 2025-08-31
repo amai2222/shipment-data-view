@@ -86,12 +86,17 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
           console.log('认证成功，返回数据:', data);
           
           // 添加详细的数据结构日志
-          console.log('数据结构检查 - auth_url:', data.auth_url, 'session:', data.session, 'access_token:', data.access_token);
+          console.log('数据结构检查 - 完整数据:', JSON.stringify(data, null, 2));
+          console.log('数据结构检查 - auth_url:', data.auth_url);
+          console.log('数据结构检查 - session:', data.session);
+          console.log('数据结构检查 - access_token:', data.access_token);
+          console.log('数据结构检查 - action_link:', data.action_link);
           
-          // 检查是否有 auth_url (Magic Link)
-          if (data.auth_url) {
-            console.log('使用 Magic Link 登录:', data.auth_url);
-            window.location.href = data.auth_url;
+          // 检查是否有 auth_url 或 action_link (Magic Link)
+          const authUrl = data.auth_url || data.action_link;
+          if (authUrl) {
+            console.log('使用 Magic Link 登录:', authUrl);
+            window.location.href = authUrl;
           } else if (data.session && data.session.access_token) {
             // 如果有会话数据，直接设置会话
             console.log('设置用户会话，access_token:', data.session.access_token);
@@ -128,7 +133,7 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
             }
           } else {
             console.error('认证成功但缺少登录信息，完整返回数据:', JSON.stringify(data, null, 2));
-            toast.error('认证成功但登录信息不完整，请联系管理员');
+            toast.error('认证成功但登录信息不完整，请联系管理员检查配置');
           }
         } else {
           console.error('认证响应异常:', data);
