@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +23,9 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
   const { user } = useAuth();
   const corpId = "ww074db5e6770417d9";
   const agentId = "1000002";
+  
+  // 创建一个 ref 来防止重复执行认证逻辑
+  const isProcessingAuth = useRef(false);
 
   // 检测是否在企业微信环境中
   const isInWorkWechat = () => {
@@ -153,10 +156,17 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
 
   // 在企业微信环境中自动触发认证或检测URL中的code
   useEffect(() => {
+    // 如果正在处理中，则直接返回，防止重复执行
+    if (isProcessingAuth.current) {
+      return;
+    }
+
     const code = new URLSearchParams(window.location.search).get('code');
     const source = new URLSearchParams(window.location.search).get('source');
     
     if (code && source === 'work_wechat' && !user) {
+      // 在调用前设置标志位，表示处理已开始
+      isProcessingAuth.current = true;
       handleWorkWechatAuth();
     }
   }, []);
