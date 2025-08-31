@@ -149,7 +149,7 @@ serve(async (req) => {
     // ==================== 最终修复逻辑结束 ====================
 
     // 6. 直接生成访问令牌，避免重定向
-    const { data: tokenData, error: tokenError } = await supabaseAdmin.auth.admin.generateLink({
+    const { data: authTokenData, error: tokenError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: profile.email
     });
@@ -164,9 +164,9 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       user: profile,
-      auth_url: tokenData.properties.action_link,
-      access_token: tokenData.session?.access_token,
-      refresh_token: tokenData.session?.refresh_token
+      auth_url: authTokenData.properties.action_link,
+      access_token: authTokenData.session?.access_token,
+      refresh_token: authTokenData.session?.refresh_token
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
