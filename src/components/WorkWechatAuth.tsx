@@ -85,13 +85,16 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
           toast.success('企业微信认证成功，正在登录...');
           console.log('认证成功，返回数据:', data);
           
+          // 添加详细的数据结构日志
+          console.log('数据结构检查 - auth_url:', data.auth_url, 'session:', data.session, 'access_token:', data.access_token);
+          
           // 检查是否有 auth_url (Magic Link)
           if (data.auth_url) {
             console.log('使用 Magic Link 登录:', data.auth_url);
             window.location.href = data.auth_url;
-          } else if (data.session) {
+          } else if (data.session && data.session.access_token) {
             // 如果有会话数据，直接设置会话
-            console.log('设置用户会话');
+            console.log('设置用户会话，access_token:', data.session.access_token);
             const { error: sessionError } = await supabase.auth.setSession({
               access_token: data.session.access_token,
               refresh_token: data.session.refresh_token,
@@ -106,9 +109,26 @@ export function WorkWechatAuth({ onSuccess }: WorkWechatAuthProps) {
               window.history.replaceState({}, '', '/');
               if (onSuccess) onSuccess();
             }
+          } else if (data.access_token) {
+            // 兼容直接返回 access_token 的情况
+            console.log('直接设置会话，access_token:', data.access_token);
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: data.access_token,
+              refresh_token: data.refresh_token,
+            });
+            
+            if (sessionError) {
+              console.error('设置会话失败:', sessionError);
+              toast.error('登录失败，请重试');
+            } else {
+              toast.success('登录成功！');
+              // 清除URL参数并跳转
+              window.history.replaceState({}, '', '/');
+              if (onSuccess) onSuccess();
+            }
           } else {
-            console.error('认证成功但缺少登录信息');
-            toast.error('认证成功但登录信息不完整');
+            console.error('认证成功但缺少登录信息，完整返回数据:', JSON.stringify(data, null, 2));
+            toast.error('认证成功但登录信息不完整，请联系管理员');
           }
         } else {
           console.error('认证响应异常:', data);
