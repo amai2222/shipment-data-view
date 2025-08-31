@@ -148,10 +148,13 @@ serve(async (req) => {
 
     // ==================== 最终修复逻辑结束 ====================
 
-    // 6. 为用户生成会话令牌 (Magic Link)
+    // 6. 为用户生成会话令牌 (Magic Link) - 修复重定向URL问题
     const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: profile.email,
+      options: {
+        redirectTo: 'https://zkzy.325218.xyz', // 使用生产环境URL
+      }
     });
 
     if (sessionError) {
