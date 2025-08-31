@@ -148,18 +148,14 @@ serve(async (req) => {
 
     // ==================== 最终修复逻辑结束 ====================
 
-    // 6. 为用户生成会话令牌 (Magic Link) - 修复重定向URL问题
-    const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: profile.email,
-      options: {
-        redirectTo: 'https://zkzy.325218.xyz', // 使用生产环境URL
-      }
+    // 6. 直接创建用户会话，避免Magic Link重定向问题
+    const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.createSession({
+      userId: authUserId
     });
 
     if (sessionError) {
-      console.error('生成会话失败:', sessionError);
-      throw new Error('生成会话失败');
+      console.error('创建会话失败:', sessionError);
+      throw new Error('创建会话失败');
     }
 
     console.log('企业微信认证成功');
@@ -167,8 +163,9 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       user: profile,
-      ...sessionData.properties,
       session: sessionData.session,
+      access_token: sessionData.session.access_token,
+      refresh_token: sessionData.session.refresh_token
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
