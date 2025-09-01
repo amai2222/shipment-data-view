@@ -9,6 +9,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "./components/AppLayout";
+import { MobileRedirect } from "./components/MobileRedirect";
+import { MobileLayout } from "./components/mobile/MobileLayout";
 
 // --- 页面组件导入 ---
 import Home from "./pages/Home";
@@ -35,6 +37,10 @@ import ScaleRecords from "./pages/ScaleRecords";
 import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
 import ProjectDashboard from "./pages/ProjectDashboard"; // 改造后的详情页
 
+// 移动端页面导入
+import MobileHome from "./pages/mobile/MobileHome";
+import MobileBusinessEntry from "./pages/mobile/MobileBusinessEntry";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -44,7 +50,8 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
+          <MobileRedirect>
+            <Routes>
             {/* --- 公开路由 --- */}
             <Route path="/auth" element={<Auth />} />
             
@@ -167,9 +174,113 @@ const App = () => (
               </ProtectedRoute>
             } />
             
+            {/* --- 移动端路由 --- */}
+            <Route path="/m/" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+                <MobileLayout><MobileHome /></MobileLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/business-entry" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+                <MobileLayout><MobileBusinessEntry /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/dashboard/project" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+                <MobileLayout><ProjectsOverview /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/project/:projectId" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+                <MobileLayout><ProjectDashboard /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/dashboard/financial" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'viewer']}>
+                <MobileLayout><FinancialOverview /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/projects" element={
+              <ProtectedRoute requiredRoles={['admin', 'business']}>
+                <MobileLayout><Projects /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/drivers" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+                <MobileLayout><Drivers /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/locations" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+                <MobileLayout><Locations /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/partners" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+                <MobileLayout><Partners /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/scale-records" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+                <MobileLayout><ScaleRecords /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/payment-request" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+                <MobileLayout><PaymentRequest /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/payment-requests-list" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+                <MobileLayout><PaymentRequestsList /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/finance/reconciliation" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+                <MobileLayout><FinanceReconciliation /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/finance/payment-invoice" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+                <MobileLayout><PaymentInvoice /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/finance/payment-invoice/:requestId" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+                <MobileLayout><PaymentInvoiceDetail /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/settings/users" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileLayout><UserManagement /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/settings/permissions" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileLayout><PermissionManagement /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
             {/* --- 404路由 - 排除静态文件扩展名 --- */}
             <Route path="*" element={<NotFoundWithStaticFileCheck />} />
           </Routes>
+          </MobileRedirect>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
