@@ -40,6 +40,7 @@ import ProjectDashboard from "./pages/ProjectDashboard"; // 改造后的详情�
 // 移动端页面导入
 import MobileHome from "./pages/mobile/MobileHome";
 import MobileBusinessEntry from "./pages/mobile/MobileBusinessEntry";
+import MobileProjectDashboard from "./pages/mobile/MobileProjectDashboard";
 
 const queryClient = new QueryClient();
 
@@ -195,7 +196,7 @@ const App = () => (
 
             <Route path="/m/project/:projectId" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
-                <MobileLayout><ProjectDashboard /></MobileLayout>
+                <MobileProjectDashboard />
               </ProtectedRoute>
             } />
 
