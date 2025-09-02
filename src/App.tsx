@@ -41,6 +41,10 @@ import ProjectDashboard from "./pages/ProjectDashboard"; // 改造后的详情�
 import MobileHome from "./pages/mobile/MobileHome";
 import MobileBusinessEntry from "./pages/mobile/MobileBusinessEntry";
 import MobileProjectDashboard from "./pages/mobile/MobileProjectDashboard";
+import MobileScaleRecords from "./pages/mobile/MobileScaleRecords";
+import MobileDrivers from "./pages/mobile/MobileDrivers";
+import MobileLocations from "./pages/mobile/MobileLocations";
+import MobilePartners from "./pages/mobile/MobilePartners";
 
 const queryClient = new QueryClient();
 
@@ -214,25 +218,25 @@ const App = () => (
 
             <Route path="/m/drivers" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
-                <MobileLayout><Drivers /></MobileLayout>
+                <MobileDrivers />
               </ProtectedRoute>
             } />
 
             <Route path="/m/locations" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
-                <MobileLayout><Locations /></MobileLayout>
+                <MobileLocations />
               </ProtectedRoute>
             } />
 
             <Route path="/m/partners" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
-                <MobileLayout><Partners /></MobileLayout>
+                <MobilePartners />
               </ProtectedRoute>
             } />
 
             <Route path="/m/scale-records" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
-                <MobileLayout><ScaleRecords /></MobileLayout>
+                <MobileScaleRecords />
               </ProtectedRoute>
             } />
 
