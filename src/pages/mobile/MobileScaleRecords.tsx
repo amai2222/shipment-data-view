@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from 'date-fns';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { MobileCard } from '@/components/mobile/MobileCard';
+import { MobileScaleRecordForm } from '@/components/mobile/MobileScaleRecordForm';
 
 interface Project { id: string; name: string; }
 interface ScaleRecord { 
@@ -280,15 +281,19 @@ export default function MobileScaleRecords() {
                   添加
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[95vw] max-w-md">
+              <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>添加磅单记录</DialogTitle>
                 </DialogHeader>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Scale className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>请使用桌面版进行磅单录入</p>
-                  <p className="text-sm">移动端暂不支持此功能</p>
-                </div>
+                <MobileScaleRecordForm
+                  projects={projects}
+                  onSuccess={() => {
+                    setShowAddDialog(false);
+                    loadRecords();
+                    toast({ title: "成功", description: "磅单记录已添加" });
+                  }}
+                  onCancel={() => setShowAddDialog(false)}
+                />
               </DialogContent>
             </Dialog>
           </div>
