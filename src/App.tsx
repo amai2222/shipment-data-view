@@ -45,6 +45,9 @@ import MobileScaleRecords from "./pages/mobile/MobileScaleRecords";
 import MobileDrivers from "./pages/mobile/MobileDrivers";
 import MobileLocations from "./pages/mobile/MobileLocations";
 import MobilePartners from "./pages/mobile/MobilePartners";
+import MobileDashboard from "./pages/mobile/MobileDashboard";
+import MobileFinancialOverview from "./pages/mobile/MobileFinancialOverview";
+import MobilePaymentRequestsList from "./pages/mobile/MobilePaymentRequestsList";
 
 const queryClient = new QueryClient();
 
@@ -248,7 +251,19 @@ const App = () => (
 
             <Route path="/m/payment-requests-list" element={
               <ProtectedRoute requiredRoles={['admin', 'finance']}>
-                <MobileLayout><PaymentRequestsList /></MobileLayout>
+                <MobilePaymentRequestsList />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/dashboard" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+                <MobileDashboard />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/financial-overview" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'viewer']}>
+                <MobileFinancialOverview />
               </ProtectedRoute>
             } />
 
