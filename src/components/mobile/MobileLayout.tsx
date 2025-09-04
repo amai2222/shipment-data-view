@@ -21,6 +21,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { cn } from '@/lib/utils';
 
 interface MobileLayoutProps {
@@ -109,6 +110,7 @@ export function MobileLayout({ children }: MobileLayoutProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { hasPermission } = usePermissions();
+  const { hasMenuAccess } = useMenuPermissions();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -124,11 +126,11 @@ export function MobileLayout({ children }: MobileLayoutProps) {
   };
 
   const filteredNavigation = navigation.filter(item => 
-    hasPermission(item.roles as any)
+    hasPermission(item.roles as any) && hasMenuAccess(item.href)
   );
 
   const filteredSettingsNavigation = settingsNavigation.filter(item => 
-    hasPermission(item.roles as any)
+    hasPermission(item.roles as any) && hasMenuAccess(item.href)
   );
 
   return (

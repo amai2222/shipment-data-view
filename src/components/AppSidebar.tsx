@@ -35,6 +35,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { forceReimportData } from "@/utils/importData";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useMenuPermissions } from "@/hooks/useMenuPermissions";
 
 // 菜单配置
 const menuItems = [
@@ -91,17 +92,22 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
   const { isAdmin } = usePermissions();
+  const { hasMenuAccess } = useMenuPermissions();
 
   // 添加调试日志
   console.log('AppSidebar - 当前用户是管理员:', isAdmin);
 
   // 根据权限过滤菜单项
-  const filteredMenuItems = menuItems.filter(group => {
+  const filteredMenuItems = menuItems.map(group => ({
+    ...group,
+    items: group.items.filter(item => hasMenuAccess(item.url))
+  })).filter(group => {
     if (group.title === "设置" && !isAdmin) {
       console.log('隐藏设置菜单 - 非管理员用户');
       return false; // 非管理员隐藏设置菜单
     }
-    return true;
+    // 如果组内没有可访问的菜单项，隐藏整个组
+    return group.items.length > 0;
   });
 
   const [openGroups, setOpenGroups] = useState<string[]>(() => {

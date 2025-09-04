@@ -48,6 +48,8 @@ import MobilePartners from "./pages/mobile/MobilePartners";
 import MobileDashboard from "./pages/mobile/MobileDashboard";
 import MobileFinancialOverview from "./pages/mobile/MobileFinancialOverview";
 import MobilePaymentRequestsList from "./pages/mobile/MobilePaymentRequestsList";
+import MobileUserManagement from "./pages/mobile/MobileUserManagement";
+import MobilePermissionManagement from "./pages/mobile/MobilePermissionManagement";
 
 const queryClient = new QueryClient();
 
@@ -287,13 +289,13 @@ const App = () => (
 
             <Route path="/m/settings/users" element={
               <ProtectedRoute requiredRoles={['admin']}>
-                <MobileLayout><UserManagement /></MobileLayout>
+                <MobileUserManagement />
               </ProtectedRoute>
             } />
 
             <Route path="/m/settings/permissions" element={
               <ProtectedRoute requiredRoles={['admin']}>
-                <MobileLayout><PermissionManagement /></MobileLayout>
+                <MobilePermissionManagement />
               </ProtectedRoute>
             } />
 
