@@ -27,15 +27,15 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const action = url.pathname.split('/').pop();
+    const body = await req.json();
+    const action = body.action;
 
     if (action === 'submit') {
       // 提交审批申请
-      return await submitApproval(req);
+      return await submitApproval(body);
     } else if (action === 'callback') {
       // 处理审批回调
-      return await handleApprovalCallback(req);
+      return await handleApprovalCallback(body);
     } else {
       throw new Error('无效的操作');
     }
@@ -51,7 +51,7 @@ serve(async (req) => {
   }
 });
 
-async function submitApproval(req: Request) {
+async function submitApproval(body: any) {
   const { 
     payment_request_id, 
     applicant_userid, 
@@ -60,7 +60,7 @@ async function submitApproval(req: Request) {
     description,
     corpId,
     agentId 
-  }: ApprovalRequest & { corpId: string; agentId: string } = await req.json();
+  } = body;
 
   console.log('提交企业微信审批:', { payment_request_id, amount, description });
 
@@ -160,19 +160,12 @@ async function submitApproval(req: Request) {
   });
 }
 
-async function handleApprovalCallback(req: Request) {
+async function handleApprovalCallback(body: any) {
   // 处理企业微信审批结果回调
-  const body = await req.text();
   console.log('收到审批回调:', body);
 
-  // 解析XML格式的回调数据
-  // 这里需要根据企业微信的回调格式来解析
-  // 通常包含审批单号(sp_no)和审批结果(approve_status)
-  
-  // 简化处理，实际应用中需要完整的XML解析
-  const approvalData = JSON.parse(body); // 假设已经解析为JSON
-  
-  const { sp_no, approve_status } = approvalData;
+  // 解析审批回调数据
+  const { sp_no, approve_status } = body;
   
   // 更新付款申请状态
   let newStatus = 'pending_approval';
@@ -186,7 +179,7 @@ async function handleApprovalCallback(req: Request) {
     .from('payment_requests')
     .update({
       status: newStatus,
-      approval_result: approvalData,
+      approval_result: body,
       updated_at: new Date().toISOString()
     })
     .eq('work_wechat_sp_no', sp_no);

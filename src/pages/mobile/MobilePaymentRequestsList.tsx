@@ -5,8 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, FileSpreadsheet, Receipt, Eye, AlertCircle } from 'lucide-react';
-import { PaymentApproval } from '@/components/PaymentApproval';
+import { Loader2, FileSpreadsheet, Receipt, Eye, AlertCircle, Send } from 'lucide-react';
+import { MobilePaymentApproval } from '@/components/mobile/MobilePaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
@@ -51,6 +51,7 @@ export default function MobilePaymentRequestsList() {
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
   const [modalContentLoading, setModalContentLoading] = useState(false);
   const [partnerTotals, setPartnerTotals] = useState<PartnerTotal[]>([]);
+  const [showApprovalPage, setShowApprovalPage] = useState<PaymentRequest | null>(null);
 
   const fetchPaymentRequests = useCallback(async () => {
     setLoading(true);
@@ -216,6 +217,27 @@ export default function MobilePaymentRequestsList() {
   const formatCurrency = (value: number) => 
     value.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' });
 
+  const handleApprovalClick = (req: PaymentRequest) => {
+    setShowApprovalPage(req);
+  };
+
+  // 如果显示审批页面，渲染 MobilePaymentApproval
+  if (showApprovalPage) {
+    return (
+      <MobilePaymentApproval
+        paymentRequestId={showApprovalPage.id}
+        amount={partnerTotals.reduce((sum, pt) => sum + pt.total_amount, 0)}
+        description={`付款申请单 ${showApprovalPage.request_id} - ${showApprovalPage.record_count} 条运单`}
+        onApprovalSubmitted={() => {
+          fetchPaymentRequests();
+          setShowApprovalPage(null);
+          toast({ title: "提交成功", description: "企业微信审批已提交" });
+        }}
+        onBack={() => setShowApprovalPage(null)}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <MobileLayout>
@@ -302,15 +324,15 @@ export default function MobilePaymentRequestsList() {
 
                   {req.status === 'Pending' && (
                     <div className="pt-2 border-t border-border">
-                      <PaymentApproval
-                        paymentRequestId={req.id}
-                        amount={partnerTotals.reduce((sum, pt) => sum + pt.total_amount, 0)}
-                        description={`付款申请单 ${req.request_id} - ${req.record_count} 条运单`}
-                        onApprovalSubmitted={() => {
-                          fetchPaymentRequests();
-                          toast({ title: "提交成功", description: "企业微信审批已提交" });
-                        }}
-                      />
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="w-full flex items-center gap-2"
+                        onClick={() => handleApprovalClick(req)}
+                      >
+                        <Send className="h-4 w-4" />
+                        企业微信审批
+                      </Button>
                     </div>
                   )}
                 </CardContent>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { CheckCircle, Clock, XCircle, Send } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, Send, AlertTriangle } from 'lucide-react';
 
 interface PaymentApprovalProps {
   paymentRequestId: string;
@@ -15,6 +15,8 @@ interface PaymentApprovalProps {
   onApprovalSubmitted?: () => void;
 }
 
+type ApprovalStatus = 'pending_approval' | 'approved' | 'rejected' | 'pending' | null;
+
 export function PaymentApproval({ 
   paymentRequestId, 
   amount, 
@@ -22,11 +24,36 @@ export function PaymentApproval({
   onApprovalSubmitted 
 }: PaymentApprovalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(null);
+  const [workWechatSpNo, setWorkWechatSpNo] = useState<string | null>(null);
   const { profile } = useAuth();
 
-  const corpId = import.meta.env.VITE_WORK_WECHAT_CORPID;
-  const agentId = import.meta.env.VITE_WORK_WECHAT_AGENTID;
+  // 获取支付请求状态
+  const fetchPaymentRequestStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('payment_requests')
+        .select('status, work_wechat_sp_no')
+        .eq('id', paymentRequestId)
+        .single();
+
+      if (error) {
+        console.error('获取支付请求状态失败:', error);
+        return;
+      }
+
+      if (data) {
+        setApprovalStatus(data.status as ApprovalStatus);
+        setWorkWechatSpNo(data.work_wechat_sp_no);
+      }
+    } catch (error) {
+      console.error('获取支付请求状态错误:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchPaymentRequestStatus();
+  }, [paymentRequestId]);
 
   // 提交企业微信审批
   const handleSubmitApproval = async () => {
@@ -37,30 +64,32 @@ export function PaymentApproval({
 
     setIsSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('work-wechat-approval/submit', {
+      const { data, error } = await supabase.functions.invoke('work-wechat-approval', {
         body: {
+          action: 'submit',
           payment_request_id: paymentRequestId,
           applicant_userid: profile.work_wechat_userid,
           approver_userid: 'admin', // 这里应该根据实际业务逻辑确定审批人
           amount,
           description,
-          corpId,
-          agentId
+          corpId: 'wwd2e97593b6b963cf', // 从环境变量或配置获取
+          agentId: '1000002' // 从环境变量或配置获取
         }
       });
 
       if (error) {
         console.error('提交审批失败:', error);
-        toast.error('提交审批失败');
+        toast.error(`提交审批失败: ${error.message}`);
         return;
       }
 
-      if (data.success) {
-        setApprovalStatus('pending');
+      if (data?.success) {
+        setApprovalStatus('pending_approval');
+        setWorkWechatSpNo(data.sp_no);
         toast.success('审批申请已提交到企业微信');
         onApprovalSubmitted?.();
       } else {
-        toast.error('提交审批失败');
+        toast.error(data?.message || '提交审批失败');
       }
 
     } catch (error) {
@@ -73,8 +102,8 @@ export function PaymentApproval({
 
   const getStatusIcon = () => {
     switch (approvalStatus) {
-      case 'pending':
-        return <Clock className="h-4 w-4" />;
+      case 'pending_approval':
+        return <Clock className="h-4 w-4 text-amber-500" />;
       case 'approved':
         return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'rejected':
@@ -86,37 +115,44 @@ export function PaymentApproval({
 
   const getStatusText = () => {
     switch (approvalStatus) {
-      case 'pending':
+      case 'pending_approval':
         return '审批中';
       case 'approved':
         return '已通过';
       case 'rejected':
         return '已拒绝';
+      case 'pending':
+        return '待审批';
       default:
         return '待提交';
     }
   };
 
-  const getStatusColor = () => {
+  const getStatusVariant = () => {
     switch (approvalStatus) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+      case 'pending_approval':
+        return 'secondary';
       case 'approved':
-        return 'bg-green-100 text-green-800';
+        return 'default';
       case 'rejected':
-        return 'bg-red-100 text-red-800';
+        return 'destructive';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'outline';
     }
+  };
+
+  const shouldShowSubmitButton = () => {
+    return !approvalStatus || approvalStatus === 'pending' || approvalStatus === 'rejected';
   };
 
   return (
     <Dialog>
       <DialogTrigger asChild>
         <Button 
-          variant="outline" 
+          variant={approvalStatus && approvalStatus !== 'pending' ? "default" : "outline"}
+          size="sm"
           className="flex items-center gap-2"
-          disabled={approvalStatus === 'pending'}
+          disabled={approvalStatus === 'pending_approval'}
         >
           {getStatusIcon()}
           企业微信审批
@@ -126,7 +162,7 @@ export function PaymentApproval({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             企业微信审批
-            <Badge className={getStatusColor()}>
+            <Badge variant={getStatusVariant()}>
               {getStatusText()}
             </Badge>
           </DialogTitle>
@@ -163,41 +199,65 @@ export function PaymentApproval({
               <div className="space-y-2">
                 <h4 className="text-sm font-medium">审批流程</h4>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-primary rounded-full"></div>
                   提交申请人: {profile?.full_name || '当前用户'}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-secondary rounded-full"></div>
                   审批人: 财务负责人
                 </div>
+                {workWechatSpNo && (
+                  <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+                    <AlertTriangle className="h-3 w-3" />
+                    审批单号: {workWechatSpNo}
+                  </div>
+                )}
               </div>
             </div>
 
-            {approvalStatus ? (
-              <div className={`p-3 rounded-lg ${
-                approvalStatus === 'approved' ? 'bg-green-50 border border-green-200' :
-                approvalStatus === 'rejected' ? 'bg-red-50 border border-red-200' :
-                'bg-yellow-50 border border-yellow-200'
-              }`}>
-                <div className="flex items-center gap-2">
-                  {getStatusIcon()}
-                  <span className="text-sm font-medium">
-                    审批状态: {getStatusText()}
-                  </span>
-                </div>
-                {approvalStatus === 'pending' && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    请在企业微信中查看审批进度
-                  </p>
-                )}
-              </div>
+            {approvalStatus && !shouldShowSubmitButton() ? (
+              <Card className="border-l-4 border-l-primary">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    {getStatusIcon()}
+                    <span className="text-sm font-medium">
+                      审批状态: {getStatusText()}
+                    </span>
+                  </div>
+                  {approvalStatus === 'pending_approval' && (
+                    <p className="text-xs text-muted-foreground">
+                      请在企业微信中查看审批进度，或联系审批人处理
+                    </p>
+                  )}
+                  {approvalStatus === 'approved' && (
+                    <p className="text-xs text-green-600 font-medium">
+                      审批已通过，付款申请已进入下一流程
+                    </p>
+                  )}
+                  {approvalStatus === 'rejected' && (
+                    <p className="text-xs text-red-600 font-medium">
+                      审批已拒绝，可重新修改后提交
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
             ) : (
               <Button 
                 onClick={handleSubmitApproval}
                 disabled={isSubmitting || !profile?.work_wechat_userid}
                 className="w-full"
               >
-                {isSubmitting ? '提交中...' : '提交企业微信审批'}
+                {isSubmitting ? (
+                  <>
+                    <Clock className="mr-2 h-4 w-4 animate-spin" />
+                    提交中...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    提交企业微信审批
+                  </>
+                )}
               </Button>
             )}
 
