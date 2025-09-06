@@ -30,10 +30,13 @@ const MENU_PERMISSION_MAP = {
   '/m/scale-records': 'business.scale_records',
   '/m/payment-request': 'business.payment_request',
   '/m/payment-requests-list': 'business.payment_list',
+  '/m/payment-requests-management': 'business.payment_list',
   
   // 财务对账
   '/finance/reconciliation': 'finance.reconciliation',
   '/finance/payment-invoice': 'finance.payment_invoice',
+  '/m/finance/reconciliation': 'finance.reconciliation',
+  '/m/finance/payment-invoice': 'finance.payment_invoice',
   
   // 设置
   '/settings/users': 'settings.users',
