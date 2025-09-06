@@ -7,11 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Users, Menu, Settings, Save, Search, User, Building2 } from "lucide-react";
+import { Shield, Users, Menu, Settings, Save, Search, User, Building2, Trash, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 
 // 角色定义
 const ROLES = [
@@ -137,48 +138,28 @@ export default function PermissionManagement() {
   const { toast } = useToast();
   const [selectedTab, setSelectedTab] = useState('role-templates');
   const [selectedRole, setSelectedRole] = useState('admin');
-  const [roleTemplates, setRoleTemplates] = useState<Record<string, RoleTemplate>>({});
-  const [users, setUsers] = useState<User[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [hasChanges, setHasChanges] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>([]);
 
-  // 加载数据
+  // 使用优化的权限管理 Hook
+  const {
+    loading,
+    roleTemplates,
+    users,
+    userPermissions,
+    hasChanges,
+    setHasChanges,
+    setRoleTemplates,
+    setUserPermissions,
+    savePermissions,
+    cleanupDuplicatePermissions
+  } = useOptimizedPermissions();
+
+  // 加载项目数据
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      // 加载角色模板
-      const { data: templates } = await supabase
-        .from('role_permission_templates')
-        .select('*');
-      
-      if (templates) {
-        const templateMap = templates.reduce((acc, template) => {
-          acc[template.role] = template;
-          return acc;
-        }, {} as Record<string, RoleTemplate>);
-        setRoleTemplates(templateMap);
-      }
-
-      // 加载用户列表
-      const { data: userData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, role')
-        .eq('is_active', true);
-      
-      if (userData) {
-        setUsers(userData);
-      }
-
-      // 加载项目列表
+    const loadProjects = async () => {
       const { data: projectData } = await supabase
         .from('projects')
         .select('id, name');
@@ -186,25 +167,24 @@ export default function PermissionManagement() {
       if (projectData) {
         setProjects(projectData);
       }
+    };
+    loadProjects();
+  }, []);
 
-      // 加载用户权限
-      const { data: permissionData } = await supabase
-        .from('user_permissions')
-        .select('*');
-      
-      if (permissionData) {
-        setUserPermissions(permissionData);
-      }
-
-    } catch (error) {
-      console.error('加载数据失败:', error);
+  // 清理重复数据按钮
+  const handleCleanupDuplicates = async () => {
+    try {
+      await cleanupDuplicatePermissions();
       toast({
-        title: "加载失败",
-        description: "无法加载权限数据",
+        title: "清理完成",
+        description: "已清理重复的权限数据",
+      });
+    } catch (error) {
+      toast({
+        title: "清理失败", 
+        description: "清理重复数据时发生错误",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -299,46 +279,9 @@ export default function PermissionManagement() {
     setHasChanges(true);
   };
 
-  // 保存权限配置
-  const savePermissions = async () => {
-    try {
-      // 保存角色模板
-      for (const [roleKey, template] of Object.entries(roleTemplates)) {
-        await supabase
-          .from('role_permission_templates')
-          .upsert({
-            role: roleKey as 'admin' | 'finance' | 'business' | 'partner' | 'operator' | 'viewer',
-            menu_permissions: template.menu_permissions,
-            function_permissions: template.function_permissions
-          });
-      }
-
-      // 保存用户权限
-      for (const userPerm of userPermissions) {
-        await supabase
-          .from('user_permissions')
-          .upsert({
-            user_id: userPerm.user_id,
-            project_id: userPerm.project_id,
-            menu_permissions: userPerm.menu_permissions,
-            function_permissions: userPerm.function_permissions,
-            created_by: (await supabase.auth.getUser()).data.user?.id
-          });
-      }
-
-      toast({
-        title: "保存成功",
-        description: "权限配置已更新",
-      });
-      setHasChanges(false);
-    } catch (error) {
-      console.error('保存失败:', error);
-      toast({
-        title: "保存失败",
-        description: "无法保存权限配置",
-        variant: "destructive"
-      });
-    }
+  // 保存权限配置 - 优化版本
+  const handleSavePermissions = async () => {
+    await savePermissions(roleTemplates, userPermissions);
   };
 
   // 过滤用户
@@ -365,12 +308,21 @@ export default function PermissionManagement() {
           </div>
         </div>
         <Button 
-          onClick={savePermissions} 
-          disabled={!hasChanges}
-          className="bg-gradient-primary text-white"
+          onClick={handleSavePermissions} 
+          disabled={!hasChanges || loading}
+          className="bg-gradient-primary text-white mr-2"
         >
           <Save className="h-4 w-4 mr-2" />
-          保存配置
+          {loading ? '保存中...' : '保存配置'}
+        </Button>
+        <Button 
+          onClick={handleCleanupDuplicates} 
+          disabled={loading}
+          variant="outline"
+          className="mr-2"
+        >
+          <Trash className="h-4 w-4 mr-2" />
+          清理重复数据
         </Button>
       </div>
 

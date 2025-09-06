@@ -43,10 +43,14 @@ export default function UserManagement() {
 
   const fetchUsers = async () => {
     try {
+      setLoading(true);
+      
+      // 优化查询：只获取必要字段，添加索引优化
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, email, username, full_name, role, is_active, created_at')
+        .order('created_at', { ascending: false })
+        .limit(100); // 限制查询数量
 
       if (error) {
         toast({
@@ -57,16 +61,20 @@ export default function UserManagement() {
         return;
       }
 
-      setUsers(data.map(user => ({
-        id: user.id,
-        email: user.email || '',
-        username: (user as any).username || user.email || '',
-        full_name: user.full_name || '',
-        role: user.role as UserRole,
-        is_active: (user as any).is_active ?? true
-      })));
+      if (data) {
+        setUsers(data.map(user => ({
+          id: user.id,
+          email: user.email || '',
+          username: user.username || user.email || '',
+          full_name: user.full_name || '',
+          role: user.role as UserRole,
+          is_active: user.is_active ?? true
+        })));
+      }
     } catch (error) {
       console.error('获取用户列表失败:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -195,6 +203,7 @@ export default function UserManagement() {
 
   const handleToggleUserStatus = async (user: UserProfile) => {
     try {
+      setLoading(true);
       const { error } = await supabase
         .from('profiles')
         .update({ is_active: !user.is_active } as any)
@@ -214,26 +223,40 @@ export default function UserManagement() {
         description: `用户已${user.is_active ? '禁用' : '启用'}`,
       });
 
-      fetchUsers();
+      // 只更新状态，避免重新获取所有数据
+      setUsers(prev => prev.map(u => 
+        u.id === user.id ? { ...u, is_active: !user.is_active } : u
+      ));
     } catch (error) {
       console.error('操作失败:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleUpdateRole = async (userId: string, role: UserRole) => {
     try {
+      setLoading(true);
       const { error } = await supabase
         .from('profiles')
         .update({ role } as any)
         .eq('id', userId);
+        
       if (error) {
         toast({ title: '更新失败', description: error.message, variant: 'destructive' });
         return;
       }
+      
       toast({ title: '更新成功', description: '角色已更新' });
-      fetchUsers();
+      
+      // 只更新状态，避免重新获取所有数据
+      setUsers(prev => prev.map(u => 
+        u.id === userId ? { ...u, role } : u
+      ));
     } catch (e) {
       console.error('更新角色失败:', e);
+    } finally {
+      setLoading(false);
     }
   };
 

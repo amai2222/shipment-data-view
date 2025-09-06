@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -59,6 +59,10 @@ export function useMenuPermissions(): MenuPermissions {
   const [functionPermissions, setFunctionPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 缓存权限数据
+  const permissionsCache = useRef<Map<string, { menu: string[], function: string[], timestamp: number }>>(new Map());
+  const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
+
   useEffect(() => {
     if (!profile?.id) {
       setMenuPermissions([]);
@@ -68,7 +72,7 @@ export function useMenuPermissions(): MenuPermissions {
     }
 
     loadUserPermissions();
-  }, [profile?.id]);
+  }, [profile?.id, profile?.role]);
 
   const loadUserPermissions = async () => {
     if (!profile?.id) return;
@@ -76,17 +80,35 @@ export function useMenuPermissions(): MenuPermissions {
     try {
       setLoading(true);
 
-      // 1. 首先获取用户特定权限（优先级最高）
+      // 检查缓存
+      const cacheKey = `${profile.id}_${profile.role}`;
+      const cached = permissionsCache.current.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        setMenuPermissions(cached.menu);
+        setFunctionPermissions(cached.function);
+        setLoading(false);
+        return;
+      }
+
+      // 1. 首先获取用户特定权限（优先级最高）- 只查询最新的一条
       const { data: userPerms } = await supabase
         .from('user_permissions')
         .select('menu_permissions, function_permissions')
         .eq('user_id', profile.id)
         .is('project_id', null) // 全局权限
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (userPerms) {
-        setMenuPermissions(userPerms.menu_permissions || []);
-        setFunctionPermissions(userPerms.function_permissions || []);
+        const permissions = {
+          menu: userPerms.menu_permissions || [],
+          function: userPerms.function_permissions || [],
+          timestamp: Date.now()
+        };
+        permissionsCache.current.set(cacheKey, permissions);
+        setMenuPermissions(permissions.menu);
+        setFunctionPermissions(permissions.function);
         setLoading(false);
         return;
       }
@@ -99,13 +121,25 @@ export function useMenuPermissions(): MenuPermissions {
         .single();
 
       if (roleTemplate) {
-        setMenuPermissions(roleTemplate.menu_permissions || []);
-        setFunctionPermissions(roleTemplate.function_permissions || []);
+        const permissions = {
+          menu: roleTemplate.menu_permissions || [],
+          function: roleTemplate.function_permissions || [],
+          timestamp: Date.now()
+        };
+        permissionsCache.current.set(cacheKey, permissions);
+        setMenuPermissions(permissions.menu);
+        setFunctionPermissions(permissions.function);
       } else {
         // 3. 如果没有角色模板，根据角色设置默认权限
         const defaultPermissions = getDefaultPermissionsByRole(profile.role);
-        setMenuPermissions(defaultPermissions.menu);
-        setFunctionPermissions(defaultPermissions.function);
+        const permissions = {
+          menu: defaultPermissions.menu,
+          function: defaultPermissions.function,
+          timestamp: Date.now()
+        };
+        permissionsCache.current.set(cacheKey, permissions);
+        setMenuPermissions(permissions.menu);
+        setFunctionPermissions(permissions.function);
       }
 
     } catch (error) {
