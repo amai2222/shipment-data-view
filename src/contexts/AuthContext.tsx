@@ -1,10 +1,12 @@
 // 文件路径: src/contexts/AuthContext.tsx
-// 这是修复后的完整代码，请直接替换
+// 描述: 这是修复后的完整代码，signIn 函数已集成设备感知重定向逻辑。
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom'; // ★★★ 1. 导入 useNavigate
+import { isMobile } from '@/utils/device'; // ★★★ 2. 导入设备检测工具
 
 // 定义用户角色类型，确保类型安全
 export type UserRole = 'admin' | 'finance' | 'business' | 'partner' | 'operator' | 'viewer';
@@ -29,7 +31,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   session: Session | null;
   loading: boolean;
-  signIn: (usernameOrEmail: string, password: string) => Promise<{ error?: string }>;
+  signIn: (usernameOrEmail: string, password:string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   switchUser: (usernameOrEmail: string, password: string) => Promise<{ error?: string }>;
   hasPermission: (requiredRoles: UserRole[]) => boolean;
@@ -43,13 +45,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true); // 初始状态为true
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate(); // ★★★ 3. 获取 navigate 函数
 
-  // 【【【核心修复逻辑在这里】】】
   useEffect(() => {
-    // onAuthStateChange 在订阅时会立即触发一次，返回当前会话
-    // 这一个监听器就足以处理所有认证状态的检查和变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
@@ -89,54 +89,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }, 0);
         } else {
-          // 如果没有用户，清空profile
           setProfile(null);
           setLoading(false);
         }
       }
     );
 
-    // 在组件卸载时，取消订阅
     return () => {
       subscription.unsubscribe();
     };
-  }, []); // 空依赖数组确保这个effect只在组件挂载时运行一次
+  }, []);
 
+  // ★★★ 4. 修改 signIn 函数以处理重定向
   const signIn = async (usernameOrEmail: string, password: string) => {
     try {
       setLoading(true);
+      let loginError: string | undefined;
 
       if (!usernameOrEmail.includes('@')) {
-        // Secure path: call edge function to avoid exposing emails via RPC
         const { data, error } = await supabase.functions.invoke('username-login', {
           body: { username: usernameOrEmail, password }
         });
         if (error || !data?.access_token || !data?.refresh_token) {
-          return { error: '用户名或密码错误' };
+          loginError = '用户名或密码错误';
+        } else {
+          const { access_token, refresh_token } = data as any;
+          const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
+          if (setErr) {
+            loginError = '登录失败，请重试';
+          }
         }
-        const { access_token, refresh_token } = data as any;
-        const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
-        if (setErr) {
-          return { error: '登录失败，请重试' };
+      } else {
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: usernameOrEmail,
+          password,
+        });
+        if (authError) {
+          loginError = '用户名或密码错误';
         }
-        return {};
       }
 
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: usernameOrEmail,
-        password,
-      });
-
-      if (authError) {
-        return { error: '用户名或密码错误' };
+      // ★★★ 5. 登录成功或失败后的统一处理
+      if (loginError) {
+        setLoading(false); // 登录失败，停止加载
+        return { error: loginError };
       }
 
-      return {};
+      // 登录成功！onAuthStateChange 会处理后续状态，我们在这里处理导航
+      if (isMobile()) {
+        navigate('/m/', { replace: true }); // 移动设备跳转到移动端首页
+      } else {
+        navigate('/', { replace: true }); // 桌面设备跳转到桌面端首页
+      }
+
+      return {}; // 返回成功
     } catch (error) {
       console.error('登录失败:', error);
+      setLoading(false);
       return { error: '登录过程中发生未知错误，请稍后重试' };
-    } finally {
-      // 登录成功由 onAuthStateChange 处理 loading 状态
     }
   };
 
@@ -145,11 +155,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       toast({ title: "登出失败", description: error.message, variant: "destructive" });
     }
+    // onAuthStateChange 会处理用户状态变化，并由 ProtectedRoute 自动导航到 /auth
   };
 
   const switchUser = async (usernameOrEmail: string, password: string) => {
     try {
       await signOut();
+      // signOut后，ProtectedRoute会自动导航到/auth，signIn不需要再导航
+      // 但为了体验流畅，我们直接调用signIn，它内部的导航会覆盖之前的跳转
       return await signIn(usernameOrEmail, password);
     } catch (error) {
       console.error('切换用户失败:', error);
