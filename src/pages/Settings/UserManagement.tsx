@@ -18,6 +18,7 @@ interface CreateUserData {
   full_name: string;
   role: UserRole;
   password: string;
+  work_wechat_userid?: string;
 }
 
 export default function UserManagement() {
@@ -31,7 +32,8 @@ export default function UserManagement() {
     username: '',
     full_name: '',
     role: 'operator',
-    password: ''
+    password: '',
+    work_wechat_userid: ''
   });
   const [newPassword, setNewPassword] = useState('');
   const { toast } = useToast();
@@ -48,7 +50,7 @@ export default function UserManagement() {
       // 优化查询：只获取必要字段，添加索引优化
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, username, full_name, role, is_active, created_at')
+        .select('id, email, username, full_name, role, is_active, created_at, work_wechat_userid')
         .order('created_at', { ascending: false })
         .limit(100); // 限制查询数量
 
@@ -68,7 +70,8 @@ export default function UserManagement() {
           username: user.username || user.email || '',
           full_name: user.full_name || '',
           role: user.role as UserRole,
-          is_active: user.is_active ?? true
+          is_active: user.is_active ?? true,
+          work_wechat_userid: user.work_wechat_userid
         })));
       }
     } catch (error) {
@@ -119,7 +122,8 @@ export default function UserManagement() {
           .update({
             username: createUserData.username,
             full_name: createUserData.full_name,
-            role: createUserData.role
+            role: createUserData.role,
+            work_wechat_userid: createUserData.work_wechat_userid || null
           } as any)
           .eq('id', authData.user.id);
 
@@ -139,7 +143,8 @@ export default function UserManagement() {
         username: '',
         full_name: '',
         role: 'operator',
-        password: ''
+        password: '',
+        work_wechat_userid: ''
       });
       fetchUsers();
     } catch (error) {
@@ -160,7 +165,8 @@ export default function UserManagement() {
       username: '',
       full_name: user.full_name,
       role: user.role,
-      password: ''
+      password: '',
+      work_wechat_userid: user.work_wechat_userid || ''
     });
     setIsCreateDialogOpen(true);
   };
@@ -345,6 +351,15 @@ export default function UserManagement() {
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="work_wechat_userid">企业微信UserID（可选）</Label>
+                <Input
+                  id="work_wechat_userid"
+                  value={createUserData.work_wechat_userid || ''}
+                  onChange={(e) => setCreateUserData(prev => ({ ...prev, work_wechat_userid: e.target.value }))}
+                  placeholder="请输入企业微信UserID"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="password">密码</Label>
                 <Input
                   id="password"
@@ -379,6 +394,7 @@ export default function UserManagement() {
                 <TableHead>邮箱</TableHead>
                 <TableHead>姓名</TableHead>
                 <TableHead>角色</TableHead>
+                <TableHead>企业微信</TableHead>
                 <TableHead>状态</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
@@ -406,6 +422,15 @@ export default function UserManagement() {
                         <SelectItem value="viewer">查看组</SelectItem>
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell>
+                    {user.work_wechat_userid ? (
+                      <Badge variant="secondary" className="text-xs">
+                        已关联
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">未关联</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={user.is_active ? 'default' : 'secondary'}>

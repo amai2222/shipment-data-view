@@ -20,6 +20,7 @@ export interface UserProfile {
   work_wechat_userid?: string;
   work_wechat_department?: number[];
   avatar_url?: string;
+  created_at?: string;
 }
 
 // 定义AuthContext的类型，明确提供给子组件的属性和方法
