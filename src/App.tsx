@@ -1,5 +1,5 @@
 // 文件路径: src/App.tsx
-// 描述: [qZpSO-Final] 已集成新的两级项目看板路由
+// 描述: [qZpSO-Final] 已集成新的两级项目看板路由，并调整了 Provider 结构以修复移动端重定向问题。
 
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -57,11 +57,12 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+    {/* 关键改动：将 BrowserRouter 包裹在 AuthProvider 外层 */}
+    <BrowserRouter>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
           <MobileRedirect>
             <Routes>
             {/* --- 公开路由 --- */}
@@ -323,9 +324,9 @@ const App = () => (
             <Route path="*" element={<NotFoundWithStaticFileCheck />} />
           </Routes>
           </MobileRedirect>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+        </TooltipProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 
