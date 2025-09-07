@@ -40,6 +40,7 @@ import ProjectDashboard from "./pages/ProjectDashboard"; // 改造后的详情�
 // 移动端页面导入
 import MobileHome from "./pages/mobile/MobileHome";
 import MobileBusinessEntry from "./pages/mobile/MobileBusinessEntry";
+import MobileBusinessEntryForm from "./pages/mobile/MobileBusinessEntryForm";
 import MobileProjectDashboard from "./pages/mobile/MobileProjectDashboard";
 import MobileScaleRecords from "./pages/mobile/MobileScaleRecords";
 import MobileDrivers from "./pages/mobile/MobileDrivers";
@@ -195,6 +196,18 @@ const App = () => (
             <Route path="/m/business-entry" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
                 <MobileLayout><MobileBusinessEntry /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/business-entry/new" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+                <MobileLayout><MobileBusinessEntryForm /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/business-entry/edit/:id" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+                <MobileLayout><MobileBusinessEntryForm /></MobileLayout>
               </ProtectedRoute>
             } />
 
