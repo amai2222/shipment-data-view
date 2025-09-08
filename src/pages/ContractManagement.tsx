@@ -72,9 +72,6 @@ export default function ContractManagement() {
     original?: File;
     attachment?: File;
   }>({});
-  
-  // 新增状态：用于跟踪正在打开的文件，以显示加载状态
-  const [openingFile, setOpeningFile] = useState<string | null>(null);
 
   const { toast } = useToast();
   const { 
@@ -278,46 +275,6 @@ export default function ContractManagement() {
     });
   };
 
-  // 新增函数：通过代理安全地打开文件
-  const handleOpenFile = async (fileUrl: string, contractId: string) => {
-    const fileIdentifier = `${contractId}-${fileUrl}`;
-    setOpeningFile(fileIdentifier); // 开始加载，用于UI反馈
-
-    try {
-      // 构建指向我们自己后端代理的URL
-      const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pdf-proxy?url=${encodeURIComponent(fileUrl)}`;
-      
-      const response = await fetch(proxyUrl);
-
-      if (!response.ok) {
-        throw new Error(`代理请求失败: ${response.statusText}`);
-      }
-
-      // 将返回的文件内容转换成Blob对象
-      const blob = await response.blob();
-
-      // 创建一个临时的、在浏览器内存中的URL
-      const blobUrl = URL.createObjectURL(blob);
-
-      // 在新标签页中打开这个安全的、同源的URL
-      // 浏览器会根据Blob的Content-Type自动决定是显示（PDF）还是下载（Word/Excel等）
-      window.open(blobUrl, '_blank');
-
-      // 稍后释放内存，确保新标签页有足够时间加载
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-
-    } catch (error) {
-      console.error("打开文件时出错:", error);
-      toast({
-        title: "错误",
-        description: "打开文件失败，请检查网络或稍后重试。",
-        variant: "destructive",
-      });
-    } finally {
-      setOpeningFile(null); // 结束加载
-    }
-  };
-
   const getCategoryBadgeVariant = (category: string) => {
     switch (category) {
       case '行政合同': return 'secondary';
@@ -343,7 +300,7 @@ export default function ContractManagement() {
               <DialogTitle>新增合同</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* 表单内容保持不变 */}
+              {/* 表单内容 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="category">合同分类 *</Label>
@@ -521,7 +478,7 @@ export default function ContractManagement() {
         </Dialog>
       </div>
 
-      {/* 筛选区域保持不变 */}
+      {/* 筛选区域 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -648,40 +605,26 @@ export default function ContractManagement() {
                       {contract.contract_amount ? `¥${contract.contract_amount.toLocaleString()}` : '-'}
                     </TableCell>
                     <TableCell>
-                      {/* 修改：使用新的代理函数打开文件 */}
+                      {/* 修改：恢复到直接打开链接 */}
                       <div className="flex gap-2">
                         {contract.contract_original_url && (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleOpenFile(contract.contract_original_url!, contract.id)}
-                            disabled={openingFile === `${contract.id}-${contract.contract_original_url}`}
+                            onClick={() => window.open(contract.contract_original_url, '_blank')}
                           >
-                            {openingFile === `${contract.id}-${contract.contract_original_url}` ? (
-                              '打开中...'
-                            ) : (
-                              <>
-                                <FileText className="h-3 w-3 mr-1" />
-                                原件
-                              </>
-                            )}
+                            <FileText className="h-3 w-3 mr-1" />
+                            原件
                           </Button>
                         )}
                         {contract.attachment_url && (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleOpenFile(contract.attachment_url!, contract.id)}
-                            disabled={openingFile === `${contract.id}-${contract.attachment_url}`}
+                            onClick={() => window.open(contract.attachment_url, '_blank')}
                           >
-                            {openingFile === `${contract.id}-${contract.attachment_url}` ? (
-                              '打开中...'
-                            ) : (
-                              <>
-                                <Download className="h-3 w-3 mr-1" />
-                                附件
-                              </>
-                            )}
+                            <Download className="h-3 w-3 mr-1" />
+                            附件
                           </Button>
                         )}
                       </div>
