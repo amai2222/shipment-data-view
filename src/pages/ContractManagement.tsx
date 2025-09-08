@@ -493,13 +493,16 @@ export default function ContractManagement() {
               <Label>合同分类</Label>
               <Select
                 value={uiFilters.category}
-                onValueChange={(value) => setUiFilters(prev => ({ ...prev, category: value }))}
+                onValueChange={(value) => {
+                  const newCategory = value === 'all' ? '' : value;
+                  setUiFilters(prev => ({ ...prev, category: newCategory }));
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择分类" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部</SelectItem>
+                  <SelectItem value="all">全部</SelectItem>
                   <SelectItem value="行政合同">行政合同</SelectItem>
                   <SelectItem value="内部合同">内部合同</SelectItem>
                   <SelectItem value="业务合同">业务合同</SelectItem>
@@ -526,7 +529,7 @@ export default function ContractManagement() {
             </div>
 
             <div>
-              <Label>开始日期</Label>
+              <Label>开始日期</Label>              
               <Input
                 type="date"
                 value={uiFilters.start_date}
