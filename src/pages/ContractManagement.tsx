@@ -132,8 +132,8 @@ export default function ContractManagement() {
 
     if (selectedFiles.original) {
       const originalFile = selectedFiles.original;
-      const fileExtension = originalFile.name.split('.').pop();
-      const fileName = `${contractData.counterparty_company}-${contractData.our_company}-原件.${fileExtension}`;
+      // 修改：只构造不带后缀的基础文件名
+      const customFileName = `${contractData.counterparty_company}-${contractData.our_company}-原件`;
       
       const reader = new FileReader();
       const fileData = await new Promise<string>((resolve) => {
@@ -147,12 +147,12 @@ export default function ContractManagement() {
       const { data, error } = await supabase.functions.invoke('qiniu-upload', {
         body: {
           files: [{
-            fileName: originalFile.name,
+            fileName: originalFile.name, // 后端会从这里获取后缀
             fileData: fileData
           }],
           namingParams: {
             projectName: 'hetong',
-            customName: fileName
+            customName: customFileName // 修改：传递不带后缀的自定义名称
           }
         }
       });
@@ -164,8 +164,8 @@ export default function ContractManagement() {
 
     if (selectedFiles.attachment) {
       const attachmentFile = selectedFiles.attachment;
-      const fileExtension = attachmentFile.name.split('.').pop();
-      const fileName = `${contractData.counterparty_company}-${contractData.our_company}-附件.${fileExtension}`;
+      // 修改：只构造不带后缀的基础文件名
+      const customFileName = `${contractData.counterparty_company}-${contractData.our_company}-附件`;
       
       const reader = new FileReader();
       const fileData = await new Promise<string>((resolve) => {
@@ -179,12 +179,12 @@ export default function ContractManagement() {
       const { data, error } = await supabase.functions.invoke('qiniu-upload', {
         body: {
           files: [{
-            fileName: attachmentFile.name,
+            fileName: attachmentFile.name, // 后端会从这里获取后缀
             fileData: fileData
           }],
           namingParams: {
             projectName: 'hetong',
-            customName: fileName
+            customName: customFileName // 修改：传递不带后缀的自定义名称
           }
         }
       });
@@ -611,7 +611,10 @@ export default function ContractManagement() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => window.open(contract.contract_original_url, '_blank')}
+                            onClick={() => {
+                              console.log('尝试打开原件URL:', contract.contract_original_url);
+                              window.open(contract.contract_original_url, '_blank');
+                            }}
                           >
                             <FileText className="h-3 w-3 mr-1" />
                             原件
@@ -621,7 +624,10 @@ export default function ContractManagement() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => window.open(contract.attachment_url, '_blank')}
+                            onClick={() => {
+                              console.log('尝试打开附件URL:', contract.attachment_url);
+                              window.open(contract.attachment_url, '_blank');
+                            }}
                           >
                             <Download className="h-3 w-3 mr-1" />
                             附件
