@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
 
 interface DashboardStats {
   totalRecords: number;
@@ -63,91 +64,86 @@ const quickActions = [
 ];
 
 export default function MobileHome() {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalRecords: 0,
-    todayRecords: 0,
-    totalWeight: 0,
-    todayWeight: 0,
-    totalCost: 0,
-    todayCost: 0,
-    activeProjects: 0,
-    pendingPayments: 0
-  });
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
+    queryKey: ['mobileHomeStats'],
+    queryFn: async () => {
       const today = new Date();
-      const startOfToday = startOfDay(today);
-      const endOfToday = endOfDay(today);
+      const startOfToday = startOfDay(today).toISOString();
+      const endOfToday = endOfDay(today).toISOString();
 
-      // 获取运输记录统计
-      const { data: allRecords, error: recordsError } = await supabase
-        .from('logistics_records')
-        .select('loading_weight, unloading_weight, current_cost, extra_cost, driver_payable_cost, loading_date');
+      const [
+        rpcAgg,
+        todayQuery,
+        activeProjectsCount,
+        pendingPaymentsCount,
+        totalRecordsCount
+      ] = await Promise.all([
+        supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
+          p_start_date: '1970-01-01',
+          p_end_date: new Date().toISOString().split('T')[0],
+          p_project_id: null
+        }),
+        supabase
+          .from('logistics_records')
+          .select('loading_weight, driver_payable_cost', { count: 'exact' })
+          .gte('loading_date', startOfToday)
+          .lte('loading_date', endOfToday),
+        supabase
+          .from('projects')
+          .select('id', { count: 'exact', head: true })
+          .eq('project_status', '进行中'),
+        supabase
+          .from('payment_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'Pending'),
+        supabase
+          .from('logistics_records')
+          .select('id', { count: 'exact', head: true })
+      ]);
 
-      if (recordsError) throw recordsError;
+      const rpcData: any = (rpcAgg as any).data || {};
+      const overview = rpcData.overview || {};
+      const totalQuantityByType = rpcData.totalQuantityByType || {};
 
-      // 获取今日记录
-      const { data: todayRecords, error: todayError } = await supabase
-        .from('logistics_records')
-        .select('loading_weight, unloading_weight, current_cost, extra_cost, driver_payable_cost')
-        .gte('loading_date', startOfToday.toISOString())
-        .lte('loading_date', endOfToday.toISOString());
+      const todayData = (todayQuery as any).data as Array<{ loading_weight: number | null; driver_payable_cost: number | null }> | null;
+      const todayCount = (todayQuery as any).count as number | null;
 
-      if (todayError) throw todayError;
+      const todayWeight = (todayData || []).reduce((sum, r) => sum + (r.loading_weight || 0), 0);
+      const todaysCost = (todayData || []).reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0);
 
-      // 获取活跃项目数
-      const { data: projects, error: projectsError } = await supabase
-        .from('projects')
-        .select('id')
-        .eq('project_status', '进行中');
+      const activeProjects = (activeProjectsCount as any).count || 0;
+      const pendingPayments = (pendingPaymentsCount as any).count || 0;
+      const totalRecords = (totalRecordsCount as any).count || (overview.totalRecords ?? 0);
 
-      if (projectsError) throw projectsError;
+      const totalWeight = Number(totalQuantityByType?.['1'] || 0);
+      const totalCost = Number(overview.totalCost || 0);
 
-      // 获取待处理付款申请
-      const { data: pendingPayments, error: paymentsError } = await supabase
-        .from('payment_requests')
-        .select('id')
-        .eq('status', 'Pending');
-
-      if (paymentsError) throw paymentsError;
-
-      // 计算统计数据
-      const totalWeight = allRecords?.reduce((sum, record) => sum + (record.loading_weight || 0), 0) || 0;
-      const todayWeight = todayRecords?.reduce((sum, record) => sum + (record.loading_weight || 0), 0) || 0;
-      const totalCost = allRecords?.reduce((sum, record) => sum + (record.driver_payable_cost || 0), 0) || 0;
-      const todaysCost = todayRecords?.reduce((sum, record) => sum + (record.driver_payable_cost || 0), 0) || 0;
-
-      setStats({
-        totalRecords: allRecords?.length || 0,
-        todayRecords: todayRecords?.length || 0,
+      return {
+        totalRecords,
+        todayRecords: todayCount || 0,
         totalWeight,
         todayWeight,
         totalCost,
         todayCost: todaysCost,
-        activeProjects: projects?.length || 0,
-        pendingPayments: pendingPayments?.length || 0
-      });
-
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
+        activeProjects,
+        pendingPayments
+      } as DashboardStats;
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+    onError: () => {
       toast({
         title: "加载失败",
         description: "无法加载仪表板数据",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  });
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('zh-CN', {
@@ -160,7 +156,7 @@ export default function MobileHome() {
     return `${value.toFixed(1)}吨`;
   };
 
-  if (loading) {
+  if (isLoading || !stats) {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
