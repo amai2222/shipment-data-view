@@ -187,26 +187,17 @@ export default function MobileProjectDashboard() {
   // 图表相关 memo/回调（避免在条件渲染中调用 Hooks）
   // 注意：依赖 unitConfig 的 memo 放在 unitConfig 定义之后
 
-  // 新：司机排行（后端排序）
-  const { data: driverRows } = useQuery({
-    queryKey: ['projectDriverRanking', projectId, reportDate.getTime(), driverSortKey, driverSortAsc],
-    queryFn: async () => {
-      if (!projectId) return [] as any[];
-      const { data, error } = await supabase.rpc('get_project_driver_ranking' as any, {
-        p_project_id: projectId,
-        p_report_date: format(reportDate, 'yyyy-MM-dd'),
-        p_sort: driverSortKey,
-        p_order: driverSortAsc ? 'asc' : 'desc',
-        p_limit: 500,
-        p_offset: 0,
-      });
-      if (error) throw error;
-      return (data as any[]) || [];
-    },
-    enabled: !!projectId,
-    staleTime: 2 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+  // 司机列表改为前端排序（不调用排行 RPC）
+  const sortedDriverRows = useMemo(() => {
+    const rows = dashboardData?.driver_report_table || [];
+    const getVal = (key: 'daily' | 'total' | 'amount', r: any) =>
+      key === 'daily' ? r.daily_trip_count : key === 'total' ? r.total_trip_count : r.total_driver_receivable;
+    const sorted = [...rows].sort((a, b) => {
+      const diff = getVal(driverSortKey, b) - getVal(driverSortKey, a);
+      return driverSortAsc ? -diff : diff;
+    });
+    return sorted;
+  }, [dashboardData, driverSortKey, driverSortAsc]);
 
   // 趋势图进入视区后再渲染
   useEffect(() => {
@@ -608,14 +599,14 @@ export default function MobileProjectDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            {(driverRows?.length ?? 0) > 0 ? (
+            {(sortedDriverRows.length > 0) ? (
               <div className="space-y-3">
                 <List
-                  height={Math.min(400, Math.max(200, (driverRows?.length || 0) * 84))}
-                  itemCount={driverRows?.length || 0}
+                  height={Math.min(400, Math.max(200, sortedDriverRows.length * 84))}
+                  itemCount={sortedDriverRows.length}
                   itemSize={84}
                   width={'100%'}
-                  itemData={{ rows: driverRows, unit: unitConfig.unit, billingTypeId: unitConfig.billingTypeId }}
+                  itemData={{ rows: sortedDriverRows, unit: unitConfig.unit, billingTypeId: unitConfig.billingTypeId }}
                 >
                   {({ index, style, data }: ListChildComponentProps) => {
                     const driver = (data as any).rows[index] as DriverReportRow;
