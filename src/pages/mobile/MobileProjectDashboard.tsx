@@ -184,6 +184,21 @@ export default function MobileProjectDashboard() {
     refetchOnWindowFocus: false,
   });
 
+  // 图表相关 memo/回调（避免在条件渲染中调用 Hooks）
+  const trendSeries = useMemo(() => (trendData || []) as any[], [trendData]);
+  const chartMargin = useMemo(() => ({ top: 8, right: 8, left: 8, bottom: 8 }), []);
+  const tooltipStyle = useMemo(() => ({
+    backgroundColor: 'hsl(var(--background))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: '6px'
+  }), []);
+  const tooltipFormatter = useCallback((value: number, name: string) => [
+    `${Number(value).toLocaleString()} ${
+      name === '车次' ? '车' : name === '数量' ? unitConfig.unit : '元'
+    }`,
+    name
+  ], [unitConfig.unit]);
+
   // 新：司机排行（后端排序）
   const { data: driverRows } = useQuery({
     queryKey: ['projectDriverRanking', projectId, reportDate.getTime(), driverSortKey, driverSortAsc],
@@ -475,8 +490,8 @@ export default function MobileProjectDashboard() {
               {showTrend && (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart 
-                    data={trendData || []}
-                    margin={useMemo(() => ({ top: 8, right: 8, left: 8, bottom: 8 }), [])}
+                    data={trendSeries}
+                    margin={chartMargin}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis 
@@ -499,20 +514,7 @@ export default function MobileProjectDashboard() {
                         tickFormatter={(v) => `¥${Number(v).toLocaleString()}`}
                       />
                     )}
-                    <Tooltip 
-                      formatter={useCallback((value: number, name: string) => [
-                        `${Number(value).toLocaleString()} ${
-                          name === '车次' ? '车' : 
-                          name === '数量' ? unitConfig.unit : '元'
-                        }`, 
-                        name
-                      ], [unitConfig.unit])}
-                      contentStyle={useMemo(() => ({
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '6px'
-                      }), [])}
-                    />
+                    <Tooltip formatter={tooltipFormatter} contentStyle={tooltipStyle} />
                     <Legend wrapperStyle={{ paddingTop: 8 }} />
                     {showWeight && (
                       <Line 
