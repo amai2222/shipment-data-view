@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -31,12 +31,15 @@ import {
   CartesianGrid,
   RadialBarChart, 
   RadialBar, 
-  PolarAngleAxis
+  PolarAngleAxis,
+  Legend
 } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { MobileCard } from '@/components/mobile/MobileCard';
+import { useQuery } from '@tanstack/react-query';
+import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 
 // 类型定义
 interface ProjectDetails { 
@@ -129,39 +132,94 @@ const CircularProgressChart = ({ value }: { value: number }) => {
 export default function MobileProjectDashboard() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [visibleDrivers, setVisibleDrivers] = useState<number>(10);
   const { toast } = useToast();
   const [reportDate, setReportDate] = useState<Date>(new Date());
+  const trendRef = useRef<HTMLDivElement | null>(null);
+  const [showTrend, setShowTrend] = useState<boolean>(false);
+  const [showTrips, setShowTrips] = useState<boolean>(true);
+  const [showWeight, setShowWeight] = useState<boolean>(true);
+  const [showReceivable, setShowReceivable] = useState<boolean>(false);
+  const [useDualAxis, setUseDualAxis] = useState<boolean>(true);
+  const [smoothLines, setSmoothLines] = useState<boolean>(true);
+  const [driverSortKey, setDriverSortKey] = useState<'daily' | 'total' | 'amount'>('total');
+  const [driverSortAsc, setDriverSortAsc] = useState<boolean>(false);
+  const [trendDays, setTrendDays] = useState<number>(7);
 
+  // React Query 缓存与请求
+  const { data: dashboardData, isLoading } = useQuery<DashboardData>({
+    queryKey: ['mobileProjectDashboard', projectId, format(reportDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      if (!projectId) throw new Error('缺少项目ID');
+      const { data, error } = await supabase.rpc('get_project_dashboard_data' as any, {
+        p_selected_project_id: projectId,
+        p_report_date: format(reportDate, 'yyyy-MM-dd')
+      });
+      if (error) throw error;
+      return data as unknown as DashboardData;
+    },
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+    onError: (e: any) => {
+      toast({ title: '错误', description: `加载看板数据失败: ${e?.message || ''}`, variant: 'destructive' });
+    }
+  });
+
+  // 新：按区间获取趋势（后端聚合）
+  const { data: trendData } = useQuery({
+    queryKey: ['projectTrendByRange', projectId, trendDays],
+    queryFn: async () => {
+      if (!projectId) return [] as any[];
+      const { data, error } = await supabase.rpc('get_project_trend_by_range' as any, {
+        p_project_id: projectId,
+        p_days: trendDays
+      });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  // 新：司机排行（后端排序）
+  const { data: driverRows } = useQuery({
+    queryKey: ['projectDriverRanking', projectId, reportDate.getTime(), driverSortKey, driverSortAsc],
+    queryFn: async () => {
+      if (!projectId) return [] as any[];
+      const { data, error } = await supabase.rpc('get_project_driver_ranking' as any, {
+        p_project_id: projectId,
+        p_report_date: format(reportDate, 'yyyy-MM-dd'),
+        p_sort: driverSortKey,
+        p_order: driverSortAsc ? 'asc' : 'desc',
+        p_limit: 500,
+        p_offset: 0,
+      });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!projectId,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  // 趋势图进入视区后再渲染
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true);
-      try {
-        if (!projectId) {
-          console.warn("URL中未提供项目ID");
-          setLoading(false);
-          return;
+    if (showTrend) return; // 已显示
+    const el = trendRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          setShowTrend(true);
         }
-        const { data, error } = await supabase.rpc('get_project_dashboard_data' as any, {
-          p_selected_project_id: projectId,
-          p_report_date: format(reportDate, 'yyyy-MM-dd')
-        });
-        if (error) throw error;
-        setDashboardData(data as unknown as DashboardData);
-      } catch (error) {
-        console.error("加载看板数据失败:", error);
-        toast({ 
-          title: "错误", 
-          description: `加载看板数据失败: ${(error as any).message}`, 
-          variant: "destructive" 
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDashboardData();
-  }, [projectId, reportDate, toast]);
+      });
+    }, { root: null, threshold: 0.1 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [trendRef, showTrend]);
 
   const allProjects = dashboardData?.project_details || [];
   const selectedProjectDetails = useMemo(() => 
@@ -192,7 +250,7 @@ export default function MobileProjectDashboard() {
     ? (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100 
     : 0;
 
-  if (loading) {
+  if (isLoading) {
     return (
       <MobileLayout>
         <div className="flex justify-center items-center h-64">
@@ -263,6 +321,19 @@ export default function MobileProjectDashboard() {
             <div>
               <p className="text-sm font-medium">{selectedProjectDetails.name}</p>
               <p className="text-xs text-muted-foreground">{selectedProjectDetails.partner_name}</p>
+            </div>
+            <div className="mt-2">
+              <Select defaultValue="7" onValueChange={(v) => {
+                setTrendDays(parseInt(v, 10));
+                setShowTrend(true);
+              }}>
+                <SelectTrigger className="h-8 w-[100px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">近7天</SelectItem>
+                  <SelectItem value="14">近14天</SelectItem>
+                  <SelectItem value="30">近30天</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -378,112 +449,203 @@ export default function MobileProjectDashboard() {
           </CardContent>
         </MobileCard>
 
-        {/* 7日趋势图 */}
+        {/* 7日趋势图（进入视区后再渲染） */}
         <MobileCard>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center text-base">
               <TrendingUp className="mr-2 h-4 w-4 text-primary" />
               近7日趋势
             </CardTitle>
+            <div className="mt-2 flex items-center gap-2">
+              <Button size="sm" variant={showTrips ? "default" : "outline"} onClick={() => setShowTrips(v => !v)}>车次</Button>
+              <Button size="sm" variant={showWeight ? "default" : "outline"} onClick={() => setShowWeight(v => !v)}>数量</Button>
+              <Button size="sm" variant={showReceivable ? "default" : "outline"} onClick={() => setShowReceivable(v => !v)}>金额</Button>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <Button size="sm" variant={useDualAxis ? "default" : "outline"} onClick={() => setUseDualAxis(v => !v)}>
+                {useDualAxis ? '双轴' : '单轴'}
+              </Button>
+              <Button size="sm" variant={smoothLines ? "default" : "outline"} onClick={() => setSmoothLines(v => !v)}>
+                {smoothLines ? '平滑' : '折线'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart 
-                  data={dashboardData.seven_day_trend} 
-                  margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fontSize: 10 }}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 10 }}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <Tooltip 
-                    formatter={(value: number, name: string) => [
-                      `${value.toLocaleString()} ${
-                        name === '车次' ? '车' : 
-                        name === '数量' ? unitConfig.unit : '元'
-                      }`, 
-                      name
-                    ]}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="weight" 
-                    name="数量" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="trips" 
-                    name="车次" 
-                    stroke="hsl(var(--secondary))" 
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <div ref={trendRef} className="h-64">
+              {showTrend && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart 
+                    data={trendData || []}
+                    margin={useMemo(() => ({ top: 8, right: 8, left: 8, bottom: 8 }), [])}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 10 }}
+                      stroke="hsl(var(--muted-foreground))"
+                      minTickGap={12}
+                    />
+                    <YAxis 
+                      yAxisId="left"
+                      tick={{ fontSize: 10 }}
+                      stroke="#94a3b8"
+                    />
+                    {useDualAxis && (
+                      <YAxis 
+                        yAxisId="right"
+                        orientation="right"
+                        tick={{ fontSize: 10 }}
+                        stroke="#94a3b8"
+                        tickFormatter={(v) => `¥${Number(v).toLocaleString()}`}
+                      />
+                    )}
+                    <Tooltip 
+                      formatter={useCallback((value: number, name: string) => [
+                        `${Number(value).toLocaleString()} ${
+                          name === '车次' ? '车' : 
+                          name === '数量' ? unitConfig.unit : '元'
+                        }`, 
+                        name
+                      ], [unitConfig.unit])}
+                      contentStyle={useMemo(() => ({
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }), [])}
+                    />
+                    <Legend wrapperStyle={{ paddingTop: 8 }} />
+                    {showWeight && (
+                      <Line 
+                        type={smoothLines ? "monotone" : "linear"}
+                        dataKey="weight" 
+                        name="数量" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                        yAxisId="left"
+                      />
+                    )}
+                    {showTrips && (
+                      <Line 
+                        type={smoothLines ? "monotone" : "linear"}
+                        dataKey="trips" 
+                        name="车次" 
+                        stroke="#10b981" 
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                        yAxisId="left"
+                      />
+                    )}
+                    {showReceivable && (
+                      <Line 
+                        type={smoothLines ? "monotone" : "linear"}
+                        dataKey="receivable" 
+                        name="金额" 
+                        stroke="#f59e0b" 
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                        yAxisId={useDualAxis ? "right" : "left"}
+                      />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </MobileCard>
 
-        {/* 司机工作量 */}
+        {/* 司机工作量（排序 + 虚拟滚动 + 导出） */}
         <MobileCard>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center text-base">
               <Users className="mr-2 h-4 w-4 text-primary" />
               司机工作量
             </CardTitle>
+            <div className="mt-2 flex items-center gap-2">
+              <Select value={driverSortKey} onValueChange={(v) => setDriverSortKey(v as any)}>
+                <SelectTrigger className="h-8 w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">按今日车次</SelectItem>
+                  <SelectItem value="total">按总车次</SelectItem>
+                  <SelectItem value="amount">按司机应收</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button size="sm" variant="outline" onClick={() => setDriverSortAsc(v => !v)}>{driverSortAsc ? '升序' : '降序'}</Button>
+              <Button size="sm" onClick={() => {
+                const rows = [...dashboardData.driver_report_table].sort((a, b) => {
+                  const val = (key: 'daily' | 'total' | 'amount', r: any) => key === 'daily' ? r.daily_trip_count : key === 'total' ? r.total_trip_count : r.total_driver_receivable;
+                  const diff = val(driverSortKey, b) - val(driverSortKey, a);
+                  return driverSortAsc ? -diff : diff;
+                });
+                const header = ['司机','车牌','电话','今日车次','总车次','总运量','司机应收'];
+                const csv = [header.join(',')].concat(
+                  rows.map(r => [
+                    r.driver_name,
+                    r.license_plate || '',
+                    r.phone || '',
+                    r.daily_trip_count,
+                    r.total_trip_count,
+                    r.total_tonnage,
+                    r.total_driver_receivable
+                  ].join(','))
+                ).join('\n');
+                const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `司机排行_${format(reportDate, 'yyyy-MM-dd')}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}>导出CSV</Button>
+            </div>
           </CardHeader>
           <CardContent>
-            {dashboardData.driver_report_table.length > 0 ? (
+            {(driverRows?.length ?? 0) > 0 ? (
               <div className="space-y-3">
-                {dashboardData.driver_report_table.map((driver, index) => (
-                  <div key={driver.driver_name} className="p-3 bg-muted/50 rounded-lg space-y-2">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium text-sm">{driver.driver_name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {driver.license_plate || 'N/A'} • {driver.phone || 'N/A'}
-                        </p>
+                <List
+                  height={Math.min(400, Math.max(200, (driverRows?.length || 0) * 84))}
+                  itemCount={driverRows?.length || 0}
+                  itemSize={84}
+                  width={'100%'}
+                  itemData={{ rows: driverRows, unit: unitConfig.unit, billingTypeId: unitConfig.billingTypeId }}
+                >
+                  {({ index, style, data }: ListChildComponentProps) => {
+                    const driver = (data as any).rows[index] as DriverReportRow;
+                    const unit = (data as any).unit as string;
+                    const billingTypeId = (data as any).billingTypeId as number;
+                    return (
+                      <div style={style} className="p-2">
+                        <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium text-sm">{driver.driver_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {driver.license_plate || 'N/A'} • {driver.phone || 'N/A'}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold">今日: {driver.daily_trip_count}车</p>
+                              <p className="text-xs text-muted-foreground">总计: {driver.total_trip_count}车</p>
+                            </div>
+                          </div>
+                          {billingTypeId !== 2 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">运输量</span>
+                              <span>{formatNumber(driver.total_tonnage, unit)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">司机应收</span>
+                            <span className="text-green-600 font-medium">{formatNumber(driver.total_driver_receivable, '元')}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold">
-                          今日: {driver.daily_trip_count}车
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          总计: {driver.total_trip_count}车
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {unitConfig.billingTypeId !== 2 && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">运输量</span>
-                        <span>{formatNumber(driver.total_tonnage, unitConfig.unit)}</span>
-                      </div>
-                    )}
-                    
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">司机应收</span>
-                      <span className="text-green-600 font-medium">
-                        {formatNumber(driver.total_driver_receivable, '元')}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  }}
+                </List>
               </div>
             ) : (
               <p className="text-center text-muted-foreground py-4">暂无司机数据</p>
