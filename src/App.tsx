@@ -32,6 +32,7 @@ import PaymentRequestsList from "./pages/PaymentRequestsList";
 import UserManagement from "./pages/Settings/UserManagement";
 import PermissionManagement from "./pages/Settings/PermissionManagement";
 import ScaleRecords from "./pages/ScaleRecords";
+import ContractManagement from "./pages/ContractManagement";
 
 // ★★★ 1. 导入我们新创建的两个页面 ★★★
 import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
@@ -52,6 +53,7 @@ import MobilePaymentRequestsList from "./pages/mobile/MobilePaymentRequestsList"
 import MobileUserManagement from "./pages/mobile/MobileUserManagement";
 import MobilePermissionManagement from "./pages/mobile/MobilePermissionManagement";
 import MobilePaymentRequestsManagement from "./pages/mobile/MobilePaymentRequestsManagement";
+import MobileContractManagement from "./pages/mobile/MobileContractManagement";
 
 const queryClient = new QueryClient();
 
@@ -187,6 +189,12 @@ const App = () => (
               </ProtectedRoute>
             } />
             
+            <Route path="/contracts" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+                <AppLayout><ContractManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
             {/* --- 移动端路由 --- */}
             <Route path="/m/" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
@@ -317,6 +325,12 @@ const App = () => (
             <Route path="/m/settings/permissions" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <MobilePermissionManagement />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/contracts" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+                <MobileContractManagement />
               </ProtectedRoute>
             } />
 

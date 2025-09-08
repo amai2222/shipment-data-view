@@ -38,6 +38,54 @@ export type Database = {
         }
         Relationships: []
       }
+      contracts: {
+        Row: {
+          attachment_url: string | null
+          category: Database["public"]["Enums"]["contract_category"]
+          contract_amount: number | null
+          contract_original_url: string | null
+          counterparty_company: string
+          created_at: string | null
+          end_date: string
+          id: string
+          our_company: string
+          remarks: string | null
+          start_date: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          attachment_url?: string | null
+          category: Database["public"]["Enums"]["contract_category"]
+          contract_amount?: number | null
+          contract_original_url?: string | null
+          counterparty_company: string
+          created_at?: string | null
+          end_date: string
+          id?: string
+          our_company: string
+          remarks?: string | null
+          start_date: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          attachment_url?: string | null
+          category?: Database["public"]["Enums"]["contract_category"]
+          contract_amount?: number | null
+          contract_original_url?: string | null
+          counterparty_company?: string
+          created_at?: string | null
+          end_date?: string
+          id?: string
+          our_company?: string
+          remarks?: string | null
+          start_date?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       driver_projects: {
         Row: {
           created_at: string
@@ -2095,6 +2143,7 @@ export type Database = {
         | "partner"
         | "operator"
         | "viewer"
+      contract_category: "行政合同" | "内部合同" | "业务合同"
     }
     CompositeTypes: {
       dashboard_data_type_v2: {
@@ -2318,6 +2367,7 @@ export const Constants = {
         "operator",
         "viewer",
       ],
+      contract_category: ["行政合同", "内部合同", "业务合同"],
     },
   },
 } as const

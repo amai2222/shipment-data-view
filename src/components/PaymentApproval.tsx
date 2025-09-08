@@ -125,7 +125,7 @@ export function PaymentApproval({
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, work_wechat_userid')
-        .in('role', ['admin', 'finance', 'approver']) // 增加了 'approver' 角色
+        .in('role', ['admin', 'finance']) // 只包含有效角色
         .not('work_wechat_userid', 'is', null);
 
       if (error) {

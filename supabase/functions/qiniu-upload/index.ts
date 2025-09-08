@@ -65,21 +65,35 @@ serve(async (req) => {
     if (!files || !Array.isArray(files) || files.length === 0) {
       throw new Error('Files array is required and cannot be empty.')
     }
-    if (!namingParams || !namingParams.projectName || !namingParams.date || !namingParams.licensePlate || !namingParams.tripNumber) {
-        throw new Error('namingParams object with projectName, date, licensePlate, and tripNumber is required.')
+    
+    // 支持两种命名模式：磅单和合同
+    const isContractUpload = namingParams?.projectName === 'hetong'
+    if (!isContractUpload && (!namingParams || !namingParams.projectName || !namingParams.date || !namingParams.licensePlate || !namingParams.tripNumber)) {
+        throw new Error('For scale records: namingParams object with projectName, date, licensePlate, and tripNumber is required.')
+    }
+    if (isContractUpload && (!namingParams || !namingParams.customName)) {
+        throw new Error('For contracts: namingParams object with customName is required.')
     }
 
     const uploadedUrls: string[] = []
     
     for (const [index, file] of files.entries()) {
       const { fileName, fileData } = file
-      const { projectName, date, licensePlate, tripNumber } = namingParams;
+      let qiniuKey: string
       
-      const folderName = `${projectName}-${date}-${licensePlate}-第${tripNumber}车次`;
-      const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
-      const newFileName = `${projectName}-${date}-${licensePlate}-第${tripNumber}车次-${index + 1}${fileExtension}`;
-      
-      const qiniuKey = `scale/${folderName}/${newFileName}`;
+      if (isContractUpload) {
+        // 合同文件命名
+        const { customName } = namingParams
+        const fileExtension = fileName.substring(fileName.lastIndexOf('.'))
+        qiniuKey = `hetong/${customName}${fileExtension}`
+      } else {
+        // 磅单文件命名（原有逻辑）
+        const { projectName, date, licensePlate, tripNumber } = namingParams
+        const folderName = `${projectName}-${date}-${licensePlate}-第${tripNumber}车次`
+        const fileExtension = fileName.substring(fileName.lastIndexOf('.'))
+        const newFileName = `${projectName}-${date}-${licensePlate}-第${tripNumber}车次-${index + 1}${fileExtension}`
+        qiniuKey = `scale/${folderName}/${newFileName}`
+      }
 
       const putPolicy = {
         scope: `${QINIU_BUCKET}:${qiniuKey}`,
