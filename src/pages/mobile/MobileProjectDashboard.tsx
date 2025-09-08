@@ -185,19 +185,7 @@ export default function MobileProjectDashboard() {
   });
 
   // 图表相关 memo/回调（避免在条件渲染中调用 Hooks）
-  const trendSeries = useMemo(() => (trendData || []) as any[], [trendData]);
-  const chartMargin = useMemo(() => ({ top: 8, right: 8, left: 8, bottom: 8 }), []);
-  const tooltipStyle = useMemo(() => ({
-    backgroundColor: 'hsl(var(--background))',
-    border: '1px solid hsl(var(--border))',
-    borderRadius: '6px'
-  }), []);
-  const tooltipFormatter = useCallback((value: number, name: string) => [
-    `${Number(value).toLocaleString()} ${
-      name === '车次' ? '车' : name === '数量' ? unitConfig.unit : '元'
-    }`,
-    name
-  ], [unitConfig.unit]);
+  // 注意：依赖 unitConfig 的 memo 放在 unitConfig 定义之后
 
   // 新：司机排行（后端排序）
   const { data: driverRows } = useQuery({
@@ -264,6 +252,21 @@ export default function MobileProjectDashboard() {
   const progressPercentage = (unitConfig.progressPlanned > 0) 
     ? (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100 
     : 0;
+
+  // 现在再定义与 unitConfig 相关的 memo/回调，避免“Cannot access before initialization”
+  const trendSeries = useMemo(() => (trendData || []) as any[], [trendData]);
+  const chartMargin = useMemo(() => ({ top: 8, right: 8, left: 8, bottom: 8 }), []);
+  const tooltipStyle = useMemo(() => ({
+    backgroundColor: 'hsl(var(--background))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: '6px'
+  }), []);
+  const tooltipFormatter = useCallback((value: number, name: string) => [
+    `${Number(value).toLocaleString()} ${
+      name === '车次' ? '车' : name === '数量' ? unitConfig.unit : '元'
+    }`,
+    name
+  ], [unitConfig.unit]);
 
   if (isLoading) {
     return (
