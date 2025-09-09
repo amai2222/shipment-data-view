@@ -136,7 +136,7 @@ export default function MobileProjectDashboard() {
   const { toast } = useToast();
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const trendRef = useRef<HTMLDivElement | null>(null);
-  const [showTrend, setShowTrend] = useState<boolean>(false);
+  const [showTrend, setShowTrend] = useState<boolean>(true);
   const [showTrips, setShowTrips] = useState<boolean>(true);
   const [showWeight, setShowWeight] = useState<boolean>(true);
   const [showReceivable, setShowReceivable] = useState<boolean>(false);
