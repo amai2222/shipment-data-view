@@ -172,7 +172,6 @@ export default function MobileProjectDashboard() {
     queryKey: ['projectTrendByRange', projectId, trendDays],
     queryFn: async () => {
       if (!projectId) return [] as any[];
-      console.log('调用新 RPC，项目ID:', projectId, '天数:', trendDays);
       const { data, error } = await supabase.rpc('get_project_trend_by_range' as any, {
         p_project_id: projectId,
         p_days: trendDays
@@ -181,7 +180,6 @@ export default function MobileProjectDashboard() {
         console.error('新 RPC 调用失败:', error);
         return [];
       }
-      console.log('新 RPC 返回数据:', data);
       return (data as any[]) || [];
     },
     enabled: !!projectId,
@@ -253,14 +251,11 @@ export default function MobileProjectDashboard() {
   const trendSeries = useMemo(() => {
     // 优先使用新 RPC 数据，如果为空则回退到原始数据
     if (trendData && trendData.length > 0) {
-      console.log('使用新 RPC 趋势数据:', trendData);
       return trendData as any[];
     }
     // 回退到原始 seven_day_trend，并截取指定天数
     const fallbackData = dashboardData?.seven_day_trend || [];
-    const slicedData = fallbackData.slice(-trendDays);
-    console.log('使用回退趋势数据:', slicedData, '原始数据长度:', fallbackData.length);
-    return slicedData as any[];
+    return fallbackData.slice(-trendDays) as any[];
   }, [trendData, dashboardData, trendDays]);
   const chartMargin = useMemo(() => ({ top: 8, right: 8, left: 8, bottom: 8 }), []);
   const tooltipStyle = useMemo(() => ({
@@ -493,32 +488,12 @@ export default function MobileProjectDashboard() {
               <Button size="sm" variant={smoothLines ? "default" : "outline"} onClick={() => setSmoothLines(v => !v)}>
                 {smoothLines ? '平滑' : '折线'}
               </Button>
-              <Button size="sm" variant="outline" onClick={() => {
-                console.log('手动检查数据:', {
-                  projectId,
-                  trendDays,
-                  trendData,
-                  trendSeries,
-                  dashboardData: dashboardData?.seven_day_trend
-                });
-              }}>
-                调试
-              </Button>
             </div>
           </CardHeader>
           <CardContent>
             <div ref={trendRef} className="h-64">
-              {console.log('趋势图状态检查:', {
-                showTrend,
-                trendData: trendData?.length || 0,
-                trendSeries: trendSeries?.length || 0,
-                trendLoading,
-                trendError,
-                dashboardData: dashboardData?.seven_day_trend?.length || 0
-              })}
               {showTrend && (
                 <>
-                  {console.log('趋势图渲染 - showTrend:', showTrend, 'trendSeries长度:', trendSeries.length, '数据:', trendSeries)}
                   {trendSeries.length === 0 && (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
                       暂无趋势数据
