@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DirectConfirmDialog } from '@/components/ConfirmDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, Plus, Search, Filter, Download } from 'lucide-react';
+import { Upload, FileText, Plus, Search, Filter, Download, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Contract {
@@ -42,8 +44,12 @@ export default function MobileContractManagement() {
   const [showForm, setShowForm] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [selectedContracts, setSelectedContracts] = useState<Set<string>>(new Set());
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
   const [formData, setFormData] = useState<ContractFormData>({
     category: '业务合同',
     start_date: '',
@@ -247,6 +253,56 @@ export default function MobileContractManagement() {
     }
   };
 
+  const handleSelectContract = (contractId: string, checked: boolean) => {
+    const newSelected = new Set(selectedContracts);
+    if (checked) {
+      newSelected.add(contractId);
+    } else {
+      newSelected.delete(contractId);
+    }
+    setSelectedContracts(newSelected);
+  };
+
+  const handleToggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    if (selectionMode) {
+      setSelectedContracts(new Set());
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedContracts.size === 0) return;
+
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('contracts')
+        .delete()
+        .in('id', Array.from(selectedContracts));
+
+      if (error) throw error;
+
+      toast({
+        title: "成功",
+        description: `已删除 ${selectedContracts.size} 个合同`,
+      });
+
+      setSelectedContracts(new Set());
+      setShowDeleteDialog(false);
+      setSelectionMode(false);
+      loadContracts();
+    } catch (error) {
+      console.error('Error deleting contracts:', error);
+      toast({
+        title: "错误",
+        description: "删除合同失败",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const filteredContracts = contracts.filter(contract => {
     const matchesSearch = !searchTerm || 
       contract.counterparty_company.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -261,14 +317,57 @@ export default function MobileContractManagement() {
         <div className="flex items-center justify-between p-4">
           <h1 className="text-xl font-bold">合同管理</h1>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="h-4 w-4" />
-            </Button>
-            <Dialog open={showForm} onOpenChange={setShowForm}>
+            {selectedContracts.size > 0 ? (
+              <>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowDeleteDialog(true)}
+                  disabled={deleting}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleToggleSelectionMode}
+                >
+                  取消 ({selectedContracts.size})
+                </Button>
+              </>
+            ) : (
+              <>
+                {selectionMode && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleToggleSelectionMode}
+                  >
+                    取消选择
+                  </Button>
+                )}
+                {!selectionMode && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleToggleSelectionMode}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowFilters(!showFilters)}
+                    >
+                      <Filter className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </>
+            )}
+            {!selectionMode && (
+              <Dialog open={showForm} onOpenChange={setShowForm}>
               <DialogTrigger asChild>
                 <Button size="sm">
                   <Plus className="h-4 w-4" />
@@ -459,6 +558,7 @@ export default function MobileContractManagement() {
                 </form>
               </DialogContent>
             </Dialog>
+            )}
           </div>
         </div>
 
@@ -502,7 +602,15 @@ export default function MobileContractManagement() {
           </div>
         ) : (
           filteredContracts.map((contract) => (
-            <Card key={contract.id}>
+            <Card key={contract.id} className="relative">
+              {selectionMode && (
+                <div className="absolute top-2 right-2">
+                  <Checkbox
+                    checked={selectedContracts.has(contract.id)}
+                    onCheckedChange={(checked) => handleSelectContract(contract.id, checked as boolean)}
+                  />
+                </div>
+              )}
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
@@ -572,6 +680,15 @@ export default function MobileContractManagement() {
           ))
         )}
       </div>
+
+      <DirectConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="确认删除"
+        description={`确定要删除选中的 ${selectedContracts.size} 个合同吗？此操作不可撤销。`}
+        onConfirm={handleBatchDelete}
+        loading={deleting}
+      />
     </div>
   );
 }

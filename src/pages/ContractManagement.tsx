@@ -8,10 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DirectConfirmDialog } from '@/components/ConfirmDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useFilterState } from '@/hooks/useFilterState';
-import { Upload, Search, FileText, Filter, Plus, Download } from 'lucide-react';
+import { Upload, Search, FileText, Filter, Plus, Download, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Contract {
@@ -59,6 +61,9 @@ export default function ContractManagement() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [selectedContracts, setSelectedContracts] = useState<Set<string>>(new Set());
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [formData, setFormData] = useState<ContractFormData>({
     category: '业务合同',
     start_date: '',
@@ -284,18 +289,83 @@ export default function ContractManagement() {
     }
   };
 
+  const handleSelectContract = (contractId: string, checked: boolean) => {
+    const newSelected = new Set(selectedContracts);
+    if (checked) {
+      newSelected.add(contractId);
+    } else {
+      newSelected.delete(contractId);
+    }
+    setSelectedContracts(newSelected);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = contracts.map(contract => contract.id);
+      setSelectedContracts(new Set(allIds));
+    } else {
+      setSelectedContracts(new Set());
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedContracts.size === 0) return;
+
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('contracts')
+        .delete()
+        .in('id', Array.from(selectedContracts));
+
+      if (error) throw error;
+
+      toast({
+        title: "成功",
+        description: `已删除 ${selectedContracts.size} 个合同`,
+      });
+
+      setSelectedContracts(new Set());
+      setShowDeleteDialog(false);
+      loadContracts();
+    } catch (error) {
+      console.error('Error deleting contracts:', error);
+      toast({
+        title: "错误",
+        description: "删除合同失败",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const isAllSelected = contracts.length > 0 && selectedContracts.size === contracts.length;
+  const isPartialSelected = selectedContracts.size > 0 && selectedContracts.size < contracts.length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">合同管理</h1>
-        <Dialog open={showForm} onOpenChange={setShowForm}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              新增合同
+        <div className="flex items-center gap-2">
+          {selectedContracts.size > 0 && (
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={deleting}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              删除 ({selectedContracts.size})
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          )}
+          <Dialog open={showForm} onOpenChange={setShowForm}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                新增合同
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>新增合同</DialogTitle>
             </DialogHeader>
@@ -474,8 +544,9 @@ export default function ContractManagement() {
                 </Button>
               </div>
             </form>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* 筛选区域 */}
@@ -574,6 +645,13 @@ export default function ContractManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={handleSelectAll}
+                      className={isPartialSelected ? "data-[state=checked]:bg-primary/50" : ""}
+                    />
+                  </TableHead>
                   <TableHead>合同分类</TableHead>
                   <TableHead>对方公司</TableHead>
                   <TableHead>我方公司</TableHead>
@@ -587,6 +665,12 @@ export default function ContractManagement() {
               <TableBody>
                 {contracts.map((contract) => (
                   <TableRow key={contract.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedContracts.has(contract.id)}
+                        onCheckedChange={(checked) => handleSelectContract(contract.id, checked as boolean)}
+                      />
+                    </TableCell>
                     <TableCell>
                       <Badge variant={getCategoryBadgeVariant(contract.category)}>
                         {contract.category}
@@ -644,6 +728,15 @@ export default function ContractManagement() {
           )}
         </CardContent>
       </Card>
+
+      <DirectConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="确认删除"
+        description={`确定要删除选中的 ${selectedContracts.size} 个合同吗？此操作不可撤销。`}
+        onConfirm={handleBatchDelete}
+        loading={deleting}
+      />
     </div>
   );
 }
