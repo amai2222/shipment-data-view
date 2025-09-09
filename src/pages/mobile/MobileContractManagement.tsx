@@ -12,6 +12,7 @@ import { DirectConfirmDialog } from '@/components/ConfirmDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, FileText, Plus, Search, Filter, Download, Trash2 } from 'lucide-react';
+import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { format } from 'date-fns';
 
 interface Contract {
@@ -312,9 +313,9 @@ export default function MobileContractManagement() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-10 bg-white border-b">
-        <div className="flex items-center justify-between p-4">
+    <MobileLayout>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">合同管理</h1>
           <div className="flex gap-2">
             {selectedContracts.size > 0 ? (
@@ -563,7 +564,7 @@ export default function MobileContractManagement() {
         </div>
 
         {/* 搜索和筛选 */}
-        <div className="px-4 pb-4 space-y-3">
+        <div className="space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
@@ -590,18 +591,17 @@ export default function MobileContractManagement() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* 合同列表 */}
-      <div className="p-4 space-y-3">
-        {loading ? (
-          <div className="text-center py-8">加载中...</div>
-        ) : filteredContracts.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            暂无合同记录
-          </div>
-        ) : (
-          filteredContracts.map((contract) => (
+        {/* 合同列表 */}
+        <div className="space-y-3">
+          {loading ? (
+            <div className="text-center py-8">加载中...</div>
+          ) : filteredContracts.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              暂无合同记录
+            </div>
+          ) : (
+            filteredContracts.map((contract) => (
             <Card key={contract.id} className="relative">
               {selectionMode && (
                 <div className="absolute top-2 right-2">
@@ -690,5 +690,6 @@ export default function MobileContractManagement() {
         loading={deleting}
       />
     </div>
+    </MobileLayout>
   );
 }
