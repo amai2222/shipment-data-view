@@ -147,7 +147,7 @@ export default function MobileProjectDashboard() {
   const [trendDays, setTrendDays] = useState<number>(7);
 
   // React Query 缓存与请求
-  const { data: dashboardData, isLoading } = useQuery<DashboardData>({
+  const { data: dashboardData, isLoading, error } = useQuery<DashboardData>({
     queryKey: ['mobileProjectDashboard', projectId, format(reportDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!projectId) throw new Error('缺少项目ID');
@@ -161,11 +161,19 @@ export default function MobileProjectDashboard() {
     enabled: !!projectId,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 1,
-    onError: (e: any) => {
-      toast({ title: '错误', description: `加载看板数据失败: ${e?.message || ''}`, variant: 'destructive' });
-    }
+    retry: 1
   });
+
+  // Handle dashboard data loading errors
+  useEffect(() => {
+    if (error) {
+      toast({ 
+        title: '错误', 
+        description: `加载看板数据失败: ${error?.message || ''}`, 
+        variant: 'destructive' 
+      });
+    }
+  }, [error, toast]);
 
   // 新：按区间获取趋势（后端聚合）
   const { data: trendData, isLoading: trendLoading, error: trendError } = useQuery({

@@ -16,7 +16,8 @@ import {
   LogOut,
   Building2,
   Scale,
-  Receipt
+  Receipt,
+  FileSignature
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,6 +78,12 @@ const navigation = [
     href: '/m/partners',
     icon: Truck,
     roles: ['admin', 'finance', 'business', 'viewer']
+  },
+  {
+    name: '合同管理',
+    href: '/m/contracts',
+    icon: FileSignature,
+    roles: ['admin', 'finance', 'business']
   },
   {
     name: '申请单管理',
