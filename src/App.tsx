@@ -330,7 +330,7 @@ const App = () => (
 
             <Route path="/m/contracts" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
-                <MobileLayout><MobileContractManagement /></MobileLayout>
+                <MobileContractManagement />
               </ProtectedRoute>
             } />
 
