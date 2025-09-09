@@ -244,8 +244,19 @@ export default function MobileProjectDashboard() {
     ? (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100 
     : 0;
 
-  // 现在再定义与 unitConfig 相关的 memo/回调，避免“Cannot access before initialization”
-  const trendSeries = useMemo(() => (trendData || []) as any[], [trendData]);
+  // 现在再定义与 unitConfig 相关的 memo/回调，避免"Cannot access before initialization"
+  const trendSeries = useMemo(() => {
+    // 优先使用新 RPC 数据，如果为空则回退到原始数据
+    if (trendData && trendData.length > 0) {
+      console.log('使用新 RPC 趋势数据:', trendData);
+      return trendData as any[];
+    }
+    // 回退到原始 seven_day_trend，并截取指定天数
+    const fallbackData = dashboardData?.seven_day_trend || [];
+    const slicedData = fallbackData.slice(-trendDays);
+    console.log('使用回退趋势数据:', slicedData);
+    return slicedData as any[];
+  }, [trendData, dashboardData, trendDays]);
   const chartMargin = useMemo(() => ({ top: 8, right: 8, left: 8, bottom: 8 }), []);
   const tooltipStyle = useMemo(() => ({
     backgroundColor: 'hsl(var(--background))',
@@ -482,11 +493,13 @@ export default function MobileProjectDashboard() {
           <CardContent>
             <div ref={trendRef} className="h-64">
               {showTrend && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart 
-                    data={trendSeries}
-                    margin={chartMargin}
-                  >
+                <>
+                  {console.log('趋势图渲染 - showTrend:', showTrend, 'trendSeries长度:', trendSeries.length, '数据:', trendSeries)}
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart 
+                      data={trendSeries}
+                      margin={chartMargin}
+                    >
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis 
                       dataKey="date" 
