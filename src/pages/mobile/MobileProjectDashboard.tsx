@@ -168,15 +168,20 @@ export default function MobileProjectDashboard() {
   });
 
   // 新：按区间获取趋势（后端聚合）
-  const { data: trendData } = useQuery({
+  const { data: trendData, isLoading: trendLoading, error: trendError } = useQuery({
     queryKey: ['projectTrendByRange', projectId, trendDays],
     queryFn: async () => {
       if (!projectId) return [] as any[];
+      console.log('调用新 RPC，项目ID:', projectId, '天数:', trendDays);
       const { data, error } = await supabase.rpc('get_project_trend_by_range' as any, {
         p_project_id: projectId,
         p_days: trendDays
       });
-      if (error) throw error;
+      if (error) {
+        console.error('新 RPC 调用失败:', error);
+        return [];
+      }
+      console.log('新 RPC 返回数据:', data);
       return (data as any[]) || [];
     },
     enabled: !!projectId,
@@ -244,8 +249,19 @@ export default function MobileProjectDashboard() {
     ? (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100 
     : 0;
 
-  // 现在再定义与 unitConfig 相关的 memo/回调，避免“Cannot access before initialization”
-  const trendSeries = useMemo(() => (trendData || []) as any[], [trendData]);
+  // 现在再定义与 unitConfig 相关的 memo/回调，避免"Cannot access before initialization"
+  const trendSeries = useMemo(() => {
+    // 优先使用新 RPC 数据，如果为空则回退到原始数据
+    if (trendData && trendData.length > 0) {
+      console.log('使用新 RPC 趋势数据:', trendData);
+      return trendData as any[];
+    }
+    // 回退到原始 seven_day_trend，并截取指定天数
+    const fallbackData = dashboardData?.seven_day_trend || [];
+    const slicedData = fallbackData.slice(-trendDays);
+    console.log('使用回退趋势数据:', slicedData, '原始数据长度:', fallbackData.length);
+    return slicedData as any[];
+  }, [trendData, dashboardData, trendDays]);
   const chartMargin = useMemo(() => ({ top: 8, right: 8, left: 8, bottom: 8 }), []);
   const tooltipStyle = useMemo(() => ({
     backgroundColor: 'hsl(var(--background))',
@@ -477,12 +493,39 @@ export default function MobileProjectDashboard() {
               <Button size="sm" variant={smoothLines ? "default" : "outline"} onClick={() => setSmoothLines(v => !v)}>
                 {smoothLines ? '平滑' : '折线'}
               </Button>
+              <Button size="sm" variant="outline" onClick={() => {
+                console.log('手动检查数据:', {
+                  projectId,
+                  trendDays,
+                  trendData,
+                  trendSeries,
+                  dashboardData: dashboardData?.seven_day_trend
+                });
+              }}>
+                调试
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
             <div ref={trendRef} className="h-64">
+              {console.log('趋势图状态检查:', {
+                showTrend,
+                trendData: trendData?.length || 0,
+                trendSeries: trendSeries?.length || 0,
+                trendLoading,
+                trendError,
+                dashboardData: dashboardData?.seven_day_trend?.length || 0
+              })}
               {showTrend && (
-                <ResponsiveContainer width="100%" height="100%">
+                <>
+                  {console.log('趋势图渲染 - showTrend:', showTrend, 'trendSeries长度:', trendSeries.length, '数据:', trendSeries)}
+                  {trendSeries.length === 0 && (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      暂无趋势数据
+                    </div>
+                  )}
+                  {trendSeries.length > 0 && (
+                    <ResponsiveContainer width="100%" height="100%">
                   <LineChart 
                     data={trendSeries}
                     margin={chartMargin}
@@ -548,6 +591,8 @@ export default function MobileProjectDashboard() {
                     )}
                   </LineChart>
                 </ResponsiveContainer>
+                  )}
+                </>
               )}
             </div>
           </CardContent>
