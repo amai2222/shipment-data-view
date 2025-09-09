@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -67,7 +67,7 @@ export default function MobileHome() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const { data: stats, isLoading } = useQuery<DashboardStats>({
+  const { data: stats, isLoading, error } = useQuery<DashboardStats>({
     queryKey: ['mobileHomeStats'],
     queryFn: async () => {
       const today = new Date();
@@ -135,15 +135,19 @@ export default function MobileHome() {
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 1,
-    onError: () => {
+    retry: 1
+  });
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
       toast({
         title: "加载失败",
         description: "无法加载仪表板数据",
         variant: "destructive",
       });
     }
-  });
+  }, [error, toast]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('zh-CN', {
@@ -180,7 +184,7 @@ export default function MobileHome() {
         <CardContent className="p-6">
           <h2 className="text-xl font-bold mb-2">欢迎回来</h2>
           <p className="text-blue-100">
-            今日 {format(new Date(), 'MM月dd日')} • {stats.todayRecords} 条新记录
+            今日 {format(new Date(), 'MM月dd日')} • {stats?.todayRecords || 0} 条新记录
           </p>
         </CardContent>
       </Card>
@@ -197,7 +201,7 @@ export default function MobileHome() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">今日运输</p>
-                  <p className="text-xl font-bold">{stats.todayRecords}</p>
+                  <p className="text-xl font-bold">{stats?.todayRecords || 0}</p>
                 </div>
                 <div className="p-2 bg-blue-100 rounded-full">
                   <Truck className="h-4 w-4 text-blue-600" />
@@ -239,7 +243,7 @@ export default function MobileHome() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">活跃项目</p>
-                  <p className="text-xl font-bold">{stats.activeProjects}</p>
+                  <p className="text-xl font-bold">{stats?.activeProjects || 0}</p>
                 </div>
                 <div className="p-2 bg-purple-100 rounded-full">
                   <BarChart3 className="h-4 w-4 text-purple-600" />
