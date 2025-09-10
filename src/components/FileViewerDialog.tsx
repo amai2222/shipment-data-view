@@ -32,18 +32,9 @@ export function FileViewerDialog({
 
   const generateProxyUrl = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      
-      console.log('Session:', session);
-      console.log('Token:', token ? token.substring(0, 20) + '...' : 'No token');
-      
-      // 使用简化版本的代理服务（暂时不需要认证）
-      const url = new URL(`https://mnwzvtvyauyxwowjjsmf.supabase.co/functions/v1/pdf-proxy-simple`);
-      url.searchParams.set('url', fileUrl);
-      const proxyUrlString = url.toString();
-      console.log('Generated proxy URL:', proxyUrlString);
-      setProxyUrl(proxyUrlString);
+      // 暂时直接使用原始URL，避免代理服务的认证问题
+      console.log('Using original URL:', fileUrl);
+      setProxyUrl(fileUrl);
     } catch (error) {
       console.error('生成代理URL失败:', error);
       setProxyUrl(fileUrl);
@@ -54,8 +45,8 @@ export function FileViewerDialog({
     try {
       setLoading(true);
       
-      // 使用代理URL下载
-      const response = await fetch(proxyUrl || fileUrl);
+      // 直接使用原始URL下载
+      const response = await fetch(fileUrl);
       
       if (!response.ok) {
         throw new Error('下载失败');
@@ -137,11 +128,21 @@ export function FileViewerDialog({
               </div>
             </div>
           ) : isPdf ? (
-            <iframe
-              src={proxyUrl || fileUrl}
-              className="w-full h-[70vh] border-0"
-              title={fileName}
-            />
+            <div className="relative w-full h-[70vh]">
+              <iframe
+                src={proxyUrl || fileUrl}
+                className="w-full h-full border-0"
+                title={fileName}
+                onError={() => {
+                  console.log('iframe failed to load');
+                }}
+              />
+              <div className="absolute top-4 left-4 pointer-events-none">
+                <div className="text-center text-gray-500 bg-white/90 p-2 rounded text-xs">
+                  <p>如果文件无法显示，请使用下载按钮</p>
+                </div>
+              </div>
+            </div>
           ) : isImage ? (
             <div className="flex items-center justify-center h-[70vh] bg-gray-50">
               <img
