@@ -53,7 +53,7 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
   
   // 角色管理状态
   const [selectedRole, setSelectedRole] = useState<UserRole>('admin');
-  const [roleTemplates, setRoleTemplates] = useState<Record<UserRole, RolePermissionTemplate>>({});
+  const [roleTemplates, setRoleTemplates] = useState<Record<UserRole, RolePermissionTemplate>>({} as Record<UserRole, RolePermissionTemplate>);
   
   // 用户管理状态
   const [users, setUsers] = useState<any[]>([]);
@@ -87,12 +87,41 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
 
       setUsers(usersResult.data || []);
       setProjects(projectsResult.data || []);
-      setUserPermissions(userPermissionsResult.data || []);
+      
+      // 处理用户权限数据，确保包含所有必需字段
+      const userPerms = (userPermissionsResult.data || []).map(perm => ({
+        id: perm.id,
+        user_id: perm.user_id,
+        project_id: perm.project_id,
+        menu_permissions: perm.menu_permissions || [],
+        function_permissions: perm.function_permissions || [],
+        project_permissions: perm.project_permissions || [],
+        data_permissions: perm.data_permissions || [],
+        inherit_role: perm.inherit_role ?? true,
+        custom_settings: perm.custom_settings || {},
+        created_at: perm.created_at,
+        updated_at: perm.updated_at,
+        created_by: perm.created_by || ''
+      }));
+      setUserPermissions(userPerms);
 
-      // 处理角色模板
-      const templates: Record<UserRole, RolePermissionTemplate> = {} as any;
+      // 处理角色模板，确保包含所有必需字段
+      const templates: Record<UserRole, RolePermissionTemplate> = {} as Record<UserRole, RolePermissionTemplate>;
       roleTemplatesResult.data?.forEach(template => {
-        templates[template.role] = template;
+        templates[template.role] = {
+          id: template.id,
+          role: template.role,
+          name: template.name || ROLES[template.role]?.label || template.role,
+          description: template.description || ROLES[template.role]?.description || '',
+          color: template.color || ROLES[template.role]?.color || 'bg-gray-500',
+          menu_permissions: template.menu_permissions || [],
+          function_permissions: template.function_permissions || [],
+          project_permissions: template.project_permissions || [],
+          data_permissions: template.data_permissions || [],
+          is_system: template.is_system ?? true,
+          created_at: template.created_at,
+          updated_at: template.updated_at
+        };
       });
       setRoleTemplates(templates);
 
@@ -206,18 +235,34 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
         ? currentPermissions.filter(p => p !== key)
         : [...currentPermissions, key];
 
-      const updated = {
-        ...current,
-        [field]: newPermissions,
-        updated_at: new Date().toISOString()
+      const updated: UserPermission = {
+        id: current.id || '',
+        user_id: current.user_id,
+        project_id: current.project_id,
+        menu_permissions: current.menu_permissions,
+        function_permissions: current.function_permissions,
+        project_permissions: current.project_permissions,
+        data_permissions: current.data_permissions,
+        inherit_role: current.inherit_role,
+        custom_settings: current.custom_settings,
+        created_at: current.created_at || new Date().toISOString(),
+        created_by: current.created_by || '',
+        updated_at: new Date().toISOString(),
+        [field]: newPermissions
       };
 
-      return prev.map(p => 
+      const existingIndex = prev.findIndex(p => 
         p.user_id === selectedUser && 
         (selectedProject ? p.project_id === selectedProject : p.project_id === null)
-          ? updated
-          : p
       );
+
+      if (existingIndex >= 0) {
+        const newPerms = [...prev];
+        newPerms[existingIndex] = updated;
+        return newPerms;
+      } else {
+        return [...prev, updated];
+      }
     });
   };
 
@@ -284,7 +329,7 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
       setSaving(true);
       const current = getCurrentUserPermissions();
       
-      if (current.id) {
+      if (current.id && current.id !== '') {
         // 更新现有权限
         const { error } = await supabase
           .from('user_permissions')

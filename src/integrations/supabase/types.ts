@@ -901,26 +901,44 @@ export type Database = {
       }
       role_permission_templates: {
         Row: {
+          color: string | null
           created_at: string
+          data_permissions: string[] | null
+          description: string | null
           function_permissions: string[] | null
           id: string
+          is_system: boolean | null
           menu_permissions: string[] | null
+          name: string | null
+          project_permissions: string[] | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
         Insert: {
+          color?: string | null
           created_at?: string
+          data_permissions?: string[] | null
+          description?: string | null
           function_permissions?: string[] | null
           id?: string
+          is_system?: boolean | null
           menu_permissions?: string[] | null
+          name?: string | null
+          project_permissions?: string[] | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Update: {
+          color?: string | null
           created_at?: string
+          data_permissions?: string[] | null
+          description?: string | null
           function_permissions?: string[] | null
           id?: string
+          is_system?: boolean | null
           menu_permissions?: string[] | null
+          name?: string | null
+          project_permissions?: string[] | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
@@ -984,30 +1002,42 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          custom_settings: Json | null
+          data_permissions: string[] | null
           function_permissions: string[] | null
           id: string
+          inherit_role: boolean | null
           menu_permissions: string[] | null
           project_id: string | null
+          project_permissions: string[] | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          custom_settings?: Json | null
+          data_permissions?: string[] | null
           function_permissions?: string[] | null
           id?: string
+          inherit_role?: boolean | null
           menu_permissions?: string[] | null
           project_id?: string | null
+          project_permissions?: string[] | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          custom_settings?: Json | null
+          data_permissions?: string[] | null
           function_permissions?: string[] | null
           id?: string
+          inherit_role?: boolean | null
           menu_permissions?: string[] | null
           project_id?: string | null
+          project_permissions?: string[] | null
           updated_at?: string
           user_id?: string
         }
@@ -1899,6 +1929,26 @@ export type Database = {
         Args: { p_report_date: string; p_selected_project_id: string }
         Returns: Json
       }
+      get_project_driver_ranking: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_order: string
+          p_project_id: string
+          p_report_date: string
+          p_sort: string
+        }
+        Returns: {
+          daily_trip_count: number
+          driver_id: string
+          driver_name: string
+          license_plate: string
+          phone: string
+          total_driver_receivable: number
+          total_tonnage: number
+          total_trip_count: number
+        }[]
+      }
       get_project_drivers_with_details: {
         Args: { p_project_id: string }
         Returns: {
@@ -1911,6 +1961,15 @@ export type Database = {
       get_project_overall_stats: {
         Args: { p_project_id: string }
         Returns: Json
+      }
+      get_project_trend_by_range: {
+        Args: { p_days: number; p_project_id: string }
+        Returns: {
+          date: string
+          receivable: number
+          trips: number
+          weight: number
+        }[]
       }
       get_projects_with_details: {
         Args: Record<PropertyKey, never>

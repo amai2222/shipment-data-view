@@ -16,7 +16,7 @@ import { DEFAULT_ROLE_PERMISSIONS } from '@/config/permissions';
 export function useAdvancedPermissions() {
   const { user, profile } = useAuth();
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
-  const [roleTemplates, setRoleTemplates] = useState<Record<UserRole, RolePermissionTemplate>>({});
+  const [roleTemplates, setRoleTemplates] = useState<Record<UserRole, RolePermissionTemplate>>({} as Record<UserRole, RolePermissionTemplate>);
   const [loading, setLoading] = useState(true);
   const [currentProject, setCurrentProject] = useState<string | null>(null);
 
@@ -41,17 +41,45 @@ export function useAdvancedPermissions() {
         console.warn('加载用户权限失败，使用默认权限:', userPermsResult.error);
         setUserPermissions([]);
       } else {
-        setUserPermissions(userPermsResult.data || []);
+        // 处理用户权限数据，确保包含所有必需字段
+        const userPerms = (userPermsResult.data || []).map(perm => ({
+          id: perm.id,
+          user_id: perm.user_id,
+          project_id: perm.project_id,
+          menu_permissions: perm.menu_permissions || [],
+          function_permissions: perm.function_permissions || [],
+          project_permissions: perm.project_permissions || [],
+          data_permissions: perm.data_permissions || [],
+          inherit_role: perm.inherit_role ?? true,
+          custom_settings: perm.custom_settings || {},
+          created_at: perm.created_at,
+          updated_at: perm.updated_at,
+          created_by: perm.created_by || ''
+        }));
+        setUserPermissions(userPerms);
       }
       
       if (roleTemplatesResult.error) {
         console.warn('加载角色模板失败，使用默认模板:', roleTemplatesResult.error);
         setRoleTemplates({} as Record<UserRole, RolePermissionTemplate>);
       } else {
-        // 转换为以角色为键的对象
-        const templates: Record<UserRole, RolePermissionTemplate> = {} as any;
+        // 转换为以角色为键的对象，确保包含所有必需字段
+        const templates: Record<UserRole, RolePermissionTemplate> = {} as Record<UserRole, RolePermissionTemplate>;
         roleTemplatesResult.data?.forEach(template => {
-          templates[template.role] = template;
+          templates[template.role] = {
+            id: template.id,
+            role: template.role,
+            name: template.name || template.role,
+            description: template.description || '',
+            color: template.color || 'bg-gray-500',
+            menu_permissions: template.menu_permissions || [],
+            function_permissions: template.function_permissions || [],
+            project_permissions: template.project_permissions || [],
+            data_permissions: template.data_permissions || [],
+            is_system: template.is_system ?? true,
+            created_at: template.created_at,
+            updated_at: template.updated_at
+          };
         });
         setRoleTemplates(templates);
       }
@@ -285,15 +313,9 @@ export function useAdvancedPermissions() {
         return data || [];
       }
 
-      // 如果只能查看分配的项目，需要从用户项目关联表获取
-      const { data: userProjects, error: userProjectsError } = await supabase
-        .from('user_projects')
-        .select('project_id, projects(id, name)')
-        .eq('user_id', user?.id);
-
-      if (userProjectsError) throw userProjectsError;
-
-      return userProjects?.map(up => up.projects).filter(Boolean) || [];
+      // 如果只能查看分配的项目，需要从用户关联表获取
+      // 目前返回空数组，因为还没有用户项目关联表
+      return [];
     } catch (error) {
       console.error('获取可访问项目失败:', error);
       return [];
