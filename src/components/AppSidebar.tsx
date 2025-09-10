@@ -82,6 +82,7 @@ const menuItems = [
     items: [
       { title: "用户管理", url: "/settings/users", icon: UserCog },
       { title: "权限管理", url: "/settings/permissions", icon: Settings },
+      { title: "集成权限管理", url: "/settings/integrated", icon: Shield },
     ]
   }
 ];
@@ -130,6 +131,8 @@ export function AppSidebar() {
         menuKey = 'settings.users';
       } else if (item.url === '/settings/permissions') {
         menuKey = 'settings.permissions';
+      } else if (item.url === '/settings/integrated') {
+        menuKey = 'settings.integrated';
       }
       
       console.log(`检查菜单权限: ${menuKey} - ${hasMenuAccess(menuKey)}`);

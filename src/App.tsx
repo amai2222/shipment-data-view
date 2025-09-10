@@ -31,6 +31,7 @@ import NotFoundWithStaticFileCheck from "./components/NotFoundWithStaticFileChec
 import PaymentRequestsList from "./pages/PaymentRequestsList";
 import UserManagement from "./pages/Settings/UserManagement";
 import PermissionManagement from "./pages/Settings/PermissionManagement";
+import IntegratedUserManagement from "./pages/IntegratedUserManagement";
 import ScaleRecords from "./pages/ScaleRecords";
 import ContractManagement from "./pages/ContractManagement";
 
@@ -186,6 +187,12 @@ const App = () => (
             <Route path="/settings/permissions" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <AppLayout><PermissionManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings/integrated" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><IntegratedUserManagement /></AppLayout>
               </ProtectedRoute>
             } />
             

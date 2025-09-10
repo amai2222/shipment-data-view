@@ -92,7 +92,8 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     icon: 'Settings',
     children: [
       { key: 'settings.users', label: '用户管理', url: '/settings/users', icon: 'UserCog', group: '设置' },
-      { key: 'settings.permissions', label: '权限管理', url: '/settings/permissions', icon: 'Settings', group: '设置' }
+      { key: 'settings.permissions', label: '权限管理', url: '/settings/permissions', icon: 'Settings', group: '设置' },
+      { key: 'settings.integrated', label: '集成权限管理', url: '/settings/integrated', icon: 'Shield', group: '设置' }
     ],
     requiredRoles: ['admin']
   }
@@ -218,7 +219,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       // 财务对账
       'finance', 'finance.reconciliation', 'finance.payment_invoice',
       // 设置
-      'settings', 'settings.users', 'settings.permissions'
+      'settings', 'settings.users', 'settings.permissions', 'settings.integrated'
     ],
     function_permissions: [
       'data', 'data.create', 'data.edit', 'data.delete', 'data.export', 'data.import',

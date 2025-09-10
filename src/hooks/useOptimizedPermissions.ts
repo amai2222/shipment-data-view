@@ -67,7 +67,7 @@ export function useOptimizedPermissions() {
     }
   };
 
-  // 优化的保存逻辑
+  // 优化的保存逻辑 - 避免不必要的重新加载
   const savePermissions = async (templates: Record<string, any>, permissions: any[]) => {
     try {
       setLoading(true);
@@ -85,10 +85,7 @@ export function useOptimizedPermissions() {
 
       await Promise.all(templatePromises);
 
-      // 2. 清理用户权限重复数据
-      await cleanupDuplicatePermissions();
-
-      // 3. 保存用户权限（只保存有变化的）
+      // 2. 保存用户权限（只保存有变化的）
       const validPermissions = permissions.filter(perm => 
         perm.user_id && (
           (perm.menu_permissions && perm.menu_permissions.length > 0) ||
@@ -109,14 +106,15 @@ export function useOptimizedPermissions() {
           })), { onConflict: 'user_id,project_id' });
       }
 
+      // 3. 更新本地状态而不是重新加载所有数据
+      setRoleTemplates(templates);
+      setUserPermissions(validPermissions);
+
       toast({
         title: "保存成功",
         description: "权限配置已更新",
       });
       setHasChanges(false);
-      
-      // 重新加载数据以确保一致性
-      await loadAllData();
       
     } catch (error) {
       console.error('保存失败:', error);
