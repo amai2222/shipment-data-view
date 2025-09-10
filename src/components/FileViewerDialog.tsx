@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { X, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +21,11 @@ export function FileViewerDialog({
 }: FileViewerDialogProps) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  // 调试信息
+  React.useEffect(() => {
+    console.log('FileViewerDialog props:', { open, fileUrl, fileName, fileType });
+  }, [open, fileUrl, fileName, fileType]);
 
   const handleDownload = async () => {
     try {
@@ -65,13 +70,24 @@ export function FileViewerDialog({
   const isPdf = fileType === 'pdf' || getFileExtension(fileUrl) === 'pdf';
   const isImage = fileType === 'image' || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(getFileExtension(fileUrl));
 
+  // 如果open为true，显示一个明显的调试信息
+  if (open) {
+    console.log('FileViewerDialog is rendering with open=true');
+  }
+
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+      <div 
+        className="fixed inset-0 bg-black/50" 
+        onClick={() => onOpenChange(false)}
+      />
+      <div className="relative bg-white rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
         <DialogHeader className="p-4 pb-2 border-b">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg font-semibold truncate">
-              {fileName}
+              {fileName} {open ? '(OPEN)' : '(CLOSED)'}
             </DialogTitle>
             <div className="flex items-center gap-2">
               <Button
@@ -135,7 +151,7 @@ export function FileViewerDialog({
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

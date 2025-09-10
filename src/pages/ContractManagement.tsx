@@ -285,9 +285,11 @@ export default function ContractManagement() {
   };
 
   const handleViewFile = (fileUrl: string, fileName: string) => {
+    console.log('handleViewFile called:', { fileUrl, fileName });
     setCurrentFileUrl(fileUrl);
     setCurrentFileName(fileName);
     setFileViewerOpen(true);
+    console.log('FileViewerDialog should open now');
   };
 
   const getCategoryBadgeVariant = (category: string) => {
@@ -368,6 +370,13 @@ export default function ContractManagement() {
               删除 ({selectedContracts.size})
             </Button>
           )}
+          <Button 
+            variant="outline" 
+            onClick={() => handleViewFile('https://example.com/test.pdf', '测试文件')}
+            className="ml-2"
+          >
+            测试弹窗
+          </Button>
           <Dialog open={showForm} onOpenChange={setShowForm}>
             <DialogTrigger asChild>
               <Button>
