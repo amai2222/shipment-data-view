@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { X, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FileViewerDialogProps {
   open: boolean;
@@ -19,14 +20,42 @@ export function FileViewerDialog({
   fileType = 'other'
 }: FileViewerDialogProps) {
   const [loading, setLoading] = useState(false);
+  const [proxyUrl, setProxyUrl] = useState('');
   const { toast } = useToast();
+
+  // 生成代理URL
+  React.useEffect(() => {
+    if (open && fileUrl) {
+      generateProxyUrl();
+    }
+  }, [open, fileUrl]);
+
+  const generateProxyUrl = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (token) {
+        const url = new URL(`https://mnwzvtvyauyxwowjjsmf.supabase.co/functions/v1/pdf-proxy`);
+        url.searchParams.set('url', fileUrl);
+        url.searchParams.set('token', token);
+        setProxyUrl(url.toString());
+      } else {
+        // 如果没有token，直接使用原始URL
+        setProxyUrl(fileUrl);
+      }
+    } catch (error) {
+      console.error('生成代理URL失败:', error);
+      setProxyUrl(fileUrl);
+    }
+  };
 
   const handleDownload = async () => {
     try {
       setLoading(true);
       
-      // 直接使用原始URL下载
-      const response = await fetch(fileUrl);
+      // 使用代理URL下载
+      const response = await fetch(proxyUrl || fileUrl);
       
       if (!response.ok) {
         throw new Error('下载失败');
@@ -100,16 +129,23 @@ export function FileViewerDialog({
         </div>
         
         <div className="flex-1 overflow-hidden">
-          {isPdf ? (
+          {!proxyUrl && fileUrl ? (
+            <div className="flex items-center justify-center h-[70vh] bg-gray-50">
+              <div className="text-center text-gray-500">
+                <p className="text-lg mb-2">正在加载文件...</p>
+                <p className="text-sm">请稍候</p>
+              </div>
+            </div>
+          ) : isPdf ? (
             <iframe
-              src={fileUrl}
+              src={proxyUrl || fileUrl}
               className="w-full h-[70vh] border-0"
               title={fileName}
             />
           ) : isImage ? (
             <div className="flex items-center justify-center h-[70vh] bg-gray-50">
               <img
-                src={fileUrl}
+                src={proxyUrl || fileUrl}
                 alt={fileName}
                 className="max-w-full max-h-full object-contain"
                 onError={(e) => {
