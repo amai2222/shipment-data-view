@@ -117,10 +117,10 @@ export function useAdvancedPermissions() {
 
     // 合并角色权限和用户特定权限
     const rolePermissions = roleTemplate ? {
-      menu: roleTemplate.menu_permissions,
-      function: roleTemplate.function_permissions,
-      project: roleTemplate.project_permissions,
-      data: roleTemplate.data_permissions
+      menu_permissions: roleTemplate.menu_permissions,
+      function_permissions: roleTemplate.function_permissions,
+      project_permissions: roleTemplate.project_permissions,
+      data_permissions: roleTemplate.data_permissions
     } : DEFAULT_ROLE_PERMISSIONS[userRole];
 
     if (userPerm) {
@@ -130,10 +130,10 @@ export function useAdvancedPermissions() {
         userRole,
         currentProject: currentProject || undefined,
         permissions: {
-          menu: [...new Set([...rolePermissions.menu, ...userPerm.menu_permissions])],
-          function: [...new Set([...rolePermissions.function, ...userPerm.function_permissions])],
-          project: [...new Set([...rolePermissions.project, ...userPerm.project_permissions])],
-          data: [...new Set([...rolePermissions.data, ...userPerm.data_permissions])]
+          menu: [...new Set([...rolePermissions.menu_permissions, ...userPerm.menu_permissions])],
+          function: [...new Set([...rolePermissions.function_permissions, ...userPerm.function_permissions])],
+          project: [...new Set([...rolePermissions.project_permissions, ...userPerm.project_permissions])],
+          data: [...new Set([...rolePermissions.data_permissions, ...userPerm.data_permissions])]
         }
       };
     }
@@ -142,7 +142,12 @@ export function useAdvancedPermissions() {
       userId: user.id,
       userRole,
       currentProject: currentProject || undefined,
-      permissions: rolePermissions
+      permissions: {
+        menu: rolePermissions.menu_permissions,
+        function: rolePermissions.function_permissions,
+        project: rolePermissions.project_permissions,
+        data: rolePermissions.data_permissions
+      }
     };
   }, [user?.id, profile?.role, currentProject, userPermissions, roleTemplates]);
 
@@ -175,23 +180,28 @@ export function useAdvancedPermissions() {
 
     // 合并角色权限和用户特定权限
     const rolePermissions = roleTemplate ? {
-      menu: roleTemplate.menu_permissions,
-      function: roleTemplate.function_permissions,
-      project: roleTemplate.project_permissions,
-      data: roleTemplate.data_permissions
+      menu_permissions: roleTemplate.menu_permissions,
+      function_permissions: roleTemplate.function_permissions,
+      project_permissions: roleTemplate.project_permissions,
+      data_permissions: roleTemplate.data_permissions
     } : DEFAULT_ROLE_PERMISSIONS[userRole];
 
     if (userPerm) {
       // 用户特定权限覆盖角色权限
       return {
-        menu: [...new Set([...rolePermissions.menu, ...userPerm.menu_permissions])],
-        function: [...new Set([...rolePermissions.function, ...userPerm.function_permissions])],
-        project: [...new Set([...rolePermissions.project, ...userPerm.project_permissions])],
-        data: [...new Set([...rolePermissions.data, ...userPerm.data_permissions])]
+        menu: [...new Set([...rolePermissions.menu_permissions, ...userPerm.menu_permissions])],
+        function: [...new Set([...rolePermissions.function_permissions, ...userPerm.function_permissions])],
+        project: [...new Set([...rolePermissions.project_permissions, ...userPerm.project_permissions])],
+        data: [...new Set([...rolePermissions.data_permissions, ...userPerm.data_permissions])]
       };
     }
 
-    return rolePermissions;
+    return {
+      menu: rolePermissions.menu_permissions,
+      function: rolePermissions.function_permissions,
+      project: rolePermissions.project_permissions,
+      data: rolePermissions.data_permissions
+    };
   };
 
   // 检查权限

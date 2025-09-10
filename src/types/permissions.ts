@@ -17,6 +17,15 @@ export interface MenuPermission {
   requiredRoles?: UserRole[];
 }
 
+// 菜单权限子项定义
+export interface MenuPermissionItem {
+  key: string;
+  label: string;
+  url: string;
+  icon: string;
+  group?: string;
+}
+
 // 功能权限定义
 export interface FunctionPermission {
   key: string;
@@ -24,6 +33,15 @@ export interface FunctionPermission {
   group: string;
   description?: string;
   requiredRoles?: UserRole[];
+  children?: FunctionPermission[];
+}
+
+// 功能权限子项定义
+export interface FunctionPermissionItem {
+  key: string;
+  label: string;
+  description?: string;
+  group?: string;
 }
 
 // 项目权限定义
@@ -32,7 +50,17 @@ export interface ProjectPermission {
   label: string;
   group: string;
   description?: string;
+  scope?: 'read' | 'write' | 'admin';
+  children?: ProjectPermission[];
+}
+
+// 项目权限子项定义
+export interface ProjectPermissionItem {
+  key: string;
+  label: string;
   scope: 'read' | 'write' | 'admin';
+  description?: string;
+  group?: string;
 }
 
 // 数据权限定义
@@ -40,8 +68,19 @@ export interface DataPermission {
   key: string;
   label: string;
   group: string;
-  scope: 'view' | 'create' | 'edit' | 'delete' | 'export';
+  scope?: 'view' | 'create' | 'edit' | 'delete' | 'export';
+  description?: string;
   conditions?: string[]; // 数据过滤条件
+  children?: DataPermission[];
+}
+
+// 数据权限子项定义
+export interface DataPermissionItem {
+  key: string;
+  label: string;
+  scope: 'view' | 'create' | 'edit' | 'delete' | 'export';
+  description?: string;
+  group?: string;
 }
 
 // 角色权限模板
