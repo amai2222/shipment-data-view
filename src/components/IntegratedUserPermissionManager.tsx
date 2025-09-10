@@ -624,6 +624,99 @@ export function IntegratedUserPermissionManager() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* 角色模板编辑对话框 */}
+      {showRoleTemplateDialog && editingRole && (
+        <Dialog open={showRoleTemplateDialog} onOpenChange={() => {
+          setShowRoleTemplateDialog(false);
+          setEditingRole(null);
+        }}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>编辑角色模板 - {editingRole}</DialogTitle>
+              <DialogDescription>
+                配置 {editingRole} 角色的默认权限
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6">
+              {/* 菜单权限配置 */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">菜单权限</h3>
+                <div className="grid grid-cols-2 gap-4 max-h-60 overflow-y-auto">
+                  {MENU_PERMISSIONS.map((menu) => (
+                    <div key={menu.key} className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={roleTemplates[editingRole]?.menu_permissions?.includes(menu.key) || false}
+                        onCheckedChange={(checked) => {
+                          const currentTemplate = roleTemplates[editingRole] || { menu_permissions: [], function_permissions: [] };
+                          const newMenuPermissions = checked 
+                            ? [...(currentTemplate.menu_permissions || []), menu.key]
+                            : (currentTemplate.menu_permissions || []).filter((p: string) => p !== menu.key);
+                          
+                          setRoleTemplates({
+                            ...roleTemplates,
+                            [editingRole]: {
+                              ...currentTemplate,
+                              menu_permissions: newMenuPermissions
+                            }
+                          });
+                          setHasChanges(true);
+                        }}
+                      />
+                      <Label className="text-sm">{menu.title}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 功能权限配置 */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">功能权限</h3>
+                <div className="grid grid-cols-2 gap-4 max-h-60 overflow-y-auto">
+                  {FUNCTION_PERMISSIONS.map((func) => (
+                    <div key={func.key} className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={roleTemplates[editingRole]?.function_permissions?.includes(func.key) || false}
+                        onCheckedChange={(checked) => {
+                          const currentTemplate = roleTemplates[editingRole] || { menu_permissions: [], function_permissions: [] };
+                          const newFunctionPermissions = checked 
+                            ? [...(currentTemplate.function_permissions || []), func.key]
+                            : (currentTemplate.function_permissions || []).filter((p: string) => p !== func.key);
+                          
+                          setRoleTemplates({
+                            ...roleTemplates,
+                            [editingRole]: {
+                              ...currentTemplate,
+                              function_permissions: newFunctionPermissions
+                            }
+                          });
+                          setHasChanges(true);
+                        }}
+                      />
+                      <Label className="text-sm">{func.title}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => {
+                  setShowRoleTemplateDialog(false);
+                  setEditingRole(null);
+                }}>
+                  取消
+                </Button>
+                <Button onClick={() => {
+                  setShowRoleTemplateDialog(false);
+                  setEditingRole(null);
+                }}>
+                  保存
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
