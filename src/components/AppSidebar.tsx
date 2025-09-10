@@ -35,7 +35,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { forceReimportData } from "@/utils/importData";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useMenuPermissions } from "@/hooks/useMenuPermissions";
+import { useAdvancedPermissions } from "@/hooks/useAdvancedPermissions";
 
 // 菜单配置
 const menuItems = [
@@ -93,7 +93,7 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
   const { isAdmin } = usePermissions();
-  const { hasMenuAccess } = useMenuPermissions();
+  const { hasMenuAccess } = useAdvancedPermissions();
 
   // 添加调试日志
   console.log('AppSidebar - 当前用户是管理员:', isAdmin);
@@ -101,7 +101,11 @@ export function AppSidebar() {
   // 根据权限过滤菜单项
   const filteredMenuItems = menuItems.map(group => ({
     ...group,
-    items: group.items.filter(item => hasMenuAccess(item.url))
+    items: group.items.filter(item => {
+      // 检查菜单权限
+      const menuKey = item.url.replace('/', '').replace('-', '_');
+      return hasMenuAccess(menuKey);
+    })
   })).filter(group => {
     if (group.title === "设置" && !isAdmin) {
       console.log('隐藏设置菜单 - 非管理员用户');

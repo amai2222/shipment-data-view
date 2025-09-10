@@ -1,38 +1,44 @@
+// 权限控制区域组件
+
 import React from 'react';
-import { useMenuPermissions } from '@/hooks/useMenuPermissions';
-import { usePermissions } from '@/hooks/usePermissions';
+import { useAdvancedPermissions } from '@/hooks/useAdvancedPermissions';
+import { PermissionType } from '@/types/permissions';
 
 interface PermissionSectionProps {
-  requiredFunction?: string;
-  requiredRole?: string | string[];
+  permission: string;
+  permissionType?: PermissionType;
   fallback?: React.ReactNode;
+  requireAll?: boolean;
+  permissions?: string[];
   children: React.ReactNode;
 }
 
-/**
- * 权限控制区域组件
- * 根据用户权限决定是否显示内容区域
- */
-export function PermissionSection({ 
-  requiredFunction, 
-  requiredRole, 
+export function PermissionSection({
+  permission,
+  permissionType = 'function',
   fallback = null,
-  children 
+  requireAll = false,
+  permissions = [],
+  children
 }: PermissionSectionProps) {
-  const { hasFunctionAccess } = useMenuPermissions();
-  const { role } = usePermissions();
+  const { hasPermission } = useAdvancedPermissions();
 
-  // 检查功能权限
-  if (requiredFunction && !hasFunctionAccess(requiredFunction)) {
-    return <>{fallback}</>;
-  }
-
-  // 检查角色权限
-  if (requiredRole) {
-    const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
-    if (!role || !roles.includes(role)) {
-      return <>{fallback}</>;
+  // 检查权限
+  const checkPermission = () => {
+    if (permissions.length > 0) {
+      if (requireAll) {
+        return permissions.every(p => hasPermission(p, permissionType).hasPermission);
+      } else {
+        return permissions.some(p => hasPermission(p, permissionType).hasPermission);
+      }
     }
+    return hasPermission(permission, permissionType).hasPermission;
+  };
+
+  const hasAccess = checkPermission();
+
+  if (!hasAccess) {
+    return <>{fallback}</>;
   }
 
   return <>{children}</>;
