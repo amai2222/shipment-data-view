@@ -32,6 +32,7 @@ import PaymentRequestsList from "./pages/PaymentRequestsList";
 import UserManagement from "./pages/Settings/UserManagement";
 import PermissionManagement from "./pages/Settings/PermissionManagement";
 import IntegratedUserManagement from "./pages/IntegratedUserManagement";
+import DebugPermissions from "./pages/DebugPermissions";
 import ScaleRecords from "./pages/ScaleRecords";
 import ContractManagement from "./pages/ContractManagement";
 
@@ -193,6 +194,12 @@ const App = () => (
             <Route path="/settings/integrated" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <AppLayout><IntegratedUserManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/debug-permissions" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><DebugPermissions /></AppLayout>
               </ProtectedRoute>
             } />
             
