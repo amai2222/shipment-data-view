@@ -1,4 +1,5 @@
-// supabase/functions/pdf-proxy/index.ts
+// supabase/functions/pdf-proxy-simple/index.ts
+// 简化版本，暂时移除认证要求用于测试
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -21,7 +22,6 @@ serve(async (req) => {
     // 从请求的URL中获取要代理的文件URL
     const url = new URL(req.url);
     const targetUrl = url.searchParams.get("url");
-    const token = url.searchParams.get("token");
 
     if (!targetUrl) {
       return new Response(JSON.stringify({ error: "URL parameter is missing" }), {
@@ -30,19 +30,7 @@ serve(async (req) => {
       });
     }
 
-    // 验证认证token（如果提供了）
-    if (token) {
-      // 这里可以添加token验证逻辑，暂时跳过
-      // 在实际应用中，你应该验证token的有效性
-      console.log("Token provided:", token.substring(0, 20) + "...");
-    } else {
-      // 如果没有token，检查Authorization header
-      const authHeader = req.headers.get("Authorization");
-      if (!authHeader) {
-        // 临时跳过认证检查，允许访问
-        console.log("No token or auth header, allowing access for testing");
-      }
-    }
+    console.log("Requesting file:", targetUrl);
 
     // --- 安全性检查：确保我们只代理来自我们自己七牛云域名的文件 ---
     const targetDomain = new URL(targetUrl).hostname;
@@ -58,6 +46,7 @@ serve(async (req) => {
 
     // 如果请求失败，返回错误
     if (!response.ok) {
+      console.log("Fetch failed:", response.status, response.statusText);
       return new Response(response.body, {
         status: response.status,
         headers: corsHeaders,
@@ -69,12 +58,15 @@ serve(async (req) => {
     const headers = new Headers(corsHeaders);
     headers.set("Content-Type", response.headers.get("Content-Type") || "application/octet-stream");
     
+    console.log("Successfully proxied file, content-type:", response.headers.get("Content-Type"));
+    
     return new Response(response.body, {
       status: 200,
       headers: headers,
     });
 
   } catch (error) {
+    console.error("Error in pdf-proxy-simple:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

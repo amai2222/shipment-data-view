@@ -35,15 +35,15 @@ export function FileViewerDialog({
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       
-      if (token) {
-        const url = new URL(`https://mnwzvtvyauyxwowjjsmf.supabase.co/functions/v1/pdf-proxy`);
-        url.searchParams.set('url', fileUrl);
-        url.searchParams.set('token', token);
-        setProxyUrl(url.toString());
-      } else {
-        // 如果没有token，直接使用原始URL
-        setProxyUrl(fileUrl);
-      }
+      console.log('Session:', session);
+      console.log('Token:', token ? token.substring(0, 20) + '...' : 'No token');
+      
+      // 使用简化版本的代理服务（暂时不需要认证）
+      const url = new URL(`https://mnwzvtvyauyxwowjjsmf.supabase.co/functions/v1/pdf-proxy-simple`);
+      url.searchParams.set('url', fileUrl);
+      const proxyUrlString = url.toString();
+      console.log('Generated proxy URL:', proxyUrlString);
+      setProxyUrl(proxyUrlString);
     } catch (error) {
       console.error('生成代理URL失败:', error);
       setProxyUrl(fileUrl);
