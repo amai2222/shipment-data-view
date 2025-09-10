@@ -21,6 +21,7 @@ export function FileViewerDialog({
 }: FileViewerDialogProps) {
   const [loading, setLoading] = useState(false);
   const [proxyUrl, setProxyUrl] = useState('');
+  const [showBlockedMessage, setShowBlockedMessage] = useState(false);
   const { toast } = useToast();
 
   // 生成代理URL
@@ -29,6 +30,13 @@ export function FileViewerDialog({
       generateProxyUrl();
       // 测试代理服务是否工作
       testProxyService();
+      // 5秒后显示阻止提示
+      const timer = setTimeout(() => {
+        setShowBlockedMessage(true);
+      }, 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowBlockedMessage(false);
     }
   }, [open, fileUrl]);
 
@@ -170,11 +178,25 @@ export function FileViewerDialog({
                   console.log('iframe failed to load:', e);
                 }}
               />
-              <div className="absolute top-4 left-4 pointer-events-none">
-                <div className="text-center text-gray-500 bg-white/90 p-2 rounded text-xs">
-                  <p>如果文件无法显示，请使用下方按钮</p>
+              {showBlockedMessage && (
+                <div className="absolute top-4 left-4 pointer-events-auto">
+                  <div className="text-center text-gray-700 bg-yellow-100 border border-yellow-300 p-3 rounded text-xs max-w-xs">
+                    <p className="font-semibold mb-2">⚠️ 文件可能被阻止</p>
+                    <p className="mb-2">解决方案：</p>
+                    <p className="mb-1">• 关闭广告拦截器</p>
+                    <p className="mb-1">• 使用无痕模式</p>
+                    <p className="mb-2">• 或使用下方按钮</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowBlockedMessage(false)}
+                      className="text-xs"
+                    >
+                      知道了
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="flex gap-2 justify-center">
                   <Button
