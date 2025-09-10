@@ -12,13 +12,17 @@ export function useSimplePermissions() {
 
   // 获取用户角色
   const userRole = useMemo(() => {
-    return profile?.role as UserRole || 'viewer';
+    const role = profile?.role as UserRole || 'viewer';
+    console.log(`当前用户角色: ${role}, 用户信息:`, profile);
+    return role;
   }, [profile?.role]);
 
   // 获取角色默认权限
   const rolePermissions = useMemo(() => {
     try {
-      return DEFAULT_ROLE_PERMISSIONS[userRole] || DEFAULT_ROLE_PERMISSIONS.viewer;
+      const permissions = DEFAULT_ROLE_PERMISSIONS[userRole] || DEFAULT_ROLE_PERMISSIONS.viewer;
+      console.log(`用户角色: ${userRole}, 权限配置:`, permissions);
+      return permissions;
     } catch (error) {
       console.error('获取角色权限失败:', error);
       return DEFAULT_ROLE_PERMISSIONS.viewer;
@@ -29,9 +33,12 @@ export function useSimplePermissions() {
   const hasMenuAccess = (menuKey: string): boolean => {
     try {
       if (!rolePermissions || !rolePermissions.menu_permissions) {
+        console.log(`菜单权限检查失败 - 角色权限未加载: ${menuKey}`);
         return false;
       }
-      return rolePermissions.menu_permissions.includes(menuKey);
+      const hasAccess = rolePermissions.menu_permissions.includes(menuKey);
+      console.log(`菜单权限检查: ${menuKey} - 用户角色: ${userRole} - 有权限: ${hasAccess}`);
+      return hasAccess;
     } catch (error) {
       console.error('菜单权限检查失败:', error);
       return false;
@@ -79,7 +86,9 @@ export function useSimplePermissions() {
 
   // 检查是否为管理员
   const isAdmin = useMemo(() => {
-    return userRole === 'admin';
+    const admin = userRole === 'admin';
+    console.log(`用户是否为管理员: ${admin}`);
+    return admin;
   }, [userRole]);
 
   return {

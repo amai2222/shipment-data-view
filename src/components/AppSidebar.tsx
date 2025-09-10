@@ -100,8 +100,39 @@ export function AppSidebar() {
   const filteredMenuItems = menuItems.map(group => ({
     ...group,
     items: group.items.filter(item => {
-      // 检查菜单权限
-      const menuKey = item.url.replace('/', '').replace('-', '_');
+      // 检查菜单权限 - 根据URL生成正确的菜单键
+      let menuKey = '';
+      if (item.url.startsWith('/dashboard/')) {
+        menuKey = `dashboard.${item.url.split('/')[2]}`;
+      } else if (item.url === '/projects') {
+        menuKey = 'maintenance.projects';
+      } else if (item.url === '/drivers') {
+        menuKey = 'maintenance.drivers';
+      } else if (item.url === '/locations') {
+        menuKey = 'maintenance.locations';
+      } else if (item.url === '/partners') {
+        menuKey = 'maintenance.partners';
+      } else if (item.url === '/business-entry') {
+        menuKey = 'business.entry';
+      } else if (item.url === '/scale-records') {
+        menuKey = 'business.scale';
+      } else if (item.url === '/payment-request') {
+        menuKey = 'business.payment_request';
+      } else if (item.url === '/payment-requests-list') {
+        menuKey = 'business.payment_requests';
+      } else if (item.url === '/contracts') {
+        menuKey = 'business.contracts';
+      } else if (item.url === '/finance/reconciliation') {
+        menuKey = 'finance.reconciliation';
+      } else if (item.url === '/finance/payment-invoice') {
+        menuKey = 'finance.payment_invoice';
+      } else if (item.url === '/settings/users') {
+        menuKey = 'settings.users';
+      } else if (item.url === '/settings/permissions') {
+        menuKey = 'settings.permissions';
+      }
+      
+      console.log(`检查菜单权限: ${menuKey} - ${hasMenuAccess(menuKey)}`);
       return hasMenuAccess(menuKey);
     })
   })).filter(group => {

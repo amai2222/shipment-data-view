@@ -209,10 +209,15 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
 }> = {
   admin: {
     menu_permissions: [
+      // 数据看板
       'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project', 'dashboard.quantity',
+      // 信息维护
       'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
+      // 业务录入
       'business', 'business.entry', 'business.scale', 'business.payment_request', 'business.payment_requests', 'business.contracts',
+      // 财务对账
       'finance', 'finance.reconciliation', 'finance.payment_invoice',
+      // 设置
       'settings', 'settings.users', 'settings.permissions'
     ],
     function_permissions: [
