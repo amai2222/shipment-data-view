@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { X, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 interface FileViewerDialogProps {
   open: boolean;
@@ -20,56 +19,8 @@ export function FileViewerDialog({
   fileType = 'other'
 }: FileViewerDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [proxyUrl, setProxyUrl] = useState('');
-  const [showBlockedMessage, setShowBlockedMessage] = useState(false);
   const { toast } = useToast();
 
-  // 生成代理URL
-  React.useEffect(() => {
-    if (open && fileUrl) {
-      generateProxyUrl();
-      // 测试代理服务是否工作
-      testProxyService();
-      // 5秒后显示阻止提示
-      const timer = setTimeout(() => {
-        setShowBlockedMessage(true);
-      }, 5000);
-      return () => clearTimeout(timer);
-    } else {
-      setShowBlockedMessage(false);
-    }
-  }, [open, fileUrl]);
-
-  const testProxyService = async () => {
-    try {
-      const testUrl = new URL(`https://mnwzvtvyauyxwowjjsmf.supabase.co/functions/v1/pdf-proxy-simple`);
-      testUrl.searchParams.set('url', fileUrl);
-      
-      const response = await fetch(testUrl.toString(), { method: 'HEAD' });
-      console.log('Proxy service test:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-    } catch (error) {
-      console.error('Proxy service test failed:', error);
-    }
-  };
-
-  const generateProxyUrl = async () => {
-    try {
-      // 使用简化版代理服务，避免跨域问题
-      const url = new URL(`https://mnwzvtvyauyxwowjjsmf.supabase.co/functions/v1/pdf-proxy-simple`);
-      url.searchParams.set('url', fileUrl);
-      const proxyUrlString = url.toString();
-      console.log('Generated proxy URL:', proxyUrlString);
-      console.log('Original file URL:', fileUrl);
-      setProxyUrl(proxyUrlString);
-    } catch (error) {
-      console.error('生成代理URL失败:', error);
-      setProxyUrl(fileUrl);
-    }
-  };
 
   const handleDownload = async () => {
     try {
@@ -158,17 +109,10 @@ export function FileViewerDialog({
         </div>
         
         <div className="flex-1 overflow-hidden">
-          {!proxyUrl && fileUrl ? (
-            <div className="flex items-center justify-center h-[70vh] bg-gray-50">
-              <div className="text-center text-gray-500">
-                <p className="text-lg mb-2">正在加载文件...</p>
-                <p className="text-sm">请稍候</p>
-              </div>
-            </div>
-          ) : isPdf ? (
+          {isPdf ? (
             <div className="relative w-full h-[70vh]">
               <iframe
-                src={proxyUrl || fileUrl}
+                src={fileUrl}
                 className="w-full h-full border-0"
                 title={fileName}
                 onLoad={() => {
@@ -178,25 +122,6 @@ export function FileViewerDialog({
                   console.log('iframe failed to load:', e);
                 }}
               />
-              {showBlockedMessage && (
-                <div className="absolute top-4 left-4 pointer-events-auto">
-                  <div className="text-center text-gray-700 bg-yellow-100 border border-yellow-300 p-3 rounded text-xs max-w-xs">
-                    <p className="font-semibold mb-2">⚠️ 文件可能被阻止</p>
-                    <p className="mb-2">解决方案：</p>
-                    <p className="mb-1">• 关闭广告拦截器</p>
-                    <p className="mb-1">• 使用无痕模式</p>
-                    <p className="mb-2">• 或使用下方按钮</p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowBlockedMessage(false)}
-                      className="text-xs"
-                    >
-                      知道了
-                    </Button>
-                  </div>
-                </div>
-              )}
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="flex gap-2 justify-center">
                   <Button
@@ -220,7 +145,7 @@ export function FileViewerDialog({
           ) : isImage ? (
             <div className="flex items-center justify-center h-[70vh] bg-gray-50">
               <img
-                src={proxyUrl || fileUrl}
+                src={fileUrl}
                 alt={fileName}
                 className="max-w-full max-h-full object-contain"
                 onError={(e) => {
