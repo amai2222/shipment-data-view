@@ -3,8 +3,11 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// 你的七牛云域名，用于安全校验
-const ALLOWED_DOMAIN = "photo.325218.xyz";
+// 允许的域名列表，用于安全校验
+const ALLOWED_DOMAINS = [
+  "photo.325218.xyz",  // 七牛云存储域名
+  "zkzy.325218.xyz"    // 生产环境域名
+];
 
 serve(async (req) => {
   // 设置CORS头，允许任何来源的前端应用调用此函数
@@ -32,10 +35,14 @@ serve(async (req) => {
 
     console.log("Requesting file:", targetUrl);
 
-    // --- 安全性检查：确保我们只代理来自我们自己七牛云域名的文件 ---
+    // --- 安全性检查：确保我们只代理来自允许域名的文件 ---
     const targetDomain = new URL(targetUrl).hostname;
-    if (targetDomain !== ALLOWED_DOMAIN) {
-      return new Response(JSON.stringify({ error: "Proxying from this domain is not allowed" }), {
+    if (!ALLOWED_DOMAINS.includes(targetDomain)) {
+      return new Response(JSON.stringify({ 
+        error: "Proxying from this domain is not allowed",
+        allowedDomains: ALLOWED_DOMAINS,
+        requestedDomain: targetDomain
+      }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

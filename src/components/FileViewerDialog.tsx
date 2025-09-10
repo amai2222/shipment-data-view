@@ -27,14 +27,36 @@ export function FileViewerDialog({
   React.useEffect(() => {
     if (open && fileUrl) {
       generateProxyUrl();
+      // 测试代理服务是否工作
+      testProxyService();
     }
   }, [open, fileUrl]);
 
+  const testProxyService = async () => {
+    try {
+      const testUrl = new URL(`https://mnwzvtvyauyxwowjjsmf.supabase.co/functions/v1/pdf-proxy-simple`);
+      testUrl.searchParams.set('url', fileUrl);
+      
+      const response = await fetch(testUrl.toString(), { method: 'HEAD' });
+      console.log('Proxy service test:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+    } catch (error) {
+      console.error('Proxy service test failed:', error);
+    }
+  };
+
   const generateProxyUrl = async () => {
     try {
-      // 暂时直接使用原始URL，避免代理服务的认证问题
-      console.log('Using original URL:', fileUrl);
-      setProxyUrl(fileUrl);
+      // 使用简化版代理服务，避免跨域问题
+      const url = new URL(`https://mnwzvtvyauyxwowjjsmf.supabase.co/functions/v1/pdf-proxy-simple`);
+      url.searchParams.set('url', fileUrl);
+      const proxyUrlString = url.toString();
+      console.log('Generated proxy URL:', proxyUrlString);
+      console.log('Original file URL:', fileUrl);
+      setProxyUrl(proxyUrlString);
     } catch (error) {
       console.error('生成代理URL失败:', error);
       setProxyUrl(fileUrl);
@@ -102,6 +124,14 @@ export function FileViewerDialog({
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => window.open(fileUrl, '_blank')}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                新窗口打开
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleDownload}
                 disabled={loading}
               >
@@ -133,13 +163,35 @@ export function FileViewerDialog({
                 src={proxyUrl || fileUrl}
                 className="w-full h-full border-0"
                 title={fileName}
-                onError={() => {
-                  console.log('iframe failed to load');
+                onLoad={() => {
+                  console.log('iframe loaded successfully');
+                }}
+                onError={(e) => {
+                  console.log('iframe failed to load:', e);
                 }}
               />
               <div className="absolute top-4 left-4 pointer-events-none">
                 <div className="text-center text-gray-500 bg-white/90 p-2 rounded text-xs">
-                  <p>如果文件无法显示，请使用下载按钮</p>
+                  <p>如果文件无法显示，请使用下方按钮</p>
+                </div>
+              </div>
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.open(fileUrl, '_blank')}
+                  >
+                    新窗口打开
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDownload}
+                    disabled={loading}
+                  >
+                    {loading ? '下载中...' : '下载文件'}
+                  </Button>
                 </div>
               </div>
             </div>
