@@ -21,12 +21,28 @@ serve(async (req) => {
     // 从请求的URL中获取要代理的文件URL
     const url = new URL(req.url);
     const targetUrl = url.searchParams.get("url");
+    const token = url.searchParams.get("token");
 
     if (!targetUrl) {
       return new Response(JSON.stringify({ error: "URL parameter is missing" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // 验证认证token（如果提供了）
+    if (token) {
+      // 这里可以添加token验证逻辑，暂时跳过
+      // 在实际应用中，你应该验证token的有效性
+    } else {
+      // 如果没有token，检查Authorization header
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: "Missing authorization" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // --- 安全性检查：确保我们只代理来自我们自己七牛云域名的文件 ---
