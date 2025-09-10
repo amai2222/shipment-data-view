@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DirectConfirmDialog } from '@/components/ConfirmDialog';
+import { FileViewerDialog } from '@/components/FileViewerDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useFilterState } from '@/hooks/useFilterState';
@@ -64,6 +65,9 @@ export default function ContractManagement() {
   const [deleting, setDeleting] = useState(false);
   const [selectedContracts, setSelectedContracts] = useState<Set<string>>(new Set());
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [fileViewerOpen, setFileViewerOpen] = useState(false);
+  const [currentFileUrl, setCurrentFileUrl] = useState('');
+  const [currentFileName, setCurrentFileName] = useState('');
   const [formData, setFormData] = useState<ContractFormData>({
     category: '业务合同',
     start_date: '',
@@ -278,6 +282,12 @@ export default function ContractManagement() {
       delete updated[type];
       return updated;
     });
+  };
+
+  const handleViewFile = (fileUrl: string, fileName: string) => {
+    setCurrentFileUrl(fileUrl);
+    setCurrentFileName(fileName);
+    setFileViewerOpen(true);
   };
 
   const getCategoryBadgeVariant = (category: string) => {
@@ -697,26 +707,8 @@ export default function ContractManagement() {
                             variant="outline"
                             onClick={() => {
                               if (contract.contract_original_url) {
-                                try {
-                                  // 使用PDF代理服务
-                                  const proxyUrl = `/api/pdf-proxy?url=${encodeURIComponent(contract.contract_original_url)}`;
-                                  const newWindow = window.open(proxyUrl, '_blank');
-                                  
-                                  // 检查是否被浏览器阻止
-                                  if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-                                    toast({
-                                      title: "提示",
-                                      description: "浏览器阻止了弹窗，请允许弹窗或手动复制链接打开",
-                                      variant: "default",
-                                    });
-                                  }
-                                } catch (error) {
-                                  toast({
-                                    title: "错误",
-                                    description: "打开文件失败，请稍后重试",
-                                    variant: "destructive",
-                                  });
-                                }
+                                const fileName = `${contract.counterparty_company}-${contract.our_company}-原件`;
+                                handleViewFile(contract.contract_original_url, fileName);
                               }
                             }}
                           >
@@ -730,26 +722,8 @@ export default function ContractManagement() {
                             variant="outline"
                             onClick={() => {
                               if (contract.attachment_url) {
-                                try {
-                                  // 使用PDF代理服务
-                                  const proxyUrl = `/api/pdf-proxy?url=${encodeURIComponent(contract.attachment_url)}`;
-                                  const newWindow = window.open(proxyUrl, '_blank');
-                                  
-                                  // 检查是否被浏览器阻止
-                                  if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-                                    toast({
-                                      title: "提示",
-                                      description: "浏览器阻止了弹窗，请允许弹窗或手动复制链接打开",
-                                      variant: "default",
-                                    });
-                                  }
-                                } catch (error) {
-                                  toast({
-                                    title: "错误",
-                                    description: "打开文件失败，请稍后重试",
-                                    variant: "destructive",
-                                  });
-                                }
+                                const fileName = `${contract.counterparty_company}-${contract.our_company}-附件`;
+                                handleViewFile(contract.attachment_url, fileName);
                               }
                             }}
                           >
@@ -782,6 +756,13 @@ export default function ContractManagement() {
         description={`确定要删除选中的 ${selectedContracts.size} 个合同吗？此操作不可撤销。`}
         onConfirm={handleBatchDelete}
         loading={deleting}
+      />
+
+      <FileViewerDialog
+        open={fileViewerOpen}
+        onOpenChange={setFileViewerOpen}
+        fileUrl={currentFileUrl}
+        fileName={currentFileName}
       />
     </div>
   );
