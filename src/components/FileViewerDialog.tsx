@@ -25,7 +25,7 @@ export function FileViewerDialog({
   const handleDownload = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/pdf-proxy?url=${encodeURIComponent(fileUrl)}`);
+      const response = await fetch(`https://mnwzvtvyauyxwowjjsmf.supabase.co/functions/v1/pdf-proxy?url=${encodeURIComponent(fileUrl)}`);
       
       if (!response.ok) {
         throw new Error('下载失败');
@@ -95,14 +95,14 @@ export function FileViewerDialog({
         <div className="flex-1 overflow-hidden">
           {isPdf ? (
             <iframe
-              src={`/api/pdf-proxy?url=${encodeURIComponent(fileUrl)}`}
+              src={`https://mnwzvtvyauyxwowjjsmf.supabase.co/functions/v1/pdf-proxy?url=${encodeURIComponent(fileUrl)}`}
               className="w-full h-[70vh] border-0"
               title={fileName}
             />
           ) : isImage ? (
             <div className="flex items-center justify-center h-[70vh] bg-gray-50">
               <img
-                src={`/api/pdf-proxy?url=${encodeURIComponent(fileUrl)}`}
+                src={`https://mnwzvtvyauyxwowjjsmf.supabase.co/functions/v1/pdf-proxy?url=${encodeURIComponent(fileUrl)}`}
                 alt={fileName}
                 className="max-w-full max-h-full object-contain"
                 onError={(e) => {
