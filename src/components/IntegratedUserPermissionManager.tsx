@@ -16,6 +16,7 @@ import { Users, Settings, Eye, Edit, Trash2, Plus, Save, RefreshCw, Copy, Key, S
 import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS } from '@/config/permissions';
 import { PermissionQuickActions } from './PermissionQuickActions';
 import { PermissionVisualizer } from './PermissionVisualizer';
+import { ProjectPermissionManager } from './ProjectPermissionManager';
 
 interface UserWithPermissions {
   id: string;
@@ -52,6 +53,8 @@ export function IntegratedUserPermissionManager() {
   const [editingUser, setEditingUser] = useState<UserWithPermissions | null>(null);
   const [showRoleTemplateDialog, setShowRoleTemplateDialog] = useState(false);
   const [editingRole, setEditingRole] = useState<string | null>(null);
+  const [selectedUserForPermission, setSelectedUserForPermission] = useState<UserWithPermissions | null>(null);
+  const [showProjectPermissionManager, setShowProjectPermissionManager] = useState(false);
 
   // 合并用户和权限数据
   const usersWithPermissions = useMemo(() => {
@@ -229,6 +232,71 @@ export function IntegratedUserPermissionManager() {
   // 保存权限
   const handleSavePermissions = async () => {
     await savePermissions(roleTemplates, userPermissions);
+  };
+
+  // 处理项目权限变更
+  const handleProjectPermissionChange = async (projectId: string, hasAccess: boolean) => {
+    if (!selectedUserForPermission) return;
+
+    try {
+      const updatedPermissions = [...userPermissions];
+      const existingIndex = updatedPermissions.findIndex(p => p.user_id === selectedUserForPermission.id);
+      
+      if (existingIndex >= 0) {
+        // 更新现有权限
+        const currentPerms = updatedPermissions[existingIndex];
+        const currentProjectPerms = currentPerms.project_permissions || [];
+        
+        let newProjectPerms;
+        if (hasAccess) {
+          // 添加项目权限
+          if (!currentProjectPerms.includes(projectId)) {
+            newProjectPerms = [...currentProjectPerms, projectId];
+          } else {
+            newProjectPerms = currentProjectPerms;
+          }
+        } else {
+          // 移除项目权限
+          newProjectPerms = currentProjectPerms.filter((id: string) => id !== projectId);
+        }
+        
+        updatedPermissions[existingIndex] = {
+          ...currentPerms,
+          project_permissions: newProjectPerms
+        };
+      } else {
+        // 创建新权限记录
+        const newProjectPerms = hasAccess ? [projectId] : [];
+        updatedPermissions.push({
+          user_id: selectedUserForPermission.id,
+          project_permissions: newProjectPerms,
+          menu_permissions: [],
+          function_permissions: [],
+          data_permissions: []
+        });
+      }
+      
+      setUserPermissions(updatedPermissions);
+      setHasChanges(true);
+      
+      // 更新当前选中用户的权限显示
+      setSelectedUserForPermission({
+        ...selectedUserForPermission,
+        permissions: {
+          ...selectedUserForPermission.permissions,
+          project: hasAccess 
+            ? [...selectedUserForPermission.permissions.project, projectId]
+            : selectedUserForPermission.permissions.project.filter(id => id !== projectId)
+        }
+      });
+    } catch (error) {
+      console.error('更新项目权限失败:', error);
+      toast({
+        title: "更新失败",
+        description: "更新项目权限失败",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -413,90 +481,152 @@ export function IntegratedUserPermissionManager() {
             <CardHeader>
               <CardTitle>权限配置</CardTitle>
               <CardDescription>
-                为特定用户配置个性化权限，支持可视化权限管理
+                选择用户后配置个性化权限，支持可视化权限管理
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                {filteredUsers.map((user) => {
-                  const rolePermissions = roleTemplates[user.role] || {
-                    menu_permissions: [],
-                    function_permissions: [],
-                    project_permissions: [],
-                    data_permissions: []
-                  };
-
-                  return (
-                    <Card key={user.id} className="p-6">
-                      <div className="flex items-center justify-between mb-6">
-                        <div>
-                          <h4 className="text-lg font-semibold">{user.full_name}</h4>
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
+              {!selectedUserForPermission ? (
+                // 用户选择界面
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 mb-4">
+                    <Input
+                      placeholder="搜索用户..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredUsers.map((user) => (
+                      <Card 
+                        key={user.id} 
+                        className="p-4 cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-blue-300"
+                        onClick={() => setSelectedUserForPermission(user)}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h4 className="font-semibold">{user.full_name}</h4>
+                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                          </div>
                           <Badge className={getRoleColor(user.role)}>
                             {user.role}
                           </Badge>
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-sm">
+                          <span>权限数量:</span>
                           <Badge variant="outline">
-                            {getPermissionCount(user.permissions)} 项权限
+                            {getPermissionCount(user.permissions)} 项
                           </Badge>
                         </div>
+                        
+                        <div className="mt-3 text-xs text-muted-foreground">
+                          点击配置权限
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                // 权限配置界面
+                <div className="space-y-4">
+                  {/* 用户信息头部 */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedUserForPermission(null)}
+                      >
+                        ← 返回用户选择
+                      </Button>
+                      <div>
+                        <h3 className="text-lg font-semibold">{selectedUserForPermission.full_name}</h3>
+                        <p className="text-sm text-muted-foreground">{selectedUserForPermission.email}</p>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={getRoleColor(selectedUserForPermission.role)}>
+                        {selectedUserForPermission.role}
+                      </Badge>
+                      <Badge variant="outline">
+                        {getPermissionCount(selectedUserForPermission.permissions)} 项权限
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowProjectPermissionManager(true)}
+                      >
+                        项目权限
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* 权限配置器 */}
+                  <PermissionVisualizer
+                    userPermissions={selectedUserForPermission.permissions}
+                    rolePermissions={{
+                      menu: roleTemplates[selectedUserForPermission.role]?.menu_permissions || [],
+                      function: roleTemplates[selectedUserForPermission.role]?.function_permissions || [],
+                      project: roleTemplates[selectedUserForPermission.role]?.project_permissions || [],
+                      data: roleTemplates[selectedUserForPermission.role]?.data_permissions || []
+                    }}
+                    onPermissionChange={(type, key, checked) => {
+                      // 更新用户权限
+                      const updatedPermissions = [...userPermissions];
+                      const existingIndex = updatedPermissions.findIndex(p => p.user_id === selectedUserForPermission.id);
                       
-                      <PermissionVisualizer
-                        userPermissions={user.permissions}
-                        rolePermissions={{
-                          menu: rolePermissions.menu_permissions || [],
-                          function: rolePermissions.function_permissions || [],
-                          project: rolePermissions.project_permissions || [],
-                          data: rolePermissions.data_permissions || []
-                        }}
-                        onPermissionChange={(type, key, checked) => {
-                          // 更新用户权限
-                          const updatedPermissions = [...userPermissions];
-                          const existingIndex = updatedPermissions.findIndex(p => p.user_id === user.id);
-                          
-                          if (existingIndex >= 0) {
-                            // 更新现有权限
-                            const currentPerms = updatedPermissions[existingIndex];
-                            const newPerms = [...(currentPerms[`${type}_permissions`] || [])];
-                            
-                            if (checked) {
-                              if (!newPerms.includes(key)) {
-                                newPerms.push(key);
-                              }
-                            } else {
-                              const index = newPerms.indexOf(key);
-                              if (index > -1) {
-                                newPerms.splice(index, 1);
-                              }
-                            }
-                            
-                            updatedPermissions[existingIndex] = {
-                              ...currentPerms,
-                              [`${type}_permissions`]: newPerms
-                            };
-                          } else {
-                            // 创建新权限记录
-                            const newPerms = checked ? [key] : [];
-                            updatedPermissions.push({
-                              user_id: user.id,
-                              [`${type}_permissions`]: newPerms,
-                              menu_permissions: type === 'menu' ? newPerms : [],
-                              function_permissions: type === 'function' ? newPerms : [],
-                              project_permissions: type === 'project' ? newPerms : [],
-                              data_permissions: type === 'data' ? newPerms : []
-                            });
+                      if (existingIndex >= 0) {
+                        // 更新现有权限
+                        const currentPerms = updatedPermissions[existingIndex];
+                        const newPerms = [...(currentPerms[`${type}_permissions`] || [])];
+                        
+                        if (checked) {
+                          if (!newPerms.includes(key)) {
+                            newPerms.push(key);
                           }
-                          
-                          setUserPermissions(updatedPermissions);
-                          setHasChanges(true);
-                        }}
-                      />
-                    </Card>
-                  );
-                })}
-              </div>
+                        } else {
+                          const index = newPerms.indexOf(key);
+                          if (index > -1) {
+                            newPerms.splice(index, 1);
+                          }
+                        }
+                        
+                        updatedPermissions[existingIndex] = {
+                          ...currentPerms,
+                          [`${type}_permissions`]: newPerms
+                        };
+                      } else {
+                        // 创建新权限记录
+                        const newPerms = checked ? [key] : [];
+                        updatedPermissions.push({
+                          user_id: selectedUserForPermission.id,
+                          [`${type}_permissions`]: newPerms,
+                          menu_permissions: type === 'menu' ? newPerms : [],
+                          function_permissions: type === 'function' ? newPerms : [],
+                          project_permissions: type === 'project' ? newPerms : [],
+                          data_permissions: type === 'data' ? newPerms : []
+                        });
+                      }
+                      
+                      setUserPermissions(updatedPermissions);
+                      setHasChanges(true);
+                      
+                      // 更新当前选中用户的权限显示
+                      setSelectedUserForPermission({
+                        ...selectedUserForPermission,
+                        permissions: {
+                          ...selectedUserForPermission.permissions,
+                          [type]: checked 
+                            ? [...selectedUserForPermission.permissions[type], key]
+                            : selectedUserForPermission.permissions[type].filter(p => p !== key)
+                        }
+                      });
+                    }}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -713,6 +843,34 @@ export function IntegratedUserPermissionManager() {
                   保存
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 项目权限管理对话框 */}
+      {showProjectPermissionManager && selectedUserForPermission && (
+        <Dialog open={showProjectPermissionManager} onOpenChange={setShowProjectPermissionManager}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>项目权限管理 - {selectedUserForPermission.full_name}</DialogTitle>
+              <DialogDescription>
+                管理用户的项目访问权限
+              </DialogDescription>
+            </DialogHeader>
+            
+            <ProjectPermissionManager
+              userId={selectedUserForPermission.id}
+              userName={selectedUserForPermission.full_name}
+              userRole={selectedUserForPermission.role}
+              userProjectPermissions={selectedUserForPermission.permissions.project}
+              onPermissionChange={handleProjectPermissionChange}
+            />
+            
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowProjectPermissionManager(false)}>
+                关闭
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

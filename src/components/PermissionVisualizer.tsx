@@ -21,9 +21,10 @@ import {
   Shield,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Building2
 } from 'lucide-react';
-import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS } from '@/config/permissions';
+import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS } from '@/config/permissions';
 
 interface PermissionVisualizerProps {
   userPermissions: {
@@ -418,8 +419,66 @@ export function PermissionVisualizer({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                项目权限配置功能开发中...
+              <div className="space-y-4">
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <h4 className="font-medium text-purple-800 mb-2">项目权限说明</h4>
+                  <p className="text-sm text-purple-700">
+                    默认情况下，用户拥有所有项目的访问权限。可以通过取消勾选来限制用户访问特定项目。
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {PROJECT_PERMISSIONS.map((projectGroup) => (
+                    <Card key={projectGroup.key} className="border-l-4 border-l-purple-500">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm font-medium text-purple-700">
+                          {projectGroup.label}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="space-y-3">
+                          {projectGroup.children?.map((permission) => {
+                            const hasUserPermission = userPermissions.project.includes(permission.key);
+                            const hasRolePermission = rolePermissions.project.includes(permission.key);
+                            
+                            let status = 'none';
+                            if (hasUserPermission && hasRolePermission) {
+                              status = 'inherited';
+                            } else if (hasUserPermission && !hasRolePermission) {
+                              status = 'custom';
+                            } else if (!hasUserPermission && hasRolePermission) {
+                              status = 'role-only';
+                            }
+                            
+                            return (
+                              <div key={permission.key} className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
+                                <div className="flex items-center gap-3">
+                                  <Building2 className="h-4 w-4 text-gray-600" />
+                                  <div>
+                                    <div className="font-medium text-sm">{permission.label}</div>
+                                    <div className="text-xs text-gray-500">{permission.description}</div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {getStatusIcon(status)}
+                                  {getStatusBadge(status)}
+                                  {!readOnly && (
+                                    <Checkbox
+                                      checked={hasUserPermission}
+                                      onCheckedChange={(checked) => 
+                                        onPermissionChange?.('project', permission.key, checked as boolean)
+                                      }
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </CollapsibleContent>
