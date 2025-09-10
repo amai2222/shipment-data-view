@@ -34,8 +34,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { forceReimportData } from "@/utils/importData";
-import { usePermissions } from "@/hooks/usePermissions";
-import { useAdvancedPermissions } from "@/hooks/useAdvancedPermissions";
+import { useSimplePermissions } from "@/hooks/useSimplePermissions";
 
 // 菜单配置
 const menuItems = [
@@ -92,8 +91,7 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
-  const { isAdmin } = usePermissions();
-  const { hasMenuAccess } = useAdvancedPermissions();
+  const { hasMenuAccess, isAdmin } = useSimplePermissions();
 
   // 添加调试日志
   console.log('AppSidebar - 当前用户是管理员:', isAdmin);

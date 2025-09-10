@@ -1,6 +1,6 @@
 // 增强的权限管理Hook
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -20,14 +20,9 @@ export function useAdvancedPermissions() {
   const [loading, setLoading] = useState(true);
   const [currentProject, setCurrentProject] = useState<string | null>(null);
 
-  // 加载用户权限数据
-  useEffect(() => {
-    if (user) {
-      loadPermissions();
-    }
-  }, [user]);
-
-  const loadPermissions = async () => {
+  const loadPermissions = useCallback(async () => {
+    if (!user?.id) return;
+    
     try {
       setLoading(true);
       
@@ -42,24 +37,41 @@ export function useAdvancedPermissions() {
           .select('*')
       ]);
 
-      if (userPermsResult.error) throw userPermsResult.error;
-      if (roleTemplatesResult.error) throw roleTemplatesResult.error;
-
-      setUserPermissions(userPermsResult.data || []);
+      if (userPermsResult.error) {
+        console.warn('加载用户权限失败，使用默认权限:', userPermsResult.error);
+        setUserPermissions([]);
+      } else {
+        setUserPermissions(userPermsResult.data || []);
+      }
       
-      // 转换为以角色为键的对象
-      const templates: Record<UserRole, RolePermissionTemplate> = {} as any;
-      roleTemplatesResult.data?.forEach(template => {
-        templates[template.role] = template;
-      });
-      setRoleTemplates(templates);
+      if (roleTemplatesResult.error) {
+        console.warn('加载角色模板失败，使用默认模板:', roleTemplatesResult.error);
+        setRoleTemplates({} as Record<UserRole, RolePermissionTemplate>);
+      } else {
+        // 转换为以角色为键的对象
+        const templates: Record<UserRole, RolePermissionTemplate> = {} as any;
+        roleTemplatesResult.data?.forEach(template => {
+          templates[template.role] = template;
+        });
+        setRoleTemplates(templates);
+      }
       
     } catch (error) {
       console.error('加载权限数据失败:', error);
+      // 设置默认值
+      setUserPermissions([]);
+      setRoleTemplates({} as Record<UserRole, RolePermissionTemplate>);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  // 加载用户权限数据
+  useEffect(() => {
+    if (user?.id) {
+      loadPermissions();
+    }
+  }, [user?.id, loadPermissions]); // 添加 loadPermissions 依赖
 
   // 获取当前用户的权限上下文
   const getPermissionContext = useMemo((): PermissionContext => {
@@ -78,15 +90,61 @@ export function useAdvancedPermissions() {
     }
 
     const userRole = profile.role as UserRole;
-    const effectivePermissions = getEffectivePermissions(user.id, currentProject);
+    
+    // 获取用户特定权限
+    const userPerm = userPermissions.find(
+      p => p.user_id === user.id && 
+      (currentProject ? p.project_id === currentProject : p.project_id === null)
+    );
+
+    // 获取用户角色
+    const roleTemplate = roleTemplates[userRole];
+
+    // 如果用户有特定权限且不继承角色权限
+    if (userPerm && !userPerm.inherit_role) {
+      return {
+        userId: user.id,
+        userRole,
+        currentProject: currentProject || undefined,
+        permissions: {
+          menu: userPerm.menu_permissions,
+          function: userPerm.function_permissions,
+          project: userPerm.project_permissions,
+          data: userPerm.data_permissions
+        }
+      };
+    }
+
+    // 合并角色权限和用户特定权限
+    const rolePermissions = roleTemplate ? {
+      menu: roleTemplate.menu_permissions,
+      function: roleTemplate.function_permissions,
+      project: roleTemplate.project_permissions,
+      data: roleTemplate.data_permissions
+    } : DEFAULT_ROLE_PERMISSIONS[userRole];
+
+    if (userPerm) {
+      // 用户特定权限覆盖角色权限
+      return {
+        userId: user.id,
+        userRole,
+        currentProject: currentProject || undefined,
+        permissions: {
+          menu: [...new Set([...rolePermissions.menu, ...userPerm.menu_permissions])],
+          function: [...new Set([...rolePermissions.function, ...userPerm.function_permissions])],
+          project: [...new Set([...rolePermissions.project, ...userPerm.project_permissions])],
+          data: [...new Set([...rolePermissions.data, ...userPerm.data_permissions])]
+        }
+      };
+    }
 
     return {
       userId: user.id,
       userRole,
       currentProject: currentProject || undefined,
-      permissions: effectivePermissions
+      permissions: rolePermissions
     };
-  }, [user, profile, currentProject, userPermissions, roleTemplates]);
+  }, [user?.id, profile?.role, currentProject, userPermissions, roleTemplates]);
 
   // 获取有效权限（用户权限 + 角色权限）
   const getEffectivePermissions = (userId: string, projectId?: string | null) => {
@@ -137,43 +195,72 @@ export function useAdvancedPermissions() {
   };
 
   // 检查权限
-  const hasPermission = (permission: string, type: PermissionType = 'function'): PermissionCheck => {
-    const context = getPermissionContext;
-    const permissions = context.permissions[type === 'menu' ? 'menu' : 
-                                          type === 'project' ? 'project' : 
-                                          type === 'data' ? 'data' : 'function'];
+  const hasPermission = useCallback((permission: string, type: PermissionType = 'function'): PermissionCheck => {
+    try {
+      const context = getPermissionContext;
+      const permissions = context.permissions[type === 'menu' ? 'menu' : 
+                                            type === 'project' ? 'project' : 
+                                            type === 'data' ? 'data' : 'function'];
 
-    const hasAccess = permissions.includes(permission);
-    
-    return {
-      hasPermission: hasAccess,
-      reason: hasAccess ? undefined : `缺少权限: ${permission}`,
-      inheritedFrom: hasAccess ? 'role' : undefined
-    };
-  };
+      const hasAccess = permissions.includes(permission);
+      
+      return {
+        hasPermission: hasAccess,
+        reason: hasAccess ? undefined : `缺少权限: ${permission}`,
+        inheritedFrom: hasAccess ? 'role' : undefined
+      };
+    } catch (error) {
+      console.error('权限检查失败:', error);
+      return {
+        hasPermission: false,
+        reason: '权限检查失败',
+        inheritedFrom: undefined
+      };
+    }
+  }, [getPermissionContext]);
 
   // 检查菜单权限
-  const hasMenuAccess = (menuKey: string): boolean => {
-    return hasPermission(menuKey, 'menu').hasPermission;
-  };
+  const hasMenuAccess = useCallback((menuKey: string): boolean => {
+    try {
+      return hasPermission(menuKey, 'menu').hasPermission;
+    } catch (error) {
+      console.error('菜单权限检查失败:', error);
+      return false;
+    }
+  }, [hasPermission]);
 
   // 检查功能权限
-  const hasFunctionAccess = (functionKey: string): boolean => {
-    return hasPermission(functionKey, 'function').hasPermission;
-  };
+  const hasFunctionAccess = useCallback((functionKey: string): boolean => {
+    try {
+      return hasPermission(functionKey, 'function').hasPermission;
+    } catch (error) {
+      console.error('功能权限检查失败:', error);
+      return false;
+    }
+  }, [hasPermission]);
 
   // 检查项目权限
-  const hasProjectAccess = (projectKey: string): boolean => {
-    return hasPermission(projectKey, 'project').hasPermission;
-  };
+  const hasProjectAccess = useCallback((projectKey: string): boolean => {
+    try {
+      return hasPermission(projectKey, 'project').hasPermission;
+    } catch (error) {
+      console.error('项目权限检查失败:', error);
+      return false;
+    }
+  }, [hasPermission]);
 
   // 检查数据权限
-  const hasDataAccess = (dataKey: string): boolean => {
-    return hasPermission(dataKey, 'data').hasPermission;
-  };
+  const hasDataAccess = useCallback((dataKey: string): boolean => {
+    try {
+      return hasPermission(dataKey, 'data').hasPermission;
+    } catch (error) {
+      console.error('数据权限检查失败:', error);
+      return false;
+    }
+  }, [hasPermission]);
 
   // 获取用户可访问的项目列表
-  const getAccessibleProjects = async () => {
+  const getAccessibleProjects = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -201,17 +288,17 @@ export function useAdvancedPermissions() {
       console.error('获取可访问项目失败:', error);
       return [];
     }
-  };
+  }, [hasProjectAccess, user?.id]);
 
   // 设置当前项目
-  const setCurrentProjectContext = (projectId: string | null) => {
+  const setCurrentProjectContext = useCallback((projectId: string | null) => {
     setCurrentProject(projectId);
-  };
+  }, []);
 
   // 刷新权限数据
-  const refreshPermissions = () => {
+  const refreshPermissions = useCallback(() => {
     loadPermissions();
-  };
+  }, [loadPermissions]);
 
   return {
     // 状态
