@@ -695,7 +695,30 @@ export default function ContractManagement() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => window.open(contract.contract_original_url, '_blank')}
+                            onClick={() => {
+                              if (contract.contract_original_url) {
+                                try {
+                                  // 使用PDF代理服务
+                                  const proxyUrl = `/api/pdf-proxy?url=${encodeURIComponent(contract.contract_original_url)}`;
+                                  const newWindow = window.open(proxyUrl, '_blank');
+                                  
+                                  // 检查是否被浏览器阻止
+                                  if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                                    toast({
+                                      title: "提示",
+                                      description: "浏览器阻止了弹窗，请允许弹窗或手动复制链接打开",
+                                      variant: "default",
+                                    });
+                                  }
+                                } catch (error) {
+                                  toast({
+                                    title: "错误",
+                                    description: "打开文件失败，请稍后重试",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }
+                            }}
                           >
                             <FileText className="h-3 w-3 mr-1" />
                             原件
@@ -705,7 +728,30 @@ export default function ContractManagement() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => window.open(contract.attachment_url, '_blank')}
+                            onClick={() => {
+                              if (contract.attachment_url) {
+                                try {
+                                  // 使用PDF代理服务
+                                  const proxyUrl = `/api/pdf-proxy?url=${encodeURIComponent(contract.attachment_url)}`;
+                                  const newWindow = window.open(proxyUrl, '_blank');
+                                  
+                                  // 检查是否被浏览器阻止
+                                  if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                                    toast({
+                                      title: "提示",
+                                      description: "浏览器阻止了弹窗，请允许弹窗或手动复制链接打开",
+                                      variant: "default",
+                                    });
+                                  }
+                                } catch (error) {
+                                  toast({
+                                    title: "错误",
+                                    description: "打开文件失败，请稍后重试",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }
+                            }}
                           >
                             <Download className="h-3 w-3 mr-1" />
                             附件
