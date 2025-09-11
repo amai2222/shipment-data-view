@@ -34,9 +34,7 @@ import PermissionManagement from "./pages/Settings/PermissionManagement";
 import IntegratedUserManagement from "./pages/IntegratedUserManagement";
 import DebugPermissions from "./pages/DebugPermissions";
 import MobileIntegratedUserManagement from "./pages/mobile/MobileIntegratedUserManagement";
-import AuditLogs from "./pages/Logs/AuditLogs";
-import WaybillLogs from "./pages/Logs/WaybillLogs";
-import LogsIndex from "./pages/Logs/index";
+import AuditLogs from "./pages/Settings/AuditLogs";
 import MobileAuditLogs from "./pages/mobile/MobileAuditLogs";
 import ScaleRecords from "./pages/ScaleRecords";
 import ContractManagement from "./pages/ContractManagement";
@@ -202,19 +200,7 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            <Route path="/logs" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
-                <AppLayout><LogsIndex /></AppLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/logs/waybill" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
-                <AppLayout><WaybillLogs /></AppLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/logs/audit" element={
+            <Route path="/settings/audit-logs" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <AppLayout><AuditLogs /></AppLayout>
               </ProtectedRoute>
@@ -371,13 +357,7 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-            <Route path="/m/logs/waybill" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
-                <MobileLayout><WaybillLogs /></MobileLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/m/logs/audit" element={
+            <Route path="/m/settings/audit-logs" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <MobileAuditLogs />
               </ProtectedRoute>
