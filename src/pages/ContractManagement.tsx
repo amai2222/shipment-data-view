@@ -144,12 +144,7 @@ export default function ContractManagement() {
       
       let query = supabase
         .from('contracts')
-        .select(`
-          *,
-          contract_tag_relations(
-            contract_tags(id, name, color)
-          )
-        `);
+        .select('*');
 
       // 基础筛选
       if (filters.category) {
@@ -179,10 +174,10 @@ export default function ContractManagement() {
         query = query.eq('priority', filters.priority);
       }
       if (filters.department) {
-        query = query.eq('department', filters.department);
+        query = query.ilike('department', `%${filters.department}%`);
       }
       if (filters.responsible_person) {
-        query = query.eq('responsible_person', filters.responsible_person);
+        query = query.ilike('responsible_person', `%${filters.responsible_person}%`);
       }
       if (filters.amount_min) {
         query = query.gte('contract_amount', parseFloat(filters.amount_min));
@@ -208,10 +203,10 @@ export default function ContractManagement() {
       if (filters.created_date_to) {
         query = query.lte('created_at', filters.created_date_to);
       }
-      if (filters.is_confidential !== null) {
+      if (filters.is_confidential !== null && filters.is_confidential !== undefined) {
         query = query.eq('is_confidential', filters.is_confidential);
       }
-      if (filters.has_files !== null) {
+      if (filters.has_files !== null && filters.has_files !== undefined) {
         if (filters.has_files) {
           query = query.or('contract_original_url.not.is.null,attachment_url.not.is.null');
         } else {
@@ -245,33 +240,15 @@ export default function ContractManagement() {
 
       if (error) throw error;
       
-      // 处理标签筛选
-      let filteredData = data || [];
-      if (filters.tags && filters.tags.length > 0) {
-        filteredData = filteredData.filter(contract => {
-          const contractTags = contract.contract_tag_relations?.map((r: any) => r.contract_tags.id) || [];
-          return filters.tags.some((tagId: string) => contractTags.includes(tagId));
-        });
-      }
-
-      setContracts(filteredData);
+      setContracts(data || []);
     } catch (error) {
       console.error('Error loading contracts:', error);
-      // 如果表不存在，返回空数组而不是抛出错误
-      if (error.message && error.message.includes('relation "contracts" does not exist')) {
-        setContracts([]);
-        toast({
-          title: "提示",
-          description: "合同表尚未创建，请先运行数据库迁移",
-          variant: "default",
-        });
-      } else {
-        toast({
-          title: "错误",
-          description: "加载合同列表失败，请检查数据库连接",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "错误", 
+        description: `加载合同列表失败: ${error.message || '未知错误'}`,
+        variant: "destructive",
+      });
+      setContracts([]);
     } finally {
       setLoading(false);
     }
