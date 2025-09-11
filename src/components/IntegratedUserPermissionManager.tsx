@@ -55,6 +55,11 @@ export function IntegratedUserPermissionManager() {
   const [editingRole, setEditingRole] = useState<string | null>(null);
   const [selectedUserForPermission, setSelectedUserForPermission] = useState<UserWithPermissions | null>(null);
   const [showProjectPermissionManager, setShowProjectPermissionManager] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserWithPermissions | null>(null);
+  const [userToChangePassword, setUserToChangePassword] = useState<UserWithPermissions | null>(null);
+  const [newPassword, setNewPassword] = useState('');
 
   // 合并用户和权限数据
   const usersWithPermissions = useMemo(() => {
@@ -221,9 +226,77 @@ export function IntegratedUserPermissionManager() {
 
       await loadAllData();
     } catch (error) {
+      console.error('切换用户状态失败:', error);
       toast({
         title: "更新失败",
         description: "更新用户状态失败",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // 删除用户
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      // 首先删除用户权限
+      await supabase
+        .from('user_permissions')
+        .delete()
+        .eq('user_id', userToDelete.id);
+
+      // 然后删除用户档案
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "删除成功",
+        description: `用户 ${userToDelete.full_name} 已被删除`,
+      });
+
+      setShowDeleteDialog(false);
+      setUserToDelete(null);
+      await loadAllData();
+    } catch (error) {
+      console.error('删除用户失败:', error);
+      toast({
+        title: "删除失败",
+        description: "删除用户失败，请重试",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // 修改密码
+  const handleChangePassword = async () => {
+    if (!userToChangePassword || !newPassword.trim()) return;
+
+    try {
+      const { error } = await supabase.auth.admin.updateUserById(
+        userToChangePassword.id,
+        { password: newPassword }
+      );
+
+      if (error) throw error;
+
+      toast({
+        title: "密码修改成功",
+        description: `用户 ${userToChangePassword.full_name} 的密码已更新`,
+      });
+
+      setShowPasswordDialog(false);
+      setUserToChangePassword(null);
+      setNewPassword('');
+    } catch (error) {
+      console.error('修改密码失败:', error);
+      toast({
+        title: "修改失败",
+        description: "修改密码失败，请重试",
         variant: "destructive"
       });
     }
@@ -450,20 +523,45 @@ export function IntegratedUserPermissionManager() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setEditingUser(user)}
+                            title="编辑用户"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => {
+                              setUserToChangePassword(user);
+                              setShowPasswordDialog(true);
+                            }}
+                            title="修改密码"
+                          >
+                            <Key className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => toggleUserStatus(user.id, user.is_active)}
+                            title={user.is_active ? "禁用用户" : "启用用户"}
                           >
                             {user.is_active ? "禁用" : "启用"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setUserToDelete(user);
+                              setShowDeleteDialog(true);
+                            }}
+                            title="删除用户"
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -871,6 +969,104 @@ export function IntegratedUserPermissionManager() {
               <Button variant="outline" onClick={() => setShowProjectPermissionManager(false)}>
                 关闭
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 删除用户确认对话框 */}
+      {showDeleteDialog && userToDelete && (
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>确认删除用户</DialogTitle>
+              <DialogDescription>
+                此操作将永久删除用户及其所有相关数据，无法撤销。
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                  <div>
+                    <h4 className="font-medium text-red-800">删除用户: {userToDelete.full_name}</h4>
+                    <p className="text-sm text-red-700">{userToDelete.email}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-sm text-gray-600">
+                <p>删除后将同时移除：</p>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>用户账户信息</li>
+                  <li>用户权限配置</li>
+                  <li>所有相关数据记录</li>
+                </ul>
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                  取消
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleDeleteUser}
+                >
+                  确认删除
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 修改密码对话框 */}
+      {showPasswordDialog && userToChangePassword && (
+        <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>修改密码</DialogTitle>
+              <DialogDescription>
+                为用户 {userToChangePassword.full_name} 设置新密码
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="new-password">新密码</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="请输入新密码"
+                  className="mt-1"
+                />
+              </div>
+              
+              <div className="text-sm text-gray-600">
+                <p>密码要求：</p>
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li>至少8个字符</li>
+                  <li>建议包含字母、数字和特殊字符</li>
+                </ul>
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => {
+                  setShowPasswordDialog(false);
+                  setNewPassword('');
+                }}>
+                  取消
+                </Button>
+                <Button 
+                  onClick={handleChangePassword}
+                  disabled={!newPassword.trim() || newPassword.length < 6}
+                >
+                  确认修改
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
