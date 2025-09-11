@@ -31,6 +31,12 @@ export interface Location {
   createdAt: string;
 }
 
+// 平台运单信息数据类型
+export interface PlatformTracking {
+  platform: string; // 平台名称
+  trackingNumbers: string[]; // 该平台的运单号列表
+}
+
 // 物流记录数据类型
 export interface LogisticsRecord {
   id: string;
@@ -56,6 +62,7 @@ export interface LogisticsRecord {
   createdAt: string;
   createdByUserId: string;
   billing_type_id?: number;
+  platform_trackings?: PlatformTracking[]; // 其他平台运单信息
 }
 
 // 合作方数据类型

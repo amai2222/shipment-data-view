@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { CalendarIcon, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { LogisticsRecord, Project } from '../types';
+import { LogisticsRecord, Project, PlatformTracking } from '../types';
+import { PlatformTrackingInput } from '@/components/PlatformTrackingInput';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ interface FormData {
   currentCost: string;
   extraCost: string;
   remarks: string;
+  platform_trackings: PlatformTracking[];
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -57,6 +59,7 @@ const INITIAL_FORM_DATA: FormData = {
   currentCost: '',
   extraCost: '',
   remarks: '',
+  platform_trackings: [],
 };
 
 export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, onSubmitSuccess }: LogisticsFormDialogProps) {
@@ -151,6 +154,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       currentCost: record.current_cost?.toString() || '',
       extraCost: record.extra_cost?.toString() || '',
       remarks: record.remarks || '',
+      platform_trackings: record.platform_trackings || [],
     });
   };
 
@@ -202,6 +206,24 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_remarks: formData.remarks,
           p_unloading_date: formData.unloadingDate?.toISOString()
         });
+        
+        // 更新可选字段
+        if (error) throw error;
+        
+        // 更新平台运单信息
+        const validPlatformTrackings = formData.platform_trackings.filter(pt => 
+          pt.platform.trim() !== '' && pt.trackingNumbers.some(tn => tn.trim() !== '')
+        );
+        
+        if (validPlatformTrackings.length > 0) {
+          const { error: platformError } = await supabase
+            .from('logistics_records')
+            .update({ 
+              platform_trackings: validPlatformTrackings
+            })
+            .eq('id', editingRecord.id);
+          if (platformError) throw platformError;
+        }
         if (error) throw error;
         toast({ title: "成功", description: "运单已更新" });
       } else {
@@ -231,7 +253,13 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           driver_phone: formData.driverPhone,
           transport_type: formData.transportType,
           remarks: formData.remarks,
-          created_by_user_id: 'user'
+          created_by_user_id: 'user',
+          // 可选字段
+          platform_trackings: formData.platform_trackings && formData.platform_trackings.length > 0 
+            ? formData.platform_trackings.filter(pt => 
+                pt.platform.trim() !== '' && pt.trackingNumbers.some(tn => tn.trim() !== '')
+              )
+            : null
         });
         if (error) throw error;
         toast({ title: "成功", description: "运单已创建" });
@@ -370,6 +398,10 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <Label className="font-semibold">司机应收(元)</Label>
             <div className="mt-1 px-3 py-2 bg-muted rounded-md font-mono text-primary font-semibold text-lg">¥{driverReceivable.toFixed(2)}</div>
           </div>
+          <PlatformTrackingInput
+            platformTrackings={formData.platform_trackings}
+            onChange={(platformTrackings) => setFormData(prev => ({ ...prev, platform_trackings: platformTrackings }))}
+          />
           <div>
             <Label>备注</Label>
             <Textarea value={formData.remarks} onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))} placeholder="输入备注信息" rows={3} />

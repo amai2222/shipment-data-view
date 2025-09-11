@@ -99,6 +99,45 @@ export default function DataImport() {
                         continue; // 跳过无效记录，让后端处理错误
                     }
 
+                    // 处理可选字段：平台运单信息
+                    let platformTrackings = null;
+                    if (rowData['外部运单号'] || rowData['外部平台'] || rowData['其他平台名称']) {
+                        const platformMap = new Map();
+                        
+                        // 处理外部运单号（需要平台和运单号配对）
+                        if (rowData['外部运单号'] && rowData['外部平台']) {
+                            const platforms = (rowData['外部平台'] || '').toString().split(',').map(p => p.trim()).filter(p => p);
+                            const trackingNumbersStr = (rowData['外部运单号'] || '').toString().split(',').map(t => t.trim()).filter(t => t);
+                            
+                            for (let i = 0; i < Math.max(platforms.length, trackingNumbersStr.length); i++) {
+                                if (platforms[i] && trackingNumbersStr[i]) {
+                                    if (!platformMap.has(platforms[i])) {
+                                        platformMap.set(platforms[i], []);
+                                    }
+                                    platformMap.get(platforms[i]).push(trackingNumbersStr[i]);
+                                }
+                            }
+                        }
+                        
+                        // 处理其他平台名称（只有平台名称，无运单号）
+                        if (rowData['其他平台名称']) {
+                            const platformNames = (rowData['其他平台名称'] || '').toString().split(',').map(p => p.trim()).filter(p => p);
+                            platformNames.forEach(platformName => {
+                                if (!platformMap.has(platformName)) {
+                                    platformMap.set(platformName, []);
+                                }
+                            });
+                        }
+                        
+                        // 转换为数组格式
+                        if (platformMap.size > 0) {
+                            platformTrackings = Array.from(platformMap.entries()).map(([platform, trackingNumbers]) => ({
+                                platform: platform,
+                                trackingNumbers: trackingNumbers
+                            }));
+                        }
+                    }
+
                     // 准备批量导入的记录数据
                     const recordData = {
                         project_name: projectName,
@@ -115,7 +154,9 @@ export default function DataImport() {
                         current_cost: rowData['运费金额'] ? parseFloat(rowData['运费金额']).toString() : '0',
                         extra_cost: rowData['额外费用'] ? parseFloat(rowData['额外费用']).toString() : '0',
                         transport_type: rowData['运输类型']?.trim() || '实际运输',
-                        remarks: rowData['备注']?.toString().trim() || null
+                        remarks: rowData['备注']?.toString().trim() || null,
+                        // 可选字段
+                        platform_trackings: platformTrackings
                     };
                     
                     batchRecords.push(recordData);
