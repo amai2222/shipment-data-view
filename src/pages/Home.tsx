@@ -42,8 +42,7 @@ interface DashboardDataV2 {
 
 const getDefaultDateRange = () => {
   const today = new Date();
-  const startDate = new Date();
-  startDate.setDate(today.getDate() - 45);
+  const startDate = new Date('1970-01-01');
   const formatISODate = (date: Date) => date.toISOString().split('T')[0];
   return { startDate: formatISODate(startDate), endDate: formatISODate(today) };
 };

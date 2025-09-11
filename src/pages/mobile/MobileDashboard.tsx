@@ -22,11 +22,14 @@ export default function MobileDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // 固定最近30天
-  const dateRange = {
-    from: subDays(new Date(), 30),
-    to: new Date(),
+  // 使用与桌面端相同的默认日期范围（1970-01-01到现在）
+  const getDefaultDateRange = () => {
+    const today = new Date();
+    const startDate = new Date('1970-01-01');
+    return { from: startDate, to: today };
   };
+  
+  const dateRange = getDefaultDateRange();
 
   useEffect(() => {
     loadData();
@@ -65,7 +68,7 @@ export default function MobileDashboard() {
   const filteredRecords = useMemo(() => {
     let filtered = records;
     
-    // 按日期范围过滤（最近30天）
+    // 按日期范围过滤（1970-01-01到现在）
     filtered = filtered.filter(record => {
       const dateStr = getValidDateString(record.loadingDate);
       if (!dateStr) return false;
@@ -135,7 +138,7 @@ export default function MobileDashboard() {
               <BarChart3 className="h-5 w-5 text-primary" />
               数据看板
             </CardTitle>
-            <p className="text-sm text-muted-foreground">最近30天运输数据概览</p>
+            <p className="text-sm text-muted-foreground">全部历史运输数据概览</p>
           </CardHeader>
         </MobileCard>
 
