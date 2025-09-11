@@ -1106,9 +1106,39 @@ export function IntegratedUserPermissionManager() {
                 <Button variant="outline" onClick={() => setEditingUser(null)}>
                   取消
                 </Button>
-                <Button onClick={() => {
-                  // 实现保存用户信息的逻辑
-                  setEditingUser(null);
+                <Button onClick={async () => {
+                  try {
+                    if (!editingUser) return;
+
+                    // 更新用户信息到数据库
+                    const { error } = await supabase
+                      .from('profiles')
+                      .update({
+                        full_name: editingUser.full_name,
+                        email: editingUser.email,
+                        role: editingUser.role,
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq('id', editingUser.id);
+
+                    if (error) throw error;
+
+                    toast({
+                      title: "保存成功",
+                      description: "用户信息已更新",
+                    });
+
+                    // 重新加载数据
+                    await loadAllData();
+                    setEditingUser(null);
+                  } catch (error) {
+                    console.error('保存用户信息失败:', error);
+                    toast({
+                      title: "保存失败",
+                      description: "保存用户信息失败，请重试",
+                      variant: "destructive"
+                    });
+                  }
                 }}>
                   保存
                 </Button>
