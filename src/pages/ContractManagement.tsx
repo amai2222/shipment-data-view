@@ -15,10 +15,12 @@ import { ContractNumberingManager } from '@/components/contracts/ContractNumberi
 import { ContractTagManager } from '@/components/contracts/ContractTagManager';
 import { ContractPermissionManager } from '@/components/contracts/ContractPermissionManager';
 import { ContractFileManager } from '@/components/contracts/ContractFileManager';
+import { ContractAdvancedSearch } from '@/components/contracts/ContractAdvancedSearch';
+import { ContractReminderSystem } from '@/components/contracts/ContractReminderSystem';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useFilterState } from '@/hooks/useFilterState';
-import { Upload, Search, FileText, Filter, Plus, Download, Trash2, Settings, Tag, Hash, Shield, Archive } from 'lucide-react';
+import { Upload, Search, FileText, Filter, Plus, Download, Trash2, Settings, Tag, Hash, Shield, Archive, Bell } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Contract {
@@ -99,7 +101,8 @@ export default function ContractManagement() {
   const [fileViewerOpen, setFileViewerOpen] = useState(false);
   const [currentFileUrl, setCurrentFileUrl] = useState('');
   const [currentFileName, setCurrentFileName] = useState('');
-  const [activeTab, setActiveTab] = useState<'contracts' | 'numbering' | 'tags' | 'permissions' | 'files'>('contracts');
+  const [activeTab, setActiveTab] = useState<'contracts' | 'numbering' | 'tags' | 'permissions' | 'files' | 'reminders'>('contracts');
+  const [advancedFilters, setAdvancedFilters] = useState<any>(null);
   const [formData, setFormData] = useState<ContractFormData>({
     category: '业务合同',
     start_date: '',
@@ -132,34 +135,124 @@ export default function ContractManagement() {
     loadContracts();
   }, [activeFilters]);
 
-  const loadContracts = async () => {
+  const loadContracts = async (customFilters?: any) => {
     try {
       setLoading(true);
+      const filters = customFilters || activeFilters;
+      
       let query = supabase
         .from('contracts')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select(`
+          *,
+          contract_tag_relations(
+            contract_tags(id, name, color)
+          )
+        `);
 
-      if (activeFilters.category) {
-        query = query.eq('category', activeFilters.category as '行政合同' | '内部合同' | '业务合同');
+      // 基础筛选
+      if (filters.category) {
+        query = query.eq('category', filters.category as '行政合同' | '内部合同' | '业务合同');
       }
-      if (activeFilters.counterparty_company) {
-        query = query.ilike('counterparty_company', `%${activeFilters.counterparty_company}%`);
+      if (filters.counterparty_company) {
+        query = query.ilike('counterparty_company', `%${filters.counterparty_company}%`);
       }
-      if (activeFilters.our_company) {
-        query = query.ilike('our_company', `%${activeFilters.our_company}%`);
+      if (filters.our_company) {
+        query = query.ilike('our_company', `%${filters.our_company}%`);
       }
-      if (activeFilters.start_date) {
-        query = query.gte('start_date', activeFilters.start_date);
+      if (filters.start_date) {
+        query = query.gte('start_date', filters.start_date);
       }
-      if (activeFilters.end_date) {
-        query = query.lte('end_date', activeFilters.end_date);
+      if (filters.end_date) {
+        query = query.lte('end_date', filters.end_date);
       }
+
+      // 高级筛选
+      if (filters.contract_number) {
+        query = query.ilike('contract_number', `%${filters.contract_number}%`);
+      }
+      if (filters.status) {
+        query = query.eq('status', filters.status);
+      }
+      if (filters.priority) {
+        query = query.eq('priority', filters.priority);
+      }
+      if (filters.department) {
+        query = query.eq('department', filters.department);
+      }
+      if (filters.responsible_person) {
+        query = query.eq('responsible_person', filters.responsible_person);
+      }
+      if (filters.amount_min) {
+        query = query.gte('contract_amount', parseFloat(filters.amount_min));
+      }
+      if (filters.amount_max) {
+        query = query.lte('contract_amount', parseFloat(filters.amount_max));
+      }
+      if (filters.start_date_from) {
+        query = query.gte('start_date', filters.start_date_from);
+      }
+      if (filters.start_date_to) {
+        query = query.lte('start_date', filters.start_date_to);
+      }
+      if (filters.end_date_from) {
+        query = query.gte('end_date', filters.end_date_from);
+      }
+      if (filters.end_date_to) {
+        query = query.lte('end_date', filters.end_date_to);
+      }
+      if (filters.created_date_from) {
+        query = query.gte('created_at', filters.created_date_from);
+      }
+      if (filters.created_date_to) {
+        query = query.lte('created_at', filters.created_date_to);
+      }
+      if (filters.is_confidential !== null) {
+        query = query.eq('is_confidential', filters.is_confidential);
+      }
+      if (filters.has_files !== null) {
+        if (filters.has_files) {
+          query = query.or('contract_original_url.not.is.null,attachment_url.not.is.null');
+        } else {
+          query = query.and('contract_original_url.is.null,attachment_url.is.null');
+        }
+      }
+      if (filters.is_expiring_soon) {
+        const expiringDate = new Date();
+        expiringDate.setDate(expiringDate.getDate() + (filters.expiring_days || 30));
+        query = query.lte('end_date', expiringDate.toISOString().split('T')[0]);
+      }
+
+      // 关键词搜索
+      if (filters.keyword) {
+        query = query.or(`
+          contract_number.ilike.%${filters.keyword}%,
+          counterparty_company.ilike.%${filters.keyword}%,
+          our_company.ilike.%${filters.keyword}%,
+          responsible_person.ilike.%${filters.keyword}%,
+          department.ilike.%${filters.keyword}%,
+          remarks.ilike.%${filters.keyword}%
+        `);
+      }
+
+      // 排序
+      const sortBy = filters.sort_by || 'created_at';
+      const sortOrder = filters.sort_order || 'desc';
+      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
 
       const { data, error } = await query;
 
       if (error) throw error;
-      setContracts(data || []);
+      
+      // 处理标签筛选
+      let filteredData = data || [];
+      if (filters.tags && filters.tags.length > 0) {
+        filteredData = filteredData.filter(contract => {
+          const contractTags = contract.contract_tag_relations?.map((r: any) => r.contract_tags.id) || [];
+          return filters.tags.some((tagId: string) => contractTags.includes(tagId));
+        });
+      }
+
+      setContracts(filteredData);
     } catch (error) {
       console.error('Error loading contracts:', error);
       toast({
@@ -397,6 +490,16 @@ export default function ContractManagement() {
     }
   };
 
+  const handleAdvancedSearch = (filters: any) => {
+    setAdvancedFilters(filters);
+    loadContracts(filters);
+  };
+
+  const handleClearAdvancedSearch = () => {
+    setAdvancedFilters(null);
+    loadContracts();
+  };
+
   const isAllSelected = contracts.length > 0 && selectedContracts.size === contracts.length;
   const isPartialSelected = selectedContracts.size > 0 && selectedContracts.size < contracts.length;
 
@@ -440,11 +543,25 @@ export default function ContractManagement() {
             <Archive className="h-4 w-4 mr-2" />
             文件管理
           </Button>
+          <Button
+            variant={activeTab === 'reminders' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('reminders')}
+          >
+            <Bell className="h-4 w-4 mr-2" />
+            到期提醒
+          </Button>
         </div>
       </div>
 
       {activeTab === 'contracts' && (
         <>
+          {/* 高级搜索组件 */}
+          <ContractAdvancedSearch
+            onSearch={handleAdvancedSearch}
+            onClear={handleClearAdvancedSearch}
+            initialFilters={advancedFilters}
+          />
+
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {selectedContracts.size > 0 && (
@@ -697,85 +814,6 @@ export default function ContractManagement() {
         </div>
       </div>
 
-      {/* 筛选区域 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Filter className="h-5 w-5 mr-2" />
-            筛选条件
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <div>
-              <Label>合同分类</Label>
-              <Select
-                value={uiFilters.category}
-                onValueChange={(value) => {
-                  const newCategory = value === 'all' ? '' : value;
-                  setUiFilters(prev => ({ ...prev, category: newCategory }));
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="选择分类" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部</SelectItem>
-                  <SelectItem value="行政合同">行政合同</SelectItem>
-                  <SelectItem value="内部合同">内部合同</SelectItem>
-                  <SelectItem value="业务合同">业务合同</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>对方公司</Label>
-              <Input
-                placeholder="输入对方公司名称"
-                value={uiFilters.counterparty_company}
-                onChange={(e) => setUiFilters(prev => ({ ...prev, counterparty_company: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <Label>我方公司</Label>
-              <Input
-                placeholder="输入我方公司名称"
-                value={uiFilters.our_company}
-                onChange={(e) => setUiFilters(prev => ({ ...prev, our_company: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <Label>开始日期</Label>              
-              <Input
-                type="date"
-                value={uiFilters.start_date}
-                onChange={(e) => setUiFilters(prev => ({ ...prev, start_date: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <Label>结束日期</Label>
-              <Input
-                type="date"
-                value={uiFilters.end_date}
-                onChange={(e) => setUiFilters(prev => ({ ...prev, end_date: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button onClick={handleSearch} disabled={!isStale}>
-              <Search className="h-4 w-4 mr-2" />
-              搜索
-            </Button>
-            <Button variant="outline" onClick={handleClear}>
-              清除筛选
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* 合同列表 */}
       <Card>
@@ -809,6 +847,7 @@ export default function ContractManagement() {
                   <TableHead>状态</TableHead>
                   <TableHead>优先级</TableHead>
                   <TableHead>负责人</TableHead>
+                  <TableHead>标签</TableHead>
                   <TableHead>文件</TableHead>
                   <TableHead>备注</TableHead>
                   <TableHead>创建时间</TableHead>
@@ -873,6 +912,24 @@ export default function ContractManagement() {
                     </TableCell>
                     <TableCell>
                       {contract.responsible_person || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {contract.contract_tag_relations?.map((relation: any) => (
+                          <Badge
+                            key={relation.contract_tags.id}
+                            variant="outline"
+                            className="text-xs"
+                            style={{ 
+                              backgroundColor: relation.contract_tags.color + '20',
+                              borderColor: relation.contract_tags.color,
+                              color: relation.contract_tags.color
+                            }}
+                          >
+                            {relation.contract_tags.name}
+                          </Badge>
+                        )) || '-'}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {/* 修改：恢复到直接打开链接 */}
@@ -945,6 +1002,10 @@ export default function ContractManagement() {
           contractNumber={contracts.find(c => selectedContracts.has(c.id))?.contract_number}
           onFileUpdate={loadContracts} 
         />
+      )}
+
+      {activeTab === 'reminders' && (
+        <ContractReminderSystem onReminderUpdate={loadContracts} />
       )}
 
       <DirectConfirmDialog
