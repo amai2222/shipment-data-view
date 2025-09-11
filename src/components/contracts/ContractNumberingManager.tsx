@@ -54,13 +54,21 @@ export function ContractNumberingManager({ onRuleUpdate }: ContractNumberingMana
         .select('*')
         .order('category', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        // 如果表不存在，返回空数组而不是抛出错误
+        if (error.message.includes('relation "contract_numbering_rules" does not exist')) {
+          setRules([]);
+          return;
+        }
+        throw error;
+      }
       setRules(data || []);
     } catch (error) {
       console.error('Error loading numbering rules:', error);
       toast({
         title: "错误",
-        description: "加载编号规则失败",
+        description: "加载编号规则失败，请检查数据库连接",
         variant: "destructive",
       });
     } finally {

@@ -257,11 +257,21 @@ export default function ContractManagement() {
       setContracts(filteredData);
     } catch (error) {
       console.error('Error loading contracts:', error);
-      toast({
-        title: "错误",
-        description: "加载合同列表失败",
-        variant: "destructive",
-      });
+      // 如果表不存在，返回空数组而不是抛出错误
+      if (error.message && error.message.includes('relation "contracts" does not exist')) {
+        setContracts([]);
+        toast({
+          title: "提示",
+          description: "合同表尚未创建，请先运行数据库迁移",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "错误",
+          description: "加载合同列表失败，请检查数据库连接",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
