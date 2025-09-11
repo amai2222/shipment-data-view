@@ -1133,29 +1133,31 @@ export function IntegratedUserPermissionManager() {
               <div>
                 <h3 className="text-lg font-semibold mb-4">菜单权限</h3>
                 <div className="grid grid-cols-2 gap-4 max-h-60 overflow-y-auto">
-                  {MENU_PERMISSIONS.map((menu) => (
-                    <div key={menu.key} className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={roleTemplates[editingRole]?.menu_permissions?.includes(menu.key) || false}
-                        onCheckedChange={(checked) => {
-                          const currentTemplate = roleTemplates[editingRole] || { menu_permissions: [], function_permissions: [] };
-                          const newMenuPermissions = checked 
-                            ? [...(currentTemplate.menu_permissions || []), menu.key]
-                            : (currentTemplate.menu_permissions || []).filter((p: string) => p !== menu.key);
-                          
-                          setRoleTemplates({
-                            ...roleTemplates,
-                            [editingRole]: {
-                              ...currentTemplate,
-                              menu_permissions: newMenuPermissions
-                            }
-                          });
-                          setHasChanges(true);
-                        }}
-                      />
-                      <Label className="text-sm">{menu.title}</Label>
-                    </div>
-                  ))}
+                  {MENU_PERMISSIONS.flatMap(menu => 
+                    menu.children ? menu.children.map(child => (
+                      <div key={child.key} className="flex items-center space-x-2">
+                        <Checkbox
+                          checked={roleTemplates[editingRole]?.menu_permissions?.includes(child.key) || false}
+                          onCheckedChange={(checked) => {
+                            const currentTemplate = roleTemplates[editingRole] || { menu_permissions: [], function_permissions: [] };
+                            const newMenuPermissions = checked 
+                              ? [...(currentTemplate.menu_permissions || []), child.key]
+                              : (currentTemplate.menu_permissions || []).filter((p: string) => p !== child.key);
+                            
+                            setRoleTemplates({
+                              ...roleTemplates,
+                              [editingRole]: {
+                                ...currentTemplate,
+                                menu_permissions: newMenuPermissions
+                              }
+                            });
+                            setHasChanges(true);
+                          }}
+                        />
+                        <Label className="text-sm">{child.label}</Label>
+                      </div>
+                    )) : []
+                  )}
                 </div>
               </div>
 
@@ -1163,29 +1165,31 @@ export function IntegratedUserPermissionManager() {
               <div>
                 <h3 className="text-lg font-semibold mb-4">功能权限</h3>
                 <div className="grid grid-cols-2 gap-4 max-h-60 overflow-y-auto">
-                  {FUNCTION_PERMISSIONS.map((func) => (
-                    <div key={func.key} className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={roleTemplates[editingRole]?.function_permissions?.includes(func.key) || false}
-                        onCheckedChange={(checked) => {
-                          const currentTemplate = roleTemplates[editingRole] || { menu_permissions: [], function_permissions: [] };
-                          const newFunctionPermissions = checked 
-                            ? [...(currentTemplate.function_permissions || []), func.key]
-                            : (currentTemplate.function_permissions || []).filter((p: string) => p !== func.key);
-                          
-                          setRoleTemplates({
-                            ...roleTemplates,
-                            [editingRole]: {
-                              ...currentTemplate,
-                              function_permissions: newFunctionPermissions
-                            }
-                          });
-                          setHasChanges(true);
-                        }}
-                      />
-                      <Label className="text-sm">{func.title}</Label>
-                    </div>
-                  ))}
+                  {FUNCTION_PERMISSIONS.flatMap(func => 
+                    func.children ? func.children.map(child => (
+                      <div key={child.key} className="flex items-center space-x-2">
+                        <Checkbox
+                          checked={roleTemplates[editingRole]?.function_permissions?.includes(child.key) || false}
+                          onCheckedChange={(checked) => {
+                            const currentTemplate = roleTemplates[editingRole] || { menu_permissions: [], function_permissions: [] };
+                            const newFunctionPermissions = checked 
+                              ? [...(currentTemplate.function_permissions || []), child.key]
+                              : (currentTemplate.function_permissions || []).filter((p: string) => p !== child.key);
+                            
+                            setRoleTemplates({
+                              ...roleTemplates,
+                              [editingRole]: {
+                                ...currentTemplate,
+                                function_permissions: newFunctionPermissions
+                              }
+                            });
+                            setHasChanges(true);
+                          }}
+                        />
+                        <Label className="text-sm">{child.label}</Label>
+                      </div>
+                    )) : []
+                  )}
                 </div>
               </div>
               
