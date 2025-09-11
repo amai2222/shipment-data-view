@@ -55,6 +55,7 @@ export default function Projects() {
   const [formData, setFormData] = useState({
     name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "",
     financeManager: "", plannedTotalTons: "", projectStatus: "进行中", cargoType: "货品",
+    effectiveQuantityType: "min_value" as "min_value" | "loading" | "unloading",
   });
   
   const [selectedChains, setSelectedChains] = useState<{
@@ -120,6 +121,7 @@ export default function Projects() {
       plannedTotalTons: (project.plannedTotalTons != null ? String(project.plannedTotalTons) : ""),
       projectStatus: (project as any).projectStatus || "进行中",
       cargoType: (project as any).cargoType || "货品",
+      effectiveQuantityType: (project as any).effectiveQuantityType || "min_value",
     });
     setEditingProject(project);
     
@@ -175,6 +177,7 @@ export default function Projects() {
         planned_total_tons: formData.plannedTotalTons ? Number(formData.plannedTotalTons) : null,
         project_status: formData.projectStatus,
         cargo_type: formData.cargoType,
+        effective_quantity_type: formData.effectiveQuantityType,
       };
 
       const chainsPayload = selectedChains.map((chain, index) => ({
@@ -354,6 +357,19 @@ export default function Projects() {
                        </Select>
                      </div>
                      <div className="space-y-2"><Label htmlFor="cargoType">货物名称</Label><Input id="cargoType" value={formData.cargoType} onChange={(e) => setFormData(prev => ({...prev, cargoType: e.target.value}))} placeholder="请输入货物名称" disabled={isSubmitting}/></div>
+                     <div className="space-y-2">
+                       <Label htmlFor="effectiveQuantityType">有效数量计算方式</Label>
+                       <Select value={formData.effectiveQuantityType} onValueChange={(value: "min_value" | "loading" | "unloading") => setFormData(prev => ({...prev, effectiveQuantityType: value}))} disabled={isSubmitting}>
+                         <SelectTrigger>
+                           <SelectValue placeholder="选择有效数量计算方式" />
+                         </SelectTrigger>
+                         <SelectContent>
+                           <SelectItem value="min_value">装货数量和卸货数量取较小值</SelectItem>
+                           <SelectItem value="loading">取装货数量</SelectItem>
+                           <SelectItem value="unloading">取卸货数量</SelectItem>
+                         </SelectContent>
+                       </Select>
+                     </div>
                   </div>
                 </div>
                 <div className="space-y-4 border-t pt-4">

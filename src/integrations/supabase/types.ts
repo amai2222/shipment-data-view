@@ -1120,6 +1120,7 @@ export type Database = {
           auto_code: string | null
           cargo_type: string
           created_at: string
+          effective_quantity_type: Database["public"]["Enums"]["effective_quantity_type"]
           end_date: string
           finance_manager: string | null
           id: string
@@ -1136,6 +1137,7 @@ export type Database = {
           auto_code?: string | null
           cargo_type?: string
           created_at?: string
+          effective_quantity_type?: Database["public"]["Enums"]["effective_quantity_type"]
           end_date: string
           finance_manager?: string | null
           id?: string
@@ -1152,6 +1154,7 @@ export type Database = {
           auto_code?: string | null
           cargo_type?: string
           created_at?: string
+          effective_quantity_type?: Database["public"]["Enums"]["effective_quantity_type"]
           end_date?: string
           finance_manager?: string | null
           id?: string
@@ -2500,6 +2503,7 @@ export type Database = {
         | "operator"
         | "viewer"
       contract_category: "行政合同" | "内部合同" | "业务合同"
+      effective_quantity_type: "min_value" | "loading" | "unloading"
     }
     CompositeTypes: {
       dashboard_data_type_v2: {
