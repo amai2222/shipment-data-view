@@ -101,7 +101,7 @@ export interface RolePermissionTemplate {
 
 // 用户权限配置
 export interface UserPermission {
-  id: string;
+  id?: string;
   user_id: string;
   project_id?: string; // null表示全局权限
   menu_permissions: string[];
@@ -110,9 +110,9 @@ export interface UserPermission {
   data_permissions: string[];
   inherit_role: boolean; // 是否继承角色权限
   custom_settings: Record<string, any>; // 个性化设置
-  created_at: string;
-  updated_at: string;
-  created_by: string;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
 }
 
 // 权限检查结果

@@ -200,7 +200,7 @@ export function PermissionVisualizer({
                       <div className="flex items-center gap-3">
                         <Icon className="h-4 w-4 text-gray-600" />
                         <div>
-                          <div className="font-medium text-sm">{menu.title}</div>
+                          <div className="font-medium text-sm">{menu.label}</div>
                           <div className="text-xs text-gray-500">{menu.key}</div>
                         </div>
                       </div>
@@ -257,7 +257,7 @@ export function PermissionVisualizer({
                       <div className="flex items-center gap-3">
                         <Settings className="h-4 w-4 text-gray-600" />
                         <div>
-                          <div className="font-medium text-sm">{func.title}</div>
+                          <div className="font-medium text-sm">{func.label}</div>
                           <div className="text-xs text-gray-500">{func.key}</div>
                         </div>
                       </div>

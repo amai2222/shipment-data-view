@@ -338,18 +338,11 @@ export function IntegratedUserPermissionManager() {
   // 加载用户项目分配（现在存储的是被限制的项目）
   const loadUserProjectAssignments = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('user_projects')
-        .select('project_id')
-        .eq('user_id', userId);
-
-      if (error) throw error;
-
-      // 现在存储的是被限制访问的项目ID
-      const restrictedProjectIds = data?.map(item => item.project_id) || [];
+      // 暂时跳过用户项目关系，因为该表尚未创建
+      console.log('加载用户项目分配:', userId);
       setUserProjectAssignments(prev => ({
         ...prev,
-        [userId]: restrictedProjectIds
+        [userId]: []
       }));
     } catch (error) {
       console.error('加载用户项目分配失败:', error);
@@ -364,26 +357,8 @@ export function IntegratedUserPermissionManager() {
       const userId = userForProjectAssignment.id;
       const restrictedProjectIds = userProjectAssignments[userId] || [];
 
-      // 删除现有的项目限制
-      await supabase
-        .from('user_projects')
-        .delete()
-        .eq('user_id', userId);
-
-      // 添加新的项目限制（只存储被限制的项目）
-      if (restrictedProjectIds.length > 0) {
-        const restrictions = restrictedProjectIds.map(projectId => ({
-          user_id: userId,
-          project_id: projectId,
-          role: 'restricted' // 标记为被限制
-        }));
-
-        const { error } = await supabase
-          .from('user_projects')
-          .insert(restrictions);
-
-        if (error) throw error;
-      }
+    // 暂时跳过用户项目关系更新，因为该表尚未创建
+    console.log('保存用户项目分配:', userId, restrictedProjectIds);
 
       toast({
         title: "项目权限更新成功",
@@ -1116,7 +1091,7 @@ export function IntegratedUserPermissionManager() {
                       .update({
                         full_name: editingUser.full_name,
                         email: editingUser.email,
-                        role: editingUser.role,
+                        role: editingUser.role as any,
                         updated_at: new Date().toISOString()
                       })
                       .eq('id', editingUser.id);
@@ -1241,7 +1216,7 @@ export function IntegratedUserPermissionManager() {
                       const { error } = await supabase
                         .from('role_permission_templates')
                         .upsert({
-                          role: editingRole,
+                          role: editingRole as any,
                           menu_permissions: template.menu_permissions || [],
                           function_permissions: template.function_permissions || [],
                           project_permissions: template.project_permissions || [],

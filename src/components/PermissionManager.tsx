@@ -98,7 +98,9 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
         project_permissions: perm.project_permissions || [],
         data_permissions: perm.data_permissions || [],
         inherit_role: perm.inherit_role ?? true,
-        custom_settings: perm.custom_settings || {},
+        custom_settings: typeof perm.custom_settings === 'string' 
+          ? JSON.parse(perm.custom_settings) 
+          : (perm.custom_settings as Record<string, any>) || {},
         created_at: perm.created_at,
         updated_at: perm.updated_at,
         created_by: perm.created_by || ''
@@ -236,7 +238,7 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
         : [...currentPermissions, key];
 
       const updated: UserPermission = {
-        id: current.id || '',
+        ...(current.id ? { id: current.id } : {}),
         user_id: current.user_id,
         project_id: current.project_id,
         menu_permissions: current.menu_permissions,
@@ -245,8 +247,8 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
         data_permissions: current.data_permissions,
         inherit_role: current.inherit_role,
         custom_settings: current.custom_settings,
-        created_at: current.created_at || new Date().toISOString(),
-        created_by: current.created_by || '',
+        ...(current.created_at ? { created_at: current.created_at } : {}),
+        ...(current.created_by ? { created_by: current.created_by } : {}),
         updated_at: new Date().toISOString(),
         [field]: newPermissions
       };
@@ -329,7 +331,7 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
       setSaving(true);
       const current = getCurrentUserPermissions();
       
-      if (current.id && current.id !== '') {
+      if ('id' in current && current.id && current.id !== '') {
         // 更新现有权限
         const { error } = await supabase
           .from('user_permissions')
