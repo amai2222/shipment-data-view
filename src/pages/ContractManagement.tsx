@@ -1005,7 +1005,7 @@ export default function ContractManagement() {
 
       {activeTab === 'files' && (
         <ContractFileManager 
-          contractId={selectedContracts.size === 1 ? Array.from(selectedContracts)[0] : ''} 
+          contractId={selectedContracts.size === 1 ? Array.from(selectedContracts)[0] : undefined} 
           contractNumber={contracts.find(c => selectedContracts.has(c.id))?.contract_number}
           onFileUpdate={loadContracts} 
         />

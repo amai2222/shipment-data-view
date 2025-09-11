@@ -33,7 +33,7 @@ interface ContractFileVersion {
 }
 
 interface ContractFileManagerProps {
-  contractId: string;
+  contractId?: string;
   contractNumber?: string;
   onFileUpdate?: () => void;
 }
@@ -61,6 +61,13 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
   const loadFiles = async () => {
     try {
       setLoading(true);
+      
+      // 如果没有选择合同，返回空数组
+      if (!contractId || contractId === '') {
+        setFiles([]);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('contract_file_versions')
         .select(`
