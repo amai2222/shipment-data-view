@@ -382,12 +382,12 @@ export function ContractAdvancedSearch({ onSearch, onClear, initialFilters }: Co
               </div>
               <div>
                 <Label>合同分类</Label>
-                <Select value={filters.category} onValueChange={(value) => updateFilter('category', value)}>
+                <Select value={filters.category || 'all'} onValueChange={(value) => updateFilter('category', value === 'all' ? '' : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择分类" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部分类</SelectItem>
+                    <SelectItem value="all">全部分类</SelectItem>
                     <SelectItem value="行政合同">行政合同</SelectItem>
                     <SelectItem value="内部合同">内部合同</SelectItem>
                     <SelectItem value="业务合同">业务合同</SelectItem>
@@ -396,12 +396,12 @@ export function ContractAdvancedSearch({ onSearch, onClear, initialFilters }: Co
               </div>
               <div>
                 <Label>合同状态</Label>
-                <Select value={filters.status} onValueChange={(value) => updateFilter('status', value)}>
+                <Select value={filters.status || 'all'} onValueChange={(value) => updateFilter('status', value === 'all' ? '' : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择状态" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部状态</SelectItem>
+                    <SelectItem value="all">全部状态</SelectItem>
                     <SelectItem value="active">有效</SelectItem>
                     <SelectItem value="expired">已到期</SelectItem>
                     <SelectItem value="terminated">已终止</SelectItem>
@@ -453,12 +453,12 @@ export function ContractAdvancedSearch({ onSearch, onClear, initialFilters }: Co
               </div>
               <div>
                 <Label>优先级</Label>
-                <Select value={filters.priority} onValueChange={(value) => updateFilter('priority', value)}>
+                <Select value={filters.priority || 'all'} onValueChange={(value) => updateFilter('priority', value === 'all' ? '' : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择优先级" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部优先级</SelectItem>
+                    <SelectItem value="all">全部优先级</SelectItem>
                     <SelectItem value="urgent">紧急</SelectItem>
                     <SelectItem value="high">高</SelectItem>
                     <SelectItem value="normal">普通</SelectItem>
@@ -527,12 +527,12 @@ export function ContractAdvancedSearch({ onSearch, onClear, initialFilters }: Co
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>部门</Label>
-                <Select value={filters.department} onValueChange={(value) => updateFilter('department', value)}>
+                <Select value={filters.department || 'all'} onValueChange={(value) => updateFilter('department', value === 'all' ? '' : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择部门" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部部门</SelectItem>
+                    <SelectItem value="all">全部部门</SelectItem>
                     {departments.map(dept => (
                       <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                     ))}
@@ -541,12 +541,12 @@ export function ContractAdvancedSearch({ onSearch, onClear, initialFilters }: Co
               </div>
               <div>
                 <Label>负责人</Label>
-                <Select value={filters.responsible_person} onValueChange={(value) => updateFilter('responsible_person', value)}>
+                <Select value={filters.responsible_person || 'all'} onValueChange={(value) => updateFilter('responsible_person', value === 'all' ? '' : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择负责人" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部负责人</SelectItem>
+                    <SelectItem value="all">全部负责人</SelectItem>
                     {responsiblePersons.map(person => (
                       <SelectItem key={person} value={person}>{person}</SelectItem>
                     ))}

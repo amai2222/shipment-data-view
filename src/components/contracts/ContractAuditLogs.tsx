@@ -251,12 +251,12 @@ export function ContractAuditLogs({ contractId, onLogUpdate }: ContractAuditLogs
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label>操作类型</Label>
-                <Select value={filters.action} onValueChange={(value) => setFilters(prev => ({ ...prev, action: value }))}>
+                <Select value={filters.action || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, action: value === 'all' ? '' : value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择操作类型" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部操作</SelectItem>
+                    <SelectItem value="all">全部操作</SelectItem>
                     <SelectItem value="view">查看</SelectItem>
                     <SelectItem value="create">创建</SelectItem>
                     <SelectItem value="update">修改</SelectItem>

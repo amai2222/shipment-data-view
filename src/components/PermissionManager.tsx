@@ -574,12 +574,12 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
                 </div>
                 <div>
                   <Label htmlFor="project-select">选择项目</Label>
-                  <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <Select value={selectedProject || 'global'} onValueChange={(value) => setSelectedProject(value === 'global' ? '' : value)}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="全局权限" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">全局权限</SelectItem>
+                      <SelectItem value="global">全局权限</SelectItem>
                       {projects.map(project => (
                         <SelectItem key={project.id} value={project.id}>
                           <div className="flex items-center">

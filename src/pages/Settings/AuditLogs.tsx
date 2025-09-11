@@ -183,14 +183,14 @@ export default function AuditLogs() {
               <div>
                 <Label htmlFor="action-filter">操作类型</Label>
                 <Select
-                  value={filters.action || ''}
-                  onValueChange={(value) => setFilters(prev => ({ ...prev, action: value || undefined }))}
+                  value={filters.action || 'all'}
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, action: value === 'all' ? undefined : value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="选择操作类型" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部</SelectItem>
+                    <SelectItem value="all">全部</SelectItem>
                     {actionOptions.map(action => (
                       <SelectItem key={action} value={action}>
                         {action === 'grant' ? '授权' : 
@@ -206,14 +206,14 @@ export default function AuditLogs() {
               <div>
                 <Label htmlFor="permission-type-filter">权限类型</Label>
                 <Select
-                  value={filters.permission_type || ''}
-                  onValueChange={(value) => setFilters(prev => ({ ...prev, permission_type: value || undefined }))}
+                  value={filters.permission_type || 'all'}
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, permission_type: value === 'all' ? undefined : value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="选择权限类型" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部</SelectItem>
+                    <SelectItem value="all">全部</SelectItem>
                     {permissionTypeOptions.map(type => (
                       <SelectItem key={type} value={type}>
                         {type === 'menu' ? '菜单权限' :
@@ -229,14 +229,14 @@ export default function AuditLogs() {
               <div>
                 <Label htmlFor="user-filter">操作用户</Label>
                 <Select
-                  value={filters.user_id || ''}
-                  onValueChange={(value) => setFilters(prev => ({ ...prev, user_id: value || undefined }))}
+                  value={filters.user_id || 'all'}
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, user_id: value === 'all' ? undefined : value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="选择用户" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部</SelectItem>
+                    <SelectItem value="all">全部</SelectItem>
                     {users.map(user => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.full_name} ({user.email})

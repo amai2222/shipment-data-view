@@ -347,10 +347,10 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
                   <div>
                     <Label htmlFor="user_id" className="text-sm">用户</Label>
                     <Select
-                      value={formData.user_id}
+                      value={formData.user_id || 'none'}
                       onValueChange={(value) => setFormData(prev => ({ 
                         ...prev, 
-                        user_id: value,
+                        user_id: value === 'none' ? '' : value,
                         role_id: '',
                         department_id: ''
                       }))}
@@ -359,7 +359,7 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
                         <SelectValue placeholder="选择用户" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">不选择用户</SelectItem>
+                        <SelectItem value="none">不选择用户</SelectItem>
                         {users.map((user) => (
                           <SelectItem key={user.id} value={user.id}>
                             {user.name} ({user.email})
@@ -372,10 +372,10 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
                   <div>
                     <Label htmlFor="role_id" className="text-sm">角色</Label>
                     <Select
-                      value={formData.role_id}
+                      value={formData.role_id || 'none'}
                       onValueChange={(value) => setFormData(prev => ({ 
                         ...prev, 
-                        role_id: value,
+                        role_id: value === 'none' ? '' : value,
                         user_id: '',
                         department_id: ''
                       }))}
@@ -384,7 +384,7 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
                         <SelectValue placeholder="选择角色" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">不选择角色</SelectItem>
+                        <SelectItem value="none">不选择角色</SelectItem>
                         {roles.map((role) => (
                           <SelectItem key={role.id} value={role.id}>
                             {role.name}
@@ -397,10 +397,10 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
                   <div>
                     <Label htmlFor="department_id" className="text-sm">部门</Label>
                     <Select
-                      value={formData.department_id}
+                      value={formData.department_id || 'none'}
                       onValueChange={(value) => setFormData(prev => ({ 
                         ...prev, 
-                        department_id: value,
+                        department_id: value === 'none' ? '' : value,
                         user_id: '',
                         role_id: ''
                       }))}
@@ -409,7 +409,7 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
                         <SelectValue placeholder="选择部门" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">不选择部门</SelectItem>
+                        <SelectItem value="none">不选择部门</SelectItem>
                         {departments.map((department) => (
                           <SelectItem key={department.id} value={department.id}>
                             {department.name}

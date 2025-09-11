@@ -401,12 +401,12 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>用户</Label>
-                  <Select value={permissionForm.user_id} onValueChange={(value) => setPermissionForm(prev => ({ ...prev, user_id: value, role_id: '', department: '' }))}>
+                  <Select value={permissionForm.user_id || 'none'} onValueChange={(value) => setPermissionForm(prev => ({ ...prev, user_id: value === 'none' ? '' : value, role_id: '', department: '' }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="选择用户" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">不指定用户</SelectItem>
+                      <SelectItem value="none">不指定用户</SelectItem>
                       {users.map(user => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.full_name || user.email}
@@ -418,12 +418,12 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
 
                 <div>
                   <Label>角色</Label>
-                  <Select value={permissionForm.role_id} onValueChange={(value) => setPermissionForm(prev => ({ ...prev, role_id: value, user_id: '', department: '' }))}>
+                  <Select value={permissionForm.role_id || 'none'} onValueChange={(value) => setPermissionForm(prev => ({ ...prev, role_id: value === 'none' ? '' : value, user_id: '', department: '' }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="选择角色" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">不指定角色</SelectItem>
+                      <SelectItem value="none">不指定角色</SelectItem>
                       {roles.map(role => (
                         <SelectItem key={role.id} value={role.id}>
                           {role.name}
