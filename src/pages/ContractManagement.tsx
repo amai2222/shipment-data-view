@@ -11,10 +11,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DirectConfirmDialog } from '@/components/ConfirmDialog';
 import { FileViewerDialog } from '@/components/FileViewerDialog';
+import { ContractNumberingManager } from '@/components/contracts/ContractNumberingManager';
+import { ContractTagManager } from '@/components/contracts/ContractTagManager';
+import { ContractPermissionManager } from '@/components/contracts/ContractPermissionManager';
+import { ContractFileManager } from '@/components/contracts/ContractFileManager';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useFilterState } from '@/hooks/useFilterState';
-import { Upload, Search, FileText, Filter, Plus, Download, Trash2 } from 'lucide-react';
+import { Upload, Search, FileText, Filter, Plus, Download, Trash2, Settings, Tag, Hash, Shield, Archive } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Contract {
@@ -29,6 +33,15 @@ interface Contract {
   attachment_url?: string;
   remarks?: string;
   created_at: string;
+  // 新增字段
+  contract_number?: string;
+  status?: 'active' | 'expired' | 'terminated' | 'archived';
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  responsible_person?: string;
+  department?: string;
+  is_confidential?: boolean;
+  last_accessed_at?: string;
+  access_count?: number;
 }
 
 interface ContractFormData {
@@ -39,6 +52,11 @@ interface ContractFormData {
   our_company: string;
   contract_amount: string;
   remarks: string;
+  // 新增字段
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  responsible_person: string;
+  department: string;
+  is_confidential: boolean;
 }
 
 interface ContractFilters {
@@ -47,6 +65,13 @@ interface ContractFilters {
   our_company: string;
   start_date: string;
   end_date: string;
+  // 新增筛选字段
+  contract_number: string;
+  status: string;
+  priority: string;
+  responsible_person: string;
+  department: string;
+  is_confidential: string;
 }
 
 const initialFilters: ContractFilters = {
@@ -54,7 +79,13 @@ const initialFilters: ContractFilters = {
   counterparty_company: '',
   our_company: '',
   start_date: '',
-  end_date: ''
+  end_date: '',
+  contract_number: '',
+  status: '',
+  priority: '',
+  responsible_person: '',
+  department: '',
+  is_confidential: ''
 };
 
 export default function ContractManagement() {
@@ -68,6 +99,7 @@ export default function ContractManagement() {
   const [fileViewerOpen, setFileViewerOpen] = useState(false);
   const [currentFileUrl, setCurrentFileUrl] = useState('');
   const [currentFileName, setCurrentFileName] = useState('');
+  const [activeTab, setActiveTab] = useState<'contracts' | 'numbering' | 'tags' | 'permissions' | 'files'>('contracts');
   const [formData, setFormData] = useState<ContractFormData>({
     category: '业务合同',
     start_date: '',
@@ -75,7 +107,11 @@ export default function ContractManagement() {
     counterparty_company: '',
     our_company: '',
     contract_amount: '',
-    remarks: ''
+    remarks: '',
+    priority: 'normal',
+    responsible_person: '',
+    department: '',
+    is_confidential: false
   });
   const [selectedFiles, setSelectedFiles] = useState<{
     original?: File;
@@ -141,7 +177,8 @@ export default function ContractManagement() {
 
     if (selectedFiles.original) {
       const originalFile = selectedFiles.original;
-      const customFileName = `${contractData.counterparty_company}-${contractData.our_company}-原件`;
+      const timestamp = Date.now();
+      const customFileName = `原件-${contractData.counterparty_company}-${contractData.our_company}-${timestamp}`;
       
       const reader = new FileReader();
       const fileData = await new Promise<string>((resolve) => {
@@ -172,7 +209,8 @@ export default function ContractManagement() {
 
     if (selectedFiles.attachment) {
       const attachmentFile = selectedFiles.attachment;
-      const customFileName = `${contractData.counterparty_company}-${contractData.our_company}-附件`;
+      const timestamp = Date.now();
+      const customFileName = `附件-${contractData.counterparty_company}-${contractData.our_company}-${timestamp}`;
       
       const reader = new FileReader();
       const fileData = await new Promise<string>((resolve) => {
@@ -236,6 +274,11 @@ export default function ContractManagement() {
           contract_original_url: uploadResults.original,
           attachment_url: uploadResults.attachment,
           remarks: formData.remarks || null,
+          priority: formData.priority,
+          responsible_person: formData.responsible_person || null,
+          department: formData.department || null,
+          is_confidential: formData.is_confidential,
+          status: 'active'
         });
 
       if (error) throw error;
@@ -253,7 +296,11 @@ export default function ContractManagement() {
         counterparty_company: '',
         our_company: '',
         contract_amount: '',
-        remarks: ''
+        remarks: '',
+        priority: 'normal',
+        responsible_person: '',
+        department: '',
+        is_confidential: false
       });
       setSelectedFiles({});
       loadContracts();
@@ -358,7 +405,49 @@ export default function ContractManagement() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">合同管理</h1>
         <div className="flex items-center gap-2">
-          {selectedContracts.size > 0 && (
+          <Button
+            variant={activeTab === 'contracts' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('contracts')}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            合同列表
+          </Button>
+          <Button
+            variant={activeTab === 'numbering' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('numbering')}
+          >
+            <Hash className="h-4 w-4 mr-2" />
+            编号管理
+          </Button>
+          <Button
+            variant={activeTab === 'tags' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('tags')}
+          >
+            <Tag className="h-4 w-4 mr-2" />
+            标签管理
+          </Button>
+          <Button
+            variant={activeTab === 'permissions' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('permissions')}
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            权限管理
+          </Button>
+          <Button
+            variant={activeTab === 'files' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('files')}
+          >
+            <Archive className="h-4 w-4 mr-2" />
+            文件管理
+          </Button>
+        </div>
+      </div>
+
+      {activeTab === 'contracts' && (
+        <>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {selectedContracts.size > 0 && (
             <Button
               variant="destructive"
               onClick={() => setShowDeleteDialog(true)}
@@ -410,6 +499,46 @@ export default function ContractManagement() {
                     placeholder="输入合同金额"
                     value={formData.contract_amount}
                     onChange={(e) => setFormData(prev => ({ ...prev, contract_amount: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="priority">优先级</Label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value: 'low' | 'normal' | 'high' | 'urgent') =>
+                      setFormData(prev => ({ ...prev, priority: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">低</SelectItem>
+                      <SelectItem value="normal">普通</SelectItem>
+                      <SelectItem value="high">高</SelectItem>
+                      <SelectItem value="urgent">紧急</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="responsible_person">负责人</Label>
+                  <Input
+                    id="responsible_person"
+                    placeholder="输入负责人姓名"
+                    value={formData.responsible_person}
+                    onChange={(e) => setFormData(prev => ({ ...prev, responsible_person: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="department">部门</Label>
+                  <Input
+                    id="department"
+                    placeholder="输入部门名称"
+                    value={formData.department}
+                    onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
                   />
                 </div>
 
@@ -466,6 +595,15 @@ export default function ContractManagement() {
                   value={formData.remarks}
                   onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
                 />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="is_confidential"
+                  checked={formData.is_confidential}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_confidential: checked as boolean }))}
+                />
+                <Label htmlFor="is_confidential">保密合同</Label>
               </div>
 
               <div className="space-y-4">
@@ -662,11 +800,15 @@ export default function ContractManagement() {
                       className={isPartialSelected ? "data-[state=checked]:bg-primary/50" : ""}
                     />
                   </TableHead>
+                  <TableHead>合同编号</TableHead>
                   <TableHead>合同分类</TableHead>
                   <TableHead>对方公司</TableHead>
                   <TableHead>我方公司</TableHead>
                   <TableHead>合同期间</TableHead>
                   <TableHead>合同金额</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>优先级</TableHead>
+                  <TableHead>负责人</TableHead>
                   <TableHead>文件</TableHead>
                   <TableHead>备注</TableHead>
                   <TableHead>创建时间</TableHead>
@@ -680,6 +822,11 @@ export default function ContractManagement() {
                         checked={selectedContracts.has(contract.id)}
                         onCheckedChange={(checked) => handleSelectContract(contract.id, checked as boolean)}
                       />
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-mono text-sm">
+                        {contract.contract_number || '-'}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={getCategoryBadgeVariant(contract.category)}>
@@ -699,6 +846,35 @@ export default function ContractManagement() {
                       {contract.contract_amount ? `¥${contract.contract_amount.toLocaleString()}` : '-'}
                     </TableCell>
                     <TableCell>
+                      <Badge variant={
+                        contract.status === 'active' ? 'default' :
+                        contract.status === 'expired' ? 'destructive' :
+                        contract.status === 'terminated' ? 'secondary' :
+                        'outline'
+                      }>
+                        {contract.status === 'active' ? '有效' :
+                         contract.status === 'expired' ? '已到期' :
+                         contract.status === 'terminated' ? '已终止' :
+                         contract.status === 'archived' ? '已归档' : '未知'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={
+                        contract.priority === 'urgent' ? 'destructive' :
+                        contract.priority === 'high' ? 'default' :
+                        contract.priority === 'normal' ? 'secondary' :
+                        'outline'
+                      }>
+                        {contract.priority === 'urgent' ? '紧急' :
+                         contract.priority === 'high' ? '高' :
+                         contract.priority === 'normal' ? '普通' :
+                         contract.priority === 'low' ? '低' : '普通'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {contract.responsible_person || '-'}
+                    </TableCell>
+                    <TableCell>
                       {/* 修改：恢复到直接打开链接 */}
                       <div className="flex gap-2">
                         {contract.contract_original_url && (
@@ -707,7 +883,7 @@ export default function ContractManagement() {
                             variant="outline"
                             onClick={() => {
                               if (contract.contract_original_url) {
-                                const fileName = `${contract.counterparty_company}-${contract.our_company}-原件`;
+                                const fileName = `原件-${contract.counterparty_company}-${contract.our_company}`;
                                 handleViewFile(contract.contract_original_url, fileName);
                               }
                             }}
@@ -722,7 +898,7 @@ export default function ContractManagement() {
                             variant="outline"
                             onClick={() => {
                               if (contract.attachment_url) {
-                                const fileName = `${contract.counterparty_company}-${contract.our_company}-附件`;
+                                const fileName = `附件-${contract.counterparty_company}-${contract.our_company}`;
                                 handleViewFile(contract.attachment_url, fileName);
                               }
                             }}
@@ -748,6 +924,28 @@ export default function ContractManagement() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
+
+      {activeTab === 'numbering' && (
+        <ContractNumberingManager onRuleUpdate={loadContracts} />
+      )}
+
+      {activeTab === 'tags' && (
+        <ContractTagManager onTagUpdate={loadContracts} />
+      )}
+
+      {activeTab === 'permissions' && (
+        <ContractPermissionManager onPermissionUpdate={loadContracts} />
+      )}
+
+      {activeTab === 'files' && (
+        <ContractFileManager 
+          contractId={selectedContracts.size === 1 ? Array.from(selectedContracts)[0] : ''} 
+          contractNumber={contracts.find(c => selectedContracts.has(c.id))?.contract_number}
+          onFileUpdate={loadContracts} 
+        />
+      )}
 
       <DirectConfirmDialog
         open={showDeleteDialog}

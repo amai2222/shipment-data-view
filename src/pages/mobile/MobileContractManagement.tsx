@@ -105,7 +105,8 @@ export default function MobileContractManagement() {
     if (selectedFiles.original) {
       const originalFile = selectedFiles.original;
       const fileExtension = originalFile.name.split('.').pop();
-      const fileName = `${contractData.counterparty_company}-${contractData.our_company}-原件.${fileExtension}`;
+      const timestamp = Date.now();
+      const fileName = `原件-${contractData.counterparty_company}-${contractData.our_company}-${timestamp}.${fileExtension}`;
       
       const reader = new FileReader();
       const fileData = await new Promise<string>((resolve) => {
@@ -137,7 +138,8 @@ export default function MobileContractManagement() {
     if (selectedFiles.attachment) {
       const attachmentFile = selectedFiles.attachment;
       const fileExtension = attachmentFile.name.split('.').pop();
-      const fileName = `${contractData.counterparty_company}-${contractData.our_company}-附件.${fileExtension}`;
+      const timestamp = Date.now();
+      const fileName = `附件-${contractData.counterparty_company}-${contractData.our_company}-${timestamp}.${fileExtension}`;
       
       const reader = new FileReader();
       const fileData = await new Promise<string>((resolve) => {
@@ -669,7 +671,7 @@ export default function MobileContractManagement() {
                         variant="outline"
                         onClick={() => {
                           if (contract.contract_original_url) {
-                            const fileName = `${contract.counterparty_company}-${contract.our_company}-原件`;
+                            const fileName = `原件-${contract.counterparty_company}-${contract.our_company}`;
                             handleViewFile(contract.contract_original_url, fileName);
                           }
                         }}
@@ -684,7 +686,7 @@ export default function MobileContractManagement() {
                         variant="outline"
                         onClick={() => {
                           if (contract.attachment_url) {
-                            const fileName = `${contract.counterparty_company}-${contract.our_company}-附件`;
+                            const fileName = `附件-${contract.counterparty_company}-${contract.our_company}`;
                             handleViewFile(contract.attachment_url, fileName);
                           }
                         }}
