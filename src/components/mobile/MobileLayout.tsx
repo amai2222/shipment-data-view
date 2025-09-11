@@ -23,7 +23,8 @@ import {
   Database,
   Calculator,
   DollarSign,
-  Banknote
+  Banknote,
+  ScrollText
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -151,6 +152,24 @@ const menuGroups = [
         roles: ['admin', 'finance']
       }
     ]
+  },
+  {
+    title: '日志管理',
+    icon: ScrollText,
+    items: [
+      {
+        name: '运单日志',
+        href: '/m/logs/waybill',
+        icon: Truck,
+        roles: ['admin', 'finance', 'business']
+      },
+      {
+        name: '操作日志',
+        href: '/m/logs/audit',
+        icon: History,
+        roles: ['admin']
+      }
+    ]
   }
 ];
 
@@ -171,12 +190,6 @@ const settingsNavigation = [
     name: '集成权限管理',
     href: '/m/settings/integrated',
     icon: Shield,
-    roles: ['admin']
-  },
-  {
-    name: '操作日志',
-    href: '/m/settings/audit-logs',
-    icon: History,
     roles: ['admin']
   }
 ];

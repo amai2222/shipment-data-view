@@ -18,7 +18,8 @@ import {
   UserCog,
   Weight,
   Shield,
-  History
+  History,
+  ScrollText
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -85,13 +86,20 @@ const menuItems = [
     ]
   },
   {
+    title: "日志管理",
+    icon: ScrollText,
+    items: [
+      { title: "运单日志", url: "/logs/waybill", icon: Truck },
+      { title: "操作日志", url: "/logs/audit", icon: History },
+    ]
+  },
+  {
     title: "设置",
     icon: Settings,
     items: [
       { title: "用户管理", url: "/settings/users", icon: UserCog },
       { title: "权限管理", url: "/settings/permissions", icon: Settings },
       { title: "集成权限管理", url: "/settings/integrated", icon: Shield },
-      { title: "操作日志", url: "/settings/audit-logs", icon: History },
     ]
   }
 ];
@@ -142,8 +150,10 @@ export function AppSidebar() {
         menuKey = 'settings.permissions';
       } else if (item.url === '/settings/integrated') {
         menuKey = 'settings.integrated';
-      } else if (item.url === '/settings/audit-logs') {
-        menuKey = 'settings.audit_logs';
+      } else if (item.url === '/logs/waybill') {
+        menuKey = 'logs.waybill';
+      } else if (item.url === '/logs/audit') {
+        menuKey = 'logs.audit';
       }
       
       console.log(`检查菜单权限: ${menuKey} - ${hasMenuAccess(menuKey)}`);

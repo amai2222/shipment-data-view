@@ -103,6 +103,16 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     ]
   },
   {
+    group: '日志管理',
+    key: 'logs',
+    label: '日志管理',
+    icon: 'ScrollText',
+    children: [
+      { key: 'logs.waybill', label: '运单日志', url: '/logs/waybill', icon: 'Truck', group: '日志管理' },
+      { key: 'logs.audit', label: '操作日志', url: '/logs/audit', icon: 'History', group: '日志管理' }
+    ]
+  },
+  {
     group: '设置',
     key: 'settings',
     label: '设置',
@@ -110,8 +120,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     children: [
       { key: 'settings.users', label: '用户管理', url: '/settings/users', icon: 'UserCog', group: '设置' },
       { key: 'settings.permissions', label: '权限管理', url: '/settings/permissions', icon: 'Settings', group: '设置' },
-      { key: 'settings.integrated', label: '集成权限管理', url: '/settings/integrated', icon: 'Shield', group: '设置' },
-      { key: 'settings.audit_logs', label: '操作日志', url: '/settings/audit-logs', icon: 'History', group: '设置' }
+      { key: 'settings.integrated', label: '集成权限管理', url: '/settings/integrated', icon: 'Shield', group: '设置' }
     ],
     requiredRoles: ['admin']
   }
@@ -260,8 +269,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'contracts', 'contracts.list', 'contracts.create', 'contracts.edit', 'contracts.delete', 'contracts.files', 'contracts.permissions', 'contracts.audit', 'contracts.reminders', 'contracts.tags', 'contracts.numbering',
       // 财务对账
       'finance', 'finance.reconciliation', 'finance.payment_invoice',
+      // 日志管理
+      'logs', 'logs.waybill', 'logs.audit',
       // 设置
-      'settings', 'settings.users', 'settings.permissions', 'settings.integrated', 'settings.audit_logs'
+      'settings', 'settings.users', 'settings.permissions', 'settings.integrated'
     ],
     function_permissions: [
       'data', 'data.create', 'data.edit', 'data.delete', 'data.export', 'data.import',
@@ -285,7 +296,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'maintenance', 'maintenance.partners',
       'business', 'business.payment_request', 'business.payment_requests',
       'contracts', 'contracts.list', 'contracts.files', 'contracts.audit',
-      'finance', 'finance.reconciliation', 'finance.payment_invoice'
+      'finance', 'finance.reconciliation', 'finance.payment_invoice',
+      'logs', 'logs.waybill', 'logs.audit'
     ],
     function_permissions: [
       'data', 'data.view', 'data.export',
@@ -308,7 +320,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
       'business', 'business.entry', 'business.scale',
       'contracts', 'contracts.list', 'contracts.create', 'contracts.edit', 'contracts.files', 'contracts.reminders', 'contracts.tags',
-      'finance', 'finance.reconciliation'
+      'finance', 'finance.reconciliation',
+      'logs', 'logs.waybill'
     ],
     function_permissions: [
       'data', 'data.create', 'data.edit', 'data.export',
