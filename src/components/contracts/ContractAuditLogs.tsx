@@ -71,8 +71,7 @@ export function ContractAuditLogs({ contractId, onLogUpdate }: ContractAuditLogs
         .from('contract_access_logs')
         .select(`
           *,
-          contracts!inner(contract_number, counterparty_company, our_company),
-          profiles!inner(email, full_name)
+          contracts!inner(contract_number, counterparty_company, our_company)
         `)
         .order('created_at', { ascending: false });
 
@@ -111,8 +110,8 @@ export function ContractAuditLogs({ contractId, onLogUpdate }: ContractAuditLogs
         contract_number: item.contracts?.contract_number,
         counterparty_company: item.contracts?.counterparty_company,
         our_company: item.contracts?.our_company,
-        user_email: item.profiles?.email,
-        user_name: item.profiles?.full_name
+        user_email: item.user_id ? `用户 ${item.user_id}` : null,
+        user_name: item.user_id ? `用户 ${item.user_id}` : null
       }));
 
       // 关键词筛选

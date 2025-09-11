@@ -111,8 +111,6 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
         .from('contract_permissions')
         .select(`
           *,
-          profiles!inner(email, full_name),
-          user_roles(name),
           contracts(contract_number)
         `)
         .order('created_at', { ascending: false });
@@ -135,9 +133,9 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
       
       const formattedData = (data || []).map(item => ({
         ...item,
-        user_email: item.profiles?.email,
-        user_name: item.profiles?.full_name,
-        role_name: item.user_roles?.name,
+        user_email: item.user_id ? `用户 ${item.user_id}` : null,
+        user_name: item.user_id ? `用户 ${item.user_id}` : null,
+        role_name: item.role_name,
         contract_number: item.contracts?.contract_number
       }));
 

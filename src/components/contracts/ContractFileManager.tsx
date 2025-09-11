@@ -65,7 +65,6 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
         .from('contract_file_versions')
         .select(`
           *,
-          uploader:users!uploaded_by(name),
           contracts!inner(contract_number)
         `)
         .eq('contract_id', contractId)
@@ -83,7 +82,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
       
       const formattedData = (data || []).map(item => ({
         ...item,
-        uploader_name: item.uploader?.name,
+        uploader_name: item.uploaded_by ? `用户 ${item.uploaded_by}` : null,
         contract_number: item.contracts?.contract_number
       }));
 

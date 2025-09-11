@@ -73,11 +73,7 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
         .from('contract_permissions')
         .select(`
           *,
-          contracts!inner(contract_number, counterparty_company, our_company),
-          users!left(name),
-          user_roles!left(name),
-          departments!left(name),
-          granter:users!granted_by(name)
+          contracts!inner(contract_number, counterparty_company, our_company)
         `)
         .order('created_at', { ascending: false });
 
@@ -102,10 +98,10 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
         contract_number: item.contracts?.contract_number,
         counterparty_company: item.contracts?.counterparty_company,
         our_company: item.contracts?.our_company,
-        user_name: item.users?.name,
-        role_name: item.user_roles?.name,
-        department_name: item.departments?.name,
-        granter_name: item.granter?.name
+        user_name: item.user_id ? `用户 ${item.user_id}` : null,
+        role_name: item.role_name,
+        department_name: item.department_name,
+        granter_name: item.granted_by ? `授权者 ${item.granted_by}` : null
       }));
 
       setPermissions(formattedData);
