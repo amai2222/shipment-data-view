@@ -42,8 +42,7 @@ interface DashboardDataV2 {
 
 const getDefaultDateRange = () => {
   const today = new Date();
-  // 优化：默认查询最近30天，而不是从1970年开始
-  const startDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const startDate = new Date('1970-01-01');
   const formatISODate = (date: Date) => date.toISOString().split('T')[0];
   return { startDate: formatISODate(startDate), endDate: formatISODate(today) };
 };
@@ -80,25 +79,13 @@ export default function Home() {
     else setIsSearching(true);
     
     try {
-      // 优化：使用快速统计函数，避免复杂的日期序列生成
-      const { data, error } = await supabase.rpc('get_dashboard_quick_stats', {
+      const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types', {
         p_start_date: filterInputs.startDate,
         p_end_date: filterInputs.endDate,
         p_project_id: filterInputs.projectId === 'all' ? null : filterInputs.projectId,
       });
       if (error) throw error;
-      
-      // 转换数据格式以兼容现有组件
-      const quickData = data as any;
-      const convertedData: DashboardDataV2 = {
-        overview: quickData.overview,
-        totalQuantityByType: quickData.totalQuantityByType || {},
-        daily_stats_by_type: {}, // 快速版本不包含详细的每日统计
-        dailyCostStats: [], // 快速版本不包含详细的每日费用统计
-        dailyCountStats: [] // 快速版本不包含详细的每日次数统计
-      };
-      
-      setDashboardData(convertedData);
+      setDashboardData(data as any);
     } catch (err: any) {
       console.error('获取看板数据失败:', err);
       toast({ title: "数据加载失败", description: err.message, variant: "destructive" });

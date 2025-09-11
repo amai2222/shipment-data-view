@@ -21,7 +21,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
-import { useDashboardCache } from '@/hooks/useDashboardCache';
 
 interface DashboardStats {
   totalRecords: number;
@@ -69,56 +68,79 @@ export default function MobileHome() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showTotalStats, setShowTotalStats] = useState(false);
-  const { preloadAll, getCachedData } = useDashboardCache();
-
-  // 预加载数据
-  useEffect(() => {
-    preloadAll();
-  }, [preloadAll]);
 
   const { data: stats, isLoading, error } = useQuery<DashboardStats>({
     queryKey: ['mobileHomeStats'],
     queryFn: async () => {
-      // 优化：优先使用缓存数据，大幅提升性能
-      const cachedTodayStats = getCachedData('get_today_stats', {});
-      const cachedProjectStats = getCachedData('get_project_quick_stats', {});
+      const today = new Date();
+      const startOfToday = startOfDay(today).toISOString();
+      const endOfToday = endOfDay(today).toISOString();
 
-      let todayData: any = {};
-      let projectData: any = {};
+      // 优化：使用更简单的查询，减少数据库负载
+      const [
+        todayQuery,
+        activeProjectsCount,
+        pendingPaymentsCount,
+        // 使用与桌面端相同的RPC函数获取总记录数，确保数据一致性
+        rpcAgg
+      ] = await Promise.all([
+        // 只查询今日数据，减少数据量
+        supabase
+          .from('logistics_records')
+          .select('loading_weight, driver_payable_cost', { count: 'exact' })
+          .gte('loading_date', startOfToday)
+          .lte('loading_date', endOfToday),
+        // 使用更高效的计数查询
+        supabase
+          .from('projects')
+          .select('id', { count: 'exact', head: true })
+          .eq('project_status', '进行中'),
+        supabase
+          .from('payment_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'Pending'),
+        // 使用与桌面端相同的RPC函数，确保数据一致性
+        // 使用与桌面端相同的默认日期范围（1970-01-01到现在）
+        supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
+          p_start_date: '1970-01-01',
+          p_end_date: new Date().toISOString().split('T')[0],
+          p_project_id: null
+        })
+      ]);
 
-      if (cachedTodayStats && cachedProjectStats) {
-        // 使用缓存数据
-        todayData = cachedTodayStats;
-        projectData = cachedProjectStats;
-      } else {
-        // 缓存未命中，并行获取数据
-        const [
-          todayStats,
-          projectStats
-        ] = await Promise.all([
-          supabase.rpc('get_today_stats'),
-          supabase.rpc('get_project_quick_stats')
-        ]);
+      // 计算今日数据
+      const todayData = (todayQuery as any).data as Array<{ loading_weight: number | null; driver_payable_cost: number | null }> | null;
+      const todayCount = (todayQuery as any).count as number | null;
+      const todayWeight = (todayData || []).reduce((sum, r) => sum + (r.loading_weight || 0), 0);
+      const todaysCost = (todayData || []).reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0);
 
-        todayData = todayStats.data || {};
-        projectData = projectStats.data || {};
-      }
+      // 获取其他统计数据
+      const activeProjects = (activeProjectsCount as any).count || 0;
+      const pendingPayments = (pendingPaymentsCount as any).count || 0;
+      
+      // 从RPC函数获取总记录数，确保与桌面端一致
+      const rpcData: any = (rpcAgg as any).data || {};
+      const overview = rpcData.overview || {};
+      const totalRecords = overview.totalRecords || 0;
 
+      // 优化：使用简化的总计数据，避免复杂的RPC调用
+      // 对于移动端，我们主要关注今日数据，总计数据可以稍后加载
       return {
-        totalRecords: todayData.todayRecords || 0,
-        todayRecords: todayData.todayRecords || 0,
-        totalWeight: todayData.todayWeight || 0,
-        todayWeight: todayData.todayWeight || 0,
-        totalCost: todayData.todayCost || 0,
-        todayCost: todayData.todayCost || 0,
-        activeProjects: projectData.activeProjects || 0,
-        pendingPayments: projectData.pendingPayments || 0
+        totalRecords,
+        todayRecords: todayCount || 0,
+        totalWeight: 0, // 暂时设为0，避免复杂查询
+        todayWeight,
+        totalCost: 0, // 暂时设为0，避免复杂查询
+        todayCost: todaysCost,
+        activeProjects,
+        pendingPayments
       } as DashboardStats;
     },
-    staleTime: 2 * 60 * 1000, // 缓存2分钟
-    gcTime: 10 * 60 * 1000, // 垃圾回收10分钟
+    staleTime: 2 * 60 * 1000, // 减少缓存时间到2分钟
+    gcTime: 10 * 60 * 1000, // 减少垃圾回收时间到10分钟
     refetchOnWindowFocus: false,
     retry: 1,
+    // 添加网络状态优化
     networkMode: 'online'
   });
 
@@ -126,16 +148,16 @@ export default function MobileHome() {
   const { data: totalStats, isLoading: totalStatsLoading } = useQuery({
     queryKey: ['mobileHomeTotalStats'],
     queryFn: async () => {
-      // 优化：使用快速统计函数，查询最近30天数据
-      const quickStats = await supabase.rpc('get_dashboard_quick_stats', {
-        p_start_date: null, // 使用默认的最近30天
-        p_end_date: null,
+      // 使用与桌面端相同的默认日期范围（1970-01-01到现在）
+      const rpcAgg = await supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
+        p_start_date: '1970-01-01',
+        p_end_date: new Date().toISOString().split('T')[0],
         p_project_id: null
       });
 
-      const quickData: any = quickStats.data || {};
-      const overview = quickData.overview || {};
-      const totalQuantityByType = quickData.totalQuantityByType || {};
+      const rpcData: any = (rpcAgg as any).data || {};
+      const overview = rpcData.overview || {};
+      const totalQuantityByType = rpcData.totalQuantityByType || {};
 
       return {
         totalWeight: Number(totalQuantityByType?.['1'] || 0),
