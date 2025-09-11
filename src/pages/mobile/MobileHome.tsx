@@ -81,7 +81,8 @@ export default function MobileHome() {
         todayQuery,
         activeProjectsCount,
         pendingPaymentsCount,
-        totalRecordsCount
+        // 使用与桌面端相同的RPC函数获取总记录数，确保数据一致性
+        rpcAgg
       ] = await Promise.all([
         // 只查询今日数据，减少数据量
         supabase
@@ -98,9 +99,12 @@ export default function MobileHome() {
           .from('payment_requests')
           .select('id', { count: 'exact', head: true })
           .eq('status', 'Pending'),
-        supabase
-          .from('logistics_records')
-          .select('id', { count: 'exact', head: true })
+        // 使用与桌面端相同的RPC函数，确保数据一致性
+        supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
+          p_start_date: '1970-01-01',
+          p_end_date: new Date().toISOString().split('T')[0],
+          p_project_id: null
+        })
       ]);
 
       // 计算今日数据
@@ -112,7 +116,11 @@ export default function MobileHome() {
       // 获取其他统计数据
       const activeProjects = (activeProjectsCount as any).count || 0;
       const pendingPayments = (pendingPaymentsCount as any).count || 0;
-      const totalRecords = (totalRecordsCount as any).count || 0;
+      
+      // 从RPC函数获取总记录数，确保与桌面端一致
+      const rpcData: any = (rpcAgg as any).data || {};
+      const overview = rpcData.overview || {};
+      const totalRecords = overview.totalRecords || 0;
 
       // 优化：使用简化的总计数据，避免复杂的RPC调用
       // 对于移动端，我们主要关注今日数据，总计数据可以稍后加载
@@ -370,7 +378,7 @@ export default function MobileHome() {
                         <Banknote className="h-4 w-4 text-yellow-600" />
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">总应付费用</p>
+                        <p className="text-sm text-muted-foreground">总司机应收</p>
                         {totalStatsLoading ? (
                           <div className="flex items-center space-x-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
