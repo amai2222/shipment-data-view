@@ -17,7 +17,8 @@ import {
   Building2,
   Scale,
   Receipt,
-  FileSignature
+  FileSignature,
+  Shield
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -116,6 +117,12 @@ const settingsNavigation = [
     name: '权限管理',
     href: '/m/settings/permissions',
     icon: Settings,
+    roles: ['admin']
+  },
+  {
+    name: '集成权限管理',
+    href: '/m/settings/integrated',
+    icon: Shield,
     roles: ['admin']
   }
 ];
