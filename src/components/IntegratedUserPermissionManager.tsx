@@ -65,6 +65,7 @@ export function IntegratedUserPermissionManager() {
   const usersWithPermissions = useMemo(() => {
     return users.map(user => {
       const userPerm = userPermissions.find(p => p.user_id === user.id);
+      
       return {
         ...user,
         permissions: userPerm ? {
