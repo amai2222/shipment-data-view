@@ -63,6 +63,24 @@ export function useOptimizedPermissions() {
     }
   };
 
+  // 修复用户状态 - 确保所有用户都是启用状态
+  const fixUserStatus = async () => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_active: true })
+        .eq('is_active', false);
+      
+      if (error) {
+        console.error('修复用户状态失败:', error);
+      } else {
+        console.log('用户状态修复完成');
+      }
+    } catch (error) {
+      console.error('修复用户状态失败:', error);
+    }
+  };
+
   // 批量加载数据
   const loadAllData = async () => {
     setLoading(true);
@@ -70,10 +88,13 @@ export function useOptimizedPermissions() {
       // 首先确保有默认角色权限模板
       await initializeDefaultRoleTemplates();
       
+      // 修复用户状态
+      await fixUserStatus();
+      
       // 并行加载所有必需的数据
       const [templatesRes, usersRes, permissionsRes] = await Promise.all([
         supabase.from('role_permission_templates').select('*'),
-        supabase.from('profiles').select('id, full_name, email, role').eq('is_active', true),
+        supabase.from('profiles').select('id, full_name, email, role, is_active'),
         supabase.from('user_permissions').select('*').order('created_at', { ascending: false })
       ]);
 
