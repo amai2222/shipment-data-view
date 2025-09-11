@@ -862,6 +862,139 @@ export function IntegratedUserPermissionManager() {
 
         {/* 角色模板标签页 */}
         <TabsContent value="templates" className="space-y-6">
+          {/* 预设权限模板 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>权限模板</CardTitle>
+              <CardDescription>
+                预设的权限配置模板，可快速应用到用户
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* 管理员权限模板 */}
+                <Card 
+                  className="p-4 cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-green-300"
+                  onClick={() => {
+                    setEditingRole('admin');
+                    setShowRoleTemplateDialog(true);
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-green-700">管理员权限</h4>
+                      <p className="text-sm text-muted-foreground">拥有所有菜单和功能权限</p>
+                    </div>
+                    <Badge className="bg-green-100 text-green-800">admin</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    点击编辑权限配置
+                  </div>
+                </Card>
+
+                {/* 操作员权限模板 */}
+                <Card 
+                  className="p-4 cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-orange-300"
+                  onClick={() => {
+                    setEditingRole('operator');
+                    setShowRoleTemplateDialog(true);
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-orange-700">操作员权限</h4>
+                      <p className="text-sm text-muted-foreground">基础操作权限</p>
+                    </div>
+                    <Badge className="bg-orange-100 text-orange-800">operator</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    点击编辑权限配置
+                  </div>
+                </Card>
+
+                {/* 财务权限模板 */}
+                <Card 
+                  className="p-4 cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-blue-300"
+                  onClick={() => {
+                    setEditingRole('finance');
+                    setShowRoleTemplateDialog(true);
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-blue-700">财务权限</h4>
+                      <p className="text-sm text-muted-foreground">财务相关菜单和功能</p>
+                    </div>
+                    <Badge className="bg-blue-100 text-blue-800">finance</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    点击编辑权限配置
+                  </div>
+                </Card>
+
+                {/* 业务权限模板 */}
+                <Card 
+                  className="p-4 cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-green-300"
+                  onClick={() => {
+                    setEditingRole('business');
+                    setShowRoleTemplateDialog(true);
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-green-700">业务权限</h4>
+                      <p className="text-sm text-muted-foreground">业务操作相关权限</p>
+                    </div>
+                    <Badge className="bg-green-100 text-green-800">business</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    点击编辑权限配置
+                  </div>
+                </Card>
+
+                {/* 合作伙伴权限模板 */}
+                <Card 
+                  className="p-4 cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-blue-300"
+                  onClick={() => {
+                    setEditingRole('partner');
+                    setShowRoleTemplateDialog(true);
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-blue-700">合作伙伴权限</h4>
+                      <p className="text-sm text-muted-foreground">合作伙伴专用权限</p>
+                    </div>
+                    <Badge className="bg-blue-100 text-blue-800">partner</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    点击编辑权限配置
+                  </div>
+                </Card>
+
+                {/* 查看者权限模板 */}
+                <Card 
+                  className="p-4 cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-gray-300"
+                  onClick={() => {
+                    setEditingRole('viewer');
+                    setShowRoleTemplateDialog(true);
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-gray-700">查看者权限</h4>
+                      <p className="text-sm text-muted-foreground">只读权限</p>
+                    </div>
+                    <Badge className="bg-gray-100 text-gray-800">viewer</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    点击编辑权限配置
+                  </div>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* 角色权限模板 */}
           <Card>
             <CardHeader>
