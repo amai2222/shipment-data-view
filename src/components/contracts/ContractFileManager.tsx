@@ -129,7 +129,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
       // 获取合同信息用于文件命名
       const { data: contractData } = await supabase
         .from('contracts')
-        .select('counterparty_company, our_company')
+        .select('contract_number, counterparty_company, our_company')
         .eq('id', contractId)
         .single();
 
@@ -138,8 +138,11 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
       }
 
       const fileExtension = selectedFile.name.split('.').pop();
-      const timestamp = Date.now();
-      const customFileName = `${formData.file_type}-${contractData.counterparty_company}-${contractData.our_company}-${timestamp}.${fileExtension}`;
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+      
+      // 使用合同编号作为前缀，确保文件命名规范
+      const contractPrefix = contractData.contract_number || `CONTRACT-${contractId.slice(0, 8)}`;
+      const customFileName = `${contractPrefix}-${formData.file_type}-${timestamp}.${fileExtension}`;
       
       const reader = new FileReader();
       const fileData = await new Promise<string>((resolve) => {
@@ -328,10 +331,17 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">合同文件管理</h2>
+        <div>
+          <h2 className="text-2xl font-bold">合同文件管理</h2>
+          {!contractId && (
+            <p className="text-sm text-muted-foreground mt-1">
+              请先在合同列表中选择一个合同，然后才能上传文件
+            </p>
+          )}
+        </div>
         <Dialog open={showForm} onOpenChange={setShowForm}>
           <DialogTrigger asChild>
-            <Button>
+            <Button disabled={!contractId}>
               <Plus className="h-4 w-4 mr-2" />
               上传文件
             </Button>
