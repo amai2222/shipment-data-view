@@ -19,7 +19,11 @@ import {
   Receipt,
   FileSignature,
   Shield,
-  History
+  History,
+  Database,
+  Calculator,
+  DollarSign,
+  Banknote
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,78 +36,121 @@ interface MobileLayoutProps {
   children: React.ReactNode;
 }
 
-const navigation = [
+// 移动端菜单分组配置，仿照桌面端分组
+const menuGroups = [
   {
-    name: '运输概览',
-    href: '/m/',
-    icon: Home,
-    roles: ['admin', 'finance', 'business', 'operator', 'viewer']
-  },
-  {
-    name: '项目看板',
-    href: '/m/dashboard/project',
+    title: '数据看板',
     icon: BarChart3,
-    roles: ['admin', 'finance', 'business', 'viewer']
+    items: [
+      {
+        name: '运输概览',
+        href: '/m/',
+        icon: Home,
+        roles: ['admin', 'finance', 'business', 'operator', 'viewer']
+      },
+      {
+        name: '项目看板',
+        href: '/m/dashboard/project',
+        icon: BarChart3,
+        roles: ['admin', 'finance', 'business', 'viewer']
+      },
+      {
+        name: '财务概览',
+        href: '/m/dashboard/financial',
+        icon: DollarSign,
+        roles: ['admin', 'finance', 'viewer']
+      }
+    ]
   },
   {
-    name: '业务管理',
-    href: '/m/business-entry',
+    title: '信息维护',
+    icon: Database,
+    items: [
+      {
+        name: '项目管理',
+        href: '/m/projects',
+        icon: Building2,
+        roles: ['admin', 'business']
+      },
+      {
+        name: '司机管理',
+        href: '/m/drivers',
+        icon: Users,
+        roles: ['admin', 'finance', 'business', 'operator', 'viewer']
+      },
+      {
+        name: '地点管理',
+        href: '/m/locations',
+        icon: MapPin,
+        roles: ['admin', 'finance', 'business', 'operator', 'viewer']
+      },
+      {
+        name: '合作伙伴',
+        href: '/m/partners',
+        icon: Truck,
+        roles: ['admin', 'finance', 'business', 'viewer']
+      }
+    ]
+  },
+  {
+    title: '业务管理',
     icon: FileText,
-    roles: ['admin', 'finance', 'business', 'operator']
+    items: [
+      {
+        name: '运单管理',
+        href: '/m/business-entry',
+        icon: FileText,
+        roles: ['admin', 'finance', 'business', 'operator']
+      },
+      {
+        name: '磅单记录',
+        href: '/m/scale-records',
+        icon: Scale,
+        roles: ['admin', 'finance', 'business', 'operator']
+      },
+      {
+        name: '付款申请',
+        href: '/m/payment-request',
+        icon: CreditCard,
+        roles: ['admin', 'finance']
+      },
+      {
+        name: '申请单管理',
+        href: '/m/payment-requests-management',
+        icon: Receipt,
+        roles: ['admin', 'finance']
+      }
+    ]
   },
   {
-    name: '磅单记录',
-    href: '/m/scale-records',
-    icon: Scale,
-    roles: ['admin', 'finance', 'business', 'operator']
-  },
-  {
-    name: '项目管理',
-    href: '/m/projects',
-    icon: Building2,
-    roles: ['admin', 'business']
-  },
-  {
-    name: '司机管理',
-    href: '/m/drivers',
-    icon: Users,
-    roles: ['admin', 'finance', 'business', 'operator', 'viewer']
-  },
-  {
-    name: '地点管理',
-    href: '/m/locations',
-    icon: MapPin,
-    roles: ['admin', 'finance', 'business', 'operator', 'viewer']
-  },
-  {
-    name: '合作伙伴',
-    href: '/m/partners',
-    icon: Truck,
-    roles: ['admin', 'finance', 'business', 'viewer']
-  },
-  {
-    name: '合同管理',
-    href: '/m/contracts',
+    title: '合同管理',
     icon: FileSignature,
-    roles: ['admin', 'finance', 'business']
+    items: [
+      {
+        name: '合同列表',
+        href: '/m/contracts',
+        icon: FileSignature,
+        roles: ['admin', 'finance', 'business']
+      }
+    ]
   },
   {
-    name: '申请单管理',
-    href: '/m/payment-requests-management',
-    icon: Receipt,
-    roles: ['admin', 'finance']
-  },
-  {
-    name: '付款申请',
-    href: '/m/payment-request',
-    icon: CreditCard,
-    roles: ['admin', 'finance']
-  },
-  {
-    name: '财务概览',
-    href: '/m/dashboard/financial',
-    icon: BarChart3,
-    roles: ['admin', 'finance', 'viewer']
+    title: '财务对账',
+    icon: Calculator,
+    items: [
+      {
+        name: '运费对账',
+        href: '/m/finance/reconciliation',
+        icon: Calculator,
+        roles: ['admin', 'finance', 'business']
+      },
+      {
+        name: '付款与开票',
+        href: '/m/finance/payment-invoice',
+        icon: Banknote,
+        roles: ['admin', 'finance']
+      }
+    ]
   }
 ];
 
@@ -153,9 +200,13 @@ export function MobileLayout({ children }: MobileLayoutProps) {
     return names.map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const filteredNavigation = navigation.filter(item => 
-    hasPermission(item.roles as any) && hasMenuAccess(item.href)
-  );
+  // 过滤菜单分组
+  const filteredMenuGroups = menuGroups.map(group => ({
+    ...group,
+    items: group.items.filter(item => 
+      hasPermission(item.roles as any) && hasMenuAccess(item.href)
+    )
+  })).filter(group => group.items.length > 0);
 
   const filteredSettingsNavigation = settingsNavigation.filter(item => 
     hasPermission(item.roles as any) && hasMenuAccess(item.href)
@@ -199,24 +250,39 @@ export function MobileLayout({ children }: MobileLayoutProps) {
 
                 {/* 主导航 */}
                 <ScrollArea className="flex-1">
-                  <div className="space-y-1">
-                    {filteredNavigation.map((item) => (
-                      <NavLink
-                        key={item.href}
-                        to={item.href}
-                        onClick={() => setIsMenuOpen(false)}
-                        className={({ isActive }) =>
-                          cn(
-                            'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                            isActive
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                          )
-                        }
-                      >
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.name}</span>
-                      </NavLink>
+                  <div className="space-y-4">
+                    {filteredMenuGroups.map((group) => (
+                      <div key={group.title} className="space-y-2">
+                        {/* 分组标题 */}
+                        <div className="flex items-center space-x-2 px-3 py-2">
+                          <group.icon className="h-4 w-4 text-muted-foreground" />
+                          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            {group.title}
+                          </h3>
+                        </div>
+                        
+                        {/* 分组菜单项 */}
+                        <div className="space-y-1">
+                          {group.items.map((item) => (
+                            <NavLink
+                              key={item.href}
+                              to={item.href}
+                              onClick={() => setIsMenuOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm transition-colors ml-4',
+                                  isActive
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                )
+                              }
+                            >
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.name}</span>
+                            </NavLink>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
 
