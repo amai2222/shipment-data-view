@@ -100,8 +100,14 @@ export default function MobileHome() {
           .select('id', { count: 'exact', head: true })
           .eq('status', 'Pending'),
         // 使用与桌面端相同的RPC函数，确保数据一致性
+        // 使用与桌面端相同的默认日期范围（最近45天）
         supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
-          p_start_date: '1970-01-01',
+          p_start_date: (() => {
+            const today = new Date();
+            const startDate = new Date();
+            startDate.setDate(today.getDate() - 45);
+            return startDate.toISOString().split('T')[0];
+          })(),
           p_end_date: new Date().toISOString().split('T')[0],
           p_project_id: null
         })
@@ -147,9 +153,14 @@ export default function MobileHome() {
   const { data: totalStats, isLoading: totalStatsLoading } = useQuery({
     queryKey: ['mobileHomeTotalStats'],
     queryFn: async () => {
+      // 使用与桌面端相同的默认日期范围（最近45天）
+      const today = new Date();
+      const startDate = new Date();
+      startDate.setDate(today.getDate() - 45);
+      
       const rpcAgg = await supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
-        p_start_date: '1970-01-01',
-        p_end_date: new Date().toISOString().split('T')[0],
+        p_start_date: startDate.toISOString().split('T')[0],
+        p_end_date: today.toISOString().split('T')[0],
         p_project_id: null
       });
 
