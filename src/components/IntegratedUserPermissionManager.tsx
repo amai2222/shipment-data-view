@@ -335,7 +335,7 @@ export function IntegratedUserPermissionManager() {
     }
   };
 
-  // 加载用户项目分配
+  // 加载用户项目分配（现在存储的是被限制的项目）
   const loadUserProjectAssignments = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -345,48 +345,49 @@ export function IntegratedUserPermissionManager() {
 
       if (error) throw error;
 
-      const projectIds = data?.map(item => item.project_id) || [];
+      // 现在存储的是被限制访问的项目ID
+      const restrictedProjectIds = data?.map(item => item.project_id) || [];
       setUserProjectAssignments(prev => ({
         ...prev,
-        [userId]: projectIds
+        [userId]: restrictedProjectIds
       }));
     } catch (error) {
       console.error('加载用户项目分配失败:', error);
     }
   };
 
-  // 保存用户项目分配
+  // 保存用户项目分配（现在存储的是被限制的项目）
   const handleSaveProjectAssignments = async () => {
     if (!userForProjectAssignment) return;
 
     try {
       const userId = userForProjectAssignment.id;
-      const assignedProjectIds = userProjectAssignments[userId] || [];
+      const restrictedProjectIds = userProjectAssignments[userId] || [];
 
-      // 删除现有的项目分配
+      // 删除现有的项目限制
       await supabase
         .from('user_projects')
         .delete()
         .eq('user_id', userId);
 
-      // 添加新的项目分配
-      if (assignedProjectIds.length > 0) {
-        const assignments = assignedProjectIds.map(projectId => ({
+      // 添加新的项目限制（只存储被限制的项目）
+      if (restrictedProjectIds.length > 0) {
+        const restrictions = restrictedProjectIds.map(projectId => ({
           user_id: userId,
           project_id: projectId,
-          role: 'member'
+          role: 'restricted' // 标记为被限制
         }));
 
         const { error } = await supabase
           .from('user_projects')
-          .insert(assignments);
+          .insert(restrictions);
 
         if (error) throw error;
       }
 
       toast({
-        title: "项目分配成功",
-        description: `用户 ${userForProjectAssignment.full_name} 的项目权限已更新`,
+        title: "项目权限更新成功",
+        description: `用户 ${userForProjectAssignment.full_name} 的项目访问权限已更新`,
       });
 
       setShowProjectAssignmentDialog(false);
@@ -401,20 +402,22 @@ export function IntegratedUserPermissionManager() {
     }
   };
 
-  // 切换项目分配
+  // 切换项目分配（现在切换的是限制状态）
   const toggleProjectAssignment = (projectId: string) => {
     if (!userForProjectAssignment) return;
 
     const userId = userForProjectAssignment.id;
-    const currentAssignments = userProjectAssignments[userId] || [];
+    const currentRestrictions = userProjectAssignments[userId] || [];
     
-    const newAssignments = currentAssignments.includes(projectId)
-      ? currentAssignments.filter(id => id !== projectId)
-      : [...currentAssignments, projectId];
+    // 如果项目在限制列表中，则移除限制（允许访问）
+    // 如果项目不在限制列表中，则添加限制（禁止访问）
+    const newRestrictions = currentRestrictions.includes(projectId)
+      ? currentRestrictions.filter(id => id !== projectId)
+      : [...currentRestrictions, projectId];
 
     setUserProjectAssignments(prev => ({
       ...prev,
-      [userId]: newAssignments
+      [userId]: newRestrictions
     }));
   };
 
@@ -1255,13 +1258,18 @@ export function IntegratedUserPermissionManager() {
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <h4 className="font-medium text-blue-800 mb-2">项目权限说明</h4>
                 <p className="text-sm text-blue-700">
-                  勾选的项目表示用户可以查看和访问。未勾选的项目用户将无法查看。
+                  <strong>默认所有项目都可访问</strong>。勾选的项目表示用户可以查看和访问，未勾选的项目表示用户被限制访问。
                 </p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
                 {projects.map((project) => {
-                  const isAssigned = userProjectAssignments[userForProjectAssignment.id]?.includes(project.id) || false;
+                  // 默认所有项目都可访问，只有被明确限制的项目才不勾选
+                  // 如果用户没有在 user_projects 表中有记录，说明可以访问所有项目
+                  // 如果用户有记录，则根据记录判断是否被限制
+                  const userRestrictedProjects = userProjectAssignments[userForProjectAssignment.id] || [];
+                  const isRestricted = userRestrictedProjects.length > 0 && !userRestrictedProjects.includes(project.id);
+                  const isAssigned = !isRestricted; // 默认可访问，除非被明确限制
                   
                   return (
                     <div key={project.id} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
