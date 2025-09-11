@@ -10,7 +10,7 @@ import {
   Calendar,
   MapPin,
   Users,
-  DollarSign,
+  Banknote,
   ArrowRight,
   FileText,
   Scale
@@ -232,7 +232,7 @@ export default function MobileHome() {
                   <p className="text-lg font-bold">{formatCurrency(stats.todayCost)}</p>
                 </div>
                 <div className="p-2 bg-yellow-100 rounded-full">
-                  <DollarSign className="h-4 w-4 text-yellow-600" />
+                  <Banknote className="h-4 w-4 text-yellow-600" />
                 </div>
               </div>
             </CardContent>
@@ -323,7 +323,7 @@ export default function MobileHome() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-yellow-100 rounded-full">
-                    <DollarSign className="h-4 w-4 text-yellow-600" />
+                    <Banknote className="h-4 w-4 text-yellow-600" />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">总应付费用</p>

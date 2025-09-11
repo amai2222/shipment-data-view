@@ -12,7 +12,7 @@ import {
   MapPin,
   Truck,
   Package,
-  DollarSign,
+  Banknote,
   Activity,
   Eye,
   Edit,

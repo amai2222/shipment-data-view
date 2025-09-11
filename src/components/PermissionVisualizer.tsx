@@ -17,7 +17,7 @@ import {
   Users,
   FileText,
   Truck,
-  DollarSign,
+  Banknote,
   Shield,
   CheckCircle,
   XCircle,
@@ -49,7 +49,7 @@ const menuIcons: Record<string, React.ComponentType<any>> = {
   'business': Users,
   'contract': FileText,
   'transport': Truck,
-  'finance': DollarSign,
+  'finance': Banknote, // 使用Banknote图标表示财务相关功能
   'settings': Settings,
   'default': Eye
 };

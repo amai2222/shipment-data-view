@@ -5,7 +5,7 @@ import {
   FileText, 
   Calculator,
   PieChart,
-  DollarSign,
+  Banknote,
   Truck,
   Package,
   MapPin,
@@ -45,7 +45,7 @@ const menuItems = [
     icon: BarChart3,
     items: [
       { title: "运输看板", url: "/dashboard/transport", icon: Truck },
-      { title: "财务看板", url: "/dashboard/financial", icon: DollarSign },
+      { title: "财务看板", url: "/dashboard/financial", icon: Banknote },
       { title: "项目看板", url: "/dashboard/project", icon: PieChart },
     ]
   },
@@ -65,7 +65,7 @@ const menuItems = [
     items: [
       { title: "运单管理", url: "/business-entry", icon: Plus },
       { title: "磅单管理", url: "/scale-records", icon: Weight },
-      { title: "付款申请", url: "/payment-request", icon: DollarSign },
+      { title: "付款申请", url: "/payment-request", icon: Banknote },
       { title: "申请单管理", url: "/payment-requests-list", icon: ClipboardList },
       { title: "合同管理", url: "/contracts", icon: FileText },
     ]
@@ -75,7 +75,7 @@ const menuItems = [
     icon: Calculator,
     items: [
       { title: "运费对账", url: "/finance/reconciliation", icon: Calculator },
-      { title: "付款与开票", url: "/finance/payment-invoice", icon: DollarSign },
+      { title: "付款与开票", url: "/finance/payment-invoice", icon: Banknote },
     ]
   },
   {

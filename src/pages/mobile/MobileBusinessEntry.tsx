@@ -14,7 +14,7 @@ import {
   Truck,
   MapPin,
   Phone,
-  DollarSign,
+  Banknote,
   Weight,
   Filter,
   SortAsc,
@@ -429,7 +429,7 @@ export default function MobileBusinessEntry() {
 
                   {record.payable_cost && (
                     <div className="flex items-center text-muted-foreground">
-                      <DollarSign className="h-4 w-4 mr-2" />
+                      <Banknote className="h-4 w-4 mr-2" />
                       司机应收: <span className="font-semibold text-foreground ml-1">
                         {formatCurrency(record.payable_cost)}
                       </span>

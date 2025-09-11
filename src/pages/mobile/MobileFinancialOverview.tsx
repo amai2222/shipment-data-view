@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Loader2, TrendingUp, DollarSign, CreditCard, FileText } from "lucide-react";
+import { Loader2, TrendingUp, Banknote, CreditCard, FileText } from "lucide-react";
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { MobileCard } from '@/components/mobile/MobileCard';
 import { useToast } from "@/hooks/use-toast";
@@ -136,7 +136,7 @@ export default function MobileFinancialOverview() {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
-                  <DollarSign className="h-4 w-4 text-blue-600" />
+                  <Banknote className="h-4 w-4 text-blue-600" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted-foreground">总应收</p>
