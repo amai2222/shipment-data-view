@@ -132,14 +132,14 @@ export function MobileSearchBar({
                       
                       {filter.type === 'select' && (
                         <Select 
-                          value={tempFilters[filter.key] || ''} 
-                          onValueChange={(value) => handleFilterChange(filter.key, value)}
+                          value={tempFilters[filter.key] || 'all'} 
+                          onValueChange={(value) => handleFilterChange(filter.key, value === 'all' ? '' : value)}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder={filter.placeholder || `选择${filter.label}`} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">全部</SelectItem>
+                            <SelectItem value="all">全部</SelectItem>
                             {filter.options?.map(option => (
                               <SelectItem key={option.value} value={option.value}>
                                 {option.label}

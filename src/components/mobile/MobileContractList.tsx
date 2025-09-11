@@ -57,8 +57,8 @@ export function MobileContractList({ onContractSelect, onSearch }: MobileContrac
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
   const { toast } = useToast();
@@ -98,8 +98,8 @@ export function MobileContractList({ onContractSelect, onSearch }: MobileContrac
   const handleSearch = () => {
     const filters = {
       keyword: searchKeyword,
-      category: categoryFilter,
-      status: statusFilter
+      category: categoryFilter === 'all' ? '' : categoryFilter,
+      status: statusFilter === 'all' ? '' : statusFilter
     };
     onSearch?.(filters);
   };
@@ -230,7 +230,7 @@ export function MobileContractList({ onContractSelect, onSearch }: MobileContrac
                     <SelectValue placeholder="合同分类" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部分类</SelectItem>
+                    <SelectItem value="all">全部分类</SelectItem>
                     <SelectItem value="行政合同">行政合同</SelectItem>
                     <SelectItem value="内部合同">内部合同</SelectItem>
                     <SelectItem value="业务合同">业务合同</SelectItem>
@@ -242,7 +242,7 @@ export function MobileContractList({ onContractSelect, onSearch }: MobileContrac
                     <SelectValue placeholder="合同状态" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部状态</SelectItem>
+                    <SelectItem value="all">全部状态</SelectItem>
                     <SelectItem value="active">有效</SelectItem>
                     <SelectItem value="expired">已到期</SelectItem>
                     <SelectItem value="terminated">已终止</SelectItem>

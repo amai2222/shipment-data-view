@@ -62,8 +62,8 @@ export default function MobileBusinessEntry() {
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'project' | 'driver'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [filterProject, setFilterProject] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterProject, setFilterProject] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -115,12 +115,12 @@ export default function MobileBusinessEntry() {
     }
 
     // 项目过滤
-    if (filterProject) {
+    if (filterProject && filterProject !== 'all') {
       filtered = filtered.filter(record => record.project_name === filterProject);
     }
 
     // 状态过滤
-    if (filterStatus) {
+    if (filterStatus && filterStatus !== 'all') {
       filtered = filtered.filter(record => record.payment_status === filterStatus);
     }
 
@@ -273,7 +273,7 @@ export default function MobileBusinessEntry() {
                         <SelectValue placeholder="选择项目" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">全部项目</SelectItem>
+                        <SelectItem value="all">全部项目</SelectItem>
                         {uniqueProjects.map(project => (
                           <SelectItem key={project} value={project}>
                             {project}
@@ -290,7 +290,7 @@ export default function MobileBusinessEntry() {
                         <SelectValue placeholder="选择状态" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">全部状态</SelectItem>
+                        <SelectItem value="all">全部状态</SelectItem>
                         {uniqueStatuses.map(status => (
                           <SelectItem key={status} value={status}>
                             {getStatusText(status)}
