@@ -60,11 +60,11 @@ const menuItems = [
     ]
   },
   {
-    title: "业务录入",
+    title: "业务管理",
     icon: FileText,
     items: [
-      { title: "运单录入", url: "/business-entry", icon: Plus },
-      { title: "磅单录入", url: "/scale-records", icon: Weight },
+      { title: "运单管理", url: "/business-entry", icon: Plus },
+      { title: "磅单管理", url: "/scale-records", icon: Weight },
       { title: "付款申请", url: "/payment-request", icon: DollarSign },
       { title: "申请单管理", url: "/payment-requests-list", icon: ClipboardList },
       { title: "合同管理", url: "/contracts", icon: FileText },

@@ -63,16 +63,16 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     ]
   },
   {
-    group: '业务录入',
+    group: '业务管理',
     key: 'business',
-    label: '业务录入',
+    label: '业务管理',
     icon: 'FileText',
     children: [
-      { key: 'business.entry', label: '运单录入', url: '/business-entry', icon: 'Plus', group: '业务录入' },
-      { key: 'business.scale', label: '磅单录入', url: '/scale-records', icon: 'Weight', group: '业务录入' },
-      { key: 'business.payment_request', label: '付款申请', url: '/payment-request', icon: 'DollarSign', group: '业务录入' },
-      { key: 'business.payment_requests', label: '申请单管理', url: '/payment-requests-list', icon: 'ClipboardList', group: '业务录入' },
-      { key: 'business.contracts', label: '合同管理', url: '/contracts', icon: 'FileText', group: '业务录入' }
+      { key: 'business.entry', label: '运单管理', url: '/business-entry', icon: 'Plus', group: '业务管理' },
+      { key: 'business.scale', label: '磅单管理', url: '/scale-records', icon: 'Weight', group: '业务管理' },
+      { key: 'business.payment_request', label: '付款申请', url: '/payment-request', icon: 'DollarSign', group: '业务管理' },
+      { key: 'business.payment_requests', label: '申请单管理', url: '/payment-requests-list', icon: 'ClipboardList', group: '业务管理' },
+      { key: 'business.contracts', label: '合同管理', url: '/contracts', icon: 'FileText', group: '业务管理' }
     ]
   },
   {
@@ -215,7 +215,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project', 'dashboard.quantity',
       // 信息维护
       'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
-      // 业务录入
+      // 业务管理
       'business', 'business.entry', 'business.scale', 'business.payment_request', 'business.payment_requests', 'business.contracts',
       // 财务对账
       'finance', 'finance.reconciliation', 'finance.payment_invoice',

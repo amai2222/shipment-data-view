@@ -46,7 +46,7 @@ const navigation = [
     roles: ['admin', 'finance', 'business', 'viewer']
   },
   {
-    name: '业务录入',
+    name: '业务管理',
     href: '/m/business-entry',
     icon: FileText,
     roles: ['admin', 'finance', 'business', 'operator']
