@@ -87,7 +87,15 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        // 如果表不存在，返回空数组而不是抛出错误
+        if (error.message.includes('relation "contract_permissions" does not exist')) {
+          setPermissions([]);
+          return;
+        }
+        throw error;
+      }
       
       const formattedData = (data || []).map(item => ({
         ...item,
@@ -105,7 +113,7 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
       console.error('Error loading permissions:', error);
       toast({
         title: "错误",
-        description: "加载权限列表失败",
+        description: "加载权限列表失败，请检查数据库连接",
         variant: "destructive",
       });
     } finally {

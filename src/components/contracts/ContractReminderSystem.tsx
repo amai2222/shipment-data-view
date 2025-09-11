@@ -83,7 +83,15 @@ export function ContractReminderSystem({ onReminderUpdate }: ContractReminderSys
         `)
         .order('reminder_date', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        // 如果表不存在，返回空数组而不是抛出错误
+        if (error.message.includes('relation "contract_reminders" does not exist')) {
+          setReminders([]);
+          return;
+        }
+        throw error;
+      }
       
       const formattedData = (data || []).map(item => ({
         ...item,
@@ -98,7 +106,7 @@ export function ContractReminderSystem({ onReminderUpdate }: ContractReminderSys
       console.error('Error loading reminders:', error);
       toast({
         title: "错误",
-        description: "加载提醒列表失败",
+        description: "加载提醒列表失败，请检查数据库连接",
         variant: "destructive",
       });
     } finally {

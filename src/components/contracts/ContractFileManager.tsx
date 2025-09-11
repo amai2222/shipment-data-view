@@ -71,7 +71,15 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
         .eq('contract_id', contractId)
         .order('version_number', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        // 如果表不存在，返回空数组而不是抛出错误
+        if (error.message.includes('relation "contract_file_versions" does not exist')) {
+          setFiles([]);
+          return;
+        }
+        throw error;
+      }
       
       const formattedData = (data || []).map(item => ({
         ...item,
@@ -84,7 +92,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
       console.error('Error loading files:', error);
       toast({
         title: "错误",
-        description: "加载文件列表失败",
+        description: "加载文件列表失败，请检查数据库连接",
         variant: "destructive",
       });
     } finally {
