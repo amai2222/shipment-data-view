@@ -203,8 +203,9 @@ export default function ContractManagement() {
       if (filters.created_date_to) {
         query = query.lte('created_at', filters.created_date_to);
       }
-      if (filters.is_confidential !== null && filters.is_confidential !== undefined) {
-        query = query.eq('is_confidential', filters.is_confidential);
+      if (filters.is_confidential && filters.is_confidential !== '') {
+        const isConfidential = filters.is_confidential === 'true';
+        query = query.eq('is_confidential', isConfidential);
       }
       if (filters.has_files !== null && filters.has_files !== undefined) {
         if (filters.has_files) {
