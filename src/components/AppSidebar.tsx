@@ -17,7 +17,8 @@ import {
   Settings,
   UserCog,
   Weight,
-  Shield
+  Shield,
+  History
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,7 @@ const menuItems = [
       { title: "用户管理", url: "/settings/users", icon: UserCog },
       { title: "权限管理", url: "/settings/permissions", icon: Settings },
       { title: "集成权限管理", url: "/settings/integrated", icon: Shield },
+      { title: "操作日志", url: "/settings/audit-logs", icon: History },
     ]
   }
 ];
@@ -134,6 +136,8 @@ export function AppSidebar() {
         menuKey = 'settings.permissions';
       } else if (item.url === '/settings/integrated') {
         menuKey = 'settings.integrated';
+      } else if (item.url === '/settings/audit-logs') {
+        menuKey = 'settings.audit_logs';
       }
       
       console.log(`检查菜单权限: ${menuKey} - ${hasMenuAccess(menuKey)}`);

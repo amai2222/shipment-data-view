@@ -18,7 +18,8 @@ import {
   Scale,
   Receipt,
   FileSignature,
-  Shield
+  Shield,
+  History
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -123,6 +124,12 @@ const settingsNavigation = [
     name: '集成权限管理',
     href: '/m/settings/integrated',
     icon: Shield,
+    roles: ['admin']
+  },
+  {
+    name: '操作日志',
+    href: '/m/settings/audit-logs',
+    icon: History,
     roles: ['admin']
   }
 ];

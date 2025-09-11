@@ -12,11 +12,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Settings, Eye, Edit, Trash2, Plus, Save, RefreshCw, Copy, Key, Shield } from 'lucide-react';
+import { Users, Settings, Eye, Edit, Trash2, Plus, Save, RefreshCw, Copy, Key, Shield, Building2 } from 'lucide-react';
 import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS } from '@/config/permissions';
 import { PermissionQuickActions } from './PermissionQuickActions';
 import { PermissionVisualizer } from './PermissionVisualizer';
 import { ProjectPermissionManager } from './ProjectPermissionManager';
+import { useProjects } from '@/hooks/useProjects';
 
 interface UserWithPermissions {
   id: string;
@@ -46,6 +47,8 @@ export function IntegratedUserPermissionManager() {
     savePermissions,
     loadAllData
   } = useOptimizedPermissions();
+  
+  const { projects, loading: projectsLoading, loadProjects } = useProjects();
 
   const [activeTab, setActiveTab] = useState('users');
   const [searchTerm, setSearchTerm] = useState('');
@@ -60,6 +63,9 @@ export function IntegratedUserPermissionManager() {
   const [userToDelete, setUserToDelete] = useState<UserWithPermissions | null>(null);
   const [userToChangePassword, setUserToChangePassword] = useState<UserWithPermissions | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [showProjectAssignmentDialog, setShowProjectAssignmentDialog] = useState(false);
+  const [userForProjectAssignment, setUserForProjectAssignment] = useState<UserWithPermissions | null>(null);
+  const [userProjectAssignments, setUserProjectAssignments] = useState<Record<string, string[]>>({});
 
   // 合并用户和权限数据
   const usersWithPermissions = useMemo(() => {
@@ -303,6 +309,89 @@ export function IntegratedUserPermissionManager() {
     }
   };
 
+  // 加载用户项目分配
+  const loadUserProjectAssignments = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_projects')
+        .select('project_id')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      const projectIds = data?.map(item => item.project_id) || [];
+      setUserProjectAssignments(prev => ({
+        ...prev,
+        [userId]: projectIds
+      }));
+    } catch (error) {
+      console.error('加载用户项目分配失败:', error);
+    }
+  };
+
+  // 保存用户项目分配
+  const handleSaveProjectAssignments = async () => {
+    if (!userForProjectAssignment) return;
+
+    try {
+      const userId = userForProjectAssignment.id;
+      const assignedProjectIds = userProjectAssignments[userId] || [];
+
+      // 删除现有的项目分配
+      await supabase
+        .from('user_projects')
+        .delete()
+        .eq('user_id', userId);
+
+      // 添加新的项目分配
+      if (assignedProjectIds.length > 0) {
+        const assignments = assignedProjectIds.map(projectId => ({
+          user_id: userId,
+          project_id: projectId,
+          role: 'member'
+        }));
+
+        const { error } = await supabase
+          .from('user_projects')
+          .insert(assignments);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "项目分配成功",
+        description: `用户 ${userForProjectAssignment.full_name} 的项目权限已更新`,
+      });
+
+      setShowProjectAssignmentDialog(false);
+      setUserForProjectAssignment(null);
+    } catch (error) {
+      console.error('保存项目分配失败:', error);
+      toast({
+        title: "保存失败",
+        description: "保存项目分配失败，请重试",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // 切换项目分配
+  const toggleProjectAssignment = (projectId: string) => {
+    if (!userForProjectAssignment) return;
+
+    const userId = userForProjectAssignment.id;
+    const currentAssignments = userProjectAssignments[userId] || [];
+    
+    const newAssignments = currentAssignments.includes(projectId)
+      ? currentAssignments.filter(id => id !== projectId)
+      : [...currentAssignments, projectId];
+
+    setUserProjectAssignments(prev => ({
+      ...prev,
+      [userId]: newAssignments
+    }));
+  };
+
   // 保存权限
   const handleSavePermissions = async () => {
     await savePermissions(roleTemplates, userPermissions);
@@ -543,6 +632,18 @@ export function IntegratedUserPermissionManager() {
                             title="修改密码"
                           >
                             <Key className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              setUserForProjectAssignment(user);
+                              await loadUserProjectAssignments(user.id);
+                              setShowProjectAssignmentDialog(true);
+                            }}
+                            title="分配项目"
+                          >
+                            <Building2 className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -1066,6 +1167,71 @@ export function IntegratedUserPermissionManager() {
                   disabled={!newPassword.trim() || newPassword.length < 6}
                 >
                   确认修改
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 项目分配对话框 */}
+      {showProjectAssignmentDialog && userForProjectAssignment && (
+        <Dialog open={showProjectAssignmentDialog} onOpenChange={setShowProjectAssignmentDialog}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>分配项目权限</DialogTitle>
+              <DialogDescription>
+                为用户 {userForProjectAssignment.full_name} 分配可查看的项目
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="font-medium text-blue-800 mb-2">项目权限说明</h4>
+                <p className="text-sm text-blue-700">
+                  勾选的项目表示用户可以查看和访问。未勾选的项目用户将无法查看。
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                {projects.map((project) => {
+                  const isAssigned = userProjectAssignments[userForProjectAssignment.id]?.includes(project.id) || false;
+                  
+                  return (
+                    <div key={project.id} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
+                      <Checkbox
+                        checked={isAssigned}
+                        onCheckedChange={() => toggleProjectAssignment(project.id)}
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">{project.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {project.loading_address} → {project.unloading_address}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {project.start_date} - {project.end_date}
+                        </div>
+                      </div>
+                      <Badge variant={project.project_status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                        {project.project_status}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {projects.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  暂无项目数据
+                </div>
+              )}
+              
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowProjectAssignmentDialog(false)}>
+                  取消
+                </Button>
+                <Button onClick={handleSaveProjectAssignments}>
+                  保存分配
                 </Button>
               </div>
             </div>
