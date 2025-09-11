@@ -164,6 +164,40 @@ DROP POLICY IF EXISTS "Users can create contracts" ON public.contracts;
 DROP POLICY IF EXISTS "Users can update contracts" ON public.contracts;
 DROP POLICY IF EXISTS "Users can delete contracts" ON public.contracts;
 
+-- 删除编号规则表策略
+DROP POLICY IF EXISTS "Users can view numbering rules" ON public.contract_numbering_rules;
+DROP POLICY IF EXISTS "Admins can manage numbering rules" ON public.contract_numbering_rules;
+
+-- 删除标签表策略
+DROP POLICY IF EXISTS "Users can view tags" ON public.contract_tags;
+DROP POLICY IF EXISTS "Users can manage tags" ON public.contract_tags;
+
+-- 删除标签关联表策略
+DROP POLICY IF EXISTS "Users can view tag relations" ON public.contract_tag_relations;
+DROP POLICY IF EXISTS "Users can manage tag relations" ON public.contract_tag_relations;
+
+-- 删除权限表策略
+DROP POLICY IF EXISTS "Users can view permissions" ON public.contract_permissions;
+DROP POLICY IF EXISTS "Users can manage permissions" ON public.contract_permissions;
+
+-- 删除访问日志表策略
+DROP POLICY IF EXISTS "Users can view access logs" ON public.contract_access_logs;
+DROP POLICY IF EXISTS "System can insert access logs" ON public.contract_access_logs;
+
+-- 删除提醒表策略
+DROP POLICY IF EXISTS "Users can view reminders" ON public.contract_reminders;
+DROP POLICY IF EXISTS "Users can manage reminders" ON public.contract_reminders;
+
+-- 删除文件版本表策略
+DROP POLICY IF EXISTS "Users can view file versions" ON public.contract_file_versions;
+DROP POLICY IF EXISTS "Users can manage file versions" ON public.contract_file_versions;
+
+-- 删除保存搜索表策略
+DROP POLICY IF EXISTS "Users can view own searches" ON public.saved_searches;
+DROP POLICY IF EXISTS "Users can create own searches" ON public.saved_searches;
+DROP POLICY IF EXISTS "Users can update own searches" ON public.saved_searches;
+DROP POLICY IF EXISTS "Users can delete own searches" ON public.saved_searches;
+
 -- 14. 创建新的RLS策略（使用现有的 is_authenticated_user 函数）
 CREATE POLICY "Users can view contracts" ON public.contracts FOR SELECT USING (is_authenticated_user());
 CREATE POLICY "Users can create contracts" ON public.contracts FOR INSERT WITH CHECK (is_authenticated_user());

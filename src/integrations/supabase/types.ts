@@ -40,49 +40,316 @@ export type Database = {
       }
       contracts: {
         Row: {
+          access_count: number
           attachment_url: string | null
           category: Database["public"]["Enums"]["contract_category"]
           contract_amount: number | null
+          contract_number: string | null
           contract_original_url: string | null
           counterparty_company: string
           created_at: string | null
+          department: string | null
           end_date: string
           id: string
+          is_confidential: boolean
+          last_accessed_at: string | null
           our_company: string
+          priority: string
           remarks: string | null
+          responsible_person: string | null
           start_date: string
+          status: string
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
+          access_count?: number
           attachment_url?: string | null
           category: Database["public"]["Enums"]["contract_category"]
           contract_amount?: number | null
+          contract_number?: string | null
           contract_original_url?: string | null
           counterparty_company: string
           created_at?: string | null
+          department?: string | null
           end_date: string
           id?: string
+          is_confidential?: boolean
+          last_accessed_at?: string | null
           our_company: string
+          priority?: string
           remarks?: string | null
+          responsible_person?: string | null
           start_date: string
+          status?: string
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
+          access_count?: number
           attachment_url?: string | null
           category?: Database["public"]["Enums"]["contract_category"]
           contract_amount?: number | null
+          contract_number?: string | null
           contract_original_url?: string | null
           counterparty_company?: string
           created_at?: string | null
+          department?: string | null
           end_date?: string
           id?: string
+          is_confidential?: boolean
+          last_accessed_at?: string | null
           our_company?: string
+          priority?: string
           remarks?: string | null
+          responsible_person?: string | null
           start_date?: string
+          status?: string
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      contract_access_logs: {
+        Row: {
+          action: string
+          contract_id: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          contract_id: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          contract_id?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      contract_file_versions: {
+        Row: {
+          contract_id: string
+          created_at: string | null
+          description: string | null
+          file_hash: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string
+          file_url: string
+          id: string
+          is_current: boolean
+          uploaded_at: string | null
+          uploaded_by: string | null
+          version_number: number
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string | null
+          description?: string | null
+          file_hash?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type: string
+          file_url: string
+          id?: string
+          is_current?: boolean
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          version_number?: number
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string | null
+          description?: string | null
+          file_hash?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string
+          file_url?: string
+          id?: string
+          is_current?: boolean
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          version_number?: number
+        }
+        Relationships: []
+      }
+      contract_numbering_rules: {
+        Row: {
+          category: Database["public"]["Enums"]["contract_category"]
+          created_at: string | null
+          current_sequence: number
+          format: string
+          id: string
+          is_active: boolean
+          month: number
+          prefix: string
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["contract_category"]
+          created_at?: string | null
+          current_sequence?: number
+          format?: string
+          id?: string
+          is_active?: boolean
+          month?: number
+          prefix: string
+          updated_at?: string | null
+          year?: number
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["contract_category"]
+          created_at?: string | null
+          current_sequence?: number
+          format?: string
+          id?: string
+          is_active?: boolean
+          month?: number
+          prefix?: string
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
+      contract_permissions: {
+        Row: {
+          contract_id: string | null
+          created_at: string | null
+          department: string | null
+          field_permissions: Json | null
+          file_permissions: Json | null
+          granted_by: string | null
+          id: string
+          permission_type: string
+          role_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          contract_id?: string | null
+          created_at?: string | null
+          department?: string | null
+          field_permissions?: Json | null
+          file_permissions?: Json | null
+          granted_by?: string | null
+          id?: string
+          permission_type: string
+          role_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          contract_id?: string | null
+          created_at?: string | null
+          department?: string | null
+          field_permissions?: Json | null
+          file_permissions?: Json | null
+          granted_by?: string | null
+          id?: string
+          permission_type?: string
+          role_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      contract_reminders: {
+        Row: {
+          contract_id: string
+          created_at: string | null
+          id: string
+          is_sent: boolean
+          recipient_emails: string[] | null
+          reminder_date: string
+          reminder_type: string
+          sent_at: string | null
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string | null
+          id?: string
+          is_sent?: boolean
+          recipient_emails?: string[] | null
+          reminder_date: string
+          reminder_type: string
+          sent_at?: string | null
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string | null
+          id?: string
+          is_sent?: boolean
+          recipient_emails?: string[] | null
+          reminder_date?: string
+          reminder_type?: string
+          sent_at?: string | null
+        }
+        Relationships: []
+      }
+      contract_tag_relations: {
+        Row: {
+          contract_id: string
+          created_at: string | null
+          id: string
+          tag_id: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string | null
+          id?: string
+          tag_id: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string | null
+          id?: string
+          tag_id?: string
+        }
+        Relationships: []
+      }
+      contract_tags: {
+        Row: {
+          color: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_system: boolean
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          name?: string
         }
         Relationships: []
       }
@@ -1086,6 +1353,36 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      saved_searches: {
+        Row: {
+          created_at: string | null
+          filters: Json
+          id: string
+          name: string
+          search_type: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          filters: Json
+          id?: string
+          name: string
+          search_type: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          search_type?: string
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }

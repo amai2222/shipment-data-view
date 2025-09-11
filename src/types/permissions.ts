@@ -10,6 +10,7 @@ export type PermissionType = 'menu' | 'function' | 'project' | 'data';
 export interface MenuPermission {
   key: string;
   label: string;
+  title: string; // 添加 title 属性
   group: string;
   icon?: string;
   url?: string;
@@ -30,6 +31,7 @@ export interface MenuPermissionItem {
 export interface FunctionPermission {
   key: string;
   label: string;
+  title: string; // 添加 title 属性
   group: string;
   description?: string;
   requiredRoles?: UserRole[];
@@ -109,7 +111,7 @@ export interface UserPermission {
   project_permissions: string[];
   data_permissions: string[];
   inherit_role: boolean; // 是否继承角色权限
-  custom_settings: Record<string, any>; // 个性化设置
+  custom_settings: Record<string, any> | string | number | boolean | any[]; // 个性化设置，支持多种类型
   created_at: string;
   updated_at: string;
   created_by: string;

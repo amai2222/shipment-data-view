@@ -112,7 +112,7 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
         .select(`
           *,
           profiles!inner(email, full_name),
-          roles(name),
+          user_roles(name),
           contracts(contract_number)
         `)
         .order('created_at', { ascending: false });
@@ -129,7 +129,7 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
         ...item,
         user_email: item.profiles?.email,
         user_name: item.profiles?.full_name,
-        role_name: item.roles?.name,
+        role_name: item.user_roles?.name,
         contract_number: item.contracts?.contract_number
       }));
 

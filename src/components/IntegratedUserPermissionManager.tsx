@@ -23,7 +23,7 @@ interface UserWithPermissions {
   id: string;
   full_name: string;
   email: string;
-  role: string;
+  role: "admin" | "finance" | "business" | "partner" | "operator" | "viewer";
   is_active: boolean;
   permissions?: {
     menu: string[];
@@ -81,7 +81,7 @@ export function IntegratedUserPermissionManager() {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [editingUser, setEditingUser] = useState<UserWithPermissions | null>(null);
   const [showRoleTemplateDialog, setShowRoleTemplateDialog] = useState(false);
-  const [editingRole, setEditingRole] = useState<string | null>(null);
+  const [editingRole, setEditingRole] = useState<"admin" | "finance" | "business" | "partner" | "operator" | "viewer" | null>(null);
   const [selectedUserForPermission, setSelectedUserForPermission] = useState<UserWithPermissions | null>(null);
   const [showProjectPermissionManager, setShowProjectPermissionManager] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
