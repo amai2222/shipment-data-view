@@ -227,41 +227,56 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         if (error) throw error;
         toast({ title: "成功", description: "运单已更新" });
       } else {
-        // Generate auto number
-        const today = new Date();
-        const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
-        const timeStr = Math.floor(Date.now() / 1000).toString().slice(-5);
-        const autoNumber = `YDN${dateStr}-${timeStr}`;
-
-        const { error } = await supabase.from('logistics_records').insert({
-          auto_number: autoNumber,
-          project_id: formData.projectId,
-          project_name: projects.find(p => p.id === formData.projectId)?.name || '',
-          chain_id: formData.chainId,
-          driver_id: formData.driverId,
-          driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
-          loading_location: locations.find(l => l.id === formData.loadingLocationId)?.name || '',
-          unloading_location: locations.find(l => l.id === formData.unloadingLocationId)?.name || '',
-          loading_date: formData.loadingDate?.toISOString(),
-          unloading_date: formData.unloadingDate?.toISOString(),
-          loading_weight: parseFloat(formData.loading_weight) || 0,
-          unloading_weight: parseFloat(formData.unloading_weight) || 0,
-          current_cost: parseFloat(formData.currentCost) || 0,
-          extra_cost: parseFloat(formData.extraCost) || 0,
-          payable_cost: (parseFloat(formData.currentCost) || 0) + (parseFloat(formData.extraCost) || 0),
-          license_plate: formData.licensePlate,
-          driver_phone: formData.driverPhone,
-          transport_type: formData.transportType,
-          remarks: formData.remarks,
-          created_by_user_id: 'user',
-          // 可选字段
-          platform_trackings: formData.platform_trackings && formData.platform_trackings.length > 0 
-            ? formData.platform_trackings.filter(pt => 
-                pt.platform.trim() !== '' && pt.trackingNumbers.some(tn => tn.trim() !== '')
-              )
-            : null
+        // 使用数据库函数来添加运单并自动计算合作方成本
+        const { error } = await supabase.rpc('add_logistics_record_with_costs', {
+          p_project_id: formData.projectId,
+          p_project_name: projects.find(p => p.id === formData.projectId)?.name || '',
+          p_chain_id: formData.chainId,
+          p_driver_id: formData.driverId,
+          p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
+          p_loading_location: locations.find(l => l.id === formData.loadingLocationId)?.name || '',
+          p_unloading_location: locations.find(l => l.id === formData.unloadingLocationId)?.name || '',
+          p_loading_date: formData.loadingDate?.toISOString().split('T')[0] || '',
+          p_loading_weight: parseFloat(formData.loading_weight) || 0,
+          p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
+          p_current_cost: parseFloat(formData.currentCost) || 0,
+          p_license_plate: formData.licensePlate,
+          p_driver_phone: formData.driverPhone,
+          p_transport_type: formData.transportType,
+          p_extra_cost: parseFloat(formData.extraCost) || 0,
+          p_remarks: formData.remarks,
+          p_unloading_date: formData.unloadingDate?.toISOString().split('T')[0] || ''
         });
+        
         if (error) throw error;
+        
+        // 获取新创建的运单ID并更新平台运单信息
+        const { data: newRecord } = await supabase
+          .from('logistics_records')
+          .select('id')
+          .eq('project_id', formData.projectId)
+          .eq('driver_name', drivers.find(d => d.id === formData.driverId)?.name || '')
+          .eq('loading_date', formData.loadingDate?.toISOString().split('T')[0] || '')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (newRecord) {
+          const validPlatformTrackings = formData.platform_trackings.filter(pt => 
+            pt.platform.trim() !== '' && pt.trackingNumbers.some(tn => tn.trim() !== '')
+          );
+          
+          if (validPlatformTrackings.length > 0) {
+            const { error: platformError } = await supabase
+              .from('logistics_records')
+              .update({ 
+                platform_trackings: validPlatformTrackings
+              })
+              .eq('id', newRecord.id);
+            if (platformError) throw platformError;
+          }
+        }
+        
         toast({ title: "成功", description: "运单已创建" });
       }
       onSubmitSuccess();

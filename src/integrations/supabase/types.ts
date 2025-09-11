@@ -622,6 +622,7 @@ export type Database = {
           loading_weight: number | null
           payable_cost: number | null
           payment_status: string
+          platform_trackings: Json[] | null
           project_id: string | null
           project_name: string
           remarks: string | null
@@ -651,6 +652,7 @@ export type Database = {
           loading_weight?: number | null
           payable_cost?: number | null
           payment_status?: string
+          platform_trackings?: Json[] | null
           project_id?: string | null
           project_name: string
           remarks?: string | null
@@ -680,6 +682,7 @@ export type Database = {
           loading_weight?: number | null
           payable_cost?: number | null
           payment_status?: string
+          platform_trackings?: Json[] | null
           project_id?: string | null
           project_name?: string
           remarks?: string | null
