@@ -211,148 +211,198 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* 页面标题 */}
-      <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
-        <h1 className="text-2xl font-bold mb-2 flex items-center">
-          <BarChart3 className="mr-2" />
-          数据看板
-        </h1>
-        <p className="opacity-90">运输数据统计分析与可视化</p>
-      </div>
-
-      {/* 筛选器 */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>数据筛选</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* 日期范围选择器 */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">日期范围</label>
-              <div className="grid grid-cols-2 gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "justify-start text-left font-normal",
-                        !dateRange.from && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "开始日期"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dateRange.from}
-                      onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-                
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "justify-start text-left font-normal",
-                        !dateRange.to && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "结束日期"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dateRange.to}
-                      onSelect={(date) => setDateRange(prev => ({ ...prev, to: date }))}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <div className="space-y-8 p-4 md:p-6">
+        {/* 美化后的页面标题 */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 rounded-2xl shadow-2xl">
+          <div className="absolute inset-0 bg-black/10"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
+          
+          <div className="relative p-8 text-white">
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                <BarChart3 className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+                  数据看板
+                </h1>
+                <p className="text-blue-100 mt-1 text-lg">运输数据统计分析与可视化</p>
               </div>
             </div>
-
-            {/* 项目选择器 */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">项目筛选</label>
-              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择项目" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">所有项目</SelectItem>
-                  {projects.map(project => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* 统计概览 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="shadow-card">
-          <CardContent className="flex items-center p-6">
-            <div className="p-2 bg-blue-100 rounded-lg mr-4">
-              <Package className="h-6 w-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">总运输次数</p>
-              <p className="text-2xl font-bold">{overviewStats.totalRecords}</p>
+        {/* 美化后的筛选器 */}
+        <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
+          <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+            <CardTitle className="flex items-center gap-3 text-slate-800">
+              <div className="p-2 bg-slate-200 rounded-lg">
+                <CalendarIcon className="h-5 w-5 text-slate-600" />
+              </div>
+              数据筛选
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* 日期范围选择器 */}
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-slate-700">日期范围</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal bg-white/60 border-slate-300 hover:bg-white/80",
+                          !dateRange.from && "text-slate-500"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "开始日期"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateRange.from}
+                        onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal bg-white/60 border-slate-300 hover:bg-white/80",
+                          !dateRange.to && "text-slate-500"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "结束日期"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateRange.to}
+                        onSelect={(date) => setDateRange(prev => ({ ...prev, to: date }))}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              {/* 项目选择器 */}
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-slate-700">项目筛选</label>
+                <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                  <SelectTrigger className="bg-white/60 border-slate-300">
+                    <SelectValue placeholder="选择项目" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">所有项目</SelectItem>
+                    {projects.map(project => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-card">
-          <CardContent className="flex items-center p-6">
-            <div className="p-2 bg-green-100 rounded-lg mr-4">
-              <Truck className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">总运输重量</p>
-              <p className="text-2xl font-bold">{overviewStats.totalWeight.toFixed(1)}吨</p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* 美化后的统计概览 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+            <CardContent className="relative p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors">
+                    <Package className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-100">总运输次数</p>
+                    <p className="text-3xl font-bold">{overviewStats.totalRecords}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-card">
-          <CardContent className="flex items-center p-6">
-            <div className="p-2 bg-yellow-100 rounded-lg mr-4">
-              <TrendingUp className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">司机应收汇总</p>
-              <p className="text-2xl font-bold">¥{overviewStats.totalCost.toFixed(2)}</p>
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+            <CardContent className="relative p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors">
+                    <Truck className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-green-100">总运输重量</p>
+                    <p className="text-3xl font-bold">{overviewStats.totalWeight.toFixed(1)}吨</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-card">
-          <CardContent className="flex items-center p-6">
-            <div className="p-2 bg-purple-100 rounded-lg mr-4">
-              <BarChart3 className="h-6 w-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">实际运输/退货</p>
-              <p className="text-2xl font-bold">{overviewStats.actualTransportCount}/{overviewStats.returnCount}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="group relative overflow-hidden bg-gradient-to-br from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+            <CardContent className="relative p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors">
+                    <TrendingUp className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-yellow-100">司机应收汇总</p>
+                    <p className="text-3xl font-bold">¥{overviewStats.totalCost.toFixed(2)}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+            <CardContent className="relative p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors">
+                    <BarChart3 className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-purple-100">实际运输/退货</p>
+                    <p className="text-3xl font-bold">{overviewStats.actualTransportCount}/{overviewStats.returnCount}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
       {/* 按项目分类显示图表 */}
       {projectStats.map((projectData) => (
