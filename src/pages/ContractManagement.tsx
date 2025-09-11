@@ -997,7 +997,10 @@ export default function ContractManagement() {
       )}
 
       {activeTab === 'permissions' && (
-        <ContractPermissionManager onPermissionUpdate={loadContracts} />
+        <ContractPermissionManager 
+          contractId={selectedContracts.size === 1 ? Array.from(selectedContracts)[0] : undefined}
+          onPermissionUpdate={loadContracts} 
+        />
       )}
 
       {activeTab === 'files' && (

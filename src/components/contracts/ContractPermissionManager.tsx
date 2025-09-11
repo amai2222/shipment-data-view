@@ -119,19 +119,23 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
 
   const loadReferenceData = async () => {
     try {
-      const [contractsResult, usersResult, rolesResult, departmentsResult] = await Promise.all([
-        supabase.from('contracts').select('id, contract_number, counterparty_company, our_company').order('created_at', { ascending: false }),
-        supabase.from('users').select('id, name, email').order('name'),
-        supabase.from('user_roles').select('id, name').order('name'),
-        supabase.from('departments').select('id, name').order('name')
-      ]);
+      const contractsResult = await supabase
+        .from('contracts')
+        .select('id, contract_number, counterparty_company, our_company')
+        .order('created_at', { ascending: false });
 
       setContracts(contractsResult.data || []);
-      setUsers(usersResult.data || []);
-      setRoles(rolesResult.data || []);
-      setDepartments(departmentsResult.data || []);
+      // 由于 users, user_roles, departments 表不存在，设置为空数组
+      setUsers([]);
+      setRoles([]);
+      setDepartments([]);
     } catch (error) {
       console.error('Error loading reference data:', error);
+      // 即使出错也设置空数组，避免组件崩溃
+      setContracts([]);
+      setUsers([]);
+      setRoles([]);
+      setDepartments([]);
     }
   };
 
