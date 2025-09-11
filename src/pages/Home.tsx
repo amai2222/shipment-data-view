@@ -204,7 +204,11 @@ export default function Home() {
       <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 sticky top-4 z-10 shadow-sm">
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center"><BarChart3 className="mr-2" />数据看板</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+              <Truck className="mr-3 h-7 w-7 text-blue-600" />
+              运输看板
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">实时监控运输数据和业务指标</p>
           </div>
           <div className="flex items-end gap-2 flex-wrap">
             <div className="space-y-1"><Label htmlFor="startDate" className="text-xs font-medium">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(p => ({...p, startDate: e.target.value}))} /></div>
@@ -239,12 +243,15 @@ export default function Home() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow duration-200">
           <CardContent className="flex items-center p-6">
-            <div className="p-3 bg-blue-100 rounded-lg mr-4"><Package className="h-6 w-6 text-blue-600" /></div>
+            <div className="p-3 bg-blue-100 rounded-lg mr-4">
+              <Package className="h-6 w-6 text-blue-600" />
+            </div>
             <div className="flex flex-col">
               <p className="text-sm font-bold text-blue-600">总运输次数</p>
-              <p className="text-2xl font-bold">{dashboardData?.overview?.totalRecords || 0}</p>
+              <p className="text-2xl font-bold text-gray-900">{dashboardData?.overview?.totalRecords || 0}</p>
+              <p className="text-xs text-gray-500 mt-1">累计运输记录</p>
             </div>
           </CardContent>
         </Card>
@@ -256,33 +263,46 @@ export default function Home() {
             if (!typeInfo || total <= 0) return null;
             const Icon = typeInfo.icon;
             return (
-              <Card key={typeId}>
+              <Card key={typeId} className="hover:shadow-lg transition-shadow duration-200">
                 <CardContent className="flex items-center p-6">
-                  <div className={`p-3 ${typeInfo.bgColor} rounded-lg mr-4`}><Icon className={`h-6 w-6 ${typeInfo.color}`} /></div>
+                  <div className={`p-3 ${typeInfo.bgColor} rounded-lg mr-4`}>
+                    <Icon className={`h-6 w-6 ${typeInfo.color}`} />
+                  </div>
                   <div className="flex flex-col">
                     <p className={`text-sm font-bold ${typeInfo.color}`}>{typeInfo.name}总量</p>
-                    <p className="text-2xl font-bold">{total.toFixed(2)} <span className="text-base font-normal">{typeInfo.unit}</span></p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {total.toFixed(2)} <span className="text-base font-normal text-gray-600">{typeInfo.unit}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">{typeInfo.name}统计</p>
                   </div>
                 </CardContent>
               </Card>
             );
         })}
 
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow duration-200">
           <CardContent className="flex items-center p-6">
-            <div className="p-3 bg-yellow-100 rounded-lg mr-4"><TrendingUp className="h-6 w-6 text-yellow-600" /></div>
+            <div className="p-3 bg-yellow-100 rounded-lg mr-4">
+              <TrendingUp className="h-6 w-6 text-yellow-600" />
+            </div>
             <div className="flex flex-col">
               <p className="text-sm font-bold text-yellow-600">司机应收汇总</p>
-              <p className="text-2xl font-bold">{formatCurrency(dashboardData?.overview?.totalCost)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(dashboardData?.overview?.totalCost)}</p>
+              <p className="text-xs text-gray-500 mt-1">累计应收费用</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow duration-200">
           <CardContent className="flex items-center p-6">
-            <div className="p-3 bg-purple-100 rounded-lg mr-4"><BarChart3 className="h-6 w-6 text-purple-600" /></div>
+            <div className="p-3 bg-purple-100 rounded-lg mr-4">
+              <BarChart3 className="h-6 w-6 text-purple-600" />
+            </div>
             <div className="flex flex-col">
               <p className="text-sm font-bold text-purple-600">实际运输/退货</p>
-              <p className="text-2xl font-bold">{dashboardData?.overview?.actualTransportCount ?? '—'} / {dashboardData?.overview?.returnCount ?? '—'}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {dashboardData?.overview?.actualTransportCount ?? '—'} / {dashboardData?.overview?.returnCount ?? '—'}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">运输状态统计</p>
             </div>
           </CardContent>
         </Card>
@@ -295,7 +315,7 @@ export default function Home() {
           const filteredData = data.stats.filter(day => day.actualTransport > 0 || day.returns > 0);
 
           return (
-            <Card key={typeId}>
+            <Card key={typeId} className="hover:shadow-lg transition-shadow duration-200">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2 flex-wrap">
                   {typeInfo.icon && <typeInfo.icon className="h-5 w-5" />}
@@ -303,31 +323,49 @@ export default function Home() {
                   <span className="font-bold">({typeInfo.name})</span>
                   <span>- 每日运输量</span>
                 </CardTitle>
-                <div className="flex items-center space-x-2"><Switch id={`log-scale-${typeId}`} checked={useLogScale} onCheckedChange={setUseLogScale} /><Label htmlFor={`log-scale-${typeId}`} className="text-sm">对数刻度</Label></div>
+                <div className="flex items-center space-x-2">
+                  <Switch id={`log-scale-${typeId}`} checked={useLogScale} onCheckedChange={setUseLogScale} />
+                  <Label htmlFor={`log-scale-${typeId}`} className="text-sm">对数刻度</Label>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="h-96">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={filteredData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={(d) => handleTypeChartClick(typeId as keyof typeof BILLING_TYPE_MAP, d)}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} />
-                      <YAxis scale={useLogScale ? "log" : "auto"} domain={useLogScale ? [0.1, 'dataMax'] : [0, 'dataMax']} tickFormatter={(val) => val.toString()} />
-                      <Tooltip labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} formatter={(val, name) => [`${Number(val).toFixed(2)} ${typeInfo.unit}`, name === 'actualTransport' ? '有效运输' : '退货']} />
-                      <Legend onClick={() => handleTypeLegendClick(typeId as keyof typeof BILLING_TYPE_MAP)} formatter={(val) => `${val === 'actualTransport' ? '有效运输' : '退货'} (总计 ${val === 'actualTransport' ? data.totalActual.toFixed(1) : data.totalReturns.toFixed(1)} ${typeInfo.unit})`} wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }} />
-                      <Bar dataKey="actualTransport" fill="#4ade80" name="actualTransport" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? val.toFixed(1) : '' }} />
-                      <Bar dataKey="returns" fill="#ef4444" name="returns" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? val.toFixed(1) : '' }} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                {filteredData.length > 0 ? (
+                  <div className="h-96">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={filteredData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={(d) => handleTypeChartClick(typeId as keyof typeof BILLING_TYPE_MAP, d)}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} />
+                        <YAxis scale={useLogScale ? "log" : "auto"} domain={useLogScale ? [0.1, 'dataMax'] : [0, 'dataMax']} tickFormatter={(val) => val.toString()} />
+                        <Tooltip labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} formatter={(val, name) => [`${Number(val).toFixed(2)} ${typeInfo.unit}`, name === 'actualTransport' ? '有效运输' : '退货']} />
+                        <Legend onClick={() => handleTypeLegendClick(typeId as keyof typeof BILLING_TYPE_MAP)} formatter={(val) => `${val === 'actualTransport' ? '有效运输' : '退货'} (总计 ${val === 'actualTransport' ? data.totalActual.toFixed(1) : data.totalReturns.toFixed(1)} ${typeInfo.unit})`} wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }} />
+                        <Bar dataKey="actualTransport" fill="#4ade80" name="actualTransport" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? val.toFixed(1) : '' }} />
+                        <Bar dataKey="returns" fill="#ef4444" name="returns" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? val.toFixed(1) : '' }} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-96 flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                    <div className="text-center">
+                      {typeInfo.icon && <typeInfo.icon className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
+                      <p className="text-gray-500 text-lg font-medium">暂无{typeInfo.name}数据</p>
+                      <p className="text-gray-400 text-sm mt-2">选择时间范围查看{typeInfo.name}运输量</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
         })}
 
-        {dashboardData?.dailyCountStats && dashboardData.dailyCountStats.length > 0 && (
-          <Card>
-            <CardHeader><CardTitle>{selectedProjectName} - 运输日报</CardTitle></CardHeader>
-            <CardContent>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-blue-600" />
+              {selectedProjectName} - 运输日报
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dashboardData?.dailyCountStats && dashboardData.dailyCountStats.length > 0 ? (
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dashboardData.dailyCountStats.filter(d => d.count > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleOverviewChartClick}>
@@ -340,14 +378,27 @@ export default function Home() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <div className="h-80 flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                <div className="text-center">
+                  <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg font-medium">暂无运输数据</p>
+                  <p className="text-gray-400 text-sm mt-2">选择时间范围查看运输日报</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {dashboardData?.dailyCostStats && dashboardData.dailyCostStats.length > 0 && (
-          <Card>
-            <CardHeader><CardTitle>{selectedProjectName} - 每日运输费用分析</CardTitle></CardHeader>
-            <CardContent>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-600" />
+              {selectedProjectName} - 每日运输费用分析
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dashboardData?.dailyCostStats && dashboardData.dailyCostStats.length > 0 ? (
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dashboardData.dailyCostStats.filter(d => d.totalCost > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleOverviewChartClick}>
@@ -360,9 +411,17 @@ export default function Home() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <div className="h-80 flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                <div className="text-center">
+                  <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg font-medium">暂无费用数据</p>
+                  <p className="text-gray-400 text-sm mt-2">选择时间范围查看运输费用分析</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
