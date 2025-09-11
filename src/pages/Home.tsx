@@ -42,7 +42,8 @@ interface DashboardDataV2 {
 
 const getDefaultDateRange = () => {
   const today = new Date();
-  const startDate = new Date('1970-01-01');
+  // 默认开始日期设为2025-01-01
+  const startDate = new Date('2025-01-01');
   const formatISODate = (date: Date) => date.toISOString().split('T')[0];
   return { startDate: formatISODate(startDate), endDate: formatISODate(today) };
 };
