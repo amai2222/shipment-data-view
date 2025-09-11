@@ -189,132 +189,107 @@ export default function MobileHome() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="space-y-6 pb-6">
-        {/* 美化后的欢迎区域 */}
-        <Card className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 text-white border-0 shadow-2xl">
-          <div className="absolute inset-0 bg-black/10"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-16 translate-x-16"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-12 -translate-x-12"></div>
-          
-          <CardContent className="relative p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
-                  欢迎回来
-                </h2>
-                <p className="text-blue-100 text-lg">
-                  今日 {format(new Date(), 'MM月dd日')} • {stats?.todayRecords || 0} 条新记录
-                </p>
+    <div className="space-y-6 pb-6">
+      {/* 欢迎区域 */}
+      <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+        <CardContent className="p-6">
+          <h2 className="text-xl font-bold mb-2">欢迎回来</h2>
+          <p className="text-blue-100">
+            今日 {format(new Date(), 'MM月dd日')} • {stats?.todayRecords || 0} 条新记录
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 今日统计 */}
+      <div>
+        <h3 className="text-lg font-semibold mb-3 flex items-center">
+          <Calendar className="h-5 w-5 mr-2" />
+          今日概览
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">今日运输</p>
+                  <p className="text-xl font-bold">{stats?.todayRecords || 0}</p>
+                </div>
+                <div className="p-2 bg-blue-100 rounded-full">
+                  <Truck className="h-4 w-4 text-blue-600" />
+                </div>
               </div>
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <Truck className="h-8 w-8 text-white" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">今日重量</p>
+                  <p className="text-xl font-bold">{formatWeight(stats.todayWeight)}</p>
+                </div>
+                <div className="p-2 bg-green-100 rounded-full">
+                  <Package className="h-4 w-4 text-green-600" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* 美化后的今日统计 */}
-        <div>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-white/60 rounded-lg">
-              <Calendar className="h-5 w-5 text-slate-600" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-800">今日概览</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-300 hover:scale-105 border-0 shadow-lg">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-              <CardContent className="relative p-4 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-blue-100">今日运输</p>
-                    <p className="text-2xl font-bold">{stats?.todayRecords || 0}</p>
-                  </div>
-                  <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm group-hover:bg-white/30 transition-colors">
-                    <Truck className="h-4 w-4" />
-                  </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">今日费用</p>
+                  <p className="text-lg font-bold">{formatCurrency(stats.todayCost)}</p>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="p-2 bg-yellow-100 rounded-full">
+                  <Banknote className="h-4 w-4 text-yellow-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Card className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 transition-all duration-300 hover:scale-105 border-0 shadow-lg">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-              <CardContent className="relative p-4 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-green-100">今日重量</p>
-                    <p className="text-2xl font-bold">{formatWeight(stats.todayWeight)}</p>
-                  </div>
-                  <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm group-hover:bg-white/30 transition-colors">
-                    <Package className="h-4 w-4" />
-                  </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">活跃项目</p>
+                  <p className="text-xl font-bold">{stats?.activeProjects || 0}</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="group relative overflow-hidden bg-gradient-to-br from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 transition-all duration-300 hover:scale-105 border-0 shadow-lg">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-              <CardContent className="relative p-4 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-yellow-100">今日费用</p>
-                    <p className="text-lg font-bold">{formatCurrency(stats.todayCost)}</p>
-                  </div>
-                  <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm group-hover:bg-white/30 transition-colors">
-                    <Banknote className="h-4 w-4" />
-                  </div>
+                <div className="p-2 bg-purple-100 rounded-full">
+                  <BarChart3 className="h-4 w-4 text-purple-600" />
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 transition-all duration-300 hover:scale-105 border-0 shadow-lg">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-              <CardContent className="relative p-4 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-purple-100">活跃项目</p>
-                    <p className="text-2xl font-bold">{stats?.activeProjects || 0}</p>
-                  </div>
-                  <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm group-hover:bg-white/30 transition-colors">
-                    <BarChart3 className="h-4 w-4" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
+      </div>
 
-        {/* 美化后的快捷操作 */}
-        <div>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-white/60 rounded-lg">
-              <ArrowRight className="h-5 w-5 text-slate-600" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-800">快捷操作</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            {quickActions.map((action) => (
-              <Card 
-                key={action.href}
-                className="group cursor-pointer transition-all hover:scale-105 active:scale-95 bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl"
-                onClick={() => navigate(action.href)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    <div className={`p-4 rounded-2xl ${action.color} text-white group-hover:scale-110 transition-transform duration-200 shadow-lg`}>
-                      <action.icon className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm text-slate-800">{action.title}</p>
-                      <p className="text-xs text-slate-600 mt-1">{action.description}</p>
-                    </div>
+      {/* 快捷操作 */}
+      <div>
+        <h3 className="text-lg font-semibold mb-3">快捷操作</h3>
+        <div className="grid grid-cols-2 gap-4">
+          {quickActions.map((action) => (
+            <Card 
+              key={action.href}
+              className="cursor-pointer transition-all hover:scale-105 active:scale-95"
+              onClick={() => navigate(action.href)}
+            >
+              <CardContent className="p-4">
+                <div className="flex flex-col items-center text-center space-y-2">
+                  <div className={`p-3 rounded-full ${action.color} text-white`}>
+                    <action.icon className="h-5 w-5" />
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  <div>
+                    <p className="font-medium text-sm">{action.title}</p>
+                    <p className="text-xs text-muted-foreground">{action.description}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
+      </div>
 
       {/* 总体统计 */}
       <div>
@@ -430,9 +405,8 @@ export default function MobileHome() {
         </div>
       </div>
 
-        {/* 底部间距 */}
-        <div className="h-4"></div>
-      </div>
+      {/* 底部间距 */}
+      <div className="h-4"></div>
     </div>
   );
 }

@@ -212,227 +212,134 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      <div className="space-y-8 p-4 md:p-6">
-        {/* 美化后的页面头部 */}
-        <header className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 rounded-2xl shadow-2xl">
-          <div className="absolute inset-0 bg-black/10"></div>
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
-          
-          <div className="relative p-8">
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-6">
-              <div className="text-white">
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                    <Truck className="h-8 w-8 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
-                      运输看板
-                    </h1>
-                    <p className="text-blue-100 mt-1 text-lg">实时监控运输数据和业务指标</p>
-                  </div>
-                </div>
-              </div>
-              {/* 美化后的筛选器 */}
-              <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate" className="text-sm font-medium text-white/90">开始日期</Label>
-                    <Input 
-                      id="startDate" 
-                      type="date" 
-                      value={filterInputs.startDate} 
-                      onChange={(e) => setFilterInputs(p => ({...p, startDate: e.target.value}))}
-                      className="bg-white/20 border-white/30 text-white placeholder:text-white/70 focus:bg-white/30"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="endDate" className="text-sm font-medium text-white/90">结束日期</Label>
-                    <Input 
-                      id="endDate" 
-                      type="date" 
-                      value={filterInputs.endDate} 
-                      onChange={(e) => setFilterInputs(p => ({...p, endDate: e.target.value}))}
-                      className="bg-white/20 border-white/30 text-white placeholder:text-white/70 focus:bg-white/30"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="projectStatusFilter" className="text-sm font-medium text-white/90">项目状态</Label>
-                    <Select value={projectStatusFilter} onValueChange={setProjectStatusFilter}>
-                      <SelectTrigger id="projectStatusFilter" className="bg-white/20 border-white/30 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="进行中">进行中</SelectItem>
-                        <SelectItem value="已完成">已完成</SelectItem>
-                        <SelectItem value="所有状态">所有状态</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="projectFilter" className="text-sm font-medium text-white/90">项目筛选</Label>
-                    <Select value={filterInputs.projectId} onValueChange={(val) => setFilterInputs(p => ({...p, projectId: val}))}>
-                      <SelectTrigger id="projectFilter" className="bg-white/20 border-white/30 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">所有项目</SelectItem>
-                        {projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <Button 
-                    onClick={() => handleSearch(false)} 
-                    disabled={isSearching}
-                    className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
-                  >
-                    {isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                    {isSearching ? '搜索中...' : '搜索'}
-                  </Button>
-                </div>
-              </div>
-            </div>
+    <div className="space-y-6 p-4 md:p-6">
+      <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 sticky top-4 z-10 shadow-sm">
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+              <Truck className="mr-3 h-7 w-7 text-blue-600" />
+              运输看板
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">实时监控运输数据和业务指标</p>
           </div>
-        </header>
-
-        {/* 美化后的统计卡片 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-            <CardContent className="relative p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors">
-                    <Package className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-blue-100">总运输次数</p>
-                    <p className="text-3xl font-bold">{dashboardData?.overview?.totalRecords || 0}</p>
-                    <p className="text-xs text-blue-200 mt-1">累计运输记录</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        
-          {dashboardData?.totalQuantityByType && Object.entries(dashboardData.totalQuantityByType)
-            .sort(([keyA], [keyB]) => parseInt(keyA) - parseInt(keyB))
-            .map(([typeId, total]) => {
-              const typeInfo = BILLING_TYPE_MAP[typeId as keyof typeof BILLING_TYPE_MAP];
-              if (!typeInfo || total <= 0) return null;
-              const Icon = typeInfo.icon;
-              
-              // 根据类型设置不同的渐变色
-              const gradientColors = {
-                '1': 'from-green-500 to-emerald-600',
-                '2': 'from-sky-500 to-cyan-600', 
-                '3': 'from-orange-500 to-amber-600'
-              };
-              
-              return (
-                <Card key={typeId} className={`group relative overflow-hidden bg-gradient-to-br ${gradientColors[typeId as keyof typeof gradientColors]} hover:shadow-2xl transition-all duration-300 hover:scale-105 border-0`}>
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-                  <CardContent className="relative p-6 text-white">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors">
-                          <Icon className="h-6 w-6" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-white/90">{typeInfo.name}总量</p>
-                          <p className="text-3xl font-bold">
-                            {total.toFixed(2)} <span className="text-lg font-normal text-white/80">{typeInfo.unit}</span>
-                          </p>
-                          <p className="text-xs text-white/70 mt-1">{typeInfo.name}统计</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-          })}
-
-          <Card className="group relative overflow-hidden bg-gradient-to-br from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-            <CardContent className="relative p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors">
-                    <TrendingUp className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-yellow-100">司机应收汇总</p>
-                    <p className="text-3xl font-bold">{formatCurrency(dashboardData?.overview?.totalCost)}</p>
-                    <p className="text-xs text-yellow-200 mt-1">累计应收费用</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-            <CardContent className="relative p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors">
-                    <BarChart3 className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-purple-100">实际运输/退货</p>
-                    <p className="text-3xl font-bold">
-                      {dashboardData?.overview?.actualTransportCount ?? '—'} / {dashboardData?.overview?.returnCount ?? '—'}
-                    </p>
-                    <p className="text-xs text-purple-200 mt-1">运输状态统计</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="space-y-1"><Label htmlFor="startDate" className="text-xs font-medium">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(p => ({...p, startDate: e.target.value}))} /></div>
+            <div className="space-y-1"><Label htmlFor="endDate" className="text-xs font-medium">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(p => ({...p, endDate: e.target.value}))} /></div>
+            <div className="space-y-1">
+              <Label htmlFor="projectStatusFilter" className="text-xs font-medium">项目状态</Label>
+              <Select value={projectStatusFilter} onValueChange={setProjectStatusFilter}>
+                <SelectTrigger id="projectStatusFilter"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="进行中">进行中</SelectItem>
+                  <SelectItem value="已完成">已完成</SelectItem>
+                  <SelectItem value="所有状态">所有状态</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="projectFilter" className="text-xs font-medium">项目筛选</Label>
+              <Select value={filterInputs.projectId} onValueChange={(val) => setFilterInputs(p => ({...p, projectId: val}))}>
+                <SelectTrigger id="projectFilter"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">所有项目</SelectItem>
+                  {projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={() => handleSearch(false)} disabled={isSearching}>
+              {isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+              {isSearching ? '搜索中...' : '搜索'}
+            </Button>
+          </div>
         </div>
-      
-        {/* 美化后的图表区域 */}
-        <div className="space-y-8">
-          {Object.entries(dashboardData?.daily_stats_by_type || {}).map(([typeId, data]) => {
-            const typeInfo = BILLING_TYPE_MAP[typeId as keyof typeof BILLING_TYPE_MAP];
-            if (!typeInfo || !data) return null;
-            const filteredData = data.stats.filter(day => day.actualTransport > 0 || day.returns > 0);
+      </header>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+        <Card className="hover:shadow-lg transition-shadow duration-200">
+          <CardContent className="flex items-center p-6">
+            <div className="p-3 bg-blue-100 rounded-lg mr-4">
+              <Package className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="flex flex-col">
+              <p className="text-sm font-bold text-blue-600">总运输次数</p>
+              <p className="text-2xl font-bold text-gray-900">{dashboardData?.overview?.totalRecords || 0}</p>
+              <p className="text-xs text-gray-500 mt-1">累计运输记录</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {dashboardData?.totalQuantityByType && Object.entries(dashboardData.totalQuantityByType)
+          .sort(([keyA], [keyB]) => parseInt(keyA) - parseInt(keyB))
+          .map(([typeId, total]) => {
+            const typeInfo = BILLING_TYPE_MAP[typeId as keyof typeof BILLING_TYPE_MAP];
+            if (!typeInfo || total <= 0) return null;
+            const Icon = typeInfo.icon;
             return (
-              <Card key={typeId} className="group relative overflow-hidden bg-white/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent"></div>
-                <CardHeader className="relative bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-                  <div className="flex flex-row items-center justify-between">
-                    <CardTitle className="flex items-center gap-3 flex-wrap text-slate-800">
-                      <div className="p-2 bg-slate-200 rounded-lg">
-                        {typeInfo.icon && <typeInfo.icon className="h-5 w-5 text-slate-600" />}
-                      </div>
-                      <span className="text-lg font-semibold">{selectedProjectName}</span>
-                      <span className="px-3 py-1 bg-slate-200 text-slate-700 rounded-full text-sm font-medium">({typeInfo.name})</span>
-                      <span className="text-slate-600">- 每日运输量</span>
-                    </CardTitle>
-                    <div className="flex items-center space-x-3 bg-white/60 rounded-lg px-4 py-2">
-                      <Switch id={`log-scale-${typeId}`} checked={useLogScale} onCheckedChange={setUseLogScale} />
-                      <Label htmlFor={`log-scale-${typeId}`} className="text-sm font-medium text-slate-700">对数刻度</Label>
-                    </div>
+              <Card key={typeId} className="hover:shadow-lg transition-shadow duration-200">
+                <CardContent className="flex items-center p-6">
+                  <div className={`p-3 ${typeInfo.bgColor} rounded-lg mr-4`}>
+                    <Icon className={`h-6 w-6 ${typeInfo.color}`} />
                   </div>
-                </CardHeader>
+                  <div className="flex flex-col">
+                    <p className={`text-sm font-bold ${typeInfo.color}`}>{typeInfo.name}总量</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {total.toFixed(2)} <span className="text-base font-normal text-gray-600">{typeInfo.unit}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">{typeInfo.name}统计</p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+        })}
+
+        <Card className="hover:shadow-lg transition-shadow duration-200">
+          <CardContent className="flex items-center p-6">
+            <div className="p-3 bg-yellow-100 rounded-lg mr-4">
+              <TrendingUp className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div className="flex flex-col">
+              <p className="text-sm font-bold text-yellow-600">司机应收汇总</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(dashboardData?.overview?.totalCost)}</p>
+              <p className="text-xs text-gray-500 mt-1">累计应收费用</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="hover:shadow-lg transition-shadow duration-200">
+          <CardContent className="flex items-center p-6">
+            <div className="p-3 bg-purple-100 rounded-lg mr-4">
+              <BarChart3 className="h-6 w-6 text-purple-600" />
+            </div>
+            <div className="flex flex-col">
+              <p className="text-sm font-bold text-purple-600">实际运输/退货</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {dashboardData?.overview?.actualTransportCount ?? '—'} / {dashboardData?.overview?.returnCount ?? '—'}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">运输状态统计</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="space-y-6">
+        {Object.entries(dashboardData?.daily_stats_by_type || {}).map(([typeId, data]) => {
+          const typeInfo = BILLING_TYPE_MAP[typeId as keyof typeof BILLING_TYPE_MAP];
+          if (!typeInfo || !data) return null;
+          const filteredData = data.stats.filter(day => day.actualTransport > 0 || day.returns > 0);
+
+          return (
+            <Card key={typeId} className="hover:shadow-lg transition-shadow duration-200">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2 flex-wrap">
+                  {typeInfo.icon && <typeInfo.icon className="h-5 w-5" />}
+                  <span>{selectedProjectName}</span>
+                  <span className="font-bold">({typeInfo.name})</span>
+                  <span>- 每日运输量</span>
+                </CardTitle>
+                <div className="flex items-center space-x-2">
+                  <Switch id={`log-scale-${typeId}`} checked={useLogScale} onCheckedChange={setUseLogScale} />
+                  <Label htmlFor={`log-scale-${typeId}`} className="text-sm">对数刻度</Label>
+                </div>
+              </CardHeader>
               <CardContent>
                 {filteredData.length > 0 ? (
                   <div className="h-96">
@@ -527,7 +434,6 @@ export default function Home() {
             )}
           </CardContent>
         </Card>
-        </div>
       </div>
 
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>

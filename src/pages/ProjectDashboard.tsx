@@ -116,24 +116,21 @@ export default function ProjectDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="p-6 space-y-8">
+    <div className="p-6 bg-slate-50 space-y-6">
       {/* ★★★ 2.1: 调整网格布局以适应新的卡片尺寸 ★★★ */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
         {/* ★★★ 2.2: 调整项目进度卡片的列宽 ★★★ */}
         <div className="lg:col-span-2">
-            <Card className="group relative overflow-hidden bg-white/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col h-full">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent"></div>
-                <CardHeader className="relative bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 flex flex-row justify-between items-center space-x-4">
+            <Card className="shadow-sm flex flex-col h-full">
+                {/* ★★★ 2.3: 调整 CardHeader 布局防止换行 ★★★ */}
+                <CardHeader className="flex flex-row justify-between items-center space-x-4">
                     <div className="flex-shrink-0">
-                        <CardTitle className="flex items-center text-lg whitespace-nowrap text-slate-800">
-                            <div className="p-2 bg-blue-100 rounded-lg mr-3">
-                                <Target className="h-5 w-5 text-blue-600"/>
-                            </div>
-                            <span className="text-blue-600 font-semibold">项目进度</span>
-                            <span className="ml-2 px-2 py-1 bg-slate-200 text-slate-700 rounded-full text-sm font-medium">({selectedProjectDetails.name})</span>
+                        <CardTitle className="flex items-center text-lg whitespace-nowrap">
+                            <Target className="mr-2 h-5 w-5 text-blue-500"/>
+                            <span className="text-blue-500">项目进度</span>
+                            <span className="ml-1 text-base font-normal text-slate-600">({selectedProjectDetails.name})</span>
                         </CardTitle>
-                        <p className="text-sm text-slate-600 pt-2 font-medium">{selectedProjectDetails.partner_name}</p>
+                        <p className="text-sm text-slate-500 pt-1">{selectedProjectDetails.partner_name}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                         <Select value={projectId || ''} onValueChange={(newId) => navigate(`/project/${newId}`)}>
