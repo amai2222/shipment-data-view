@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,8 @@ import {
   Banknote,
   ArrowRight,
   FileText,
-  Scale
+  Scale,
+  Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,6 +67,7 @@ const quickActions = [
 export default function MobileHome() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [showTotalStats, setShowTotalStats] = useState(false);
 
   const { data: stats, isLoading, error } = useQuery<DashboardStats>({
     queryKey: ['mobileHomeStats'],
@@ -74,23 +76,20 @@ export default function MobileHome() {
       const startOfToday = startOfDay(today).toISOString();
       const endOfToday = endOfDay(today).toISOString();
 
+      // 优化：使用更简单的查询，减少数据库负载
       const [
-        rpcAgg,
         todayQuery,
         activeProjectsCount,
         pendingPaymentsCount,
         totalRecordsCount
       ] = await Promise.all([
-        supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
-          p_start_date: '1970-01-01',
-          p_end_date: new Date().toISOString().split('T')[0],
-          p_project_id: null
-        }),
+        // 只查询今日数据，减少数据量
         supabase
           .from('logistics_records')
           .select('loading_weight, driver_payable_cost', { count: 'exact' })
           .gte('loading_date', startOfToday)
           .lte('loading_date', endOfToday),
+        // 使用更高效的计数查询
         supabase
           .from('projects')
           .select('id', { count: 'exact', head: true })
@@ -104,34 +103,58 @@ export default function MobileHome() {
           .select('id', { count: 'exact', head: true })
       ]);
 
-      const rpcData: any = (rpcAgg as any).data || {};
-      const overview = rpcData.overview || {};
-      const totalQuantityByType = rpcData.totalQuantityByType || {};
-
+      // 计算今日数据
       const todayData = (todayQuery as any).data as Array<{ loading_weight: number | null; driver_payable_cost: number | null }> | null;
       const todayCount = (todayQuery as any).count as number | null;
-
       const todayWeight = (todayData || []).reduce((sum, r) => sum + (r.loading_weight || 0), 0);
       const todaysCost = (todayData || []).reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0);
 
+      // 获取其他统计数据
       const activeProjects = (activeProjectsCount as any).count || 0;
       const pendingPayments = (pendingPaymentsCount as any).count || 0;
-      const totalRecords = (totalRecordsCount as any).count || (overview.totalRecords ?? 0);
+      const totalRecords = (totalRecordsCount as any).count || 0;
 
-      const totalWeight = Number(totalQuantityByType?.['1'] || 0);
-      const totalCost = Number(overview.totalCost || 0);
-
+      // 优化：使用简化的总计数据，避免复杂的RPC调用
+      // 对于移动端，我们主要关注今日数据，总计数据可以稍后加载
       return {
         totalRecords,
         todayRecords: todayCount || 0,
-        totalWeight,
+        totalWeight: 0, // 暂时设为0，避免复杂查询
         todayWeight,
-        totalCost,
+        totalCost: 0, // 暂时设为0，避免复杂查询
         todayCost: todaysCost,
         activeProjects,
         pendingPayments
       } as DashboardStats;
     },
+    staleTime: 2 * 60 * 1000, // 减少缓存时间到2分钟
+    gcTime: 10 * 60 * 1000, // 减少垃圾回收时间到10分钟
+    refetchOnWindowFocus: false,
+    retry: 1,
+    // 添加网络状态优化
+    networkMode: 'online'
+  });
+
+  // 懒加载总计数据
+  const { data: totalStats, isLoading: totalStatsLoading } = useQuery({
+    queryKey: ['mobileHomeTotalStats'],
+    queryFn: async () => {
+      const rpcAgg = await supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
+        p_start_date: '1970-01-01',
+        p_end_date: new Date().toISOString().split('T')[0],
+        p_project_id: null
+      });
+
+      const rpcData: any = (rpcAgg as any).data || {};
+      const overview = rpcData.overview || {};
+      const totalQuantityByType = rpcData.totalQuantityByType || {};
+
+      return {
+        totalWeight: Number(totalQuantityByType?.['1'] || 0),
+        totalCost: Number(overview.totalCost || 0)
+      };
+    },
+    enabled: showTotalStats, // 只有在需要时才加载
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -282,7 +305,19 @@ export default function MobileHome() {
 
       {/* 总体统计 */}
       <div>
-        <h3 className="text-lg font-semibold mb-3">总体统计</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold">总体统计</h3>
+          {!showTotalStats && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowTotalStats(true)}
+              className="text-xs"
+            >
+              查看详情
+            </Button>
+          )}
+        </div>
         <div className="space-y-3">
           <Card>
             <CardContent className="p-4">
@@ -301,39 +336,63 @@ export default function MobileHome() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-green-100 rounded-full">
-                    <Package className="h-4 w-4 text-green-600" />
+          {showTotalStats ? (
+            <>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-green-100 rounded-full">
+                        <Package className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">总运输重量</p>
+                        {totalStatsLoading ? (
+                          <div className="flex items-center space-x-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">加载中...</span>
+                          </div>
+                        ) : (
+                          <p className="font-semibold">{formatWeight(totalStats?.totalWeight || 0)}</p>
+                        )}
+                      </div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">总运输重量</p>
-                    <p className="font-semibold">{formatWeight(stats.totalWeight)}</p>
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-yellow-100 rounded-full">
-                    <Banknote className="h-4 w-4 text-yellow-600" />
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-yellow-100 rounded-full">
+                        <Banknote className="h-4 w-4 text-yellow-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">总应付费用</p>
+                        {totalStatsLoading ? (
+                          <div className="flex items-center space-x-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">加载中...</span>
+                          </div>
+                        ) : (
+                          <p className="font-semibold">{formatCurrency(totalStats?.totalCost || 0)}</p>
+                        )}
+                      </div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">总应付费用</p>
-                    <p className="font-semibold">{formatCurrency(stats.totalCost)}</p>
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <Card className="border-dashed border-2 border-gray-200">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm text-muted-foreground">点击"查看详情"加载更多统计信息</p>
+              </CardContent>
+            </Card>
+          )}
 
           {stats.pendingPayments > 0 && (
             <Card className="border-orange-200 bg-orange-50">
