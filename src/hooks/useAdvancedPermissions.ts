@@ -51,9 +51,7 @@ export function useAdvancedPermissions() {
           project_permissions: perm.project_permissions || [],
           data_permissions: perm.data_permissions || [],
           inherit_role: perm.inherit_role ?? true,
-          custom_settings: typeof perm.custom_settings === 'string' 
-            ? JSON.parse(perm.custom_settings) 
-            : (perm.custom_settings as Record<string, any>) || {},
+          custom_settings: perm.custom_settings || {},
           created_at: perm.created_at,
           updated_at: perm.updated_at,
           created_by: perm.created_by || ''

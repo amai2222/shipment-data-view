@@ -33,7 +33,7 @@ import UserManagement from "./pages/Settings/UserManagement";
 import PermissionManagement from "./pages/Settings/PermissionManagement";
 import IntegratedUserManagement from "./pages/IntegratedUserManagement";
 import DebugPermissions from "./pages/DebugPermissions";
-
+import MobileIntegratedUserManagement from "./pages/mobile/MobileIntegratedUserManagement";
 import AuditLogs from "./pages/Settings/AuditLogs";
 import MobileAuditLogs from "./pages/mobile/MobileAuditLogs";
 import ScaleRecords from "./pages/ScaleRecords";
@@ -351,6 +351,11 @@ const App = () => (
               </ProtectedRoute>
             } />
 
+            <Route path="/m/settings/integrated" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileIntegratedUserManagement />
+              </ProtectedRoute>
+            } />
 
             <Route path="/m/settings/audit-logs" element={
               <ProtectedRoute requiredRoles={['admin']}>

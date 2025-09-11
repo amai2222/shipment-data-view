@@ -37,7 +37,7 @@ export function useOptimizedPermissions() {
         supabase
           .from('role_permission_templates')
           .upsert({
-            role: role as any,
+            role,
             menu_permissions: permissions.menu_permissions,
             function_permissions: permissions.function_permissions,
             project_permissions: permissions.project_permissions,
