@@ -298,8 +298,6 @@ export default function Home() {
             </div>
           </div>
         </header>
-        </div>
-      </header>
 
         {/* 美化后的统计卡片 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -529,6 +527,7 @@ export default function Home() {
             )}
           </CardContent>
         </Card>
+        </div>
       </div>
 
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
