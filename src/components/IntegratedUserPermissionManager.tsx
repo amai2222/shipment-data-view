@@ -378,7 +378,7 @@ export function IntegratedUserPermissionManager() {
       {/* 头部操作区 */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">用户权限管理</h2>
+          <h1 className="text-3xl font-bold">用户权限管理</h1>
           <p className="text-muted-foreground">统一管理用户信息和权限配置</p>
         </div>
         <div className="flex items-center gap-2">
