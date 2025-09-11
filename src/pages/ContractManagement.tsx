@@ -17,10 +17,12 @@ import { ContractPermissionManager } from '@/components/contracts/ContractPermis
 import { ContractFileManager } from '@/components/contracts/ContractFileManager';
 import { ContractAdvancedSearch } from '@/components/contracts/ContractAdvancedSearch';
 import { ContractReminderSystem } from '@/components/contracts/ContractReminderSystem';
+import { ContractAuditLogs } from '@/components/contracts/ContractAuditLogs';
+import { ContractAdvancedPermissions } from '@/components/contracts/ContractAdvancedPermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useFilterState } from '@/hooks/useFilterState';
-import { Upload, Search, FileText, Filter, Plus, Download, Trash2, Settings, Tag, Hash, Shield, Archive, Bell } from 'lucide-react';
+import { Upload, Search, FileText, Filter, Plus, Download, Trash2, Settings, Tag, Hash, Shield, Archive, Bell, FileSearch, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Contract {
@@ -101,7 +103,7 @@ export default function ContractManagement() {
   const [fileViewerOpen, setFileViewerOpen] = useState(false);
   const [currentFileUrl, setCurrentFileUrl] = useState('');
   const [currentFileName, setCurrentFileName] = useState('');
-  const [activeTab, setActiveTab] = useState<'contracts' | 'numbering' | 'tags' | 'permissions' | 'files' | 'reminders'>('contracts');
+  const [activeTab, setActiveTab] = useState<'contracts' | 'numbering' | 'tags' | 'permissions' | 'files' | 'reminders' | 'audit' | 'advanced-permissions'>('contracts');
   const [advancedFilters, setAdvancedFilters] = useState<any>(null);
   const [formData, setFormData] = useState<ContractFormData>({
     category: '业务合同',
@@ -549,6 +551,20 @@ export default function ContractManagement() {
           >
             <Bell className="h-4 w-4 mr-2" />
             到期提醒
+          </Button>
+          <Button
+            variant={activeTab === 'audit' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('audit')}
+          >
+            <FileSearch className="h-4 w-4 mr-2" />
+            审计日志
+          </Button>
+          <Button
+            variant={activeTab === 'advanced-permissions' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('advanced-permissions')}
+          >
+            <UserCheck className="h-4 w-4 mr-2" />
+            高级权限
           </Button>
         </div>
       </div>
@@ -1006,6 +1022,20 @@ export default function ContractManagement() {
 
       {activeTab === 'reminders' && (
         <ContractReminderSystem onReminderUpdate={loadContracts} />
+      )}
+
+      {activeTab === 'audit' && (
+        <ContractAuditLogs 
+          contractId={selectedContracts.size === 1 ? Array.from(selectedContracts)[0] : undefined}
+          onLogUpdate={loadContracts} 
+        />
+      )}
+
+      {activeTab === 'advanced-permissions' && (
+        <ContractAdvancedPermissions 
+          contractId={selectedContracts.size === 1 ? Array.from(selectedContracts)[0] : undefined}
+          onPermissionUpdate={loadContracts} 
+        />
       )}
 
       <DirectConfirmDialog
