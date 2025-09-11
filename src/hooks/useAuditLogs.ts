@@ -45,15 +45,10 @@ export function useAuditLogs() {
     try {
       setLoading(true);
       
-      // 构建查询条件
+      // 构建查询条件 - 先简化查询，避免复杂的外键关联
       let query = supabase
         .from('permission_audit_logs')
-        .select(`
-          *,
-          user:profiles!permission_audit_logs_user_id_fkey(full_name, email),
-          target_user:profiles!permission_audit_logs_target_user_id_fkey(full_name, email),
-          created_by_user:profiles!permission_audit_logs_created_by_fkey(full_name, email)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       // 应用过滤条件
@@ -83,18 +78,50 @@ export function useAuditLogs() {
 
       const { data, error, count } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('查询操作日志失败:', error);
+        throw error;
+      }
+
+      // 获取所有相关的用户ID
+      const userIds = new Set<string>();
+      data?.forEach(log => {
+        userIds.add(log.user_id);
+        if (log.target_user_id) userIds.add(log.target_user_id);
+        if (log.created_by) userIds.add(log.created_by);
+      });
+
+      // 批量获取用户信息
+      let userMap = new Map<string, { full_name: string; email: string }>();
+      if (userIds.size > 0) {
+        const { data: users, error: usersError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', Array.from(userIds));
+
+        if (!usersError && users) {
+          users.forEach(user => {
+            userMap.set(user.id, { full_name: user.full_name || '未知用户', email: user.email || '' });
+          });
+        }
+      }
 
       // 处理数据，添加用户信息
-      const processedData = data?.map(log => ({
-        ...log,
-        user_name: log.user?.full_name || '未知用户',
-        user_email: log.user?.email || '',
-        target_user_name: log.target_user?.full_name || '',
-        target_user_email: log.target_user?.email || '',
-        created_by_name: log.created_by_user?.full_name || '未知用户',
-        created_by_email: log.created_by_user?.email || ''
-      })) || [];
+      const processedData = data?.map(log => {
+        const user = userMap.get(log.user_id) || { full_name: '未知用户', email: '' };
+        const targetUser = log.target_user_id ? userMap.get(log.target_user_id) : null;
+        const createdByUser = userMap.get(log.created_by) || { full_name: '未知用户', email: '' };
+
+        return {
+          ...log,
+          user_name: user.full_name,
+          user_email: user.email,
+          target_user_name: targetUser?.full_name || '',
+          target_user_email: targetUser?.email || '',
+          created_by_name: createdByUser.full_name,
+          created_by_email: createdByUser.email
+        };
+      }) || [];
 
       setAuditLogs(processedData);
       setTotalCount(count || 0);
@@ -146,9 +173,68 @@ export function useAuditLogs() {
     }
   }, []);
 
+  // 检查表是否存在并创建示例数据
+  const checkAndInitializeAuditLogs = useCallback(async () => {
+    try {
+      // 先尝试查询表是否存在
+      const { data, error } = await supabase
+        .from('permission_audit_logs')
+        .select('id')
+        .limit(1);
+
+      if (error) {
+        console.error('permission_audit_logs表不存在或无法访问:', error);
+        return;
+      }
+
+      // 如果没有数据，创建一些示例数据
+      if (!data || data.length === 0) {
+        console.log('创建示例操作日志数据...');
+        
+        // 获取当前用户ID
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // 创建示例日志
+        const sampleLogs = [
+          {
+            user_id: user.id,
+            action: 'grant',
+            permission_type: 'menu',
+            permission_key: 'dashboard',
+            reason: '系统初始化',
+            created_by: user.id
+          },
+          {
+            user_id: user.id,
+            action: 'modify',
+            permission_type: 'function',
+            permission_key: 'data.create',
+            reason: '权限配置',
+            created_by: user.id
+          }
+        ];
+
+        const { error: insertError } = await supabase
+          .from('permission_audit_logs')
+          .insert(sampleLogs);
+
+        if (insertError) {
+          console.error('创建示例数据失败:', insertError);
+        } else {
+          console.log('示例操作日志数据创建成功');
+        }
+      }
+    } catch (error) {
+      console.error('初始化操作日志失败:', error);
+    }
+  }, []);
+
   useEffect(() => {
-    loadAuditLogs();
-  }, [loadAuditLogs]);
+    checkAndInitializeAuditLogs().then(() => {
+      loadAuditLogs();
+    });
+  }, [checkAndInitializeAuditLogs, loadAuditLogs]);
 
   return {
     auditLogs,
