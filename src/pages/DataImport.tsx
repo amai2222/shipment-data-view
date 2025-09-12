@@ -185,13 +185,22 @@ export default function DataImportWithDuplicateCheck() {
     reader.onload = async (e) => {
         try {
             const data = e.target?.result;
-            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+            const workbook = XLSX.read(data, { 
+                type: 'array', 
+                cellDates: true,
+                cellNF: false,
+                cellText: false,
+                dateNF: 'yyyy/m/d'
+            });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            
+            // 调试：显示Excel解析的原始数据
+            console.log('Excel解析的原始数据:', jsonData.slice(0, 3)); // 只显示前3行用于调试
 
             // 处理日期和验证数据（验证8个必填字段）
-            const validRows = jsonData.filter((rowData: any) => {
+            const validRows = jsonData.filter((rowData: any, index: number) => {
                 const projectName = rowData['项目名称']?.trim();
                 const driverName = rowData['司机姓名']?.trim();
                 const licensePlate = rowData['车牌号']?.trim();
@@ -203,17 +212,37 @@ export default function DataImportWithDuplicateCheck() {
                 // 验证8个必填字段
                 if (!projectName || !driverName || !licensePlate || !loadingLocation || 
                     !unloadingLocation || !loadingDateRaw || !loadingWeight) {
+                    console.warn(`第${index + 1}行缺少必填字段:`, {
+                        projectName: !!projectName,
+                        driverName: !!driverName,
+                        licensePlate: !!licensePlate,
+                        loadingLocation: !!loadingLocation,
+                        unloadingLocation: !!unloadingLocation,
+                        loadingDateRaw: !!loadingDateRaw,
+                        loadingWeight: !!loadingWeight
+                    });
                     return false;
                 }
 
                 // 增强的日期处理 - 支持多种Excel日期格式
                 try {
+                    console.log(`第${index + 1}行日期解析:`, {
+                        original: loadingDateRaw,
+                        type: typeof loadingDateRaw,
+                        value: loadingDateRaw
+                    });
+                    
                     rowData.loading_date_parsed = parseExcelDate(loadingDateRaw);
                     rowData.unloading_date_parsed = rowData['卸货日期'] 
                         ? parseExcelDate(rowData['卸货日期'])
                         : rowData.loading_date_parsed;
+                        
+                    console.log(`第${index + 1}行日期解析成功:`, {
+                        loading_date_parsed: rowData.loading_date_parsed,
+                        unloading_date_parsed: rowData.unloading_date_parsed
+                    });
                 } catch (error) {
-                    console.error('日期解析错误:', error, '原始值:', loadingDateRaw);
+                    console.error(`第${index + 1}行日期解析错误:`, error, '原始值:', loadingDateRaw);
                     return false;
                 }
 
@@ -221,7 +250,11 @@ export default function DataImportWithDuplicateCheck() {
             });
 
             if (validRows.length === 0) {
-                toast({ title: "错误", description: "没有找到有效的运单数据", variant: "destructive" });
+                const totalRows = jsonData.length;
+                const errorMessage = totalRows === 0 
+                    ? "文件中没有找到任何数据行"
+                    : `文件中没有找到任何包含有效"装货日期"的行。总共${totalRows}行数据，请检查Excel文件格式。`;
+                toast({ title: "文件格式错误", description: errorMessage, variant: "destructive" });
                 return;
             }
 
