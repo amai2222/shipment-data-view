@@ -20,7 +20,7 @@ import { Project, LogisticsRecord } from './types';
 import { useLogisticsData, INITIAL_FILTERS, TotalSummary, LogisticsFilters } from './hooks/useLogisticsData';
 import { useExcelImport } from './hooks/useExcelImport';
 import { FilterBar } from './components/FilterBar';
-import { ImportDialog } from './components/ImportDialog';
+import { EnhancedImportDialog } from './components/EnhancedImportDialog';
 import { LogisticsFormDialog } from './components/LogisticsFormDialog';
 
 const formatCurrency = (value: number | null | undefined): string => {
@@ -288,7 +288,7 @@ export default function BusinessEntry() {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch, sortField, sortDirection, handleSort } = useLogisticsData();
-  const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates } = useExcelImport(() => { refetch(); });
+  const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, duplicateActions, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates, setDuplicateActions } = useExcelImport(() => { refetch(); });
   const isSummaryStale = useMemo(() => JSON.stringify(uiFilters) !== JSON.stringify(activeFilters), [uiFilters, activeFilters]);
 
   const loadInitialOptions = useCallback(async () => {
@@ -479,7 +479,7 @@ export default function BusinessEntry() {
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
       {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, currentPage: pagination.currentPage, pageSize: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />)}
-      {isAdmin && <ImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
+      {isAdmin && <EnhancedImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} duplicateActions={duplicateActions} setDuplicateActions={setDuplicateActions} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
       <LogisticsFormDialog
         isOpen={isFormDialogOpen}
         onClose={handleFormDialogClose}

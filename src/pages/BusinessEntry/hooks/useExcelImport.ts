@@ -37,12 +37,13 @@ export function useExcelImport(onImportSuccess: () => void) {
   const [importStep, setImportStep] = useState<'idle' | 'preprocessing' | 'preview' | 'confirmation' | 'processing'>('idle');
   const [importPreview, setImportPreview] = useState<ImportPreviewResult | null>(null);
   const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
+  const [duplicateActions, setDuplicateActions] = useState<Map<number, {action: 'create' | 'update'}>>(new Map());
   const [importLogs, setImportLogs] = useState<string[]>([]);
   const importLogRef = useRef<HTMLDivElement>(null);
 
   const closeImportModal = useCallback(() => {
     setIsImportModalOpen(false); setIsImporting(false); setImportStep('idle');
-    setImportPreview(null); setApprovedDuplicates(new Set()); setImportLogs([]);
+    setImportPreview(null); setApprovedDuplicates(new Set()); setDuplicateActions(new Map()); setImportLogs([]);
   }, []);
 
   const getImportPreview = async (validRows: any[]) => {
@@ -87,6 +88,7 @@ export function useExcelImport(onImportSuccess: () => void) {
       }
       
       setApprovedDuplicates(new Set());
+      setDuplicateActions(new Map());
       setImportStep('confirmation');
     } catch (error: any) {
       toast({ title: "预览失败", description: error.message, variant: "destructive" });
@@ -248,11 +250,13 @@ export function useExcelImport(onImportSuccess: () => void) {
     importStep,
     importPreview,
     approvedDuplicates,
+    duplicateActions,
     importLogs,
     importLogRef,
     handleExcelImport,
     executeFinalImport,
     closeImportModal,
     setApprovedDuplicates,
+    setDuplicateActions,
   };
 }

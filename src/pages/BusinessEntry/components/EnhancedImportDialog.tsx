@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+// import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Loader2, Siren, RefreshCw, Plus } from "lucide-react";
 import { ImportPreviewResult } from '../types';
@@ -190,26 +190,38 @@ export function EnhancedImportDialog({
                                 <Label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                                   处理方式:
                                 </Label>
-                                <RadioGroup 
-                                  value={getDuplicateAction(index)} 
-                                  onValueChange={(value) => handleDuplicateActionChange(index, value as 'create' | 'update')}
-                                  className="mt-1"
-                                >
+                                <div className="mt-1 space-y-1">
                                   <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="create" id={`create-${index}`} />
+                                    <input 
+                                      type="radio" 
+                                      id={`create-${index}`}
+                                      name={`action-${index}`}
+                                      value="create"
+                                      checked={getDuplicateAction(index) === 'create'}
+                                      onChange={() => handleDuplicateActionChange(index, 'create')}
+                                      className="h-3 w-3"
+                                    />
                                     <Label htmlFor={`create-${index}`} className="text-xs cursor-pointer">
                                       <Plus className="h-3 w-3 inline mr-1" />
                                       创建新记录（生成新运单号）
                                     </Label>
                                   </div>
                                   <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="update" id={`update-${index}`} />
+                                    <input 
+                                      type="radio" 
+                                      id={`update-${index}`}
+                                      name={`action-${index}`}
+                                      value="update"
+                                      checked={getDuplicateAction(index) === 'update'}
+                                      onChange={() => handleDuplicateActionChange(index, 'update')}
+                                      className="h-3 w-3"
+                                    />
                                     <Label htmlFor={`update-${index}`} className="text-xs cursor-pointer">
                                       <RefreshCw className="h-3 w-3 inline mr-1" />
                                       更新现有记录（保留运单号，更新其他字段）
                                     </Label>
                                   </div>
-                                </RadioGroup>
+                                </div>
                               </div>
                             )}
                           </div>
