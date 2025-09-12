@@ -14,6 +14,86 @@ import { format } from 'date-fns';
 import { Project } from "@/types";
 import { ImportDialog } from '@/pages/BusinessEntry/components/ImportDialog';
 
+// 增强的Excel日期解析函数
+function parseExcelDate(dateValue: any): string {
+  if (!dateValue) throw new Error('日期值为空');
+  
+  const dateStr = String(dateValue).trim();
+  const currentYear = new Date().getFullYear();
+  
+  // 处理中文日期格式
+  if (dateStr.match(/^\d{1,2}月\d{1,2}日$/)) {
+    // 格式: 5月20日
+    const match = dateStr.match(/^(\d{1,2})月(\d{1,2})日$/);
+    if (match) {
+      const month = parseInt(match[1], 10);
+      const day = parseInt(match[2], 10);
+      return `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    }
+  }
+  
+  if (dateStr.match(/^\d{4}年\d{1,2}月\d{1,2}日$/)) {
+    // 格式: 2025年5月20日
+    const match = dateStr.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
+    if (match) {
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10);
+      const day = parseInt(match[3], 10);
+      return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    }
+  }
+  
+  // 处理简化格式 (使用当前年份)
+  if (dateStr.match(/^\d{1,2}\/\d{1,2}$/)) {
+    // 格式: 5/20
+    const [month, day] = dateStr.split('/').map(n => parseInt(n, 10));
+    return `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+  }
+  
+  if (dateStr.match(/^\d{1,2}-\d{1,2}$/)) {
+    // 格式: 5-20
+    const [month, day] = dateStr.split('-').map(n => parseInt(n, 10));
+    return `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+  }
+  
+  if (dateStr.match(/^\d{1,2}\.\d{1,2}$/)) {
+    // 格式: 5.20
+    const [month, day] = dateStr.split('.').map(n => parseInt(n, 10));
+    return `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+  }
+  
+  // 处理标准格式
+  if (dateStr.match(/^\d{4}\.\d{2}\.\d{2}$/)) {
+    // 格式: 2025.01.21
+    return dateStr.replace(/\./g, '-');
+  }
+  
+  if (dateStr.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
+    // 格式: 21.01.2025
+    const [day, month, year] = dateStr.split('.');
+    return `${year}-${month}-${day}`;
+  }
+  
+  // 处理Excel序列号日期
+  if (typeof dateValue === 'number' && dateValue > 25569) {
+    // Excel日期序列号 (1900年1月1日为1)
+    const excelEpoch = new Date(1900, 0, 1);
+    const date = new Date(excelEpoch.getTime() + (dateValue - 2) * 24 * 60 * 60 * 1000);
+    return format(date, 'yyyy-MM-dd');
+  }
+  
+  // 默认处理 - 尝试直接解析
+  try {
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) {
+      throw new Error('无效的日期格式');
+    }
+    return format(date, 'yyyy-MM-dd');
+  } catch (error) {
+    throw new Error(`无法解析日期格式: ${dateStr}`);
+  }
+}
+
 // 2. 主组件定义
 export default function DataImportWithDuplicateCheck() {
   // 3. 状态管理 (useState)
@@ -63,11 +143,11 @@ export default function DataImportWithDuplicateCheck() {
       ['必填(验重)', '可选', '必填(验重)', '必填(验重)', '可选', '必填(验重)', '必填(验重)', '必填(验重)', '可选', '必填(验重)', '可选', '可选', '可选', '可选(默认:实际运输)', '可选', '可选', '可选'],
       // 计费类型说明行
       ['', '', '', '', '', '', '', '', '', '根据合作链路计费类型动态显示: 重量(吨)/发车次数/体积(立方)', '根据合作链路计费类型动态显示: 重量(吨)/发车次数/体积(立方)', '', '', '', '', '', '', ''],
-      // 示例数据（包含8个必填字段）
-      ['示例项目A', '默认链路', '张三', '京A12345', '13800138000', '北京仓库', '上海仓库', '2024-01-15', '2024-01-16', '10.5', '10.2', '5000', '200', '实际运输', '正常运输', '平台A,平台B', '运单1|运单2,运单3'],
-      ['示例项目B', '', '李四', '沪B67890', '13900139000', '上海仓库', '广州仓库', '2024-01-17', '', '15.0', '14.8', '8000', '300', '实际运输', '加急运输', '平台C', '运单4|运单5|运单6'],
-      ['示例项目C', '特殊链路', '王五', '粤C11111', '13700137000', '广州仓库', '深圳仓库', '2024-01-18', '2024-01-19', '8.0', '7.9', '4000', '100', '实际运输', '标准运输', '', ''],
-      ['示例项目D', '默认链路', '赵六', '京D22222', '13600136000', '北京仓库', '天津仓库', '2024-01-20', '2024-01-21', '12.0', '11.8', '6000', '250', '实际运输', '混合运输', '平台A,平台B,平台C', '运单7,运单8|运单9,运单10|运单11']
+      // 示例数据（包含8个必填字段，展示多种日期格式）
+      ['示例项目A', '默认链路', '张三', '京A12345', '13800138000', '北京仓库', '上海仓库', '2025-01-15', '2025-01-16', '10.5', '10.2', '5000', '200', '实际运输', '正常运输', '平台A,平台B', '运单1|运单2,运单3'],
+      ['示例项目B', '', '李四', '沪B67890', '13900139000', '上海仓库', '广州仓库', '5月20日', '', '15.0', '14.8', '8000', '300', '实际运输', '加急运输', '平台C', '运单4|运单5|运单6'],
+      ['示例项目C', '特殊链路', '王五', '粤C11111', '13700137000', '广州仓库', '深圳仓库', '2025年12月25日', '2025年12月26日', '8.0', '7.9', '4000', '100', '实际运输', '标准运输', '', ''],
+      ['示例项目D', '默认链路', '赵六', '京D22222', '13600136000', '北京仓库', '天津仓库', '3/15', '3/16', '12.0', '11.8', '6000', '250', '实际运输', '混合运输', '平台A,平台B,平台C', '运单7,运单8|运单9,运单10|运单11']
     ]);
     
     // 设置列宽
@@ -202,13 +282,14 @@ export default function DataImportWithDuplicateCheck() {
                     return false;
                 }
 
-                // 处理日期
+                // 增强的日期处理 - 支持多种Excel日期格式
                 try {
-                    rowData.loading_date_parsed = format(new Date(loadingDateRaw), 'yyyy-MM-dd');
+                    rowData.loading_date_parsed = parseExcelDate(loadingDateRaw);
                     rowData.unloading_date_parsed = rowData['卸货日期'] 
-                        ? format(new Date(rowData['卸货日期']), 'yyyy-MM-dd') 
+                        ? parseExcelDate(rowData['卸货日期'])
                         : rowData.loading_date_parsed;
                 } catch (error) {
+                    console.error('日期解析错误:', error, '原始值:', loadingDateRaw);
                     return false;
                 }
 
@@ -399,7 +480,7 @@ export default function DataImportWithDuplicateCheck() {
                      <li><strong>司机姓名</strong>：如果系统中不存在，将自动创建新司机</li>
                      <li><strong>装货地点</strong>：如果系统中不存在，将自动创建新地点</li>
                      <li><strong>卸货地点</strong>：如果系统中不存在，将自动创建新地点</li>
-                     <li><strong>装货日期</strong>：格式为 YYYY-MM-DD</li>
+                     <li><strong>装货日期</strong>：支持多种格式，如 2025-01-21、5月20日、2025年5月20日、3/15 等</li>
                    </ul>
                  </div>
                  <div>
