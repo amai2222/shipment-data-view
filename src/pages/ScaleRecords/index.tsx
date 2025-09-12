@@ -154,6 +154,7 @@ export default function ScaleRecords() {
   };
 
   const handleEditRecord = (record: ScaleRecord) => {
+    console.log('准备编辑记录:', record);
     setEditingRecord(record);
     setShowEditDialog(true);
   };

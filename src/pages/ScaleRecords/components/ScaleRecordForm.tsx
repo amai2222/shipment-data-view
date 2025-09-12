@@ -74,11 +74,25 @@ export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }:
   const [projectDrivers, setProjectDrivers] = useState<Driver[]>([]);
 
   const driverOptions = useMemo(() => {
-    return projectDrivers.map(driver => ({
+    const options = projectDrivers.map(driver => ({
       value: driver.license_plate,
       label: `${driver.license_plate} - ${driver.name}`
     }));
-  }, [projectDrivers]);
+    
+    // 在编辑模式下，如果当前车牌号不在项目司机列表中，添加它
+    if (isEditMode && editingRecord?.license_plate) {
+      const currentLicensePlate = editingRecord.license_plate;
+      const exists = options.some(option => option.value === currentLicensePlate);
+      if (!exists) {
+        options.unshift({
+          value: currentLicensePlate,
+          label: `${currentLicensePlate} - ${editingRecord.driver_name || '未知司机'}`
+        });
+      }
+    }
+    
+    return options;
+  }, [projectDrivers, isEditMode, editingRecord]);
 
   useEffect(() => {
     loadBillingTypes();
@@ -86,15 +100,18 @@ export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }:
 
   useEffect(() => {
     if (editingRecord) {
+      console.log('编辑模式 - 接收到的记录数据:', editingRecord);
       setIsEditMode(true);
-      setFormData({
+      const formData = {
         projectId: editingRecord.project_id,
         loadingDate: editingRecord.loading_date.split('T')[0],
         licensePlate: editingRecord.license_plate || '',
         tripNumber: editingRecord.trip_number,
         validQuantity: editingRecord.valid_quantity?.toString() || '',
         billingTypeId: editingRecord.billing_type_id.toString(),
-      });
+      };
+      console.log('编辑模式 - 设置的表单数据:', formData);
+      setFormData(formData);
       setExistingImageUrls(editingRecord.image_urls || []);
     } else {
       setIsEditMode(false);
@@ -113,15 +130,36 @@ export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }:
   useEffect(() => {
     if (formData.projectId) {
       loadProjectDrivers();
-      setFormData(prev => ({ ...prev, licensePlate: '' }));
+      // 只有在非编辑模式下才重置车牌号
+      if (!isEditMode) {
+        setFormData(prev => ({ ...prev, licensePlate: '' }));
+      }
     }
-  }, [formData.projectId]);
+  }, [formData.projectId, isEditMode]);
+
+  // 在编辑模式下，当项目司机加载完成后，确保车牌号选项可用
+  useEffect(() => {
+    if (isEditMode && editingRecord && projectDrivers.length > 0) {
+      // 检查当前车牌号是否在项目司机列表中
+      const currentLicensePlate = editingRecord.license_plate;
+      if (currentLicensePlate && !projectDrivers.some(d => d.license_plate === currentLicensePlate)) {
+        console.warn('编辑模式：当前车牌号不在项目司机列表中:', currentLicensePlate);
+      }
+    }
+  }, [isEditMode, editingRecord, projectDrivers]);
 
   useEffect(() => {
     if (formData.projectId && formData.loadingDate && formData.licensePlate) {
       loadAvailableTrips();
     }
   }, [formData.projectId, formData.loadingDate, formData.licensePlate]);
+
+  // 在编辑模式下，当所有必要数据都设置好后，加载可用车次
+  useEffect(() => {
+    if (isEditMode && editingRecord && formData.projectId && formData.loadingDate && formData.licensePlate) {
+      loadAvailableTrips();
+    }
+  }, [isEditMode, editingRecord, formData.projectId, formData.loadingDate, formData.licensePlate]);
 
   const loadBillingTypes = async () => {
     try {
