@@ -62,8 +62,8 @@ CREATE POLICY "Users can view import templates" ON public.import_templates
 CREATE POLICY "Admins can manage import templates" ON public.import_templates
     FOR ALL USING (
         EXISTS (
-            SELECT 1 FROM public.user_profiles 
-            WHERE user_id = auth.uid() 
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
             AND role IN ('admin', 'operator')
         )
     );
@@ -74,8 +74,8 @@ CREATE POLICY "Users can view field mappings" ON public.import_field_mappings
 CREATE POLICY "Admins can manage field mappings" ON public.import_field_mappings
     FOR ALL USING (
         EXISTS (
-            SELECT 1 FROM public.user_profiles 
-            WHERE user_id = auth.uid() 
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
             AND role IN ('admin', 'operator')
         )
     );
@@ -86,8 +86,8 @@ CREATE POLICY "Users can view fixed mappings" ON public.import_fixed_mappings
 CREATE POLICY "Admins can manage fixed mappings" ON public.import_fixed_mappings
     FOR ALL USING (
         EXISTS (
-            SELECT 1 FROM public.user_profiles 
-            WHERE user_id = auth.uid() 
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
             AND role IN ('admin', 'operator')
         )
     );
