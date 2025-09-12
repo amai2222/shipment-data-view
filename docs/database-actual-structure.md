@@ -214,8 +214,215 @@
    - **审计类**: 1个函数（log-contract-access）
    - **集成类**: 1个函数（work-wechat-approval）
 
+## 表索引信息
+
+### payment_records 表索引
+| 索引名称 | 索引定义 |
+|---------|---------|
+| idx_payment_records_date_partner | CREATE INDEX idx_payment_records_date_partner ON public.payment_records USING btree (payment_date, partner_id, logistics_record_id) |
+| payment_records_pkey | CREATE UNIQUE INDEX payment_records_pkey ON public.payment_records USING btree (id) |
+| idx_payment_records_logistics_record_id | CREATE INDEX idx_payment_records_logistics_record_id ON public.payment_records USING btree (logistics_record_id) |
+| idx_payment_records_partner_id | CREATE INDEX idx_payment_records_partner_id ON public.payment_records USING btree (partner_id) |
+| idx_payment_records_payment_date | CREATE INDEX idx_payment_records_payment_date ON public.payment_records USING btree (payment_date) |
+
+## 自定义类型信息
+
+### 枚举类型 (Enum Types)
+| 类型名称 | 类型 | 分类 |
+|---------|------|------|
+| app_role | e | E |
+| contract_category | e | E |
+| effective_quantity_type | e | E |
+
+### 复合类型 (Composite Types)
+| 类型名称 | 类型 | 分类 |
+|---------|------|------|
+| billing_types | c | C |
+| contract_access_logs | c | C |
+| contract_file_versions | c | C |
+| contract_numbering_rules | c | C |
+| contract_permissions | c | C |
+| contract_reminders | c | C |
+| contract_tag_relations | c | C |
+| contract_tags | c | C |
+| contracts | c | C |
+| dashboard_data_type_v2 | c | C |
+| driver_projects | c | C |
+| drivers | c | C |
+| external_platforms | c | C |
+| import_field_mappings | c | C |
+| import_fixed_mappings | c | C |
+| import_templates | c | C |
+| invoice_records | c | C |
+| location_projects | c | C |
+| locations | c | C |
+| logistics_data_import_type | c | C |
+| logistics_partner_costs | c | C |
+| logistics_records | c | C |
+| logistics_records_view | c | C |
+| logistics_records_with_external_tracking | c | C |
+| logistics_records_with_platforms | c | C |
+| paginated_drivers_result | c | C |
+| partner_bank_details | c | C |
+| partner_chain_type | c | C |
+| partner_chains | c | C |
+| partner_cost_type | c | C |
+| partner_payment_items | c | C |
+| partner_payment_requests | c | C |
+| partners | c | C |
+| payment_records | c | C |
+| payment_requests | c | C |
+| permission_audit_logs | c | C |
+| processed_import_record_output | c | C |
+| profiles | c | C |
+| project_partner_type | c | C |
+| project_partners | c | C |
+| projects | c | C |
+| raw_import_record_input | c | C |
+| role_permission_templates | c | C |
+| saved_searches | c | C |
+| scale_records | c | C |
+| user_permissions | c | C |
+| user_roles | c | C |
+| waybill_fingerprint | c | C |
+
+## 表结构详细信息
+
+### external_platforms 表结构
+| 字段名 | 数据类型 | 可空 | 默认值 | 最大长度 |
+|--------|----------|------|--------|----------|
+| id | uuid | NO | gen_random_uuid() | null |
+| platform_name | text | NO | null | null |
+| platform_code | text | NO | null | null |
+| is_active | boolean | YES | true | null |
+| created_at | timestamp with time zone | NO | now() | null |
+
+**表说明**: 外部平台管理表，用于记录和管理不同的外部物流平台信息。
+
+### external_platforms 表索引
+| 索引名称 | 索引定义 |
+|---------|---------|
+| external_platforms_pkey | CREATE UNIQUE INDEX external_platforms_pkey ON public.external_platforms USING btree (id) |
+| external_platforms_platform_name_key | CREATE UNIQUE INDEX external_platforms_platform_name_key ON public.external_platforms USING btree (platform_name) |
+| external_platforms_platform_code_key | CREATE UNIQUE INDEX external_platforms_platform_code_key ON public.external_platforms USING btree (platform_code) |
+
+### permission_audit_logs 表外键关系
+| 约束名称 | 表名 | 字段名 | 外键表名 | 外键字段名 |
+|---------|------|--------|----------|------------|
+| permission_audit_logs_created_by_fkey | permission_audit_logs | created_by | profiles | id |
+| permission_audit_logs_target_project_id_fkey | permission_audit_logs | target_project_id | projects | id |
+| permission_audit_logs_target_user_id_fkey | permission_audit_logs | target_user_id | profiles | id |
+| permission_audit_logs_user_id_fkey | permission_audit_logs | user_id | profiles | id |
+
+### partner_bank_details 表结构
+| 字段名 | 数据类型 | 可空 | 默认值 | 最大长度 |
+|--------|----------|------|--------|----------|
+| partner_id | uuid | NO | null | null |
+| bank_account | text | YES | null | null |
+| bank_name | text | YES | null | null |
+| branch_name | text | YES | null | null |
+| user_id | uuid | YES | null | null |
+| created_at | timestamp with time zone | NO | now() | null |
+| updated_at | timestamp with time zone | NO | now() | null |
+
+**表说明**: 合作方银行信息表，用于存储合作方的银行账户信息。
+
+### partner_bank_details 表外键关系
+| 约束名称 | 表名 | 字段名 | 外键表名 | 外键字段名 |
+|---------|------|--------|----------|------------|
+| partner_bank_details_partner_id_fkey | partner_bank_details | partner_id | partners | id |
+
+### partner_bank_details 表索引
+| 索引名称 | 索引定义 |
+|---------|---------|
+| partner_bank_details_pkey | CREATE UNIQUE INDEX partner_bank_details_pkey ON public.partner_bank_details USING btree (partner_id) |
+
+### logistics_records 表外键关系
+| 约束名称 | 表名 | 字段名 | 外键表名 | 外键字段名 |
+|---------|------|--------|----------|------------|
+| fk_logistics_records_billing_type | logistics_records | billing_type_id | billing_types | billing_type_id |
+| logistics_records_chain_id_fkey | logistics_records | chain_id | partner_chains | id |
+| logistics_records_driver_id_fkey | logistics_records | driver_id | drivers | id |
+| logistics_records_project_id_fkey | logistics_records | project_id | projects | id |
+
+### payment_requests 表结构
+| 字段名 | 数据类型 | 可空 | 默认值 | 最大长度 |
+|--------|----------|------|--------|----------|
+| id | uuid | NO | gen_random_uuid() | null |
+| created_at | timestamp with time zone | NO | now() | null |
+| request_id | text | NO | null | null |
+| record_count | integer | NO | null | null |
+| created_by | uuid | YES | null | null |
+| status | text | NO | 'pending'::text | null |
+| notes | text | YES | null | null |
+| user_id | uuid | NO | null | null |
+| logistics_record_ids | ARRAY | YES | null | null |
+| work_wechat_sp_no | text | YES | null | null |
+| approval_result | jsonb | YES | null | null |
+
+**表说明**: 付款申请单表，用于管理付款申请流程，支持企业微信审批。
+
+### logistics_records 表支付相关字段
+| 字段名 | 数据类型 | 可空 | 默认值 | 最大长度 |
+|--------|----------|------|--------|----------|
+| current_cost | numeric | YES | null | null |
+| extra_cost | numeric | YES | null | null |
+| payable_cost | numeric | YES | null | null |
+| driver_payable_cost | numeric | YES | null | null |
+| payment_status | text | NO | 'Unpaid'::text | null |
+
+**表说明**: logistics_records 表的支付相关字段，包括成本、应付金额和支付状态。
+
+### partner_payment_items 表外键关系
+| 约束名称 | 表名 | 字段名 | 外键表名 | 外键字段名 |
+|---------|------|--------|----------|------------|
+| partner_payment_items_logistics_record_id_fkey | partner_payment_items | logistics_record_id | logistics_records | id |
+| partner_payment_items_payment_request_id_fkey | partner_payment_items | payment_request_id | partner_payment_requests | id |
+
+### partner_payment_items 表索引
+| 索引名称 | 索引定义 |
+|---------|---------|
+| partner_payment_items_pkey | CREATE UNIQUE INDEX partner_payment_items_pkey ON public.partner_payment_items USING btree (payment_request_id, logistics_record_id) |
+
+## 付款相关表数据统计
+
+### 付款系统表数据统计
+| 表名 | 插入行数 | 更新行数 | 删除行数 | 活跃行数 | 死亡行数 | 状态说明 |
+|------|----------|----------|----------|----------|----------|----------|
+| invoice_records | 0 | 0 | 0 | 0 | 0 | 空表，未使用 |
+| logistics_records | 19,302 | 3,529 | 17,897 | 704 | 7 | 核心表，有数据 |
+| partner_payment_items | 8 | 0 | 0 | 8 | 0 | 有少量数据 |
+| partner_payment_requests | 2 | 3 | 0 | 2 | 3 | 有少量数据 |
+| payment_records | 0 | 0 | 0 | 0 | 0 | 空表，未使用 |
+| payment_requests | 82 | 34 | 14 | 0 | 14 | 有历史数据，当前为空 |
+
+### 数据统计分析
+1. **核心活跃表**：
+   - `logistics_records` - 704条活跃记录，是系统的核心数据表
+   - `partner_payment_items` - 8条记录，合作方付款项目
+   - `partner_payment_requests` - 2条记录，合作方付款申请
+
+2. **空表（未使用）**：
+   - `invoice_records` - 开票记录表，尚未使用
+   - `payment_records` - 付款记录表，尚未使用
+
+3. **历史数据表**：
+   - `payment_requests` - 有82条插入记录，但当前活跃行数为0，说明数据已被清理
+
+4. **数据变更统计**：
+   - `logistics_records` 表变更最频繁：19,302次插入，3,529次更新，17,897次删除
+   - 其他表变更较少，说明系统相对稳定
+
 ## 更新记录
 - 2025-01-20: 初始版本，创建查询命令和记录模板
 - 2025-01-20: 记录导入模板表创建成功，记录logistics_records表外键关系
 - 2025-01-20: 完善完整数据库结构记录，包含40+个表和3个视图的详细信息
 - 2025-01-20: 添加数据库函数和Edge函数的完整记录
+- 2025-01-20: 添加 payment_records 表索引信息
+- 2025-01-20: 添加自定义类型信息（3个枚举类型，47个复合类型）
+- 2025-01-20: 添加 external_platforms 表结构信息
+- 2025-01-20: 添加 external_platforms 表索引和 permission_audit_logs 表外键关系
+- 2025-01-20: 添加 partner_bank_details 表结构和 logistics_records 表外键关系
+- 2025-01-20: 添加 payment_requests 表结构信息
+- 2025-01-20: 添加 logistics_records 表支付相关字段和 partner_payment_items 表外键关系及索引
+- 2025-01-20: 添加付款相关表数据统计信息和分析
