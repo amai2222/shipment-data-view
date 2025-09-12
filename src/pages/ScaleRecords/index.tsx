@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Search, Image as ImageIcon, Trash2, Loader2, Link2 } from 'lucide-react';
+import { Plus, Search, Image as ImageIcon, Trash2, Loader2, Link2, Edit, Eye, MoreHorizontal } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -37,12 +37,18 @@ export default function ScaleRecords() {
   
   // 弹窗状态
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [showImageViewer, setShowImageViewer] = useState(false);
+  const [showWaybillDetail, setShowWaybillDetail] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [editingRecord, setEditingRecord] = useState<ScaleRecord | null>(null);
+  const [viewingWaybill, setViewingWaybill] = useState<any>(null);
   
   // 删除相关状态
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [showSingleDeleteDialog, setShowSingleDeleteDialog] = useState(false);
+  const [deletingRecord, setDeletingRecord] = useState<ScaleRecord | null>(null);
   
   // 数据与选择状态
   const [totalRecordsCount, setTotalRecordsCount] = useState(0);
@@ -145,6 +151,76 @@ export default function ScaleRecords() {
     setShowAddDialog(false);
     loadRecords();
     toast({ title: "成功", description: "磅单记录已添加" });
+  };
+
+  const handleEditRecord = (record: ScaleRecord) => {
+    setEditingRecord(record);
+    setShowEditDialog(true);
+  };
+
+  const handleRecordUpdated = () => {
+    setShowEditDialog(false);
+    setEditingRecord(null);
+    loadRecords();
+    toast({ title: "成功", description: "磅单记录已更新" });
+  };
+
+  const handleViewWaybill = async (logisticsNumber: string) => {
+    if (!logisticsNumber || logisticsNumber === '未关联') return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('logistics_records')
+        .select(`
+          *,
+          partner_chains(chain_name),
+          projects(name)
+        `)
+        .eq('auto_number', logisticsNumber)
+        .single();
+
+      if (error) throw error;
+      setViewingWaybill(data);
+      setShowWaybillDetail(true);
+    } catch (error) {
+      console.error('Error loading waybill:', error);
+      toast({ title: "错误", description: "加载运单详情失败", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteRecord = (record: ScaleRecord) => {
+    setDeletingRecord(record);
+    setShowSingleDeleteDialog(true);
+  };
+
+  const confirmDeleteRecord = async () => {
+    if (!deletingRecord) return;
+
+    try {
+      // 删除云存储图片
+      if (deletingRecord.image_urls && deletingRecord.image_urls.length > 0) {
+        const { error: functionError } = await supabase.functions.invoke('qiniu-delete', { 
+          body: { urls: deletingRecord.image_urls } 
+        });
+        if (functionError) throw new Error("删除云存储图片失败");
+      }
+
+      // 删除数据库记录
+      const { error: dbError } = await supabase
+        .from('scale_records')
+        .delete()
+        .eq('id', deletingRecord.id);
+
+      if (dbError) throw dbError;
+
+      toast({ title: "成功", description: "磅单记录已删除" });
+      setDeletingRecord(null);
+      setShowSingleDeleteDialog(false);
+      loadRecords();
+    } catch (error) {
+      console.error("Delete record error:", error);
+      toast({ title: "删除失败", description: "操作失败，请检查控制台错误信息。", variant: "destructive" });
+    }
   };
 
   const handleImageClick = (images: string[]) => {
@@ -312,6 +388,7 @@ export default function ScaleRecords() {
                   <div className="w-32 flex-shrink-0 px-2">运单号</div>
                   <div className="w-24 flex-shrink-0 text-center px-2">图片</div>
                   <div className="w-40 flex-shrink-0 text-right px-2">创建时间</div>
+                  <div className="w-24 flex-shrink-0 text-center px-2">操作</div>
                 </div>
 
                 {records.map((record) => (
@@ -335,7 +412,15 @@ export default function ScaleRecords() {
                     
                     <div className="w-32 flex-shrink-0 px-2">
                       {record.logistics_number ? (
-                        <span className="text-xs font-mono bg-muted px-2 py-1 rounded">{record.logistics_number}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewWaybill(record.logistics_number!);
+                          }}
+                          className="text-xs font-mono bg-muted px-2 py-1 rounded hover:bg-muted/80 transition-colors cursor-pointer"
+                        >
+                          {record.logistics_number}
+                        </button>
                       ) : (
                         <span className="text-xs text-muted-foreground">未关联</span>
                       )}
@@ -352,6 +437,42 @@ export default function ScaleRecords() {
                     
                     <div className="w-40 flex-shrink-0 flex justify-end items-center px-2">
                       <p className="text-xs text-muted-foreground">{format(new Date(record.created_at), 'yy-MM-dd HH:mm')}</p>
+                    </div>
+                    
+                    <div className="w-24 flex-shrink-0 flex items-center justify-center gap-1 px-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-8 w-8 p-0"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditRecord(record);
+                            }}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            编辑
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteRecord(record);
+                            }}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            删除
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 ))}
@@ -390,6 +511,98 @@ export default function ScaleRecords() {
 
       <Dialog open={showImageViewer} onOpenChange={setShowImageViewer}><DialogContent className="max-w-4xl"><DialogHeader><DialogTitle>磅单图片</DialogTitle></DialogHeader><ImageViewer images={selectedImages} /></DialogContent></Dialog>
 
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>编辑磅单记录</DialogTitle>
+          </DialogHeader>
+          {editingRecord && (
+            <ScaleRecordForm 
+              projects={projects} 
+              drivers={drivers} 
+              onSuccess={handleRecordUpdated}
+              editingRecord={editingRecord}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showWaybillDetail} onOpenChange={setShowWaybillDetail}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>运单详情 (编号: {viewingWaybill?.auto_number})</DialogTitle>
+          </DialogHeader>
+          {viewingWaybill && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">项目</Label>
+                <p>{viewingWaybill.project_name}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">合作链路</Label>
+                <p>{viewingWaybill.partner_chains?.chain_name || '默认'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">装货日期</Label>
+                <p>{viewingWaybill.loading_date ? viewingWaybill.loading_date.split('T')[0] : '未填写'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">卸货日期</Label>
+                <p>{viewingWaybill.unloading_date ? viewingWaybill.unloading_date.split('T')[0] : '未填写'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">司机</Label>
+                <p>{viewingWaybill.driver_name}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">车牌号</Label>
+                <p>{viewingWaybill.license_plate || '未填写'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">司机电话</Label>
+                <p>{viewingWaybill.driver_phone || '未填写'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">运输类型</Label>
+                <p>{viewingWaybill.transport_type}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">装货地点</Label>
+                <p>{viewingWaybill.loading_location}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">卸货地点</Label>
+                <p>{viewingWaybill.unloading_location}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">装货重量</Label>
+                <p>{viewingWaybill.loading_weight ? `${viewingWaybill.loading_weight} 吨` : '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">卸货重量</Label>
+                <p>{viewingWaybill.unloading_weight ? `${viewingWaybill.unloading_weight} 吨` : '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">运费金额</Label>
+                <p className="font-mono">¥{viewingWaybill.current_cost?.toFixed(2) || '0.00'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">额外费用</Label>
+                <p className="font-mono">¥{viewingWaybill.extra_cost?.toFixed(2) || '0.00'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">司机应收</Label>
+                <p className="font-mono font-bold text-primary">¥{viewingWaybill.payable_cost?.toFixed(2) || '0.00'}</p>
+              </div>
+              <div className="space-y-1 col-span-4">
+                <Label className="text-muted-foreground">备注</Label>
+                <p>{viewingWaybill.remarks || '无'}</p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -401,6 +614,21 @@ export default function ScaleRecords() {
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">确认删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showSingleDeleteDialog} onOpenChange={setShowSingleDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确定要删除这条磅单记录吗？</AlertDialogTitle>
+            <AlertDialogDescription>
+              此操作将永久删除磅单记录 <span className="font-bold text-destructive">{deletingRecord?.project_name} - {deletingRecord?.license_plate}</span> 及其所有关联图片。此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteRecord} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">确认删除</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

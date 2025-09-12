@@ -24,10 +24,26 @@ interface BillingType {
   type_name: string;
 }
 
+interface ScaleRecord {
+  id: string;
+  project_id: string;
+  project_name: string;
+  loading_date: string;
+  trip_number: number;
+  valid_quantity: number | null;
+  billing_type_id: number;
+  image_urls: string[];
+  license_plate: string | null;
+  driver_name: string | null;
+  created_at: string;
+  logistics_number: string | null;
+}
+
 interface ScaleRecordFormProps {
   projects: Project[];
   drivers: Driver[];
   onSuccess: () => void;
+  editingRecord?: ScaleRecord | null;
 }
 
 interface NamingParams {
@@ -37,7 +53,7 @@ interface NamingParams {
   projectName: string;
 }
 
-export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFormProps) {
+export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }: ScaleRecordFormProps) {
   const [formData, setFormData] = useState({
     projectId: '',
     loadingDate: new Date().toISOString().split('T')[0],
@@ -50,6 +66,8 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
   const [uploading, setUploading] = useState(false);
   const [billingTypes, setBillingTypes] = useState<BillingType[]>([]);
   const [availableTrips, setAvailableTrips] = useState<number[]>([]);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const { toast } = useToast();
 
@@ -65,6 +83,32 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
   useEffect(() => {
     loadBillingTypes();
   }, []);
+
+  useEffect(() => {
+    if (editingRecord) {
+      setIsEditMode(true);
+      setFormData({
+        projectId: editingRecord.project_id,
+        loadingDate: editingRecord.loading_date.split('T')[0],
+        licensePlate: editingRecord.license_plate || '',
+        tripNumber: editingRecord.trip_number,
+        validQuantity: editingRecord.valid_quantity?.toString() || '',
+        billingTypeId: editingRecord.billing_type_id.toString(),
+      });
+      setExistingImageUrls(editingRecord.image_urls || []);
+    } else {
+      setIsEditMode(false);
+      setFormData({
+        projectId: '',
+        loadingDate: new Date().toISOString().split('T')[0],
+        licensePlate: '',
+        tripNumber: 1,
+        validQuantity: '',
+        billingTypeId: '1',
+      });
+      setExistingImageUrls([]);
+    }
+  }, [editingRecord]);
 
   useEffect(() => {
     if (formData.projectId) {
@@ -223,35 +267,54 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
       const selectedProject = projects.find(p => p.id === formData.projectId);
       const selectedDriver = projectDrivers.find(d => d.license_plate === formData.licensePlate);
 
-      const imageUrls = await uploadFiles({
-        date: formData.loadingDate,
-        licensePlate: formData.licensePlate,
-        tripNumber: formData.tripNumber,
-        projectName: selectedProject?.name || 'UnknownProject'
-      });
-
-      const { error } = await supabase
-        .from('scale_records')
-        .insert({
-          project_id: formData.projectId,
-          project_name: selectedProject?.name || '',
-          loading_date: formData.loadingDate,
-          trip_number: formData.tripNumber,
-          valid_quantity: formData.validQuantity ? parseFloat(formData.validQuantity) : null,
-          billing_type_id: parseInt(formData.billingTypeId),
-          image_urls: imageUrls,
-          license_plate: formData.licensePlate,
-          driver_name: selectedDriver?.name || null,
+      let imageUrls = existingImageUrls;
+      
+      // 如果有新上传的文件，上传它们
+      if (selectedFiles.length > 0) {
+        const newImageUrls = await uploadFiles({
+          date: formData.loadingDate,
+          licensePlate: formData.licensePlate,
+          tripNumber: formData.tripNumber,
+          projectName: selectedProject?.name || 'UnknownProject'
         });
+        imageUrls = [...existingImageUrls, ...newImageUrls];
+      }
 
-      if (error) throw error;
+      const recordData = {
+        project_id: formData.projectId,
+        project_name: selectedProject?.name || '',
+        loading_date: formData.loadingDate,
+        trip_number: formData.tripNumber,
+        valid_quantity: formData.validQuantity ? parseFloat(formData.validQuantity) : null,
+        billing_type_id: parseInt(formData.billingTypeId),
+        image_urls: imageUrls,
+        license_plate: formData.licensePlate,
+        driver_name: selectedDriver?.name || null,
+      };
+
+      if (isEditMode && editingRecord) {
+        // 更新现有记录
+        const { error } = await supabase
+          .from('scale_records')
+          .update(recordData)
+          .eq('id', editingRecord.id);
+
+        if (error) throw error;
+      } else {
+        // 创建新记录
+        const { error } = await supabase
+          .from('scale_records')
+          .insert(recordData);
+
+        if (error) throw error;
+      }
 
       onSuccess();
     } catch (error) {
       console.error('Error saving record:', error);
       toast({
         title: "错误",
-        description: "保存磅单记录失败",
+        description: isEditMode ? "更新磅单记录失败" : "保存磅单记录失败",
         variant: "destructive",
       });
     } finally {
@@ -377,29 +440,50 @@ export function ScaleRecordForm({ projects, drivers, onSuccess }: ScaleRecordFor
           </Button>
         </div>
 
-        {selectedFiles.length > 0 && (
+        {(selectedFiles.length > 0 || existingImageUrls.length > 0) && (
           <div className="mt-4 space-y-2">
-            <Label>已选择的文件:</Label>
-            {selectedFiles.map((file, index) => (
-              <div key={index} className="flex items-center justify-between p-2 border rounded">
-                <span className="text-sm">{file.name}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeFile(index)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+            {existingImageUrls.length > 0 && (
+              <div>
+                <Label>现有图片:</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {existingImageUrls.map((url, index) => (
+                    <div key={`existing-${index}`} className="relative">
+                      <img 
+                        src={url} 
+                        alt={`现有图片 ${index + 1}`}
+                        className="w-16 h-16 object-cover rounded border"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
+            
+            {selectedFiles.length > 0 && (
+              <div>
+                <Label>新选择的文件:</Label>
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 border rounded">
+                    <span className="text-sm">{file.name}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
 
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={uploading}>
-          {uploading ? '保存中...' : '保存'}
+          {uploading ? (isEditMode ? '更新中...' : '保存中...') : (isEditMode ? '更新' : '保存')}
         </Button>
       </div>
     </form>
