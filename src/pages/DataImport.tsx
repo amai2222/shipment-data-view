@@ -12,87 +12,11 @@ import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { Project } from "@/types";
+import { formatChinaDate, parseExcelDateToChina } from '../utils/dateUtils';
 import { ImportDialog } from '@/pages/BusinessEntry/components/ImportDialog';
 
-// 增强的Excel日期解析函数
-function parseExcelDate(dateValue: any): string {
-  if (!dateValue) throw new Error('日期值为空');
-  
-  const dateStr = String(dateValue).trim();
-  const currentYear = new Date().getFullYear();
-  
-  // 处理中文日期格式
-  if (dateStr.match(/^\d{1,2}月\d{1,2}日$/)) {
-    // 格式: 5月20日
-    const match = dateStr.match(/^(\d{1,2})月(\d{1,2})日$/);
-    if (match) {
-      const month = parseInt(match[1], 10);
-      const day = parseInt(match[2], 10);
-      return `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-    }
-  }
-  
-  if (dateStr.match(/^\d{4}年\d{1,2}月\d{1,2}日$/)) {
-    // 格式: 2025年5月20日
-    const match = dateStr.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
-    if (match) {
-      const year = parseInt(match[1], 10);
-      const month = parseInt(match[2], 10);
-      const day = parseInt(match[3], 10);
-      return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-    }
-  }
-  
-  // 处理简化格式 (使用当前年份)
-  if (dateStr.match(/^\d{1,2}\/\d{1,2}$/)) {
-    // 格式: 5/20
-    const [month, day] = dateStr.split('/').map(n => parseInt(n, 10));
-    return `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-  }
-  
-  if (dateStr.match(/^\d{1,2}-\d{1,2}$/)) {
-    // 格式: 5-20
-    const [month, day] = dateStr.split('-').map(n => parseInt(n, 10));
-    return `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-  }
-  
-  if (dateStr.match(/^\d{1,2}\.\d{1,2}$/)) {
-    // 格式: 5.20
-    const [month, day] = dateStr.split('.').map(n => parseInt(n, 10));
-    return `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-  }
-  
-  // 处理标准格式
-  if (dateStr.match(/^\d{4}\.\d{2}\.\d{2}$/)) {
-    // 格式: 2025.01.21
-    return dateStr.replace(/\./g, '-');
-  }
-  
-  if (dateStr.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
-    // 格式: 21.01.2025
-    const [day, month, year] = dateStr.split('.');
-    return `${year}-${month}-${day}`;
-  }
-  
-  // 处理Excel序列号日期
-  if (typeof dateValue === 'number' && dateValue > 25569) {
-    // Excel日期序列号 (1900年1月1日为1)
-    const excelEpoch = new Date(1900, 0, 1);
-    const date = new Date(excelEpoch.getTime() + (dateValue - 2) * 24 * 60 * 60 * 1000);
-    return format(date, 'yyyy-MM-dd');
-  }
-  
-  // 默认处理 - 尝试直接解析
-  try {
-    const date = new Date(dateValue);
-    if (isNaN(date.getTime())) {
-      throw new Error('无效的日期格式');
-    }
-    return format(date, 'yyyy-MM-dd');
-  } catch (error) {
-    throw new Error(`无法解析日期格式: ${dateStr}`);
-  }
-}
+// 使用统一的日期解析函数（已处理时区问题）
+const parseExcelDate = parseExcelDateToChina;
 
 // 2. 主组件定义
 export default function DataImportWithDuplicateCheck() {
