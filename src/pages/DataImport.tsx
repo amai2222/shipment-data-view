@@ -13,7 +13,7 @@ import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { Project } from "@/types";
 import { formatChinaDate, parseExcelDateToChina } from '../utils/dateUtils';
-import { ImportDialog } from '@/pages/BusinessEntry/components/ImportDialog';
+import { EnhancedImportDialog } from '@/pages/BusinessEntry/components/EnhancedImportDialog';
 
 // 使用统一的日期解析函数（已处理时区问题）
 const parseExcelDate = parseExcelDateToChina;
@@ -28,6 +28,7 @@ export default function DataImportWithDuplicateCheck() {
   const [importStep, setImportStep] = useState<'upload' | 'preview' | 'confirmation' | 'processing'>('upload');
   const [importPreview, setImportPreview] = useState<any>(null);
   const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
+  const [duplicateActions, setDuplicateActions] = useState<Map<number, {action: 'create' | 'update'}>>(new Map());
   const [importLogs, setImportLogs] = useState<string[]>([]);
   const [importLogRef, setImportLogRef] = useState<HTMLDivElement | null>(null);
   const { toast } = useToast();
@@ -336,6 +337,7 @@ export default function DataImportWithDuplicateCheck() {
     setImportStep('upload');
     setImportPreview(null);
     setApprovedDuplicates(new Set());
+    setDuplicateActions(new Map());
     setImportLogs([]);
   };
 
@@ -458,13 +460,15 @@ export default function DataImportWithDuplicateCheck() {
       </div>
 
       {/* 导入对话框 */}
-      <ImportDialog
+      <EnhancedImportDialog
         isOpen={importStep !== 'upload'}
         onClose={closeImportModal}
         importStep={importStep}
         importPreview={importPreview}
         approvedDuplicates={approvedDuplicates}
         setApprovedDuplicates={setApprovedDuplicates}
+        duplicateActions={duplicateActions}
+        setDuplicateActions={setDuplicateActions}
         importLogs={importLogs}
         importLogRef={importLogRef}
         onExecuteImport={executeFinalImport}
