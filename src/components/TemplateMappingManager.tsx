@@ -234,7 +234,7 @@ export default function TemplateMappingManager() {
       const { error } = await supabase
         .from('import_field_mappings')
         .upsert({
-          id: editingField?.id,
+          ...(editingField?.id && { id: editingField.id }), // 只有编辑时才传递ID
           template_id: selectedTemplate.id,
           ...fieldForm
         });
@@ -262,7 +262,7 @@ export default function TemplateMappingManager() {
       const { error } = await supabase
         .from('import_fixed_mappings')
         .upsert({
-          id: editingFixed?.id,
+          ...(editingFixed?.id && { id: editingFixed.id }), // 只有编辑时才传递ID
           template_id: selectedTemplate.id,
           ...fixedForm
         });
@@ -378,14 +378,14 @@ export default function TemplateMappingManager() {
 
   // 新增字段映射
   const handleAddFieldMapping = () => {
-    setEditingField(null);
+    setEditingField({} as FieldMapping); // 设置为空对象而不是null，这样对话框会打开
     resetFieldForm();
     setFieldForm(prev => ({ ...prev, sort_order: fieldMappings.length + 1 }));
   };
 
   // 新增固定映射
   const handleAddFixedMapping = () => {
-    setEditingFixed(null);
+    setEditingFixed({} as FixedMapping); // 设置为空对象而不是null，这样对话框会打开
     resetFixedForm();
   };
 
@@ -663,7 +663,7 @@ export default function TemplateMappingManager() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {editingField ? '编辑字段映射' : '新增字段映射'}
+              {editingField && editingField.id ? '编辑字段映射' : '新增字段映射'}
             </DialogTitle>
             <DialogDescription>
               配置Excel字段到系统字段的映射关系
@@ -749,7 +749,7 @@ export default function TemplateMappingManager() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {editingFixed ? '编辑固定值映射' : '新增固定值映射'}
+              {editingFixed && editingFixed.id ? '编辑固定值映射' : '新增固定值映射'}
             </DialogTitle>
             <DialogDescription>
               为某些字段设置固定值
