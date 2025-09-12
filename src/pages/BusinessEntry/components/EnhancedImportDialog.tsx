@@ -65,6 +65,16 @@ export function EnhancedImportDialog({
     });
   };
 
+  const handleBatchActionChange = (action: 'create' | 'update') => {
+    setDuplicateActions(prev => {
+      const newMap = new Map(prev);
+      approvedDuplicates.forEach(index => {
+        newMap.set(index, { action });
+      });
+      return newMap;
+    });
+  };
+
   const getDuplicateAction = (index: number): 'create' | 'update' => {
     return duplicateActions.get(index)?.action || 'create';
   };
@@ -138,7 +148,7 @@ export function EnhancedImportDialog({
                   </h4>
                   <p className="text-sm text-muted-foreground mb-4">
                     重复判断基于：项目名称、合作链路、司机姓名、车牌号、装货地点、装货日期、装货重量。
-                    请为每条重复记录选择处理方式。
+                    选择要处理的记录后，可批量选择处理方式。
                   </p>
                   
                   <div className="flex items-center space-x-2 p-2 border-b mb-3 bg-white/50 dark:bg-gray-800/50 rounded">
@@ -155,6 +165,47 @@ export function EnhancedImportDialog({
                       全选/全部取消 ({approvedDuplicates.size}/{importPreview.duplicate_records.length})
                     </label>
                   </div>
+
+                  {/* 批量处理方式选择 */}
+                  {approvedDuplicates.size > 0 && (
+                    <div className="p-3 border border-blue-200 rounded-md bg-blue-50 dark:bg-blue-900/20 dark:border-blue-700 mb-3">
+                      <Label className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                        批量处理方式 (已选择 {approvedDuplicates.size} 条记录):
+                      </Label>
+                      <div className="mt-2 flex gap-4">
+                        <div className="flex items-center space-x-2">
+                          <input 
+                            type="radio" 
+                            id="batch-create"
+                            name="batch-action"
+                            value="create"
+                            checked={Array.from(approvedDuplicates).every(index => getDuplicateAction(index) === 'create')}
+                            onChange={() => handleBatchActionChange('create')}
+                            className="h-4 w-4"
+                          />
+                          <Label htmlFor="batch-create" className="text-sm cursor-pointer">
+                            <Plus className="h-4 w-4 inline mr-1" />
+                            全部创建新记录（生成新运单号）
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input 
+                            type="radio" 
+                            id="batch-update"
+                            name="batch-action"
+                            value="update"
+                            checked={Array.from(approvedDuplicates).every(index => getDuplicateAction(index) === 'update')}
+                            onChange={() => handleBatchActionChange('update')}
+                            className="h-4 w-4"
+                          />
+                          <Label htmlFor="batch-update" className="text-sm cursor-pointer">
+                            <RefreshCw className="h-4 w-4 inline mr-1" />
+                            全部更新现有记录（保留运单号，更新其他字段）
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="max-h-64 overflow-y-auto space-y-2">
                     {importPreview.duplicate_records.map((item, index) => (
@@ -186,42 +237,8 @@ export function EnhancedImportDialog({
                             </div>
                             
                             {approvedDuplicates.has(index) && (
-                              <div className="mt-2">
-                                <Label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                                  处理方式:
-                                </Label>
-                                <div className="mt-1 space-y-1">
-                                  <div className="flex items-center space-x-2">
-                                    <input 
-                                      type="radio" 
-                                      id={`create-${index}`}
-                                      name={`action-${index}`}
-                                      value="create"
-                                      checked={getDuplicateAction(index) === 'create'}
-                                      onChange={() => handleDuplicateActionChange(index, 'create')}
-                                      className="h-3 w-3"
-                                    />
-                                    <Label htmlFor={`create-${index}`} className="text-xs cursor-pointer">
-                                      <Plus className="h-3 w-3 inline mr-1" />
-                                      创建新记录（生成新运单号）
-                                    </Label>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <input 
-                                      type="radio" 
-                                      id={`update-${index}`}
-                                      name={`action-${index}`}
-                                      value="update"
-                                      checked={getDuplicateAction(index) === 'update'}
-                                      onChange={() => handleDuplicateActionChange(index, 'update')}
-                                      className="h-3 w-3"
-                                    />
-                                    <Label htmlFor={`update-${index}`} className="text-xs cursor-pointer">
-                                      <RefreshCw className="h-3 w-3 inline mr-1" />
-                                      更新现有记录（保留运单号，更新其他字段）
-                                    </Label>
-                                  </div>
-                                </div>
+                              <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                                处理方式: {getDuplicateAction(index) === 'create' ? '创建新记录' : '更新现有记录'}
                               </div>
                             )}
                           </div>
