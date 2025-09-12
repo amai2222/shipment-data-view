@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { 
   FileUp, 
@@ -20,6 +21,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Project } from "@/types";
 import { EnhancedImportDialog } from '@/pages/BusinessEntry/components/EnhancedImportDialog';
 import { useExcelImport } from '@/pages/BusinessEntry/hooks/useExcelImport';
+import TemplateMappingManager from '@/components/TemplateMappingManager';
+import TemplateBasedImport from '@/components/TemplateBasedImport';
 import * as XLSX from 'xlsx';
 
 export default function WaybillMaintenance() {
@@ -30,6 +33,7 @@ export default function WaybillMaintenance() {
   const [waybillCount, setWaybillCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping'>('standard');
 
   // Excel导入相关状态
   const { 
@@ -200,7 +204,17 @@ export default function WaybillMaintenance() {
               </AlertDescription>
             </Alert>
 
-            {/* 项目筛选器 */}
+            {/* 标签页 */}
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="standard">标准导入</TabsTrigger>
+                <TabsTrigger value="template">模板导入</TabsTrigger>
+                <TabsTrigger value="mapping">模板管理</TabsTrigger>
+              </TabsList>
+
+              {/* 标准导入标签页 */}
+              <TabsContent value="standard" className="space-y-6">
+                {/* 项目筛选器 */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4" />
@@ -329,17 +343,29 @@ export default function WaybillMaintenance() {
               </div>
             </div>
 
-            {/* 危险操作警告 */}
-            {selectedProject && waybillCount > 0 && (
-              <Alert className="border-red-200 bg-red-50">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>危险操作警告</AlertTitle>
-                <AlertDescription>
-                  删除操作将永久移除项目 "{selectedProject}" 下的所有 {waybillCount} 条运单记录及其相关数据。
-                  此操作不可撤销，请谨慎操作！
-                </AlertDescription>
-              </Alert>
-            )}
+                {/* 危险操作警告 */}
+                {selectedProject && waybillCount > 0 && (
+                  <Alert className="border-red-200 bg-red-50">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>危险操作警告</AlertTitle>
+                    <AlertDescription>
+                      删除操作将永久移除项目 "{selectedProject}" 下的所有 {waybillCount} 条运单记录及其相关数据。
+                      此操作不可撤销，请谨慎操作！
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </TabsContent>
+
+              {/* 模板导入标签页 */}
+              <TabsContent value="template" className="space-y-6">
+                <TemplateBasedImport />
+              </TabsContent>
+
+              {/* 模板管理标签页 */}
+              <TabsContent value="mapping" className="space-y-6">
+                <TemplateMappingManager />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

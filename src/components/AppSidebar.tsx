@@ -85,6 +85,13 @@ const menuItems = [
     ]
   },
   {
+    title: "数据维护",
+    icon: Database,
+    items: [
+      { title: "运单维护", url: "/data-maintenance/waybill", icon: Truck },
+    ]
+  },
+  {
     title: "设置",
     icon: Settings,
     items: [
@@ -136,6 +143,8 @@ export function AppSidebar() {
         menuKey = 'finance.reconciliation';
       } else if (item.url === '/finance/payment-invoice') {
         menuKey = 'finance.payment_invoice';
+      } else if (item.url === '/data-maintenance/waybill') {
+        menuKey = 'data_maintenance.waybill';
       } else if (item.url === '/settings/users') {
         menuKey = 'settings.users';
       } else if (item.url === '/settings/permissions') {
