@@ -38,6 +38,7 @@ import AuditLogs from "./pages/Settings/AuditLogs";
 import MobileAuditLogs from "./pages/mobile/MobileAuditLogs";
 import ScaleRecords from "./pages/ScaleRecords";
 import ContractManagement from "./pages/ContractManagement";
+import WaybillMaintenance from "./pages/DataMaintenance/WaybillMaintenance";
 
 // ★★★ 1. 导入我们新创建的两个页面 ★★★
 import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
@@ -215,6 +216,12 @@ const App = () => (
             <Route path="/contracts" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
                 <AppLayout><ContractManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/data-maintenance/waybill" element={
+              <ProtectedRoute requiredRoles={['admin', 'operator']}>
+                <AppLayout><WaybillMaintenance /></AppLayout>
               </ProtectedRoute>
             } />
             

@@ -103,6 +103,16 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     ]
   },
   {
+    group: '数据维护',
+    key: 'data_maintenance',
+    label: '数据维护',
+    icon: 'Database',
+    children: [
+      { key: 'data_maintenance.waybill', label: '运单维护', url: '/data-maintenance/waybill', icon: 'Truck', group: '数据维护' }
+    ],
+    requiredRoles: ['admin', 'operator']
+  },
+  {
     group: '设置',
     key: 'settings',
     label: '设置',
@@ -260,6 +270,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'contracts', 'contracts.list', 'contracts.create', 'contracts.edit', 'contracts.delete', 'contracts.files', 'contracts.permissions', 'contracts.audit', 'contracts.reminders', 'contracts.tags', 'contracts.numbering',
       // 财务对账
       'finance', 'finance.reconciliation', 'finance.payment_invoice',
+      // 数据维护
+      'data_maintenance', 'data_maintenance.waybill',
       // 设置
       'settings', 'settings.users', 'settings.permissions', 'settings.integrated', 'settings.audit_logs'
     ],
@@ -329,7 +341,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
     menu_permissions: [
       'dashboard', 'dashboard.transport',
       'maintenance', 'maintenance.drivers', 'maintenance.locations',
-      'business', 'business.entry', 'business.scale'
+      'business', 'business.entry', 'business.scale',
+      'data_maintenance', 'data_maintenance.waybill'
     ],
     function_permissions: [
       'data', 'data.create',
