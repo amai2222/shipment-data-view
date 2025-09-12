@@ -1,0 +1,64 @@
+name: Deploy to Servers
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build project
+      run: npm run build
+      env:
+        VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        
+    - name: Deploy to Google Cloud
+      if: github.ref == 'refs/heads/main'
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.GOOGLE_CLOUD_HOST }}
+        username: ${{ secrets.GOOGLE_CLOUD_USER }}
+        key: ${{ secrets.GOOGLE_CLOUD_SSH_KEY }}
+        script: |
+          cd /var/www/shipment-data-view
+          git pull origin main
+          npm ci --production
+          npm run build
+          rm -rf /var/www/html/*
+          cp -r dist/* /var/www/html/
+          sudo systemctl reload nginx
+          echo "Google Cloud deployment completed"
+          
+    - name: Deploy to Tencent Cloud
+      if: github.ref == 'refs/heads/main'
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.TENCENT_CLOUD_HOST }}
+        username: ${{ secrets.TENCENT_CLOUD_USER }}
+        key: ${{ secrets.TENCENT_CLOUD_SSH_KEY }}
+        script: |
+          cd /var/www/shipment-data-view
+          git pull origin main
+          npm ci --production
+          npm run build
+          rm -rf /var/www/html/*
+          cp -r dist/* /var/www/html/
+          sudo systemctl reload nginx
+          echo "Tencent Cloud deployment completed"
