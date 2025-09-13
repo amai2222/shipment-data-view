@@ -1,117 +1,7 @@
--- 创建支持更新模式的运单导入函数
--- 此函数支持根据运单号更新现有记录，而不是创建新记录
+-- 修复更新模式导入错误报告功能
+-- 添加详细的错误信息返回
 
--- 1. 创建更新模式的预览函数
-CREATE OR REPLACE FUNCTION public.preview_import_with_update_mode(p_records jsonb)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-    new_records_json jsonb := '[]'::jsonb;
-    update_records_json jsonb := '[]'::jsonb;
-    error_records_json jsonb := '[]'::jsonb;
-    record_data jsonb;
-    existing_record_id uuid;
-    existing_auto_number text;
-    is_duplicate boolean;
-    processed_record jsonb;
-BEGIN
-    -- 遍历每条记录
-    FOR record_data IN SELECT * FROM jsonb_array_elements(p_records)
-    LOOP
-        BEGIN
-            -- 1. 基本字段验证
-            IF NOT (record_data ? 'project_name' AND record_data ? 'driver_name' AND 
-                   record_data ? 'license_plate' AND record_data ? 'loading_location' AND 
-                   record_data ? 'unloading_location' AND record_data ? 'loading_date' AND 
-                   record_data ? 'loading_weight') THEN
-                error_records_json := error_records_json || jsonb_build_object(
-                    'record', record_data,
-                    'error', '缺少必填字段'
-                );
-                CONTINUE;
-            END IF;
-
-            -- 2. 检查是否存在重复记录（基于8个关键字段）
-            SELECT 
-                lr.id,
-                lr.auto_number,
-                CASE WHEN EXISTS (
-                    SELECT 1 FROM public.logistics_records lr2
-                    WHERE lr2.project_name = TRIM(record_data->>'project_name')
-                    AND lr2.driver_name = TRIM(record_data->>'driver_name')
-                    AND lr2.license_plate = TRIM(record_data->>'license_plate')
-                    AND lr2.loading_location = TRIM(record_data->>'loading_location')
-                    AND lr2.unloading_location = TRIM(record_data->>'unloading_location')
-                    AND lr2.loading_date = (record_data->>'loading_date')::timestamptz
-                    AND lr2.loading_weight = (record_data->>'loading_weight')::numeric
-                    AND lr2.id != lr.id
-                ) THEN true ELSE false END
-            INTO existing_record_id, existing_auto_number, is_duplicate
-            FROM public.logistics_records lr
-            WHERE lr.project_name = TRIM(record_data->>'project_name')
-            AND lr.driver_name = TRIM(record_data->>'driver_name')
-            AND lr.license_plate = TRIM(record_data->>'license_plate')
-            AND lr.loading_location = TRIM(record_data->>'loading_location')
-            AND lr.unloading_location = TRIM(record_data->>'unloading_location')
-            AND lr.loading_date = (record_data->>'loading_date')::timestamptz
-            AND lr.loading_weight = (record_data->>'loading_weight')::numeric
-            LIMIT 1;
-
-            -- 3. 构建处理后的记录，包含所有字段
-            processed_record := jsonb_build_object(
-                'project_name', TRIM(record_data->>'project_name'),
-                'chain_name', TRIM(record_data->>'chain_name'),
-                'driver_name', TRIM(record_data->>'driver_name'),
-                'license_plate', TRIM(record_data->>'license_plate'),
-                'driver_phone', TRIM(record_data->>'driver_phone'),
-                'loading_location', TRIM(record_data->>'loading_location'),
-                'unloading_location', TRIM(record_data->>'unloading_location'),
-                'loading_date', record_data->>'loading_date',
-                'unloading_date', record_data->>'unloading_date',
-                'loading_weight', record_data->>'loading_weight',
-                'unloading_weight', record_data->>'unloading_weight',
-                'current_cost', record_data->>'current_cost',
-                'extra_cost', record_data->>'extra_cost',
-                'transport_type', record_data->>'transport_type',
-                'remarks', record_data->>'remarks',
-                'external_tracking_numbers', record_data->'external_tracking_numbers',
-                'other_platform_names', record_data->'other_platform_names'
-            );
-
-            -- 4. 分类记录
-            IF existing_record_id IS NOT NULL THEN
-                -- 存在重复记录，标记为更新
-                update_records_json := update_records_json || jsonb_build_object(
-                    'record', processed_record,
-                    'existing_record_id', existing_record_id,
-                    'existing_auto_number', existing_auto_number
-                );
-            ELSE
-                -- 不存在重复记录，标记为新记录
-                new_records_json := new_records_json || jsonb_build_object('record', processed_record);
-            END IF;
-
-        EXCEPTION WHEN OTHERS THEN
-            error_records_json := error_records_json || jsonb_build_object(
-                'record', record_data,
-                'error', SQLERRM
-            );
-        END;
-    END LOOP;
-
-    -- 5. 返回分类结果
-    RETURN jsonb_build_object(
-        'new_records', new_records_json,
-        'update_records', update_records_json,
-        'error_records', error_records_json
-    );
-END;
-$$;
-
--- 2. 创建更新模式的导入函数
+-- 1. 更新 batch_import_logistics_records_with_update 函数
 CREATE OR REPLACE FUNCTION public.batch_import_logistics_records_with_update(
     p_records jsonb,
     p_update_mode boolean DEFAULT false
@@ -150,25 +40,10 @@ BEGIN
             LIMIT 1;
 
             IF project_id_val IS NULL THEN
-                RAISE EXCEPTION '项目不存在: %', record_data->>'project_name';
+                RAISE EXCEPTION '项目不存在: %', TRIM(record_data->>'project_name');
             END IF;
 
-            -- 2. 获取或创建合作链路
-            IF record_data->>'chain_name' IS NOT NULL AND TRIM(record_data->>'chain_name') != '' THEN
-                SELECT id INTO chain_id_val
-                FROM public.partner_chains 
-                WHERE name = TRIM(record_data->>'chain_name')
-                AND project_id = project_id_val
-                LIMIT 1;
-
-                IF chain_id_val IS NULL THEN
-                    INSERT INTO public.partner_chains (name, project_id, user_id)
-                    VALUES (TRIM(record_data->>'chain_name'), project_id_val, auth.uid())
-                    RETURNING id INTO chain_id_val;
-                END IF;
-            END IF;
-
-            -- 3. 获取或创建司机
+            -- 2. 获取或创建司机
             SELECT id INTO driver_id_val
             FROM public.drivers 
             WHERE name = TRIM(record_data->>'driver_name')
@@ -186,18 +61,40 @@ BEGIN
                 RETURNING id INTO driver_id_val;
             END IF;
 
-            -- 4. 检查是否存在重复记录
-            SELECT id INTO existing_record_id
-            FROM public.logistics_records
-            WHERE project_name = TRIM(record_data->>'project_name')
-            AND driver_name = TRIM(record_data->>'driver_name')
-            AND license_plate = TRIM(record_data->>'license_plate')
-            AND loading_location = TRIM(record_data->>'loading_location')
-            AND unloading_location = TRIM(record_data->>'unloading_location')
-            AND loading_date = (record_data->>'loading_date')::timestamptz
-            AND loading_weight = (record_data->>'loading_weight')::numeric;
+            -- 3. 获取或创建地点
+            PERFORM public.get_or_create_locations_from_string(
+                TRIM(record_data->>'loading_location') || '|' || TRIM(record_data->>'unloading_location')
+            );
 
-            IF existing_record_id IS NOT NULL AND p_update_mode THEN
+            -- 4. 获取合作链路ID
+            chain_id_val := NULL;
+            IF record_data->>'chain_name' IS NOT NULL AND TRIM(record_data->>'chain_name') != '' THEN
+                SELECT id INTO chain_id_val
+                FROM public.partner_chains 
+                WHERE project_id = project_id_val 
+                AND chain_name = TRIM(record_data->>'chain_name')
+                LIMIT 1;
+            END IF;
+
+            -- 5. 检查是否存在重复记录（仅用于更新模式）
+            IF p_update_mode THEN
+                SELECT 
+                    lr.id,
+                    lr.auto_number
+                INTO existing_record_id, auto_number_val
+                FROM public.logistics_records lr
+                WHERE lr.project_name = TRIM(record_data->>'project_name')
+                AND lr.driver_name = TRIM(record_data->>'driver_name')
+                AND lr.license_plate = TRIM(record_data->>'license_plate')
+                AND lr.loading_location = TRIM(record_data->>'loading_location')
+                AND lr.unloading_location = TRIM(record_data->>'unloading_location')
+                AND lr.loading_date = (record_data->>'loading_date')::timestamptz
+                AND lr.loading_weight = (record_data->>'loading_weight')::numeric
+                LIMIT 1;
+            END IF;
+
+            -- 6. 执行更新或插入
+            IF p_update_mode AND existing_record_id IS NOT NULL THEN
                 -- 更新模式：更新现有记录
                 UPDATE public.logistics_records SET
                     project_id = project_id_val,
@@ -302,9 +199,57 @@ BEGIN
 END;
 $$;
 
--- 3. 为函数添加注释
-COMMENT ON FUNCTION public.preview_import_with_update_mode(jsonb) IS '预览导入数据，支持更新模式分类';
-COMMENT ON FUNCTION public.batch_import_logistics_records_with_update(jsonb, boolean) IS '批量导入运单记录，支持更新模式';
+-- 2. 添加函数注释
+COMMENT ON FUNCTION public.batch_import_logistics_records_with_update(jsonb, boolean) IS '批量导入运单记录，支持更新模式，返回详细错误信息';
 
--- 4. 完成提示
-SELECT '更新模式导入函数创建完成！' as message;
+-- 3. 创建测试函数
+CREATE OR REPLACE FUNCTION public.test_update_import_error_reporting()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    test_records jsonb;
+    result jsonb;
+BEGIN
+    RAISE NOTICE '=== 测试更新模式导入错误报告功能 ===';
+    
+    -- 创建测试数据（包含错误数据）
+    test_records := jsonb_build_array(
+        jsonb_build_object(
+            'project_name', '不存在的项目',
+            'driver_name', '测试司机1',
+            'license_plate', '京A12345',
+            'loading_location', '北京仓库',
+            'unloading_location', '上海仓库',
+            'loading_date', '2025-01-20T00:00:00Z',
+            'loading_weight', '25.5',
+            'current_cost', '1000',
+            'extra_cost', '100'
+        )
+    );
+    
+    -- 测试更新模式导入
+    result := public.batch_import_logistics_records_with_update(test_records, true);
+    
+    -- 显示结果
+    RAISE NOTICE '导入结果:';
+    RAISE NOTICE '  成功数量: %', result->>'success_count';
+    RAISE NOTICE '  失败数量: %', result->>'error_count';
+    RAISE NOTICE '  创建数量: %', result->>'inserted_count';
+    RAISE NOTICE '  更新数量: %', result->>'updated_count';
+    
+    -- 显示错误详情
+    IF (result->>'error_count')::integer > 0 THEN
+        RAISE NOTICE '错误详情:';
+        RAISE NOTICE '%', result->'error_details';
+    END IF;
+    
+    RAISE NOTICE '=== 测试完成 ===';
+END;
+$$;
+
+-- 4. 执行测试
+SELECT public.test_update_import_error_reporting();
+
+-- 5. 清理测试函数
+DROP FUNCTION public.test_update_import_error_reporting();

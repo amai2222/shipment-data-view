@@ -227,6 +227,18 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
         addLog(`其中创建: ${insertedCount} 条，更新: ${updatedCount} 条`);
 
         if (errorCount > 0) {
+          // 显示详细错误信息
+          const errorDetails = result.error_details || [];
+          addLog(`详细错误信息:`);
+          errorDetails.forEach((error: any, index: number) => {
+            addLog(`  记录 ${error.record_index}: ${error.error_message}`);
+            if (error.record_data) {
+              addLog(`    项目: ${error.record_data.project_name || 'N/A'}`);
+              addLog(`    司机: ${error.record_data.driver_name || 'N/A'}`);
+              addLog(`    车牌: ${error.record_data.license_plate || 'N/A'}`);
+            }
+          });
+          
           toast({
             title: `导入部分完成`,
             description: `成功导入 ${successCount} 条，失败 ${errorCount} 条。详情请查看导入日志。`,
