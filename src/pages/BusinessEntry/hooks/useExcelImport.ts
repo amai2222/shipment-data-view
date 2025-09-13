@@ -61,27 +61,11 @@ export function useExcelImport(onImportSuccess: () => void) {
         
         if (rowData['其他平台名称'] || rowData['其他平台运单号']) {
           const platformNames = rowData['其他平台名称']?.toString().split(',').map((name: string) => name.trim()).filter((name: string) => name) || [];
-          const platformTrackingGroups = rowData['其他平台运单号']?.toString().split(',').map((group: string) => group.trim()).filter((group: string) => group) || [];
+          const trackingNumbers = rowData['其他平台运单号']?.toString().split(',').map((tn: string) => tn.trim()).filter((tn: string) => tn) || [];
           
-          // 处理外部运单号（JSONB格式）
-          const trackingNumbers = [];
-          for (let i = 0; i < platformNames.length; i++) {
-            const platformName = platformNames[i];
-            const trackingGroup = platformTrackingGroups[i] || '';
-            const trackingNumbersList = trackingGroup ? trackingGroup.split('|').map((tn: string) => tn.trim()).filter((tn: string) => tn) : [];
-            
-            if (platformName && trackingNumbersList.length > 0) {
-              trackingNumbersList.forEach(trackingNumber => {
-                trackingNumbers.push({
-                  platform: platformName,
-                  tracking_number: trackingNumber,
-                  status: 'pending',
-                  created_at: new Date().toISOString()
-                });
-              });
-            }
-          }
-          
+          // 处理外部运单号（JSONB字符串数组格式）
+          // Excel格式：2021615278|2021615821
+          // 数据库格式：["2021615278|2021615821"]
           if (trackingNumbers.length > 0) {
             externalTrackingNumbers = trackingNumbers;
           }

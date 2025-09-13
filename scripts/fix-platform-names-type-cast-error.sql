@@ -30,6 +30,7 @@ DECLARE
     update_result record;
     effective_billing_type_id bigint;
     v_other_platform_names text[];
+    v_external_tracking_numbers text[];
 BEGIN
     -- 处理每条记录
     FOR record_data IN SELECT * FROM jsonb_array_elements(p_records)
@@ -100,21 +101,37 @@ BEGIN
                 RETURNING id INTO driver_id_val;
             END IF;
 
-            -- 4. 处理 other_platform_names 字段（修正类型转换）
-            v_other_platform_names := '{}'::text[];
-            IF record_data->'other_platform_names' IS NOT NULL THEN
-                -- 将 jsonb 数组转换为 text[] 数组
-                SELECT array_agg(value::text) INTO v_other_platform_names
-                FROM jsonb_array_elements_text(record_data->'other_platform_names')
-                WHERE value::text != '';
-                
-                -- 如果转换后为空，设置为空数组
-                IF v_other_platform_names IS NULL THEN
-                    v_other_platform_names := '{}'::text[];
-                END IF;
-            END IF;
+             -- 4. 处理 other_platform_names 字段（修正类型转换）
+             v_other_platform_names := '{}'::text[];
+             IF record_data->'other_platform_names' IS NOT NULL THEN
+                 -- 将 jsonb 数组转换为 text[] 数组
+                 SELECT array_agg(value::text) INTO v_other_platform_names
+                 FROM jsonb_array_elements_text(record_data->'other_platform_names')
+                 WHERE value::text != '';
+                 
+                 -- 如果转换后为空，设置为空数组
+                 IF v_other_platform_names IS NULL THEN
+                     v_other_platform_names := '{}'::text[];
+                 END IF;
+             END IF;
 
-            -- 5. 检查是否存在重复记录
+             -- 5. 处理 external_tracking_numbers 字段（存储为TEXT[]数组，每个元素可能包含|分隔的多个运单号）
+             v_external_tracking_numbers := '{}'::text[];
+             IF record_data->'external_tracking_numbers' IS NOT NULL THEN
+                 -- 将 jsonb 数组转换为 text[] 数组
+                 -- Excel格式：2021615278|2021615821
+                 -- 数据库格式：{"2021615278|2021615821"} (TEXT[]数组)
+                 SELECT array_agg(value::text) INTO v_external_tracking_numbers
+                 FROM jsonb_array_elements_text(record_data->'external_tracking_numbers')
+                 WHERE value::text != '';
+                 
+                 -- 如果转换后为空，设置为空数组
+                 IF v_external_tracking_numbers IS NULL THEN
+                     v_external_tracking_numbers := '{}'::text[];
+                 END IF;
+             END IF;
+
+            -- 6. 检查是否存在重复记录
             SELECT id INTO existing_record_id
             FROM public.logistics_records
             WHERE project_name = TRIM(record_data->>'project_name')
@@ -150,8 +167,7 @@ BEGIN
                                      THEN (record_data->>'extra_cost')::numeric ELSE 0 END,
                     transport_type = COALESCE(TRIM(record_data->>'transport_type'), '实际运输'),
                     remarks = TRIM(record_data->>'remarks'),
-                    external_tracking_numbers = CASE WHEN record_data->'external_tracking_numbers' IS NOT NULL 
-                                                     THEN record_data->'external_tracking_numbers' ELSE '[]'::jsonb END,
+                    external_tracking_numbers = v_external_tracking_numbers,
                     other_platform_names = v_other_platform_names
                 WHERE id = existing_record_id
                 RETURNING id INTO update_result.id;
@@ -192,8 +208,7 @@ BEGIN
                     auth.uid(),
                     chain_id_val,
                     effective_billing_type_id,
-                    CASE WHEN record_data->'external_tracking_numbers' IS NOT NULL 
-                         THEN record_data->'external_tracking_numbers' ELSE '[]'::jsonb END,
+                    v_external_tracking_numbers,
                     v_other_platform_names
                 )
                 RETURNING id INTO inserted_record_id;

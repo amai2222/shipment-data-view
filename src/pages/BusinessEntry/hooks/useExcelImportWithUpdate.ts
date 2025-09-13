@@ -129,15 +129,13 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
         }
 
         if (rowData['其他平台运单号']) {
-          const trackingNumbers = String(rowData['其他平台运单号']).split(',').map((tracking: string) => {
-            const parts = tracking.trim().split('|');
-            return {
-              platform: parts[0]?.trim() || '未知平台',
-              tracking_number: parts[1]?.trim() || parts[0]?.trim() || '',
-              status: 'pending',
-              created_at: new Date().toISOString()
-            };
-          }).filter((item: any) => item.tracking_number);
+          // 处理运单号：同一平台的多个运单号用|分隔，存储为TEXT[]数组
+          // Excel格式：2021615278|2021615821
+          // 数据库格式：{"2021615278|2021615821"} (TEXT[]数组)
+          const trackingNumbers = String(rowData['其他平台运单号'])
+            .split(',')
+            .map((tracking: string) => tracking.trim())
+            .filter((tracking: string) => tracking);
           rowData['external_tracking_numbers'] = trackingNumbers;
         }
 
