@@ -63,5 +63,14 @@ export function useExcelImportWithUpdate(onSuccess?: () => void) {
     resetImport,
     performImport,
     setUpdateMode,
+    // 添加缺失的属性
+    isImportModalOpen,
+    importMode,
+    setImportMode,
+    importLogs,
+    importLogRef,
+    handleExcelImport: handleFileSelect,
+    executeFinalImport: performImport,
+    closeImportModal: resetImport,
   };
 }

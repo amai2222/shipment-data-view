@@ -25,6 +25,9 @@ export function useAuditLogs() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const loadAuditLogs = async (filters?: {
     startDate?: string;
@@ -84,11 +87,39 @@ export function useAuditLogs() {
     loadAuditLogs();
   }, []);
 
+  // 获取操作选项
+  const getActionOptions = useCallback(() => {
+    return [
+      { value: 'create', label: '创建' },
+      { value: 'update', label: '更新' },
+      { value: 'delete', label: '删除' },
+      { value: 'view', label: '查看' },
+      { value: 'export', label: '导出' },
+      { value: 'import', label: '导入' }
+    ];
+  }, []);
+
+  // 获取权限类型选项
+  const getPermissionTypeOptions = useCallback(() => {
+    return [
+      { value: 'menu', label: '菜单权限' },
+      { value: 'function', label: '功能权限' },
+      { value: 'project', label: '项目权限' },
+      { value: 'data', label: '数据权限' }
+    ];
+  }, []);
+
   return {
     auditLogs,
     loading,
     error,
     loadAuditLogs,
-    createAuditLog
+    createAuditLog,
+    totalCount,
+    page,
+    setPage,
+    pageSize,
+    getActionOptions,
+    getPermissionTypeOptions
   };
 }

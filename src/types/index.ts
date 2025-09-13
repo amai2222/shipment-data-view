@@ -11,6 +11,10 @@ export interface Project {
   plannedTotalTons?: number;
   financeManager?: string;
   createdAt: string;
+  // 添加缺失的字段
+  projectStatus?: string;
+  cargoType?: string;
+  effectiveQuantityType?: 'min_value' | 'loading' | 'unloading';
 }
 
 // 司机数据类型

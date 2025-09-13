@@ -229,7 +229,7 @@ export default function WaybillMaintenance() {
                         <div className="flex items-center gap-2">
                           <span>{project.name}</span>
                           <Badge variant="outline" className="text-xs">
-                            {project.project_status || '进行中'}
+                            {project.projectStatus || '进行中'}
                           </Badge>
                         </div>
                       </SelectItem>
