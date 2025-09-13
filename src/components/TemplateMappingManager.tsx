@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export function TemplateMappingManager() {
+export default function TemplateMappingManager() {
   return (
     <Card>
       <CardHeader>

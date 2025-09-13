@@ -987,7 +987,7 @@ export function IntegratedUserPermissionManager() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setEditingRole(role);
+                          setEditingRole(role as 'operator' | 'admin' | 'finance' | 'business' | 'partner' | 'viewer');
                           setShowRoleTemplateDialog(true);
                         }}
                       >
@@ -1059,7 +1059,7 @@ export function IntegratedUserPermissionManager() {
                   value={editingUser.role}
                   onValueChange={(value) => setEditingUser({
                     ...editingUser,
-                    role: value
+                    role: value as 'operator' | 'admin' | 'finance' | 'business' | 'partner' | 'viewer'
                   })}
                 >
                   <SelectTrigger>

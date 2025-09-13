@@ -156,7 +156,7 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">合作链路</Label>
-                  <p className="text-sm">{record.chain_name || '默认'}</p>
+                  <p className="text-sm">{record.chain_id || '默认'}</p>
                 </div>
               </div>
             </div>

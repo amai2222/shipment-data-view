@@ -147,6 +147,7 @@ export interface ExternalTrackingNumber {
   tracking_number: string;
   status: 'pending' | 'in_transit' | 'completed' | 'cancelled';
   remarks?: string;
+  created_at?: string;
 }
 
 // Add import template types

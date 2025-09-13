@@ -1,40 +1,42 @@
-// 权限系统配置
+// 权限管理配置文件
 
-import { MenuPermission, FunctionPermission, ProjectPermission, DataPermission, UserRole, MenuPermissionItem, FunctionPermissionItem, ProjectPermissionItem, DataPermissionItem } from '@/types/permissions';
+export interface MenuPermission {
+  key: string;
+  label: string;
+  title: string;
+  url?: string;
+  icon: string;
+  group: string;
+  children?: MenuPermission[];
+}
 
-// 角色定义
-export const ROLES: Record<UserRole, { label: string; color: string; description: string }> = {
-  admin: {
-    label: '系统管理员',
-    color: 'bg-red-500',
-    description: '拥有系统所有权限，可以管理用户和权限'
-  },
-  finance: {
-    label: '财务人员',
-    color: 'bg-blue-500',
-    description: '负责财务相关操作，包括付款审批、发票管理等'
-  },
-  business: {
-    label: '业务人员',
-    color: 'bg-green-500',
-    description: '负责业务管理，包括项目管理、合同管理等'
-  },
-  operator: {
-    label: '操作员',
-    color: 'bg-yellow-500',
-    description: '负责日常操作，包括数据录入、磅单管理等'
-  },
-  partner: {
-    label: '合作方',
-    color: 'bg-purple-500',
-    description: '外部合作伙伴，只能查看相关数据'
-  },
-  viewer: {
-    label: '查看者',
-    color: 'bg-gray-500',
-    description: '只能查看数据，不能进行任何修改操作'
-  }
-};
+export interface FunctionPermission {
+  key: string;
+  label: string;
+  title: string;
+  description: string;
+  group: string;
+}
+
+export interface ButtonPermission {
+  key: string;
+  label: string;
+  title: string;
+  description: string;
+  group: string;
+}
+
+export interface ProjectPermission {
+  key: string;
+  label: string;
+  title: string;
+  description: string;
+  group: string;
+  projectId?: string;
+}
+
+// 所有角色类型定义
+export type UserRole = 'admin' | 'finance' | 'business' | 'operator' | 'partner' | 'viewer';
 
 // 菜单权限配置
 export const MENU_PERMISSIONS: MenuPermission[] = [
@@ -42,355 +44,300 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     group: '数据看板',
     key: 'dashboard',
     label: '数据看板',
+    title: '数据看板',
     icon: 'BarChart3',
     children: [
-      { key: 'dashboard.transport', label: '运输看板', url: '/dashboard/transport', icon: 'Truck', group: '数据看板' },
-      { key: 'dashboard.financial', label: '财务看板', url: '/dashboard/financial', icon: 'DollarSign', group: '数据看板' },
-      { key: 'dashboard.project', label: '项目看板', url: '/dashboard/project', icon: 'PieChart', group: '数据看板' },
-      { key: 'dashboard.quantity', label: '数量概览', url: '/quantity-overview', icon: 'Package', group: '数据看板' }
+      { key: 'dashboard.transport', label: '运输看板', title: '运输看板', url: '/dashboard/transport', icon: 'Truck', group: '数据看板' },
+      { key: 'dashboard.financial', label: '财务看板', title: '财务看板', url: '/dashboard/financial', icon: 'DollarSign', group: '数据看板' },
+      { key: 'dashboard.project', label: '项目看板', title: '项目看板', url: '/dashboard/project', icon: 'PieChart', group: '数据看板' },
+      { key: 'dashboard.quantity', label: '数量概览', title: '数量概览', url: '/quantity-overview', icon: 'Package', group: '数据看板' }
     ]
   },
   {
     group: '信息维护',
     key: 'maintenance',
     label: '信息维护',
+    title: '信息维护',
     icon: 'Database',
     children: [
-      { key: 'maintenance.projects', label: '项目管理', url: '/projects', icon: 'Package', group: '信息维护' },
-      { key: 'maintenance.drivers', label: '司机管理', url: '/drivers', icon: 'Truck', group: '信息维护' },
-      { key: 'maintenance.locations', label: '地点管理', url: '/locations', icon: 'MapPin', group: '信息维护' },
-      { key: 'maintenance.partners', label: '合作方管理', url: '/partners', icon: 'Users', group: '信息维护' }
+      { key: 'maintenance.projects', label: '项目管理', title: '项目管理', url: '/projects', icon: 'Package', group: '信息维护' },
+      { key: 'maintenance.drivers', label: '司机管理', title: '司机管理', url: '/drivers', icon: 'Truck', group: '信息维护' },
+      { key: 'maintenance.partners', label: '合作方管理', title: '合作方管理', url: '/partners', icon: 'Users', group: '信息维护' },
+      { key: 'maintenance.locations', label: '地点管理', title: '地点管理', url: '/locations', icon: 'MapPin', group: '信息维护' }
     ]
   },
   {
-    group: '业务管理',
+    group: '业务录入',
     key: 'business',
-    label: '业务管理',
+    label: '业务录入',
+    title: '业务录入',
     icon: 'FileText',
     children: [
-      { key: 'business.entry', label: '运单管理', url: '/business-entry', icon: 'Plus', group: '业务管理' },
-      { key: 'business.scale', label: '磅单管理', url: '/scale-records', icon: 'Weight', group: '业务管理' },
-      { key: 'business.payment_request', label: '付款申请', url: '/payment-request', icon: 'DollarSign', group: '业务管理' },
-      { key: 'business.payment_requests', label: '申请单管理', url: '/payment-requests-list', icon: 'ClipboardList', group: '业务管理' }
+      { key: 'business.entry', label: '运单录入', title: '运单录入', url: '/business-entry', icon: 'Plus', group: '业务录入' },
+      { key: 'business.import', label: '数据导入', title: '数据导入', url: '/data-import', icon: 'Upload', group: '业务录入' },
+      { key: 'business.maintenance', label: '运单维护', title: '运单维护', url: '/waybill-maintenance', icon: 'Edit', group: '业务录入' },
+      { key: 'business.scale', label: '磅单管理', title: '磅单管理', url: '/scale-records', icon: 'Scale', group: '业务录入' }
     ]
   },
   {
-    group: '合同管理',
-    key: 'contracts',
-    label: '合同管理',
-    icon: 'FileText',
-    children: [
-      { key: 'contracts.list', label: '合同列表', url: '/contracts', icon: 'FileText', group: '合同管理' },
-      { key: 'contracts.create', label: '新增合同', url: '/contracts', icon: 'Plus', group: '合同管理' },
-      { key: 'contracts.edit', label: '编辑合同', url: '/contracts', icon: 'Edit', group: '合同管理' },
-      { key: 'contracts.delete', label: '删除合同', url: '/contracts', icon: 'Trash2', group: '合同管理' },
-      { key: 'contracts.files', label: '文件管理', url: '/contracts', icon: 'File', group: '合同管理' },
-      { key: 'contracts.permissions', label: '权限管理', url: '/contracts', icon: 'Shield', group: '合同管理' },
-      { key: 'contracts.audit', label: '审计日志', url: '/contracts', icon: 'History', group: '合同管理' },
-      { key: 'contracts.reminders', label: '提醒管理', url: '/contracts', icon: 'Bell', group: '合同管理' },
-      { key: 'contracts.tags', label: '标签管理', url: '/contracts', icon: 'Tag', group: '合同管理' },
-      { key: 'contracts.numbering', label: '编号管理', url: '/contracts', icon: 'Hash', group: '合同管理' }
-    ]
-  },
-  {
-    group: '财务对账',
+    group: '财务管理',
     key: 'finance',
-    label: '财务对账',
-    icon: 'Calculator',
+    label: '财务管理',
+    title: '财务管理',
+    icon: 'DollarSign',
     children: [
-      { key: 'finance.reconciliation', label: '运费对账', url: '/finance/reconciliation', icon: 'Calculator', group: '财务对账' },
-      { key: 'finance.payment_invoice', label: '付款与开票', url: '/finance/payment-invoice', icon: 'DollarSign', group: '财务对账' }
-    ]
-  },
-  {
-    group: '数据维护',
-    key: 'data_maintenance',
-    label: '数据维护',
-    icon: 'Database',
-    children: [
-      { key: 'data_maintenance.waybill', label: '运单维护', url: '/data-maintenance/waybill', icon: 'Truck', group: '数据维护' }
-    ],
-    requiredRoles: ['admin', 'operator']
-  },
-  {
-    group: '设置',
-    key: 'settings',
-    label: '设置',
-    icon: 'Settings',
-    children: [
-      { key: 'settings.users', label: '用户管理', url: '/settings/users', icon: 'UserCog', group: '设置' },
-      { key: 'settings.permissions', label: '权限管理', url: '/settings/permissions', icon: 'Settings', group: '设置' },
-      { key: 'settings.integrated', label: '集成权限管理', url: '/settings/integrated', icon: 'Shield', group: '设置' },
-      { key: 'settings.audit_logs', label: '操作日志', url: '/settings/audit-logs', icon: 'History', group: '设置' }
-    ],
-    requiredRoles: ['admin']
-  }
-];
-
-// 功能权限配置
-export const FUNCTION_PERMISSIONS: FunctionPermission[] = [
-  {
-    group: '数据操作',
-    key: 'data',
-    label: '数据操作',
-    children: [
-      { key: 'data.create', label: '新增数据', description: '可以创建新的业务数据', group: '数据操作' },
-      { key: 'data.edit', label: '编辑数据', description: '可以修改现有数据', group: '数据操作' },
-      { key: 'data.delete', label: '删除数据', description: '可以删除数据', group: '数据操作' },
-      { key: 'data.export', label: '导出数据', description: '可以导出数据到Excel', group: '数据操作' },
-      { key: 'data.import', label: '导入数据', description: '可以从Excel导入数据', group: '数据操作' }
-    ]
-  },
-  {
-    group: '磅单管理',
-    key: 'scale_records',
-    label: '磅单管理',
-    children: [
-      { key: 'scale_records.create', label: '新增磅单', description: '可以创建新的磅单记录', group: '磅单管理' },
-      { key: 'scale_records.edit', label: '编辑磅单', description: '可以修改磅单记录', group: '磅单管理' },
-      { key: 'scale_records.view', label: '查看磅单', description: '可以查看磅单记录', group: '磅单管理' },
-      { key: 'scale_records.delete', label: '删除磅单', description: '可以删除磅单记录', group: '磅单管理' }
-    ]
-  },
-  {
-    group: '财务操作',
-    key: 'finance',
-    label: '财务操作',
-    children: [
-      { key: 'finance.view_cost', label: '查看成本信息', description: '可以查看成本相关数据', group: '财务操作' },
-      { key: 'finance.approve_payment', label: '审批付款', description: '可以审批付款申请', group: '财务操作' },
-      { key: 'finance.generate_invoice', label: '生成发票', description: '可以生成发票', group: '财务操作' },
-      { key: 'finance.reconcile', label: '财务对账', description: '可以进行财务对账', group: '财务操作' }
-    ]
-  },
-  {
-    group: '合同管理',
-    key: 'contract_management',
-    label: '合同管理',
-    children: [
-      { key: 'contract.view', label: '查看合同', description: '可以查看合同列表和基本信息', group: '合同管理' },
-      { key: 'contract.create', label: '新增合同', description: '可以创建新合同', group: '合同管理' },
-      { key: 'contract.edit', label: '编辑合同', description: '可以修改合同信息', group: '合同管理' },
-      { key: 'contract.delete', label: '删除合同', description: '可以删除合同', group: '合同管理' },
-      { key: 'contract.archive', label: '归档合同', description: '可以将合同归档', group: '合同管理' },
-      { key: 'contract.files_upload', label: '上传文件', description: '可以上传合同文件', group: '合同管理' },
-      { key: 'contract.files_download', label: '下载文件', description: '可以下载合同文件', group: '合同管理' },
-      { key: 'contract.files_delete', label: '删除文件', description: '可以删除合同文件', group: '合同管理' },
-      { key: 'contract.permissions_manage', label: '权限管理', description: '可以管理合同访问权限', group: '合同管理' },
-      { key: 'contract.audit_logs', label: '审计日志', description: '可以查看合同操作日志', group: '合同管理' },
-      { key: 'contract.reminders', label: '提醒管理', description: '可以设置合同提醒', group: '合同管理' },
-      { key: 'contract.tags', label: '标签管理', description: '可以管理合同标签', group: '合同管理' },
-      { key: 'contract.numbering', label: '编号管理', description: '可以管理合同编号规则', group: '合同管理' },
-      { key: 'contract.sensitive_fields', label: '敏感信息', description: '可以查看/编辑敏感字段', group: '合同管理' },
-      { key: 'contract.export', label: '导出合同', description: '可以导出合同数据', group: '合同管理' }
+      { key: 'finance.reconciliation', label: '对账管理', title: '对账管理', url: '/finance-reconciliation', icon: 'Calculator', group: '财务管理' },
+      { key: 'finance.payment_request', label: '付款申请', title: '付款申请', url: '/payment-request', icon: 'CreditCard', group: '财务管理' },
+      { key: 'finance.payment_list', label: '付款申请列表', title: '付款申请列表', url: '/payment-requests-list', icon: 'List', group: '财务管理' },
+      { key: 'finance.invoice', label: '发票管理', title: '发票管理', url: '/payment-invoice', icon: 'Receipt', group: '财务管理' },
+      { key: 'finance.financial_overview', label: '财务汇总', title: '财务汇总', url: '/financial-overview', icon: 'TrendingUp', group: '财务管理' },
+      { key: 'finance.transport_overview', label: '运输汇总', title: '运输汇总', url: '/transport-overview', icon: 'Truck', group: '财务管理' },
+      { key: 'finance.projects_overview', label: '项目汇总', title: '项目汇总', url: '/projects-overview', icon: 'FolderOpen', group: '财务管理' },
+      { key: 'finance.project_dashboard', label: '项目看板', title: '项目看板', url: '/project-dashboard', icon: 'BarChart', group: '财务管理' },
+      { key: 'finance.payment_approval', label: '付款审批', title: '付款审批', url: '/payment-approval', icon: 'CheckSquare', group: '财务管理' },
+      { key: 'finance.invoice_detail', label: '发票详情', title: '发票详情', url: '/payment-invoice-detail', icon: 'FileText', group: '财务管理' }
     ]
   },
   {
     group: '系统管理',
     key: 'system',
     label: '系统管理',
+    title: '系统管理',
+    icon: 'Settings',
     children: [
-      { key: 'system.manage_users', label: '管理用户', description: '可以管理用户账户', group: '系统管理' },
-      { key: 'system.manage_roles', label: '管理角色', description: '可以管理角色权限', group: '系统管理' },
-      { key: 'system.view_logs', label: '查看日志', description: '可以查看系统日志', group: '系统管理' },
-      { key: 'system.backup', label: '系统备份', description: '可以进行系统备份', group: '系统管理' }
-    ],
-    requiredRoles: ['admin']
-  }
-];
-
-// 项目权限配置
-export const PROJECT_PERMISSIONS: ProjectPermission[] = [
-  {
-    group: '项目访问',
-    key: 'project_access',
-    label: '项目访问',
-    children: [
-      { key: 'project.view_all', label: '查看所有项目', scope: 'read', description: '可以查看所有项目数据', group: '项目访问' },
-      { key: 'project.view_assigned', label: '查看分配项目', scope: 'read', description: '只能查看分配的项目', group: '项目访问' },
-      { key: 'project.manage', label: '项目管理', scope: 'write', description: '可以管理项目信息', group: '项目访问' },
-      { key: 'project.admin', label: '项目管理员', scope: 'admin', description: '拥有项目完全管理权限', group: '项目访问' }
+      { key: 'system.user_management', label: '用户管理', title: '用户管理', url: '/user-management', icon: 'Users', group: '系统管理' },
+      { key: 'system.permission_management', label: '权限管理', title: '权限管理', url: '/permission-management', icon: 'Shield', group: '系统管理' }
     ]
   },
   {
-    group: '项目数据',
-    key: 'project_data',
-    label: '项目数据',
+    group: '合同管理',
+    key: 'contract',
+    label: '合同管理',
+    title: '合同管理',
+    icon: 'FileSignature',
     children: [
-      { key: 'project_data.view_financial', label: '查看财务数据', scope: 'read', description: '可以查看项目财务信息', group: '项目数据' },
-      { key: 'project_data.edit_financial', label: '编辑财务数据', scope: 'write', description: '可以修改项目财务信息', group: '项目数据' },
-      { key: 'project_data.view_operational', label: '查看运营数据', scope: 'read', description: '可以查看项目运营数据', group: '项目数据' },
-      { key: 'project_data.edit_operational', label: '编辑运营数据', scope: 'write', description: '可以修改项目运营数据', group: '项目数据' }
-    ]
-  }
-];
-
-// 数据权限配置
-export const DATA_PERMISSIONS: DataPermission[] = [
-  {
-    group: '数据范围',
-    key: 'data_scope',
-    label: '数据范围',
-    children: [
-      { key: 'data.all', label: '所有数据', scope: 'view', description: '可以访问所有数据', group: '数据范围' },
-      { key: 'data.own', label: '自己的数据', scope: 'view', description: '只能访问自己创建的数据', group: '数据范围' },
-      { key: 'data.team', label: '团队数据', scope: 'view', description: '可以访问团队数据', group: '数据范围' },
-      { key: 'data.project', label: '项目数据', scope: 'view', description: '可以访问指定项目数据', group: '数据范围' }
+      { key: 'contract.management', label: '合同管理', title: '合同管理', url: '/contract-management', icon: 'FileText', group: '合同管理' }
     ]
   },
   {
-    group: '数据操作',
-    key: 'data_operations',
-    label: '数据操作',
+    group: '审计日志',
+    key: 'audit',
+    label: '审计日志',
+    title: '审计日志',
+    icon: 'History',
     children: [
-      { key: 'data.create', label: '创建数据', scope: 'create', description: '可以创建新数据', group: '数据操作' },
-      { key: 'data.edit', label: '编辑数据', scope: 'edit', description: '可以修改数据', group: '数据操作' },
-      { key: 'data.delete', label: '删除数据', scope: 'delete', description: '可以删除数据', group: '数据操作' },
-      { key: 'data.export', label: '导出数据', scope: 'export', description: '可以导出数据', group: '数据操作' }
+      { key: 'audit.logs', label: '审计日志', title: '审计日志', url: '/audit-logs', icon: 'FileSearch', group: '审计日志' },
+      { key: 'audit.permission_debug', label: '权限调试', title: '权限调试', url: '/debug-permissions', icon: 'Bug', group: '审计日志' },
+      { key: 'audit.integrated_user_management', label: '集成用户管理', title: '集成用户管理', url: '/integrated-user-management', icon: 'UserCog', group: '审计日志' },
+      { key: 'audit.enhanced_permission_management', label: '增强权限管理', title: '增强权限管理', url: '/enhanced-permission-management', icon: 'ShieldCheck', group: '审计日志' }
     ]
   }
 ];
 
-// 默认角色权限模板
-export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
-  menu_permissions: string[];
-  function_permissions: string[];
-  project_permissions: string[];
-  data_permissions: string[];
+// 功能权限配置
+export const FUNCTION_PERMISSIONS: FunctionPermission[] = [
+  { key: 'create_project', label: '创建项目', title: '创建项目', description: '允许创建新项目', group: '项目管理' },
+  { key: 'edit_project', label: '编辑项目', title: '编辑项目', description: '允许编辑现有项目', group: '项目管理' },
+  { key: 'delete_project', label: '删除项目', title: '删除项目', description: '允许删除项目', group: '项目管理' },
+  { key: 'view_project', label: '查看项目', title: '查看项目', description: '允许查看项目详情', group: '项目管理' },
+  { key: 'manage_project_settings', label: '管理项目设置', title: '管理项目设置', description: '允许修改项目设置', group: '项目管理' },
+
+  { key: 'create_driver', label: '创建司机', title: '创建司机', description: '允许添加新司机', group: '司机管理' },
+  { key: 'edit_driver', label: '编辑司机', title: '编辑司机', description: '允许编辑司机信息', group: '司机管理' },
+  { key: 'delete_driver', label: '删除司机', title: '删除司机', description: '允许删除司机', group: '司机管理' },
+  { key: 'view_driver', label: '查看司机', title: '查看司机', description: '允许查看司机详情', group: '司机管理' },
+
+  { key: 'create_partner', label: '创建合作方', title: '创建合作方', description: '允许添加新合作方', group: '合作方管理' },
+  { key: 'edit_partner', label: '编辑合作方', title: '编辑合作方', description: '允许编辑合作方信息', group: '合作方管理' },
+  { key: 'delete_partner', label: '删除合作方', title: '删除合作方', description: '允许删除合作方', group: '合作方管理' },
+  { key: 'view_partner', label: '查看合作方', title: '查看合作方', description: '允许查看合作方详情', group: '合作方管理' },
+
+  { key: 'create_logistics', label: '创建运单', title: '创建运单', description: '允许创建新运单', group: '运单管理' },
+  { key: 'edit_logistics', label: '编辑运单', title: '编辑运单', description: '允许编辑运单信息', group: '运单管理' },
+  { key: 'delete_logistics', label: '删除运单', title: '删除运单', description: '允许删除运单', group: '运单管理' },
+  { key: 'view_logistics', label: '查看运单', title: '查看运单', description: '允许查看运单详情', group: '运单管理' },
+  { key: 'import_logistics', label: '导入运单', title: '导入运单', description: '允许批量导入运单', group: '运单管理' },
+  { key: 'export_logistics', label: '导出运单', title: '导出运单', description: '允许导出运单数据', group: '运单管理' },
+  { key: 'approve_logistics', label: '审批运单', title: '审批运单', description: '允许审批运单', group: '运单管理' },
+
+  { key: 'view_finance_data', label: '查看财务数据', title: '查看财务数据', description: '允许查看财务相关数据', group: '财务管理' },
+  { key: 'create_payment_request', label: '创建付款申请', title: '创建付款申请', description: '允许创建付款申请', group: '财务管理' },
+  { key: 'approve_payment', label: '审批付款', title: '审批付款', description: '允许审批付款申请', group: '财务管理' },
+  { key: 'view_payment_request', label: '查看付款申请', title: '查看付款申请', description: '允许查看付款申请', group: '财务管理' },
+  { key: 'manage_invoice', label: '管理发票', title: '管理发票', description: '允许管理发票', group: '财务管理' },
+
+  { key: 'manage_users', label: '管理用户', title: '管理用户', description: '允许管理系统用户', group: '用户管理' },
+  { key: 'manage_permissions', label: '管理权限', title: '管理权限', description: '允许管理用户权限', group: '权限管理' },
+  { key: 'view_audit_logs', label: '查看审计日志', title: '查看审计日志', description: '允许查看系统审计日志', group: '审计管理' },
+
+  { key: 'create_contract', label: '创建合同', title: '创建合同', description: '允许创建新合同', group: '合同管理' },
+  { key: 'edit_contract', label: '编辑合同', title: '编辑合同', description: '允许编辑合同信息', group: '合同管理' },
+  { key: 'delete_contract', label: '删除合同', title: '删除合同', description: '允许删除合同', group: '合同管理' },
+  { key: 'view_contract', label: '查看合同', title: '查看合同', description: '允许查看合同详情', group: '合同管理' },
+  { key: 'approve_contract', label: '审批合同', title: '审批合同', description: '允许审批合同', group: '合同管理' }
+];
+
+// 按钮权限配置
+export const BUTTON_PERMISSIONS: ButtonPermission[] = [
+  // 项目管理按钮
+  { key: 'btn_create_project', label: '新建项目按钮', title: '新建项目按钮', description: '创建项目的按钮', group: '项目管理' },
+  { key: 'btn_edit_project', label: '编辑项目按钮', title: '编辑项目按钮', description: '编辑项目的按钮', group: '项目管理' },
+  { key: 'btn_delete_project', label: '删除项目按钮', title: '删除项目按钮', description: '删除项目的按钮', group: '项目管理' },
+
+  // 司机管理按钮
+  { key: 'btn_create_driver', label: '新建司机按钮', title: '新建司机按钮', description: '创建司机的按钮', group: '司机管理' },
+  { key: 'btn_edit_driver', label: '编辑司机按钮', title: '编辑司机按钮', description: '编辑司机的按钮', group: '司机管理' },
+  { key: 'btn_delete_driver', label: '删除司机按钮', title: '删除司机按钮', description: '删除司机的按钮', group: '司机管理' },
+
+  // 运单管理按钮
+  { key: 'btn_create_logistics', label: '新建运单按钮', title: '新建运单按钮', description: '创建运单的按钮', group: '运单管理' },
+  { key: 'btn_edit_logistics', label: '编辑运单按钮', title: '编辑运单按钮', description: '编辑运单的按钮', group: '运单管理' },
+  { key: 'btn_delete_logistics', label: '删除运单按钮', title: '删除运单按钮', description: '删除运单的按钮', group: '运单管理' },
+  { key: 'btn_import_logistics', label: '导入运单按钮', title: '导入运单按钮', description: '导入运单的按钮', group: '运单管理' },
+  { key: 'btn_export_logistics', label: '导出运单按钮', title: '导出运单按钮', description: '导出运单的按钮', group: '运单管理' },
+
+  // 财务管理按钮
+  { key: 'btn_create_payment', label: '创建付款申请按钮', title: '创建付款申请按钮', description: '创建付款申请的按钮', group: '财务管理' },
+  { key: 'btn_approve_payment', label: '审批付款按钮', title: '审批付款按钮', description: '审批付款的按钮', group: '财务管理' },
+  { key: 'btn_export_finance', label: '导出财务数据按钮', title: '导出财务数据按钮', description: '导出财务数据的按钮', group: '财务管理' },
+
+  // 系统管理按钮
+  { key: 'btn_manage_users', label: '管理用户按钮', title: '管理用户按钮', description: '管理用户的按钮', group: '用户管理' },
+  { key: 'btn_manage_permissions', label: '管理权限按钮', title: '管理权限按钮', description: '管理权限的按钮', group: '权限管理' }
+];
+
+// 角色默认权限配置
+export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, {
+  menu: string[];
+  function: string[];
+  button: string[];
 }> = {
   admin: {
-    menu_permissions: [
-      // 数据看板
-      'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project', 'dashboard.quantity',
-      // 信息维护
-      'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
-      // 业务管理
-      'business', 'business.entry', 'business.scale', 'business.payment_request', 'business.payment_requests',
-      // 合同管理
-      'contracts', 'contracts.list', 'contracts.create', 'contracts.edit', 'contracts.delete', 'contracts.files', 'contracts.permissions', 'contracts.audit', 'contracts.reminders', 'contracts.tags', 'contracts.numbering',
-      // 财务对账
-      'finance', 'finance.reconciliation', 'finance.payment_invoice',
-      // 数据维护
-      'data_maintenance', 'data_maintenance.waybill',
-      // 设置
-      'settings', 'settings.users', 'settings.permissions', 'settings.integrated', 'settings.audit_logs'
-    ],
-    function_permissions: [
-      'data', 'data.create', 'data.edit', 'data.delete', 'data.export', 'data.import',
-      'scale_records', 'scale_records.create', 'scale_records.edit', 'scale_records.view', 'scale_records.delete',
-      'finance', 'finance.view_cost', 'finance.approve_payment', 'finance.generate_invoice', 'finance.reconcile',
-      'contract_management', 'contract.view', 'contract.create', 'contract.edit', 'contract.delete', 'contract.archive', 'contract.files_upload', 'contract.files_download', 'contract.files_delete', 'contract.permissions_manage', 'contract.audit_logs', 'contract.reminders', 'contract.tags', 'contract.numbering', 'contract.sensitive_fields', 'contract.export',
-      'system', 'system.manage_users', 'system.manage_roles', 'system.view_logs', 'system.backup'
-    ],
-    project_permissions: [
-      'project_access', 'project.view_all', 'project.manage', 'project.admin',
-      'project_data', 'project_data.view_financial', 'project_data.edit_financial', 'project_data.view_operational', 'project_data.edit_operational'
-    ],
-    data_permissions: [
-      'data_scope', 'data.all', 'data.own', 'data.team', 'data.project',
-      'data_operations', 'data.create', 'data.edit', 'data.delete', 'data.export'
-    ]
+    menu: MENU_PERMISSIONS.flatMap(m => m.children ? [m.key, ...m.children.map(c => c.key)] : [m.key]),
+    function: FUNCTION_PERMISSIONS.map(f => f.key),
+    button: BUTTON_PERMISSIONS.map(b => b.key)
   },
   finance: {
-    menu_permissions: [
+    menu: [
       'dashboard', 'dashboard.financial', 'dashboard.project',
-      'maintenance', 'maintenance.partners',
-      'business', 'business.payment_request', 'business.payment_requests',
-      'contracts', 'contracts.list', 'contracts.files', 'contracts.audit',
-      'finance', 'finance.reconciliation', 'finance.payment_invoice'
+      'business', 'business.entry', 'business.import',
+      'finance', 'finance.reconciliation', 'finance.payment_request', 'finance.payment_list',
+      'finance.invoice', 'finance.financial_overview', 'finance.transport_overview',
+      'finance.projects_overview', 'finance.project_dashboard', 'finance.payment_approval'
     ],
-    function_permissions: [
-      'data', 'data.view', 'data.export',
-      'finance', 'finance.view_cost', 'finance.approve_payment', 'finance.generate_invoice', 'finance.reconcile',
-      'scale_records', 'scale_records.view',
-      'contract_management', 'contract.view', 'contract.files_download', 'contract.audit_logs', 'contract.sensitive_fields', 'contract.export'
+    function: [
+      'view_project', 'view_driver', 'view_partner', 'view_logistics',
+      'view_finance_data', 'create_payment_request', 'approve_payment',
+      'view_payment_request', 'manage_invoice'
     ],
-    project_permissions: [
-      'project_access', 'project.view_all',
-      'project_data', 'project_data.view_financial', 'project_data.edit_financial'
-    ],
-    data_permissions: [
-      'data_scope', 'data.all',
-      'data_operations', 'data.export'
+    button: [
+      'btn_create_payment', 'btn_approve_payment', 'btn_export_finance'
     ]
   },
   business: {
-    menu_permissions: [
+    menu: [
       'dashboard', 'dashboard.transport', 'dashboard.project',
-      'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
-      'business', 'business.entry', 'business.scale',
-      'contracts', 'contracts.list', 'contracts.create', 'contracts.edit', 'contracts.files', 'contracts.reminders', 'contracts.tags',
-      'finance', 'finance.reconciliation'
+      'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.partners', 'maintenance.locations',
+      'business', 'business.entry', 'business.import', 'business.maintenance', 'business.scale'
     ],
-    function_permissions: [
-      'data', 'data.create', 'data.edit', 'data.export',
-      'scale_records', 'scale_records.create', 'scale_records.edit', 'scale_records.view',
-      'finance', 'finance.view_cost',
-      'contract_management', 'contract.view', 'contract.create', 'contract.edit', 'contract.files_upload', 'contract.files_download', 'contract.reminders', 'contract.tags', 'contract.export'
+    function: [
+      'view_project', 'create_driver', 'edit_driver', 'view_driver',
+      'view_partner', 'create_logistics', 'edit_logistics', 'view_logistics',
+      'import_logistics', 'export_logistics'
     ],
-    project_permissions: [
-      'project_access', 'project.view_assigned', 'project.manage',
-      'project_data', 'project_data.view_operational', 'project_data.edit_operational'
-    ],
-    data_permissions: [
-      'data_scope', 'data.team',
-      'data_operations', 'data.create', 'data.edit', 'data.export'
+    button: [
+      'btn_create_driver', 'btn_edit_driver', 'btn_create_logistics',
+      'btn_edit_logistics', 'btn_import_logistics', 'btn_export_logistics'
     ]
   },
   operator: {
-    menu_permissions: [
+    menu: [
       'dashboard', 'dashboard.transport',
-      'maintenance', 'maintenance.drivers', 'maintenance.locations',
-      'business', 'business.entry', 'business.scale',
-      'data_maintenance', 'data_maintenance.waybill'
+      'business', 'business.entry', 'business.scale'
     ],
-    function_permissions: [
-      'data', 'data.create',
-      'scale_records', 'scale_records.create', 'scale_records.view'
+    function: [
+      'view_project', 'view_driver', 'create_logistics', 'edit_logistics', 'view_logistics'
     ],
-    project_permissions: [
-      'project_access', 'project.view_assigned',
-      'project_data', 'project_data.view_operational'
-    ],
-    data_permissions: [
-      'data_scope', 'data.own',
-      'data_operations', 'data.create'
+    button: [
+      'btn_create_logistics', 'btn_edit_logistics'
     ]
   },
   partner: {
-    menu_permissions: [
-      'dashboard', 'dashboard.transport'
+    menu: [
+      'dashboard', 'dashboard.transport',
+      'finance', 'finance.payment_list', 'finance.transport_overview'
     ],
-    function_permissions: [
-      'data', 'data.view'
+    function: [
+      'view_project', 'view_logistics', 'view_payment_request'
     ],
-    project_permissions: [
-      'project_access', 'project.view_assigned'
-    ],
-    data_permissions: [
-      'data_scope', 'data.own'
-    ]
+    button: []
   },
   viewer: {
-    menu_permissions: [
-      'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project',
-      'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
-      'contracts', 'contracts.list',
-      'finance', 'finance.reconciliation'
+    menu: [
+      'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project'
     ],
-    function_permissions: [
-      'data', 'data.view',
-      'scale_records', 'scale_records.view',
-      'finance', 'finance.view_cost',
-      'contract_management', 'contract.view', 'contract.files_download'
+    function: [
+      'view_project', 'view_driver', 'view_partner', 'view_logistics'
     ],
-    project_permissions: [
-      'project_access', 'project.view_all',
-      'project_data', 'project_data.view_financial', 'project_data.view_operational'
-    ],
-    data_permissions: [
-      'data_scope', 'data.all',
-      'data_operations'
-    ]
+    button: []
   }
+};
+
+// 权限分组
+export const PERMISSION_GROUPS = {
+  MENU: '菜单权限',
+  FUNCTION: '功能权限',
+  BUTTON: '按钮权限',
+  PROJECT: '项目权限'
+} as const;
+
+// 权限检查函数
+export const hasPermission = (userPermissions: string[], requiredPermission: string): boolean => {
+  return userPermissions.includes(requiredPermission) || userPermissions.includes('*');
+};
+
+// 角色权限检查
+export const hasRolePermission = (userRole: UserRole, requiredPermission: string): boolean => {
+  if (userRole === 'admin') return true;
+  
+  const rolePermissions = ROLE_DEFAULT_PERMISSIONS[userRole];
+  return [
+    ...rolePermissions.menu,
+    ...rolePermissions.function,
+    ...rolePermissions.button
+  ].includes(requiredPermission);
+};
+
+// 获取用户可访问的菜单
+export const getUserAccessibleMenus = (userRole: UserRole, customPermissions: string[] = []): MenuPermission[] => {
+  const rolePermissions = ROLE_DEFAULT_PERMISSIONS[userRole];
+  const allPermissions = [...rolePermissions.menu, ...customPermissions];
+  
+  return MENU_PERMISSIONS.filter(menu => {
+    if (allPermissions.includes(menu.key)) {
+      // 过滤子菜单
+      if (menu.children) {
+        menu.children = menu.children.filter(child => allPermissions.includes(child.key));
+      }
+      return true;
+    }
+    return false;
+  });
+};
+
+// 项目权限检查
+export const hasProjectPermission = (
+  userRole: UserRole, 
+  projectId: string, 
+  requiredPermission: string,
+  projectPermissions: ProjectPermission[] = []
+): boolean => {
+  if (userRole === 'admin') return true;
+  
+  // 检查项目特定权限
+  const projectPerm = projectPermissions.find(p => 
+    p.projectId === projectId && p.key === requiredPermission
+  );
+  
+  return !!projectPerm;
 };

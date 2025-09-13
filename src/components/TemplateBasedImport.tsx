@@ -1,5 +1,5 @@
 // 基于模板映射的导入组件
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,37 +31,10 @@ import {
   RefreshCw,
   Settings
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
+import { ImportTemplate, ImportFieldMapping, ImportFixedMapping } from '@/types';
 import * as XLSX from 'xlsx';
-
-interface ImportTemplate {
-  id: string;
-  name: string;
-  description: string;
-  platform_name: string;
-  is_active: boolean;
-}
-
-interface FieldMapping {
-  id: string;
-  template_id: string;
-  source_field: string;
-  target_field: string;
-  field_type: string;
-  is_required: boolean;
-  default_value: string;
-  transformation_rule: string;
-  sort_order: number;
-}
-
-interface FixedMapping {
-  id: string;
-  template_id: string;
-  target_field: string;
-  fixed_value: string;
-  description: string;
-}
 
 interface ImportResult {
   success_count: number;
@@ -232,17 +205,17 @@ export default function TemplateBasedImport() {
 
       setIsResultDialogOpen(true);
       
-      if (data.success_count > 0) {
+      if (mockResult.success_count > 0) {
         toast({ 
           title: "导入成功", 
-          description: `成功导入 ${data.success_count} 条记录` 
+          description: `成功导入 ${mockResult.success_count} 条记录` 
         });
       }
       
-      if (data.error_count > 0) {
+      if (mockResult.error_count > 0) {
         toast({ 
           title: "部分失败", 
-          description: `${data.error_count} 条记录导入失败`, 
+          description: `${mockResult.error_count} 条记录导入失败`, 
           variant: "destructive" 
         });
       }
@@ -471,49 +444,38 @@ export default function TemplateBasedImport() {
               导入操作已完成
             </DialogDescription>
           </DialogHeader>
-          {importResult && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2 p-4 border rounded-lg">
-                  <CheckCircle className="h-8 w-8 text-green-600" />
-                  <div>
-                    <div className="text-2xl font-bold text-green-600">
-                      {importResult.success_count}
+          <div className="space-y-4">
+            {importResult && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span>成功: {importResult.success_count} 条</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <XCircle className="h-5 w-5 text-red-500" />
+                    <span>失败: {importResult.error_count} 条</span>
+                  </div>
+                </div>
+                
+                {importResult.errors.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium">错误详情:</h4>
+                    <div className="max-h-48 overflow-y-auto">
+                      {importResult.errors.map((error, index) => (
+                        <div key={index} className="p-2 bg-red-50 rounded text-sm">
+                          <span className="font-medium">行 {error.record?.row_index || (index + 1)}:</span> {error.error}
+                        </div>
+                      ))}
                     </div>
-                    <div className="text-sm text-muted-foreground">成功导入</div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 p-4 border rounded-lg">
-                  <XCircle className="h-8 w-8 text-red-600" />
-                  <div>
-                    <div className="text-2xl font-bold text-red-600">
-                      {importResult.error_count}
-                    </div>
-                    <div className="text-sm text-muted-foreground">导入失败</div>
-                  </div>
-                </div>
-              </div>
-
-              {importResult.errors.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-2">错误详情:</h4>
-                  <div className="max-h-40 overflow-auto space-y-2">
-                    {importResult.errors.map((error, index) => (
-                      <Alert key={index} variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertDescription>
-                          {typeof error === 'string' ? error : JSON.stringify(error)}
-                        </AlertDescription>
-                      </Alert>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </>
+            )}
+          </div>
           <DialogFooter>
             <Button onClick={() => setIsResultDialogOpen(false)}>
-              关闭
+              确定
             </Button>
           </DialogFooter>
         </DialogContent>
