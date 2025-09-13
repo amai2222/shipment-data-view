@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+import { useSimplePermissions } from '@/hooks/useSimplePermissions';
 import { DEFAULT_PERMISSIONS } from '@/config/permissions';
 
 export function DebugPermissions() {

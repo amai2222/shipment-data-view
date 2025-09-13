@@ -20,7 +20,11 @@ export function useExcelImportWithUpdate(onSuccess?: () => void) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [updateMode, setUpdateMode] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importMode, setImportMode] = useState<'create' | 'update'>('create');
+  const [importLogs, setImportLogs] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importLogRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const handleFileSelect = () => {
@@ -38,6 +42,9 @@ export function useExcelImportWithUpdate(onSuccess?: () => void) {
     setSelectedFile(null);
     setIsImporting(false);
     setUpdateMode(false);
+    setIsImportModalOpen(false);
+    setImportMode('create');
+    setImportLogs([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
