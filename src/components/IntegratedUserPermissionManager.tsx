@@ -1247,10 +1247,9 @@ export function IntegratedUserPermissionManager() {
                 }}>
                   保存
                 </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+               </div>
+            </DialogContent>
+          </Dialog>
       )}
 
       {/* 项目权限管理对话框 */}

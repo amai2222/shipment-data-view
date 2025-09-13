@@ -148,9 +148,12 @@ useEffect(() => {
       setChains([]);
       setDrivers([]);
       setLocations([]);
-      setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationIds: [], unloadingLocationIds: [] }));
+      // Only clear location IDs if not in editing mode
+      if (!editingRecord) {
+        setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationIds: [], unloadingLocationIds: [] }));
+      }
     }
-  }, [formData.projectId]);
+  }, [formData.projectId, editingRecord]);
 
   useEffect(() => {
     if (chains.length > 0) {
@@ -377,7 +380,6 @@ const loadProjectSpecificData = async (projectId: string) => {
       extraCost: record.extra_cost?.toString() || '',
       remarks: record.remarks || '',
       external_tracking_numbers: externalTrackingNumbers,
-      other_platform_names: otherPlatformNames,
     });
     
     console.log('表单数据设置完成');
