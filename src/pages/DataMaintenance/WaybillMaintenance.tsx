@@ -19,8 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Project } from "@/types";
-import { EnhancedImportDialog } from '@/pages/BusinessEntry/components/EnhancedImportDialog';
-import { useExcelImport } from '@/pages/BusinessEntry/hooks/useExcelImport';
+import { UpdateModeImportDialog } from '@/pages/BusinessEntry/components/UpdateModeImportDialog';
+import { useExcelImportWithUpdate } from '@/pages/BusinessEntry/hooks/useExcelImportWithUpdate';
 import TemplateMappingManager from '@/components/TemplateMappingManager';
 import TemplateBasedImport from '@/components/TemplateBasedImport';
 import * as XLSX from 'xlsx';
@@ -36,21 +36,19 @@ export default function WaybillMaintenance() {
   const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping'>('standard');
 
   // Excel导入相关状态
-  const { 
+  const {
     isImporting, 
     isImportModalOpen, 
     importStep, 
     importPreview, 
-    approvedDuplicates, 
-    duplicateActions,
+    importMode,
+    setImportMode,
     importLogs, 
     importLogRef, 
     handleExcelImport, 
     executeFinalImport, 
-    closeImportModal, 
-    setApprovedDuplicates, 
-    setDuplicateActions 
-  } = useExcelImport(() => { 
+    closeImportModal
+  } = useExcelImportWithUpdate(() => { 
     loadWaybillCount(); 
   });
 
@@ -370,20 +368,18 @@ export default function WaybillMaintenance() {
         </Card>
       </div>
 
-      {/* 导入对话框 */}
-      <EnhancedImportDialog
-        isOpen={isImportModalOpen}
-        onClose={closeImportModal}
-        importStep={importStep}
-        importPreview={importPreview}
-        approvedDuplicates={approvedDuplicates}
-        setApprovedDuplicates={setApprovedDuplicates}
-        duplicateActions={duplicateActions}
-        setDuplicateActions={setDuplicateActions}
-        importLogs={importLogs}
-        importLogRef={importLogRef}
-        onExecuteImport={executeFinalImport}
-      />
+        {/* 导入对话框 */}
+        <UpdateModeImportDialog
+          isOpen={isImportModalOpen}
+          onClose={closeImportModal}
+          importStep={importStep}
+          importPreview={importPreview}
+          importMode={importMode}
+          setImportMode={setImportMode}
+          importLogs={importLogs}
+          importLogRef={importLogRef}
+          onExecuteImport={executeFinalImport}
+        />
     </div>
   );
 }

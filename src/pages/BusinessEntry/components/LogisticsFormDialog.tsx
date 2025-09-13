@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, Save, X } from "lucide-react";
+import { CalendarIcon, Save, X, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogisticsRecord, Project, PlatformTracking } from '../types';
@@ -41,8 +41,7 @@ interface FormData {
   currentCost: string;
   extraCost: string;
   remarks: string;
-  external_tracking_numbers: any[];
-  other_platform_names: string[];
+  external_tracking_numbers: any[]; // 外部运单号数组
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -61,8 +60,7 @@ const INITIAL_FORM_DATA: FormData = {
   currentCost: '',
   extraCost: '',
   remarks: '',
-  external_tracking_numbers: [],
-  other_platform_names: [],
+  other_platform_waybills: '',
 };
 
 export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, onSubmitSuccess }: LogisticsFormDialogProps) {
@@ -91,13 +89,13 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   useEffect(() => {
     if (isOpen) {
       if (editingRecord) {
-        // 先设置基本信息，等数据加载完成后再填充地点和司机信息
+        // 先设置基本信息，地点信息会在数据加载完成后单独设置
         setFormData({
           projectId: editingRecord.project_id || '',
           chainId: editingRecord.chain_id || '',
           driverId: editingRecord.driver_id || '',
-          loadingLocationIds: [],
-          unloadingLocationIds: [],
+          loadingLocationIds: [], // 临时设为空，稍后会被正确的地点数据覆盖
+          unloadingLocationIds: [], // 临时设为空，稍后会被正确的地点数据覆盖
           loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
           unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
           licensePlate: editingRecord.license_plate || '',
@@ -108,8 +106,30 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           currentCost: editingRecord.current_cost?.toString() || '',
           extraCost: editingRecord.extra_cost?.toString() || '',
           remarks: editingRecord.remarks || '',
-          external_tracking_numbers: editingRecord.external_tracking_numbers || [],
-          other_platform_names: editingRecord.other_platform_names || [],
+          external_tracking_numbers: (() => {
+            if (!editingRecord.external_tracking_numbers || !Array.isArray(editingRecord.external_tracking_numbers)) {
+              return [];
+            }
+            
+            // 按平台分组，将同一平台的多个运单号合并
+            const groupedByPlatform: { [key: string]: string[] } = {};
+            editingRecord.external_tracking_numbers.forEach((item: any) => {
+              if (item.platform && item.tracking_number) {
+                if (!groupedByPlatform[item.platform]) {
+                  groupedByPlatform[item.platform] = [];
+                }
+                groupedByPlatform[item.platform].push(item.tracking_number);
+              }
+            });
+            
+            // 转换为表单格式
+            return Object.entries(groupedByPlatform).map(([platform, trackingNumbers]) => ({
+              platform,
+              tracking_number: trackingNumbers.join('|'),
+              status: 'pending',
+              created_at: new Date().toISOString()
+            }));
+          })(),
         });
       } else {
         setFormData(INITIAL_FORM_DATA);
@@ -146,6 +166,14 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       const loadingLocationNames = parseLocationString(editingRecord.loading_location || '');
       const unloadingLocationNames = parseLocationString(editingRecord.unloading_location || '');
       
+      console.log('编辑模式加载地点数据:', {
+        loadingLocation: editingRecord.loading_location,
+        unloadingLocation: editingRecord.unloading_location,
+        loadingLocationNames,
+        unloadingLocationNames,
+        locationsCount: locations.length
+      });
+      
       // 确保当前司机在司机列表中
       const currentDriver = drivers.find(d => d.id === editingRecord.driver_id);
       if (!currentDriver && editingRecord.driver_id) {
@@ -162,10 +190,19 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         createMissingLocations(missingLocations);
       }
       
+      const loadingLocationIds = findLocationIdsByName(loadingLocationNames);
+      const unloadingLocationIds = findLocationIdsByName(unloadingLocationNames);
+      
+      console.log('地点ID查找结果:', {
+        loadingLocationIds,
+        unloadingLocationIds,
+        locations: locations.map(l => ({ id: l.id, name: l.name }))
+      });
+      
       setFormData(prev => ({
         ...prev,
-        loadingLocationIds: findLocationIdsByName(loadingLocationNames),
-        unloadingLocationIds: findLocationIdsByName(unloadingLocationNames),
+        loadingLocationIds,
+        unloadingLocationIds,
       }));
     }
   }, [editingRecord, locations, drivers]);
@@ -292,6 +329,31 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         .filter(Boolean)
         .join('|');
 
+      // 处理平台字段：从运单号数组中提取平台名称，支持运单号用|分隔
+      const externalTrackingNumbers: any[] = [];
+      const otherPlatformNames: string[] = [];
+      
+      (formData.external_tracking_numbers || []).forEach(item => {
+        if (item.platform && item.tracking_number) {
+          // 如果运单号包含|分隔符，则拆分成多个运单号
+          const trackingNumbers = item.tracking_number.split('|').map(tn => tn.trim()).filter(Boolean);
+          
+          trackingNumbers.forEach(trackingNumber => {
+            externalTrackingNumbers.push({
+              platform: item.platform,
+              tracking_number: trackingNumber,
+              status: 'pending',
+              created_at: new Date().toISOString()
+            });
+          });
+          
+          // 添加平台名称（去重）
+          if (!otherPlatformNames.includes(item.platform)) {
+            otherPlatformNames.push(item.platform);
+          }
+        }
+      });
+
       const p_record = {
         project_id: formData.projectId,
         chain_id: formData.chainId,
@@ -308,6 +370,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         current_cost: formData.currentCost,
         extra_cost: formData.extraCost,
         remarks: formData.remarks,
+        external_tracking_numbers: externalTrackingNumbers,
+        other_platform_names: otherPlatformNames,
       };
 
       if (editingRecord) {
@@ -336,12 +400,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         if (error) throw error;
         
         // 更新平台运单信息
-        if (formData.external_tracking_numbers.length > 0 || formData.other_platform_names.length > 0) {
+        if (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0) {
           const { error: platformError } = await supabase
             .from('logistics_records')
             .update({ 
-              external_tracking_numbers: formData.external_tracking_numbers,
-              other_platform_names: formData.other_platform_names
+              external_tracking_numbers: externalTrackingNumbers,
+              other_platform_names: otherPlatformNames
             })
             .eq('id', editingRecord.id);
           if (platformError) throw platformError;
@@ -384,12 +448,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           .single();
         
         if (newRecord) {
-          if (formData.external_tracking_numbers.length > 0 || formData.other_platform_names.length > 0) {
+          if (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0) {
             const { error: platformError } = await supabase
               .from('logistics_records')
               .update({ 
-                external_tracking_numbers: formData.external_tracking_numbers,
-                other_platform_names: formData.other_platform_names
+                external_tracking_numbers: externalTrackingNumbers,
+                other_platform_names: otherPlatformNames
               })
               .eq('id', newRecord.id);
             if (platformError) throw platformError;
@@ -615,14 +679,72 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           <div className="space-y-4">
             <div>
               <Label className="text-base font-medium">其他平台运单信息</Label>
-              <div className="text-sm text-muted-foreground mt-1">
-                外部运单号: {formData.external_tracking_numbers.length} 个
+              <div className="text-sm text-muted-foreground mt-1 mb-3">
+                外部运单号: {formData.external_tracking_numbers?.length || 0} 个 | 其他平台: {(formData.external_tracking_numbers || []).map(item => item.platform).filter(Boolean).filter((platform, index, arr) => arr.indexOf(platform) === index).length} 个
               </div>
-              <div className="text-sm text-muted-foreground">
-                其他平台: {formData.other_platform_names.length} 个
+              
+              {/* 外部运单号输入 */}
+              <div className="space-y-2">
+                <Label className="text-sm">外部运单号</Label>
+                <div className="space-y-2">
+                  {(formData.external_tracking_numbers || []).map((tracking, index) => (
+                    <div key={index} className="flex gap-2 items-center">
+                      <Input
+                        placeholder="平台名称"
+                        value={tracking.platform || ''}
+                        onChange={(e) => {
+                          const newTrackings = [...(formData.external_tracking_numbers || [])];
+                          newTrackings[index] = { ...tracking, platform: e.target.value };
+                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
+                        }}
+                        className="w-32"
+                      />
+                      <Input
+                        placeholder="运单号"
+                        value={tracking.tracking_number || ''}
+                        onChange={(e) => {
+                          const newTrackings = [...(formData.external_tracking_numbers || [])];
+                          newTrackings[index] = { ...tracking, tracking_number: e.target.value };
+                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
+                        }}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newTrackings = (formData.external_tracking_numbers || []).filter((_, i) => i !== index);
+                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        external_tracking_numbers: [
+                          ...(prev.external_tracking_numbers || []),
+                          { platform: '', tracking_number: '', status: 'pending', created_at: new Date().toISOString() }
+                        ]
+                      }));
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    添加运单号
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  每个运单号包含平台名称和对应的运单号码。如果同一平台有多个运单号，用|分隔，例如：HL123456|HL789012|HL345678
+                </div>
               </div>
             </div>
-            {/* 这里可以添加具体的输入组件 */}
           </div>
           <div>
             <Label>备注</Label>
@@ -637,3 +759,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     </Dialog>
   );
 }
+
+
+
+

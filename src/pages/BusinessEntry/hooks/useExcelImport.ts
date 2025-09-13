@@ -50,8 +50,8 @@ export function useExcelImport(onImportSuccess: () => void) {
     setImportStep('preview');
     try {
       const recordsToPreview = validRows.map(rowData => {
-        const parsedLoadingWeight = parseFloat(rowData['装货重量']);
-        const parsedUnloadingWeight = parseFloat(rowData['卸货重量']);
+        const parsedLoadingWeight = parseFloat(rowData['装货数量']);
+        const parsedUnloadingWeight = parseFloat(rowData['卸货数量']);
         const parsedCurrentCost = parseFloat(rowData['运费金额']);
         const parsedExtraCost = parseFloat(rowData['额外费用']);
 
@@ -150,7 +150,7 @@ export function useExcelImport(onImportSuccess: () => void) {
         // ★★★ 新增：表头校验逻辑开始 ★★★
         const REQUIRED_HEADERS = [
           '项目名称', '司机姓名', '车牌号', '装货地点', '卸货地点', 
-          '装货日期', '装货重量', '运费金额'
+          '装货日期', '装货数量', '运费金额'
         ];
         
         const headerRow = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];

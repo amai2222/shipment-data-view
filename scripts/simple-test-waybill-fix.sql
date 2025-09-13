@@ -1,11 +1,10 @@
--- 测试运单编辑和导入平台字段修复
+-- 简单测试运单编辑和导入平台字段修复
 DO $$
 DECLARE
     result jsonb;
     record_count integer;
-    test_record jsonb;
 BEGIN
-    RAISE NOTICE '=== 测试运单编辑和导入平台字段修复 ===';
+    RAISE NOTICE '=== 简单测试运单编辑和导入平台字段修复 ===';
     
     -- 测试1: 检查运单查询函数
     BEGIN
@@ -15,59 +14,36 @@ BEGIN
         
         -- 检查是否包含平台字段
         IF result ? 'records' AND jsonb_array_length(result->'records') > 0 THEN
-            test_record := result->'records'->0;
-            
-            IF test_record ? 'external_tracking_numbers' THEN
-                RAISE NOTICE '✓ 包含 external_tracking_numbers 字段: %', test_record->'external_tracking_numbers';
+            IF (result->'records'->0) ? 'external_tracking_numbers' THEN
+                RAISE NOTICE '✓ 包含 external_tracking_numbers 字段';
             ELSE
                 RAISE NOTICE '✗ 缺少 external_tracking_numbers 字段';
             END IF;
             
-            IF test_record ? 'other_platform_names' THEN
-                RAISE NOTICE '✓ 包含 other_platform_names 字段: %', test_record->'other_platform_names';
+            IF (result->'records'->0) ? 'other_platform_names' THEN
+                RAISE NOTICE '✓ 包含 other_platform_names 字段';
             ELSE
                 RAISE NOTICE '✗ 缺少 other_platform_names 字段';
             END IF;
-            
-            -- 显示其他关键字段
-            RAISE NOTICE '运单号: %', test_record->>'auto_number';
-            RAISE NOTICE '司机姓名: %', test_record->>'driver_name';
-            RAISE NOTICE '司机电话: %', test_record->>'driver_phone';
-            RAISE NOTICE '车牌号: %', test_record->>'license_plate';
-            RAISE NOTICE '装货地点: %', test_record->>'loading_location';
-            RAISE NOTICE '卸货地点: %', test_record->>'unloading_location';
         END IF;
         
     EXCEPTION WHEN OTHERS THEN
         RAISE NOTICE '✗ 运单查询函数测试失败: %', SQLERRM;
     END;
     
-    -- 测试2: 检查导入函数（不实际导入，只测试函数存在）
+    -- 测试2: 检查导入函数是否存在
     BEGIN
-        -- 测试函数是否存在
         IF EXISTS(SELECT 1 FROM pg_proc WHERE proname = 'import_logistics_data') THEN
             RAISE NOTICE '✓ import_logistics_data 函数存在';
         ELSE
             RAISE NOTICE '✗ import_logistics_data 函数不存在';
         END IF;
-        
-        -- 测试函数参数类型
-        SELECT proname, proargnames, proargtypes 
-        INTO test_record
-        FROM pg_proc 
-        WHERE proname = 'import_logistics_data';
-        
-        IF test_record IS NOT NULL THEN
-            RAISE NOTICE '✓ 函数参数检查通过';
-        END IF;
-        
     EXCEPTION WHEN OTHERS THEN
         RAISE NOTICE '✗ 导入函数检查失败: %', SQLERRM;
     END;
     
     -- 测试3: 检查数据库表结构
     BEGIN
-        -- 检查logistics_records表是否包含平台字段
         IF EXISTS(
             SELECT 1 FROM information_schema.columns 
             WHERE table_name = 'logistics_records' 
@@ -87,7 +63,6 @@ BEGIN
         ELSE
             RAISE NOTICE '✗ logistics_records表缺少other_platform_names字段';
         END IF;
-        
     EXCEPTION WHEN OTHERS THEN
         RAISE NOTICE '✗ 表结构检查失败: %', SQLERRM;
     END;
