@@ -200,13 +200,19 @@ export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }:
 
   const loadAvailableTrips = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('scale_records')
         .select('trip_number')
         .eq('project_id', formData.projectId)
         .eq('loading_date', formData.loadingDate)
-        .eq('license_plate', formData.licensePlate)
-        .order('trip_number');
+        .eq('license_plate', formData.licensePlate);
+
+      // 在编辑模式下，排除当前记录本身
+      if (isEditMode && editingRecord?.id) {
+        query = query.neq('id', editingRecord.id);
+      }
+
+      const { data, error } = await query.order('trip_number');
 
       if (error) throw error;
 
@@ -217,17 +223,34 @@ export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }:
       }
 
       const availableOptions = [];
+      
+      // 在编辑模式下，包含当前记录的车次
+      if (isEditMode && editingRecord?.trip_number) {
+        const currentTrip = editingRecord.trip_number;
+        availableOptions.push(currentTrip);
+      }
+      
+      // 添加其他可用的车次
       for (let i = 1; i <= nextTrip; i++) {
-        if (!existingTrips.includes(i)) {
+        if (!existingTrips.includes(i) && !availableOptions.includes(i)) {
           availableOptions.push(i);
         }
       }
+      
+      // 如果没有可用选项，添加下一个车次
       if (availableOptions.length === 0) {
         availableOptions.push(nextTrip);
       }
 
+      // 排序
+      availableOptions.sort((a, b) => a - b);
+
       setAvailableTrips(availableOptions);
-      setFormData(prev => ({ ...prev, tripNumber: availableOptions[availableOptions.length - 1] }));
+      
+      // 只有在非编辑模式下才自动设置车次
+      if (!isEditMode) {
+        setFormData(prev => ({ ...prev, tripNumber: availableOptions[availableOptions.length - 1] }));
+      }
     } catch (error) {
       console.error('Error loading available trips:', error);
     }

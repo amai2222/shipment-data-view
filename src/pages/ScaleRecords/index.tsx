@@ -395,8 +395,8 @@ export default function ScaleRecords() {
                 {records.map((record) => (
                   <div 
                     key={record.id} 
-                    onClick={() => handleImageClick(record.image_urls)}
-                    className={`flex items-center border rounded-lg p-2 hover:bg-muted/50 transition-colors text-sm ${record.image_urls.length > 0 ? 'cursor-pointer' : ''}`}
+                    onClick={() => handleEditRecord(record)}
+                    className="flex items-center border rounded-lg p-2 hover:bg-muted/50 transition-colors text-sm cursor-pointer"
                   >
                     <div className="w-12 flex-shrink-0 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                       <Checkbox checked={selectedRecordIds.has(record.id)} onCheckedChange={() => handleSelectRecord(record.id)} />
@@ -429,11 +429,19 @@ export default function ScaleRecords() {
                     
                     <div className="w-24 flex-shrink-0 text-center flex items-center justify-center gap-2 px-2">
                       {record.image_urls.length > 0 ? (
-                        <>
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleImageClick(record.image_urls);
+                          }}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors"
+                        >
                           <ImageIcon className="h-4 w-4 text-muted-foreground" />
                           <span>{record.image_urls.length}</span>
-                        </>
-                      ) : (<span className="text-xs text-muted-foreground">无图片</span>)}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">无图片</span>
+                      )}
                     </div>
                     
                     <div className="w-40 flex-shrink-0 flex justify-end items-center px-2">
