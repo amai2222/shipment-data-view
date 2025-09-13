@@ -987,7 +987,7 @@ export function IntegratedUserPermissionManager() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setEditingRole(role);
+                          setEditingRole(role as any);
                           setShowRoleTemplateDialog(true);
                         }}
                       >
@@ -1057,7 +1057,7 @@ export function IntegratedUserPermissionManager() {
                 <Label htmlFor="role">角色</Label>
                 <Select
                   value={editingUser.role}
-                  onValueChange={(value) => setEditingUser({
+                  onValueChange={(value: any) => setEditingUser({
                     ...editingUser,
                     role: value
                   })}

@@ -181,6 +181,17 @@ useEffect(() => {
       driver_phone: editingRecord.driver_phone
     });
     
+    // 处理外部运单号和平台名称数据
+    const externalTrackingNumbers = Array.isArray(editingRecord.external_tracking_numbers) 
+      ? editingRecord.external_tracking_numbers 
+      : [];
+    
+    const otherPlatformNames = Array.isArray(editingRecord.other_platform_names) 
+      ? editingRecord.other_platform_names 
+      : [];
+      
+    console.log('处理平台数据:', { externalTrackingNumbers, otherPlatformNames });
+
     // 首先设置基础数据（项目、司机等），不依赖其他数据加载
     setFormData(prev => {
       const newFormData = {
@@ -198,9 +209,11 @@ useEffect(() => {
         currentCost: editingRecord.current_cost?.toString() || '',
         extraCost: editingRecord.extra_cost?.toString() || '',
         remarks: editingRecord.remarks || '',
+        external_tracking_numbers: externalTrackingNumbers,
+        other_platform_names: otherPlatformNames,
       };
       
-      console.log('更新表单数据 - 基础信息:', newFormData);
+      console.log('更新表单数据 - 包含平台信息:', newFormData);
       return newFormData;
     });
 
@@ -346,17 +359,49 @@ const loadProjectSpecificData = async (projectId: string) => {
       .filter(Boolean) as string[];
   };
 
-  const populateFormWithRecord = (record: LogisticsRecord) => {
+  const populateFormWithRecord = async (record: LogisticsRecord) => {
+    console.log('开始填充表单数据:', record);
+    
     // 解析装卸货地点
     const loadingLocationNames = parseLocationString(record.loading_location || '');
     const unloadingLocationNames = parseLocationString(record.unloading_location || '');
+    
+    console.log('解析地点名称:', { loadingLocationNames, unloadingLocationNames });
+    
+    // 确保所有地点都在locations列表中，如果不在则创建
+    const allLocationNames = [...loadingLocationNames, ...unloadingLocationNames];
+    const missingLocations = allLocationNames.filter(name => 
+      !locations.find(loc => loc.name === name)
+    );
+    
+    if (missingLocations.length > 0) {
+      console.log('创建缺失的地点:', missingLocations);
+      await createMissingLocations(missingLocations);
+    }
+    
+    // 重新查找地点ID
+    const loadingLocationIds = findLocationIdsByName(loadingLocationNames);
+    const unloadingLocationIds = findLocationIdsByName(unloadingLocationNames);
+    
+    console.log('地点ID映射:', { loadingLocationIds, unloadingLocationIds });
+    
+    // 处理外部运单号数据
+    const externalTrackingNumbers = Array.isArray(record.external_tracking_numbers) 
+      ? record.external_tracking_numbers 
+      : [];
+    
+    const otherPlatformNames = Array.isArray(record.other_platform_names) 
+      ? record.other_platform_names 
+      : [];
+    
+    console.log('平台数据:', { externalTrackingNumbers, otherPlatformNames });
     
     setFormData({
       projectId: record.project_id || '',
       chainId: record.chain_id || '',
       driverId: record.driver_id || '',
-      loadingLocationIds: findLocationIdsByName(loadingLocationNames),
-      unloadingLocationIds: findLocationIdsByName(unloadingLocationNames),
+      loadingLocationIds,
+      unloadingLocationIds,
       loadingDate: record.loading_date ? new Date(record.loading_date) : new Date(),
       unloadingDate: record.unloading_date ? new Date(record.unloading_date) : new Date(),
       licensePlate: record.license_plate || '',
@@ -367,9 +412,11 @@ const loadProjectSpecificData = async (projectId: string) => {
       currentCost: record.current_cost?.toString() || '',
       extraCost: record.extra_cost?.toString() || '',
       remarks: record.remarks || '',
-      external_tracking_numbers: record.external_tracking_numbers || [],
-      other_platform_names: record.other_platform_names || [],
+      external_tracking_numbers: externalTrackingNumbers,
+      other_platform_names: otherPlatformNames,
     });
+    
+    console.log('表单数据设置完成');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
