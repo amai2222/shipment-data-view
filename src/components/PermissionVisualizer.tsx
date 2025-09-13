@@ -437,12 +437,10 @@ export function PermissionVisualizer({
                             const hasRolePermission = rolePermissions.project.includes(permission.key);
                             
                             let status = 'none';
-                            if (hasUserPermission && hasRolePermission) {
-                              status = 'inherited';
-                            } else if (hasUserPermission && !hasRolePermission) {
+                            if (hasRolePermission) {
+                              status = 'inherited'; // 修复：有角色权限就显示为继承
+                            } else if (hasUserPermission) {
                               status = 'custom';
-                            } else if (!hasUserPermission && hasRolePermission) {
-                              status = 'role-only';
                             }
                             
                             return (
@@ -459,7 +457,7 @@ export function PermissionVisualizer({
                                   {getStatusBadge(status)}
                                   {!readOnly && (
                                     <Checkbox
-                                      checked={hasUserPermission}
+                                      checked={hasRolePermission || hasUserPermission}
                                       onCheckedChange={(checked) => 
                                         onPermissionChange?.('project', permission.key, checked as boolean)
                                       }
