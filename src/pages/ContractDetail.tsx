@@ -72,7 +72,11 @@ export default function ContractDetail() {
         .single();
 
       if (error) throw error;
-      setContract(data);
+      setContract({
+        ...data,
+        status: data.status as 'active' | 'expired' | 'terminated' | 'archived',
+        priority: data.priority as 'low' | 'normal' | 'high' | 'urgent'
+      });
     } catch (error) {
       console.error('Error loading contract:', error);
       toast({

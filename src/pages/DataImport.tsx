@@ -47,7 +47,15 @@ export default function DataImportWithDuplicateCheck() {
         return;
       }
 
-      setProjects(projectsData || []);
+      const formattedProjects = (projectsData || []).map(project => ({
+        ...project,
+        startDate: project.start_date,
+        endDate: project.end_date || '',
+        loadingAddress: project.loading_address || '',
+        unloadingAddress: project.unloading_address || '',
+        createdAt: project.created_at
+      }));
+      setProjects(formattedProjects);
     } catch (error) {
       console.error('加载初始数据时出错:', error);
     }
@@ -320,8 +328,8 @@ export default function DataImportWithDuplicateCheck() {
 
       if (error) throw error;
 
-      const successCount = result?.success_count || 0;
-      const errorCount = result?.error_count || 0;
+      const successCount = (result as any)?.success_count || 0;
+      const errorCount = (result as any)?.error_count || 0;
 
       addLog(`导入完成！成功: ${successCount} 条，失败: ${errorCount} 条`);
 
@@ -474,16 +482,16 @@ export default function DataImportWithDuplicateCheck() {
 
       {/* 导入对话框 */}
       <EnhancedImportDialog
-        isOpen={importStep !== 'upload'}
+        isOpen={['preview', 'confirmation', 'processing'].includes(importStep)}
         onClose={closeImportModal}
-        importStep={importStep}
+        importStep={importStep as any}
         importPreview={importPreview}
         approvedDuplicates={approvedDuplicates}
         setApprovedDuplicates={setApprovedDuplicates}
         duplicateActions={duplicateActions}
         setDuplicateActions={setDuplicateActions}
         importLogs={importLogs}
-        importLogRef={importLogRef}
+        importLogRef={{ current: importLogRef as HTMLDivElement }}
         onExecuteImport={executeFinalImport}
       />
     </div>

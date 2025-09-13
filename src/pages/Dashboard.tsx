@@ -74,7 +74,7 @@ export default function Dashboard() {
     // 按日期范围过滤
     if (dateRange.from && dateRange.to) {
       filtered = filtered.filter(record => {
-        const dateStr = getValidDateString(record.loadingDate);
+        const dateStr = getValidDateString(record.loading_date);
         if (!dateStr) return false;
         const recordDate = new Date(dateStr);
         return recordDate >= dateRange.from! && recordDate <= dateRange.to!;
@@ -83,7 +83,7 @@ export default function Dashboard() {
     
     // 按项目过滤
     if (selectedProjectId !== "all") {
-      filtered = filtered.filter(record => record.projectId === selectedProjectId);
+      filtered = filtered.filter(record => record.project_id === selectedProjectId);
     }
     
     return filtered;
@@ -92,10 +92,10 @@ export default function Dashboard() {
   // 按项目分组的记录
   const recordsByProject = useMemo(() => {
     const grouped = filteredRecords.reduce((acc, record) => {
-      if (!acc[record.projectId]) {
-        acc[record.projectId] = [];
+      if (!acc[record.project_id]) {
+        acc[record.project_id] = [];
       }
-      acc[record.projectId].push(record);
+      acc[record.project_id].push(record);
       return acc;
     }, {} as Record<string, LogisticsRecord[]>);
     return grouped;
@@ -115,14 +115,14 @@ export default function Dashboard() {
         const statsMap = new Map<string, { actualTransport: number; returns: number }>();
         
         projectRecords.forEach(record => {
-          const date = getValidDateString(record.loadingDate);
+          const date = getValidDateString(record.loading_date);
           if (!date) return;
           const current = statsMap.get(date) || { actualTransport: 0, returns: 0 };
           
-          if (record.transportType === "实际运输") {
-            current.actualTransport += record.loadingWeight;
+          if (record.transport_type === "实际运输") {
+            current.actualTransport += record.loading_weight || 0;
           } else {
-            current.returns += record.loadingWeight;
+            current.returns += record.loading_weight || 0;
           }
           
           statsMap.set(date, current);
@@ -139,10 +139,10 @@ export default function Dashboard() {
         const statsMap = new Map<string, number>();
         
         projectRecords.forEach(record => {
-          const date = getValidDateString(record.loadingDate);
+          const date = getValidDateString(record.loading_date);
           if (!date) return;
           const current = statsMap.get(date) || 0;
-          const cost = (record.currentFee || 0) + (record.extraFee || 0);
+          const cost = (record.current_cost || 0) + (record.extra_cost || 0);
           statsMap.set(date, current + cost);
         });
         
@@ -157,7 +157,7 @@ export default function Dashboard() {
         const statsMap = new Map<string, number>();
         
         projectRecords.forEach(record => {
-          const date = getValidDateString(record.loadingDate);
+          const date = getValidDateString(record.loading_date);
           if (!date) return;
           const current = statsMap.get(date) || 0;
           statsMap.set(date, current + 1);
@@ -192,10 +192,10 @@ export default function Dashboard() {
   // 统计概览
   const overviewStats = useMemo(() => {
     const totalRecords = filteredRecords.length;
-    const totalWeight = filteredRecords.reduce((sum, record) => sum + record.loadingWeight, 0);
+    const totalWeight = filteredRecords.reduce((sum, record) => sum + (record.loading_weight || 0), 0);
     const totalCost = filteredRecords.reduce((sum, record) => 
-      sum + (record.currentFee || 0) + (record.extraFee || 0), 0);
-    const actualTransportCount = filteredRecords.filter(r => r.transportType === "实际运输").length;
+      sum + (record.current_cost || 0) + (record.extra_cost || 0), 0);
+    const actualTransportCount = filteredRecords.filter(r => r.transport_type === "实际运输").length;
     
     return {
       totalRecords,

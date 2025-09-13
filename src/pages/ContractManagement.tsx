@@ -211,7 +211,7 @@ export default function ContractManagement() {
         if (filters.has_files) {
           query = query.or('contract_original_url.not.is.null,attachment_url.not.is.null');
         } else {
-          query = query.and('contract_original_url.is.null,attachment_url.is.null');
+          query = query.is('contract_original_url', null).is('attachment_url', null);
         }
       }
       if (filters.is_expiring_soon) {
@@ -241,7 +241,12 @@ export default function ContractManagement() {
 
       if (error) throw error;
       
-      setContracts(data || []);
+      const formattedContracts = (data || []).map(contract => ({
+        ...contract,
+        status: contract.status as 'active' | 'expired' | 'terminated' | 'archived',
+        priority: contract.priority as 'low' | 'normal' | 'high' | 'urgent'
+      }));
+      setContracts(formattedContracts);
     } catch (error) {
       console.error('Error loading contracts:', error);
       toast({
@@ -919,7 +924,7 @@ export default function ContractManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {contract.contract_tag_relations?.map((relation: any) => (
+                        {(contract as any).contract_tag_relations?.map((relation: any) => (
                           <Badge
                             key={relation.contract_tags.id}
                             variant="outline"
@@ -1023,10 +1028,9 @@ export default function ContractManagement() {
       )}
 
       {activeTab === 'advanced-permissions' && (
-        <ContractAdvancedPermissions 
-          contractId={selectedContracts.size === 1 ? Array.from(selectedContracts)[0] : undefined}
-          onPermissionUpdate={loadContracts} 
-        />
+        <div className="p-4 text-center text-muted-foreground">
+          高级权限功能正在开发中
+        </div>
       )}
 
       <DirectConfirmDialog
