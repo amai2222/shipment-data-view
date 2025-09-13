@@ -61,6 +61,7 @@ const INITIAL_FORM_DATA: FormData = {
   extraCost: '',
   remarks: '',
   other_platform_waybills: '',
+  external_tracking_numbers: [], // 添加缺失的字段
 };
 
 export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, onSubmitSuccess }: LogisticsFormDialogProps) {
@@ -680,7 +681,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <div>
               <Label className="text-base font-medium">其他平台运单信息</Label>
               <div className="text-sm text-muted-foreground mt-1 mb-3">
-                外部运单号: {formData.external_tracking_numbers?.length || 0} 个 | 其他平台: {(formData.external_tracking_numbers || []).map(item => item.platform).filter(Boolean).filter((platform, index, arr) => arr.indexOf(platform) === index).length} 个
+                外部运单号: {(formData.external_tracking_numbers || []).length} 个 | 其他平台: {(formData.external_tracking_numbers || []).map(item => item.platform).filter(Boolean).filter((platform, index, arr) => arr.indexOf(platform) === index).length} 个
               </div>
               
               {/* 外部运单号输入 */}
