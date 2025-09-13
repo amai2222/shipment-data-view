@@ -39,21 +39,19 @@ export function useExcelImport(onImportSuccess: () => void) {
   const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
   const [duplicateActions, setDuplicateActions] = useState<Map<number, {action: 'create' | 'update'}>>(new Map());
   const [importLogs, setImportLogs] = useState<string[]>([]);
-  const [importMode, setImportMode] = useState<'create' | 'update'>('create');
   const importLogRef = useRef<HTMLDivElement>(null);
 
   const closeImportModal = useCallback(() => {
     setIsImportModalOpen(false); setIsImporting(false); setImportStep('idle');
     setImportPreview(null); setApprovedDuplicates(new Set()); setDuplicateActions(new Map()); setImportLogs([]);
-    setImportMode('create');
   }, []);
 
   const getImportPreview = async (validRows: any[]) => {
     setImportStep('preview');
     try {
       const recordsToPreview = validRows.map(rowData => {
-        const parsedLoadingWeight = parseFloat(rowData['装货数量']);
-        const parsedUnloadingWeight = parseFloat(rowData['卸货数量']);
+        const parsedLoadingWeight = parseFloat(rowData['装货重量']);
+        const parsedUnloadingWeight = parseFloat(rowData['卸货重量']);
         const parsedCurrentCost = parseFloat(rowData['运费金额']);
         const parsedExtraCost = parseFloat(rowData['额外费用']);
 
@@ -152,7 +150,7 @@ export function useExcelImport(onImportSuccess: () => void) {
         // ★★★ 新增：表头校验逻辑开始 ★★★
         const REQUIRED_HEADERS = [
           '项目名称', '司机姓名', '车牌号', '装货地点', '卸货地点', 
-          '装货日期', '装货数量', '运费金额'
+          '装货日期', '装货重量', '运费金额'
         ];
         
         const headerRow = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
@@ -245,109 +243,53 @@ export function useExcelImport(onImportSuccess: () => void) {
     addLog(`其中新记录 ${importPreview.new_records.length} 条，强制导入重复记录 ${approvedDuplicates.size} 条`);
 
     try {
-      // 根据导入模式选择不同的数据库函数
-      const { data: result, error } = importMode === 'update' 
-        ? await supabase.rpc('batch_import_logistics_records_with_update', { 
-            p_records: finalRecordsToImport,
-            p_update_mode: true
-          })
-        : await supabase.rpc('import_logistics_data', { 
-            p_records: finalRecordsToImport 
-          });
+      const { data: result, error } = await supabase.rpc('import_logistics_data', { 
+        p_records: finalRecordsToImport 
+      });
       
       if (error) throw error;
       
-      // 处理两种不同的返回格式
-      if (importMode === 'update') {
-        // 更新模式的返回格式
-        if (result && typeof result === 'object' && 'success_count' in (result as any)) {
-          const updateResult = (result as unknown) as { 
-            success_count: number; 
-            error_count: number;
-            inserted_count: number;
-            updated_count: number;
-            error_details: any[];
-          };
-          
-          addLog(`导入完成！成功: ${updateResult.success_count}, 失败: ${updateResult.error_count}`);
-          addLog(`其中新增: ${updateResult.inserted_count} 条，更新: ${updateResult.updated_count} 条`);
+      if (result && typeof result === 'object' && 'success_count' in (result as any) && 'failures' in (result as any)) {
+        const safeResult = (result as unknown) as { success_count: number; failures: ImportFailure[] };
+        const failure_count = safeResult.failures.length;
 
-          if (updateResult.error_count > 0) {
-            addLog("---------------- 失败详情 ----------------");
-            updateResult.error_details.forEach((error: any) => {
-              addLog(`第${error.record_index}行: ${error.error_message}`);
-            });
-            addLog("------------------------------------------");
-            
-            toast({
-              title: `导入部分完成`,
-              description: `成功导入 ${updateResult.success_count} 条，失败 ${updateResult.error_count} 条。详情请查看导入日志。`,
-              variant: updateResult.error_count > updateResult.success_count ? "destructive" : "default",
-              duration: 9000
-            });
-          } else {
-            addLog("所有记录导入成功，系统已自动完成以下操作：");
-            addLog("✓ 自动创建新司机和地点信息");
-            addLog("✓ 自动关联司机和地点到对应项目");
-            addLog("✓ 自动计算合作方成本分摊");
-            addLog("✓ 自动生成运单编号");
-            
-            toast({ 
-              title: "导入成功", 
-              description: `共导入 ${updateResult.success_count} 条记录，已完成自动化处理。` 
-            });
-          }
+        addLog(`导入完成！成功: ${safeResult.success_count}, 失败: ${failure_count}`);
+
+        if (failure_count > 0) {
+          addLog("---------------- 失败详情 ----------------");
+          safeResult.failures.forEach(failure => {
+            const rowData = failure.data;
+            const driverInfo = rowData?.driver_name || '未知司机';
+            const dateInfo = rowData?.loading_date || '未知日期';
+            const projectInfo = rowData?.project_name || '未知项目';
+            addLog(`[Excel第 ${failure.row_index} 行] 项目: ${projectInfo}, 司机: ${driverInfo}, 日期: ${dateInfo} => ${failure.error}`);
+          });
+          addLog("------------------------------------------");
           
-          if (updateResult.success_count > 0) {
-            onImportSuccess();
-          }
+          toast({
+            title: `导入部分完成`,
+            description: `成功导入 ${safeResult.success_count} 条，失败 ${failure_count} 条。详情请查看导入日志。`,
+            variant: failure_count > safeResult.success_count ? "destructive" : "default",
+            duration: 9000
+          });
         } else {
-          throw new Error('更新模式导入结果格式与预期不符。');
+          addLog("所有记录导入成功，系统已自动完成以下操作：");
+          addLog("✓ 自动创建新司机和地点信息");
+          addLog("✓ 自动关联司机和地点到对应项目");
+          addLog("✓ 自动计算合作方成本分摊");
+          addLog("✓ 自动生成运单编号");
+          
+          toast({ 
+            title: "导入成功", 
+            description: `共导入 ${safeResult.success_count} 条记录，已完成自动化处理。` 
+          });
+        }
+        
+        if (safeResult.success_count > 0) {
+          onImportSuccess();
         }
       } else {
-        // 创建模式的返回格式（原有逻辑）
-        if (result && typeof result === 'object' && 'success_count' in (result as any) && 'failures' in (result as any)) {
-          const safeResult = (result as unknown) as { success_count: number; failures: ImportFailure[] };
-          const failure_count = safeResult.failures.length;
-
-          addLog(`导入完成！成功: ${safeResult.success_count}, 失败: ${failure_count}`);
-
-          if (failure_count > 0) {
-            addLog("---------------- 失败详情 ----------------");
-            safeResult.failures.forEach(failure => {
-              const rowData = failure.data;
-              const driverInfo = rowData?.driver_name || '未知司机';
-              const dateInfo = rowData?.loading_date || '未知日期';
-              const projectInfo = rowData?.project_name || '未知项目';
-              addLog(`[Excel第 ${failure.row_index} 行] 项目: ${projectInfo}, 司机: ${driverInfo}, 日期: ${dateInfo} => ${failure.error}`);
-            });
-            addLog("------------------------------------------");
-            
-            toast({
-              title: `导入部分完成`,
-              description: `成功导入 ${safeResult.success_count} 条，失败 ${failure_count} 条。详情请查看导入日志。`,
-              variant: failure_count > safeResult.success_count ? "destructive" : "default",
-              duration: 9000
-            });
-          } else {
-            addLog("所有记录导入成功，系统已自动完成以下操作：");
-            addLog("✓ 自动创建新司机和地点信息");
-            addLog("✓ 自动关联司机和地点到对应项目");
-            addLog("✓ 自动计算合作方成本分摊");
-            addLog("✓ 自动生成运单编号");
-            
-            toast({ 
-              title: "导入成功", 
-              description: `共导入 ${safeResult.success_count} 条记录，已完成自动化处理。` 
-            });
-          }
-          
-          if (safeResult.success_count > 0) {
-            onImportSuccess();
-          }
-        } else {
-          throw new Error('导入结果格式与预期不符，收到了非法的响应。');
-        }
+        throw new Error('导入结果格式与预期不符，收到了非法的响应。');
       }
     } catch (error: any) {
       addLog(`发生致命错误: ${error.message}`);
@@ -368,8 +310,6 @@ export function useExcelImport(onImportSuccess: () => void) {
     duplicateActions,
     importLogs,
     importLogRef,
-    importMode,
-    setImportMode,
     handleExcelImport,
     executeFinalImport,
     closeImportModal,

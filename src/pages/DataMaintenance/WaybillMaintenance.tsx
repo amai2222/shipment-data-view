@@ -19,8 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Project } from "@/types";
-import { UpdateModeImportDialog } from '@/pages/BusinessEntry/components/UpdateModeImportDialog';
-import { useExcelImportWithUpdate } from '@/pages/BusinessEntry/hooks/useExcelImportWithUpdate';
+import { EnhancedImportDialog } from '@/pages/BusinessEntry/components/EnhancedImportDialog';
+import { useExcelImport } from '@/pages/BusinessEntry/hooks/useExcelImport';
 import TemplateMappingManager from '@/components/TemplateMappingManager';
 import TemplateBasedImport from '@/components/TemplateBasedImport';
 import * as XLSX from 'xlsx';
@@ -35,25 +35,24 @@ export default function WaybillMaintenance() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping'>('standard');
 
-  // 临时禁用，因为数据库函数不存在
-  const isImporting = false;
-  const importStep = 'idle' as const;
-  const importPreview = null;
-  const importMode = 'create' as const;
-  const setImportMode = () => {};
-  const importLogs: string[] = [];
-  const importLogRef = { current: null };
-  
-  const handleExcelImport = () => {
-    toast({
-      title: "功能暂时禁用",
-      description: "Excel导入功能正在维护中",
-      variant: "destructive"
-    });
-  };
-  
-  const executeFinalImport = () => {};
-  const closeImportModal = () => {};
+  // Excel导入相关状态
+  const { 
+    isImporting, 
+    isImportModalOpen, 
+    importStep, 
+    importPreview, 
+    approvedDuplicates, 
+    duplicateActions,
+    importLogs, 
+    importLogRef, 
+    handleExcelImport, 
+    executeFinalImport, 
+    closeImportModal, 
+    setApprovedDuplicates, 
+    setDuplicateActions 
+  } = useExcelImport(() => { 
+    loadWaybillCount(); 
+  });
 
   // 检查权限
   if (!isAdmin && !isOperator) {
@@ -79,17 +78,7 @@ export default function WaybillMaintenance() {
         .order('name');
 
       if (error) throw error;
-      const mappedProjects = (data || []).map(project => ({
-        ...project,
-        startDate: project.start_date,
-        endDate: project.end_date,
-        manager: '',
-        loadingAddress: '',
-        unloadingAddress: '',
-        createdAt: new Date().toISOString(),
-        projectStatus: project.project_status
-      }));
-      setProjects(mappedProjects);
+      setProjects(data || []);
     } catch (error: any) {
       console.error('加载项目失败:', error);
       toast({ title: "错误", description: "加载项目列表失败", variant: "destructive" });
@@ -242,7 +231,7 @@ export default function WaybillMaintenance() {
                         <div className="flex items-center gap-2">
                           <span>{project.name}</span>
                           <Badge variant="outline" className="text-xs">
-                            {project.projectStatus || '进行中'}
+                            {project.project_status || '进行中'}
                           </Badge>
                         </div>
                       </SelectItem>
@@ -381,10 +370,20 @@ export default function WaybillMaintenance() {
         </Card>
       </div>
 
-        {/* 导入对话框 */}
-        <div>
-          {/* 临时禁用导入对话框 */}
-        </div>
+      {/* 导入对话框 */}
+      <EnhancedImportDialog
+        isOpen={isImportModalOpen}
+        onClose={closeImportModal}
+        importStep={importStep}
+        importPreview={importPreview}
+        approvedDuplicates={approvedDuplicates}
+        setApprovedDuplicates={setApprovedDuplicates}
+        duplicateActions={duplicateActions}
+        setDuplicateActions={setDuplicateActions}
+        importLogs={importLogs}
+        importLogRef={importLogRef}
+        onExecuteImport={executeFinalImport}
+      />
     </div>
   );
 }

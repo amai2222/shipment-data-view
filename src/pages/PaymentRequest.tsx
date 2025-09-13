@@ -80,7 +80,6 @@ export default function PaymentRequest() {
         p_end_date: activeFilters.endDate || null,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
         p_payment_status_array: statusArray,
-        p_driver_names: null, // 添加缺失的参数
         p_page_size: PAGE_SIZE,
         p_page_number: pagination.currentPage,
       });

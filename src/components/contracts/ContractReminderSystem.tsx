@@ -95,7 +95,10 @@ export function ContractReminderSystem({ onReminderUpdate }: ContractReminderSys
       
       const formattedData = (data || []).map(item => ({
         ...item,
-        reminder_type: item.reminder_type as 'expiry_30' | 'expiry_60' | 'expiry_90' | 'custom'
+        contract_number: item.contracts?.contract_number,
+        counterparty_company: item.contracts?.counterparty_company,
+        our_company: item.contracts?.our_company,
+        end_date: item.contracts?.end_date
       }));
 
       setReminders(formattedData);

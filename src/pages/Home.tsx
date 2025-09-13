@@ -449,23 +449,23 @@ export default function Home() {
                   const unit = record.billing_type_id 
                     ? BILLING_TYPE_MAP[record.billing_type_id.toString() as keyof typeof BILLING_TYPE_MAP]?.unit || '' 
                     : '';
-                  const route = `${record.loading_location?.substring(0, 2) || ''}-${record.unloading_location?.substring(0, 2) || ''}`;
+                  const route = `${record.loadingLocation?.substring(0, 2) || ''}-${record.unloadingLocation?.substring(0, 2) || ''}`;
                   
                   return (
                     <TableRow key={record.id}>
-                      <TableCell className="whitespace-nowrap">{record.auto_number}</TableCell>
-                      <TableCell className="whitespace-nowrap max-w-[150px] truncate" title={record.project_name}>{record.project_name || '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{record.driver_name}</TableCell>
-                      <TableCell className="whitespace-nowrap">{record.license_plate}</TableCell>
+                      <TableCell className="whitespace-nowrap">{record.autoNumber}</TableCell>
+                      <TableCell className="whitespace-nowrap max-w-[150px] truncate" title={record.projectName}>{record.projectName || '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{record.driverName}</TableCell>
+                      <TableCell className="whitespace-nowrap">{record.licensePlate}</TableCell>
                       <TableCell className="whitespace-nowrap">{route}</TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {record.loading_weight != null ? `${record.loading_weight.toFixed(2)} ${unit}`.trim() : '-'}
+                        {record.loadingWeight != null ? `${record.loadingWeight.toFixed(2)} ${unit}`.trim() : '-'}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {record.unloading_weight != null ? `${record.unloading_weight.toFixed(2)} ${unit}`.trim() : '-'}
+                        {record.unloadingWeight != null ? `${record.unloadingWeight.toFixed(2)} ${unit}`.trim() : '-'}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap"><span className={`px-2 py-1 rounded-full text-xs ${record.transport_type === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transport_type}</span></TableCell>
-                      <TableCell className="whitespace-nowrap">{formatCurrency(record.payable_cost)}</TableCell>
+                      <TableCell className="whitespace-nowrap"><span className={`px-2 py-1 rounded-full text-xs ${record.transportType === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transportType}</span></TableCell>
+                      <TableCell className="whitespace-nowrap">{formatCurrency(record.payableFee)}</TableCell>
                       <TableCell className="whitespace-nowrap max-w-[150px] truncate" title={record.remarks}>{record.remarks || '-'}</TableCell>
                     </TableRow>
                   );

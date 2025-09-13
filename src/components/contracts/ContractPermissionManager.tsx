@@ -7,21 +7,33 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Save, X, Shield, Trash2 } from 'lucide-react';
+import { Plus, Edit, Save, X, Shield, User, Users, Building, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ContractPermission {
   id: string;
   contract_id: string;
   user_id?: string;
-  department?: string;
+  role_id?: string;
+  department_id?: string;
   permission_type: 'view' | 'download' | 'edit' | 'delete';
-  field_permissions?: any;
-  file_permissions?: any;
+  granted_by?: string;
+  granted_at: string;
+  expires_at?: string;
+  is_active: boolean;
   created_at: string;
-  updated_at?: string;
+  updated_at: string;
+  // 关联信息
+  contract_number?: string;
+  counterparty_company?: string;
+  our_company?: string;
+  user_name?: string;
+  role_name?: string;
+  department_name?: string;
+  granter_name?: string;
 }
 
 interface ContractPermissionManagerProps {
@@ -37,10 +49,15 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
   const [formData, setFormData] = useState({
     contract_id: contractId || '',
     user_id: '',
-    department: '',
-    permission_type: 'view' as 'view' | 'download' | 'edit' | 'delete'
+    role_id: '',
+    department_id: '',
+    permission_type: 'view' as 'view' | 'download' | 'edit' | 'delete',
+    expires_at: ''
   });
   const [contracts, setContracts] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
 
   const { toast } = useToast();
 
@@ -54,7 +71,10 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
       setLoading(true);
       let query = supabase
         .from('contract_permissions')
-        .select('*')
+        .select(`
+          *,
+          contracts!inner(contract_number, counterparty_company, our_company)
+        `)
         .order('created_at', { ascending: false });
 
       if (contractId) {
@@ -63,17 +83,33 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        // 如果表不存在，返回空数组而不是抛出错误
+        if (error.message.includes('relation "contract_permissions" does not exist')) {
+          setPermissions([]);
+          return;
+        }
+        throw error;
+      }
+      
       const formattedData = (data || []).map(item => ({
         ...item,
-        permission_type: item.permission_type as 'view' | 'download' | 'edit' | 'delete'
+        contract_number: item.contracts?.contract_number,
+        counterparty_company: item.contracts?.counterparty_company,
+        our_company: item.contracts?.our_company,
+        user_name: item.user_id ? `用户 ${item.user_id}` : null,
+        role_name: item.role_name,
+        department_name: item.department_name,
+        granter_name: item.granted_by ? `授权者 ${item.granted_by}` : null
       }));
+
       setPermissions(formattedData);
     } catch (error) {
       console.error('Error loading permissions:', error);
       toast({
         title: "错误",
-        description: "加载权限列表失败",
+        description: "加载权限列表失败，请检查数据库连接",
         variant: "destructive",
       });
     } finally {
@@ -89,9 +125,17 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
         .order('created_at', { ascending: false });
 
       setContracts(contractsResult.data || []);
+      // 由于 users, user_roles, departments 表不存在，设置为空数组
+      setUsers([]);
+      setRoles([]);
+      setDepartments([]);
     } catch (error) {
       console.error('Error loading reference data:', error);
+      // 即使出错也设置空数组，避免组件崩溃
       setContracts([]);
+      setUsers([]);
+      setRoles([]);
+      setDepartments([]);
     }
   };
 
@@ -107,10 +151,10 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
       return;
     }
 
-    if (!formData.user_id && !formData.department) {
+    if (!formData.user_id && !formData.role_id && !formData.department_id) {
       toast({
         title: "错误",
-        description: "请选择用户或部门",
+        description: "请选择用户、角色或部门",
         variant: "destructive",
       });
       return;
@@ -120,9 +164,19 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
       const permissionData = {
         contract_id: formData.contract_id,
         permission_type: formData.permission_type,
-        user_id: formData.user_id || null,
-        department: formData.department || null
+        expires_at: formData.expires_at || null,
+        is_active: true
       };
+
+      if (formData.user_id) {
+        permissionData.user_id = formData.user_id;
+      }
+      if (formData.role_id) {
+        permissionData.role_id = formData.role_id;
+      }
+      if (formData.department_id) {
+        permissionData.department_id = formData.department_id;
+      }
 
       if (editingPermission) {
         // 更新现有权限
@@ -156,8 +210,10 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
       setFormData({
         contract_id: contractId || '',
         user_id: '',
-        department: '',
-        permission_type: 'view'
+        role_id: '',
+        department_id: '',
+        permission_type: 'view',
+        expires_at: ''
       });
       loadPermissions();
       onPermissionUpdate?.();
@@ -176,8 +232,10 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
     setFormData({
       contract_id: permission.contract_id,
       user_id: permission.user_id || '',
-      department: permission.department || '',
-      permission_type: permission.permission_type
+      role_id: permission.role_id || '',
+      department_id: permission.department_id || '',
+      permission_type: permission.permission_type,
+      expires_at: permission.expires_at ? format(new Date(permission.expires_at), 'yyyy-MM-dd') : ''
     });
     setShowForm(true);
   };
@@ -218,8 +276,10 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
     setFormData({
       contract_id: contractId || '',
       user_id: '',
-      department: '',
-      permission_type: 'view'
+      role_id: '',
+      department_id: '',
+      permission_type: 'view',
+      expires_at: ''
     });
   };
 
@@ -282,23 +342,83 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
               </div>
 
               <div>
-                <Label htmlFor="user_id">用户ID</Label>
-                <Input
-                  id="user_id"
-                  value={formData.user_id}
-                  onChange={(e) => setFormData(prev => ({ ...prev, user_id: e.target.value }))}
-                  placeholder="输入用户ID"
-                />
-              </div>
+                <Label>授权对象 *</Label>
+                <div className="space-y-2">
+                  <div>
+                    <Label htmlFor="user_id" className="text-sm">用户</Label>
+                    <Select
+                      value={formData.user_id || 'none'}
+                      onValueChange={(value) => setFormData(prev => ({ 
+                        ...prev, 
+                        user_id: value === 'none' ? '' : value,
+                        role_id: '',
+                        department_id: ''
+                      }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择用户" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">不选择用户</SelectItem>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name} ({user.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div>
-                <Label htmlFor="department">部门</Label>
-                <Input
-                  id="department"
-                  value={formData.department}
-                  onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
-                  placeholder="输入部门名称"
-                />
+                  <div>
+                    <Label htmlFor="role_id" className="text-sm">角色</Label>
+                    <Select
+                      value={formData.role_id || 'none'}
+                      onValueChange={(value) => setFormData(prev => ({ 
+                        ...prev, 
+                        role_id: value === 'none' ? '' : value,
+                        user_id: '',
+                        department_id: ''
+                      }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择角色" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">不选择角色</SelectItem>
+                        {roles.map((role) => (
+                          <SelectItem key={role.id} value={role.id}>
+                            {role.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="department_id" className="text-sm">部门</Label>
+                    <Select
+                      value={formData.department_id || 'none'}
+                      onValueChange={(value) => setFormData(prev => ({ 
+                        ...prev, 
+                        department_id: value === 'none' ? '' : value,
+                        user_id: '',
+                        role_id: ''
+                      }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择部门" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">不选择部门</SelectItem>
+                        {departments.map((department) => (
+                          <SelectItem key={department.id} value={department.id}>
+                            {department.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -319,6 +439,19 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
                     <SelectItem value="delete">删除</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="expires_at">过期时间</Label>
+                <Input
+                  id="expires_at"
+                  type="date"
+                  value={formData.expires_at}
+                  onChange={(e) => setFormData(prev => ({ ...prev, expires_at: e.target.value }))}
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  留空表示永不过期
+                </p>
               </div>
 
               <div className="flex justify-end gap-2">
@@ -354,25 +487,63 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>用户ID</TableHead>
-                  <TableHead>部门</TableHead>
+                  <TableHead>合同</TableHead>
+                  <TableHead>授权对象</TableHead>
                   <TableHead>权限类型</TableHead>
-                  <TableHead>创建时间</TableHead>
+                  <TableHead>授权时间</TableHead>
+                  <TableHead>过期时间</TableHead>
+                  <TableHead>状态</TableHead>
                   <TableHead>操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {permissions.map((permission) => (
                   <TableRow key={permission.id}>
-                    <TableCell>{permission.user_id || '-'}</TableCell>
-                    <TableCell>{permission.department || '-'}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div className="font-mono">{permission.contract_number}</div>
+                        <div className="text-muted-foreground">
+                          {permission.counterparty_company} - {permission.our_company}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        {permission.user_name && (
+                          <div className="flex items-center space-x-1">
+                            <User className="h-3 w-3" />
+                            <span className="text-sm">{permission.user_name}</span>
+                          </div>
+                        )}
+                        {permission.role_name && (
+                          <div className="flex items-center space-x-1">
+                            <Users className="h-3 w-3" />
+                            <span className="text-sm">{permission.role_name}</span>
+                          </div>
+                        )}
+                        {permission.department_name && (
+                          <div className="flex items-center space-x-1">
+                            <Building className="h-3 w-3" />
+                            <span className="text-sm">{permission.department_name}</span>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={getPermissionTypeBadgeVariant(permission.permission_type)}>
                         {getPermissionTypeText(permission.permission_type)}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {format(new Date(permission.created_at), 'yyyy-MM-dd HH:mm')}
+                      {format(new Date(permission.granted_at), 'yyyy-MM-dd HH:mm')}
+                    </TableCell>
+                    <TableCell>
+                      {permission.expires_at ? format(new Date(permission.expires_at), 'yyyy-MM-dd') : '永不过期'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={permission.is_active ? 'default' : 'secondary'}>
+                        {permission.is_active ? '有效' : '无效'}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
@@ -387,6 +558,7 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
                           size="sm"
                           variant="outline"
                           onClick={() => handleDelete(permission)}
+                          className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>

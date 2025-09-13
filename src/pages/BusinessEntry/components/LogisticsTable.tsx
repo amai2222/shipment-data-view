@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuIte
 import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogisticsRecord, PaginationState } from '../types';
-import { MultiLocationInput } from '@/components/MultiLocationInput';
+import { RouteDisplay } from '@/components/RouteDisplay';
 
 interface LogisticsTableProps {
   records: LogisticsRecord[];
@@ -159,11 +159,11 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                       </div>
                     </TableCell>
                     <TableCell>
-                       <div className="text-sm">
-                         <div className="font-medium">{record.loading_location}</div>
-                         <div className="text-muted-foreground">→</div>
-                         <div className="font-medium">{record.unloading_location}</div>
-                       </div>
+                      <RouteDisplay 
+                        loadingLocation={record.loading_location}
+                        unloadingLocation={record.unloading_location}
+                        variant="compact"
+                      />
                     </TableCell>
                     {/* [修改] 使用统一的显示函数 */}
                     <TableCell className="font-mono text-sm">{getQuantityDisplay(record)}</TableCell>

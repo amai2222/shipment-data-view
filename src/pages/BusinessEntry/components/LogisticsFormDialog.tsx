@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, Save, X, Plus } from "lucide-react";
+import { CalendarIcon, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogisticsRecord, Project, PlatformTracking } from '../types';
@@ -41,15 +41,16 @@ interface FormData {
   currentCost: string;
   extraCost: string;
   remarks: string;
-  external_tracking_numbers: any[]; // 外部运单号数组
+  external_tracking_numbers: any[];
+  other_platform_names: string[];
 }
 
 const INITIAL_FORM_DATA: FormData = {
   projectId: '',
   chainId: '',
   driverId: '',
-  loadingLocationIds: [],
-  unloadingLocationIds: [],
+  loadingLocationIds: [], // 改为空数组
+  unloadingLocationIds: [], // 改为空数组
   loadingDate: new Date(),
   unloadingDate: new Date(),
   licensePlate: '',
@@ -61,6 +62,7 @@ const INITIAL_FORM_DATA: FormData = {
   extraCost: '',
   remarks: '',
   external_tracking_numbers: [],
+  other_platform_names: [],
 };
 
 export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, onSubmitSuccess }: LogisticsFormDialogProps) {
@@ -86,60 +88,34 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     return current + extra;
   }, [formData.currentCost, formData.extraCost]);
 
-useEffect(() => {
-  if (isOpen) {
-    console.log('对话框打开，编辑记录:', editingRecord);
-    if (editingRecord) {
-      // 先设置基本信息，地点信息会在loadProjectSpecificData完成后处理
-      const initialFormData = {
-        projectId: editingRecord.project_id || '',
-        chainId: editingRecord.chain_id || '',
-        driverId: editingRecord.driver_id || '',
-        loadingLocationIds: [], // 暂不设置，等地点数据加载完成
-        unloadingLocationIds: [], // 暂不设置，等地点数据加载完成  
-        loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
-        unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
-        licensePlate: editingRecord.license_plate || '',
-        driverPhone: editingRecord.driver_phone || '',
-        loading_weight: editingRecord.loading_weight?.toString() || '',
-        unloading_weight: editingRecord.unloading_weight?.toString() || '',
-        transportType: editingRecord.transport_type || '实际运输',
-        currentCost: editingRecord.current_cost?.toString() || '',
-        extraCost: editingRecord.extra_cost?.toString() || '',
-        remarks: editingRecord.remarks || '',
-        external_tracking_numbers: (() => {
-          if (!editingRecord.external_tracking_numbers || !Array.isArray(editingRecord.external_tracking_numbers)) {
-            return [];
-          }
-          
-          // 按平台分组，将同一平台的多个运单号合并
-          const groupedByPlatform: { [key: string]: string[] } = {};
-          editingRecord.external_tracking_numbers.forEach((item: any) => {
-            if (item.platform && item.tracking_number) {
-              if (!groupedByPlatform[item.platform]) {
-                groupedByPlatform[item.platform] = [];
-              }
-              groupedByPlatform[item.platform].push(item.tracking_number);
-            }
-          });
-          
-          // 转换为表单格式
-          return Object.entries(groupedByPlatform).map(([platform, trackingNumbers]) => ({
-            platform,
-            tracking_number: trackingNumbers.join('|'),
-            status: 'pending',
-            created_at: new Date().toISOString()
-          }));
-        })(),
-      };
-      
-      console.log('设置初始表单数据（不含地点）:', initialFormData);
-      setFormData(initialFormData);
-    } else {
-      setFormData(INITIAL_FORM_DATA);
+  useEffect(() => {
+    if (isOpen) {
+      if (editingRecord) {
+        // 先设置基本信息，等数据加载完成后再填充地点和司机信息
+        setFormData({
+          projectId: editingRecord.project_id || '',
+          chainId: editingRecord.chain_id || '',
+          driverId: editingRecord.driver_id || '',
+          loadingLocationIds: [],
+          unloadingLocationIds: [],
+          loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
+          unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
+          licensePlate: editingRecord.license_plate || '',
+          driverPhone: editingRecord.driver_phone || '',
+          loading_weight: editingRecord.loading_weight?.toString() || '',
+          unloading_weight: editingRecord.unloading_weight?.toString() || '',
+          transportType: editingRecord.transport_type || '实际运输',
+          currentCost: editingRecord.current_cost?.toString() || '',
+          extraCost: editingRecord.extra_cost?.toString() || '',
+          remarks: editingRecord.remarks || '',
+          external_tracking_numbers: editingRecord.external_tracking_numbers || [],
+          other_platform_names: editingRecord.other_platform_names || [],
+        });
+      } else {
+        setFormData(INITIAL_FORM_DATA);
+      }
     }
-  }
-}, [isOpen, editingRecord]);
+  }, [isOpen, editingRecord]);
 
   useEffect(() => {
     if (formData.projectId) {
@@ -148,12 +124,9 @@ useEffect(() => {
       setChains([]);
       setDrivers([]);
       setLocations([]);
-      // Only clear location IDs if not in editing mode
-      if (!editingRecord) {
-        setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationIds: [], unloadingLocationIds: [] }));
-      }
+      setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationIds: [], unloadingLocationIds: [] }));
     }
-  }, [formData.projectId, editingRecord]);
+  }, [formData.projectId]);
 
   useEffect(() => {
     if (chains.length > 0) {
@@ -166,73 +139,36 @@ useEffect(() => {
     }
   }, [chains, editingRecord]);
 
-// 处理编辑记录的地点信息
-const processEditingRecordLocations = async (record: LogisticsRecord, availableLocations: Location[]) => {
-  console.log('[DEBUG] 开始处理编辑记录的地点信息:', record);
-  console.log('[DEBUG] 可用地点列表:', availableLocations);
-  
-  const loadingLocationNames = parseLocationString(record.loading_location || '');
-  const unloadingLocationNames = parseLocationString(record.unloading_location || '');
-  
-  console.log('[DEBUG] 解析地点名称:', { loadingLocationNames, unloadingLocationNames });
-  
-  // 检查缺失的地点
-  const allLocationNames = [...loadingLocationNames, ...unloadingLocationNames];
-  const missingLocations = allLocationNames.filter(name => 
-    !availableLocations.find(l => l.name === name)
-  );
-  
-  let finalLocations = availableLocations;
-  
-  // 创建缺失的地点
-  if (missingLocations.length > 0) {
-    console.log('创建缺失的地点:', missingLocations);
-    try {
-      for (const locationName of missingLocations) {
-        const { data, error } = await supabase
-          .from('locations')
-          .insert({ name: locationName })
-          .select()
-          .single();
-        
-        if (error && !error.message.includes('duplicate')) {
-          throw error;
-        }
-        
-        if (data) {
-          finalLocations = [...finalLocations, data];
-        }
+  // 在编辑模式下，当数据加载完成后填充地点和司机信息
+  useEffect(() => {
+    if (editingRecord && locations.length > 0 && drivers.length > 0) {
+      // 解析装卸货地点
+      const loadingLocationNames = parseLocationString(editingRecord.loading_location || '');
+      const unloadingLocationNames = parseLocationString(editingRecord.unloading_location || '');
+      
+      // 确保当前司机在司机列表中
+      const currentDriver = drivers.find(d => d.id === editingRecord.driver_id);
+      if (!currentDriver && editingRecord.driver_id) {
+        // 如果当前司机不在列表中，需要单独加载
+        loadDriverById(editingRecord.driver_id);
       }
-      // 更新地点列表
-      setLocations(finalLocations);
-    } catch (error) {
-      console.error('Error creating missing locations:', error);
+      
+      // 确保地点在地点列表中
+      const missingLocations = [...loadingLocationNames, ...unloadingLocationNames]
+        .filter(name => !locations.find(l => l.name === name));
+      
+      if (missingLocations.length > 0) {
+        // 如果有缺失的地点，需要创建它们
+        createMissingLocations(missingLocations);
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        loadingLocationIds: findLocationIdsByName(loadingLocationNames),
+        unloadingLocationIds: findLocationIdsByName(unloadingLocationNames),
+      }));
     }
-  }
-  
-  // 计算地点ID
-  const loadingLocationIds = loadingLocationNames
-    .map(name => finalLocations.find(loc => loc.name === name)?.id)
-    .filter(Boolean) as string[];
-  
-  const unloadingLocationIds = unloadingLocationNames
-    .map(name => finalLocations.find(loc => loc.name === name)?.id)
-    .filter(Boolean) as string[];
-  
-  console.log('[DEBUG] 地点ID映射完成:', { loadingLocationIds, unloadingLocationIds });
-  
-  // 更新表单数据中的地点信息
-  setFormData(prev => {
-    console.log('[DEBUG] 更新表单数据前:', prev.loadingLocationIds, prev.unloadingLocationIds);
-    const newFormData = {
-      ...prev,
-      loadingLocationIds,
-      unloadingLocationIds,
-    };
-    console.log('[DEBUG] 更新表单数据后:', newFormData.loadingLocationIds, newFormData.unloadingLocationIds);
-    return newFormData;
-  });
-};
+  }, [editingRecord, locations, drivers]);
 
   // 单独加载司机信息
   const loadDriverById = async (driverId: string) => {
@@ -258,66 +194,44 @@ const processEditingRecordLocations = async (record: LogisticsRecord, availableL
     }
   };
 
-// 创建缺失的地点 - 使用现有的方法
-const createMissingLocations = async (locationNames: string[]) => {
-  try {
-    // 逐个创建地点
-    for (const locationName of locationNames) {
-      const { data, error } = await supabase
-        .from('locations')
-        .insert({ name: locationName })
-        .select()
-        .single();
+  // 创建缺失的地点
+  const createMissingLocations = async (locationNames: string[]) => {
+    try {
+      const { data, error } = await supabase.rpc('get_or_create_locations_from_string', {
+        p_location_string: locationNames.join('|')
+      });
       
-      if (error && !error.message.includes('duplicate')) {
-        throw error;
-      }
-      
+      if (error) throw error;
       if (data) {
         setLocations(prev => {
-          if (!prev.find(l => l.id === data.id)) {
-            return [...prev, data];
-          }
-          return prev;
+          const newLocations = data.filter((loc: any) => !prev.find(l => l.id === loc.id));
+          return [...prev, ...newLocations];
         });
       }
+    } catch (error) {
+      console.error('Error creating locations:', error);
     }
-  } catch (error) {
-    console.error('Error creating locations:', error);
-  }
-};
+  };
 
-const loadProjectSpecificData = async (projectId: string) => {
-  try {
-    const [driversRes, locationsRes, chainsRes] = await Promise.all([
-      supabase.from('drivers').select('*').limit(100),
-      supabase.from('locations').select('*').limit(100),
-      supabase.from('partner_chains').select('id, chain_name, billing_type_id, is_default').eq('project_id', projectId)
-    ]);
+  const loadProjectSpecificData = async (projectId: string) => {
+    try {
+      const [driversRes, locationsRes, chainsRes] = await Promise.all([
+        supabase.from('drivers').select('*').limit(100),
+        supabase.from('locations').select('*').limit(100),
+        supabase.from('partner_chains').select('id, chain_name, billing_type_id, is_default').eq('project_id', projectId)
+      ]);
 
-    if (driversRes.error) throw driversRes.error;
-    if (locationsRes.error) throw locationsRes.error;
-    if (chainsRes.error) throw chainsRes.error;
+      if (driversRes.error) throw driversRes.error;
+      if (locationsRes.error) throw locationsRes.error;
+      if (chainsRes.error) throw chainsRes.error;
 
-    console.log('加载项目数据完成:', {
-      driversCount: driversRes.data?.length || 0,
-      locationsCount: locationsRes.data?.length || 0,
-      chainsCount: chainsRes.data?.length || 0
-    });
-
-    setDrivers(driversRes.data || []);
-    setLocations(locationsRes.data || []);
-    setChains(chainsRes.data || []);
-
-    // 在地点数据加载完成后，如果是编辑模式，立即填充地点信息
-    if (editingRecord && (driversRes.data || locationsRes.data)) {
-      await processEditingRecordLocations(editingRecord, locationsRes.data || []);
+      setDrivers(driversRes.data || []);
+      setLocations(locationsRes.data || []);
+      setChains(chainsRes.data || []);
+    } catch (error) {
+      toast({ title: "错误", description: "加载项目关联数据失败", variant: "destructive" });
     }
-  } catch (error) {
-    console.error('Error loading project data:', error);
-    toast({ title: "错误", description: "加载项目关联数据失败", variant: "destructive" });
-  }
-};
+  };
 
   // 解析地点字符串为地点ID数组
   const parseLocationString = (locationString: string): string[] => {
@@ -332,49 +246,17 @@ const loadProjectSpecificData = async (projectId: string) => {
       .filter(Boolean) as string[];
   };
 
-  const populateFormWithRecord = async (record: LogisticsRecord) => {
-    console.log('开始填充表单数据:', record);
-    
+  const populateFormWithRecord = (record: LogisticsRecord) => {
     // 解析装卸货地点
     const loadingLocationNames = parseLocationString(record.loading_location || '');
     const unloadingLocationNames = parseLocationString(record.unloading_location || '');
-    
-    console.log('解析地点名称:', { loadingLocationNames, unloadingLocationNames });
-    
-    // 确保所有地点都在locations列表中，如果不在则创建
-    const allLocationNames = [...loadingLocationNames, ...unloadingLocationNames];
-    const missingLocations = allLocationNames.filter(name => 
-      !locations.find(loc => loc.name === name)
-    );
-    
-    if (missingLocations.length > 0) {
-      console.log('创建缺失的地点:', missingLocations);
-      await createMissingLocations(missingLocations);
-    }
-    
-    // 重新查找地点ID
-    const loadingLocationIds = findLocationIdsByName(loadingLocationNames);
-    const unloadingLocationIds = findLocationIdsByName(unloadingLocationNames);
-    
-    console.log('地点ID映射:', { loadingLocationIds, unloadingLocationIds });
-    
-    // 处理外部运单号数据
-    const externalTrackingNumbers = Array.isArray(record.external_tracking_numbers) 
-      ? record.external_tracking_numbers 
-      : [];
-    
-    const otherPlatformNames = Array.isArray(record.other_platform_names) 
-      ? record.other_platform_names 
-      : [];
-    
-    console.log('平台数据:', { externalTrackingNumbers, otherPlatformNames });
     
     setFormData({
       projectId: record.project_id || '',
       chainId: record.chain_id || '',
       driverId: record.driver_id || '',
-      loadingLocationIds,
-      unloadingLocationIds,
+      loadingLocationIds: findLocationIdsByName(loadingLocationNames),
+      unloadingLocationIds: findLocationIdsByName(unloadingLocationNames),
       loadingDate: record.loading_date ? new Date(record.loading_date) : new Date(),
       unloadingDate: record.unloading_date ? new Date(record.unloading_date) : new Date(),
       licensePlate: record.license_plate || '',
@@ -385,10 +267,9 @@ const loadProjectSpecificData = async (projectId: string) => {
       currentCost: record.current_cost?.toString() || '',
       extraCost: record.extra_cost?.toString() || '',
       remarks: record.remarks || '',
-      external_tracking_numbers: externalTrackingNumbers,
+      external_tracking_numbers: record.external_tracking_numbers || [],
+      other_platform_names: record.other_platform_names || [],
     });
-    
-    console.log('表单数据设置完成');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -411,31 +292,6 @@ const loadProjectSpecificData = async (projectId: string) => {
         .filter(Boolean)
         .join('|');
 
-      // 处理平台字段：从运单号数组中提取平台名称，支持运单号用|分隔
-      const externalTrackingNumbers: any[] = [];
-      const otherPlatformNames: string[] = [];
-      
-      (formData.external_tracking_numbers || []).forEach(item => {
-        if (item.platform && item.tracking_number) {
-          // 如果运单号包含|分隔符，则拆分成多个运单号
-          const trackingNumbers = item.tracking_number.split('|').map(tn => tn.trim()).filter(Boolean);
-          
-          trackingNumbers.forEach(trackingNumber => {
-            externalTrackingNumbers.push({
-              platform: item.platform,
-              tracking_number: trackingNumber,
-              status: 'pending',
-              created_at: new Date().toISOString()
-            });
-          });
-          
-          // 添加平台名称（去重）
-          if (!otherPlatformNames.includes(item.platform)) {
-            otherPlatformNames.push(item.platform);
-          }
-        }
-      });
-
       const p_record = {
         project_id: formData.projectId,
         chain_id: formData.chainId,
@@ -452,8 +308,6 @@ const loadProjectSpecificData = async (projectId: string) => {
         current_cost: formData.currentCost,
         extra_cost: formData.extraCost,
         remarks: formData.remarks,
-        external_tracking_numbers: externalTrackingNumbers,
-        other_platform_names: otherPlatformNames,
       };
 
       if (editingRecord) {
@@ -482,12 +336,12 @@ const loadProjectSpecificData = async (projectId: string) => {
         if (error) throw error;
         
         // 更新平台运单信息
-        if (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0) {
+        if (formData.external_tracking_numbers.length > 0 || formData.other_platform_names.length > 0) {
           const { error: platformError } = await supabase
             .from('logistics_records')
             .update({ 
-              external_tracking_numbers: externalTrackingNumbers,
-              other_platform_names: otherPlatformNames
+              external_tracking_numbers: formData.external_tracking_numbers,
+              other_platform_names: formData.other_platform_names
             })
             .eq('id', editingRecord.id);
           if (platformError) throw platformError;
@@ -530,12 +384,12 @@ const loadProjectSpecificData = async (projectId: string) => {
           .single();
         
         if (newRecord) {
-          if (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0) {
+          if (formData.external_tracking_numbers.length > 0 || formData.other_platform_names.length > 0) {
             const { error: platformError } = await supabase
               .from('logistics_records')
               .update({ 
-                external_tracking_numbers: externalTrackingNumbers,
-                other_platform_names: otherPlatformNames
+                external_tracking_numbers: formData.external_tracking_numbers,
+                other_platform_names: formData.other_platform_names
               })
               .eq('id', newRecord.id);
             if (platformError) throw platformError;
@@ -553,19 +407,16 @@ const loadProjectSpecificData = async (projectId: string) => {
     }
   };
 
-// [新增] 当选择司机时，自动填充车牌和电话
-const handleDriverSelect = (driverId: string) => {
-  console.log('选择司机:', driverId);
-  const driver = drivers.find(d => d.id === driverId);
-  console.log('找到司机数据:', driver);
-  
-  setFormData(prev => ({
-    ...prev,
-    driverId: driverId,
-    licensePlate: driver?.license_plate || '',
-    driverPhone: driver?.phone || ''
-  }));
-};
+  // [新增] 当选择司机时，自动填充车牌和电话
+  const handleDriverSelect = (driverId: string) => {
+    const driver = drivers.find(d => d.id === driverId);
+    setFormData(prev => ({
+      ...prev,
+      driverId: driverId,
+      licensePlate: driver?.license_plate || '',
+      driverPhone: driver?.phone || ''
+    }));
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -650,20 +501,18 @@ const handleDriverSelect = (driverId: string) => {
                 placeholder="选择装货地点"
                 maxLocations={5}
                 allowCustomInput={true}
-onCustomLocationAdd={async (locationName) => {
+                onCustomLocationAdd={async (locationName) => {
                   try {
-                    // 直接创建地点
-                    const { data, error } = await supabase
-                      .from('locations')
-                      .insert({ name: locationName })
-                      .select()
-                      .single();
+                    // 使用数据库函数批量获取或创建地点
+                    const { data, error } = await supabase.rpc('get_or_create_locations_from_string', {
+                      p_location_string: locationName
+                    });
                     
-                    if (error && !error.message.includes('duplicate')) {
-                      throw error;
-                    }
+                    if (error) throw error;
                     
-                    if (data || error?.message.includes('duplicate')) {
+                    if (data && data.length > 0) {
+                      const newLocationId = data[0];
+                      
                       // 重新加载地点列表
                       const { data: updatedLocations } = await supabase
                         .from('locations')
@@ -673,13 +522,10 @@ onCustomLocationAdd={async (locationName) => {
                       if (updatedLocations) {
                         setLocations(updatedLocations);
                         // 自动选择新添加的地点
-                        const newLocation = updatedLocations.find(l => l.name === locationName);
-                        if (newLocation) {
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            loadingLocationIds: [...prev.loadingLocationIds, newLocation.id] 
-                          }));
-                        }
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          loadingLocationIds: [...prev.loadingLocationIds, newLocationId] 
+                        }));
                       }
                     }
                   } catch (error) {
@@ -702,20 +548,18 @@ onCustomLocationAdd={async (locationName) => {
                 placeholder="选择卸货地点"
                 maxLocations={5}
                 allowCustomInput={true}
-onCustomLocationAdd={async (locationName) => {
+                onCustomLocationAdd={async (locationName) => {
                   try {
-                    // 直接创建地点
-                    const { data, error } = await supabase
-                      .from('locations')
-                      .insert({ name: locationName })
-                      .select()
-                      .single();
+                    // 使用数据库函数批量获取或创建地点
+                    const { data, error } = await supabase.rpc('get_or_create_locations_from_string', {
+                      p_location_string: locationName
+                    });
                     
-                    if (error && !error.message.includes('duplicate')) {
-                      throw error;
-                    }
+                    if (error) throw error;
                     
-                    if (data || error?.message.includes('duplicate')) {
+                    if (data && data.length > 0) {
+                      const newLocationId = data[0];
+                      
                       // 重新加载地点列表
                       const { data: updatedLocations } = await supabase
                         .from('locations')
@@ -725,13 +569,10 @@ onCustomLocationAdd={async (locationName) => {
                       if (updatedLocations) {
                         setLocations(updatedLocations);
                         // 自动选择新添加的地点
-                        const newLocation = updatedLocations.find(l => l.name === locationName);
-                        if (newLocation) {
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            unloadingLocationIds: [...prev.unloadingLocationIds, newLocation.id] 
-                          }));
-                        }
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          unloadingLocationIds: [...prev.unloadingLocationIds, newLocationId] 
+                        }));
                       }
                     }
                   } catch (error) {
@@ -774,72 +615,14 @@ onCustomLocationAdd={async (locationName) => {
           <div className="space-y-4">
             <div>
               <Label className="text-base font-medium">其他平台运单信息</Label>
-              <div className="text-sm text-muted-foreground mt-1 mb-3">
-                外部运单号: {formData.external_tracking_numbers?.length || 0} 个 | 其他平台: {(formData.external_tracking_numbers || []).map(item => item.platform).filter(Boolean).filter((platform, index, arr) => arr.indexOf(platform) === index).length} 个
+              <div className="text-sm text-muted-foreground mt-1">
+                外部运单号: {formData.external_tracking_numbers.length} 个
               </div>
-              
-              {/* 外部运单号输入 */}
-              <div className="space-y-2">
-                <Label className="text-sm">外部运单号</Label>
-                <div className="space-y-2">
-                  {(formData.external_tracking_numbers || []).map((tracking, index) => (
-                    <div key={index} className="flex gap-2 items-center">
-                      <Input
-                        placeholder="平台名称"
-                        value={tracking.platform || ''}
-                        onChange={(e) => {
-                          const newTrackings = [...(formData.external_tracking_numbers || [])];
-                          newTrackings[index] = { ...tracking, platform: e.target.value };
-                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
-                        }}
-                        className="w-32"
-                      />
-                      <Input
-                        placeholder="运单号"
-                        value={tracking.tracking_number || ''}
-                        onChange={(e) => {
-                          const newTrackings = [...(formData.external_tracking_numbers || [])];
-                          newTrackings[index] = { ...tracking, tracking_number: e.target.value };
-                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
-                        }}
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newTrackings = (formData.external_tracking_numbers || []).filter((_, i) => i !== index);
-                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setFormData(prev => ({
-                        ...prev,
-                        external_tracking_numbers: [
-                          ...(prev.external_tracking_numbers || []),
-                          { platform: '', tracking_number: '', status: 'pending', created_at: new Date().toISOString() }
-                        ]
-                      }));
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    添加运单号
-                  </Button>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  每个运单号包含平台名称和对应的运单号码。如果同一平台有多个运单号，用|分隔，例如：HL123456|HL789012|HL345678
-                </div>
+              <div className="text-sm text-muted-foreground">
+                其他平台: {formData.other_platform_names.length} 个
               </div>
             </div>
+            {/* 这里可以添加具体的输入组件 */}
           </div>
           <div>
             <Label>备注</Label>
@@ -854,7 +637,3 @@ onCustomLocationAdd={async (locationName) => {
     </Dialog>
   );
 }
-
-
-
-

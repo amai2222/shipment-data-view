@@ -54,8 +54,7 @@ interface FormData {
   currentCost: string;
   extraCost: string;
   remarks: string;
-  external_tracking_numbers: any[];
-  other_platform_names: string[];
+  platform_trackings: any[];
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -74,8 +73,7 @@ const INITIAL_FORM_DATA: FormData = {
   currentCost: '',
   extraCost: '',
   remarks: '',
-  external_tracking_numbers: [],
-  other_platform_names: [],
+  platform_trackings: [],
 };
 
 export default function MobileBusinessEntryForm() {
@@ -192,8 +190,7 @@ export default function MobileBusinessEntryForm() {
           currentCost: data.current_cost?.toString() || '',
           extraCost: data.extra_cost?.toString() || '',
           remarks: data.remarks || '',
-          external_tracking_numbers: data.external_tracking_numbers || [],
-          other_platform_names: data.other_platform_names || [],
+          platform_trackings: data.platform_trackings || [],
         });
       }
     } catch (error) {
@@ -282,20 +279,16 @@ export default function MobileBusinessEntryForm() {
 
         if (error) throw error;
         
-        // 更新平台字段
-        const validExternalTrackingNumbers = formData.external_tracking_numbers.filter(
-          etn => etn.tracking_number && etn.tracking_number.trim() !== ''
-        );
-        const validOtherPlatformNames = formData.other_platform_names.filter(
-          name => name && name.trim() !== ''
+        // 更新可选字段
+        const validPlatformTrackings = formData.platform_trackings.filter(pt => 
+          pt.platform.trim() !== '' && pt.trackingNumbers.some(tn => tn.trim() !== '')
         );
         
-        if (validExternalTrackingNumbers.length > 0 || validOtherPlatformNames.length > 0) {
+        if (validPlatformTrackings.length > 0) {
           const { error: platformError } = await supabase
             .from('logistics_records')
             .update({ 
-              external_tracking_numbers: validExternalTrackingNumbers.length > 0 ? validExternalTrackingNumbers : null,
-              other_platform_names: validOtherPlatformNames.length > 0 ? validOtherPlatformNames : null
+              platform_trackings: validPlatformTrackings
             })
             .eq('id', id);
           if (platformError) throw platformError;
@@ -332,28 +325,22 @@ export default function MobileBusinessEntryForm() {
 
         if (error) throw error;
         
-        // 获取新创建的运单ID并更新平台字段
+        // 获取新创建的运单ID并更新可选字段
         const { data: newRecord } = await supabase
           .from('logistics_records')
           .select('id')
           .eq('auto_number', autoNumber)
           .single();
           
-        if (newRecord && (formData.external_tracking_numbers?.length > 0 || formData.other_platform_names?.length > 0)) {
-          const validExternalTrackingNumbers = formData.external_tracking_numbers.filter(
-            etn => etn.tracking_number && etn.tracking_number.trim() !== ''
-          );
-          const validOtherPlatformNames = formData.other_platform_names.filter(
-            name => name && name.trim() !== ''
+        if (newRecord && formData.platform_trackings?.length > 0) {
+          const validPlatformTrackings = formData.platform_trackings.filter(pt => 
+            pt.platform.trim() !== '' && pt.trackingNumbers.some(tn => tn.trim() !== '')
           );
           
-          if (validExternalTrackingNumbers.length > 0 || validOtherPlatformNames.length > 0) {
+          if (validPlatformTrackings.length > 0) {
             const { error: updateError } = await supabase
               .from('logistics_records')
-              .update({ 
-                external_tracking_numbers: validExternalTrackingNumbers.length > 0 ? validExternalTrackingNumbers : null,
-                other_platform_names: validOtherPlatformNames.length > 0 ? validOtherPlatformNames : null
-              })
+              .update({ platform_trackings: validPlatformTrackings })
               .eq('id', newRecord.id);
             if (updateError) throw updateError;
           }

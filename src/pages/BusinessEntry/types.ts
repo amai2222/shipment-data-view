@@ -28,13 +28,12 @@ export interface LogisticsRecord {
   driver_payable_cost: number | null;
   license_plate: string | null;
   driver_phone: string | null;
-  transport_type: "实际运输" | "退货" | string | null;
+  transport_type: string | null;
   extra_cost: number | null;
   remarks: string | null;
   external_tracking_numbers?: any[]; // 使用现有的数据库字段
   other_platform_names?: string[]; // 使用现有的数据库字段
   created_at?: string;
-  created_by_user_id?: string; // 添加缺失的字段
 }
 
 // [核心移除] - LogisticsFormData 类型已不再需要

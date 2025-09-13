@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { UserRole } from '@/types/permissions';
-import { DEFAULT_PERMISSIONS } from '@/config/permissions';
+import { DEFAULT_ROLE_PERMISSIONS } from '@/config/permissions';
 
 export function useSimplePermissions() {
   const { user, profile } = useAuth();
@@ -20,12 +20,12 @@ export function useSimplePermissions() {
   // 获取角色默认权限
   const rolePermissions = useMemo(() => {
     try {
-      const permissions = DEFAULT_PERMISSIONS[userRole] || DEFAULT_PERMISSIONS.viewer;
+      const permissions = DEFAULT_ROLE_PERMISSIONS[userRole] || DEFAULT_ROLE_PERMISSIONS.viewer;
       console.log(`用户角色: ${userRole}, 权限配置:`, permissions);
       return permissions;
     } catch (error) {
       console.error('获取角色权限失败:', error);
-      return DEFAULT_PERMISSIONS.viewer;
+      return DEFAULT_ROLE_PERMISSIONS.viewer;
     }
   }, [userRole]);
 

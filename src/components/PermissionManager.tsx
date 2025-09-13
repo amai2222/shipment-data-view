@@ -31,7 +31,7 @@ import {
   PROJECT_PERMISSIONS, 
   DATA_PERMISSIONS,
   ROLES,
-  DEFAULT_PERMISSIONS
+  DEFAULT_ROLE_PERMISSIONS
 } from '@/config/permissions';
 import { 
   UserPermission, 
@@ -148,7 +148,7 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
         data_permissions: template.data_permissions
       };
     }
-    return DEFAULT_PERMISSIONS[selectedRole];
+    return DEFAULT_ROLE_PERMISSIONS[selectedRole];
   };
 
   // 获取当前用户权限

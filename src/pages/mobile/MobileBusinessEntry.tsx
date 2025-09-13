@@ -51,8 +51,6 @@ interface LogisticsRecord {
   payable_cost?: number;
   payment_status: string;
   remarks?: string;
-  external_tracking_numbers?: any[];
-  other_platform_names?: string[];
 }
 
 export default function MobileBusinessEntry() {
@@ -445,21 +443,6 @@ export default function MobileBusinessEntry() {
                       卸货 {record.unloading_weight?.toFixed(2) || '0.00'}吨
                     </div>
                   )}
-
-                  {/* 平台信息显示 */}
-                  {(record.other_platform_names && record.other_platform_names.length > 0) && (
-                    <div className="flex items-center text-muted-foreground">
-                      <Truck className="h-4 w-4 mr-2" />
-                      其他平台: {record.other_platform_names.join(', ')}
-                    </div>
-                  )}
-
-                  {(record.external_tracking_numbers && record.external_tracking_numbers.length > 0) && (
-                    <div className="flex items-center text-muted-foreground">
-                      <FileText className="h-4 w-4 mr-2" />
-                      平台运单: {record.external_tracking_numbers.map((etn: any) => etn.tracking_number).join(', ')}
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -583,37 +566,6 @@ export default function MobileBusinessEntry() {
                   )}
                 </div>
               </div>
-
-              {/* 平台信息 */}
-              {(selectedRecord.other_platform_names && selectedRecord.other_platform_names.length > 0) || 
-               (selectedRecord.external_tracking_numbers && selectedRecord.external_tracking_numbers.length > 0) ? (
-                <>
-                  <Separator />
-                  <div>
-                    <h4 className="font-semibold mb-2">平台信息</h4>
-                    <div className="space-y-2 text-sm">
-                      {selectedRecord.other_platform_names && selectedRecord.other_platform_names.length > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">其他平台:</span>
-                          <span>{selectedRecord.other_platform_names.join(', ')}</span>
-                        </div>
-                      )}
-                      {selectedRecord.external_tracking_numbers && selectedRecord.external_tracking_numbers.length > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">平台运单号:</span>
-                          <div className="text-right">
-                            {selectedRecord.external_tracking_numbers.map((etn: any, index: number) => (
-                              <div key={index} className="text-xs">
-                                {etn.platform}: {etn.tracking_number}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : null}
 
               {selectedRecord.remarks && (
                 <>

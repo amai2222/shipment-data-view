@@ -11,10 +11,6 @@ export interface Project {
   plannedTotalTons?: number;
   financeManager?: string;
   createdAt: string;
-  // 添加缺失的字段
-  projectStatus?: string;
-  cargoType?: string;
-  effectiveQuantityType?: 'min_value' | 'loading' | 'unloading';
 }
 
 // 司机数据类型
@@ -41,23 +37,13 @@ export interface PlatformTracking {
   trackingNumbers: string[]; // 该平台的运单号列表
 }
 
-// 外部运单号数据类型
-export interface ExternalTrackingNumber {
-  platform: string;
-  tracking_number: string;
-  status: string;
-  created_at: string;
-  remarks?: string; // 添加可选的备注字段
-}
-
-// 物流记录数据类型  
+// 物流记录数据类型
 export interface LogisticsRecord {
   id: string;
   auto_number: string;
   project_id: string;
   project_name: string;
   chain_id?: string; // 合作链路ID
-  chain_name?: string; // 合作链路名称
   loading_date: string;
   loading_location: string;
   unloading_location: string;
@@ -81,7 +67,7 @@ export interface LogisticsRecord {
   cargo_type?: string;
   loading_location_ids?: string[];
   unloading_location_ids?: string[];
-  external_tracking_numbers?: ExternalTrackingNumber[]; // 其他平台运单号码
+  external_tracking_numbers?: any[]; // 其他平台运单号码
   other_platform_names?: string[]; // 其他平台名称
 }
 

@@ -1,97 +1,170 @@
--- 测试运单编辑和导入平台字段修复
+-- 测试运单编辑数据填充修复
+-- 使用提供的用户ID进行测试
+
 DO $$
 DECLARE
-    result jsonb;
-    record_count integer;
-    test_record jsonb;
+    test_user_id uuid := '7136e5fd-08ae-47ea-a22b-34c1a1745206'::uuid;
+    test_project_id uuid;
+    test_driver_id uuid;
+    test_chain_id uuid;
+    test_location_id uuid;
+    test_record_id uuid;
 BEGIN
-    RAISE NOTICE '=== 测试运单编辑和导入平台字段修复 ===';
+    -- 1. 创建测试项目
+    INSERT INTO public.projects (
+        id, name, start_date, end_date, manager, 
+        loading_address, unloading_address, user_id, created_at
+    )
+    VALUES (
+        gen_random_uuid(),
+        '运单编辑测试项目',
+        '2025-01-01'::date,
+        '2025-12-31'::date,
+        '测试管理员',
+        '测试装货地址',
+        '测试卸货地址',
+        test_user_id,
+        NOW()
+    )
+    RETURNING id INTO test_project_id;
     
-    -- 测试1: 检查运单查询函数
+    -- 2. 创建测试合作链路
+    INSERT INTO public.partner_chains (id, project_id, chain_name, is_default, user_id, created_at)
+    VALUES (
+        gen_random_uuid(),
+        test_project_id,
+        '测试链路',
+        true,
+        test_user_id,
+        NOW()
+    )
+    RETURNING id INTO test_chain_id;
+    
+    -- 3. 创建测试司机
+    INSERT INTO public.drivers (id, name, license_plate, phone, user_id, created_at)
+    VALUES (
+        gen_random_uuid(),
+        '测试司机',
+        '京A12345',
+        '13800138000',
+        test_user_id,
+        NOW()
+    )
+    RETURNING id INTO test_driver_id;
+    
+    -- 4. 创建测试地点
+    INSERT INTO public.locations (id, name, user_id, created_at)
+    VALUES (
+        gen_random_uuid(),
+        '测试装货地点',
+        test_user_id,
+        NOW()
+    )
+    RETURNING id INTO test_location_id;
+    
+    -- 5. 创建测试运单记录
+    INSERT INTO public.logistics_records (
+        id, project_id, chain_id, driver_id, 
+        loading_location, unloading_location,
+        loading_date, unloading_date,
+        license_plate, driver_phone,
+        loading_weight, unloading_weight,
+        transport_type, current_cost, extra_cost,
+        auto_number, created_by_user_id, created_at
+    )
+    VALUES (
+        gen_random_uuid(),
+        test_project_id,
+        test_chain_id,
+        test_driver_id,
+        '测试装货地点|另一个装货地点',
+        '测试卸货地点|另一个卸货地点',
+        '2025-01-20 08:00:00+08'::timestamptz,
+        '2025-01-20 18:00:00+08'::timestamptz,
+        '京A12345',
+        '13800138000',
+        42.5,
+        42.0,
+        '实际运输',
+        1000.00,
+        100.00,
+        public.generate_auto_number('2025-01-20'),
+        test_user_id,
+        NOW()
+    )
+    RETURNING id INTO test_record_id;
+    
+    -- 6. 显示测试数据
+    RAISE NOTICE '测试数据创建完成:';
+    RAISE NOTICE '项目ID: %', test_project_id;
+    RAISE NOTICE '司机ID: %', test_driver_id;
+    RAISE NOTICE '链路ID: %', test_chain_id;
+    RAISE NOTICE '地点ID: %', test_location_id;
+    RAISE NOTICE '运单ID: %', test_record_id;
+    
+    -- 7. 查询创建的运单记录
+    RAISE NOTICE '运单记录详情:';
+    DECLARE
+        rec_id uuid;
+        rec_project_id uuid;
+        rec_chain_id uuid;
+        rec_driver_id uuid;
+        rec_loading_location text;
+        rec_unloading_location text;
+        rec_loading_date timestamptz;
+        rec_unloading_date timestamptz;
+        rec_license_plate text;
+        rec_driver_phone text;
+        rec_loading_weight numeric;
+        rec_unloading_weight numeric;
+        rec_transport_type text;
+        rec_current_cost numeric;
+        rec_extra_cost numeric;
     BEGIN
-        result := public.get_logistics_summary_and_records();
-        record_count := (result->>'totalCount')::integer;
-        RAISE NOTICE '✓ 运单查询函数正常，记录数: %', record_count;
+        SELECT 
+            id, project_id, chain_id, driver_id,
+            loading_location, unloading_location,
+            loading_date, unloading_date,
+            license_plate, driver_phone,
+            loading_weight, unloading_weight,
+            transport_type, current_cost, extra_cost
+        INTO 
+            rec_id, rec_project_id, rec_chain_id, rec_driver_id,
+            rec_loading_location, rec_unloading_location,
+            rec_loading_date, rec_unloading_date,
+            rec_license_plate, rec_driver_phone,
+            rec_loading_weight, rec_unloading_weight,
+            rec_transport_type, rec_current_cost, rec_extra_cost
+        FROM public.logistics_records 
+        WHERE id = test_record_id;
         
-        -- 检查是否包含平台字段
-        IF result ? 'records' AND jsonb_array_length(result->'records') > 0 THEN
-            test_record := result->'records'->0;
-            
-            IF test_record ? 'external_tracking_numbers' THEN
-                RAISE NOTICE '✓ 包含 external_tracking_numbers 字段: %', test_record->'external_tracking_numbers';
-            ELSE
-                RAISE NOTICE '✗ 缺少 external_tracking_numbers 字段';
-            END IF;
-            
-            IF test_record ? 'other_platform_names' THEN
-                RAISE NOTICE '✓ 包含 other_platform_names 字段: %', test_record->'other_platform_names';
-            ELSE
-                RAISE NOTICE '✗ 缺少 other_platform_names 字段';
-            END IF;
-            
-            -- 显示其他关键字段
-            RAISE NOTICE '运单号: %', test_record->>'auto_number';
-            RAISE NOTICE '司机姓名: %', test_record->>'driver_name';
-            RAISE NOTICE '司机电话: %', test_record->>'driver_phone';
-            RAISE NOTICE '车牌号: %', test_record->>'license_plate';
-            RAISE NOTICE '装货地点: %', test_record->>'loading_location';
-            RAISE NOTICE '卸货地点: %', test_record->>'unloading_location';
-        END IF;
-        
-    EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE '✗ 运单查询函数测试失败: %', SQLERRM;
+        RAISE NOTICE 'ID: %', rec_id;
+        RAISE NOTICE '项目ID: %', rec_project_id;
+        RAISE NOTICE '链路ID: %', rec_chain_id;
+        RAISE NOTICE '司机ID: %', rec_driver_id;
+        RAISE NOTICE '装货地点: %', rec_loading_location;
+        RAISE NOTICE '卸货地点: %', rec_unloading_location;
+        RAISE NOTICE '装货日期: %', rec_loading_date;
+        RAISE NOTICE '卸货日期: %', rec_unloading_date;
+        RAISE NOTICE '车牌号: %', rec_license_plate;
+        RAISE NOTICE '司机电话: %', rec_driver_phone;
+        RAISE NOTICE '装货重量: %', rec_loading_weight;
+        RAISE NOTICE '卸货重量: %', rec_unloading_weight;
+        RAISE NOTICE '运输类型: %', rec_transport_type;
+        RAISE NOTICE '运费: %', rec_current_cost;
+        RAISE NOTICE '额外费: %', rec_extra_cost;
     END;
     
-    -- 测试2: 检查导入函数（不实际导入，只测试函数存在）
-    BEGIN
-        -- 测试函数是否存在
-        IF EXISTS(SELECT 1 FROM pg_proc WHERE proname = 'import_logistics_data') THEN
-            RAISE NOTICE '✓ import_logistics_data 函数存在';
-        ELSE
-            RAISE NOTICE '✗ import_logistics_data 函数不存在';
-        END IF;
-        
-        -- 测试函数参数类型
-        SELECT proname, proargnames, proargtypes 
-        INTO test_record
-        FROM pg_proc 
-        WHERE proname = 'import_logistics_data';
-        
-        IF test_record IS NOT NULL THEN
-            RAISE NOTICE '✓ 函数参数检查通过';
-        END IF;
-        
-    EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE '✗ 导入函数检查失败: %', SQLERRM;
-    END;
+    -- 8. 清理测试数据
+    DELETE FROM public.logistics_records WHERE id = test_record_id;
+    DELETE FROM public.drivers WHERE id = test_driver_id;
+    DELETE FROM public.locations WHERE id = test_location_id;
+    DELETE FROM public.partner_chains WHERE id = test_chain_id;
+    DELETE FROM public.projects WHERE id = test_project_id;
     
-    -- 测试3: 检查数据库表结构
-    BEGIN
-        -- 检查logistics_records表是否包含平台字段
-        IF EXISTS(
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_name = 'logistics_records' 
-            AND column_name = 'external_tracking_numbers'
-        ) THEN
-            RAISE NOTICE '✓ logistics_records表包含external_tracking_numbers字段';
-        ELSE
-            RAISE NOTICE '✗ logistics_records表缺少external_tracking_numbers字段';
-        END IF;
-        
-        IF EXISTS(
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_name = 'logistics_records' 
-            AND column_name = 'other_platform_names'
-        ) THEN
-            RAISE NOTICE '✓ logistics_records表包含other_platform_names字段';
-        ELSE
-            RAISE NOTICE '✗ logistics_records表缺少other_platform_names字段';
-        END IF;
-        
-    EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE '✗ 表结构检查失败: %', SQLERRM;
-    END;
-    
-    RAISE NOTICE '=== 测试完成 ===';
+    RAISE NOTICE '测试数据已清理';
     
 END $$;
+
+-- 显示测试完成信息
+SELECT '运单编辑数据填充修复测试完成' as status;

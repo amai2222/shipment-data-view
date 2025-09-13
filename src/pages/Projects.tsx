@@ -104,19 +104,7 @@ export default function Projects() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const resetForm = () => {
-    setFormData({ 
-      name: "", 
-      startDate: "", 
-      endDate: "", 
-      manager: "", 
-      loadingAddress: "", 
-      unloadingAddress: "", 
-      financeManager: "", 
-      plannedTotalTons: "", 
-      projectStatus: "进行中", 
-      cargoType: "货品",
-      effectiveQuantityType: "min_value" // 添加缺失的字段
-    });
+    setFormData({ name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "", financeManager: "", plannedTotalTons: "", projectStatus: "进行中", cargoType: "货品" });
     setSelectedChains([]);
     setEditingProject(null);
   };

@@ -36,8 +36,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { forceReimportData } from "@/utils/importData";
-import { useMenuPermissions } from "@/hooks/useMenuPermissions";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSimplePermissions } from "@/hooks/useSimplePermissions";
 
 // 菜单配置
 const menuItems = [
@@ -109,9 +108,7 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
-  const { hasMenuAccess } = useMenuPermissions();
-  const { profile } = useAuth();
-  const isAdmin = profile?.role === 'admin';
+  const { hasMenuAccess, isAdmin } = useSimplePermissions();
 
   // 添加调试日志
   console.log('AppSidebar - 当前用户是管理员:', isAdmin);
@@ -158,9 +155,8 @@ export function AppSidebar() {
         menuKey = 'settings.audit_logs';
       }
       
-      const hasAccess = hasMenuAccess(menuKey);
-      console.log(`检查菜单权限: ${menuKey} - ${hasAccess} (用户角色: ${profile?.role})`);
-      return hasAccess;
+      console.log(`检查菜单权限: ${menuKey} - ${hasMenuAccess(menuKey)}`);
+      return hasMenuAccess(menuKey);
     })
   })).filter(group => {
     if (group.title === "设置" && !isAdmin) {
@@ -194,8 +190,8 @@ export function AppSidebar() {
 
   return (
     <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
-        {/* Header Section */}
-        <SidebarHeader className="bg-gradient-primary text-white p-3 space-y-2">
+      {/* Header Section */}
+      <SidebarHeader className="bg-gradient-primary text-white p-3 space-y-2">
         <div className="flex items-center space-x-2">
           <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
             <Truck className="h-6 w-6 text-white" />

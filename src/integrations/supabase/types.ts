@@ -2505,12 +2505,6 @@ export type Database = {
           status: string
         }[]
       }
-      delete_waybills_by_project: {
-        Args: {
-          p_project_name: string
-        }
-        Returns: number
-      }
     }
     Enums: {
       app_role:
