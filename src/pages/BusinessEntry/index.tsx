@@ -511,7 +511,12 @@ export default function BusinessEntry() {
       <WaybillDetailDialog 
         isOpen={!!viewingRecord} 
         onClose={() => setViewingRecord(null)} 
-        record={viewingRecord} 
+        record={viewingRecord ? {
+          ...viewingRecord, 
+          transport_type: (viewingRecord.transport_type || '实际运输') as "实际运输" | "退货",
+          created_by_user_id: viewingRecord.created_by_user_id || 'unknown',
+          created_at: viewingRecord.created_at || new Date().toISOString()
+        } : null}
       />
     </div>
   );
