@@ -24,6 +24,8 @@ interface EnhancedImportDialogProps {
   setDuplicateActions: React.Dispatch<React.SetStateAction<Map<number, DuplicateAction>>>;
   importLogs: string[];
   importLogRef: React.RefObject<HTMLDivElement>;
+  importMode: 'create' | 'update';
+  setImportMode: (mode: 'create' | 'update') => void;
   onExecuteImport: () => void;
 }
 
@@ -38,6 +40,8 @@ export function EnhancedImportDialog({
   setDuplicateActions,
   importLogs, 
   importLogRef, 
+  importMode,
+  setImportMode,
   onExecuteImport 
 }: EnhancedImportDialogProps) {
   
@@ -127,6 +131,51 @@ export function EnhancedImportDialog({
                 系统已完成重复数据检查和智能分析，请确认后执行导入。导入时将自动创建司机、地点等关联数据。
               </AlertDescription>
             </Alert>
+
+            {/* 导入模式选择 */}
+            <div className="p-4 border border-gray-200 rounded-md bg-gray-50 dark:bg-gray-900/20 dark:border-gray-700">
+              <Label className="text-base font-medium">选择导入模式：</Label>
+              <div className="mt-3 flex gap-6">
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    id="create-mode"
+                    name="import-mode"
+                    value="create"
+                    checked={importMode === 'create'}
+                    onChange={() => setImportMode('create')}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="create-mode" className="text-sm cursor-pointer flex items-center gap-2">
+                    <Plus className="h-4 w-4 text-green-600" />
+                    创建新记录
+                    <span className="text-xs text-gray-500">(默认)</span>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    id="update-mode"
+                    name="import-mode"
+                    value="update"
+                    checked={importMode === 'update'}
+                    onChange={() => setImportMode('update')}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="update-mode" className="text-sm cursor-pointer flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 text-orange-600" />
+                    更新现有记录
+                    <span className="text-xs text-gray-500">(保留运单号)</span>
+                  </Label>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {importMode === 'create' 
+                  ? '创建模式：所有记录都将作为新记录导入，自动生成新的运单号'
+                  : '更新模式：重复记录将更新现有数据，新记录仍会创建'
+                }
+              </p>
+            </div>
 
             <div className="grid gap-4">
               {/* 新记录统计 */}
