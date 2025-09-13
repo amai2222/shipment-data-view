@@ -106,7 +106,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     icon: 'Calculator',
     children: [
       { key: 'finance.reconciliation', title: '财务对账', label: '财务对账', url: '/finance-reconciliation', icon: 'Calculator', group: '财务管理' },
-      { key: 'finance.overview', title: '财务概览', label: '财务概览', url: '/financial-overview', icon: 'TrendingUp', group: '财务管理' }
+      { key: 'finance.payment_invoice', title: '付款与开票', label: '付款与开票', url: '/finance/payment-invoice', icon: 'Banknote', group: '财务管理' }
     ]
   },
   {
@@ -126,10 +126,10 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     title: '系统管理',
     icon: 'Settings',
     children: [
-      { key: 'system.users', title: '用户管理', label: '用户管理', url: '/user-management', icon: 'Users', group: '系统管理' },
-      { key: 'system.permissions', title: '权限管理', label: '权限管理', url: '/permission-management', icon: 'Shield', group: '系统管理' },
-      { key: 'system.audit', title: '审计日志', label: '审计日志', url: '/audit-logs', icon: 'History', group: '系统管理' },
-      { key: 'system.integrated_users', title: '综合用户管理', label: '综合用户管理', url: '/integrated-user-management', icon: 'UserCheck', group: '系统管理' }
+      { key: 'settings.users', title: '用户管理', label: '用户管理', url: '/settings/users', icon: 'Users', group: '系统管理' },
+      { key: 'settings.permissions', title: '权限管理', label: '权限管理', url: '/settings/permissions', icon: 'Shield', group: '系统管理' },
+      { key: 'settings.integrated', title: '集成权限管理', label: '集成权限管理', url: '/settings/integrated', icon: 'UserCheck', group: '系统管理' },
+      { key: 'settings.audit_logs', title: '操作日志', label: '操作日志', url: '/settings/audit-logs', icon: 'History', group: '系统管理' }
     ]
   }
 ];
@@ -384,8 +384,9 @@ export const DEFAULT_PERMISSIONS = {
   finance: {
     menu_permissions: [
       'dashboard.financial',
+      'dashboard.quantity',
       'finance.reconciliation',
-      'finance.overview',
+      'finance.payment_invoice',
       'business.payment_requests'
     ],
     function_permissions: [
@@ -402,12 +403,17 @@ export const DEFAULT_PERMISSIONS = {
     menu_permissions: [
       'dashboard.transport',
       'dashboard.project',
+      'dashboard.quantity',
       'business.entry',
       'business.scale',
       'business.payment_request',
+      'business.payment_requests',
       'maintenance.projects',
       'maintenance.drivers',
       'maintenance.locations',
+      'maintenance.partners',
+      'contracts.list',
+      'finance.reconciliation',
       'data_maintenance.waybill'
     ],
     function_permissions: [
@@ -422,9 +428,13 @@ export const DEFAULT_PERMISSIONS = {
   },
   operator: {
     menu_permissions: [
+      'dashboard.transport',
+      'dashboard.quantity',
       'business.entry',
       'business.scale',
-      'dashboard.quantity',
+      'maintenance.projects',
+      'maintenance.drivers',
+      'maintenance.locations',
       'data_maintenance.waybill'
     ],
     function_permissions: [
@@ -448,7 +458,13 @@ export const DEFAULT_PERMISSIONS = {
       'dashboard.transport',
       'dashboard.financial',
       'dashboard.project',
-      'dashboard.quantity'
+      'dashboard.quantity',
+      'maintenance.projects',
+      'maintenance.drivers',
+      'maintenance.locations',
+      'maintenance.partners',
+      'contracts.list',
+      'data_maintenance.waybill'
     ],
     function_permissions: ['export.excel'],
     data_permissions: ['projects.own', 'logistics.own', 'finance.own'],
