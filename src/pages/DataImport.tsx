@@ -111,28 +111,40 @@ export default function DataImportWithDuplicateCheck() {
         const parsedCurrentCost = parseFloat(rowData['运费金额']);
         const parsedExtraCost = parseFloat(rowData['额外费用']);
 
-        // 处理平台运单信息
-        let platformTrackings = null;
+        // 处理其他平台名称和外部运单号
+        let externalTrackingNumbers = null;
+        let otherPlatformNames = null;
+        
         if (rowData['其他平台名称'] || rowData['其他平台运单号']) {
           const platformNames = rowData['其他平台名称']?.toString().split(',').map((name: string) => name.trim()).filter((name: string) => name) || [];
           const platformTrackingGroups = rowData['其他平台运单号']?.toString().split(',').map((group: string) => group.trim()).filter((group: string) => group) || [];
           
-          const trackings = [];
+          // 处理外部运单号（JSONB格式）
+          const trackingNumbers = [];
           for (let i = 0; i < platformNames.length; i++) {
             const platformName = platformNames[i];
             const trackingGroup = platformTrackingGroups[i] || '';
-            const trackingNumbers = trackingGroup ? trackingGroup.split('|').map((tn: string) => tn.trim()).filter((tn: string) => tn) : [];
+            const trackingNumbersList = trackingGroup ? trackingGroup.split('|').map((tn: string) => tn.trim()).filter((tn: string) => tn) : [];
             
-            if (platformName) {
-              trackings.push({
-                platform: platformName,
-                trackingNumbers: trackingNumbers
+            if (platformName && trackingNumbersList.length > 0) {
+              trackingNumbersList.forEach(trackingNumber => {
+                trackingNumbers.push({
+                  platform: platformName,
+                  tracking_number: trackingNumber,
+                  status: 'pending',
+                  created_at: new Date().toISOString()
+                });
               });
             }
           }
           
-          if (trackings.length > 0) {
-            platformTrackings = trackings;
+          if (trackingNumbers.length > 0) {
+            externalTrackingNumbers = trackingNumbers;
+          }
+          
+          // 处理其他平台名称（TEXT[]格式）
+          if (platformNames.length > 0) {
+            otherPlatformNames = platformNames;
           }
         }
 
@@ -152,7 +164,8 @@ export default function DataImportWithDuplicateCheck() {
           extra_cost: !isNaN(parsedExtraCost) ? parsedExtraCost.toString() : '0',
           transport_type: rowData['运输类型']?.trim() || '实际运输',
           remarks: rowData['备注']?.toString().trim() || null,
-          platform_trackings: platformTrackings
+          external_tracking_numbers: externalTrackingNumbers,
+          other_platform_names: otherPlatformNames
         };
       });
 
