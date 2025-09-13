@@ -90,13 +90,13 @@ useEffect(() => {
   if (isOpen) {
     console.log('对话框打开，编辑记录:', editingRecord);
     if (editingRecord) {
-      // 先设置基本信息，地点信息会在数据加载完成后单独设置
+      // 先设置基本信息，地点信息会在loadProjectSpecificData完成后处理
       const initialFormData = {
         projectId: editingRecord.project_id || '',
         chainId: editingRecord.chain_id || '',
         driverId: editingRecord.driver_id || '',
-        loadingLocationIds: [], // 临时设为空，稍后会被正确的地点数据覆盖
-        unloadingLocationIds: [], // 临时设为空，稍后会被正确的地点数据覆盖
+        loadingLocationIds: [], // 暂不设置，等地点数据加载完成
+        unloadingLocationIds: [], // 暂不设置，等地点数据加载完成  
         loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
         unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
         licensePlate: editingRecord.license_plate || '',
@@ -133,7 +133,7 @@ useEffect(() => {
         })(),
       };
       
-      console.log('设置初始表单数据:', initialFormData);
+      console.log('设置初始表单数据（不含地点）:', initialFormData);
       setFormData(initialFormData);
     } else {
       setFormData(INITIAL_FORM_DATA);
@@ -163,108 +163,67 @@ useEffect(() => {
     }
   }, [chains, editingRecord]);
 
-// 在编辑模式下，当数据加载完成后填充地点和司机信息
-useEffect(() => {
-  console.log('数据加载状态检查:', {
-    isEditingRecord: !!editingRecord,
-    isOpen,
-    driversCount: drivers.length,
-    locationsCount: locations.length,
-    formDataDriverId: formData.driverId
-  });
+// 处理编辑记录的地点信息
+const processEditingRecordLocations = async (record: LogisticsRecord, availableLocations: Location[]) => {
+  console.log('开始处理编辑记录的地点信息:', record);
   
-  if (editingRecord && isOpen) {
-    console.log('编辑记录详情:', {
-      driver_id: editingRecord.driver_id,
-      driver_name: editingRecord.driver_name,
-      license_plate: editingRecord.license_plate,
-      driver_phone: editingRecord.driver_phone
-    });
-    
-    // 处理外部运单号和平台名称数据
-    const externalTrackingNumbers = Array.isArray(editingRecord.external_tracking_numbers) 
-      ? editingRecord.external_tracking_numbers 
-      : [];
-    
-    const otherPlatformNames = Array.isArray(editingRecord.other_platform_names) 
-      ? editingRecord.other_platform_names 
-      : [];
-      
-    console.log('处理平台数据:', { externalTrackingNumbers, otherPlatformNames });
-
-    // 首先设置基础数据（项目、司机等），不依赖其他数据加载
-    setFormData(prev => {
-      const newFormData = {
-        ...prev,
-        projectId: editingRecord.project_id || '',
-        chainId: editingRecord.chain_id || '',
-        driverId: editingRecord.driver_id || '',
-        licensePlate: editingRecord.license_plate || '',
-        driverPhone: editingRecord.driver_phone || '',
-        loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
-        unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
-        loading_weight: editingRecord.loading_weight?.toString() || '',
-        unloading_weight: editingRecord.unloading_weight?.toString() || '',
-        transportType: editingRecord.transport_type || '实际运输',
-        currentCost: editingRecord.current_cost?.toString() || '',
-        extraCost: editingRecord.extra_cost?.toString() || '',
-        remarks: editingRecord.remarks || '',
-        external_tracking_numbers: externalTrackingNumbers,
-        other_platform_names: otherPlatformNames,
-      };
-      
-      console.log('更新表单数据 - 包含平台信息:', newFormData);
-      return newFormData;
-    });
-
-    // 然后处理地点数据
-    if (locations.length > 0) {
-      const loadingLocationNames = parseLocationString(editingRecord.loading_location || '');
-      const unloadingLocationNames = parseLocationString(editingRecord.unloading_location || '');
-      
-      console.log('处理地点数据:', {
-        loadingLocationNames,
-        unloadingLocationNames,
-        availableLocations: locations.length
-      });
-      
-      // 确保地点在地点列表中
-      const missingLocations = [...loadingLocationNames, ...unloadingLocationNames]
-        .filter(name => !locations.find(l => l.name === name));
-      
-      if (missingLocations.length > 0) {
-        console.log('发现缺失地点，需要创建:', missingLocations);
-        createMissingLocations(missingLocations);
+  const loadingLocationNames = parseLocationString(record.loading_location || '');
+  const unloadingLocationNames = parseLocationString(record.unloading_location || '');
+  
+  console.log('解析地点名称:', { loadingLocationNames, unloadingLocationNames });
+  
+  // 检查缺失的地点
+  const allLocationNames = [...loadingLocationNames, ...unloadingLocationNames];
+  const missingLocations = allLocationNames.filter(name => 
+    !availableLocations.find(l => l.name === name)
+  );
+  
+  let finalLocations = availableLocations;
+  
+  // 创建缺失的地点
+  if (missingLocations.length > 0) {
+    console.log('创建缺失的地点:', missingLocations);
+    try {
+      for (const locationName of missingLocations) {
+        const { data, error } = await supabase
+          .from('locations')
+          .insert({ name: locationName })
+          .select()
+          .single();
+        
+        if (error && !error.message.includes('duplicate')) {
+          throw error;
+        }
+        
+        if (data) {
+          finalLocations = [...finalLocations, data];
+        }
       }
-      
-      const loadingLocationIds = findLocationIdsByName(loadingLocationNames);
-      const unloadingLocationIds = findLocationIdsByName(unloadingLocationNames);
-      
-      setFormData(prev => ({
-        ...prev,
-        loadingLocationIds,
-        unloadingLocationIds,
-      }));
-    }
-
-    // 确保当前司机在司机列表中
-    if (drivers.length > 0 && editingRecord.driver_id) {
-      const currentDriver = drivers.find(d => d.id === editingRecord.driver_id);
-      console.log('检查司机数据:', {
-        editingDriverId: editingRecord.driver_id,
-        currentDriver,
-        allDrivers: drivers.map(d => ({ id: d.id, name: d.name }))
-      });
-      
-      if (!currentDriver) {
-        console.log('司机不在列表中，开始加载:', editingRecord.driver_id);
-        loadDriverById(editingRecord.driver_id);
-      } else {
-        console.log('司机已在列表中:', currentDriver);
-      }
+      // 更新地点列表
+      setLocations(finalLocations);
+    } catch (error) {
+      console.error('Error creating missing locations:', error);
     }
   }
-}, [editingRecord, isOpen, locations, drivers]);
+  
+  // 计算地点ID
+  const loadingLocationIds = loadingLocationNames
+    .map(name => finalLocations.find(loc => loc.name === name)?.id)
+    .filter(Boolean) as string[];
+  
+  const unloadingLocationIds = unloadingLocationNames
+    .map(name => finalLocations.find(loc => loc.name === name)?.id)
+    .filter(Boolean) as string[];
+  
+  console.log('地点ID映射完成:', { loadingLocationIds, unloadingLocationIds });
+  
+  // 更新表单数据中的地点信息
+  setFormData(prev => ({
+    ...prev,
+    loadingLocationIds,
+    unloadingLocationIds,
+  }));
+};
 
   // 单独加载司机信息
   const loadDriverById = async (driverId: string) => {
@@ -340,6 +299,11 @@ const loadProjectSpecificData = async (projectId: string) => {
     setDrivers(driversRes.data || []);
     setLocations(locationsRes.data || []);
     setChains(chainsRes.data || []);
+
+    // 在地点数据加载完成后，如果是编辑模式，立即填充地点信息
+    if (editingRecord && (driversRes.data || locationsRes.data)) {
+      await processEditingRecordLocations(editingRecord, locationsRes.data || []);
+    }
   } catch (error) {
     console.error('Error loading project data:', error);
     toast({ title: "错误", description: "加载项目关联数据失败", variant: "destructive" });
