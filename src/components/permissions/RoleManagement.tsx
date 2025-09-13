@@ -36,7 +36,8 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
         function_permissions: [],
         project_permissions: [],
         data_permissions: [],
-        is_system: true
+        is_system: true,
+        role: selectedRole as 'admin' | 'finance' | 'business' | 'operator' | 'partner' | 'viewer'
       };
 
       if (existingTemplate) {

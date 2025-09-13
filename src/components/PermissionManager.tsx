@@ -31,7 +31,7 @@ import {
   PROJECT_PERMISSIONS, 
   DATA_PERMISSIONS,
   ROLES,
-  DEFAULT_ROLE_PERMISSIONS
+  DEFAULT_PERMISSIONS
 } from '@/config/permissions';
 import { 
   UserPermission, 

@@ -66,7 +66,8 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
           function_permissions: newTemplate.function_permissions,
           project_permissions: [],
           data_permissions: [],
-          is_system: false
+          is_system: false,
+          role: 'operator' as const
         });
 
       if (error) throw error;

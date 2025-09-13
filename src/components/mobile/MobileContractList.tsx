@@ -85,7 +85,8 @@ export function MobileContractList({ onContractSelect, onSearch }: MobileContrac
       const formattedData = (data || []).map(item => ({
         ...item,
         status: item.status as 'active' | 'expired' | 'terminated' | 'archived',
-        priority: item.priority as 'low' | 'normal' | 'high' | 'urgent'
+        priority: item.priority as 'low' | 'normal' | 'high' | 'urgent',
+        contract_tag_relations: Array.isArray(item.contract_tag_relations) ? item.contract_tag_relations : []
       }));
       setContracts(formattedData);
     } catch (error) {
