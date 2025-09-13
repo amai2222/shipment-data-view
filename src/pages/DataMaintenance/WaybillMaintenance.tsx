@@ -35,22 +35,25 @@ export default function WaybillMaintenance() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping'>('standard');
 
-  // Excel导入相关状态
-  const {
-    isImporting, 
-    isImportModalOpen, 
-    importStep, 
-    importPreview, 
-    importMode,
-    setImportMode,
-    importLogs, 
-    importLogRef, 
-    handleExcelImport, 
-    executeFinalImport, 
-    closeImportModal
-  } = useExcelImportWithUpdate(() => { 
-    loadWaybillCount(); 
-  });
+  // 临时禁用，因为数据库函数不存在
+  const isImporting = false;
+  const importStep = 'idle' as const;
+  const importPreview = null;
+  const importMode = 'create' as const;
+  const setImportMode = () => {};
+  const importLogs: string[] = [];
+  const importLogRef = { current: null };
+  
+  const handleExcelImport = () => {
+    toast({
+      title: "功能暂时禁用",
+      description: "Excel导入功能正在维护中",
+      variant: "destructive"
+    });
+  };
+  
+  const executeFinalImport = () => {};
+  const closeImportModal = () => {};
 
   // 检查权限
   if (!isAdmin && !isOperator) {
@@ -76,7 +79,17 @@ export default function WaybillMaintenance() {
         .order('name');
 
       if (error) throw error;
-      setProjects(data || []);
+      const mappedProjects = (data || []).map(project => ({
+        ...project,
+        startDate: project.start_date,
+        endDate: project.end_date,
+        manager: '',
+        loadingAddress: '',
+        unloadingAddress: '',
+        createdAt: new Date().toISOString(),
+        projectStatus: project.project_status
+      }));
+      setProjects(mappedProjects);
     } catch (error: any) {
       console.error('加载项目失败:', error);
       toast({ title: "错误", description: "加载项目列表失败", variant: "destructive" });
@@ -369,17 +382,9 @@ export default function WaybillMaintenance() {
       </div>
 
         {/* 导入对话框 */}
-        <UpdateModeImportDialog
-          isOpen={isImportModalOpen}
-          onClose={closeImportModal}
-          importStep={importStep}
-          importPreview={importPreview}
-          importMode={importMode}
-          setImportMode={setImportMode}
-          importLogs={importLogs}
-          importLogRef={importLogRef}
-          onExecuteImport={executeFinalImport}
-        />
+        <div>
+          {/* 临时禁用导入对话框 */}
+        </div>
     </div>
   );
 }

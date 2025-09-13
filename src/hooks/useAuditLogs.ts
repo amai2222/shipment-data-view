@@ -1,4 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+
+export interface AuditLogFilters {
+  startDate?: string;
+  endDate?: string;
+  action?: string;
+  userId?: string;
+  permissionType?: string;
+}
 
 export interface AuditLog {
   id: string;

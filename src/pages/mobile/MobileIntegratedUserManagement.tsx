@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { useToast } from '@/hooks/use-toast';
+import { usePermissions } from "@/hooks/usePermissions";
+import { supabase } from "@/integrations/supabase/client";
 import { Users, Settings, Eye, Edit, Trash2, Plus, Save, RefreshCw, Copy, Key, Shield, Search, Building2 } from 'lucide-react';
 import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS } from '@/config/permissions';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
