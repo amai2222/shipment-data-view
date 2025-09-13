@@ -80,14 +80,14 @@ export interface PaginationState {
 
 // 导入预览的类型
 export interface ImportPreviewResult {
-  new_records: { record: any }[];
-  duplicate_records: { record: any }[];
-  error_records: any[];
+  new_records: { record: LogisticsRecord }[];
+  duplicate_records: { record: LogisticsRecord; existing_record_id?: string; existing_auto_number?: string }[];
+  error_records: { record: LogisticsRecord; error: string }[];
 }
 
 // 导入失败详情（用于日志展示）
 export interface ImportFailure {
   row_index: number;
-  data: any;
+  data: LogisticsRecord;
   error: string;
 }

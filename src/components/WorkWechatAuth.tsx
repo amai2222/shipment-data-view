@@ -8,9 +8,16 @@ import { toast } from 'sonner';
 declare global {
   interface Window {
     wx: {
-      agentConfig: (config: any) => void;
+      agentConfig: (config: {
+        corpid: string;
+        agentid: string;
+        timestamp: number;
+        nonceStr: string;
+        signature: string;
+        jsApiList: string[];
+      }) => void;
       ready: (callback: () => void) => void;
-      error: (callback: (res: any) => void) => void;
+      error: (callback: (res: { errMsg: string }) => void) => void;
     };
   }
 }

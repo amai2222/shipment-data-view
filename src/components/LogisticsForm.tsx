@@ -26,7 +26,23 @@ interface LogisticsFormProps {
     driverReceivable: string;
     remarks: string;
   };
-  setFormData: React.Dispatch<React.SetStateAction<any>>;
+  setFormData: React.Dispatch<React.SetStateAction<{
+    projectId: string;
+    chainId: string;
+    loadingTime: string;
+    loadingLocation: string;
+    unloadingLocation: string;
+    driverId: string;
+    loadingWeight: string;
+    unloadingDate: string;
+    unloadingWeight: string;
+    transportType: "实际运输" | "退货";
+    cargoType: string;
+    currentFee: string;
+    extraFee: string;
+    driverReceivable: string;
+    remarks: string;
+  }>>;
   projects: Project[];
   onSubmit: (e: React.FormEvent) => void;
   submitLabel?: string;

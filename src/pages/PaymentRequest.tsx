@@ -29,9 +29,18 @@ interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: n
 interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string; driverNames: string[]; }
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
-interface PaymentPreviewSheet { paying_partner_id: string; paying_partner_full_name: string; paying_partner_bank_account: string; paying_partner_bank_name: string; paying_partner_branch_name: string; record_count: number; total_payable: number; records: any[]; }
+interface PaymentPreviewSheet { 
+  paying_partner_id: string; 
+  paying_partner_full_name: string; 
+  paying_partner_bank_account: string; 
+  paying_partner_bank_name: string; 
+  paying_partner_branch_name: string; 
+  record_count: number; 
+  total_payable: number; 
+  records: LogisticsRecord[]; 
+}
 interface PaymentPreviewData { sheets: PaymentPreviewSheet[]; processed_record_ids: string[]; }
-interface FinalPaymentData { sheets: any[]; all_record_ids: string[]; }
+interface FinalPaymentData { sheets: PaymentPreviewSheet[]; all_record_ids: string[]; }
 
 // --- 常量和初始状态 (已更新) ---
 const PAGE_SIZE = 50;

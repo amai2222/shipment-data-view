@@ -67,7 +67,7 @@ export interface LogisticsRecord {
   cargo_type?: string;
   loading_location_ids?: string[];
   unloading_location_ids?: string[];
-  external_tracking_numbers?: any[]; // 其他平台运单号码
+  external_tracking_numbers?: PlatformTracking[]; // 其他平台运单号码
   other_platform_names?: string[]; // 其他平台名称
 }
 

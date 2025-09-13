@@ -60,15 +60,15 @@ export default function ProjectDashboard() {
           setLoading(false);
           return;
         }
-        const { data, error } = await supabase.rpc('get_project_dashboard_data' as any, {
+        const { data, error } = await supabase.rpc('get_project_dashboard_data', {
           p_selected_project_id: projectId,
           p_report_date: format(reportDate, 'yyyy-MM-dd')
         });
         if (error) throw error;
-        setDashboardData(data as unknown as DashboardData);
+        setDashboardData(data as DashboardData);
       } catch (error) {
         console.error("加载看板数据失败:", error);
-        toast({ title: "错误", description: `加载看板数据失败: ${(error as any).message}`, variant: "destructive" });
+        toast({ title: "错误", description: `加载看板数据失败: ${error instanceof Error ? error.message : "未知错误"}`, variant: "destructive" });
       } finally {
         setLoading(false);
       }

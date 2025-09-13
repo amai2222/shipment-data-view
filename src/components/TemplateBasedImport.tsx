@@ -96,7 +96,7 @@ export default function TemplateBasedImport() {
 
       if (error) throw error;
       setTemplates(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载模板失败:', error);
       toast({ title: "错误", description: "加载模板列表失败", variant: "destructive" });
     }
@@ -122,7 +122,7 @@ export default function TemplateBasedImport() {
 
       setFieldMappings(fieldMappingsResult.data || []);
       setFixedMappings(fixedMappingsResult.data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载模板映射失败:', error);
       toast({ title: "错误", description: "加载模板映射失败", variant: "destructive" });
     }
@@ -170,11 +170,11 @@ export default function TemplateBasedImport() {
 
       // 获取表头
       const headers = jsonData[0] as string[];
-      const rows = jsonData.slice(1) as any[][];
+      const rows = jsonData.slice(1) as string[][];
 
       // 根据模板映射转换数据
       const mappedData = rows.map((row, index) => {
-        const record: any = {};
+        const record: Record<string, unknown> = {};
         
         // 应用字段映射
         fieldMappings.forEach(mapping => {
@@ -223,9 +223,13 @@ export default function TemplateBasedImport() {
 
       setPreviewData(mappedData);
       setIsPreviewDialogOpen(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('处理Excel文件失败:', error);
-      toast({ title: "错误", description: "处理Excel文件失败: " + error.message, variant: "destructive" });
+      toast({ 
+        title: "错误", 
+        description: `处理Excel文件失败: ${error instanceof Error ? error.message : "未知错误"}`, 
+        variant: "destructive" 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -276,11 +280,11 @@ export default function TemplateBasedImport() {
         });
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('导入失败:', error);
       toast({ 
         title: "导入失败", 
-        description: error.message || "导入过程中发生错误", 
+        description: error instanceof Error ? error.message : "导入过程中发生错误", 
         variant: "destructive" 
       });
     } finally {
