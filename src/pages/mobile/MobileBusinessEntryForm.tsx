@@ -54,7 +54,7 @@ interface FormData {
   currentCost: string;
   extraCost: string;
   remarks: string;
-  external_tracking_numbers: any[];
+  external_tracking_numbers: string[];
   other_platform_names: string[];
 }
 
@@ -284,7 +284,7 @@ export default function MobileBusinessEntryForm() {
         
         // 更新平台字段
         const validExternalTrackingNumbers = formData.external_tracking_numbers.filter(
-          etn => etn.tracking_number && etn.tracking_number.trim() !== ''
+          trackingNumber => trackingNumber && trackingNumber.trim() !== ''
         );
         const validOtherPlatformNames = formData.other_platform_names.filter(
           name => name && name.trim() !== ''
@@ -341,7 +341,7 @@ export default function MobileBusinessEntryForm() {
           
         if (newRecord && (formData.external_tracking_numbers?.length > 0 || formData.other_platform_names?.length > 0)) {
           const validExternalTrackingNumbers = formData.external_tracking_numbers.filter(
-            etn => etn.tracking_number && etn.tracking_number.trim() !== ''
+            trackingNumber => trackingNumber && trackingNumber.trim() !== ''
           );
           const validOtherPlatformNames = formData.other_platform_names.filter(
             name => name && name.trim() !== ''

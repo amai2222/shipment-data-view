@@ -51,7 +51,7 @@ interface LogisticsRecord {
   payable_cost?: number;
   payment_status: string;
   remarks?: string;
-  external_tracking_numbers?: any[];
+  external_tracking_numbers?: string[];
   other_platform_names?: string[];
 }
 
@@ -457,7 +457,7 @@ export default function MobileBusinessEntry() {
                   {(record.external_tracking_numbers && record.external_tracking_numbers.length > 0) && (
                     <div className="flex items-center text-muted-foreground">
                       <FileText className="h-4 w-4 mr-2" />
-                      平台运单: {record.external_tracking_numbers.map((etn: any) => etn.tracking_number).join(', ')}
+                      平台运单: {record.external_tracking_numbers.join(', ')}
                     </div>
                   )}
                 </div>
@@ -602,9 +602,9 @@ export default function MobileBusinessEntry() {
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">平台运单号:</span>
                           <div className="text-right">
-                            {selectedRecord.external_tracking_numbers.map((etn: any, index: number) => (
+                            {selectedRecord.external_tracking_numbers.map((trackingNumber: string, index: number) => (
                               <div key={index} className="text-xs">
-                                {etn.platform}: {etn.tracking_number}
+                                {trackingNumber}
                               </div>
                             ))}
                           </div>
