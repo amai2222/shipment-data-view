@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, Save, X } from "lucide-react";
+import { CalendarIcon, Save, X, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogisticsRecord, Project, PlatformTracking } from '../types';
@@ -615,14 +615,90 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           <div className="space-y-4">
             <div>
               <Label className="text-base font-medium">其他平台运单信息</Label>
-              <div className="text-sm text-muted-foreground mt-1">
-                外部运单号: {formData.external_tracking_numbers.length} 个
+              <div className="text-sm text-muted-foreground mt-1 mb-3">
+                外部运单号: {formData.external_tracking_numbers.length} 个 | 其他平台: {formData.other_platform_names.length} 个
               </div>
-              <div className="text-sm text-muted-foreground">
-                其他平台: {formData.other_platform_names.length} 个
+              
+              {/* 其他平台名称输入 */}
+              <div className="space-y-2">
+                <Label className="text-sm">其他平台名称</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="输入平台名称，多个用逗号分隔"
+                    value={formData.other_platform_names.join(', ')}
+                    onChange={(e) => {
+                      const names = e.target.value.split(',').map(name => name.trim()).filter(Boolean);
+                      setFormData(prev => ({ ...prev, other_platform_names: names }));
+                    }}
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  例如：货拉拉, 满帮, 运满满
+                </div>
+              </div>
+
+              {/* 外部运单号输入 */}
+              <div className="space-y-2">
+                <Label className="text-sm">外部运单号</Label>
+                <div className="space-y-2">
+                  {formData.external_tracking_numbers.map((tracking, index) => (
+                    <div key={index} className="flex gap-2 items-center">
+                      <Input
+                        placeholder="平台名称"
+                        value={tracking.platform || ''}
+                        onChange={(e) => {
+                          const newTrackings = [...formData.external_tracking_numbers];
+                          newTrackings[index] = { ...tracking, platform: e.target.value };
+                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
+                        }}
+                        className="w-32"
+                      />
+                      <Input
+                        placeholder="运单号"
+                        value={tracking.tracking_number || ''}
+                        onChange={(e) => {
+                          const newTrackings = [...formData.external_tracking_numbers];
+                          newTrackings[index] = { ...tracking, tracking_number: e.target.value };
+                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
+                        }}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newTrackings = formData.external_tracking_numbers.filter((_, i) => i !== index);
+                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        external_tracking_numbers: [
+                          ...prev.external_tracking_numbers,
+                          { platform: '', tracking_number: '', status: 'pending', created_at: new Date().toISOString() }
+                        ]
+                      }));
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    添加运单号
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  每个运单号包含平台名称和对应的运单号码
+                </div>
               </div>
             </div>
-            {/* 这里可以添加具体的输入组件 */}
           </div>
           <div>
             <Label>备注</Label>
