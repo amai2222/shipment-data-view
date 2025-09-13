@@ -25,6 +25,8 @@ export default function UserManagement() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isStatusChangeDialogOpen, setIsStatusChangeDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [createUserData, setCreateUserData] = useState<CreateUserData>({
@@ -207,13 +209,20 @@ export default function UserManagement() {
     }
   };
 
-  const handleToggleUserStatus = async (user: UserProfile) => {
+  const handleToggleUserStatus = (user: UserProfile) => {
+    setSelectedUser(user);
+    setIsStatusChangeDialogOpen(true);
+  };
+
+  const confirmToggleUserStatus = async () => {
+    if (!selectedUser) return;
+
     try {
       setLoading(true);
       const { error } = await supabase
         .from('profiles')
-        .update({ is_active: !user.is_active } as any)
-        .eq('id', user.id);
+        .update({ is_active: !selectedUser.is_active } as any)
+        .eq('id', selectedUser.id);
 
       if (error) {
         toast({
@@ -226,15 +235,67 @@ export default function UserManagement() {
 
       toast({
         title: "操作成功",
-        description: `用户已${user.is_active ? '禁用' : '启用'}`,
+        description: `用户已${selectedUser.is_active ? '禁用' : '启用'}`,
       });
 
       // 只更新状态，避免重新获取所有数据
       setUsers(prev => prev.map(u => 
-        u.id === user.id ? { ...u, is_active: !user.is_active } : u
+        u.id === selectedUser.id ? { ...u, is_active: !selectedUser.is_active } : u
       ));
+
+      setIsStatusChangeDialogOpen(false);
+      setSelectedUser(null);
     } catch (error) {
       console.error('操作失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setLoading(true);
+      
+      // 首先删除用户权限
+      await supabase
+        .from('user_permissions')
+        .delete()
+        .eq('user_id', selectedUser.id);
+
+      // 然后删除用户档案
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', selectedUser.id);
+
+      if (error) {
+        toast({
+          title: "删除失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "删除成功",
+        description: `用户 ${selectedUser.full_name || selectedUser.username} 已被删除`,
+      });
+
+      setIsDeleteDialogOpen(false);
+      setSelectedUser(null);
+      
+      // 重新获取用户列表
+      await fetchUsers();
+    } catch (error) {
+      console.error('删除用户失败:', error);
+      toast({
+        title: "删除失败",
+        description: "删除用户失败，请重试",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -443,6 +504,7 @@ export default function UserManagement() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleCopyUser(user)}
+                        title="复制用户"
                       >
                         <Copy className="h-3 w-3" />
                       </Button>
@@ -453,15 +515,28 @@ export default function UserManagement() {
                           setSelectedUser(user);
                           setIsPasswordDialogOpen(true);
                         }}
+                        title="修改密码"
                       >
                         <Key className="h-3 w-3" />
                       </Button>
                       <Button
                         size="sm"
-                        variant={user.is_active ? "destructive" : "default"}
+                        variant={user.is_active ? "secondary" : "default"}
                         onClick={() => handleToggleUserStatus(user)}
+                        title={user.is_active ? "禁用用户" : "启用用户"}
                       >
-                        {user.is_active ? <Trash2 className="h-3 w-3" /> : <Edit className="h-3 w-3" />}
+                        {user.is_active ? "禁用" : "启用"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setIsDeleteDialogOpen(true);
+                        }}
+                        title="删除用户"
+                      >
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </TableCell>
@@ -503,6 +578,106 @@ export default function UserManagement() {
                 setNewPassword('');
                 setSelectedUser(null);
               }}>
+                取消
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>删除用户</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>确认删除用户</Label>
+              <div className="p-2 bg-muted rounded">
+                <div className="font-medium">{selectedUser?.full_name || selectedUser?.username}</div>
+                <div className="text-sm text-muted-foreground">{selectedUser?.email}</div>
+                <div className="text-sm text-muted-foreground">角色: {getRoleLabel(selectedUser?.role || 'viewer')}</div>
+              </div>
+            </div>
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="text-sm text-red-800">
+                <strong>警告：</strong>删除用户将同时删除：
+                <ul className="mt-2 ml-4 list-disc">
+                  <li>用户的所有权限设置</li>
+                  <li>用户创建的数据记录</li>
+                  <li>用户的所有操作日志</li>
+                </ul>
+                <p className="mt-2">此操作不可撤销！</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteUser} 
+                disabled={loading}
+                className="flex-1"
+              >
+                {loading ? '删除中...' : '确认删除'}
+              </Button>
+              <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                取消
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isStatusChangeDialogOpen} onOpenChange={setIsStatusChangeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>确认用户状态变更</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>用户信息</Label>
+              <div className="p-2 bg-muted rounded">
+                <div className="font-medium">{selectedUser?.full_name || selectedUser?.username}</div>
+                <div className="text-sm text-muted-foreground">{selectedUser?.email}</div>
+                <div className="text-sm text-muted-foreground">角色: {getRoleLabel(selectedUser?.role || 'viewer')}</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>状态变更</Label>
+              <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm text-blue-800">
+                  <strong>当前状态：</strong>
+                  <Badge variant={selectedUser?.is_active ? 'default' : 'secondary'} className="ml-2">
+                    {selectedUser?.is_active ? '启用' : '禁用'}
+                  </Badge>
+                </div>
+                <div className="text-sm text-blue-800 mt-2">
+                  <strong>变更后：</strong>
+                  <Badge variant={selectedUser?.is_active ? 'secondary' : 'default'} className="ml-2">
+                    {selectedUser?.is_active ? '禁用' : '启用'}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="text-sm text-yellow-800">
+                <strong>注意：</strong>
+                {selectedUser?.is_active ? (
+                  <span>禁用用户后，该用户将无法登录系统。</span>
+                ) : (
+                  <span>启用用户后，该用户将可以正常登录系统。</span>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant={selectedUser?.is_active ? "secondary" : "default"}
+                onClick={confirmToggleUserStatus} 
+                disabled={loading}
+                className="flex-1"
+              >
+                {loading ? '处理中...' : `确认${selectedUser?.is_active ? '禁用' : '启用'}`}
+              </Button>
+              <Button variant="outline" onClick={() => setIsStatusChangeDialogOpen(false)}>
                 取消
               </Button>
             </div>

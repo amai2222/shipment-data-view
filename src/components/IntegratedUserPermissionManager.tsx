@@ -86,6 +86,7 @@ export function IntegratedUserPermissionManager() {
   const [showProjectPermissionManager, setShowProjectPermissionManager] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showStatusChangeDialog, setShowStatusChangeDialog] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserWithPermissions | null>(null);
   const [userToChangePassword, setUserToChangePassword] = useState<UserWithPermissions | null>(null);
   const [newPassword, setNewPassword] = useState('');
@@ -243,20 +244,32 @@ export function IntegratedUserPermissionManager() {
   };
 
   // 切换用户状态
-  const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
+  const toggleUserStatus = (userId: string, currentStatus: boolean) => {
+    const user = usersWithPermissions.find(u => u.id === userId);
+    if (user) {
+      setUserToDelete(user);
+      setShowStatusChangeDialog(true);
+    }
+  };
+
+  const confirmToggleUserStatus = async () => {
+    if (!userToDelete) return;
+
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ is_active: !currentStatus })
-        .eq('id', userId);
+        .update({ is_active: !userToDelete.is_active })
+        .eq('id', userToDelete.id);
 
       if (error) throw error;
 
       toast({
         title: "状态更新成功",
-        description: `用户已${!currentStatus ? '启用' : '禁用'}`,
+        description: `用户已${!userToDelete.is_active ? '启用' : '禁用'}`,
       });
 
+      setShowStatusChangeDialog(false);
+      setUserToDelete(null);
       await loadAllData();
     } catch (error) {
       console.error('切换用户状态失败:', error);
@@ -1443,6 +1456,66 @@ export function IntegratedUserPermissionManager() {
                 </Button>
                 <Button onClick={handleSaveProjectAssignments}>
                   保存分配
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 用户状态变更确认对话框 */}
+      {userToDelete && (
+        <Dialog open={showStatusChangeDialog} onOpenChange={setShowStatusChangeDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>确认用户状态变更</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>用户信息</Label>
+                <div className="p-2 bg-muted rounded">
+                  <div className="font-medium">{userToDelete.full_name || userToDelete.username}</div>
+                  <div className="text-sm text-muted-foreground">{userToDelete.email}</div>
+                  <div className="text-sm text-muted-foreground">角色: {getRoleDisplayName(userToDelete.role)}</div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>状态变更</Label>
+                <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="text-sm text-blue-800">
+                    <strong>当前状态：</strong>
+                    <Badge variant={userToDelete.is_active ? 'default' : 'secondary'} className="ml-2">
+                      {userToDelete.is_active ? '启用' : '禁用'}
+                    </Badge>
+                  </div>
+                  <div className="text-sm text-blue-800 mt-2">
+                    <strong>变更后：</strong>
+                    <Badge variant={userToDelete.is_active ? 'secondary' : 'default'} className="ml-2">
+                      {userToDelete.is_active ? '禁用' : '启用'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="text-sm text-yellow-800">
+                  <strong>注意：</strong>
+                  {userToDelete.is_active ? (
+                    <span>禁用用户后，该用户将无法登录系统。</span>
+                  ) : (
+                    <span>启用用户后，该用户将可以正常登录系统。</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant={userToDelete.is_active ? "secondary" : "default"}
+                  onClick={confirmToggleUserStatus} 
+                  className="flex-1"
+                >
+                  确认{userToDelete.is_active ? '禁用' : '启用'}
+                </Button>
+                <Button variant="outline" onClick={() => setShowStatusChangeDialog(false)}>
+                  取消
                 </Button>
               </div>
             </div>
