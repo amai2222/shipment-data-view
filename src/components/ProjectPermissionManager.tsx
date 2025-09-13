@@ -49,7 +49,9 @@ export function ProjectPermissionManager({
 
   // 获取项目状态
   const getProjectStatus = (project: any) => {
-    const hasAccess = userProjectPermissions.includes(project.id);
+    // 修复：默认所有项目都可访问，除非明确限制
+    // 如果用户权限列表为空或包含该项目，则认为可访问
+    const hasAccess = userProjectPermissions.length === 0 || userProjectPermissions.includes(project.id);
     const isActive = project.project_status === '进行中';
     
     return {
@@ -94,7 +96,10 @@ export function ProjectPermissionManager({
   // 统计信息
   const stats = useMemo(() => {
     const total = projects.length;
-    const accessible = projects.filter(p => userProjectPermissions.includes(p.id)).length;
+    // 修复：默认所有项目都可访问，除非明确限制
+    const accessible = projects.filter(p => 
+      userProjectPermissions.length === 0 || userProjectPermissions.includes(p.id)
+    ).length;
     const restricted = total - accessible;
     const active = projects.filter(p => p.project_status === '进行中').length;
     

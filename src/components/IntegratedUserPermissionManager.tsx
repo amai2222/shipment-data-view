@@ -108,7 +108,7 @@ export function IntegratedUserPermissionManager() {
         } : {
           menu: roleTemplates[user.role]?.menu_permissions || [],
           function: roleTemplates[user.role]?.function_permissions || [],
-          project: roleTemplates[user.role]?.project_permissions || [],
+          project: [], // 修复：默认空数组，表示可以访问所有项目
           data: roleTemplates[user.role]?.data_permissions || []
         }
       };

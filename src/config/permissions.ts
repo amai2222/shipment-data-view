@@ -283,7 +283,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'system', 'system.manage_users', 'system.manage_roles', 'system.view_logs', 'system.backup'
     ],
     project_permissions: [
-      'project_access', 'project.view_all', 'project.manage', 'project.admin',
+      'project_access', 'project.view_all', 'project.view_assigned', 'project.manage', 'project.admin',
       'project_data', 'project_data.view_financial', 'project_data.edit_financial', 'project_data.view_operational', 'project_data.edit_operational'
     ],
     data_permissions: [
