@@ -87,9 +87,18 @@ export function IntegratedUserPermissionManager() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showStatusChangeDialog, setShowStatusChangeDialog] = useState(false);
+  const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserWithPermissions | null>(null);
   const [userToChangePassword, setUserToChangePassword] = useState<UserWithPermissions | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [createUserData, setCreateUserData] = useState({
+    email: '',
+    username: '',
+    full_name: '',
+    role: 'operator' as 'admin' | 'finance' | 'business' | 'operator' | 'partner' | 'viewer',
+    password: '',
+    work_wechat_userid: ''
+  });
   const [showProjectAssignmentDialog, setShowProjectAssignmentDialog] = useState(false);
   const [userForProjectAssignment, setUserForProjectAssignment] = useState<UserWithPermissions | null>(null);
   const [userProjectAssignments, setUserProjectAssignments] = useState<Record<string, string[]>>({});
@@ -268,14 +277,69 @@ export function IntegratedUserPermissionManager() {
         description: `用户已${!userToDelete.is_active ? '启用' : '禁用'}`,
       });
 
+      // 立即更新前端状态，避免重新加载所有数据
+      // 由于我们使用的是 useOptimizedPermissions hook，需要重新加载数据来确保一致性
+      await loadAllData();
+
       setShowStatusChangeDialog(false);
       setUserToDelete(null);
-      await loadAllData();
     } catch (error) {
       console.error('切换用户状态失败:', error);
       toast({
         title: "更新失败",
         description: "更新用户状态失败",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // 创建用户
+  const handleCreateUser = async () => {
+    try {
+      // 首先在 Supabase Auth 中创建用户
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: createUserData.email,
+        password: createUserData.password,
+        email_confirm: true
+      });
+
+      if (authError) throw authError;
+
+      // 然后创建用户档案
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          email: createUserData.email,
+          username: createUserData.username,
+          full_name: createUserData.full_name,
+          role: createUserData.role,
+          work_wechat_userid: createUserData.work_wechat_userid || null,
+          is_active: true
+        });
+
+      if (profileError) throw profileError;
+
+      toast({
+        title: "创建成功",
+        description: `用户 ${createUserData.full_name || createUserData.username} 已创建`,
+      });
+
+      setShowCreateUserDialog(false);
+      setCreateUserData({
+        email: '',
+        username: '',
+        full_name: '',
+        role: 'operator',
+        password: '',
+        work_wechat_userid: ''
+      });
+      await loadAllData();
+    } catch (error: any) {
+      console.error('创建用户失败:', error);
+      toast({
+        title: "创建失败",
+        description: error.message || "创建用户失败，请重试",
         variant: "destructive"
       });
     }
@@ -564,10 +628,18 @@ export function IntegratedUserPermissionManager() {
         <TabsContent value="users" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>用户列表</CardTitle>
-              <CardDescription>
-                管理用户信息、角色和权限
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>用户列表</CardTitle>
+                  <CardDescription>
+                    管理用户信息、角色和权限
+                  </CardDescription>
+                </div>
+                <Button onClick={() => setShowCreateUserDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  新建用户
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -1522,6 +1594,105 @@ export function IntegratedUserPermissionManager() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* 创建用户对话框 */}
+      <Dialog open={showCreateUserDialog} onOpenChange={setShowCreateUserDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>创建新用户</DialogTitle>
+            <DialogDescription>
+              创建新的用户账户并设置基本信息和角色
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">邮箱 *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={createUserData.email}
+                onChange={(e) => setCreateUserData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="请输入邮箱地址"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="username">用户名 *</Label>
+              <Input
+                id="username"
+                value={createUserData.username}
+                onChange={(e) => setCreateUserData(prev => ({ ...prev, username: e.target.value }))}
+                placeholder="请输入用户名"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="full_name">姓名 *</Label>
+              <Input
+                id="full_name"
+                value={createUserData.full_name}
+                onChange={(e) => setCreateUserData(prev => ({ ...prev, full_name: e.target.value }))}
+                placeholder="请输入真实姓名"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">角色 *</Label>
+              <Select value={createUserData.role} onValueChange={(value: any) => setCreateUserData(prev => ({ ...prev, role: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">管理员</SelectItem>
+                  <SelectItem value="finance">财务</SelectItem>
+                  <SelectItem value="business">业务</SelectItem>
+                  <SelectItem value="operator">操作员</SelectItem>
+                  <SelectItem value="partner">合作方</SelectItem>
+                  <SelectItem value="viewer">查看者</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="work_wechat_userid">企业微信UserID（可选）</Label>
+              <Input
+                id="work_wechat_userid"
+                value={createUserData.work_wechat_userid}
+                onChange={(e) => setCreateUserData(prev => ({ ...prev, work_wechat_userid: e.target.value }))}
+                placeholder="请输入企业微信UserID"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">密码 *</Label>
+              <Input
+                id="password"
+                type="password"
+                value={createUserData.password}
+                onChange={(e) => setCreateUserData(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="请输入密码"
+                required
+              />
+            </div>
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-sm text-blue-800">
+                <strong>说明：</strong>
+                <ul className="mt-2 ml-4 list-disc">
+                  <li>新用户将自动获得对应角色的默认权限</li>
+                  <li>用户创建后可以进一步调整权限设置</li>
+                  <li>邮箱将作为登录用户名</li>
+                </ul>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleCreateUser} className="flex-1">
+                创建用户
+              </Button>
+              <Button variant="outline" onClick={() => setShowCreateUserDialog(false)}>
+                取消
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
