@@ -437,7 +437,7 @@ export function PermissionVisualizer({
                       </CardHeader>
                       <CardContent className="pt-0">
                         <div className="space-y-3">
-                          {projectGroup.children?.map((permission) => {
+                          {PROJECT_PERMISSIONS.map((permission) => {
                             const hasUserPermission = userPermissions.project.includes(permission.key);
                             const hasRolePermission = rolePermissions.project.includes(permission.key);
                             

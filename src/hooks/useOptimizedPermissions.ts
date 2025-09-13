@@ -31,9 +31,9 @@ export function useOptimizedPermissions() {
   // 初始化默认角色权限模板
   const initializeDefaultRoleTemplates = async () => {
     try {
-      const { DEFAULT_ROLE_PERMISSIONS } = await import('@/config/permissions');
+      const { DEFAULT_PERMISSIONS } = await import('@/config/permissions');
       
-      const templatePromises = Object.entries(DEFAULT_ROLE_PERMISSIONS).map(([role, permissions]) =>
+      const templatePromises = Object.entries(DEFAULT_PERMISSIONS).map(([role, permissions]) =>
         supabase
           .from('role_permission_templates')
           .upsert({

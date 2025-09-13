@@ -41,9 +41,7 @@ export function PermissionVisualization({
     const totalMenuPermissions = Object.values(MENU_PERMISSIONS).reduce((acc, group) => 
       acc + (group.children?.length || 0), 0
     );
-    const totalFunctionPermissions = Object.values(FUNCTION_PERMISSIONS).reduce((acc, group) => 
-      acc + (group.children?.length || 0), 0
-    );
+    const totalFunctionPermissions = FUNCTION_PERMISSIONS.length;
 
     return roleTemplates.map(template => ({
       role: template.role,
