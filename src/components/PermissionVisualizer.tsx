@@ -22,9 +22,10 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Building2
+  Building2,
+  Database
 } from 'lucide-react';
-import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS } from '@/config/permissions';
+import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS, DATA_PERMISSIONS } from '@/config/permissions';
 
 interface PermissionVisualizerProps {
   userPermissions: {
@@ -89,7 +90,7 @@ export function PermissionVisualizer({
       const hasUserPermission = userPermissions.menu.includes(menu.key);
       const hasRolePermission = rolePermissions.menu.includes(menu.key);
       
-      if (hasUserPermission) {
+      if (hasUserPermission || hasRolePermission) {
         stats.menu.granted++;
         if (hasRolePermission) {
           stats.menu.inherited++;
@@ -104,7 +105,7 @@ export function PermissionVisualizer({
       const hasUserPermission = userPermissions.function.includes(func.key);
       const hasRolePermission = rolePermissions.function.includes(func.key);
       
-      if (hasUserPermission) {
+      if (hasUserPermission || hasRolePermission) {
         stats.function.granted++;
         if (hasRolePermission) {
           stats.function.inherited++;
@@ -112,6 +113,54 @@ export function PermissionVisualizer({
           stats.function.custom++;
         }
       }
+    });
+
+    // 计算项目权限总数
+    PROJECT_PERMISSIONS.forEach(projectGroup => {
+      projectGroup.children?.forEach(permission => {
+        stats.project.total++;
+      });
+    });
+
+    // 计算项目权限已授权数量
+    PROJECT_PERMISSIONS.forEach(projectGroup => {
+      projectGroup.children?.forEach(permission => {
+        const hasUserPermission = userPermissions.project.includes(permission.key);
+        const hasRolePermission = rolePermissions.project.includes(permission.key);
+        
+        if (hasUserPermission || hasRolePermission) {
+          stats.project.granted++;
+          if (hasRolePermission) {
+            stats.project.inherited++;
+          } else {
+            stats.project.custom++;
+          }
+        }
+      });
+    });
+
+    // 计算数据权限总数
+    DATA_PERMISSIONS.forEach(dataGroup => {
+      dataGroup.children?.forEach(permission => {
+        stats.data.total++;
+      });
+    });
+
+    // 计算数据权限已授权数量
+    DATA_PERMISSIONS.forEach(dataGroup => {
+      dataGroup.children?.forEach(permission => {
+        const hasUserPermission = userPermissions.data.includes(permission.key);
+        const hasRolePermission = rolePermissions.data.includes(permission.key);
+        
+        if (hasUserPermission || hasRolePermission) {
+          stats.data.granted++;
+          if (hasRolePermission) {
+            stats.data.inherited++;
+          } else {
+            stats.data.custom++;
+          }
+        }
+      });
     });
 
     return stats;
@@ -505,8 +554,56 @@ export function PermissionVisualizer({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                数据权限配置功能开发中...
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {DATA_PERMISSIONS.map((dataGroup) => (
+                  <Card key={dataGroup.key} className="border-l-4 border-l-purple-500">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Database className="h-4 w-4 text-purple-600" />
+                        {dataGroup.label}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-3">
+                        {dataGroup.children?.map((permission) => {
+                          const hasUserPermission = userPermissions.data.includes(permission.key);
+                          const hasRolePermission = rolePermissions.data.includes(permission.key);
+                          
+                          let status = 'none';
+                          if (hasRolePermission) {
+                            status = 'inherited'; // 有角色权限就显示为继承
+                          } else if (hasUserPermission) {
+                            status = 'custom';
+                          }
+                          
+                          return (
+                            <div key={permission.key} className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
+                              <div className="flex items-center gap-3">
+                                <Database className="h-4 w-4 text-gray-600" />
+                                <div>
+                                  <div className="font-medium text-sm">{permission.label}</div>
+                                  <div className="text-xs text-gray-500">{permission.description}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {getStatusIcon(status)}
+                                {getStatusBadge(status)}
+                                {!readOnly && (
+                                  <Checkbox
+                                    checked={hasRolePermission || hasUserPermission}
+                                    onCheckedChange={(checked) => 
+                                      onPermissionChange?.('data', permission.key, checked as boolean)
+                                    }
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </CardContent>
           </CollapsibleContent>
