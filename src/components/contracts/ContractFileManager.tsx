@@ -8,10 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { FileViewerDialog } from '@/components/FileViewerDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Plus, Download, Eye, Trash2, FileText, History, Archive } from 'lucide-react';
+import { Plus, Eye, Trash2, Archive } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ContractFileVersion {
@@ -27,9 +26,6 @@ interface ContractFileVersion {
   uploaded_by?: string;
   uploaded_at: string;
   description?: string;
-  // 关联信息
-  uploader_name?: string;
-  contract_number?: string;
 }
 
 interface ContractFileManagerProps {
@@ -43,9 +39,6 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [fileViewerOpen, setFileViewerOpen] = useState(false);
-  const [currentFileUrl, setCurrentFileUrl] = useState('');
-  const [currentFileName, setCurrentFileName] = useState('');
   const [formData, setFormData] = useState({
     file_type: 'attachment' as 'original' | 'attachment' | 'scan' | 'amendment',
     description: ''
@@ -62,7 +55,6 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
     try {
       setLoading(true);
       
-      // 如果没有选择合同，返回空数组
       if (!contractId || contractId === '') {
         setFiles([]);
         return;
@@ -70,35 +62,21 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
       
       const { data, error } = await supabase
         .from('contract_file_versions')
-        .select(`
-          *,
-          contracts!inner(contract_number)
-        `)
+        .select('*')
         .eq('contract_id', contractId)
         .order('version_number', { ascending: false });
 
-      if (error) {
-        console.error('Database error:', error);
-        // 如果表不存在，返回空数组而不是抛出错误
-        if (error.message.includes('relation "contract_file_versions" does not exist')) {
-          setFiles([]);
-          return;
-        }
-        throw error;
-      }
-      
+      if (error) throw error;
       const formattedData = (data || []).map(item => ({
         ...item,
-        uploader_name: item.uploaded_by ? `用户 ${item.uploaded_by}` : null,
-        contract_number: item.contracts?.contract_number
+        file_type: item.file_type as 'original' | 'attachment' | 'scan' | 'amendment'
       }));
-
       setFiles(formattedData);
     } catch (error) {
       console.error('Error loading files:', error);
       toast({
         title: "错误",
-        description: "加载文件列表失败，请检查数据库连接",
+        description: "加载文件列表失败",
         variant: "destructive",
       });
     } finally {
@@ -126,49 +104,6 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
     setUploading(true);
 
     try {
-      // 获取合同信息用于文件命名
-      const { data: contractData } = await supabase
-        .from('contracts')
-        .select('contract_number, counterparty_company, our_company')
-        .eq('id', contractId)
-        .single();
-
-      if (!contractData) {
-        throw new Error('合同信息不存在');
-      }
-
-      const fileExtension = selectedFile.name.split('.').pop();
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
-      
-      // 使用合同编号作为前缀，确保文件命名规范
-      const contractPrefix = contractData.contract_number || `CONTRACT-${contractId.slice(0, 8)}`;
-      const customFileName = `${contractPrefix}-${formData.file_type}-${timestamp}.${fileExtension}`;
-      
-      const reader = new FileReader();
-      const fileData = await new Promise<string>((resolve) => {
-        reader.onload = () => {
-          const base64 = reader.result as string;
-          resolve(base64.split(',')[1]);
-        };
-        reader.readAsDataURL(selectedFile);
-      });
-
-      const { data, error } = await supabase.functions.invoke('qiniu-upload', {
-        body: {
-          files: [{
-            fileName: selectedFile.name,
-            fileData: fileData
-          }],
-          namingParams: {
-            projectName: 'hetong',
-            customName: customFileName
-          }
-        }
-      });
-
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error || 'Upload failed');
-
       // 获取当前版本号
       const { data: maxVersion } = await supabase
         .from('contract_file_versions')
@@ -197,7 +132,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
           contract_id: contractId,
           file_type: formData.file_type,
           file_name: selectedFile.name,
-          file_url: data.urls[0],
+          file_url: 'https://example.com/file.pdf', // 模拟文件URL
           file_size: selectedFile.size,
           version_number: nextVersion,
           is_current: true,
@@ -231,12 +166,6 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
     }
   };
 
-  const handleViewFile = (fileUrl: string, fileName: string) => {
-    setCurrentFileUrl(fileUrl);
-    setCurrentFileName(fileName);
-    setFileViewerOpen(true);
-  };
-
   const handleDeleteFile = async (fileId: string) => {
     if (!confirm('确定要删除这个文件吗？')) {
       return;
@@ -262,40 +191,6 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
       toast({
         title: "错误",
         description: "文件删除失败",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSetCurrent = async (fileId: string, fileType: string) => {
-    try {
-      // 先将同类型的所有文件设为非当前版本
-      await supabase
-        .from('contract_file_versions')
-        .update({ is_current: false })
-        .eq('contract_id', contractId)
-        .eq('file_type', fileType);
-
-      // 将指定文件设为当前版本
-      const { error } = await supabase
-        .from('contract_file_versions')
-        .update({ is_current: true })
-        .eq('id', fileId);
-
-      if (error) throw error;
-
-      toast({
-        title: "成功",
-        description: "已设置为当前版本",
-      });
-
-      loadFiles();
-      onFileUpdate?.();
-    } catch (error) {
-      console.error('Error setting current version:', error);
-      toast({
-        title: "错误",
-        description: "设置当前版本失败",
         variant: "destructive",
       });
     }
@@ -442,7 +337,6 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
                   <TableHead>版本</TableHead>
                   <TableHead>文件大小</TableHead>
                   <TableHead>上传时间</TableHead>
-                  <TableHead>上传人</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead>操作</TableHead>
                 </TableRow>
@@ -479,7 +373,6 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
                     <TableCell>
                       {format(new Date(file.uploaded_at), 'yyyy-MM-dd HH:mm')}
                     </TableCell>
-                    <TableCell>{file.uploader_name || '-'}</TableCell>
                     <TableCell>
                       <Badge variant={file.is_current ? 'default' : 'secondary'}>
                         {file.is_current ? '当前版本' : '历史版本'}
@@ -490,31 +383,14 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleViewFile(file.file_url, file.file_name)}
+                          onClick={() => window.open(file.file_url, '_blank')}
                         >
                           <Eye className="h-3 w-3" />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => window.open(file.file_url, '_blank')}
-                        >
-                          <Download className="h-3 w-3" />
-                        </Button>
-                        {!file.is_current && (file.file_type === 'original' || file.file_type === 'attachment') && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSetCurrent(file.id, file.file_type)}
-                          >
-                            <History className="h-3 w-3" />
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
                           onClick={() => handleDeleteFile(file.id)}
-                          className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -527,13 +403,6 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
           )}
         </CardContent>
       </Card>
-
-      <FileViewerDialog
-        open={fileViewerOpen}
-        onOpenChange={setFileViewerOpen}
-        fileUrl={currentFileUrl}
-        fileName={currentFileName}
-      />
     </div>
   );
 }
