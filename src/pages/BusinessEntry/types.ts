@@ -1,5 +1,11 @@
 // 正确路径: src/pages/BusinessEntry/types.ts
 
+// 平台运单信息数据类型
+export interface PlatformTracking {
+  platform: string; // 平台名称
+  trackingNumbers: string[]; // 该平台的运单号列表
+}
+
 // 数据库原始记录类型
 export interface LogisticsRecord {
   id: string;
@@ -25,6 +31,8 @@ export interface LogisticsRecord {
   transport_type: string | null;
   extra_cost: number | null;
   remarks: string | null;
+  external_tracking_numbers?: any[]; // 使用现有的数据库字段
+  other_platform_names?: string[]; // 使用现有的数据库字段
   created_at?: string;
 }
 

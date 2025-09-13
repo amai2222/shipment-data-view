@@ -41,7 +41,8 @@ interface FormData {
   currentCost: string;
   extraCost: string;
   remarks: string;
-  platform_trackings: PlatformTracking[];
+  external_tracking_numbers: any[];
+  other_platform_names: string[];
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -60,7 +61,8 @@ const INITIAL_FORM_DATA: FormData = {
   currentCost: '',
   extraCost: '',
   remarks: '',
-  platform_trackings: [],
+  external_tracking_numbers: [],
+  other_platform_names: [],
 };
 
 export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, onSubmitSuccess }: LogisticsFormDialogProps) {
@@ -89,7 +91,26 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   useEffect(() => {
     if (isOpen) {
       if (editingRecord) {
-        populateFormWithRecord(editingRecord);
+        // 先设置基本信息，等数据加载完成后再填充地点和司机信息
+        setFormData({
+          projectId: editingRecord.project_id || '',
+          chainId: editingRecord.chain_id || '',
+          driverId: editingRecord.driver_id || '',
+          loadingLocationIds: [],
+          unloadingLocationIds: [],
+          loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
+          unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
+          licensePlate: editingRecord.license_plate || '',
+          driverPhone: editingRecord.driver_phone || '',
+          loading_weight: editingRecord.loading_weight?.toString() || '',
+          unloading_weight: editingRecord.unloading_weight?.toString() || '',
+          transportType: editingRecord.transport_type || '实际运输',
+          currentCost: editingRecord.current_cost?.toString() || '',
+          extraCost: editingRecord.extra_cost?.toString() || '',
+          remarks: editingRecord.remarks || '',
+          external_tracking_numbers: editingRecord.external_tracking_numbers || [],
+          other_platform_names: editingRecord.other_platform_names || [],
+        });
       } else {
         setFormData(INITIAL_FORM_DATA);
       }
@@ -117,6 +138,80 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       }
     }
   }, [chains, editingRecord]);
+
+  // 在编辑模式下，当数据加载完成后填充地点和司机信息
+  useEffect(() => {
+    if (editingRecord && locations.length > 0 && drivers.length > 0) {
+      // 解析装卸货地点
+      const loadingLocationNames = parseLocationString(editingRecord.loading_location || '');
+      const unloadingLocationNames = parseLocationString(editingRecord.unloading_location || '');
+      
+      // 确保当前司机在司机列表中
+      const currentDriver = drivers.find(d => d.id === editingRecord.driver_id);
+      if (!currentDriver && editingRecord.driver_id) {
+        // 如果当前司机不在列表中，需要单独加载
+        loadDriverById(editingRecord.driver_id);
+      }
+      
+      // 确保地点在地点列表中
+      const missingLocations = [...loadingLocationNames, ...unloadingLocationNames]
+        .filter(name => !locations.find(l => l.name === name));
+      
+      if (missingLocations.length > 0) {
+        // 如果有缺失的地点，需要创建它们
+        createMissingLocations(missingLocations);
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        loadingLocationIds: findLocationIdsByName(loadingLocationNames),
+        unloadingLocationIds: findLocationIdsByName(unloadingLocationNames),
+      }));
+    }
+  }, [editingRecord, locations, drivers]);
+
+  // 单独加载司机信息
+  const loadDriverById = async (driverId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('drivers')
+        .select('*')
+        .eq('id', driverId)
+        .single();
+      
+      if (error) throw error;
+      if (data) {
+        setDrivers(prev => {
+          // 如果司机不在列表中，添加到列表
+          if (!prev.find(d => d.id === driverId)) {
+            return [...prev, data];
+          }
+          return prev;
+        });
+      }
+    } catch (error) {
+      console.error('Error loading driver:', error);
+    }
+  };
+
+  // 创建缺失的地点
+  const createMissingLocations = async (locationNames: string[]) => {
+    try {
+      const { data, error } = await supabase.rpc('get_or_create_locations_from_string', {
+        p_location_string: locationNames.join('|')
+      });
+      
+      if (error) throw error;
+      if (data) {
+        setLocations(prev => {
+          const newLocations = data.filter((loc: any) => !prev.find(l => l.id === loc.id));
+          return [...prev, ...newLocations];
+        });
+      }
+    } catch (error) {
+      console.error('Error creating locations:', error);
+    }
+  };
 
   const loadProjectSpecificData = async (projectId: string) => {
     try {
@@ -172,7 +267,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       currentCost: record.current_cost?.toString() || '',
       extraCost: record.extra_cost?.toString() || '',
       remarks: record.remarks || '',
-      platform_trackings: record.platform_trackings || [],
+      external_tracking_numbers: record.external_tracking_numbers || [],
+      other_platform_names: record.other_platform_names || [],
     });
   };
 
@@ -240,15 +336,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         if (error) throw error;
         
         // 更新平台运单信息
-        const validPlatformTrackings = formData.platform_trackings.filter(pt => 
-          pt.platform.trim() !== '' && pt.trackingNumbers.some(tn => tn.trim() !== '')
-        );
-        
-        if (validPlatformTrackings.length > 0) {
+        if (formData.external_tracking_numbers.length > 0 || formData.other_platform_names.length > 0) {
           const { error: platformError } = await supabase
             .from('logistics_records')
             .update({ 
-              platform_trackings: validPlatformTrackings
+              external_tracking_numbers: formData.external_tracking_numbers,
+              other_platform_names: formData.other_platform_names
             })
             .eq('id', editingRecord.id);
           if (platformError) throw platformError;
@@ -291,15 +384,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           .single();
         
         if (newRecord) {
-          const validPlatformTrackings = formData.platform_trackings.filter(pt => 
-            pt.platform.trim() !== '' && pt.trackingNumbers.some(tn => tn.trim() !== '')
-          );
-          
-          if (validPlatformTrackings.length > 0) {
+          if (formData.external_tracking_numbers.length > 0 || formData.other_platform_names.length > 0) {
             const { error: platformError } = await supabase
               .from('logistics_records')
               .update({ 
-                platform_trackings: validPlatformTrackings
+                external_tracking_numbers: formData.external_tracking_numbers,
+                other_platform_names: formData.other_platform_names
               })
               .eq('id', newRecord.id);
             if (platformError) throw platformError;
@@ -522,10 +612,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <Label className="font-semibold">司机应收(元)</Label>
             <div className="mt-1 px-3 py-2 bg-muted rounded-md font-mono text-primary font-semibold text-lg">¥{driverReceivable.toFixed(2)}</div>
           </div>
-          <PlatformTrackingInput
-            platformTrackings={formData.platform_trackings}
-            onChange={(platformTrackings) => setFormData(prev => ({ ...prev, platform_trackings: platformTrackings }))}
-          />
+          <div className="space-y-4">
+            <div>
+              <Label className="text-base font-medium">其他平台运单信息</Label>
+              <div className="text-sm text-muted-foreground mt-1">
+                外部运单号: {formData.external_tracking_numbers.length} 个
+              </div>
+              <div className="text-sm text-muted-foreground">
+                其他平台: {formData.other_platform_names.length} 个
+              </div>
+            </div>
+            {/* 这里可以添加具体的输入组件 */}
+          </div>
           <div>
             <Label>备注</Label>
             <Textarea value={formData.remarks} onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))} placeholder="输入备注信息" rows={3} />
