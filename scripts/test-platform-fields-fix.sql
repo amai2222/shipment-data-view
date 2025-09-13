@@ -13,13 +13,13 @@ BEGIN
     -- 获取当前用户ID
     SELECT auth.uid() INTO user_id_val;
     IF user_id_val IS NULL THEN
-        user_id_val := '00000000-0000-0000-0000-000000000000'::uuid;
+        user_id_val := '7136e5fd-08ae-47ea-a22b-34c1a1745206'::uuid;
     END IF;
     
     -- 创建测试项目（如果不存在）
     INSERT INTO public.projects (id, name, start_date, end_date, manager, loading_address, unloading_address, user_id)
     VALUES (
-        'test-platform-project'::uuid,
+        '550e8400-e29b-41d4-a716-446655440001'::uuid,
         '测试平台字段项目',
         '2025-01-01',
         '2025-12-31',
@@ -123,7 +123,7 @@ BEGIN
     RAISE NOTICE '删除运单记录: % 条', deleted_count;
     
     -- 删除测试项目
-    DELETE FROM public.projects WHERE id = 'test-platform-project'::uuid;
+    DELETE FROM public.projects WHERE id = '550e8400-e29b-41d4-a716-446655440001'::uuid;
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
     RAISE NOTICE '删除项目: % 条', deleted_count;
     
