@@ -75,27 +75,40 @@ export type RouteDisplayMode = 'compact' | 'detailed' | 'minimal';
 export interface RouteDisplayProps {
   loadingLocations: string | string[];
   unloadingLocations: string | string[];
+  loadingLocation?: string;
+  unloadingLocation?: string;
   mode?: RouteDisplayMode;
+  variant?: 'default' | 'compact' | 'detailed' | 'minimal';
   className?: string;
 }
 
 export function RouteDisplay({ 
   loadingLocations, 
-  unloadingLocations, 
+  unloadingLocations,
+  loadingLocation,
+  unloadingLocation,
   mode = 'compact',
+  variant,
   className = ''
 }: RouteDisplayProps) {
+  // Support legacy props
+  const actualLoadingLocations = loadingLocation || loadingLocations;
+  const actualUnloadingLocations = unloadingLocation || unloadingLocations;
+  const actualMode = variant === 'compact' ? 'compact' : 
+                     variant === 'detailed' ? 'detailed' : 
+                     variant === 'minimal' ? 'minimal' : mode;
+  
   // 确保位置数据是数组格式
-  const loadingArray = Array.isArray(loadingLocations) 
-    ? loadingLocations 
-    : [loadingLocations].filter(Boolean);
-  const unloadingArray = Array.isArray(unloadingLocations) 
-    ? unloadingLocations 
-    : [unloadingLocations].filter(Boolean);
+  const loadingArray = Array.isArray(actualLoadingLocations) 
+    ? actualLoadingLocations 
+    : [actualLoadingLocations].filter(Boolean);
+  const unloadingArray = Array.isArray(actualUnloadingLocations) 
+    ? actualUnloadingLocations 
+    : [actualUnloadingLocations].filter(Boolean);
 
   // 根据模式选择对应的组件
   const renderRoute = () => {
-    switch (mode) {
+    switch (actualMode) {
       case 'compact':
         return <CompactRouteComponent loadingLocations={loadingArray} unloadingLocations={unloadingArray} />;
       case 'detailed':

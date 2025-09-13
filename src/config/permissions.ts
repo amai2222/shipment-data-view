@@ -16,6 +16,7 @@ export interface FunctionPermission {
   title: string;
   description: string;
   group: string;
+  children?: FunctionPermission[];
 }
 
 export interface ButtonPermission {
@@ -33,6 +34,7 @@ export interface ProjectPermission {
   description: string;
   group: string;
   projectId?: string;
+  children?: ProjectPermission[];
 }
 
 // 所有角色类型定义
@@ -323,6 +325,109 @@ export const getUserAccessibleMenus = (userRole: UserRole, customPermissions: st
     }
     return false;
   });
+};
+
+// 项目权限数据
+export const PROJECT_PERMISSIONS: ProjectPermission[] = [
+  { key: 'project.view', label: '查看项目', title: '查看项目', description: '允许查看项目信息', group: '项目权限' },
+  { key: 'project.create', label: '创建项目', title: '创建项目', description: '允许创建新项目', group: '项目权限' },
+  { key: 'project.edit', label: '编辑项目', title: '编辑项目', description: '允许编辑项目信息', group: '项目权限' },
+  { key: 'project.delete', label: '删除项目', title: '删除项目', description: '允许删除项目', group: '项目权限' }
+];
+
+// 数据权限数据
+export const DATA_PERMISSIONS: any[] = [
+  { key: 'data.view', label: '查看数据', title: '查看数据', description: '允许查看数据', group: '数据权限' },
+  { key: 'data.create', label: '创建数据', title: '创建数据', description: '允许创建数据', group: '数据权限' },
+  { key: 'data.edit', label: '编辑数据', title: '编辑数据', description: '允许编辑数据', group: '数据权限' },
+  { key: 'data.delete', label: '删除数据', title: '删除数据', description: '允许删除数据', group: '数据权限' }
+];
+
+// 角色定义
+export const ROLES: Record<UserRole, { label: string; description: string; color: string }> = {
+  admin: { label: '管理员', description: '系统管理员', color: 'bg-red-500' },
+  finance: { label: '财务', description: '财务人员', color: 'bg-green-500' },
+  business: { label: '业务', description: '业务人员', color: 'bg-blue-500' },
+  operator: { label: '操作员', description: '操作人员', color: 'bg-orange-500' },
+  partner: { label: '合作方', description: '合作伙伴', color: 'bg-purple-500' },
+  viewer: { label: '查看者', description: '只读用户', color: 'bg-gray-500' }
+};
+
+// 默认角色权限
+export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
+  menu_permissions: string[];
+  function_permissions: string[];
+  project_permissions: string[];
+  data_permissions: string[];
+}> = {
+  admin: {
+    menu_permissions: MENU_PERMISSIONS.flatMap(m => m.children ? [m.key, ...m.children.map(c => c.key)] : [m.key]),
+    function_permissions: FUNCTION_PERMISSIONS.map(f => f.key),
+    project_permissions: PROJECT_PERMISSIONS.map(p => p.key),
+    data_permissions: DATA_PERMISSIONS.map(d => d.key)
+  },
+  finance: {
+    menu_permissions: [
+      'dashboard', 'dashboard.financial', 'dashboard.project',
+      'business', 'business.entry', 'business.import',
+      'finance', 'finance.reconciliation', 'finance.payment_request', 'finance.payment_list',
+      'finance.invoice', 'finance.financial_overview', 'finance.transport_overview',
+      'finance.projects_overview', 'finance.project_dashboard', 'finance.payment_approval'
+    ],
+    function_permissions: [
+      'view_project', 'view_driver', 'view_partner', 'view_logistics',
+      'view_finance_data', 'create_payment_request', 'approve_payment',
+      'view_payment_request', 'manage_invoice'
+    ],
+    project_permissions: ['project.view'],
+    data_permissions: ['data.view']
+  },
+  business: {
+    menu_permissions: [
+      'dashboard', 'dashboard.transport', 'dashboard.project',
+      'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.partners', 'maintenance.locations',
+      'business', 'business.entry', 'business.import', 'business.maintenance', 'business.scale'
+    ],
+    function_permissions: [
+      'view_project', 'create_driver', 'edit_driver', 'view_driver',
+      'view_partner', 'create_logistics', 'edit_logistics', 'view_logistics',
+      'import_logistics', 'export_logistics'
+    ],
+    project_permissions: ['project.view', 'project.edit'],
+    data_permissions: ['data.view', 'data.create', 'data.edit']
+  },
+  operator: {
+    menu_permissions: [
+      'dashboard', 'dashboard.transport',
+      'business', 'business.entry', 'business.scale'
+    ],
+    function_permissions: [
+      'view_project', 'view_driver', 'create_logistics', 'edit_logistics', 'view_logistics'
+    ],
+    project_permissions: ['project.view'],
+    data_permissions: ['data.view', 'data.create']
+  },
+  partner: {
+    menu_permissions: [
+      'dashboard', 'dashboard.transport',
+      'finance', 'finance.payment_list', 'finance.transport_overview'
+    ],
+    function_permissions: [
+      'view_project', 'view_logistics', 'view_payment_request'
+    ],
+    project_permissions: ['project.view'],
+    data_permissions: ['data.view']
+  },
+  viewer: {
+    menu_permissions: [
+      'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project'
+    ],
+    function_permissions: [
+      'view_project', 'view_driver', 'view_partner', 'view_logistics'
+    ],
+    project_permissions: ['project.view'],
+    data_permissions: ['data.view']
+  }
 };
 
 // 项目权限检查

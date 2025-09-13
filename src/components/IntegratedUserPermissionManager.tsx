@@ -1172,31 +1172,29 @@ export function IntegratedUserPermissionManager() {
               <div>
                 <h3 className="text-lg font-semibold mb-4">功能权限</h3>
                 <div className="grid grid-cols-2 gap-4 max-h-60 overflow-y-auto">
-                  {FUNCTION_PERMISSIONS.flatMap(func => 
-                    func.children ? func.children.map(child => (
-                      <div key={child.key} className="flex items-center space-x-2">
-                        <Checkbox
-                          checked={roleTemplates[editingRole]?.function_permissions?.includes(child.key) || false}
-                          onCheckedChange={(checked) => {
-                            const currentTemplate = roleTemplates[editingRole] || { menu_permissions: [], function_permissions: [] };
-                            const newFunctionPermissions = checked 
-                              ? [...(currentTemplate.function_permissions || []), child.key]
-                              : (currentTemplate.function_permissions || []).filter((p: string) => p !== child.key);
-                            
-                            setRoleTemplates({
-                              ...roleTemplates,
-                              [editingRole]: {
-                                ...currentTemplate,
-                                function_permissions: newFunctionPermissions
-                              }
-                            });
-                            setHasChanges(true);
-                          }}
-                        />
-                        <Label className="text-sm">{child.label}</Label>
-                      </div>
-                    )) : []
-                  )}
+                  {FUNCTION_PERMISSIONS.map(func => (
+                    <div key={func.key} className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={roleTemplates[editingRole]?.function_permissions?.includes(func.key) || false}
+                        onCheckedChange={(checked) => {
+                          const currentTemplate = roleTemplates[editingRole] || { menu_permissions: [], function_permissions: [] };
+                          const newFunctionPermissions = checked 
+                            ? [...(currentTemplate.function_permissions || []), func.key]
+                            : (currentTemplate.function_permissions || []).filter((p: string) => p !== func.key);
+                          
+                          setRoleTemplates({
+                            ...roleTemplates,
+                            [editingRole]: {
+                              ...currentTemplate,
+                              function_permissions: newFunctionPermissions
+                            }
+                          });
+                          setHasChanges(true);
+                        }}
+                      />
+                      <Label className="text-sm">{func.label}</Label>
+                    </div>
+                  ))}
                 </div>
               </div>
               
