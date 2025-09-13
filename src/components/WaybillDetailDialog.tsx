@@ -283,6 +283,57 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
             </div>
           </div>
 
+          {/* 其他平台信息 */}
+          {(record.external_tracking_numbers && record.external_tracking_numbers.length > 0) || 
+           (record.other_platform_names && record.other_platform_names.length > 0) ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-sm font-medium">其他平台信息</Label>
+              </div>
+              <div className="pl-6 space-y-3">
+                {/* 其他平台名称 */}
+                {record.other_platform_names && record.other_platform_names.length > 0 && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">其他平台名称</Label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {record.other_platform_names.map((platform, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {platform}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* 外部运单号 */}
+                {record.external_tracking_numbers && record.external_tracking_numbers.length > 0 && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">外部运单号</Label>
+                    <div className="space-y-2 mt-1">
+                      {record.external_tracking_numbers.map((tracking, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                          <Badge variant="outline" className="text-xs">
+                            {tracking.platform}
+                          </Badge>
+                          <span className="text-sm font-mono">{tracking.tracking_number}</span>
+                          {tracking.status && (
+                            <Badge 
+                              variant={tracking.status === 'pending' ? 'secondary' : 'default'}
+                              className="text-xs"
+                            >
+                              {tracking.status === 'pending' ? '待处理' : '已处理'}
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+
           {/* 备注信息 */}
           {record.remarks && (
             <div className="space-y-4">

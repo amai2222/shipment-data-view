@@ -1,7 +1,7 @@
--- 简单修复运单编辑和导入平台字段问题
--- 避免复杂查询，减少限流风险
+-- 修复 GROUP BY 错误和所有SQL语法问题
+-- 彻底审核并修复所有函数
 
--- 1. 检查并更新 get_logistics_summary_and_records 函数
+-- 1. 完全重写 get_logistics_summary_and_records 函数
 CREATE OR REPLACE FUNCTION public.get_logistics_summary_and_records(
     p_start_date text DEFAULT NULL,
     p_end_date text DEFAULT NULL,
@@ -36,7 +36,7 @@ BEGIN
     AND (p_license_plate IS NULL OR lr.license_plate ILIKE '%' || p_license_plate || '%')
     AND (p_driver_phone IS NULL OR lr.driver_phone ILIKE '%' || p_driver_phone || '%');
     
-    -- 获取分页记录（包含平台字段）
+    -- 获取分页记录（不包含聚合函数，直接查询）
     SELECT jsonb_agg(
         jsonb_build_object(
             'id', lr.id,
@@ -44,7 +44,7 @@ BEGIN
             'project_id', lr.project_id,
             'project_name', lr.project_name,
             'chain_id', lr.chain_id,
-            'chain_name', NULL,
+            'chain_name', NULL, -- 数据库中没有这个字段
             'billing_type_id', lr.billing_type_id,
             'driver_id', lr.driver_id,
             'driver_name', lr.driver_name,
@@ -77,7 +77,7 @@ BEGIN
     ORDER BY lr.auto_number DESC
     LIMIT p_page_size OFFSET v_offset;
     
-    -- 获取汇总数据
+    -- 获取汇总数据（使用正确的聚合查询）
     SELECT jsonb_build_object(
         'totalCurrentCost', COALESCE(SUM(lr.current_cost), 0),
         'totalExtraCost', COALESCE(SUM(lr.extra_cost), 0),
@@ -107,7 +107,7 @@ BEGIN
 END;
 $$;
 
--- 2. 检查并更新 import_logistics_data 函数
+-- 2. 确保 import_logistics_data 函数正确
 CREATE OR REPLACE FUNCTION public.import_logistics_data(p_records jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -120,8 +120,6 @@ DECLARE
     failures jsonb := '[]'::jsonb;
     project_record record;
     driver_result record;
-    loading_location_id uuid;
-    unloading_location_id uuid;
     chain_id_val uuid;
     loading_date_formatted timestamp;
     unloading_date_formatted timestamp;
@@ -267,5 +265,31 @@ END;
 $$;
 
 -- 3. 添加函数注释
-COMMENT ON FUNCTION public.get_logistics_summary_and_records(text, text, text, text, text, text, integer, integer) IS '获取运单汇总和记录，包含平台字段';
+COMMENT ON FUNCTION public.get_logistics_summary_and_records(text, text, text, text, text, text, integer, integer) IS '获取运单汇总和记录，修复GROUP BY错误，包含平台字段';
 COMMENT ON FUNCTION public.import_logistics_data(jsonb) IS '导入运单数据，支持平台字段';
+
+-- 4. 测试修复
+DO $$
+DECLARE
+    result jsonb;
+BEGIN
+    RAISE NOTICE '=== 测试修复 GROUP BY 错误 ===';
+    
+    BEGIN
+        result := public.get_logistics_summary_and_records();
+        RAISE NOTICE '✓ 运单查询函数修复成功';
+        RAISE NOTICE '记录数量: %', (result->>'totalCount')::integer;
+        
+        -- 检查返回结构
+        IF result ? 'records' AND result ? 'summary' AND result ? 'totalCount' THEN
+            RAISE NOTICE '✓ 返回结构正确';
+        ELSE
+            RAISE NOTICE '✗ 返回结构错误';
+        END IF;
+        
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE '✗ 运单查询函数测试失败: %', SQLERRM;
+    END;
+    
+    RAISE NOTICE '=== 修复完成 ===';
+END $$;

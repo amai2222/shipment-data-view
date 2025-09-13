@@ -1,7 +1,7 @@
--- 简单修复运单编辑和导入平台字段问题
--- 避免复杂查询，减少限流风险
+-- 恢复原始函数并添加平台字段支持
+-- 基于 supabase/migrations/20250813135817_410eb24e-416c-469c-b2ff-4e45c1801af7.sql
 
--- 1. 检查并更新 get_logistics_summary_and_records 函数
+-- 1. 恢复 get_logistics_summary_and_records 函数（原始版本 + 平台字段）
 CREATE OR REPLACE FUNCTION public.get_logistics_summary_and_records(
     p_start_date text DEFAULT NULL,
     p_end_date text DEFAULT NULL,
@@ -14,100 +14,88 @@ CREATE OR REPLACE FUNCTION public.get_logistics_summary_and_records(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
 AS $$
 DECLARE
-    v_records jsonb;
-    v_summary jsonb;
-    v_total_count integer;
     v_offset integer;
+    v_result jsonb;
 BEGIN
-    -- 计算偏移量
     v_offset := (p_page_number - 1) * p_page_size;
-    
-    -- 获取记录总数
-    SELECT COUNT(*) INTO v_total_count
-    FROM public.logistics_records lr
-    WHERE (p_start_date IS NULL OR lr.loading_date::date >= p_start_date::date)
-    AND (p_end_date IS NULL OR lr.loading_date::date <= p_end_date::date)
-    AND (p_project_name IS NULL OR lr.project_name ILIKE '%' || p_project_name || '%')
-    AND (p_driver_name IS NULL OR lr.driver_name ILIKE '%' || p_driver_name || '%')
-    AND (p_license_plate IS NULL OR lr.license_plate ILIKE '%' || p_license_plate || '%')
-    AND (p_driver_phone IS NULL OR lr.driver_phone ILIKE '%' || p_driver_phone || '%');
-    
-    -- 获取分页记录（包含平台字段）
-    SELECT jsonb_agg(
-        jsonb_build_object(
-            'id', lr.id,
-            'auto_number', lr.auto_number,
-            'project_id', lr.project_id,
-            'project_name', lr.project_name,
-            'chain_id', lr.chain_id,
-            'chain_name', NULL,
-            'billing_type_id', lr.billing_type_id,
-            'driver_id', lr.driver_id,
-            'driver_name', lr.driver_name,
-            'loading_location', lr.loading_location,
-            'unloading_location', lr.unloading_location,
-            'loading_date', lr.loading_date,
-            'unloading_date', lr.unloading_date,
-            'loading_weight', lr.loading_weight,
-            'unloading_weight', lr.unloading_weight,
-            'current_cost', lr.current_cost,
-            'payable_cost', lr.payable_cost,
-            'driver_payable_cost', lr.driver_payable_cost,
-            'license_plate', lr.license_plate,
-            'driver_phone', lr.driver_phone,
-            'transport_type', lr.transport_type,
-            'extra_cost', lr.extra_cost,
-            'remarks', lr.remarks,
-            'external_tracking_numbers', lr.external_tracking_numbers,
-            'other_platform_names', lr.other_platform_names,
-            'created_at', lr.created_at
-        )
-    ) INTO v_records
-    FROM public.logistics_records lr
-    WHERE (p_start_date IS NULL OR lr.loading_date::date >= p_start_date::date)
-    AND (p_end_date IS NULL OR lr.loading_date::date <= p_end_date::date)
-    AND (p_project_name IS NULL OR lr.project_name ILIKE '%' || p_project_name || '%')
-    AND (p_driver_name IS NULL OR lr.driver_name ILIKE '%' || p_driver_name || '%')
-    AND (p_license_plate IS NULL OR lr.license_plate ILIKE '%' || p_license_plate || '%')
-    AND (p_driver_phone IS NULL OR lr.driver_phone ILIKE '%' || p_driver_phone || '%')
-    ORDER BY lr.auto_number DESC
-    LIMIT p_page_size OFFSET v_offset;
-    
-    -- 获取汇总数据
+
+    WITH filtered_records AS (
+        SELECT lr.*,
+               pc.chain_name
+        FROM public.logistics_records lr
+        LEFT JOIN public.partner_chains pc ON lr.chain_id = pc.id
+        WHERE
+            (p_start_date IS NULL OR p_start_date = '' OR lr.loading_date >= p_start_date::date) AND
+            (p_end_date IS NULL OR p_end_date = '' OR lr.loading_date <= p_end_date::date) AND
+            (p_project_name IS NULL OR p_project_name = '' OR lr.project_name = p_project_name) AND
+            (p_driver_name IS NULL OR p_driver_name = '' OR lr.driver_name ILIKE '%' || p_driver_name || '%') AND
+            (p_license_plate IS NULL OR p_license_plate = '' OR lr.license_plate ILIKE '%' || p_license_plate || '%') AND
+            (p_driver_phone IS NULL OR p_driver_phone = '' OR lr.driver_phone ILIKE '%' || p_driver_phone || '%')
+    )
     SELECT jsonb_build_object(
-        'totalCurrentCost', COALESCE(SUM(lr.current_cost), 0),
-        'totalExtraCost', COALESCE(SUM(lr.extra_cost), 0),
-        'totalDriverPayableCost', COALESCE(SUM(lr.payable_cost), 0),
-        'actualCount', COUNT(CASE WHEN lr.transport_type = '实际运输' THEN 1 END),
-        'returnCount', COUNT(CASE WHEN lr.transport_type = '退货' THEN 1 END),
-        'totalWeightLoading', COALESCE(SUM(lr.loading_weight), 0),
-        'totalWeightUnloading', COALESCE(SUM(lr.unloading_weight), 0),
-        'totalTripsLoading', COALESCE(SUM(CASE WHEN lr.billing_type_id = 2 THEN lr.loading_weight ELSE 0 END), 0),
-        'totalVolumeLoading', COALESCE(SUM(CASE WHEN lr.billing_type_id = 3 THEN lr.loading_weight ELSE 0 END), 0),
-        'totalVolumeUnloading', COALESCE(SUM(CASE WHEN lr.billing_type_id = 3 THEN lr.unloading_weight ELSE 0 END), 0)
-    ) INTO v_summary
-    FROM public.logistics_records lr
-    WHERE (p_start_date IS NULL OR lr.loading_date::date >= p_start_date::date)
-    AND (p_end_date IS NULL OR lr.loading_date::date <= p_end_date::date)
-    AND (p_project_name IS NULL OR lr.project_name ILIKE '%' || p_project_name || '%')
-    AND (p_driver_name IS NULL OR lr.driver_name ILIKE '%' || p_driver_name || '%')
-    AND (p_license_plate IS NULL OR lr.license_plate ILIKE '%' || p_license_plate || '%')
-    AND (p_driver_phone IS NULL OR lr.driver_phone ILIKE '%' || p_driver_phone || '%');
-    
-    -- 返回结果
-    RETURN jsonb_build_object(
-        'records', COALESCE(v_records, '[]'::jsonb),
-        'summary', v_summary,
-        'totalCount', v_total_count
-    );
+        'summary', (
+            SELECT jsonb_build_object(
+                'totalLoadingWeight', COALESCE(SUM(loading_weight), 0),
+                'totalUnloadingWeight', COALESCE(SUM(unloading_weight), 0),
+                'totalCurrentCost', COALESCE(SUM(current_cost), 0),
+                'totalExtraCost', COALESCE(SUM(extra_cost), 0),
+                'totalDriverPayableCost', COALESCE(SUM(payable_cost), 0),
+                'actualCount', COUNT(*) FILTER (WHERE transport_type = '实际运输'),
+                'returnCount', COUNT(*) FILTER (WHERE transport_type = '退货')
+            )
+            FROM filtered_records
+        ),
+        'records', (
+            SELECT COALESCE(jsonb_agg(
+                jsonb_build_object(
+                    'id', fr.id,
+                    'auto_number', fr.auto_number,
+                    'project_id', fr.project_id,
+                    'project_name', fr.project_name,
+                    'chain_id', fr.chain_id,
+                    'chain_name', fr.chain_name,
+                    'billing_type_id', fr.billing_type_id,
+                    'driver_id', fr.driver_id,
+                    'driver_name', fr.driver_name,
+                    'loading_location', fr.loading_location,
+                    'unloading_location', fr.unloading_location,
+                    'loading_date', fr.loading_date,
+                    'unloading_date', fr.unloading_date,
+                    'loading_weight', fr.loading_weight,
+                    'unloading_weight', fr.unloading_weight,
+                    'current_cost', fr.current_cost,
+                    'payable_cost', fr.payable_cost,
+                    'driver_payable_cost', fr.driver_payable_cost,
+                    'license_plate', fr.license_plate,
+                    'driver_phone', fr.driver_phone,
+                    'transport_type', fr.transport_type,
+                    'extra_cost', fr.extra_cost,
+                    'remarks', fr.remarks,
+                    'external_tracking_numbers', fr.external_tracking_numbers,
+                    'other_platform_names', fr.other_platform_names,
+                    'created_at', fr.created_at
+                )
+                ORDER BY fr.loading_date DESC, fr.created_at DESC
+            ), '[]'::jsonb)
+            FROM (
+                SELECT *
+                FROM filtered_records
+                ORDER BY loading_date DESC, created_at DESC
+                LIMIT p_page_size
+                OFFSET v_offset
+            ) fr
+        ),
+        'count', (SELECT COUNT(*) FROM filtered_records)
+    )
+    INTO v_result;
+
+    RETURN v_result;
 END;
 $$;
 
--- 2. 检查并更新 import_logistics_data 函数
+-- 2. 确保 import_logistics_data 函数正确（保持原有逻辑）
 CREATE OR REPLACE FUNCTION public.import_logistics_data(p_records jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -120,8 +108,6 @@ DECLARE
     failures jsonb := '[]'::jsonb;
     project_record record;
     driver_result record;
-    loading_location_id uuid;
-    unloading_location_id uuid;
     chain_id_val uuid;
     loading_date_formatted timestamp;
     unloading_date_formatted timestamp;
@@ -267,5 +253,31 @@ END;
 $$;
 
 -- 3. 添加函数注释
-COMMENT ON FUNCTION public.get_logistics_summary_and_records(text, text, text, text, text, text, integer, integer) IS '获取运单汇总和记录，包含平台字段';
+COMMENT ON FUNCTION public.get_logistics_summary_and_records(text, text, text, text, text, text, integer, integer) IS '恢复原始函数并添加平台字段支持';
 COMMENT ON FUNCTION public.import_logistics_data(jsonb) IS '导入运单数据，支持平台字段';
+
+-- 4. 测试恢复的函数
+DO $$
+DECLARE
+    result jsonb;
+BEGIN
+    RAISE NOTICE '=== 测试恢复的原始函数 ===';
+    
+    BEGIN
+        result := public.get_logistics_summary_and_records();
+        RAISE NOTICE '✓ 原始函数恢复成功';
+        RAISE NOTICE '记录数量: %', (result->>'count')::integer;
+        
+        -- 检查返回结构
+        IF result ? 'records' AND result ? 'summary' AND result ? 'count' THEN
+            RAISE NOTICE '✓ 返回结构正确';
+        ELSE
+            RAISE NOTICE '✗ 返回结构错误';
+        END IF;
+        
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE '✗ 函数测试失败: %', SQLERRM;
+    END;
+    
+    RAISE NOTICE '=== 恢复完成 ===';
+END $$;
