@@ -50,7 +50,7 @@ export function PermissionQuickActions({ users, projects, onDataChange }: Permis
       
       const { error } = await supabase
         .from('profiles')
-        .update({ role: selectedRole })
+        .update({ role: selectedRole as 'admin' | 'finance' | 'business' | 'operator' | 'partner' | 'viewer' })
         .eq('id', selectedUser);
 
       if (error) throw error;

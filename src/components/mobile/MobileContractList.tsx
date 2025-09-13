@@ -82,7 +82,12 @@ export function MobileContractList({ onContractSelect, onSearch }: MobileContrac
         .limit(50);
 
       if (error) throw error;
-      setContracts(data || []);
+      const formattedData = (data || []).map(item => ({
+        ...item,
+        status: item.status as 'active' | 'expired' | 'terminated' | 'archived',
+        priority: item.priority as 'low' | 'normal' | 'high' | 'urgent'
+      }));
+      setContracts(formattedData);
     } catch (error) {
       console.error('Error loading contracts:', error);
       toast({
