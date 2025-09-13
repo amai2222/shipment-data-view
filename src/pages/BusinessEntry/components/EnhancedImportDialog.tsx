@@ -226,9 +226,9 @@ export function EnhancedImportDialog({
                               <div className="font-medium text-sm">
                                 {item.record.project_name} - {item.record.driver_name}
                               </div>
-                              {item.existing_auto_number && (
+                              {item.record.auto_number && (
                                 <div className="text-xs text-muted-foreground bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                                  现有运单号: {item.existing_auto_number}
+                                  现有运单号: {item.record.auto_number}
                                 </div>
                               )}
                             </div>
