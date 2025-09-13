@@ -48,8 +48,8 @@ const INITIAL_FORM_DATA: FormData = {
   projectId: '',
   chainId: '',
   driverId: '',
-  loadingLocationIds: [], // 改为空数组
-  unloadingLocationIds: [], // 改为空数组
+  loadingLocationIds: [],
+  unloadingLocationIds: [],
   loadingDate: new Date(),
   unloadingDate: new Date(),
   licensePlate: '',
@@ -60,7 +60,7 @@ const INITIAL_FORM_DATA: FormData = {
   currentCost: '',
   extraCost: '',
   remarks: '',
-  other_platform_waybills: '',
+  external_tracking_numbers: [],
 };
 
 export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, onSubmitSuccess }: LogisticsFormDialogProps) {
@@ -159,45 +159,42 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   }, [chains, editingRecord]);
 
-  // 在编辑模式下，当数据加载完成后填充地点和司机信息
-  useEffect(() => {
-    if (editingRecord && locations.length > 0 && drivers.length > 0) {
-      // 解析装卸货地点
+// 在编辑模式下，当数据加载完成后填充地点和司机信息
+useEffect(() => {
+  if (editingRecord && isOpen) {
+    // 首先设置基础数据（项目、司机等）
+    setFormData(prev => ({
+      ...prev,
+      projectId: editingRecord.project_id || '',
+      chainId: editingRecord.chain_id || '',
+      driverId: editingRecord.driver_id || '',
+      licensePlate: editingRecord.license_plate || '',
+      driverPhone: editingRecord.driver_phone || '',
+      loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
+      unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
+      loading_weight: editingRecord.loading_weight?.toString() || '',
+      unloading_weight: editingRecord.unloading_weight?.toString() || '',
+      transportType: editingRecord.transport_type || '实际运输',
+      currentCost: editingRecord.current_cost?.toString() || '',
+      extraCost: editingRecord.extra_cost?.toString() || '',
+      remarks: editingRecord.remarks || '',
+    }));
+
+    // 然后处理地点数据
+    if (locations.length > 0) {
       const loadingLocationNames = parseLocationString(editingRecord.loading_location || '');
       const unloadingLocationNames = parseLocationString(editingRecord.unloading_location || '');
-      
-      console.log('编辑模式加载地点数据:', {
-        loadingLocation: editingRecord.loading_location,
-        unloadingLocation: editingRecord.unloading_location,
-        loadingLocationNames,
-        unloadingLocationNames,
-        locationsCount: locations.length
-      });
-      
-      // 确保当前司机在司机列表中
-      const currentDriver = drivers.find(d => d.id === editingRecord.driver_id);
-      if (!currentDriver && editingRecord.driver_id) {
-        // 如果当前司机不在列表中，需要单独加载
-        loadDriverById(editingRecord.driver_id);
-      }
       
       // 确保地点在地点列表中
       const missingLocations = [...loadingLocationNames, ...unloadingLocationNames]
         .filter(name => !locations.find(l => l.name === name));
       
       if (missingLocations.length > 0) {
-        // 如果有缺失的地点，需要创建它们
         createMissingLocations(missingLocations);
       }
       
       const loadingLocationIds = findLocationIdsByName(loadingLocationNames);
       const unloadingLocationIds = findLocationIdsByName(unloadingLocationNames);
-      
-      console.log('地点ID查找结果:', {
-        loadingLocationIds,
-        unloadingLocationIds,
-        locations: locations.map(l => ({ id: l.id, name: l.name }))
-      });
       
       setFormData(prev => ({
         ...prev,
@@ -205,7 +202,16 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         unloadingLocationIds,
       }));
     }
-  }, [editingRecord, locations, drivers]);
+
+    // 确保当前司机在司机列表中
+    if (drivers.length > 0 && editingRecord.driver_id) {
+      const currentDriver = drivers.find(d => d.id === editingRecord.driver_id);
+      if (!currentDriver) {
+        loadDriverById(editingRecord.driver_id);
+      }
+    }
+  }
+}, [editingRecord, isOpen, locations, drivers]);
 
   // 单独加载司机信息
   const loadDriverById = async (driverId: string) => {
@@ -231,44 +237,61 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   };
 
-  // 创建缺失的地点
-  const createMissingLocations = async (locationNames: string[]) => {
-    try {
-      const { data, error } = await supabase.rpc('get_or_create_locations_from_string', {
-        p_location_string: locationNames.join('|')
-      });
+// 创建缺失的地点 - 使用现有的方法
+const createMissingLocations = async (locationNames: string[]) => {
+  try {
+    // 逐个创建地点
+    for (const locationName of locationNames) {
+      const { data, error } = await supabase
+        .from('locations')
+        .insert({ name: locationName })
+        .select()
+        .single();
       
-      if (error) throw error;
+      if (error && !error.message.includes('duplicate')) {
+        throw error;
+      }
+      
       if (data) {
         setLocations(prev => {
-          const newLocations = data.filter((loc: any) => !prev.find(l => l.id === loc.id));
-          return [...prev, ...newLocations];
+          if (!prev.find(l => l.id === data.id)) {
+            return [...prev, data];
+          }
+          return prev;
         });
       }
-    } catch (error) {
-      console.error('Error creating locations:', error);
     }
-  };
+  } catch (error) {
+    console.error('Error creating locations:', error);
+  }
+};
 
-  const loadProjectSpecificData = async (projectId: string) => {
-    try {
-      const [driversRes, locationsRes, chainsRes] = await Promise.all([
-        supabase.from('drivers').select('*').limit(100),
-        supabase.from('locations').select('*').limit(100),
-        supabase.from('partner_chains').select('id, chain_name, billing_type_id, is_default').eq('project_id', projectId)
-      ]);
+const loadProjectSpecificData = async (projectId: string) => {
+  try {
+    const [driversRes, locationsRes, chainsRes] = await Promise.all([
+      supabase.from('drivers').select('*').limit(100),
+      supabase.from('locations').select('*').limit(100),
+      supabase.from('partner_chains').select('id, chain_name, billing_type_id, is_default').eq('project_id', projectId)
+    ]);
 
-      if (driversRes.error) throw driversRes.error;
-      if (locationsRes.error) throw locationsRes.error;
-      if (chainsRes.error) throw chainsRes.error;
+    if (driversRes.error) throw driversRes.error;
+    if (locationsRes.error) throw locationsRes.error;
+    if (chainsRes.error) throw chainsRes.error;
 
-      setDrivers(driversRes.data || []);
-      setLocations(locationsRes.data || []);
-      setChains(chainsRes.data || []);
-    } catch (error) {
-      toast({ title: "错误", description: "加载项目关联数据失败", variant: "destructive" });
-    }
-  };
+    console.log('加载项目数据完成:', {
+      driversCount: driversRes.data?.length || 0,
+      locationsCount: locationsRes.data?.length || 0,
+      chainsCount: chainsRes.data?.length || 0
+    });
+
+    setDrivers(driversRes.data || []);
+    setLocations(locationsRes.data || []);
+    setChains(chainsRes.data || []);
+  } catch (error) {
+    console.error('Error loading project data:', error);
+    toast({ title: "错误", description: "加载项目关联数据失败", variant: "destructive" });
+  }
+};
 
   // 解析地点字符串为地点ID数组
   const parseLocationString = (locationString: string): string[] => {
@@ -565,18 +588,20 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 placeholder="选择装货地点"
                 maxLocations={5}
                 allowCustomInput={true}
-                onCustomLocationAdd={async (locationName) => {
+onCustomLocationAdd={async (locationName) => {
                   try {
-                    // 使用数据库函数批量获取或创建地点
-                    const { data, error } = await supabase.rpc('get_or_create_locations_from_string', {
-                      p_location_string: locationName
-                    });
+                    // 直接创建地点
+                    const { data, error } = await supabase
+                      .from('locations')
+                      .insert({ name: locationName })
+                      .select()
+                      .single();
                     
-                    if (error) throw error;
+                    if (error && !error.message.includes('duplicate')) {
+                      throw error;
+                    }
                     
-                    if (data && data.length > 0) {
-                      const newLocationId = data[0];
-                      
+                    if (data || error?.message.includes('duplicate')) {
                       // 重新加载地点列表
                       const { data: updatedLocations } = await supabase
                         .from('locations')
@@ -586,10 +611,13 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                       if (updatedLocations) {
                         setLocations(updatedLocations);
                         // 自动选择新添加的地点
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          loadingLocationIds: [...prev.loadingLocationIds, newLocationId] 
-                        }));
+                        const newLocation = updatedLocations.find(l => l.name === locationName);
+                        if (newLocation) {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            loadingLocationIds: [...prev.loadingLocationIds, newLocation.id] 
+                          }));
+                        }
                       }
                     }
                   } catch (error) {
@@ -612,18 +640,20 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 placeholder="选择卸货地点"
                 maxLocations={5}
                 allowCustomInput={true}
-                onCustomLocationAdd={async (locationName) => {
+onCustomLocationAdd={async (locationName) => {
                   try {
-                    // 使用数据库函数批量获取或创建地点
-                    const { data, error } = await supabase.rpc('get_or_create_locations_from_string', {
-                      p_location_string: locationName
-                    });
+                    // 直接创建地点
+                    const { data, error } = await supabase
+                      .from('locations')
+                      .insert({ name: locationName })
+                      .select()
+                      .single();
                     
-                    if (error) throw error;
+                    if (error && !error.message.includes('duplicate')) {
+                      throw error;
+                    }
                     
-                    if (data && data.length > 0) {
-                      const newLocationId = data[0];
-                      
+                    if (data || error?.message.includes('duplicate')) {
                       // 重新加载地点列表
                       const { data: updatedLocations } = await supabase
                         .from('locations')
@@ -633,10 +663,13 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                       if (updatedLocations) {
                         setLocations(updatedLocations);
                         // 自动选择新添加的地点
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          unloadingLocationIds: [...prev.unloadingLocationIds, newLocationId] 
-                        }));
+                        const newLocation = updatedLocations.find(l => l.name === locationName);
+                        if (newLocation) {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            unloadingLocationIds: [...prev.unloadingLocationIds, newLocation.id] 
+                          }));
+                        }
                       }
                     }
                   } catch (error) {
