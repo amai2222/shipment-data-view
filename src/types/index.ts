@@ -40,29 +40,35 @@ export interface PlatformTracking {
 // 物流记录数据类型
 export interface LogisticsRecord {
   id: string;
-  autoNumber: string;
-  projectId: string;
-  projectName: string;
-  chainId?: string; // 合作链路ID
-  loadingDate: string;
-  loadingLocation: string;
-  unloadingLocation: string;
-  driverId: string;
-  driverName: string;
-  licensePlate: string;
-  driverPhone: string;
-  loadingWeight: number;
-  unloadingDate?: string;
-  unloadingWeight?: number;
-  transportType: "实际运输" | "退货";
-  currentFee?: number;
-  extraFee?: number;
-  payableFee?: number;
+  auto_number: string;
+  project_id: string;
+  project_name: string;
+  chain_id?: string; // 合作链路ID
+  loading_date: string;
+  loading_location: string;
+  unloading_location: string;
+  driver_id: string;
+  driver_name: string;
+  license_plate: string;
+  driver_phone: string;
+  loading_weight: number;
+  unloading_date?: string;
+  unloading_weight?: number;
+  transport_type: "实际运输" | "退货";
+  current_cost?: number;
+  extra_cost?: number;
+  payable_cost?: number;
+  driver_payable_cost?: number;
   remarks?: string;
-  createdAt: string;
-  createdByUserId: string;
+  created_at: string;
+  created_by_user_id: string;
   billing_type_id?: number;
-  platform_trackings?: PlatformTracking[]; // 其他平台运单信息
+  payment_status?: 'Unpaid' | 'Processing' | 'Paid';
+  cargo_type?: string;
+  loading_location_ids?: string[];
+  unloading_location_ids?: string[];
+  external_tracking_numbers?: any[]; // 其他平台运单号码
+  other_platform_names?: string[]; // 其他平台名称
 }
 
 // 合作方数据类型

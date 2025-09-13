@@ -622,7 +622,10 @@ export type Database = {
           loading_weight: number | null
           payable_cost: number | null
           payment_status: string
-          platform_trackings: Json[] | null
+          external_tracking_numbers: Json[] | null
+          other_platform_names: string[] | null
+          loading_location_ids: string[] | null
+          unloading_location_ids: string[] | null
           project_id: string | null
           project_name: string
           remarks: string | null
@@ -652,7 +655,10 @@ export type Database = {
           loading_weight?: number | null
           payable_cost?: number | null
           payment_status?: string
-          platform_trackings?: Json[] | null
+          external_tracking_numbers?: Json[] | null
+          other_platform_names?: string[] | null
+          loading_location_ids?: string[] | null
+          unloading_location_ids?: string[] | null
           project_id?: string | null
           project_name: string
           remarks?: string | null
@@ -682,7 +688,10 @@ export type Database = {
           loading_weight?: number | null
           payable_cost?: number | null
           payment_status?: string
-          platform_trackings?: Json[] | null
+          external_tracking_numbers?: Json[] | null
+          other_platform_names?: string[] | null
+          loading_location_ids?: string[] | null
+          unloading_location_ids?: string[] | null
           project_id?: string | null
           project_name?: string
           remarks?: string | null
