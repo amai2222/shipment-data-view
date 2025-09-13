@@ -203,7 +203,6 @@ BEGIN
                     (record_data->>'loading_weight')::numeric,
                     CASE WHEN record_data->>'unloading_weight' IS NOT NULL AND TRIM(record_data->>'unloading_weight') != '' 
                          THEN (record_data->>'unloading_weight')::numeric ELSE NULL END,
-                    COALESCE(TRIM(record_data->>'transport_type'), '实际运输'),
                     CASE WHEN record_data->>'current_cost' IS NOT NULL AND TRIM(record_data->>'current_cost') != '' 
                          THEN (record_data->>'current_cost')::numeric ELSE 0 END,
                     CASE WHEN record_data->>'extra_cost' IS NOT NULL AND TRIM(record_data->>'extra_cost') != '' 
@@ -212,10 +211,12 @@ BEGIN
                          THEN (record_data->>'current_cost')::numeric ELSE 0 END +
                     CASE WHEN record_data->>'extra_cost' IS NOT NULL AND TRIM(record_data->>'extra_cost') != '' 
                          THEN (record_data->>'extra_cost')::numeric ELSE 0 END, -- payable_cost = current_cost + extra_cost
+                    TRIM(record_data->>'license_plate'),
+                    TRIM(record_data->>'driver_phone'),
+                    COALESCE(TRIM(record_data->>'transport_type'), '实际运输'),
                     TRIM(record_data->>'remarks'),
                     auth.uid(),
-                    chain_id_val,
-                    effective_billing_type_id,
+                    auth.uid(),
                     v_external_tracking_numbers,
                     v_other_platform_names
                 )
