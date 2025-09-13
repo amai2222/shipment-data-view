@@ -106,7 +106,7 @@ BEGIN
 
             -- 第5步：查找合作链路
             chain_id_val := NULL;
-            effective_billing_type_id := COALESCE(project_record.billing_type_id, 1);
+            effective_billing_type_id := 1;  -- 默认值
             
             IF (record_data->>'chain_name') IS NOT NULL AND (record_data->>'chain_name') != '' THEN
                 SELECT id, billing_type_id INTO chain_id_val, effective_billing_type_id
@@ -115,9 +115,9 @@ BEGIN
                   AND chain_name = (record_data->>'chain_name') 
                 LIMIT 1;
                 
-                -- 如果没有找到链路，使用项目的默认billing_type_id
+                -- 如果没有找到链路，使用默认值1
                 IF chain_id_val IS NULL THEN
-                    effective_billing_type_id := COALESCE(project_record.billing_type_id, 1);
+                    effective_billing_type_id := 1;
                 END IF;
             END IF;
 
