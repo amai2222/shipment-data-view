@@ -10,7 +10,7 @@ import { ImportPreviewResultWithUpdate } from '../hooks/useExcelImportWithUpdate
 interface UpdateModeImportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  importStep: 'idle' | 'preprocessing' | 'preview' | 'confirmation' | 'processing';
+  importStep: 'idle' | 'preprocessing' | 'preview' | 'confirmation' | 'processing' | 'completed';
   importPreview: ImportPreviewResultWithUpdate | null;
   importMode: 'create' | 'update';
   setImportMode: (mode: 'create' | 'update') => void;
@@ -240,20 +240,62 @@ export function UpdateModeImportDialog({
               )}
             </div>
           )}
+
+          {/* 完成阶段 */}
+          {importStep === 'completed' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-lg font-medium text-green-600">导入完成！</p>
+                  <p className="text-sm text-muted-foreground">所有数据已成功导入并处理</p>
+                </div>
+              </div>
+
+              {/* 导入日志 */}
+              {importLogs.length > 0 && (
+                <div className="border rounded-lg">
+                  <div className="p-3 border-b bg-gray-50 dark:bg-gray-800">
+                    <h4 className="font-semibold">导入日志</h4>
+                  </div>
+                  <div 
+                    ref={importLogRef}
+                    className="p-3 max-h-64 overflow-y-auto bg-gray-900 text-green-400 font-mono text-sm"
+                  >
+                    {importLogs.map((log, index) => (
+                      <div key={index}>{log}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 底部按钮 */}
         <div className="flex justify-end space-x-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose} disabled={importStep === 'processing'}>
-            取消
-          </Button>
-          {importStep === 'confirmation' && (
-            <Button 
-              onClick={onExecuteImport}
-              disabled={!importPreview || (importPreview.new_records.length + importPreview.update_records.length) === 0}
-            >
-              确认并导入 ({importPreview ? importPreview.new_records.length + importPreview.update_records.length : 0})
+          {importStep === 'completed' ? (
+            <Button onClick={onClose} className="bg-green-600 hover:bg-green-700">
+              完成
             </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onClose} disabled={importStep === 'processing'}>
+                取消
+              </Button>
+              {importStep === 'confirmation' && (
+                <Button 
+                  onClick={onExecuteImport}
+                  disabled={!importPreview || (importPreview.new_records.length + importPreview.update_records.length) === 0}
+                >
+                  确认并导入 ({importPreview ? importPreview.new_records.length + importPreview.update_records.length : 0})
+                </Button>
+              )}
+            </>
           )}
         </div>
       </DialogContent>

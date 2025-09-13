@@ -33,7 +33,7 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
   const { toast } = useToast();
   const [isImporting, setIsImporting] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importStep, setImportStep] = useState<'idle' | 'preprocessing' | 'preview' | 'confirmation' | 'processing'>('idle');
+  const [importStep, setImportStep] = useState<'idle' | 'preprocessing' | 'preview' | 'confirmation' | 'processing' | 'completed'>('idle');
   const [importPreview, setImportPreview] = useState<ImportPreviewResultWithUpdate | null>(null);
   const [importMode, setImportMode] = useState<'create' | 'update'>('create');
   const [importLogs, setImportLogs] = useState<string[]>([]);
@@ -265,6 +265,9 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
         if (successCount > 0) {
           onImportSuccess();
         }
+        
+        // 导入完成后，更新状态为完成
+        setImportStep('completed');
       } else {
         throw new Error('导入结果格式与预期不符');
       }
@@ -275,6 +278,9 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
         description: `发生致命错误: ${error.message}`, 
         variant: "destructive" 
       });
+      
+      // 导入失败后，也更新状态
+      setImportStep('completed');
     }
   };
 
