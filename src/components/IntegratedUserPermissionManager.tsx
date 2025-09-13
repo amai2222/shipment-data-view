@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Settings, Eye, Edit, Trash2, Plus, Save, RefreshCw, Copy, Key, Shield, Building2 } from 'lucide-react';
+import { Users, Settings, Eye, Edit, Trash2, Plus, Save, RefreshCw, Copy, Key, Shield, Building2, CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
 import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS } from '@/config/permissions';
 import { PermissionQuickActions } from './PermissionQuickActions';
 import { PermissionVisualizer } from './PermissionVisualizer';
@@ -102,6 +102,11 @@ export function IntegratedUserPermissionManager() {
   const [showProjectAssignmentDialog, setShowProjectAssignmentDialog] = useState(false);
   const [userForProjectAssignment, setUserForProjectAssignment] = useState<UserWithPermissions | null>(null);
   const [userProjectAssignments, setUserProjectAssignments] = useState<Record<string, string[]>>({});
+  
+  // 批量操作相关状态
+  const [showBulkRoleDialog, setShowBulkRoleDialog] = useState(false);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [bulkRole, setBulkRole] = useState('');
 
   // 合并用户和权限数据
   const usersWithPermissions = useMemo(() => {
@@ -412,6 +417,111 @@ export function IntegratedUserPermissionManager() {
     }
   };
 
+  // 批量操作函数
+  const handleBulkStatusChange = async (action: 'enable' | 'disable') => {
+    if (selectedUsers.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_active: action === 'enable' })
+        .in('id', selectedUsers);
+
+      if (error) throw error;
+
+      toast({
+        title: "批量操作成功",
+        description: `已${action === 'enable' ? '启用' : '禁用'} ${selectedUsers.length} 个用户`,
+      });
+
+      setSelectedUsers([]);
+      await loadAllData();
+    } catch (error) {
+      console.error('批量状态变更失败:', error);
+      toast({
+        title: "操作失败",
+        description: "批量状态变更失败，请重试",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleBulkRoleChange = () => {
+    if (selectedUsers.length === 0) return;
+    setShowBulkRoleDialog(true);
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedUsers.length === 0) return;
+    setShowBulkDeleteDialog(true);
+  };
+
+  const confirmBulkRoleChange = async () => {
+    if (!bulkRole || selectedUsers.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: bulkRole })
+        .in('id', selectedUsers);
+
+      if (error) throw error;
+
+      toast({
+        title: "批量角色更新成功",
+        description: `已将 ${selectedUsers.length} 个用户的角色更新为 ${bulkRole}`,
+      });
+
+      setShowBulkRoleDialog(false);
+      setBulkRole('');
+      setSelectedUsers([]);
+      await loadAllData();
+    } catch (error) {
+      console.error('批量角色更新失败:', error);
+      toast({
+        title: "更新失败",
+        description: "批量角色更新失败，请重试",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedUsers.length === 0) return;
+
+    try {
+      // 批量删除用户权限
+      await supabase
+        .from('user_permissions')
+        .delete()
+        .in('user_id', selectedUsers);
+
+      // 批量删除用户档案
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .in('id', selectedUsers);
+
+      if (error) throw error;
+
+      toast({
+        title: "批量删除成功",
+        description: `已删除 ${selectedUsers.length} 个用户`,
+      });
+
+      setShowBulkDeleteDialog(false);
+      setSelectedUsers([]);
+      await loadAllData();
+    } catch (error) {
+      console.error('批量删除失败:', error);
+      toast({
+        title: "删除失败",
+        description: "批量删除失败，请重试",
+        variant: "destructive"
+      });
+    }
+  };
+
   // 加载用户项目分配（现在存储的是被限制的项目）
   const loadUserProjectAssignments = async (userId: string) => {
     try {
@@ -635,10 +745,57 @@ export function IntegratedUserPermissionManager() {
                     管理用户信息、角色和权限
                   </CardDescription>
                 </div>
-                <Button onClick={() => setShowCreateUserDialog(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  新建用户
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* 批量操作按钮 */}
+                  {selectedUsers.length > 0 && (
+                    <div className="flex items-center gap-2 mr-4">
+                      <Badge variant="secondary" className="text-sm">
+                        已选择 {selectedUsers.length} 个用户
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleBulkStatusChange('enable')}
+                        disabled={selectedUsers.length === 0}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        批量启用
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleBulkStatusChange('disable')}
+                        disabled={selectedUsers.length === 0}
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        批量禁用
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleBulkRoleChange()}
+                        disabled={selectedUsers.length === 0}
+                      >
+                        <Users className="h-4 w-4 mr-1" />
+                        批量改角色
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleBulkDelete()}
+                        disabled={selectedUsers.length === 0}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        批量删除
+                      </Button>
+                    </div>
+                  )}
+                  <Button onClick={() => setShowCreateUserDialog(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    新建用户
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -1687,6 +1844,81 @@ export function IntegratedUserPermissionManager() {
                 创建用户
               </Button>
               <Button variant="outline" onClick={() => setShowCreateUserDialog(false)}>
+                取消
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量角色变更对话框 */}
+      <Dialog open={showBulkRoleDialog} onOpenChange={setShowBulkRoleDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>批量角色变更</DialogTitle>
+            <DialogDescription>
+              将选中的 {selectedUsers.length} 个用户的角色统一变更
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="bulk-role">新角色</Label>
+              <Select value={bulkRole} onValueChange={setBulkRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择角色" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">管理员</SelectItem>
+                  <SelectItem value="finance">财务</SelectItem>
+                  <SelectItem value="business">业务</SelectItem>
+                  <SelectItem value="operator">操作员</SelectItem>
+                  <SelectItem value="partner">合作方</SelectItem>
+                  <SelectItem value="viewer">查看者</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="text-sm text-yellow-800">
+                <AlertTriangle className="h-4 w-4 inline mr-1" />
+                <strong>注意：</strong>此操作将影响 {selectedUsers.length} 个用户的权限，请谨慎操作。
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={confirmBulkRoleChange} className="flex-1" disabled={!bulkRole}>
+                确认变更
+              </Button>
+              <Button variant="outline" onClick={() => setShowBulkRoleDialog(false)}>
+                取消
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量删除确认对话框 */}
+      <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>批量删除用户</DialogTitle>
+            <DialogDescription>
+              确定要删除选中的 {selectedUsers.length} 个用户吗？此操作不可撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="text-sm text-red-800">
+                <AlertTriangle className="h-4 w-4 inline mr-1" />
+                <strong>警告：</strong>删除用户将同时删除其所有权限和项目分配，此操作不可撤销。
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={confirmBulkDelete} 
+                className="flex-1 bg-red-600 hover:bg-red-700"
+              >
+                确认删除
+              </Button>
+              <Button variant="outline" onClick={() => setShowBulkDeleteDialog(false)}>
                 取消
               </Button>
             </div>
