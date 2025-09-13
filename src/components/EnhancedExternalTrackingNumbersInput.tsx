@@ -57,30 +57,17 @@ export function EnhancedExternalTrackingNumbersInput({
 
   // 获取平台列表
   useEffect(() => {
-    const fetchPlatforms = async () => {
-      try {
-        const { data, error } = await supabase.rpc('get_available_platforms', {
-          p_user_id: (await supabase.auth.getUser()).data.user?.id
-        });
-        
-        if (error) {
-          console.error('获取平台列表失败:', error);
-          toast({
-            title: "获取平台列表失败",
-            description: error.message,
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        setPlatforms(data || []);
-      } catch (error) {
-        console.error('获取平台列表异常:', error);
-      }
-    };
-
-    fetchPlatforms();
-  }, [toast]);
+    // 使用默认平台列表，因为 get_available_platforms 函数不存在
+    const defaultPlatforms: PlatformOption[] = [
+      { platform_code: 'taobao', primary_name: '淘宝', aliases: ['tbao', '淘宝网'], is_custom: false, sort_order: 1 },
+      { platform_code: 'jd', primary_name: '京东', aliases: ['jingdong'], is_custom: false, sort_order: 2 },
+      { platform_code: 'tmall', primary_name: '天猫', aliases: ['tianmao'], is_custom: false, sort_order: 3 },
+      { platform_code: 'pdd', primary_name: '拼多多', aliases: ['pinduoduo'], is_custom: false, sort_order: 4 },
+      { platform_code: 'douyin', primary_name: '抖音', aliases: ['tiktok'], is_custom: false, sort_order: 5 },
+      { platform_code: 'kuaishou', primary_name: '快手', aliases: [], is_custom: false, sort_order: 6 },
+    ];
+    setPlatforms(defaultPlatforms);
+  }, []);
 
   // 搜索过滤平台
   const filteredPlatforms = useMemo(() => {
@@ -136,7 +123,7 @@ export function EnhancedExternalTrackingNumbersInput({
   };
 
   // 添加自定义平台
-  const addCustomPlatform = async () => {
+  const addCustomPlatform = () => {
     if (!customPlatformName.trim()) {
       toast({
         title: "平台名称不能为空",
@@ -145,46 +132,28 @@ export function EnhancedExternalTrackingNumbersInput({
       return;
     }
 
-    try {
-      const { error } = await supabase.rpc('add_custom_platform', {
-        p_platform_name: customPlatformName.trim(),
-        p_platform_code: customPlatformCode.trim() || null,
-        p_description: customPlatformDescription.trim() || null
-      });
+    // 添加到本地状态，因为 add_custom_platform 函数不存在
+    const newPlatform: PlatformOption = {
+      platform_code: customPlatformCode.trim() || customPlatformName.toLowerCase().replace(/\s+/g, '_'),
+      primary_name: customPlatformName.trim(),
+      aliases: [],
+      description: customPlatformDescription.trim(),
+      is_custom: true,
+      sort_order: platforms.length + 1
+    };
 
-      if (error) {
-        toast({
-          title: "添加自定义平台失败",
-          description: error.message,
-          variant: "destructive",
-        });
-        return;
-      }
+    setPlatforms([...platforms, newPlatform]);
 
-      toast({
-        title: "添加成功",
-        description: `自定义平台 "${customPlatformName}" 已添加`,
-      });
+    toast({
+      title: "添加成功",
+      description: `自定义平台 "${customPlatformName}" 已添加`,
+    });
 
-      // 重新获取平台列表
-      const { data } = await supabase.rpc('get_available_platforms', {
-        p_user_id: (await supabase.auth.getUser()).data.user?.id
-      });
-      setPlatforms(data || []);
-
-      // 重置表单
-      setCustomPlatformName('');
-      setCustomPlatformCode('');
-      setCustomPlatformDescription('');
-      setShowAddCustomDialog(false);
-    } catch (error) {
-      console.error('添加自定义平台异常:', error);
-      toast({
-        title: "添加失败",
-        description: "网络错误，请重试",
-        variant: "destructive",
-      });
-    }
+    // 重置表单
+    setCustomPlatformName('');
+    setCustomPlatformCode('');
+    setCustomPlatformDescription('');
+    setShowAddCustomDialog(false);
   };
 
   // 平台选择组件

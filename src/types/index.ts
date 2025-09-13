@@ -140,3 +140,47 @@ export interface DailyCostStats {
   date: string;
   totalCost: number;
 }
+
+// Add external tracking number type
+export interface ExternalTrackingNumber {
+  platform: string;
+  tracking_number: string;
+  status: 'pending' | 'in_transit' | 'completed' | 'cancelled';
+  remarks?: string;
+}
+
+// Add import template types
+export interface ImportTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  platform_name: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  location_ids?: string[];
+  created_by_user_id?: string;
+}
+
+export interface ImportFieldMapping {
+  id: string;
+  template_id: string;
+  source_field: string;
+  target_field: string;
+  field_type: string;
+  default_value?: string;
+  is_required?: boolean;
+  transformation_rule?: string;
+  sort_order?: number;
+  created_at?: string;
+  location_ids?: string[];
+}
+
+export interface ImportFixedMapping {
+  id: string;
+  template_id: string;
+  target_field: string;
+  fixed_value: string;
+  description?: string;
+  created_at?: string;
+}
