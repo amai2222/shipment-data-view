@@ -987,7 +987,7 @@ export function IntegratedUserPermissionManager() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setEditingRole(role as 'operator' | 'admin' | 'finance' | 'business' | 'partner' | 'viewer');
+                          setEditingRole(role);
                           setShowRoleTemplateDialog(true);
                         }}
                       >
@@ -1059,7 +1059,7 @@ export function IntegratedUserPermissionManager() {
                   value={editingUser.role}
                   onValueChange={(value) => setEditingUser({
                     ...editingUser,
-                    role: value as 'operator' | 'admin' | 'finance' | 'business' | 'partner' | 'viewer'
+                    role: value
                   })}
                 >
                   <SelectTrigger>
@@ -1172,29 +1172,31 @@ export function IntegratedUserPermissionManager() {
               <div>
                 <h3 className="text-lg font-semibold mb-4">功能权限</h3>
                 <div className="grid grid-cols-2 gap-4 max-h-60 overflow-y-auto">
-                  {FUNCTION_PERMISSIONS.map(func => (
-                    <div key={func.key} className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={roleTemplates[editingRole]?.function_permissions?.includes(func.key) || false}
-                        onCheckedChange={(checked) => {
-                          const currentTemplate = roleTemplates[editingRole] || { menu_permissions: [], function_permissions: [] };
-                          const newFunctionPermissions = checked 
-                            ? [...(currentTemplate.function_permissions || []), func.key]
-                            : (currentTemplate.function_permissions || []).filter((p: string) => p !== func.key);
-                          
-                          setRoleTemplates({
-                            ...roleTemplates,
-                            [editingRole]: {
-                              ...currentTemplate,
-                              function_permissions: newFunctionPermissions
-                            }
-                          });
-                          setHasChanges(true);
-                        }}
-                      />
-                      <Label className="text-sm">{func.label}</Label>
-                    </div>
-                  ))}
+                  {FUNCTION_PERMISSIONS.flatMap(func => 
+                    func.children ? func.children.map(child => (
+                      <div key={child.key} className="flex items-center space-x-2">
+                        <Checkbox
+                          checked={roleTemplates[editingRole]?.function_permissions?.includes(child.key) || false}
+                          onCheckedChange={(checked) => {
+                            const currentTemplate = roleTemplates[editingRole] || { menu_permissions: [], function_permissions: [] };
+                            const newFunctionPermissions = checked 
+                              ? [...(currentTemplate.function_permissions || []), child.key]
+                              : (currentTemplate.function_permissions || []).filter((p: string) => p !== child.key);
+                            
+                            setRoleTemplates({
+                              ...roleTemplates,
+                              [editingRole]: {
+                                ...currentTemplate,
+                                function_permissions: newFunctionPermissions
+                              }
+                            });
+                            setHasChanges(true);
+                          }}
+                        />
+                        <Label className="text-sm">{child.label}</Label>
+                      </div>
+                    )) : []
+                  )}
                 </div>
               </div>
               

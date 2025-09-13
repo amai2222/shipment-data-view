@@ -1,128 +1,149 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
+import { MapPin, ArrowRight } from 'lucide-react';
 
-// 格式化位置名称 - 根据最大长度截取
+interface RouteDisplayProps {
+  loadingLocation: string | null | undefined;
+  unloadingLocation: string | null | undefined;
+  variant?: 'compact' | 'detailed' | 'minimal';
+  maxLocations?: number;
+  className?: string;
+}
+
+// 解析多地点字符串
+const parseLocations = (locationString: string | null | undefined): string[] => {
+  if (!locationString) return [];
+  return locationString.split('|').map(loc => loc.trim()).filter(loc => loc.length > 0);
+};
+
+// 格式化地点显示（截取前几个字符）
 const formatLocationName = (location: string, maxLength: number = 2): string => {
   if (location.length <= maxLength) return location;
   return location.substring(0, maxLength);
 };
 
 // 紧凑模式：只显示前2个字符
-const CompactRouteComponent = ({ loadingLocations, unloadingLocations }: { 
+const CompactRoute = ({ loadingLocations, unloadingLocations }: { 
   loadingLocations: string[], 
   unloadingLocations: string[] 
 }) => {
   const loadingDisplay = loadingLocations.length > 0 
-    ? loadingLocations.slice(0, 2).map(loc => formatLocationName(loc)).join('/')
-    : '--';
-    
+    ? loadingLocations.map(loc => formatLocationName(loc, 2)).join(',')
+    : '未知';
   const unloadingDisplay = unloadingLocations.length > 0 
-    ? unloadingLocations.slice(0, 2).map(loc => formatLocationName(loc)).join('/')
-    : '--';
-    
+    ? unloadingLocations.map(loc => formatLocationName(loc, 2)).join(',')
+    : '未知';
+
   return (
-    <span className="text-xs text-muted-foreground whitespace-nowrap">
-      {loadingDisplay} → {unloadingDisplay}
-      {(loadingLocations.length > 2 || unloadingLocations.length > 2) && (
-        <span className="ml-1">+</span>
-      )}
-    </span>
+    <div className="flex items-center gap-1 text-sm">
+      <span className="font-medium">{loadingDisplay}</span>
+      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+      <span className="font-medium">{unloadingDisplay}</span>
+    </div>
   );
 };
 
-// 详细模式：显示完整路径
-const DetailedRouteComponent = ({ loadingLocations, unloadingLocations }: { 
+// 详细模式：显示完整地点名称
+const DetailedRoute = ({ loadingLocations, unloadingLocations, maxLocations = 3 }: { 
   loadingLocations: string[], 
-  unloadingLocations: string[] 
+  unloadingLocations: string[],
+  maxLocations?: number
 }) => {
+  const displayLoading = loadingLocations.slice(0, maxLocations);
+  const displayUnloading = unloadingLocations.slice(0, maxLocations);
+  const hasMoreLoading = loadingLocations.length > maxLocations;
+  const hasMoreUnloading = unloadingLocations.length > maxLocations;
+
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2">
-        <Badge variant="outline" className="text-xs">装</Badge>
-        <span className="text-sm">
-          {loadingLocations.length > 0 ? loadingLocations.join(' / ') : '未指定'}
-        </span>
+    <div className="flex items-center gap-2 text-sm">
+      <div className="flex flex-wrap gap-1">
+        {displayLoading.map((loc, index) => (
+          <Badge key={index} variant="secondary" className="text-xs">
+            {loc}
+          </Badge>
+        ))}
+        {hasMoreLoading && (
+          <Badge variant="outline" className="text-xs">
+            +{loadingLocations.length - maxLocations}
+          </Badge>
+        )}
       </div>
-      <div className="flex items-center gap-2">
-        <Badge variant="outline" className="text-xs">卸</Badge>
-        <span className="text-sm">
-          {unloadingLocations.length > 0 ? unloadingLocations.join(' / ') : '未指定'}
-        </span>
+      
+      <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+      
+      <div className="flex flex-wrap gap-1">
+        {displayUnloading.map((loc, index) => (
+          <Badge key={index} variant="outline" className="text-xs">
+            {loc}
+          </Badge>
+        ))}
+        {hasMoreUnloading && (
+          <Badge variant="outline" className="text-xs">
+            +{unloadingLocations.length - maxLocations}
+          </Badge>
+        )}
       </div>
     </div>
   );
 };
 
-// 最小模式：只显示第一个字符
-const MinimalRouteComponent = ({ loadingLocations, unloadingLocations }: { 
+// 最小模式：只显示箭头和地点数量
+const MinimalRoute = ({ loadingLocations, unloadingLocations }: { 
   loadingLocations: string[], 
   unloadingLocations: string[] 
 }) => {
-  const loadingFirst = loadingLocations.length > 0 ? formatLocationName(loadingLocations[0], 1) : '-';
-  const unloadingFirst = unloadingLocations.length > 0 ? formatLocationName(unloadingLocations[0], 1) : '-';
+  const loadingCount = loadingLocations.length;
+  const unloadingCount = unloadingLocations.length;
   
   return (
-    <span className="text-xs text-muted-foreground font-mono">
-      {loadingFirst}→{unloadingFirst}
-    </span>
+    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      <MapPin className="h-3 w-3" />
+      <span>{loadingCount}装</span>
+      <ArrowRight className="h-3 w-3" />
+      <span>{unloadingCount}卸</span>
+    </div>
   );
 };
 
-// 路径显示模式类型
-export type RouteDisplayMode = 'compact' | 'detailed' | 'minimal';
-
-// 路径显示组件属性
-export interface RouteDisplayProps {
-  loadingLocations: string | string[];
-  unloadingLocations: string | string[];
-  loadingLocation?: string;
-  unloadingLocation?: string;
-  mode?: RouteDisplayMode;
-  variant?: 'default' | 'compact' | 'detailed' | 'minimal';
-  className?: string;
-}
-
 export function RouteDisplay({ 
-  loadingLocations, 
-  unloadingLocations,
-  loadingLocation,
-  unloadingLocation,
-  mode = 'compact',
-  variant,
+  loadingLocation, 
+  unloadingLocation, 
+  variant = 'compact',
+  maxLocations = 3,
   className = ''
 }: RouteDisplayProps) {
-  // Support legacy props
-  const actualLoadingLocations = loadingLocation || loadingLocations;
-  const actualUnloadingLocations = unloadingLocation || unloadingLocations;
-  const actualMode = variant === 'compact' ? 'compact' : 
-                     variant === 'detailed' ? 'detailed' : 
-                     variant === 'minimal' ? 'minimal' : mode;
-  
-  // 确保位置数据是数组格式
-  const loadingArray = Array.isArray(actualLoadingLocations) 
-    ? actualLoadingLocations 
-    : [actualLoadingLocations].filter(Boolean);
-  const unloadingArray = Array.isArray(actualUnloadingLocations) 
-    ? actualUnloadingLocations 
-    : [actualUnloadingLocations].filter(Boolean);
+  const loadingLocations = parseLocations(loadingLocation);
+  const unloadingLocations = parseLocations(unloadingLocation);
 
-  // 根据模式选择对应的组件
-  const renderRoute = () => {
-    switch (actualMode) {
-      case 'compact':
-        return <CompactRouteComponent loadingLocations={loadingArray} unloadingLocations={unloadingArray} />;
-      case 'detailed':
-        return <DetailedRouteComponent loadingLocations={loadingArray} unloadingLocations={unloadingArray} />;
-      case 'minimal':
-        return <MinimalRouteComponent loadingLocations={loadingArray} unloadingLocations={unloadingArray} />;
-      default:
-        return <CompactRouteComponent loadingLocations={loadingArray} unloadingLocations={unloadingArray} />;
-    }
-  };
+  // 如果没有地点信息
+  if (loadingLocations.length === 0 && unloadingLocations.length === 0) {
+    return (
+      <div className={`text-muted-foreground text-sm ${className}`}>
+        未填写路线
+      </div>
+    );
+  }
+
+  const routeProps = { loadingLocations, unloadingLocations, maxLocations };
 
   return (
     <div className={className}>
-      {renderRoute()}
+      {variant === 'compact' && <CompactRoute {...routeProps} />}
+      {variant === 'detailed' && <DetailedRoute {...routeProps} />}
+      {variant === 'minimal' && <MinimalRoute {...routeProps} />}
     </div>
   );
 }
+
+// 导出便捷的预设组件
+export const CompactRoute = (props: Omit<RouteDisplayProps, 'variant'>) => (
+  <RouteDisplay {...props} variant="compact" />
+);
+
+export const DetailedRoute = (props: Omit<RouteDisplayProps, 'variant'>) => (
+  <RouteDisplay {...props} variant="detailed" />
+);
+
+export const MinimalRoute = (props: Omit<RouteDisplayProps, 'variant'>) => (
+  <RouteDisplay {...props} variant="minimal" />
+);
