@@ -43,6 +43,7 @@ export interface ExternalTrackingNumber {
   tracking_number: string;
   status: string;
   created_at: string;
+  remarks?: string; // 添加可选的备注字段
 }
 
 // 物流记录数据类型  

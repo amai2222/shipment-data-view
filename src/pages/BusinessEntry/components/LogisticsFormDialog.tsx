@@ -86,56 +86,60 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     return current + extra;
   }, [formData.currentCost, formData.extraCost]);
 
-  useEffect(() => {
-    if (isOpen) {
-      if (editingRecord) {
-        // 先设置基本信息，地点信息会在数据加载完成后单独设置
-        setFormData({
-          projectId: editingRecord.project_id || '',
-          chainId: editingRecord.chain_id || '',
-          driverId: editingRecord.driver_id || '',
-          loadingLocationIds: [], // 临时设为空，稍后会被正确的地点数据覆盖
-          unloadingLocationIds: [], // 临时设为空，稍后会被正确的地点数据覆盖
-          loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
-          unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
-          licensePlate: editingRecord.license_plate || '',
-          driverPhone: editingRecord.driver_phone || '',
-          loading_weight: editingRecord.loading_weight?.toString() || '',
-          unloading_weight: editingRecord.unloading_weight?.toString() || '',
-          transportType: editingRecord.transport_type || '实际运输',
-          currentCost: editingRecord.current_cost?.toString() || '',
-          extraCost: editingRecord.extra_cost?.toString() || '',
-          remarks: editingRecord.remarks || '',
-          external_tracking_numbers: (() => {
-            if (!editingRecord.external_tracking_numbers || !Array.isArray(editingRecord.external_tracking_numbers)) {
-              return [];
-            }
-            
-            // 按平台分组，将同一平台的多个运单号合并
-            const groupedByPlatform: { [key: string]: string[] } = {};
-            editingRecord.external_tracking_numbers.forEach((item: any) => {
-              if (item.platform && item.tracking_number) {
-                if (!groupedByPlatform[item.platform]) {
-                  groupedByPlatform[item.platform] = [];
-                }
-                groupedByPlatform[item.platform].push(item.tracking_number);
+useEffect(() => {
+  if (isOpen) {
+    console.log('对话框打开，编辑记录:', editingRecord);
+    if (editingRecord) {
+      // 先设置基本信息，地点信息会在数据加载完成后单独设置
+      const initialFormData = {
+        projectId: editingRecord.project_id || '',
+        chainId: editingRecord.chain_id || '',
+        driverId: editingRecord.driver_id || '',
+        loadingLocationIds: [], // 临时设为空，稍后会被正确的地点数据覆盖
+        unloadingLocationIds: [], // 临时设为空，稍后会被正确的地点数据覆盖
+        loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
+        unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
+        licensePlate: editingRecord.license_plate || '',
+        driverPhone: editingRecord.driver_phone || '',
+        loading_weight: editingRecord.loading_weight?.toString() || '',
+        unloading_weight: editingRecord.unloading_weight?.toString() || '',
+        transportType: editingRecord.transport_type || '实际运输',
+        currentCost: editingRecord.current_cost?.toString() || '',
+        extraCost: editingRecord.extra_cost?.toString() || '',
+        remarks: editingRecord.remarks || '',
+        external_tracking_numbers: (() => {
+          if (!editingRecord.external_tracking_numbers || !Array.isArray(editingRecord.external_tracking_numbers)) {
+            return [];
+          }
+          
+          // 按平台分组，将同一平台的多个运单号合并
+          const groupedByPlatform: { [key: string]: string[] } = {};
+          editingRecord.external_tracking_numbers.forEach((item: any) => {
+            if (item.platform && item.tracking_number) {
+              if (!groupedByPlatform[item.platform]) {
+                groupedByPlatform[item.platform] = [];
               }
-            });
-            
-            // 转换为表单格式
-            return Object.entries(groupedByPlatform).map(([platform, trackingNumbers]) => ({
-              platform,
-              tracking_number: trackingNumbers.join('|'),
-              status: 'pending',
-              created_at: new Date().toISOString()
-            }));
-          })(),
-        });
-      } else {
-        setFormData(INITIAL_FORM_DATA);
-      }
+              groupedByPlatform[item.platform].push(item.tracking_number);
+            }
+          });
+          
+          // 转换为表单格式
+          return Object.entries(groupedByPlatform).map(([platform, trackingNumbers]) => ({
+            platform,
+            tracking_number: trackingNumbers.join('|'),
+            status: 'pending',
+            created_at: new Date().toISOString()
+          }));
+        })(),
+      };
+      
+      console.log('设置初始表单数据:', initialFormData);
+      setFormData(initialFormData);
+    } else {
+      setFormData(INITIAL_FORM_DATA);
     }
-  }, [isOpen, editingRecord]);
+  }
+}, [isOpen, editingRecord]);
 
   useEffect(() => {
     if (formData.projectId) {
@@ -161,35 +165,62 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
 
 // 在编辑模式下，当数据加载完成后填充地点和司机信息
 useEffect(() => {
+  console.log('数据加载状态检查:', {
+    isEditingRecord: !!editingRecord,
+    isOpen,
+    driversCount: drivers.length,
+    locationsCount: locations.length,
+    formDataDriverId: formData.driverId
+  });
+  
   if (editingRecord && isOpen) {
-    // 首先设置基础数据（项目、司机等）
-    setFormData(prev => ({
-      ...prev,
-      projectId: editingRecord.project_id || '',
-      chainId: editingRecord.chain_id || '',
-      driverId: editingRecord.driver_id || '',
-      licensePlate: editingRecord.license_plate || '',
-      driverPhone: editingRecord.driver_phone || '',
-      loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
-      unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
-      loading_weight: editingRecord.loading_weight?.toString() || '',
-      unloading_weight: editingRecord.unloading_weight?.toString() || '',
-      transportType: editingRecord.transport_type || '实际运输',
-      currentCost: editingRecord.current_cost?.toString() || '',
-      extraCost: editingRecord.extra_cost?.toString() || '',
-      remarks: editingRecord.remarks || '',
-    }));
+    console.log('编辑记录详情:', {
+      driver_id: editingRecord.driver_id,
+      driver_name: editingRecord.driver_name,
+      license_plate: editingRecord.license_plate,
+      driver_phone: editingRecord.driver_phone
+    });
+    
+    // 首先设置基础数据（项目、司机等），不依赖其他数据加载
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        projectId: editingRecord.project_id || '',
+        chainId: editingRecord.chain_id || '',
+        driverId: editingRecord.driver_id || '',
+        licensePlate: editingRecord.license_plate || '',
+        driverPhone: editingRecord.driver_phone || '',
+        loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
+        unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
+        loading_weight: editingRecord.loading_weight?.toString() || '',
+        unloading_weight: editingRecord.unloading_weight?.toString() || '',
+        transportType: editingRecord.transport_type || '实际运输',
+        currentCost: editingRecord.current_cost?.toString() || '',
+        extraCost: editingRecord.extra_cost?.toString() || '',
+        remarks: editingRecord.remarks || '',
+      };
+      
+      console.log('更新表单数据 - 基础信息:', newFormData);
+      return newFormData;
+    });
 
     // 然后处理地点数据
     if (locations.length > 0) {
       const loadingLocationNames = parseLocationString(editingRecord.loading_location || '');
       const unloadingLocationNames = parseLocationString(editingRecord.unloading_location || '');
       
+      console.log('处理地点数据:', {
+        loadingLocationNames,
+        unloadingLocationNames,
+        availableLocations: locations.length
+      });
+      
       // 确保地点在地点列表中
       const missingLocations = [...loadingLocationNames, ...unloadingLocationNames]
         .filter(name => !locations.find(l => l.name === name));
       
       if (missingLocations.length > 0) {
+        console.log('发现缺失地点，需要创建:', missingLocations);
         createMissingLocations(missingLocations);
       }
       
@@ -206,8 +237,17 @@ useEffect(() => {
     // 确保当前司机在司机列表中
     if (drivers.length > 0 && editingRecord.driver_id) {
       const currentDriver = drivers.find(d => d.id === editingRecord.driver_id);
+      console.log('检查司机数据:', {
+        editingDriverId: editingRecord.driver_id,
+        currentDriver,
+        allDrivers: drivers.map(d => ({ id: d.id, name: d.name }))
+      });
+      
       if (!currentDriver) {
+        console.log('司机不在列表中，开始加载:', editingRecord.driver_id);
         loadDriverById(editingRecord.driver_id);
+      } else {
+        console.log('司机已在列表中:', currentDriver);
       }
     }
   }
@@ -494,16 +534,19 @@ const loadProjectSpecificData = async (projectId: string) => {
     }
   };
 
-  // [新增] 当选择司机时，自动填充车牌和电话
-  const handleDriverSelect = (driverId: string) => {
-    const driver = drivers.find(d => d.id === driverId);
-    setFormData(prev => ({
-      ...prev,
-      driverId: driverId,
-      licensePlate: driver?.license_plate || '',
-      driverPhone: driver?.phone || ''
-    }));
-  };
+// [新增] 当选择司机时，自动填充车牌和电话
+const handleDriverSelect = (driverId: string) => {
+  console.log('选择司机:', driverId);
+  const driver = drivers.find(d => d.id === driverId);
+  console.log('找到司机数据:', driver);
+  
+  setFormData(prev => ({
+    ...prev,
+    driverId: driverId,
+    licensePlate: driver?.license_plate || '',
+    driverPhone: driver?.phone || ''
+  }));
+};
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
