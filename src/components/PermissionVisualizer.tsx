@@ -126,16 +126,15 @@ export function PermissionVisualizer({
   };
 
   // 获取权限状态
-  const getPermissionStatus = (type: 'menu' | 'function', key: string) => {
+  const getPermissionStatus = (type: 'menu' | 'function' | 'project' | 'data', key: string) => {
     const hasUserPermission = userPermissions[type].includes(key);
     const hasRolePermission = rolePermissions[type].includes(key);
     
-    if (hasUserPermission && hasRolePermission) {
-      return 'inherited';
-    } else if (hasUserPermission && !hasRolePermission) {
+    // 修复逻辑：如果用户没有特定权限但有角色权限，应该显示为"继承"
+    if (hasRolePermission) {
+      return hasUserPermission ? 'inherited' : 'inherited'; // 角色权限应该显示为继承
+    } else if (hasUserPermission) {
       return 'custom';
-    } else if (!hasUserPermission && hasRolePermission) {
-      return 'role-only';
     } else {
       return 'none';
     }
@@ -148,8 +147,6 @@ export function PermissionVisualizer({
         return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'custom':
         return <AlertCircle className="h-4 w-4 text-blue-600" />;
-      case 'role-only':
-        return <XCircle className="h-4 w-4 text-gray-400" />;
       default:
         return <XCircle className="h-4 w-4 text-gray-300" />;
     }
@@ -162,8 +159,6 @@ export function PermissionVisualizer({
         return <Badge variant="outline" className="text-green-700 border-green-300">继承</Badge>;
       case 'custom':
         return <Badge variant="outline" className="text-blue-700 border-blue-300">自定义</Badge>;
-      case 'role-only':
-        return <Badge variant="outline" className="text-gray-500 border-gray-300">仅角色</Badge>;
       default:
         return <Badge variant="outline" className="text-gray-400 border-gray-200">无权限</Badge>;
     }
