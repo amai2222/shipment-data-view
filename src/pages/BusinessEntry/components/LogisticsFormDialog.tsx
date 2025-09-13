@@ -333,7 +333,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       const externalTrackingNumbers: any[] = [];
       const otherPlatformNames: string[] = [];
       
-      formData.external_tracking_numbers.forEach(item => {
+      (formData.external_tracking_numbers || []).forEach(item => {
         if (item.platform && item.tracking_number) {
           // 如果运单号包含|分隔符，则拆分成多个运单号
           const trackingNumbers = item.tracking_number.split('|').map(tn => tn.trim()).filter(Boolean);
@@ -680,20 +680,20 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <div>
               <Label className="text-base font-medium">其他平台运单信息</Label>
               <div className="text-sm text-muted-foreground mt-1 mb-3">
-                外部运单号: {formData.external_tracking_numbers.length} 个 | 其他平台: {formData.external_tracking_numbers.map(item => item.platform).filter(Boolean).filter((platform, index, arr) => arr.indexOf(platform) === index).length} 个
+                外部运单号: {formData.external_tracking_numbers?.length || 0} 个 | 其他平台: {(formData.external_tracking_numbers || []).map(item => item.platform).filter(Boolean).filter((platform, index, arr) => arr.indexOf(platform) === index).length} 个
               </div>
               
               {/* 外部运单号输入 */}
               <div className="space-y-2">
                 <Label className="text-sm">外部运单号</Label>
                 <div className="space-y-2">
-                  {formData.external_tracking_numbers.map((tracking, index) => (
+                  {(formData.external_tracking_numbers || []).map((tracking, index) => (
                     <div key={index} className="flex gap-2 items-center">
                       <Input
                         placeholder="平台名称"
                         value={tracking.platform || ''}
                         onChange={(e) => {
-                          const newTrackings = [...formData.external_tracking_numbers];
+                          const newTrackings = [...(formData.external_tracking_numbers || [])];
                           newTrackings[index] = { ...tracking, platform: e.target.value };
                           setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
                         }}
@@ -703,7 +703,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                         placeholder="运单号"
                         value={tracking.tracking_number || ''}
                         onChange={(e) => {
-                          const newTrackings = [...formData.external_tracking_numbers];
+                          const newTrackings = [...(formData.external_tracking_numbers || [])];
                           newTrackings[index] = { ...tracking, tracking_number: e.target.value };
                           setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
                         }}
@@ -714,7 +714,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          const newTrackings = formData.external_tracking_numbers.filter((_, i) => i !== index);
+                          const newTrackings = (formData.external_tracking_numbers || []).filter((_, i) => i !== index);
                           setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
                         }}
                       >
@@ -730,7 +730,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                       setFormData(prev => ({
                         ...prev,
                         external_tracking_numbers: [
-                          ...prev.external_tracking_numbers,
+                          ...(prev.external_tracking_numbers || []),
                           { platform: '', tracking_number: '', status: 'pending', created_at: new Date().toISOString() }
                         ]
                       }));
