@@ -168,12 +168,13 @@ useEffect(() => {
 
 // 处理编辑记录的地点信息
 const processEditingRecordLocations = async (record: LogisticsRecord, availableLocations: Location[]) => {
-  console.log('开始处理编辑记录的地点信息:', record);
+  console.log('[DEBUG] 开始处理编辑记录的地点信息:', record);
+  console.log('[DEBUG] 可用地点列表:', availableLocations);
   
   const loadingLocationNames = parseLocationString(record.loading_location || '');
   const unloadingLocationNames = parseLocationString(record.unloading_location || '');
   
-  console.log('解析地点名称:', { loadingLocationNames, unloadingLocationNames });
+  console.log('[DEBUG] 解析地点名称:', { loadingLocationNames, unloadingLocationNames });
   
   // 检查缺失的地点
   const allLocationNames = [...loadingLocationNames, ...unloadingLocationNames];
@@ -218,14 +219,19 @@ const processEditingRecordLocations = async (record: LogisticsRecord, availableL
     .map(name => finalLocations.find(loc => loc.name === name)?.id)
     .filter(Boolean) as string[];
   
-  console.log('地点ID映射完成:', { loadingLocationIds, unloadingLocationIds });
+  console.log('[DEBUG] 地点ID映射完成:', { loadingLocationIds, unloadingLocationIds });
   
   // 更新表单数据中的地点信息
-  setFormData(prev => ({
-    ...prev,
-    loadingLocationIds,
-    unloadingLocationIds,
-  }));
+  setFormData(prev => {
+    console.log('[DEBUG] 更新表单数据前:', prev.loadingLocationIds, prev.unloadingLocationIds);
+    const newFormData = {
+      ...prev,
+      loadingLocationIds,
+      unloadingLocationIds,
+    };
+    console.log('[DEBUG] 更新表单数据后:', newFormData.loadingLocationIds, newFormData.unloadingLocationIds);
+    return newFormData;
+  });
 };
 
   // 单独加载司机信息
