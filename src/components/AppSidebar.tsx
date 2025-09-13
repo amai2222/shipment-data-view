@@ -155,8 +155,9 @@ export function AppSidebar() {
         menuKey = 'settings.audit_logs';
       }
       
-      console.log(`检查菜单权限: ${menuKey} - ${hasMenuAccess(menuKey)}`);
-      return hasMenuAccess(menuKey);
+      const hasAccess = hasMenuAccess(menuKey);
+      console.log(`检查菜单权限: ${menuKey} - ${hasAccess} (用户角色: ${userRole})`);
+      return hasAccess;
     })
   })).filter(group => {
     if (group.title === "设置" && !isAdmin) {

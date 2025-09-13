@@ -110,6 +110,16 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     ]
   },
   {
+    group: '数据维护',
+    key: 'data_maintenance',
+    label: '数据维护',
+    title: '数据维护',
+    icon: 'Database',
+    children: [
+      { key: 'data_maintenance.waybill', title: '运单维护', label: '运单维护', url: '/data-maintenance/waybill', icon: 'Truck', group: '数据维护' }
+    ]
+  },
+  {
     group: '系统管理',
     key: 'system',
     label: '系统管理',
@@ -397,7 +407,8 @@ export const DEFAULT_PERMISSIONS = {
       'business.payment_request',
       'maintenance.projects',
       'maintenance.drivers',
-      'maintenance.locations'
+      'maintenance.locations',
+      'data_maintenance.waybill'
     ],
     function_permissions: [
       'import.excel',
@@ -413,7 +424,8 @@ export const DEFAULT_PERMISSIONS = {
     menu_permissions: [
       'business.entry',
       'business.scale',
-      'dashboard.quantity'
+      'dashboard.quantity',
+      'data_maintenance.waybill'
     ],
     function_permissions: [
       'import.excel',
