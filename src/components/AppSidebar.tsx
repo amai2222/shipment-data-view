@@ -160,7 +160,7 @@ export function AppSidebar() {
       }
       
       const hasAccess = hasMenuAccess(menuKey);
-      console.log(`检查菜单权限: ${menuKey} - ${hasAccess} (用户角色: ${userRole})`);
+      console.log(`检查菜单权限: ${menuKey} - ${hasAccess} (用户角色: ${profile?.role})`);
       return hasAccess;
     })
   })).filter(group => {
