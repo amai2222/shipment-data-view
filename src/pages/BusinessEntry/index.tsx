@@ -22,6 +22,7 @@ import { useExcelImport } from './hooks/useExcelImport';
 import { FilterBar } from './components/FilterBar';
 import { EnhancedImportDialog } from './components/EnhancedImportDialog';
 import { LogisticsFormDialog } from './components/LogisticsFormDialog';
+import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
 
 const formatCurrency = (value: number | null | undefined): string => {
   if (value == null || isNaN(value)) return '¥0.00';
@@ -204,7 +205,27 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
                   <TableCell>
                     {[record.driver_name, record.license_plate, record.driver_phone].filter(Boolean).join(' - ')}
                   </TableCell>
-                  <TableCell>{record.loading_location?.substring(0, 2)} → {record.unloading_location?.substring(0, 2)}</TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <div className="font-medium">
+                        {record.loading_location?.split('|').map((loc, index) => (
+                          <span key={index}>
+                            {loc.substring(0, 2)}
+                            {index < record.loading_location.split('|').length - 1 && ', '}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="text-muted-foreground">→</div>
+                      <div className="font-medium">
+                        {record.unloading_location?.split('|').map((loc, index) => (
+                          <span key={index}>
+                            {loc.substring(0, 2)}
+                            {index < record.unloading_location.split('|').length - 1 && ', '}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {billingTypeId === 2 ? (
                       `${record.loading_weight?.toFixed(0) || '0'} ${unit}`
@@ -348,8 +369,8 @@ export default function BusinessEntry() {
         '司机姓名': '张三',
         '车牌号': '京A12345',
         '司机电话': '13800138000',
-        '装货地点': '北京仓库',
-        '卸货地点': '上海仓库',
+        '装货地点': '北京仓库|天津仓库',
+        '卸货地点': '上海仓库|苏州仓库',
         '装货日期': '2025-01-20',
         '卸货日期': '2025-01-21',
         '装货数量': '25.5',
@@ -368,7 +389,7 @@ export default function BusinessEntry() {
         '车牌号': '沪B67890',
         '司机电话': '13900139000',
         '装货地点': '上海仓库',
-        '卸货地点': '广州仓库',
+        '卸货地点': '广州仓库|深圳仓库|东莞仓库',
         '装货日期': '2025-01-20',
         '卸货日期': '',
         '装货数量': '30.0',
@@ -487,32 +508,11 @@ export default function BusinessEntry() {
         projects={projects}
         onSubmitSuccess={handleFormSubmitSuccess}
       />
-      <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
-          {viewingRecord && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
-              <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date ? viewingRecord.loading_date.split('T')[0] : '未填写'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date ? viewingRecord.unloading_date.split('T')[0] : '未填写'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{viewingRecord.transport_type}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{formatCurrency(viewingRecord.current_cost)}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono text-orange-600">{formatCurrency(viewingRecord.extra_cost)}</p></div>
-              <div className="space-y-1 col-span-1 md:col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{formatCurrency(viewingRecord.payable_cost)}</p></div>
-              <div className="col-span-1 md:col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px] whitespace-pre-wrap">{viewingRecord.remarks || '无'}</p></div>
-            </div>
-          )}
-          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button></div>
-        </DialogContent>
-      </Dialog>
+      <WaybillDetailDialog 
+        isOpen={!!viewingRecord} 
+        onClose={() => setViewingRecord(null)} 
+        record={viewingRecord} 
+      />
     </div>
   );
 }

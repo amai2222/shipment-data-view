@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogisticsRecord, Project, PlatformTracking } from '../types';
 import { PlatformTrackingInput } from '@/components/PlatformTrackingInput';
+import { MultiLocationInput } from '@/components/MultiLocationInput';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -23,13 +24,13 @@ interface Location { id: string; name: string; }
 interface PartnerChain { id: string; chain_name: string; billing_type_id: number | null; is_default: boolean; }
 interface LogisticsFormDialogProps { isOpen: boolean; onClose: () => void; editingRecord?: LogisticsRecord | null; projects: Project[]; onSubmitSuccess: () => void; }
 
-// [修改] FormData 现在存储 ID
+// [修改] FormData 现在存储 ID，支持多地点
 interface FormData {
   projectId: string;
   chainId: string;
   driverId: string;
-  loadingLocationId: string;
-  unloadingLocationId: string;
+  loadingLocationIds: string[]; // 改为数组支持多地点
+  unloadingLocationIds: string[]; // 改为数组支持多地点
   loadingDate: Date | undefined;
   unloadingDate: Date | undefined;
   licensePlate: string;
@@ -47,8 +48,8 @@ const INITIAL_FORM_DATA: FormData = {
   projectId: '',
   chainId: '',
   driverId: '',
-  loadingLocationId: '',
-  unloadingLocationId: '',
+  loadingLocationIds: [], // 改为空数组
+  unloadingLocationIds: [], // 改为空数组
   loadingDate: new Date(),
   unloadingDate: new Date(),
   licensePlate: '',
@@ -102,7 +103,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       setChains([]);
       setDrivers([]);
       setLocations([]);
-      setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationId: '', unloadingLocationId: '' }));
+      setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationIds: [], unloadingLocationIds: [] }));
     }
   }, [formData.projectId]);
 
@@ -137,13 +138,30 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   };
 
+  // 解析地点字符串为地点ID数组
+  const parseLocationString = (locationString: string): string[] => {
+    if (!locationString) return [];
+    return locationString.split('|').map(loc => loc.trim()).filter(Boolean);
+  };
+
+  // 根据地点名称数组查找地点ID数组
+  const findLocationIdsByName = (locationNames: string[]): string[] => {
+    return locationNames
+      .map(name => locations.find(loc => loc.name === name)?.id)
+      .filter(Boolean) as string[];
+  };
+
   const populateFormWithRecord = (record: LogisticsRecord) => {
+    // 解析装卸货地点
+    const loadingLocationNames = parseLocationString(record.loading_location || '');
+    const unloadingLocationNames = parseLocationString(record.unloading_location || '');
+    
     setFormData({
       projectId: record.project_id || '',
       chainId: record.chain_id || '',
       driverId: record.driver_id || '',
-      loadingLocationId: record.loading_location || '',
-      unloadingLocationId: record.unloading_location || '',
+      loadingLocationIds: findLocationIdsByName(loadingLocationNames),
+      unloadingLocationIds: findLocationIdsByName(unloadingLocationNames),
       loadingDate: record.loading_date ? new Date(record.loading_date) : new Date(),
       unloadingDate: record.unloading_date ? new Date(record.unloading_date) : new Date(),
       licensePlate: record.license_plate || '',
@@ -160,19 +178,30 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.projectId || !formData.driverId || !formData.loadingLocationId || !formData.unloadingLocationId || !formData.loadingDate) {
+    if (!formData.projectId || !formData.driverId || formData.loadingLocationIds.length === 0 || formData.unloadingLocationIds.length === 0 || !formData.loadingDate) {
       toast({ title: "验证失败", description: "项目、司机和地点等必填项不能为空。", variant: "destructive" });
       return;
     }
     setLoading(true);
 
     try {
+      // 将地点ID数组转换为地点名称字符串
+      const loadingLocationNames = formData.loadingLocationIds
+        .map(id => locations.find(l => l.id === id)?.name)
+        .filter(Boolean)
+        .join('|');
+      
+      const unloadingLocationNames = formData.unloadingLocationIds
+        .map(id => locations.find(l => l.id === id)?.name)
+        .filter(Boolean)
+        .join('|');
+
       const p_record = {
         project_id: formData.projectId,
         chain_id: formData.chainId,
         driver_id: formData.driverId,
-        loading_location_id: formData.loadingLocationId,
-        unloading_location_id: formData.unloadingLocationId,
+        loading_location: loadingLocationNames,
+        unloading_location: unloadingLocationNames,
         loading_date: formData.loadingDate.toISOString(),
         unloading_date: formData.unloadingDate ? formData.unloadingDate.toISOString() : null,
         license_plate: formData.licensePlate,
@@ -193,8 +222,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_chain_id: formData.chainId,
           p_driver_id: formData.driverId,
           p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
-          p_loading_location: locations.find(l => l.id === formData.loadingLocationId)?.name || '',
-          p_unloading_location: locations.find(l => l.id === formData.unloadingLocationId)?.name || '',
+          p_loading_location: loadingLocationNames,
+          p_unloading_location: unloadingLocationNames,
           p_loading_date: formData.loadingDate?.toISOString(),
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
@@ -234,8 +263,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_chain_id: formData.chainId,
           p_driver_id: formData.driverId,
           p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
-          p_loading_location: locations.find(l => l.id === formData.loadingLocationId)?.name || '',
-          p_unloading_location: locations.find(l => l.id === formData.unloadingLocationId)?.name || '',
+          p_loading_location: loadingLocationNames,
+          p_unloading_location: unloadingLocationNames,
           p_loading_date: formData.loadingDate?.toISOString().split('T')[0] || '',
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
@@ -372,20 +401,100 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
               </Select>
             </div>
 
-            {/* [修改] 地点改为下拉选择 */}
+            {/* [修改] 地点改为多地点选择 */}
             <div>
-              <Label>装货地点 *</Label>
-              <Select value={formData.loadingLocationId} onValueChange={(value) => setFormData(p => ({ ...p, loadingLocationId: value }))} disabled={!formData.projectId}>
-                <SelectTrigger><SelectValue placeholder="选择装货地点" /></SelectTrigger>
-                <SelectContent>{locations.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}</SelectContent>
-              </Select>
+              <MultiLocationInput
+                label="装货地点 *"
+                locations={locations}
+                value={formData.loadingLocationIds}
+                onChange={(locationIds) => setFormData(prev => ({ ...prev, loadingLocationIds: locationIds }))}
+                placeholder="选择装货地点"
+                maxLocations={5}
+                allowCustomInput={true}
+                onCustomLocationAdd={async (locationName) => {
+                  try {
+                    // 使用数据库函数批量获取或创建地点
+                    const { data, error } = await supabase.rpc('get_or_create_locations_from_string', {
+                      p_location_string: locationName
+                    });
+                    
+                    if (error) throw error;
+                    
+                    if (data && data.length > 0) {
+                      const newLocationId = data[0];
+                      
+                      // 重新加载地点列表
+                      const { data: updatedLocations } = await supabase
+                        .from('locations')
+                        .select('*')
+                        .limit(100);
+                      
+                      if (updatedLocations) {
+                        setLocations(updatedLocations);
+                        // 自动选择新添加的地点
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          loadingLocationIds: [...prev.loadingLocationIds, newLocationId] 
+                        }));
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Error adding custom location:', error);
+                    toast({ 
+                      title: "错误", 
+                      description: "添加自定义地点失败", 
+                      variant: "destructive" 
+                    });
+                  }
+                }}
+              />
             </div>
             <div>
-              <Label>卸货地点 *</Label>
-              <Select value={formData.unloadingLocationId} onValueChange={(value) => setFormData(p => ({ ...p, unloadingLocationId: value }))} disabled={!formData.projectId}>
-                <SelectTrigger><SelectValue placeholder="选择卸货地点" /></SelectTrigger>
-                <SelectContent>{locations.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}</SelectContent>
-              </Select>
+              <MultiLocationInput
+                label="卸货地点 *"
+                locations={locations}
+                value={formData.unloadingLocationIds}
+                onChange={(locationIds) => setFormData(prev => ({ ...prev, unloadingLocationIds: locationIds }))}
+                placeholder="选择卸货地点"
+                maxLocations={5}
+                allowCustomInput={true}
+                onCustomLocationAdd={async (locationName) => {
+                  try {
+                    // 使用数据库函数批量获取或创建地点
+                    const { data, error } = await supabase.rpc('get_or_create_locations_from_string', {
+                      p_location_string: locationName
+                    });
+                    
+                    if (error) throw error;
+                    
+                    if (data && data.length > 0) {
+                      const newLocationId = data[0];
+                      
+                      // 重新加载地点列表
+                      const { data: updatedLocations } = await supabase
+                        .from('locations')
+                        .select('*')
+                        .limit(100);
+                      
+                      if (updatedLocations) {
+                        setLocations(updatedLocations);
+                        // 自动选择新添加的地点
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          unloadingLocationIds: [...prev.unloadingLocationIds, newLocationId] 
+                        }));
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Error adding custom location:', error);
+                    toast({ 
+                      title: "错误", 
+                      description: "添加自定义地点失败", 
+                      variant: "destructive" 
+                    });
+                  }
+                }}
+              />
             </div>
           </div>
           {/* ... 后续表单部分保持不变 ... */}

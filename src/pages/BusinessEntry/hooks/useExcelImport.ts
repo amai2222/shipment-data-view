@@ -111,7 +111,7 @@ export function useExcelImport(onImportSuccess: () => void) {
         // ★★★ 新增：表头校验逻辑开始 ★★★
         const REQUIRED_HEADERS = [
           '项目名称', '司机姓名', '车牌号', '装货地点', '卸货地点', 
-          '装货日期', '卸货日期', '装货重量', '卸货重量', '运费金额'
+          '装货日期', '装货重量', '运费金额'
         ];
         
         const headerRow = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
@@ -133,6 +133,24 @@ export function useExcelImport(onImportSuccess: () => void) {
               cleanedRow[key.trim()] = row[key];
             }
           }
+          
+          // 处理多地点：将地点字符串按|分割并清理
+          if (cleanedRow['装货地点']) {
+            cleanedRow['装货地点'] = cleanedRow['装货地点']
+              .split('|')
+              .map((loc: string) => loc.trim())
+              .filter((loc: string) => loc)
+              .join('|');
+          }
+          
+          if (cleanedRow['卸货地点']) {
+            cleanedRow['卸货地点'] = cleanedRow['卸货地点']
+              .split('|')
+              .map((loc: string) => loc.trim())
+              .filter((loc: string) => loc)
+              .join('|');
+          }
+          
           return cleanedRow;
         });
 
