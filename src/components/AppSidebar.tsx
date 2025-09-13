@@ -38,7 +38,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { forceReimportData } from "@/utils/importData";
 import { useMenuPermissions } from "@/hooks/useMenuPermissions";
 import { useAuth } from "@/contexts/AuthContext";
-import { DebugPermissions } from "./DebugPermissions";
 
 // 菜单配置
 const menuItems = [
@@ -194,9 +193,7 @@ export function AppSidebar() {
   const isActive = (path: string) => currentPath === path;
 
   return (
-    <>
-      <DebugPermissions />
-      <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
+    <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
         {/* Header Section */}
         <SidebarHeader className="bg-gradient-primary text-white p-3 space-y-2">
         <div className="flex items-center space-x-2">
@@ -266,6 +263,5 @@ export function AppSidebar() {
         })}
       </SidebarContent>
     </Sidebar>
-    </>
   );
 }
