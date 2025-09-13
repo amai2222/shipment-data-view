@@ -162,12 +162,6 @@ const settingsNavigation = [
     roles: ['admin']
   },
   {
-    name: '权限管理',
-    href: '/m/settings/permissions',
-    icon: Settings,
-    roles: ['admin']
-  },
-  {
     name: '集成权限管理',
     href: '/m/settings/integrated',
     icon: Shield,
