@@ -34,14 +34,14 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
     loadData();
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh = false) => {
     try {
       setLoading(true);
       
       const [usersResult, projectsResult, roleTemplatesResult, userPermissionsResult] = await Promise.all([
         supabase.from('profiles').select('id, full_name, email, role').order('full_name'),
         supabase.from('projects').select('id, name').order('name'),
-        supabase.from('role_permission_templates').select('*'),
+        supabase.from('role_permission_templates').select('*').order('updated_at', { ascending: false }),
         supabase.from('user_permissions').select('*')
       ]);
 
@@ -54,6 +54,19 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
       setProjects(projectsResult.data || []);
       setRoleTemplates(roleTemplatesResult.data || []);
       setUserPermissions(userPermissionsResult.data || []);
+
+      // 强制刷新时输出调试信息
+      if (forceRefresh) {
+        console.log('强制刷新权限数据:', roleTemplatesResult.data);
+        const operatorTemplate = roleTemplatesResult.data?.find(t => t.role === 'operator');
+        if (operatorTemplate) {
+          const totalCount = (operatorTemplate.menu_permissions?.length || 0) + 
+                           (operatorTemplate.function_permissions?.length || 0) + 
+                           (operatorTemplate.project_permissions?.length || 0) + 
+                           (operatorTemplate.data_permissions?.length || 0);
+          console.log('operator角色权限数量:', totalCount);
+        }
+      }
 
     } catch (error) {
       console.error('加载数据失败:', error);
@@ -70,6 +83,22 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
   const handleDataChange = () => {
     loadData();
     onPermissionChange?.();
+  };
+
+  const handleForceRefresh = async () => {
+    try {
+      await loadData(true);
+      toast({
+        title: "刷新完成",
+        description: "权限数据已强制刷新",
+      });
+    } catch (error) {
+      toast({
+        title: "刷新失败", 
+        description: "强制刷新数据时发生错误",
+        variant: "destructive"
+      });
+    }
   };
 
   if (loading) {
@@ -95,6 +124,10 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
           <Button onClick={loadData} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             刷新
+          </Button>
+          <Button onClick={handleForceRefresh} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            强制刷新
           </Button>
         </div>
       </div>
