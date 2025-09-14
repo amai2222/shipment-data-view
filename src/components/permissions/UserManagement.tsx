@@ -52,6 +52,7 @@ export function UserManagement({
   const [showStatusChangeDialog, setShowStatusChangeDialog] = useState(false);
   const [showBulkRoleDialog, setShowBulkRoleDialog] = useState(false);
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [showSingleDeleteDialog, setShowSingleDeleteDialog] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserWithPermissions | null>(null);
   const [bulkRole, setBulkRole] = useState('');
   
@@ -190,6 +191,41 @@ export function UserManagement({
   const toggleUserStatus = (user: UserWithPermissions) => {
     setUserToDelete(user);
     setShowStatusChangeDialog(true);
+  };
+
+  // 删除单个用户
+  const handleDeleteUser = (user: UserWithPermissions) => {
+    setUserToDelete(user);
+    setShowSingleDeleteDialog(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "删除成功",
+        description: `用户 "${userToDelete.full_name}" 已删除`,
+      });
+
+      setShowSingleDeleteDialog(false);
+      setUserToDelete(null);
+      onUserUpdate();
+    } catch (error: any) {
+      console.error('删除用户失败:', error);
+      toast({
+        title: "删除失败",
+        description: "删除用户失败",
+        variant: "destructive"
+      });
+    }
   };
 
   const confirmToggleUserStatus = async () => {
@@ -578,6 +614,7 @@ export function UserManagement({
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => handleDeleteUser(user)}
                           className="text-red-600 border-red-300 hover:bg-red-50"
                         >
                           删除
@@ -663,6 +700,26 @@ export function UserManagement({
               确认删除
             </Button>
             <Button variant="outline" onClick={() => setShowBulkDeleteDialog(false)}>
+              取消
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 单个用户删除确认对话框 */}
+      <Dialog open={showSingleDeleteDialog} onOpenChange={setShowSingleDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除用户</DialogTitle>
+            <DialogDescription>
+              确定要删除用户 "{userToDelete?.full_name}" 吗？此操作不可撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2">
+            <Button onClick={confirmDeleteUser} className="flex-1" variant="destructive">
+              确认删除
+            </Button>
+            <Button variant="outline" onClick={() => setShowSingleDeleteDialog(false)}>
               取消
             </Button>
           </div>
