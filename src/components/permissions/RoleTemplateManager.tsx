@@ -495,7 +495,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                 <span>配置 {editingRole} 角色的菜单访问权限</span>
               </div>
               <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
-                <OptimizedPermissionSelector
+                <PermissionSelector
                   title="菜单权限"
                   permissions={MENU_PERMISSIONS}
                   selectedPermissions={newTemplate.menu_permissions}
@@ -510,7 +510,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                 <span>配置 {editingRole} 角色的功能操作权限</span>
               </div>
               <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
-                <OptimizedPermissionSelector
+                <PermissionSelector
                   title="功能权限"
                   permissions={FUNCTION_PERMISSIONS}
                   selectedPermissions={newTemplate.function_permissions}
@@ -525,7 +525,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                 <span>配置 {editingRole} 角色的项目访问权限</span>
               </div>
               <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
-                <OptimizedPermissionSelector
+                <PermissionSelector
                   title="项目权限"
                   permissions={PROJECT_PERMISSIONS}
                   selectedPermissions={newTemplate.project_permissions}
@@ -540,7 +540,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                 <span>配置 {editingRole} 角色的数据操作权限</span>
               </div>
               <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
-                <OptimizedPermissionSelector
+                <PermissionSelector
                   title="数据权限"
                   permissions={DATA_PERMISSIONS}
                   selectedPermissions={newTemplate.data_permissions}
