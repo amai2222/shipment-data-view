@@ -462,7 +462,8 @@ export function UserManagement({
                   <TableHead>用户信息</TableHead>
                   <TableHead>角色</TableHead>
                   <TableHead>状态</TableHead>
-                  <TableHead>企业微信</TableHead>
+                  <TableHead>手机号</TableHead>
+                <TableHead>企业微信</TableHead>
                   <TableHead>权限统计</TableHead>
                   <TableHead>最后登录</TableHead>
                   <TableHead>操作</TableHead>
@@ -503,6 +504,13 @@ export function UserManagement({
                           <XCircle className="h-3 w-3 mr-1" />
                           禁用
                         </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {(user as any).phone ? (
+                        <span className="text-sm">{(user as any).phone}</span>
+                      ) : (
+                        <span className="text-sm text-gray-400">未设置</span>
                       )}
                     </TableCell>
                     <TableCell>

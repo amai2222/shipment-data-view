@@ -41,6 +41,7 @@ interface UserEditForm {
   email: string;
   role: UserRole;
   is_active: boolean;
+  phone?: string;
   work_wechat_userid?: string;
   password?: string;
   confirmPassword?: string;
@@ -59,6 +60,7 @@ export function EnterpriseUserEditDialog({
     email: '',
     role: 'viewer',
     is_active: true,
+    phone: '',
     work_wechat_userid: '',
     password: '',
     confirmPassword: ''
@@ -79,6 +81,7 @@ export function EnterpriseUserEditDialog({
         email: user.email || '',
         role: user.role || 'viewer',
         is_active: user.is_active ?? true,
+        phone: (user as any).phone || '',
         work_wechat_userid: (user as any).work_wechat_userid || '',
         password: '',
         confirmPassword: ''
@@ -129,6 +132,7 @@ export function EnterpriseUserEditDialog({
           email: pendingChanges.email,
           role: pendingChanges.role,
           is_active: pendingChanges.is_active,
+          phone: pendingChanges.phone,
           work_wechat_userid: pendingChanges.work_wechat_userid,
           updated_at: new Date().toISOString()
         })
@@ -168,6 +172,7 @@ export function EnterpriseUserEditDialog({
         email: pendingChanges.email,
         role: pendingChanges.role,
         is_active: pendingChanges.is_active,
+        phone: pendingChanges.phone,
         work_wechat_userid: pendingChanges.work_wechat_userid
       };
 
@@ -238,6 +243,16 @@ export function EnterpriseUserEditDialog({
                       placeholder="请输入邮箱地址"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">手机号</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => handleFormChange('phone', e.target.value)}
+                    placeholder="请输入手机号"
+                  />
                 </div>
 
               </CardContent>

@@ -19,7 +19,12 @@ interface WorkWechatUserInfo {
   department: number[];
   email?: string;
   mobile?: string;
+  phone?: string;
   avatar?: string;
+  position?: string;
+  gender?: string;
+  status?: number;
+  alias?: string;  // 企业微信昵称
 }
 
 interface WorkWechatTokenResponse {
@@ -63,6 +68,12 @@ serve(async (req) => {
     const userDetail: WorkWechatUserInfo = await userDetailResponse.json();
     console.log('用户详细信息:', userDetail);
 
+    // 提取手机号（企业微信API可能返回mobile或phone字段）
+    const phoneNumber = userDetail.mobile || userDetail.phone || '';
+    const wechatName = userDetail.alias || userDetail.name || '';
+    console.log('提取的手机号:', phoneNumber);
+    console.log('提取的企业微信昵称:', wechatName);
+
     // ==================== 使用 profiles 表查找用户的优化逻辑 ====================
 
     const email = userDetail.email || `${userData.UserId}@company.local`;
@@ -82,7 +93,10 @@ serve(async (req) => {
         user_metadata: {
           full_name: userDetail.name,
           avatar_url: userDetail.avatar,
-          work_wechat_userid: userData.UserId
+          work_wechat_userid: userData.UserId,
+          phone: phoneNumber,
+          work_wechat_name: wechatName,
+          department: userDetail.department
         }
       });
 
@@ -132,6 +146,8 @@ serve(async (req) => {
         avatar_url: userDetail.avatar,
         work_wechat_userid: userData.UserId,
         work_wechat_department: userDetail.department,
+        phone: phoneNumber,
+        work_wechat_name: wechatName,
         role: isNewUser ? 'viewer' : undefined,
         is_active: true,
         updated_at: new Date().toISOString()

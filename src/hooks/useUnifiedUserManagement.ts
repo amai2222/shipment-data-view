@@ -28,7 +28,7 @@ export function useUnifiedUserManagement() {
       
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, username, full_name, role, is_active, created_at, work_wechat_userid, work_wechat_name, work_wechat_department')
+        .select('id, email, username, full_name, role, is_active, created_at, work_wechat_userid, work_wechat_name, work_wechat_department, phone')
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -49,9 +49,10 @@ export function useUnifiedUserManagement() {
           full_name: user.full_name || '',
           role: user.role as UserRole,
           is_active: user.is_active ?? true,
-          work_wechat_userid: user.work_wechat_userid,
-          work_wechat_name: user.work_wechat_name,
-          work_wechat_department: user.work_wechat_department,
+        work_wechat_userid: user.work_wechat_userid,
+        work_wechat_name: user.work_wechat_name,
+        work_wechat_department: user.work_wechat_department,
+        phone: user.phone,
           created_at: user.created_at
         })));
       }
