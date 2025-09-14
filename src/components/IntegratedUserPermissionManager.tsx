@@ -134,20 +134,48 @@ export function IntegratedUserPermissionManager() {
 
       {/* 主要内容区域 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="users" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-4 bg-gray-100">
+          <TabsTrigger 
+            value="users" 
+            className={`flex items-center gap-2 transition-all duration-200 ${
+              activeTab === 'users' 
+                ? 'bg-blue-500 text-white shadow-md' 
+                : 'hover:bg-gray-200'
+            }`}
+          >
             <Users className="h-4 w-4" />
             用户管理
           </TabsTrigger>
-          <TabsTrigger value="permissions" className="flex items-center gap-2">
+          <TabsTrigger 
+            value="permissions" 
+            className={`flex items-center gap-2 transition-all duration-200 ${
+              activeTab === 'permissions' 
+                ? 'bg-blue-500 text-white shadow-md' 
+                : 'hover:bg-gray-200'
+            }`}
+          >
             <Shield className="h-4 w-4" />
             权限配置
           </TabsTrigger>
-          <TabsTrigger value="contracts" className="flex items-center gap-2">
+          <TabsTrigger 
+            value="contracts" 
+            className={`flex items-center gap-2 transition-all duration-200 ${
+              activeTab === 'contracts' 
+                ? 'bg-blue-500 text-white shadow-md' 
+                : 'hover:bg-gray-200'
+            }`}
+          >
             <Building2 className="h-4 w-4" />
             合同权限
           </TabsTrigger>
-          <TabsTrigger value="templates" className="flex items-center gap-2">
+          <TabsTrigger 
+            value="templates" 
+            className={`flex items-center gap-2 transition-all duration-200 ${
+              activeTab === 'templates' 
+                ? 'bg-blue-500 text-white shadow-md' 
+                : 'hover:bg-gray-200'
+            }`}
+          >
             <Settings className="h-4 w-4" />
             角色模板
           </TabsTrigger>

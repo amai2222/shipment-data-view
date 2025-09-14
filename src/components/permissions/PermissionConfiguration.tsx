@@ -13,12 +13,15 @@ import {
   RefreshCw,
   Save,
   Copy,
-  Key
+  Key,
+  User,
+  CheckCircle
 } from 'lucide-react';
 import { PermissionVisualizer } from '../PermissionVisualizer';
 import { ProjectPermissionManager } from '../ProjectPermissionManager';
 import { useProjects } from '@/hooks/useProjects';
 import { UserWithPermissions, RoleTemplate } from '@/types/permissions';
+import { UserCardSelector } from '../UserCardSelector';
 
 interface PermissionConfigurationProps {
   users: UserWithPermissions[];
@@ -150,21 +153,14 @@ export function PermissionConfiguration({
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* 用户选择 */}
+            {/* 用户选择 - 使用卡片选择器 */}
             <div className="space-y-2">
               <label className="text-sm font-medium">选择用户</label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择要配置权限的用户" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.full_name} ({user.email}) - {user.role}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <UserCardSelector
+                users={users}
+                selectedUserId={selectedUserId}
+                onUserSelect={setSelectedUserId}
+              />
             </div>
 
             {/* 权限类型选择 */}

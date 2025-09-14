@@ -156,12 +156,12 @@ export function ContractPermissionManager({
 
   const loadPermissions = async () => {
     try {
-      // 使用简化版服务，直接查询数据库
+      // 直接查询 contract_permissions 表（10列）
       let query = supabase
         .from('contract_permissions')
         .select(`
           *,
-          contracts(contract_number, counterparty_company, our_company, category),
+          contracts!inner(contract_number, counterparty_company, our_company, category),
           profiles!contract_permissions_user_id_fkey(full_name, email),
           granter:profiles!contract_permissions_granted_by_fkey(full_name)
         `)
@@ -175,11 +175,6 @@ export function ContractPermissionManager({
 
       if (error) {
         console.error('加载权限失败:', error);
-        if (error.message.includes('relation "contract_permissions" does not exist')) {
-          console.log('合同权限表不存在，使用空数据');
-          setPermissions([]);
-          return;
-        }
         throw error;
       }
 
@@ -208,12 +203,12 @@ export function ContractPermissionManager({
 
   const loadOwnerPermissions = async () => {
     try {
-      // 简化版：直接查询数据库
+      // 直接查询 contract_owner_permissions 表（6列）
       let query = supabase
         .from('contract_owner_permissions')
         .select(`
           *,
-          contracts(contract_number, counterparty_company, our_company),
+          contracts!inner(contract_number, counterparty_company, our_company),
           owner:profiles!contract_owner_permissions_owner_id_fkey(full_name, email)
         `)
         .order('created_at', { ascending: false });
@@ -226,11 +221,6 @@ export function ContractPermissionManager({
 
       if (error) {
         console.error('加载所有者权限失败:', error);
-        if (error.message.includes('relation "contract_owner_permissions" does not exist')) {
-          console.log('合同所有者权限表不存在，使用空数据');
-          setOwnerPermissions([]);
-          return;
-        }
         throw error;
       }
 
@@ -255,7 +245,7 @@ export function ContractPermissionManager({
 
   const loadCategoryTemplates = async () => {
     try {
-      // 简化版：直接查询数据库
+      // 直接查询 contract_category_permission_templates 表（9列）
       const { data, error } = await supabase
         .from('contract_category_permission_templates')
         .select('*')
@@ -263,11 +253,6 @@ export function ContractPermissionManager({
 
       if (error) {
         console.error('加载分类模板失败:', error);
-        if (error.message.includes('relation "contract_category_permission_templates" does not exist')) {
-          console.log('分类权限模板表不存在，使用空数据');
-          setCategoryTemplates([]);
-          return;
-        }
         throw error;
       }
 
@@ -290,39 +275,17 @@ export function ContractPermissionManager({
 
   const loadReferenceData = async () => {
     try {
-      // 安全地加载参考数据，处理表不存在的情况
-      const [contractsRes, usersRes, rolesRes] = await Promise.allSettled([
+      const [contractsRes, usersRes, rolesRes] = await Promise.all([
         supabase.from('contracts').select('id, contract_number, counterparty_company, category').order('contract_number'),
         supabase.from('profiles').select('id, full_name, email').order('full_name'),
-        supabase.from('role_permission_templates').select('role').order('role')
+        supabase.from('user_roles').select('id, role_name, description').order('role_name')
       ]);
 
-      // 处理合同数据
-      if (contractsRes.status === 'fulfilled' && !contractsRes.value.error) {
-        setContracts(contractsRes.value.data || []);
-      } else {
-        console.log('合同表不存在或查询失败，使用空数据');
-        setContracts([]);
-      }
-
-      // 处理用户数据
-      if (usersRes.status === 'fulfilled' && !usersRes.value.error) {
-        setUsers(usersRes.value.data || []);
-      } else {
-        console.log('用户表不存在或查询失败，使用空数据');
-        setUsers([]);
-      }
-
-      // 处理角色数据
-      if (rolesRes.status === 'fulfilled' && !rolesRes.value.error) {
-        setRoles(rolesRes.value.data || []);
-      } else {
-        console.log('角色表不存在或查询失败，使用空数据');
-        setRoles([]);
-      }
+      setContracts(contractsRes.data || []);
+      setUsers(usersRes.data || []);
+      setRoles(rolesRes.data || []);
     } catch (error) {
       console.error('加载参考数据失败:', error);
-      // 设置默认空数据
       setContracts([]);
       setUsers([]);
       setRoles([]);
