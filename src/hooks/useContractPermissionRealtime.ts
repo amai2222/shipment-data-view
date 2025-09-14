@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ContractPermissionChange, ContractPermissionSyncStatus } from '@/types/permissions';
-import ContractPermissionService from '@/services/contractPermissionService';
+import { ContractPermissionServiceSimple as ContractPermissionService } from '@/services/contractPermissionServiceSimple';
 
 export interface UseContractPermissionRealtimeOptions {
   enabled?: boolean;
@@ -149,12 +149,12 @@ export function useContractPermissionRealtime(
     setTimeout(connect, 1000); // 延迟1秒重连
   }, [disconnect, connect]);
 
-  // 加载同步状态
+  // 加载同步状态（简化版）
   const loadSyncStatus = useCallback(async () => {
     try {
-      const status = await ContractPermissionService.getContractPermissionSyncStatus();
-      setSyncStatus(status);
-      onSyncStatusUpdate?.(status);
+      // 简化版：直接设置空状态
+      setSyncStatus([]);
+      onSyncStatusUpdate?.([]);
     } catch (err) {
       console.error('加载同步状态失败:', err);
     }
@@ -229,18 +229,18 @@ export function useContractPermissionChanges(
   };
 }
 
-// 合同权限同步状态 Hook
+// 合同权限同步状态 Hook（简化版）
 export function useContractPermissionSyncStatus() {
   const [syncStatus, setSyncStatus] = useState<ContractPermissionSyncStatus[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadSyncStatus = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const status = await ContractPermissionService.getContractPermissionSyncStatus();
-      setSyncStatus(status);
+      // 简化版：直接设置空状态
+      setSyncStatus([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载同步状态失败');
     } finally {

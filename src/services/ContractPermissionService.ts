@@ -46,52 +46,52 @@ export class ContractPermissionService {
         p_permission_type: permissionType
       });
 
-    if (error) {
+      if (error) {
       console.error('检查合同权限失败:', error);
       throw error;
-    }
+      }
 
-    return data || false;
+      return data || false;
   }
 
   // 获取合同的所有权限
   static async getContractPermissions(contractId: string): Promise<ContractPermission[]> {
-    const { data, error } = await supabase
+      const { data, error } = await supabase
       .rpc('get_contract_permissions', {
         p_contract_id: contractId
       });
 
-    if (error) {
+      if (error) {
       console.error('获取合同权限失败:', error);
       throw error;
-    }
+      }
 
-    return data || [];
+      return data || [];
   }
 
   // 获取合同所有者权限
   static async getContractOwnerPermissions(contractId: string): Promise<ContractOwnerPermission[]> {
-    const { data, error } = await supabase
+      const { data, error } = await supabase
       .rpc('get_contract_owner_permissions', {
         p_contract_id: contractId
       });
 
-    if (error) {
+      if (error) {
       console.error('获取合同所有者权限失败:', error);
       throw error;
-    }
+      }
 
-    return data || [];
+      return data || [];
   }
 
   // 获取合同分类权限模板
   static async getCategoryPermissionTemplates(category?: string): Promise<CategoryPermissionTemplate[]> {
-    const { data, error } = await supabase
+      const { data, error } = await supabase
       .rpc('get_contract_category_permission_templates', {
         p_category: category
       });
 
-    if (error) {
+      if (error) {
       console.error('获取分类权限模板失败:', error);
       throw error;
     }
@@ -101,7 +101,7 @@ export class ContractPermissionService {
 
   // 创建合同权限
   static async createContractPermission(params: CreateContractPermissionParams): Promise<string> {
-    const { data, error } = await supabase
+      const { data, error } = await supabase
       .rpc('create_contract_permission', {
         p_contract_id: params.contract_id,
         p_user_id: params.user_id,
@@ -112,12 +112,12 @@ export class ContractPermissionService {
         p_description: params.description
       });
 
-    if (error) {
+      if (error) {
       console.error('创建合同权限失败:', error);
       throw error;
-    }
+      }
 
-    return data;
+      return data;
   }
 
   // 更新合同权限
@@ -131,7 +131,7 @@ export class ContractPermissionService {
         p_is_active: params.is_active
       });
 
-    if (error) {
+      if (error) {
       console.error('更新合同权限失败:', error);
       throw error;
     }
@@ -141,12 +141,12 @@ export class ContractPermissionService {
 
   // 删除合同权限
   static async deleteContractPermission(permissionId: string): Promise<boolean> {
-    const { data, error } = await supabase
+      const { data, error } = await supabase
       .rpc('delete_contract_permission', {
         p_permission_id: permissionId
       });
 
-    if (error) {
+      if (error) {
       console.error('删除合同权限失败:', error);
       throw error;
     }
@@ -177,12 +177,12 @@ export class ContractPermissionService {
 
   // 获取权限统计信息
   static async getContractPermissionStats(contractId?: string): Promise<ContractPermissionStats> {
-    const { data, error } = await supabase
+      const { data, error } = await supabase
       .rpc('get_contract_permission_stats', {
         p_contract_id: contractId
       });
 
-    if (error) {
+      if (error) {
       console.error('获取权限统计失败:', error);
       throw error;
     }
@@ -202,15 +202,15 @@ export class ContractPermissionService {
 
   // 获取权限同步状态
   static async getContractPermissionSyncStatus(): Promise<ContractPermissionSyncStatus[]> {
-    const { data, error } = await supabase
+      const { data, error } = await supabase
       .rpc('get_contract_permission_sync_status');
 
-    if (error) {
+      if (error) {
       console.error('获取权限同步状态失败:', error);
       throw error;
-    }
+      }
 
-    return data || [];
+      return data || [];
   }
 
   // 刷新权限缓存
@@ -218,7 +218,7 @@ export class ContractPermissionService {
     const { error } = await supabase
       .rpc('refresh_contract_permission_cache');
 
-    if (error) {
+      if (error) {
       console.error('刷新权限缓存失败:', error);
       throw error;
     }
@@ -374,3 +374,6 @@ export class ContractPermissionService {
 }
 
 export default ContractPermissionService;
+
+// 同时提供命名导出
+export { ContractPermissionService };

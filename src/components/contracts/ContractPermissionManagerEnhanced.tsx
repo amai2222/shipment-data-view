@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ContractPermission, ContractOwnerPermission, CategoryPermissionTemplate } from '@/types/permissions';
-import ContractPermissionService from '@/services/contractPermissionService';
+import { ContractPermissionServiceSimple as ContractPermissionService } from '@/services/contractPermissionServiceSimple';
 import { useContractPermissionRealtime } from '@/hooks/useContractPermissionRealtime';
 
 interface ContractPermissionManagerProps {
