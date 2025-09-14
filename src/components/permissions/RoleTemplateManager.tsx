@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +43,9 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
     data_permissions: [] as string[]
   });
 
+  // 滚动位置保持
+  const scrollAreaRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   // 创建新模板
   const handleCreateTemplate = async () => {
     try {
@@ -85,17 +88,34 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
   // 更新模板
   const handleUpdateTemplate = async () => {
     try {
+      // 验证权限数据
+      if (!newTemplate.menu_permissions || !newTemplate.function_permissions) {
+        toast({
+          title: "数据验证失败",
+          description: "权限数据不完整，请检查配置",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // 使用 upsert 操作，避免更新失败
       const { error } = await supabase
         .from('role_permission_templates')
-        .update({
+        .upsert({
+          role: editingRole,
           menu_permissions: newTemplate.menu_permissions,
           function_permissions: newTemplate.function_permissions,
-          project_permissions: newTemplate.project_permissions,
-          data_permissions: newTemplate.data_permissions
-        })
-        .eq('role', editingRole);
+          project_permissions: newTemplate.project_permissions || [],
+          data_permissions: newTemplate.data_permissions || [],
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'role'
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error('数据库错误详情:', error);
+        throw new Error(`数据库操作失败: ${error.message}`);
+      }
 
       toast({
         title: "更新成功",
@@ -109,7 +129,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
       console.error('更新模板失败:', error);
       toast({
         title: "更新失败",
-        description: "更新角色模板失败",
+        description: error.message || "更新角色模板失败，请重试",
         variant: "destructive"
       });
     }
@@ -212,17 +232,31 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
     };
 
     const handlePermissionToggle = (permissionKey: string, checked: boolean) => {
+      // 保存当前滚动位置
+      const scrollContainer = scrollAreaRefs.current[title];
+      const scrollTop = scrollContainer?.scrollTop || 0;
+      
       if (checked) {
         onSelectionChange([...selectedPermissions, permissionKey]);
       } else {
         onSelectionChange(selectedPermissions.filter(p => p !== permissionKey));
       }
+      
+      // 恢复滚动位置
+      setTimeout(() => {
+        if (scrollContainer) {
+          scrollContainer.scrollTop = scrollTop;
+        }
+      }, 0);
     };
 
     return (
       <div className="space-y-4">
         <h4 className="font-medium">{title}</h4>
-        <div className="space-y-2">
+        <div 
+          ref={(el) => scrollAreaRefs.current[title] = el}
+          className="space-y-2 max-h-64 overflow-y-auto"
+        >
           {permissions.map(group => (
             <div key={group.key} className="space-y-2">
               <div className="flex items-center space-x-2">

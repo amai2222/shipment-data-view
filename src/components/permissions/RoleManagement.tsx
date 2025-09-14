@@ -96,21 +96,16 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
         is_system: true
       };
 
-      if (existingTemplate) {
-        // 更新现有模板
-        const { error } = await supabase
-          .from('role_permission_templates')
-          .update(permissionData)
-          .eq('id', existingTemplate.id);
+      // 使用 upsert 操作，避免更新失败
+      const { error } = await supabase
+        .from('role_permission_templates')
+        .upsert(permissionData, {
+          onConflict: 'role'
+        });
 
-        if (error) throw error;
-      } else {
-        // 创建新模板
-        const { error } = await supabase
-          .from('role_permission_templates')
-          .insert(permissionData);
-
-        if (error) throw error;
+      if (error) {
+        console.error('数据库错误详情:', error);
+        throw new Error(`数据库操作失败: ${error.message}`);
       }
 
       toast({

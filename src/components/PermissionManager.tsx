@@ -272,37 +272,27 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
       setSaving(true);
       const template = roleTemplates[selectedRole];
       
-      if (template.id) {
-        // 更新现有模板
-        const { error } = await supabase
-          .from('role_permission_templates')
-          .update({
-            menu_permissions: template.menu_permissions,
-            function_permissions: template.function_permissions,
-            project_permissions: template.project_permissions,
-            data_permissions: template.data_permissions,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', template.id);
+      // 使用 upsert 操作，避免更新失败
+      const { error } = await supabase
+        .from('role_permission_templates')
+        .upsert({
+          role: selectedRole,
+          name: ROLES[selectedRole].label,
+          description: ROLES[selectedRole].description,
+          color: ROLES[selectedRole].color,
+          menu_permissions: template.menu_permissions,
+          function_permissions: template.function_permissions,
+          project_permissions: template.project_permissions,
+          data_permissions: template.data_permissions,
+          is_system: true,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'role'
+        });
 
-        if (error) throw error;
-      } else {
-        // 创建新模板
-        const { error } = await supabase
-          .from('role_permission_templates')
-          .insert({
-            role: selectedRole,
-            name: ROLES[selectedRole].label,
-            description: ROLES[selectedRole].description,
-            color: ROLES[selectedRole].color,
-            menu_permissions: template.menu_permissions,
-            function_permissions: template.function_permissions,
-            project_permissions: template.project_permissions,
-            data_permissions: template.data_permissions,
-            is_system: true
-          });
-
-        if (error) throw error;
+      if (error) {
+        console.error('数据库错误详情:', error);
+        throw new Error(`数据库操作失败: ${error.message}`);
       }
 
       toast({
