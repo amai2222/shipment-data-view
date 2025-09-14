@@ -24,7 +24,7 @@ export const INITIAL_FILTERS: LogisticsFilters = {
   driverPhone: "",
 };
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 20; // 默认每页显示20条记录
 
 // [核心修正] 接口定义与后端函数返回的 summary 对象完全匹配
 export interface TotalSummary {
@@ -59,12 +59,23 @@ export function useLogisticsData() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilters, setActiveFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
-  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalCount: 0, pageSize: PAGE_SIZE });
+  const [pagination, setPagination] = useState({ 
+    currentPage: 1, 
+    totalPages: 1, 
+    totalCount: 0, 
+    pageSize: PAGE_SIZE 
+  });
   const [totalSummary, setTotalSummary] = useState<TotalSummary>(INITIAL_SUMMARY);
   const [sortField, setSortField] = useState<string>('auto_number');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  const loadPaginatedRecords = useCallback(async (page: number, filters: LogisticsFilters, currentSortField: string, currentSortDirection: 'asc' | 'desc') => {
+  const loadPaginatedRecords = useCallback(async (
+    page: number, 
+    filters: LogisticsFilters, 
+    currentSortField: string, 
+    currentSortDirection: 'asc' | 'desc',
+    pageSize: number = PAGE_SIZE
+  ) => {
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc('get_logistics_summary_and_records' as any, {
@@ -75,30 +86,24 @@ export function useLogisticsData() {
         p_license_plate: filters.licensePlate || null,
         p_driver_phone: filters.driverPhone || null,
         p_page_number: page,
-        p_page_size: PAGE_SIZE,
+        p_page_size: pageSize,
+        p_sort_field: currentSortField,
+        p_sort_direction: currentSortDirection
       });
 
       if (error) throw error;
       
       const responseData = (data as any) || {};
       
-      const sortedRecords = (responseData.records || []).sort((a: any, b: any) => {
-        const aVal = a[currentSortField] || '';
-        const bVal = b[currentSortField] || '';
-        if (currentSortDirection === 'asc') {
-          return String(aVal).localeCompare(String(bVal));
-        } else {
-          return String(bVal).localeCompare(String(aVal));
-        }
-      });
-      
-      setRecords(sortedRecords);
+      // 数据库已经排序，不需要前端再排序
+      setRecords(responseData.records || []);
       setTotalSummary(responseData.summary || INITIAL_SUMMARY);
       setPagination(prev => ({ 
         ...prev, 
         currentPage: page,
-        totalPages: Math.ceil((responseData.count || 0) / PAGE_SIZE) || 1,
-        totalCount: responseData.count || 0
+        totalPages: Math.ceil((responseData.totalCount || 0) / pageSize) || 1,
+        totalCount: responseData.totalCount || 0,
+        pageSize: pageSize
       }));
 
     } catch (error: any) {
@@ -111,31 +116,48 @@ export function useLogisticsData() {
   }, [toast]);
 
   useEffect(() => {
-    loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection);
-  }, [pagination.currentPage, activeFilters, sortField, sortDirection, loadPaginatedRecords]);
+    loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize);
+  }, [pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize, loadPaginatedRecords]);
 
   const handleSort = useCallback((field: string) => {
-    setSortDirection(prevDirection => sortField === field ? (prevDirection === 'asc' ? 'desc' : 'asc') : 'desc');
-    setSortField(field);
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+    // 排序时重置到第一页
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
   }, [sortField]);
+
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPagination(prev => ({ 
+      ...prev, 
+      pageSize: newPageSize,
+      currentPage: 1, // 改变页面大小时重置到第一页
+      totalPages: Math.ceil(prev.totalCount / newPageSize) || 1
+    }));
+  }, []);
 
   const handleDelete = useCallback(async (id: string) => {
     try {
       const { error } = await supabase.from('logistics_records').delete().eq('id', id);
       if (error) throw error;
+      
       toast({ title: "成功", description: "运单记录已删除" });
-      await loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection);
+      // 重新加载当前页数据
+      await loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize);
     } catch (error: any) {
       toast({ title: "删除失败", description: error.message, variant: "destructive" });
     }
-  }, [toast, loadPaginatedRecords, pagination.currentPage, activeFilters, sortField, sortDirection]);
+  }, [toast, loadPaginatedRecords, pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize]);
 
   const refetch = useCallback(() => {
-    loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection);
-  }, [loadPaginatedRecords, activeFilters, pagination.currentPage, sortField, sortDirection]);
+    loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize);
+  }, [loadPaginatedRecords, activeFilters, pagination.currentPage, sortField, sortDirection, pagination.pageSize]);
 
   return {
     records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch,
-    sortField, sortDirection, handleSort,
+    sortField, sortDirection, handleSort, handlePageSizeChange,
   };
 }

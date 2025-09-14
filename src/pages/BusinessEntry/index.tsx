@@ -86,7 +86,7 @@ const PageSummaryFooter = ({ records }: { records: LogisticsRecord[] }) => {
   );
 };
 
-const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort }: {
+const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, onPageSizeChange }: {
   records: LogisticsRecord[];
   loading: boolean;
   pagination: { currentPage: number; totalPages: number; totalCount: number; pageSize: number; };
@@ -97,6 +97,7 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
   sortField: string;
   sortDirection: 'asc' | 'desc';
   onSort: (field: string) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }) => {
   const { isAdmin } = usePermissions();
 
@@ -120,51 +121,6 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
     if (page >= 1 && page <= pagination.totalPages) {
       setPagination((p: any) => ({ ...p, currentPage: page }));
     }
-  };
-
-  const renderPaginationItems = () => {
-    const { currentPage, totalPages } = pagination;
-    const pageNumbers = [];
-    const maxPagesToShow = 5;
-    const half = Math.floor(maxPagesToShow / 2);
-
-    if (totalPages <= maxPagesToShow + 2) {
-      for (let i = 1; i <= totalPages; i++) {
-        pageNumbers.push(i);
-      }
-    } else {
-      pageNumbers.push(1);
-      if (currentPage > half + 2) {
-        pageNumbers.push(-1); // Ellipsis
-      }
-      let start = Math.max(2, currentPage - half);
-      let end = Math.min(totalPages - 1, currentPage + half);
-      if (currentPage <= half + 1) {
-        end = maxPagesToShow;
-      }
-      if (currentPage >= totalPages - half) {
-        start = totalPages - maxPagesToShow + 1;
-      }
-      for (let i = start; i <= end; i++) {
-        pageNumbers.push(i);
-      }
-      if (currentPage < totalPages - half - 1) {
-        pageNumbers.push(-1); // Ellipsis
-      }
-      pageNumbers.push(totalPages);
-    }
-
-    return pageNumbers.map((page, index) =>
-      page === -1 ? (
-        <PaginationItem key={`ellipsis-${index}`}><PaginationEllipsis /></PaginationItem>
-      ) : (
-        <PaginationItem key={page}>
-          <PaginationLink href="#" onClick={(e) => { e.preventDefault(); handlePageChange(page); }} isActive={currentPage === page}>
-            {page}
-          </PaginationLink>
-        </PaginationItem>
-      )
-    );
   };
 
   return (
@@ -258,35 +214,70 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
           )}
         </TableBody>
       </Table>
-      {/* [核心修正] 调整了此处的 Flexbox 布局并汉化了分页按钮 */}
+      {/* 汉化分页组件 */}
       <div className="flex items-center justify-between p-4 border-t">
         <div className="flex items-center gap-4">
           {records.length > 0 && <PageSummaryFooter records={records} />}
           <div className="text-sm text-muted-foreground whitespace-nowrap">共 {pagination.totalCount} 条记录</div>
         </div>
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious 
-                href="#" 
-                onClick={(e) => { e.preventDefault(); if (pagination.currentPage > 1) handlePageChange(pagination.currentPage - 1); }}
-                className={pagination.currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
-              >
-                上一页
-              </PaginationPrevious>
-            </PaginationItem>
-            {renderPaginationItems()}
-            <PaginationItem>
-              <PaginationNext 
-                href="#" 
-                onClick={(e) => { e.preventDefault(); if (pagination.currentPage < pagination.totalPages) handlePageChange(pagination.currentPage + 1); }}
-                className={pagination.currentPage >= pagination.totalPages ? "pointer-events-none opacity-50" : ""}
-              >
-                下一页
-              </PaginationNext>
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+        
+        <div className="flex items-center gap-4">
+          {/* 每页显示数量选择器 */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">每页显示</span>
+            <Select value={pagination.pageSize.toString()} onValueChange={(value) => onPageSizeChange(parseInt(value))}>
+              <SelectTrigger className="w-20 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-muted-foreground">条</span>
+          </div>
+
+          {/* 分页导航 */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(pagination.currentPage - 1)}
+              disabled={pagination.currentPage <= 1}
+            >
+              上一页
+            </Button>
+            
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-muted-foreground">第</span>
+              <Input
+                type="number"
+                min="1"
+                max={pagination.totalPages}
+                value={pagination.currentPage}
+                onChange={(e) => {
+                  const page = parseInt(e.target.value);
+                  if (page >= 1 && page <= pagination.totalPages) {
+                    handlePageChange(page);
+                  }
+                }}
+                className="w-12 h-8 text-center"
+              />
+              <span className="text-sm text-muted-foreground">页，共 {pagination.totalPages} 页</span>
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(pagination.currentPage + 1)}
+              disabled={pagination.currentPage >= pagination.totalPages}
+            >
+              下一页
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -308,7 +299,7 @@ export default function BusinessEntry() {
   const [uiFilters, setUiFilters] = useState(INITIAL_FILTERS);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
-  const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch, sortField, sortDirection, handleSort } = useLogisticsData();
+  const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch, sortField, sortDirection, handleSort, handlePageSizeChange } = useLogisticsData();
   const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, duplicateActions, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates, setDuplicateActions } = useExcelImport(() => { refetch(); });
   const isSummaryStale = useMemo(() => JSON.stringify(uiFilters) !== JSON.stringify(activeFilters), [uiFilters, activeFilters]);
 
@@ -499,7 +490,7 @@ export default function BusinessEntry() {
       </div>
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
-      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, currentPage: pagination.currentPage, pageSize: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />)}
+      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, currentPage: pagination.currentPage, pageSize: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} />)}
       {isAdmin && <EnhancedImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} duplicateActions={duplicateActions} setDuplicateActions={setDuplicateActions} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
       <LogisticsFormDialog
         isOpen={isFormDialogOpen}
