@@ -55,7 +55,6 @@ export class PermissionDatabaseService {
       .from('role_permission_templates')
       .select('*')
       .eq('role', role)
-      .eq('is_active', true)
       .maybeSingle();
 
     if (error) {
@@ -71,7 +70,6 @@ export class PermissionDatabaseService {
     const { data, error } = await supabase
       .from('role_permission_templates')
       .select('*')
-      .eq('is_active', true)
       .order('role');
 
     if (error) {
