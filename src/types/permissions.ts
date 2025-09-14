@@ -1,135 +1,13 @@
-// 权限系统类型定义
+// 共享类型定义
+export type UserRole = "admin" | "finance" | "business" | "partner" | "operator" | "viewer";
 
-// 用户角色枚举
-export type UserRole = 'admin' | 'finance' | 'business' | 'operator' | 'partner' | 'viewer';
-
-// 权限类型
-export type PermissionType = 'menu' | 'function' | 'project' | 'data';
-
-// 菜单权限定义
-export interface MenuPermission {
-  key: string;
-  label: string;
-  title: string; // 添加 title 属性
-  group: string;
-  icon?: string;
-  url?: string;
-  children?: MenuPermission[];
-  requiredRoles?: UserRole[];
-}
-
-// 菜单权限子项定义
-export interface MenuPermissionItem {
-  key: string;
-  label: string;
-  url: string;
-  icon: string;
-  group?: string;
-}
-
-// 功能权限定义
-export interface FunctionPermission {
-  key: string;
-  label: string;
-  title: string; // 添加 title 属性
-  group: string;
-  description?: string;
-  requiredRoles?: UserRole[];
-  children?: FunctionPermission[];
-}
-
-// 功能权限子项定义
-export interface FunctionPermissionItem {
-  key: string;
-  label: string;
-  description?: string;
-  group?: string;
-}
-
-// 项目权限定义
-export interface ProjectPermission {
-  key: string;
-  label: string;
-  group: string;
-  description?: string;
-  scope?: 'read' | 'write' | 'admin';
-  children?: ProjectPermission[];
-}
-
-// 项目权限子项定义
-export interface ProjectPermissionItem {
-  key: string;
-  label: string;
-  scope: 'read' | 'write' | 'admin';
-  description?: string;
-  group?: string;
-}
-
-// 数据权限定义
-export interface DataPermission {
-  key: string;
-  label: string;
-  group: string;
-  scope?: 'view' | 'create' | 'edit' | 'delete' | 'export';
-  description?: string;
-  conditions?: string[]; // 数据过滤条件
-  children?: DataPermission[];
-}
-
-// 数据权限子项定义
-export interface DataPermissionItem {
-  key: string;
-  label: string;
-  scope: 'view' | 'create' | 'edit' | 'delete' | 'export';
-  description?: string;
-  group?: string;
-}
-
-// 角色权限模板
-export interface RolePermissionTemplate {
+export interface UserWithPermissions {
   id: string;
+  full_name: string;
+  email: string;
   role: UserRole;
-  name: string;
-  description: string;
-  color: string;
-  menu_permissions: string[];
-  function_permissions: string[];
-  project_permissions: string[];
-  data_permissions: string[];
-  is_system: boolean; // 是否为系统预设角色
-  created_at: string;
-  updated_at: string;
-}
-
-// 用户权限配置
-export interface UserPermission {
-  id: string;
-  user_id: string;
-  project_id?: string; // null表示全局权限
-  menu_permissions: string[];
-  function_permissions: string[];
-  project_permissions: string[];
-  data_permissions: string[];
-  inherit_role: boolean; // 是否继承角色权限
-  custom_settings: Record<string, any> | string | number | boolean | any[]; // 个性化设置，支持多种类型
-  created_at: string;
-  updated_at: string;
-  created_by: string;
-}
-
-// 权限检查结果
-export interface PermissionCheck {
-  hasPermission: boolean;
-  reason?: string;
-  inheritedFrom?: 'role' | 'user' | 'project';
-}
-
-// 权限上下文
-export interface PermissionContext {
-  userId: string;
-  userRole: UserRole;
-  currentProject?: string;
-  permissions: {
+  is_active: boolean;
+  permissions?: {
     menu: string[];
     function: string[];
     project: string[];
@@ -137,39 +15,64 @@ export interface PermissionContext {
   };
 }
 
-// 权限配置表单数据
-export interface PermissionFormData {
-  role: UserRole;
+export interface UserPermissions {
+  menu: string[];
+  function: string[];
+  project: string[];
+  data: string[];
+}
+
+export interface RoleTemplate {
+  role: string;
   menu_permissions: string[];
   function_permissions: string[];
   project_permissions: string[];
   data_permissions: string[];
 }
 
-// 用户权限表单数据
-export interface UserPermissionFormData {
-  user_id: string;
-  project_id?: string;
-  inherit_role: boolean;
-  menu_permissions: string[];
-  function_permissions: string[];
-  project_permissions: string[];
-  data_permissions: string[];
-  custom_settings: Record<string, any>;
-}
-
-// 权限审计日志
-export interface PermissionAuditLog {
+export interface ContractPermission {
   id: string;
-  user_id: string;
-  action: 'grant' | 'revoke' | 'modify' | 'inherit';
-  permission_type: PermissionType;
-  permission_key: string;
-  target_user_id?: string;
-  target_project_id?: string;
-  old_value?: any;
-  new_value?: any;
-  reason?: string;
+  contract_id: string;
+  user_id?: string;
+  role_id?: string;
+  department_id?: string;
+  permission_type: 'view' | 'download' | 'edit' | 'delete' | 'manage' | 'sensitive' | 'approve' | 'archive' | 'audit';
+  granted_by?: string;
+  granted_at: string;
+  expires_at?: string;
+  is_active: boolean;
   created_at: string;
-  created_by: string;
+  updated_at: string;
+  // 关联信息
+  contract_number?: string;
+  counterparty_company?: string;
+  our_company?: string;
+  category?: '行政合同' | '内部合同' | '业务合同';
+  user_name?: string;
+  role_name?: string;
+  department_name?: string;
+  granter_name?: string;
+}
+
+export interface ContractOwnerPermission {
+  id: string;
+  contract_id: string;
+  owner_id: string;
+  granted_at: string;
+  is_active: boolean;
+  contract_number?: string;
+  category?: string;
+  counterparty_company?: string;
+  owner_name?: string;
+  owner_email?: string;
+}
+
+export interface CategoryPermissionTemplate {
+  id: string;
+  category: '行政合同' | '内部合同' | '业务合同';
+  role: string;
+  permissions: string[];
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
 }

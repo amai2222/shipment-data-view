@@ -17,7 +17,20 @@ import { PermissionConfiguration } from './permissions/PermissionConfiguration';
 import { RoleTemplateManager } from './permissions/RoleTemplateManager';
 import { ContractPermissionManager } from './contracts/ContractPermissionManagerEnhanced';
 import { PermissionQuickActions } from './PermissionQuickActions';
-import { UserWithPermissions, RoleTemplate } from '@/types/permissions';
+
+interface UserWithPermissions {
+  id: string;
+  full_name: string;
+  email: string;
+  role: "admin" | "finance" | "business" | "partner" | "operator" | "viewer";
+  is_active: boolean;
+  permissions?: {
+    menu: string[];
+    function: string[];
+    project: string[];
+    data: string[];
+  };
+}
 
 export function IntegratedUserPermissionManager() {
   const { toast } = useToast();
@@ -126,10 +139,6 @@ export function IntegratedUserPermissionManager() {
         onSave={handleSavePermissions}
         onReload={handleLoadData}
         users={usersWithPermissions}
-        selectedUsers={selectedUsers}
-        onBulkPermissionUpdate={() => {}}
-        onCopyPermissions={() => {}}
-        onResetToRole={() => {}}
       />
 
       {/* 主要内容区域 */}

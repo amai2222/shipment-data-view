@@ -23,16 +23,19 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 interface PermissionQuickActionsProps {
-  selectedUsers: string[];
-  onBulkPermissionUpdate: (action: string, data: any) => void;
-  onCopyPermissions: (fromUserId: string, toUserIds: string[]) => void;
-  onResetToRole: (userIds: string[]) => void;
+  hasChanges: boolean;
+  onSave: () => void;
+  onReload: () => void;
   users: Array<{
     id: string;
     full_name: string;
     email: string;
     role: string;
   }>;
+  selectedUsers: string[];
+  onBulkPermissionUpdate: (action: string, data: any) => void;
+  onCopyPermissions: (fromUserId: string, toUserIds: string[]) => void;
+  onResetToRole: (userIds: string[]) => void;
 }
 
 // 预设权限模板
@@ -76,11 +79,14 @@ const permissionTemplates = {
 };
 
 export function PermissionQuickActions({ 
+  hasChanges,
+  onSave,
+  onReload,
+  users,
   selectedUsers, 
   onBulkPermissionUpdate, 
   onCopyPermissions, 
-  onResetToRole,
-  users 
+  onResetToRole 
 }: PermissionQuickActionsProps) {
   const { toast } = useToast();
   const [showBulkDialog, setShowBulkDialog] = useState(false);
