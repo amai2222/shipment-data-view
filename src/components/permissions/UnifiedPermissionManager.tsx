@@ -26,7 +26,7 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
   // 数据状态
   const [users, setUsers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
-  const [roleTemplates, setRoleTemplates] = useState<any[]>([]);
+  const [roleTemplates, setRoleTemplates] = useState<Record<string, any>>({});
   const [userPermissions, setUserPermissions] = useState<any[]>([]);
 
   // 加载数据
@@ -41,7 +41,7 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
       const [usersResult, projectsResult, roleTemplatesResult, userPermissionsResult] = await Promise.all([
         supabase.from('profiles').select('id, full_name, email, role').order('full_name'),
         supabase.from('projects').select('id, name').order('name'),
-        supabase.from('role_permission_templates').select('*').order('updated_at', { ascending: false }),
+        supabase.from('role_permission_templates').select('*').order('role', { ascending: true }),
         supabase.from('user_permissions').select('*')
       ]);
 
@@ -52,7 +52,14 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
 
       setUsers(usersResult.data || []);
       setProjects(projectsResult.data || []);
-      setRoleTemplates(roleTemplatesResult.data || []);
+      
+      // 将数组格式转换为对象格式，以role为键
+      const templateMap = (roleTemplatesResult.data || []).reduce((acc, template) => {
+        acc[template.role] = template;
+        return acc;
+      }, {});
+      setRoleTemplates(templateMap);
+      
       setUserPermissions(userPermissionsResult.data || []);
 
       // 强制刷新时输出调试信息
@@ -199,7 +206,7 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
 
         <TabsContent value="roles" className="space-y-4">
           <RoleManagement 
-            roleTemplates={roleTemplates}
+            roleTemplates={Object.values(roleTemplates)}
             onDataChange={handleDataChange}
           />
         </TabsContent>
@@ -224,7 +231,7 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
 
         <TabsContent value="templates" className="space-y-4">
           <PermissionTemplates 
-            roleTemplates={roleTemplates}
+            roleTemplates={Object.values(roleTemplates)}
             onDataChange={handleDataChange}
           />
         </TabsContent>
@@ -232,7 +239,7 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
         <TabsContent value="visualization" className="space-y-4">
           <PermissionVisualization 
             users={users}
-            roleTemplates={roleTemplates}
+            roleTemplates={Object.values(roleTemplates)}
             userPermissions={userPermissions}
           />
         </TabsContent>
