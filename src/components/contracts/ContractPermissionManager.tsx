@@ -497,8 +497,11 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {permissions.map((permission) => (
-                  <TableRow key={permission.id}>
+                {(permissions || []).map((permission) => {
+                  if (!permission) return null;
+                  
+                  return (
+                    <TableRow key={permission.id}>
                     <TableCell>
                       <div className="text-sm">
                         <div className="font-mono">{permission.contract_number}</div>
@@ -565,7 +568,8 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

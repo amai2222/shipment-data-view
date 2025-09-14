@@ -43,6 +43,7 @@ export interface ContractPermission {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  description?: string;
   // 关联信息
   contract_number?: string;
   counterparty_company?: string;
@@ -58,6 +59,7 @@ export interface ContractOwnerPermission {
   id: string;
   contract_id: string;
   owner_id: string;
+  permissions: string[];
   granted_at: string;
   is_active: boolean;
   contract_number?: string;
@@ -70,9 +72,73 @@ export interface ContractOwnerPermission {
 export interface CategoryPermissionTemplate {
   id: string;
   category: '行政合同' | '内部合同' | '业务合同';
-  role: string;
-  permissions: string[];
-  is_default: boolean;
+  template_name: string;
+  description?: string;
+  default_permissions: string[];
+  role_permissions: Record<string, string[]>;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// 新增：合同权限实时订阅相关类型
+export interface ContractPermissionChange {
+  table: string;
+  operation: 'INSERT' | 'UPDATE' | 'DELETE';
+  contract_id?: string;
+  user_id?: string;
+  role_id?: string;
+  department_id?: string;
+  permission_type?: string;
+  timestamp: string;
+}
+
+export interface ContractPermissionSyncStatus {
+  table_name: string;
+  last_sync: string;
+  sync_count: number;
+  minutes_since_sync: number;
+}
+
+export interface ContractPermissionStats {
+  total_permissions: number;
+  active_permissions: number;
+  expired_permissions: number;
+  user_permissions: number;
+  role_permissions: number;
+  department_permissions: number;
+  owner_permissions: number;
+  by_permission_type: Record<string, number>;
+  by_category: Record<string, number>;
+}
+
+// 新增：合同权限查询参数
+export interface ContractPermissionQuery {
+  contract_id?: string;
+  user_id?: string;
+  role_id?: string;
+  department_id?: string;
+  permission_type?: string;
+  is_active?: boolean;
+  expires_at?: string;
+}
+
+// 新增：合同权限创建参数
+export interface CreateContractPermissionParams {
+  contract_id: string;
+  user_id?: string;
+  role_id?: string;
+  department_id?: string;
+  permission_type: ContractPermission['permission_type'];
+  expires_at?: string;
+  description?: string;
+}
+
+// 新增：合同权限更新参数
+export interface UpdateContractPermissionParams {
+  permission_id: string;
+  permission_type?: ContractPermission['permission_type'];
+  expires_at?: string;
+  description?: string;
+  is_active?: boolean;
 }

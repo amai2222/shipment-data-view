@@ -728,7 +728,9 @@ export function ContractPermissionManager({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPermissions.map((permission) => {
+                {(filteredPermissions || []).map((permission) => {
+                  if (!permission) return null;
+                  
                   const typeInfo = getPermissionTypeInfo(permission.permission_type);
                   const isExpired = permission.expires_at && new Date(permission.expires_at) < new Date();
                   

@@ -32,10 +32,15 @@ import {
   Settings,
   Crown,
   FileText,
-  Building2
+  Building2,
+  RefreshCw,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ContractPermission, ContractOwnerPermission, CategoryPermissionTemplate } from '@/types/permissions';
+import ContractPermissionService from '@/services/contractPermissionService';
+import { useContractPermissionRealtime } from '@/hooks/useContractPermissionRealtime';
 
 interface ContractPermissionManagerProps {
   contractId?: string;
@@ -106,6 +111,16 @@ export function ContractPermissionManager({
     { value: '业务合同', label: '业务合同', icon: FileText, color: 'bg-purple-100 text-purple-800' }
   ];
 
+  // 实时订阅状态
+  const { isConnected, lastChange, error: realtimeError, reconnect } = useContractPermissionRealtime({
+    onPermissionChange: (change) => {
+      console.log('权限变更:', change);
+      // 重新加载数据
+      loadAllData();
+      onPermissionUpdate?.();
+    }
+  });
+
   // 加载数据
   useEffect(() => {
     loadAllData();
@@ -134,73 +149,78 @@ export function ContractPermissionManager({
 
   const loadPermissions = async () => {
     try {
-      let query = supabase
-        .from('contract_permissions')
-        .select(`
-          *,
-          contracts!inner(contract_number, counterparty_company, our_company, category),
-          profiles!contract_permissions_user_id_fkey(full_name, email),
-          granter:profiles!contract_permissions_granted_by_fkey(full_name)
-        `)
-        .order('created_at', { ascending: false });
-
       if (contractId) {
-        query = query.eq('contract_id', contractId);
-      }
+        // 获取特定合同的权限
+        const data = await ContractPermissionService.getContractPermissions(contractId);
+        setPermissions(data || []);
+      } else {
+        // 获取所有权限（使用传统查询）
+        let query = supabase
+          .from('contract_permissions')
+          .select(`
+            *,
+            contracts!inner(contract_number, counterparty_company, our_company, category),
+            profiles!contract_permissions_user_id_fkey(full_name, email),
+            granter:profiles!contract_permissions_granted_by_fkey(full_name)
+          `)
+          .order('created_at', { ascending: false });
 
-      const { data, error } = await query;
+        const { data, error } = await query;
 
-      if (error) {
-        console.error('加载权限失败:', error);
-        if (error.message.includes('relation "contract_permissions" does not exist')) {
-          toast({
-            title: "提示",
-            description: "合同权限表尚未创建，请联系管理员",
-            variant: "destructive"
-          });
+        if (error) {
+          console.error('加载权限失败:', error);
+          if (error.message.includes('relation "contract_permissions" does not exist')) {
+            toast({
+              title: "提示",
+              description: "合同权限表尚未创建，请联系管理员",
+              variant: "destructive"
+            });
+          }
+          setPermissions([]);
+          return;
         }
-        return;
-      }
 
-      setPermissions(data || []);
+        setPermissions(data || []);
+      }
     } catch (error) {
       console.error('加载权限失败:', error);
+      setPermissions([]);
     }
   };
 
   const loadOwnerPermissions = async () => {
     try {
-      const { data, error } = await supabase
-        .from('contract_owner_permission_summary')
-        .select('*')
-        .order('granted_at', { ascending: false });
+      if (contractId) {
+        const data = await ContractPermissionService.getContractOwnerPermissions(contractId);
+        setOwnerPermissions(data || []);
+      } else {
+        // 获取所有所有者权限
+        const { data, error } = await supabase
+          .from('contract_owner_permission_summary')
+          .select('*')
+          .order('granted_at', { ascending: false });
 
-      if (error) {
-        console.error('加载所有者权限失败:', error);
-        return;
+        if (error) {
+          console.error('加载所有者权限失败:', error);
+          setOwnerPermissions([]);
+          return;
+        }
+
+        setOwnerPermissions(data || []);
       }
-
-      setOwnerPermissions(data || []);
     } catch (error) {
       console.error('加载所有者权限失败:', error);
+      setOwnerPermissions([]);
     }
   };
 
   const loadCategoryTemplates = async () => {
     try {
-      const { data, error } = await supabase
-        .from('contract_category_permission_templates')
-        .select('*')
-        .order('category', { ascending: true });
-
-      if (error) {
-        console.error('加载分类模板失败:', error);
-        return;
-      }
-
+      const data = await ContractPermissionService.getCategoryPermissionTemplates();
       setCategoryTemplates(data || []);
     } catch (error) {
       console.error('加载分类模板失败:', error);
+      setCategoryTemplates([]);
     }
   };
 
@@ -217,36 +237,45 @@ export function ContractPermissionManager({
       setRoles(rolesRes.data || []);
     } catch (error) {
       console.error('加载参考数据失败:', error);
+      setContracts([]);
+      setUsers([]);
+      setRoles([]);
     }
   };
 
   // 权限统计
   const permissionStats = useMemo(() => {
+    const safePermissions = permissions || [];
+    const safeOwnerPermissions = ownerPermissions || [];
+    
     const stats = {
-      total: permissions.length,
-      active: permissions.filter(p => p.is_active).length,
-      expired: permissions.filter(p => p.expires_at && new Date(p.expires_at) < new Date()).length,
+      total: safePermissions.length,
+      active: safePermissions.filter(p => p?.is_active).length,
+      expired: safePermissions.filter(p => p?.expires_at && new Date(p.expires_at) < new Date()).length,
       byType: permissionTypes.reduce((acc, type) => {
-        acc[type.value] = permissions.filter(p => p.permission_type === type.value).length;
+        acc[type.value] = safePermissions.filter(p => p?.permission_type === type.value).length;
         return acc;
       }, {} as Record<string, number>),
       byCategory: contractCategories.reduce((acc, category) => {
-        acc[category.value] = permissions.filter(p => p.category === category.value).length;
+        acc[category.value] = safePermissions.filter(p => p?.category === category.value).length;
         return acc;
       }, {} as Record<string, number>),
       byTarget: {
-        user: permissions.filter(p => p.user_id).length,
-        role: permissions.filter(p => p.role_id).length,
-        department: permissions.filter(p => p.department_id).length
+        user: safePermissions.filter(p => p?.user_id).length,
+        role: safePermissions.filter(p => p?.role_id).length,
+        department: safePermissions.filter(p => p?.department_id).length
       },
-      ownerCount: ownerPermissions.length
+      ownerCount: safeOwnerPermissions.length
     };
     return stats;
   }, [permissions, ownerPermissions]);
 
   // 筛选权限
   const filteredPermissions = useMemo(() => {
-    return permissions.filter(permission => {
+    const safePermissions = permissions || [];
+    return safePermissions.filter(permission => {
+      if (!permission) return false;
+      
       // 搜索筛选
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -296,15 +325,16 @@ export function ContractPermissionManager({
         return;
       }
 
-      const { error } = await supabase
-        .from('contract_permissions')
-        .insert({
-          ...formData,
-          granted_by: (await supabase.auth.getUser()).data.user?.id,
-          expires_at: formData.expires_at || null
-        });
-
-      if (error) throw error;
+      // 使用服务层创建权限
+      await ContractPermissionService.createContractPermission({
+        contract_id: formData.contract_id,
+        user_id: formData.user_id || undefined,
+        role_id: formData.role_id || undefined,
+        department_id: formData.department_id || undefined,
+        permission_type: formData.permission_type,
+        expires_at: formData.expires_at || undefined,
+        description: formData.description || undefined
+      });
 
       toast({
         title: "创建成功",
@@ -405,6 +435,42 @@ export function ContractPermissionManager({
 
   return (
     <div className="space-y-6">
+      {/* 实时连接状态 */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isConnected ? (
+                <Wifi className="h-4 w-4 text-green-500" />
+              ) : (
+                <WifiOff className="h-4 w-4 text-red-500" />
+              )}
+              <span className="text-sm">
+                {isConnected ? '实时连接已建立' : '实时连接已断开'}
+              </span>
+              {lastChange && (
+                <span className="text-xs text-muted-foreground">
+                  最后更新: {format(new Date(lastChange.timestamp), 'HH:mm:ss')}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {realtimeError && (
+                <span className="text-xs text-red-500">{realtimeError}</span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={reconnect}
+                disabled={isConnected}
+              >
+                <RefreshCw className="h-4 w-4" />
+                重连
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       {/* 权限统计面板 */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
@@ -518,7 +584,7 @@ export function ContractPermissionManager({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">请选择合同</SelectItem>
-                            {contracts.map(contract => (
+                            {(contracts || []).map(contract => (
                               <SelectItem key={contract.id} value={contract.id}>
                                 {contract.contract_number} - {contract.counterparty_company} ({contract.category})
                               </SelectItem>
@@ -544,7 +610,7 @@ export function ContractPermissionManager({
                               <SelectValue placeholder="选择用户" />
                             </SelectTrigger>
                             <SelectContent>
-                              {users.map(user => (
+                              {(users || []).map(user => (
                                 <SelectItem key={user.id} value={user.id}>
                                   {user.full_name} ({user.email})
                                 </SelectItem>
@@ -562,7 +628,7 @@ export function ContractPermissionManager({
                               <SelectValue placeholder="选择角色" />
                             </SelectTrigger>
                             <SelectContent>
-                              {roles.map(role => (
+                              {(roles || []).map(role => (
                                 <SelectItem key={role.role} value={role.role}>
                                   {role.role}
                                 </SelectItem>
@@ -592,7 +658,7 @@ export function ContractPermissionManager({
                       <div className="space-y-2">
                         <Label>权限类型</Label>
                         <div className="grid grid-cols-3 gap-2">
-                          {permissionTypes.map(type => (
+                          {(permissionTypes || []).map(type => (
                             <div key={type.value} className="flex items-center space-x-2">
                               <Checkbox
                                 id={type.value}
@@ -656,7 +722,7 @@ export function ContractPermissionManager({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全部类型</SelectItem>
-                    {permissionTypes.map(type => (
+                    {(permissionTypes || []).map(type => (
                       <SelectItem key={type.value} value={type.value}>
                         {type.label}
                       </SelectItem>
@@ -669,7 +735,7 @@ export function ContractPermissionManager({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全部分类</SelectItem>
-                    {contractCategories.map(category => (
+                    {(contractCategories || []).map(category => (
                       <SelectItem key={category.value} value={category.value}>
                         {category.label}
                       </SelectItem>
@@ -721,7 +787,9 @@ export function ContractPermissionManager({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredPermissions.map((permission) => {
+                    {(filteredPermissions || []).map((permission) => {
+                      if (!permission) return null;
+                      
                       const typeInfo = getPermissionTypeInfo(permission.permission_type);
                       const categoryInfo = getCategoryInfo(permission.category || '');
                       const isExpired = permission.expires_at && new Date(permission.expires_at) < new Date();
@@ -831,7 +899,7 @@ export function ContractPermissionManager({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {ownerPermissions.length === 0 ? (
+              {(ownerPermissions || []).length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Crown className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>暂无所有者权限记录</p>
@@ -848,7 +916,9 @@ export function ContractPermissionManager({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {ownerPermissions.map((owner) => {
+                    {(ownerPermissions || []).map((owner) => {
+                      if (!owner) return null;
+                      
                       const categoryInfo = getCategoryInfo(owner.category || '');
                       
                       return (
@@ -913,15 +983,15 @@ export function ContractPermissionManager({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {categoryTemplates.length === 0 ? (
+              {(categoryTemplates || []).length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>暂无分类权限模板</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {contractCategories.map(category => {
-                    const templates = categoryTemplates.filter(t => t.category === category.value);
+                  {(contractCategories || []).map(category => {
+                    const templates = (categoryTemplates || []).filter(t => t?.category === category.value);
                     
                     return (
                       <Card key={category.value}>
@@ -933,31 +1003,35 @@ export function ContractPermissionManager({
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-3">
-                            {templates.map(template => (
-                              <div key={template.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                <div className="flex items-center gap-3">
-                                  <Badge variant="outline">{template.role}</Badge>
-                                  <div className="flex gap-1">
-                                    {template.permissions.map(permission => {
-                                      const typeInfo = getPermissionTypeInfo(permission);
-                                      return (
-                                        <Badge key={permission} className={typeInfo.color}>
-                                          <typeInfo.icon className="h-3 w-3 mr-1" />
-                                          {typeInfo.label}
-                                        </Badge>
-                                      );
-                                    })}
+                            {(templates || []).map(template => {
+                              if (!template) return null;
+                              
+                              return (
+                                <div key={template.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                  <div className="flex items-center gap-3">
+                                    <Badge variant="outline">{template.role}</Badge>
+                                    <div className="flex gap-1">
+                                      {(template.permissions || []).map(permission => {
+                                        const typeInfo = getPermissionTypeInfo(permission);
+                                        return (
+                                          <Badge key={permission} className={typeInfo.color}>
+                                            <typeInfo.icon className="h-3 w-3 mr-1" />
+                                            {typeInfo.label}
+                                          </Badge>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setShowCategoryTemplateDialog(true)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setShowCategoryTemplateDialog(true)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </CardContent>
                       </Card>

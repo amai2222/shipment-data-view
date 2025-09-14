@@ -540,8 +540,11 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {permissions.map((permission) => (
-                  <TableRow key={permission.id}>
+                {(permissions || []).map((permission) => {
+                  if (!permission) return null;
+                  
+                  return (
+                    <TableRow key={permission.id}>
                     <TableCell>
                       <div className="flex items-center space-x-2">
                         {permission.user_id ? (
@@ -637,7 +640,8 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
