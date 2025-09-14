@@ -222,11 +222,14 @@ export function PermissionConfigDialog({
   };
 
   const handleSelectAll = (category: string) => {
-    const allPermissions = mockPermissions[category as keyof typeof mockPermissions].map(p => p.id);
-    setSelectedPermissions(prev => ({
-      ...prev,
-      [category]: allPermissions
-    }));
+    const categoryPermissions = mockPermissions[category as keyof typeof mockPermissions];
+    if (categoryPermissions && Array.isArray(categoryPermissions)) {
+      const allPermissions = categoryPermissions.map(p => p.id);
+      setSelectedPermissions(prev => ({
+        ...prev,
+        [category]: allPermissions
+      }));
+    }
   };
 
   const handleDeselectAll = (category: string) => {
@@ -344,7 +347,7 @@ export function PermissionConfigDialog({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {mockPermissions.menu.map(permission => (
+                    {(mockPermissions.menu || []).map(permission => (
                       <div key={permission.id} className="flex items-center space-x-3">
                         <Checkbox
                           id={permission.id}
@@ -396,7 +399,7 @@ export function PermissionConfigDialog({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {mockPermissions.function.map(permission => (
+                    {(mockPermissions.function || []).map(permission => (
                       <div key={permission.id} className="flex items-center space-x-3">
                         <Checkbox
                           id={permission.id}
@@ -448,7 +451,7 @@ export function PermissionConfigDialog({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {mockPermissions.project.map(permission => (
+                    {(mockPermissions.project || []).map(permission => (
                       <div key={permission.id} className="flex items-center space-x-3">
                         <Checkbox
                           id={permission.id}
@@ -500,7 +503,7 @@ export function PermissionConfigDialog({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {mockPermissions.data.map(permission => (
+                    {(mockPermissions.data || []).map(permission => (
                       <div key={permission.id} className="flex items-center space-x-3">
                         <Checkbox
                           id={permission.id}

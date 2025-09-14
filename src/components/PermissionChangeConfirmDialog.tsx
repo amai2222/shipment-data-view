@@ -102,11 +102,11 @@ export function PermissionChangeConfirmDialog({
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
-                {changes.reduce((acc, change) => {
+                {Object.entries(changes.reduce((acc, change) => {
                   const type = change.type;
                   acc[type] = (acc[type] || 0) + 1;
                   return acc;
-                }, {} as Record<string, number>).map(([type, count]) => (
+                }, {} as Record<string, number>)).map(([type, count]) => (
                   <div key={type} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-2">
                       {getChangeIcon(type)}
