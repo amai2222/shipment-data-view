@@ -462,6 +462,7 @@ export function UserManagement({
                   <TableHead>用户信息</TableHead>
                   <TableHead>角色</TableHead>
                   <TableHead>状态</TableHead>
+                  <TableHead>企业微信</TableHead>
                   <TableHead>权限统计</TableHead>
                   <TableHead>最后登录</TableHead>
                   <TableHead>操作</TableHead>
@@ -501,6 +502,19 @@ export function UserManagement({
                         <Badge variant="outline" className="text-red-700 border-red-300">
                           <XCircle className="h-3 w-3 mr-1" />
                           禁用
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {(user as any).work_wechat_userid ? (
+                        <Badge variant="outline" className="text-green-700 border-green-300">
+                          <Building2 className="h-3 w-3 mr-1" />
+                          已关联
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-gray-500 border-gray-300">
+                          <Building2 className="h-3 w-3 mr-1" />
+                          未关联
                         </Badge>
                       )}
                     </TableCell>

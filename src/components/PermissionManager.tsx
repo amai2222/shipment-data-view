@@ -74,7 +74,7 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
       setLoading(true);
       
       const [usersResult, projectsResult, roleTemplatesResult, userPermissionsResult] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, email, role').order('full_name'),
+        supabase.from('profiles').select('id, full_name, email, role, work_wechat_userid, work_wechat_name').order('full_name'),
         supabase.from('projects').select('id, name').order('name'),
         supabase.from('role_permission_templates').select('*'),
         supabase.from('user_permissions').select('*')

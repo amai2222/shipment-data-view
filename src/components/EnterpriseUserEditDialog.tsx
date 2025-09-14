@@ -41,11 +41,7 @@ interface UserEditForm {
   email: string;
   role: UserRole;
   is_active: boolean;
-  phone?: string;
-  department?: string;
-  position?: string;
-  wechat_id?: string;
-  wechat_name?: string;
+  work_wechat_userid?: string;
   password?: string;
   confirmPassword?: string;
 }
@@ -63,11 +59,7 @@ export function EnterpriseUserEditDialog({
     email: '',
     role: 'viewer',
     is_active: true,
-    phone: '',
-    department: '',
-    position: '',
-    wechat_id: '',
-    wechat_name: '',
+    work_wechat_userid: '',
     password: '',
     confirmPassword: ''
   });
@@ -87,11 +79,7 @@ export function EnterpriseUserEditDialog({
         email: user.email || '',
         role: user.role || 'viewer',
         is_active: user.is_active ?? true,
-        phone: (user as any).phone || '',
-        department: (user as any).department || '',
-        position: (user as any).position || '',
-        wechat_id: (user as any).wechat_id || '',
-        wechat_name: (user as any).wechat_name || '',
+        work_wechat_userid: (user as any).work_wechat_userid || '',
         password: '',
         confirmPassword: ''
       });
@@ -141,11 +129,7 @@ export function EnterpriseUserEditDialog({
           email: pendingChanges.email,
           role: pendingChanges.role,
           is_active: pendingChanges.is_active,
-          phone: pendingChanges.phone,
-          department: pendingChanges.department,
-          position: pendingChanges.position,
-          wechat_id: pendingChanges.wechat_id,
-          wechat_name: pendingChanges.wechat_name,
+          work_wechat_userid: pendingChanges.work_wechat_userid,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
@@ -184,11 +168,7 @@ export function EnterpriseUserEditDialog({
         email: pendingChanges.email,
         role: pendingChanges.role,
         is_active: pendingChanges.is_active,
-        phone: pendingChanges.phone,
-        department: pendingChanges.department,
-        position: pendingChanges.position,
-        wechat_id: pendingChanges.wechat_id,
-        wechat_name: pendingChanges.wechat_name
+        work_wechat_userid: pendingChanges.work_wechat_userid
       };
 
       onSave(updatedUser);
@@ -260,36 +240,6 @@ export function EnterpriseUserEditDialog({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">手机号</Label>
-                    <Input
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) => handleFormChange('phone', e.target.value)}
-                      placeholder="请输入手机号"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="department">部门</Label>
-                    <Input
-                      id="department"
-                      value={formData.department}
-                      onChange={(e) => handleFormChange('department', e.target.value)}
-                      placeholder="请输入部门"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="position">职位</Label>
-                  <Input
-                    id="position"
-                    value={formData.position}
-                    onChange={(e) => handleFormChange('position', e.target.value)}
-                    placeholder="请输入职位"
-                  />
-                </div>
               </CardContent>
             </Card>
 
@@ -345,35 +295,26 @@ export function EnterpriseUserEditDialog({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="wechat_id">企业微信ID</Label>
+                    <Label htmlFor="work_wechat_userid">企业微信ID</Label>
                     <Input
-                      id="wechat_id"
-                      value={formData.wechat_id}
-                      onChange={(e) => handleFormChange('wechat_id', e.target.value)}
+                      id="work_wechat_userid"
+                      value={formData.work_wechat_userid}
+                      onChange={(e) => handleFormChange('work_wechat_userid', e.target.value)}
                       placeholder="请输入企业微信用户ID"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="wechat_name">企业微信昵称</Label>
-                    <Input
-                      id="wechat_name"
-                      value={formData.wechat_name}
-                      onChange={(e) => handleFormChange('wechat_name', e.target.value)}
-                      placeholder="请输入企业微信昵称"
-                    />
-                  </div>
+                  
+                  {formData.work_wechat_userid && (
+                    <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-700">
+                        已关联企业微信账号
+                      </span>
+                    </div>
+                  )}
                 </div>
-                
-                {formData.wechat_id && (
-                  <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-700">
-                      已关联企业微信账号
-                    </span>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
@@ -489,8 +430,8 @@ export function EnterpriseUserEditDialog({
                 {pendingChanges?.password && (
                   <li>• 密码: 已修改</li>
                 )}
-                {pendingChanges?.wechat_id !== (user as any).wechat_id && (
-                  <li>• 企业微信ID: {(user as any).wechat_id || '未设置'} → {pendingChanges?.wechat_id || '未设置'}</li>
+                {pendingChanges?.work_wechat_userid !== (user as any).work_wechat_userid && (
+                  <li>• 企业微信ID: {(user as any).work_wechat_userid || '未设置'} → {pendingChanges?.work_wechat_userid || '未设置'}</li>
                 )}
               </ul>
             </div>
