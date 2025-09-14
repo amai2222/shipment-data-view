@@ -17,8 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 
-import { Project } from './types';
-import { LogisticsRecord, PaginationInfo } from '@/types/rpc';
+import { Project, LogisticsRecord } from './types';
 import { useLogisticsData, INITIAL_FILTERS, TotalSummary, LogisticsFilters } from './hooks/useLogisticsData';
 import { useExcelImport } from './hooks/useExcelImport';
 import { FilterBar } from './components/FilterBar';
@@ -92,7 +91,7 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
   records: LogisticsRecord[];
   loading: boolean;
   pagination: { currentPage: number; totalPages: number; totalCount: number; pageSize: number; };
-  setPagination: React.Dispatch<React.SetStateAction<PaginationInfo>>;
+  setPagination: React.Dispatch<React.SetStateAction<any>>;
   onDelete: (id: string) => void;
   onView: (record: LogisticsRecord) => void;
   onEdit: (record: LogisticsRecord) => void;
@@ -121,7 +120,7 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= pagination.totalPages) {
-      setPagination((p: PaginationInfo) => ({ ...p, currentPage: page }));
+      setPagination((p: any) => ({ ...p, currentPage: page }));
     }
   };
 
@@ -340,7 +339,7 @@ export default function BusinessEntry() {
       const { data, error } = await query.order('created_at', { ascending: false }).limit(10000);
       if (error) throw error;
 
-      const dataToExport = data.map((r: LogisticsRecord) => ({
+      const dataToExport = data.map((r: any) => ({
         '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认', '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone, '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date, '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.payable_cost, '备注': r.remarks,
       }));
       
@@ -349,9 +348,8 @@ export default function BusinessEntry() {
       XLSX.utils.book_append_sheet(wb, ws, "运单记录");
       XLSX.writeFile(wb, "运单记录.xlsx");
       toast({ title: "成功", description: `已成功导出 ${data.length} 条记录！` });
-    } catch(e: unknown) {
-      const errorMessage = e instanceof Error ? e.message : '未知错误';
-      toast({ title: "错误", description: `导出失败: ${errorMessage}`, variant: "destructive" });
+    } catch(e: any) {
+      toast({ title: "错误", description: `导出失败: ${e.message}`, variant: "destructive" });
     }
   };
 

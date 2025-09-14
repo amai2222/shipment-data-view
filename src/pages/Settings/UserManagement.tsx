@@ -126,7 +126,7 @@ export default function UserManagement() {
             full_name: createUserData.full_name,
             role: createUserData.role,
             work_wechat_userid: createUserData.work_wechat_userid || null
-          })
+          } as any)
           .eq('id', authData.user.id);
 
         if (profileError) {
@@ -221,7 +221,7 @@ export default function UserManagement() {
       setLoading(true);
       const { error } = await supabase
         .from('profiles')
-        .update({ is_active: !selectedUser.is_active })
+        .update({ is_active: !selectedUser.is_active } as any)
         .eq('id', selectedUser.id);
 
       if (error) {
@@ -306,7 +306,7 @@ export default function UserManagement() {
       setLoading(true);
       const { error } = await supabase
         .from('profiles')
-        .update({ role })
+        .update({ role } as any)
         .eq('id', userId);
         
       if (error) {

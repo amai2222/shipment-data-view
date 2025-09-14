@@ -5,8 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { 
   Search, 
   Plus, 
@@ -30,15 +28,42 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useMobileLogisticsData, MobileLogisticsRecord } from './hooks/useMobileLogisticsData';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 
-// 移除重复的接口定义，使用Hook中的统一接口
+interface LogisticsRecord {
+  id: string;
+  auto_number: string;
+  project_name: string;
+  driver_name: string;
+  license_plate: string;
+  driver_phone: string;
+  loading_location: string;
+  unloading_location: string;
+  loading_date: string;
+  unloading_date?: string;
+  transport_type: string;
+  loading_weight?: number;
+  unloading_weight?: number;
+  current_cost?: number;
+  extra_cost?: number;
+  payable_cost?: number;
+  payment_status: string;
+  remarks?: string;
+  external_tracking_numbers?: string[];
+  other_platform_names?: string[];
+}
 
 export default function MobileBusinessEntry() {
+  const [records, setRecords] = useState<LogisticsRecord[]>([]);
+  const [filteredRecords, setFilteredRecords] = useState<LogisticsRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRecord, setSelectedRecord] = useState<MobileLogisticsRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<LogisticsRecord | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [sortBy, setSortBy] = useState<'date' | 'project' | 'driver'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterProject, setFilterProject] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   
@@ -46,59 +71,82 @@ export default function MobileBusinessEntry() {
   const { toast } = useToast();
   const { isAdmin } = usePermissions();
 
-  // 使用新的移动端Hook
-  const {
-    records,
-    filteredRecords,
-    loading,
-    activeFilters,
-    totalSummary,
-    sortField,
-    sortDirection,
-    currentPage,
-    pageSize,
-    totalCount,
-    hasMore,
-    handleSort,
-    handleFilterChange,
-    handleLoadMore,
-    handleRefresh,
-    handleDelete,
-    setPageSize
-  } = useMobileLogisticsData();
+  useEffect(() => {
+    loadRecords();
+  }, []);
 
-  // 处理搜索
-  const handleSearch = useCallback((term: string) => {
-    setSearchTerm(term);
-    handleFilterChange({ 
-      projectName: term.includes('项目') ? term : activeFilters.projectName,
-      driverName: term.includes('司机') ? term : activeFilters.driverName,
-      licensePlate: term.includes('车牌') ? term : activeFilters.licensePlate,
-      driverPhone: term.includes('电话') ? term : activeFilters.driverPhone
+  useEffect(() => {
+    filterAndSortRecords();
+  }, [records, searchTerm, sortBy, sortOrder, filterProject, filterStatus]);
+
+  const loadRecords = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('logistics_records')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setRecords(data || []);
+    } catch (error) {
+      console.error('Error loading records:', error);
+      toast({
+        title: "加载失败",
+        description: "无法加载业务记录",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterAndSortRecords = () => {
+    let filtered = [...records];
+
+    // 搜索过滤
+    if (searchTerm) {
+      filtered = filtered.filter(record => 
+        record.auto_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.project_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.driver_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.license_plate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.driver_phone?.includes(searchTerm)
+      );
+    }
+
+    // 项目过滤
+    if (filterProject && filterProject !== 'all') {
+      filtered = filtered.filter(record => record.project_name === filterProject);
+    }
+
+    // 状态过滤
+    if (filterStatus && filterStatus !== 'all') {
+      filtered = filtered.filter(record => record.payment_status === filterStatus);
+    }
+
+    // 排序
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'date':
+          comparison = new Date(a.loading_date).getTime() - new Date(b.loading_date).getTime();
+          break;
+        case 'project':
+          comparison = a.project_name.localeCompare(b.project_name);
+          break;
+        case 'driver':
+          comparison = a.driver_name.localeCompare(b.driver_name);
+          break;
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [handleFilterChange, activeFilters]);
 
-  // 处理项目筛选
-  const handleProjectFilter = useCallback((project: string) => {
-    setFilterProject(project);
-    handleFilterChange({ projectName: project === 'all' ? '' : project });
-  }, [handleFilterChange]);
-
-  // 处理状态筛选
-  const handleStatusFilter = useCallback((status: string) => {
-    setFilterStatus(status);
-    handleFilterChange({ paymentStatus: status === 'all' ? '' : status });
-  }, [handleFilterChange]);
-
-  // 处理排序
-  const handleSortChange = useCallback((field: string) => {
-    handleSort(field);
-  }, [handleSort]);
-
-  // 处理排序方向
-  const handleSortDirection = useCallback(() => {
-    handleSort(sortField);
-  }, [handleSort, sortField]);
+    setFilteredRecords(filtered);
+  };
 
   const formatCurrency = (value?: number) => {
     if (!value) return '¥0.00';
@@ -108,8 +156,7 @@ export default function MobileBusinessEntry() {
     }).format(value);
   };
 
-  const getStatusColor = (status?: string) => {
-    if (!status) return 'bg-gray-100 text-gray-800';
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'Paid': return 'bg-green-100 text-green-800';
       case 'Unpaid': return 'bg-red-100 text-red-800';
@@ -118,8 +165,7 @@ export default function MobileBusinessEntry() {
     }
   };
 
-  const getStatusText = (status?: string) => {
-    if (!status) return '未知';
+  const getStatusText = (status: string) => {
     switch (status) {
       case 'Paid': return '已付款';
       case 'Unpaid': return '未付款';
@@ -162,6 +208,8 @@ export default function MobileBusinessEntry() {
     }
   };
 
+  const uniqueProjects = [...new Set(records.map(r => r.project_name))];
+  const uniqueStatuses = [...new Set(records.map(r => r.payment_status))];
 
   if (loading) {
     return (
@@ -201,7 +249,7 @@ export default function MobileBusinessEntry() {
             <Input
               placeholder="搜索运单号、项目、司机或车牌..."
               value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
@@ -222,13 +270,13 @@ export default function MobileBusinessEntry() {
                 <div className="p-4 space-y-4">
                   <div>
                     <label className="text-sm font-medium mb-2 block">项目筛选</label>
-                    <Select value={filterProject} onValueChange={handleProjectFilter}>
+                    <Select value={filterProject} onValueChange={setFilterProject}>
                       <SelectTrigger>
                         <SelectValue placeholder="选择项目" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">全部项目</SelectItem>
-                        {[...new Set(records.map(r => r.project_name))].map(project => (
+                        {uniqueProjects.map(project => (
                           <SelectItem key={project} value={project}>
                             {project}
                           </SelectItem>
@@ -239,13 +287,13 @@ export default function MobileBusinessEntry() {
 
                   <div>
                     <label className="text-sm font-medium mb-2 block">付款状态</label>
-                    <Select value={filterStatus} onValueChange={handleStatusFilter}>
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
                       <SelectTrigger>
                         <SelectValue placeholder="选择状态" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">全部状态</SelectItem>
-                        {[...new Set(records.map(r => r.payment_status).filter(Boolean))].map(status => (
+                        {uniqueStatuses.map(status => (
                           <SelectItem key={status} value={status}>
                             {getStatusText(status)}
                           </SelectItem>
@@ -259,9 +307,8 @@ export default function MobileBusinessEntry() {
                       variant="outline" 
                       className="flex-1"
                       onClick={() => {
-                        setFilterProject('all');
-                        setFilterStatus('all');
-                        handleFilterChange({ projectName: '', paymentStatus: '' });
+                        setFilterProject('');
+                        setFilterStatus('');
                       }}
                     >
                       清除
@@ -278,26 +325,23 @@ export default function MobileBusinessEntry() {
             </Drawer>
 
             <div className="flex items-center gap-2">
-              <Select value={sortField} onValueChange={handleSortChange}>
+              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
                 <SelectTrigger className="w-24">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto_number">运单号</SelectItem>
-                  <SelectItem value="project_name">项目</SelectItem>
-                  <SelectItem value="loading_date">日期</SelectItem>
-                  <SelectItem value="driver_name">司机</SelectItem>
-                  <SelectItem value="current_cost">运费</SelectItem>
-                  <SelectItem value="payable_cost">应收</SelectItem>
+                  <SelectItem value="date">日期</SelectItem>
+                  <SelectItem value="project">项目</SelectItem>
+                  <SelectItem value="driver">司机</SelectItem>
                 </SelectContent>
               </Select>
 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleSortDirection}
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
               >
-                {sortDirection === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
               </Button>
             </div>
           </div>
@@ -319,8 +363,7 @@ export default function MobileBusinessEntry() {
             </CardContent>
           </Card>
         ) : (
-          <>
-            {filteredRecords.map((record) => (
+          filteredRecords.map((record) => (
             <Card key={record.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
@@ -420,56 +463,7 @@ export default function MobileBusinessEntry() {
                 </div>
               </CardContent>
             </Card>
-            ))}
-
-            {/* 分页信息和加载更多 */}
-            <div className="space-y-3">
-              {/* 记录统计 */}
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-center text-sm text-muted-foreground">
-                    显示 {filteredRecords.length} 条记录，共 {totalCount} 条
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* 加载更多按钮 */}
-              {hasMore && (
-                <Button 
-                  onClick={handleLoadMore} 
-                  disabled={loading}
-                  className="w-full"
-                  variant="outline"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                      加载中...
-                    </>
-                  ) : (
-                    '加载更多'
-                  )}
-                </Button>
-              )}
-
-              {/* 刷新按钮 */}
-              <Button 
-                onClick={handleRefresh} 
-                disabled={loading}
-                className="w-full"
-                variant="outline"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                    刷新中...
-                  </>
-                ) : (
-                  '刷新数据'
-                )}
-              </Button>
-            </div>
-          </>
+          ))
         )}
       </div>
 

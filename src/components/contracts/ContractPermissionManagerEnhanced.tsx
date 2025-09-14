@@ -36,7 +36,6 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ContractPermission, ContractOwnerPermission, CategoryPermissionTemplate } from '@/types/permissions';
-import { Contract } from '@/types/rpc';
 
 interface ContractPermissionManagerProps {
   contractId?: string;
@@ -82,7 +81,7 @@ export function ContractPermissionManager({
   });
   
   // 参考数据
-  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [contracts, setContracts] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
@@ -600,7 +599,7 @@ export function ContractPermissionManager({
                                 checked={formData.permission_type === type.value}
                                 onCheckedChange={(checked) => {
                                   if (checked) {
-                                    setFormData(prev => ({ ...prev, permission_type: type.value }));
+                                    setFormData(prev => ({ ...prev, permission_type: type.value as any }));
                                   }
                                 }}
                               />

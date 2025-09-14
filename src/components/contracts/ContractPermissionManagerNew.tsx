@@ -577,7 +577,7 @@ export function ContractPermissionManager({
                             checked={formData.permission_type === type.value}
                             onCheckedChange={(checked) => {
                               if (checked) {
-                                setFormData(prev => ({ ...prev, permission_type: type.value }));
+                                setFormData(prev => ({ ...prev, permission_type: type.value as any }));
                               }
                             }}
                           />
