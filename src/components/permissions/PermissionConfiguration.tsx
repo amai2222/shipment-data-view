@@ -15,7 +15,8 @@ import {
   Copy,
   Key,
   User,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 import { PermissionVisualizer } from '../PermissionVisualizer';
 import { ProjectPermissionManager } from '../ProjectPermissionManager';
@@ -23,6 +24,9 @@ import { useProjects } from '@/hooks/useProjects';
 import { UserWithPermissions, RoleTemplate } from '@/types/permissions';
 import { UserCardSelector } from '../UserCardSelector';
 import { PermissionConfigDialog } from '../PermissionConfigDialog';
+import { PermissionDatabaseService } from '@/services/PermissionDatabaseService';
+import { useRealtimePermissions } from '@/hooks/useRealtimePermissions';
+import { PermissionChangeConfirmDialog } from '../PermissionChangeConfirmDialog';
 
 interface PermissionConfigurationProps {
   users: UserWithPermissions[];
@@ -36,7 +40,7 @@ interface PermissionConfigurationProps {
 }
 
 export function PermissionConfiguration({
-  users,
+  users: propUsers,
   roleTemplates,
   userPermissions,
   hasChanges,
@@ -52,6 +56,11 @@ export function PermissionConfiguration({
   const [selectedPermissionType, setSelectedPermissionType] = useState<'menu' | 'function' | 'project' | 'data'>('menu');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogUser, setDialogUser] = useState<UserWithPermissions | null>(null);
+  const [showPermissionConfirmDialog, setShowPermissionConfirmDialog] = useState(false);
+  const [pendingPermissionChanges, setPendingPermissionChanges] = useState<any[]>([]);
+
+  // 使用实时权限 Hook
+  const { users, loading, refreshUsers, refreshUserPermissions } = useRealtimePermissions();
 
   // 合并用户和权限数据
   const usersWithPermissions = useMemo(() => {
@@ -158,20 +167,68 @@ export function PermissionConfiguration({
   };
 
   // 保存权限配置
-  const handleSavePermissions = (userId: string, permissions: any) => {
-    onSetUserPermissions(prev => ({
-      ...prev,
-      [userId]: {
-        ...prev[userId],
-        ...permissions
+  const handleSavePermissions = async (userId: string, permissions: any) => {
+    try {
+      // 记录权限变更
+      const user = users.find(u => u.id === userId);
+      if (user) {
+        const changes = [{
+          type: 'user_permission',
+          userId: userId,
+          userName: user.full_name,
+          oldValue: user.permissions,
+          newValue: permissions,
+          description: `修改用户权限: ${user.full_name}`
+        }];
+
+        setPendingPermissionChanges(changes);
+        setShowPermissionConfirmDialog(true);
       }
-    }));
-    onSetHasChanges(true);
-    
-    toast({
-      title: "保存成功",
-      description: "权限配置已保存",
-    });
+    } catch (error) {
+      console.error('记录权限变更失败:', error);
+      toast({
+        title: "记录失败",
+        description: "无法记录权限变更",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // 确认权限变更
+  const handleConfirmPermissionChanges = async () => {
+    try {
+      // 权限已经通过 PermissionConfigDialog 保存到数据库
+      // 刷新特定用户的权限数据
+      const userId = pendingPermissionChanges[0]?.userId;
+      if (userId) {
+        await refreshUserPermissions(userId);
+      }
+      
+      // 更新父组件的权限状态
+      if (userId) {
+        onSetUserPermissions(prev => ({
+          ...prev,
+          [userId]: pendingPermissionChanges[0]?.newValue
+        }));
+      }
+      
+      onSetHasChanges(true);
+      
+      toast({
+        title: "保存成功",
+        description: "权限配置已保存并立即生效",
+      });
+
+      setShowPermissionConfirmDialog(false);
+      setPendingPermissionChanges([]);
+    } catch (error) {
+      console.error('更新权限状态失败:', error);
+      toast({
+        title: "更新失败",
+        description: "权限已保存但状态更新失败",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -189,12 +246,26 @@ export function PermissionConfiguration({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">选择用户</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="搜索用户..."
-                    className="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="搜索用户..."
+                      className="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <Button 
+                    onClick={refreshUsers} 
+                    disabled={loading}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
               </div>
               
@@ -408,6 +479,14 @@ export function PermissionConfiguration({
         isOpen={isDialogOpen}
         onClose={handleCloseDialog}
         onSave={handleSavePermissions}
+      />
+
+      {/* 权限变更确认对话框 */}
+      <PermissionChangeConfirmDialog
+        isOpen={showPermissionConfirmDialog}
+        onClose={() => setShowPermissionConfirmDialog(false)}
+        onConfirm={handleConfirmPermissionChanges}
+        changes={pendingPermissionChanges}
       />
     </div>
   );

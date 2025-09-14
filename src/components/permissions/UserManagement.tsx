@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { UserWithPermissions, UserRole } from '@/types/permissions';
+import { EnterpriseUserEditDialog } from '../EnterpriseUserEditDialog';
+import { PermissionChangeConfirmDialog } from '../PermissionChangeConfirmDialog';
 
 interface UserManagementProps {
   users: UserWithPermissions[];
@@ -52,6 +54,12 @@ export function UserManagement({
   const [userToDelete, setUserToDelete] = useState<UserWithPermissions | null>(null);
   const [bulkRole, setBulkRole] = useState('');
   
+  // 企业级编辑功能
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserWithPermissions | null>(null);
+  const [showPermissionConfirmDialog, setShowPermissionConfirmDialog] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState<any[]>([]);
+  
   // 表单数据
   const [createUserForm, setCreateUserForm] = useState({
     email: '',
@@ -59,6 +67,68 @@ export function UserManagement({
     full_name: '',
     role: 'viewer' as UserRole
   });
+
+  // 打开编辑用户对话框
+  const handleEditUser = (user: UserWithPermissions) => {
+    setEditingUser(user);
+    setShowEditDialog(true);
+  };
+
+  // 保存用户编辑
+  const handleSaveUserEdit = (updatedUser: UserWithPermissions) => {
+    // 记录变更
+    const changes = [];
+    
+    if (updatedUser.full_name !== editingUser?.full_name) {
+      changes.push({
+        type: 'user_info',
+        userId: updatedUser.id,
+        userName: updatedUser.full_name,
+        oldValue: editingUser?.full_name,
+        newValue: updatedUser.full_name,
+        description: `修改用户姓名: ${editingUser?.full_name} → ${updatedUser.full_name}`
+      });
+    }
+    
+    if (updatedUser.role !== editingUser?.role) {
+      changes.push({
+        type: 'user_role',
+        userId: updatedUser.id,
+        userName: updatedUser.full_name,
+        oldValue: editingUser?.role,
+        newValue: updatedUser.role,
+        description: `修改用户角色: ${editingUser?.role} → ${updatedUser.role}`
+      });
+    }
+    
+    if (updatedUser.is_active !== editingUser?.is_active) {
+      changes.push({
+        type: 'user_status',
+        userId: updatedUser.id,
+        userName: updatedUser.full_name,
+        oldValue: editingUser?.is_active,
+        newValue: updatedUser.is_active,
+        description: `修改用户状态: ${editingUser?.is_active ? '启用' : '禁用'} → ${updatedUser.is_active ? '启用' : '禁用'}`
+      });
+    }
+
+    if (changes.length > 0) {
+      setPendingChanges(changes);
+      setShowPermissionConfirmDialog(true);
+    } else {
+      onUserUpdate();
+    }
+  };
+
+  // 确认权限变更
+  const handleConfirmPermissionChanges = () => {
+    setShowPermissionConfirmDialog(false);
+    onUserUpdate();
+    toast({
+      title: "变更成功",
+      description: "用户信息已更新并立即生效",
+    });
+  };
 
   // 创建用户
   const handleCreateUser = async () => {
@@ -461,6 +531,7 @@ export function UserManagement({
                           variant="ghost"
                           size="sm"
                           title="编辑用户"
+                          onClick={() => handleEditUser(user)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -558,6 +629,25 @@ export function UserManagement({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 企业级用户编辑对话框 */}
+      <EnterpriseUserEditDialog
+        user={editingUser}
+        isOpen={showEditDialog}
+        onClose={() => {
+          setShowEditDialog(false);
+          setEditingUser(null);
+        }}
+        onSave={handleSaveUserEdit}
+      />
+
+      {/* 权限变更确认对话框 */}
+      <PermissionChangeConfirmDialog
+        isOpen={showPermissionConfirmDialog}
+        onClose={() => setShowPermissionConfirmDialog(false)}
+        onConfirm={handleConfirmPermissionChanges}
+        changes={pendingChanges}
+      />
     </div>
   );
 }

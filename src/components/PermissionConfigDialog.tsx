@@ -1,7 +1,7 @@
 // 权限配置弹窗组件
 // 文件: src/components/PermissionConfigDialog.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -22,8 +22,11 @@ import {
   Save,
   X,
   RefreshCw,
-  Copy
+  Copy,
+  Loader2
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { PermissionDatabaseService } from '@/services/PermissionDatabaseService';
 
 interface User {
   id: string;
@@ -45,6 +48,42 @@ interface PermissionConfigDialogProps {
   onClose: () => void;
   onSave: (userId: string, permissions: any) => void;
 }
+
+// 根据角色获取默认权限
+const getDefaultPermissionsByRole = (role: string) => {
+  const allPermissions = {
+    menu: ['dashboard', 'users', 'contracts', 'reports', 'settings'],
+    function: ['create_user', 'edit_user', 'delete_user', 'export_data', 'import_data'],
+    project: ['project_view', 'project_create', 'project_edit', 'project_delete'],
+    data: ['data_read', 'data_write', 'data_delete']
+  };
+
+  switch (role) {
+    case 'admin':
+      return allPermissions; // 超级用户拥有所有权限
+    case 'operator':
+      return {
+        menu: ['dashboard', 'contracts', 'reports'],
+        function: ['create_user', 'edit_user', 'export_data'],
+        project: ['project_view', 'project_create', 'project_edit'],
+        data: ['data_read', 'data_write']
+      };
+    case 'viewer':
+      return {
+        menu: ['dashboard'],
+        function: [],
+        project: ['project_view'],
+        data: ['data_read']
+      };
+    default:
+      return {
+        menu: [],
+        function: [],
+        project: [],
+        data: []
+      };
+  }
+};
 
 // 模拟权限数据
 const mockPermissions = {
@@ -89,13 +128,52 @@ export function PermissionConfigDialog({
   });
 
   const [activeTab, setActiveTab] = useState('menu');
+  const [loading, setLoading] = useState(false);
+  const [availablePermissions, setAvailablePermissions] = useState<Record<string, any[]>>({
+    menu: [],
+    function: [],
+    project: [],
+    data: []
+  });
+
+  // 从数据库加载权限数据
+  const loadPermissionsFromDatabase = async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      
+      // 使用数据库服务获取用户有效权限
+      const effectivePermissions = await PermissionDatabaseService.getUserEffectivePermissions(
+        user.id, 
+        user.role
+      );
+
+      setSelectedPermissions({
+        menu: effectivePermissions.menu_permissions,
+        function: effectivePermissions.function_permissions,
+        project: effectivePermissions.project_permissions,
+        data: effectivePermissions.data_permissions
+      });
+
+      console.log(`权限来源: ${effectivePermissions.source}`, effectivePermissions);
+
+    } catch (error) {
+      console.error('加载权限数据失败:', error);
+      // 使用默认权限作为后备
+      const defaultPermissions = getDefaultPermissionsByRole(user.role);
+      setSelectedPermissions(defaultPermissions);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 初始化权限选择
-  React.useEffect(() => {
-    if (user?.permissions) {
-      setSelectedPermissions(user.permissions);
+  useEffect(() => {
+    if (user && isOpen) {
+      loadPermissionsFromDatabase();
     }
-  }, [user]);
+  }, [user, isOpen]);
 
   const handlePermissionToggle = (category: string, permissionId: string) => {
     setSelectedPermissions(prev => {
@@ -111,16 +189,35 @@ export function PermissionConfigDialog({
     });
   };
 
-  const handleSave = () => {
-    if (user) {
+  const handleSave = async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      
+      // 使用数据库服务保存权限
+      await PermissionDatabaseService.saveUserPermissions(user.id, {
+        menu_permissions: selectedPermissions.menu,
+        function_permissions: selectedPermissions.function,
+        project_permissions: selectedPermissions.project,
+        data_permissions: selectedPermissions.data
+      });
+
+      // 调用父组件的保存回调
       onSave(user.id, selectedPermissions);
       onClose();
+      
+    } catch (error) {
+      console.error('保存权限失败:', error);
+      // 这里可以添加错误提示
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleReset = () => {
-    if (user?.permissions) {
-      setSelectedPermissions(user.permissions);
+  const handleReset = async () => {
+    if (user) {
+      await loadPermissionsFromDatabase();
     }
   };
 
@@ -148,6 +245,7 @@ export function PermissionConfigDialog({
           <DialogTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
             权限配置 - {user.full_name}
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
           </DialogTitle>
           <DialogDescription>
             为用户 {user.email} 配置个性化权限
@@ -428,12 +526,16 @@ export function PermissionConfigDialog({
 
           {/* 操作按钮 */}
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} disabled={loading}>
               <X className="h-4 w-4 mr-2" />
               取消
             </Button>
-            <Button onClick={handleSave}>
-              <Save className="h-4 w-4 mr-2" />
+            <Button onClick={handleSave} disabled={loading}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
               保存权限
             </Button>
           </div>
@@ -444,3 +546,4 @@ export function PermissionConfigDialog({
 }
 
 export default PermissionConfigDialog;
+
