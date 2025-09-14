@@ -416,6 +416,27 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
                     {template.function_permissions?.length || 0}
                   </Badge>
                 </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span>项目权限:</span>
+                  <Badge variant="outline">
+                    {template.project_permissions?.length || 0}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span>数据权限:</span>
+                  <Badge variant="outline">
+                    {template.data_permissions?.length || 0}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-xs font-medium border-t pt-2">
+                  <span>总权限:</span>
+                  <Badge variant="default">
+                    {(template.menu_permissions?.length || 0) + 
+                     (template.function_permissions?.length || 0) + 
+                     (template.project_permissions?.length || 0) + 
+                     (template.data_permissions?.length || 0)}
+                  </Badge>
+                </div>
               </div>
 
               <div className="flex space-x-2">
