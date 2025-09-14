@@ -258,6 +258,8 @@ export function HighPerformanceIntegratedUserPermissionManager() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
         <TabsContent value="performance" className="space-y-4">
           <PermissionPerformanceMonitor />
         </TabsContent>
