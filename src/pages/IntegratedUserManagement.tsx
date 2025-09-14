@@ -1,6 +1,6 @@
 import React from 'react';
-import { HighPerformanceIntegratedUserPermissionManager } from '@/components/HighPerformanceIntegratedUserPermissionManager';
+import { IntegratedUserPermissionManager } from '@/components/IntegratedUserPermissionManager';
 
 export default function IntegratedUserManagement() {
-  return <HighPerformanceIntegratedUserPermissionManager />;
+  return <IntegratedUserPermissionManager />;
 }
