@@ -116,12 +116,28 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
       console.log('项目权限数量:', newTemplate.project_permissions.length);
       console.log('数据权限数量:', newTemplate.data_permissions.length);
 
-      // 使用 upsert 操作，避免更新失败
-      const { error } = await supabase
+      // 先查找是否存在该角色的模板
+      const { data: existingTemplate } = await supabase
         .from('role_permission_templates')
-        .upsert(updateData, {
-          onConflict: 'role'
-        });
+        .select('id')
+        .eq('role', editingRole)
+        .single();
+
+      let error;
+      if (existingTemplate) {
+        // 如果存在，执行更新
+        const { error: updateError } = await supabase
+          .from('role_permission_templates')
+          .update(updateData)
+          .eq('role', editingRole);
+        error = updateError;
+      } else {
+        // 如果不存在，执行插入
+        const { error: insertError } = await supabase
+          .from('role_permission_templates')
+          .insert(updateData);
+        error = insertError;
+      }
 
       if (error) {
         console.error('数据库错误详情:', error);
