@@ -79,16 +79,27 @@ export function PermissionVisualizer({
   // 计算权限统计
   const permissionStats = useMemo(() => {
     const stats = {
-      menu: { total: MENU_PERMISSIONS.length, granted: 0, inherited: 0, custom: 0 },
-      function: { total: FUNCTION_PERMISSIONS.length, granted: 0, inherited: 0, custom: 0 },
+      menu: { total: 0, granted: 0, inherited: 0, custom: 0 },
+      function: { total: 0, granted: 0, inherited: 0, custom: 0 },
       project: { total: 0, granted: 0, inherited: 0, custom: 0 },
       data: { total: 0, granted: 0, inherited: 0, custom: 0 }
     };
 
-    // 计算菜单权限
-    MENU_PERMISSIONS.forEach(menu => {
-      const hasUserPermission = userPermissions.menu.includes(menu.key);
-      const hasRolePermission = rolePermissions.menu.includes(menu.key);
+    // 计算菜单权限总数
+    MENU_PERMISSIONS.forEach(menuGroup => {
+      // 主菜单项
+      stats.menu.total++;
+      // 子菜单项
+      if (menuGroup.children) {
+        stats.menu.total += menuGroup.children.length;
+      }
+    });
+
+    // 计算菜单权限已授权数量
+    MENU_PERMISSIONS.forEach(menuGroup => {
+      // 主菜单项
+      const hasUserPermission = userPermissions.menu.includes(menuGroup.key);
+      const hasRolePermission = rolePermissions.menu.includes(menuGroup.key);
       
       if (hasUserPermission || hasRolePermission) {
         stats.menu.granted++;
@@ -98,12 +109,40 @@ export function PermissionVisualizer({
           stats.menu.custom++;
         }
       }
+
+      // 子菜单项
+      if (menuGroup.children) {
+        menuGroup.children.forEach(child => {
+          const hasUserPermission = userPermissions.menu.includes(child.key);
+          const hasRolePermission = rolePermissions.menu.includes(child.key);
+          
+          if (hasUserPermission || hasRolePermission) {
+            stats.menu.granted++;
+            if (hasRolePermission) {
+              stats.menu.inherited++;
+            } else {
+              stats.menu.custom++;
+            }
+          }
+        });
+      }
     });
 
-    // 计算功能权限
-    FUNCTION_PERMISSIONS.forEach(func => {
-      const hasUserPermission = userPermissions.function.includes(func.key);
-      const hasRolePermission = rolePermissions.function.includes(func.key);
+    // 计算功能权限总数
+    FUNCTION_PERMISSIONS.forEach(funcGroup => {
+      // 主功能组
+      stats.function.total++;
+      // 子功能项
+      if (funcGroup.children) {
+        stats.function.total += funcGroup.children.length;
+      }
+    });
+
+    // 计算功能权限已授权数量
+    FUNCTION_PERMISSIONS.forEach(funcGroup => {
+      // 主功能组
+      const hasUserPermission = userPermissions.function.includes(funcGroup.key);
+      const hasRolePermission = rolePermissions.function.includes(funcGroup.key);
       
       if (hasUserPermission || hasRolePermission) {
         stats.function.granted++;
@@ -113,54 +152,109 @@ export function PermissionVisualizer({
           stats.function.custom++;
         }
       }
+
+      // 子功能项
+      if (funcGroup.children) {
+        funcGroup.children.forEach(child => {
+          const hasUserPermission = userPermissions.function.includes(child.key);
+          const hasRolePermission = rolePermissions.function.includes(child.key);
+          
+          if (hasUserPermission || hasRolePermission) {
+            stats.function.granted++;
+            if (hasRolePermission) {
+              stats.function.inherited++;
+            } else {
+              stats.function.custom++;
+            }
+          }
+        });
+      }
     });
 
     // 计算项目权限总数
     PROJECT_PERMISSIONS.forEach(projectGroup => {
-      projectGroup.children?.forEach(permission => {
-        stats.project.total++;
-      });
+      // 主项目组
+      stats.project.total++;
+      // 子项目权限
+      if (projectGroup.children) {
+        stats.project.total += projectGroup.children.length;
+      }
     });
 
     // 计算项目权限已授权数量
     PROJECT_PERMISSIONS.forEach(projectGroup => {
-      projectGroup.children?.forEach(permission => {
-        const hasUserPermission = userPermissions.project.includes(permission.key);
-        const hasRolePermission = rolePermissions.project.includes(permission.key);
-        
-        if (hasUserPermission || hasRolePermission) {
-          stats.project.granted++;
-          if (hasRolePermission) {
-            stats.project.inherited++;
-          } else {
-            stats.project.custom++;
-          }
+      // 主项目组
+      const hasUserPermission = userPermissions.project.includes(projectGroup.key);
+      const hasRolePermission = rolePermissions.project.includes(projectGroup.key);
+      
+      if (hasUserPermission || hasRolePermission) {
+        stats.project.granted++;
+        if (hasRolePermission) {
+          stats.project.inherited++;
+        } else {
+          stats.project.custom++;
         }
-      });
+      }
+
+      // 子项目权限
+      if (projectGroup.children) {
+        projectGroup.children.forEach(permission => {
+          const hasUserPermission = userPermissions.project.includes(permission.key);
+          const hasRolePermission = rolePermissions.project.includes(permission.key);
+          
+          if (hasUserPermission || hasRolePermission) {
+            stats.project.granted++;
+            if (hasRolePermission) {
+              stats.project.inherited++;
+            } else {
+              stats.project.custom++;
+            }
+          }
+        });
+      }
     });
 
     // 计算数据权限总数
     DATA_PERMISSIONS.forEach(dataGroup => {
-      dataGroup.children?.forEach(permission => {
-        stats.data.total++;
-      });
+      // 主数据组
+      stats.data.total++;
+      // 子数据权限
+      if (dataGroup.children) {
+        stats.data.total += dataGroup.children.length;
+      }
     });
 
     // 计算数据权限已授权数量
     DATA_PERMISSIONS.forEach(dataGroup => {
-      dataGroup.children?.forEach(permission => {
-        const hasUserPermission = userPermissions.data.includes(permission.key);
-        const hasRolePermission = rolePermissions.data.includes(permission.key);
-        
-        if (hasUserPermission || hasRolePermission) {
-          stats.data.granted++;
-          if (hasRolePermission) {
-            stats.data.inherited++;
-          } else {
-            stats.data.custom++;
-          }
+      // 主数据组
+      const hasUserPermission = userPermissions.data.includes(dataGroup.key);
+      const hasRolePermission = rolePermissions.data.includes(dataGroup.key);
+      
+      if (hasUserPermission || hasRolePermission) {
+        stats.data.granted++;
+        if (hasRolePermission) {
+          stats.data.inherited++;
+        } else {
+          stats.data.custom++;
         }
-      });
+      }
+
+      // 子数据权限
+      if (dataGroup.children) {
+        dataGroup.children.forEach(permission => {
+          const hasUserPermission = userPermissions.data.includes(permission.key);
+          const hasRolePermission = rolePermissions.data.includes(permission.key);
+          
+          if (hasUserPermission || hasRolePermission) {
+            stats.data.granted++;
+            if (hasRolePermission) {
+              stats.data.inherited++;
+            } else {
+              stats.data.custom++;
+            }
+          }
+        });
+      }
     });
 
     return stats;

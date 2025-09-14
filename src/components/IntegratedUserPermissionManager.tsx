@@ -155,10 +155,15 @@ export function IntegratedUserPermissionManager() {
 
   // 获取权限数量
   const getPermissionCount = (permissions: any) => {
-    return (permissions.menu?.length || 0) + 
-           (permissions.function?.length || 0) + 
-           (permissions.project?.length || 0) + 
-           (permissions.data?.length || 0);
+    if (!permissions) return 0;
+    
+    // 计算所有权限类型的总数
+    const menuCount = permissions.menu?.length || 0;
+    const functionCount = permissions.function?.length || 0;
+    const projectCount = permissions.project?.length || 0;
+    const dataCount = permissions.data?.length || 0;
+    
+    return menuCount + functionCount + projectCount + dataCount;
   };
 
   // 批量操作处理
