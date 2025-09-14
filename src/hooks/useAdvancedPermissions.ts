@@ -30,11 +30,11 @@ export function useAdvancedPermissions() {
       const [userPermsResult, roleTemplatesResult] = await Promise.all([
         supabase
           .from('user_permissions')
-          .select('*')
+          .select('id, user_id, project_id, menu_permissions, function_permissions, project_permissions, data_permissions, inherit_role, custom_settings, created_at, updated_at, created_by')
           .eq('user_id', user.id),
         supabase
           .from('role_permission_templates')
-          .select('*')
+          .select('role, menu_permissions, function_permissions, project_permissions, data_permissions, name, description')
       ]);
 
       if (userPermsResult.error) {

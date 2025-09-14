@@ -1,9 +1,9 @@
 // 实时权限更新 Hook
 // 文件: src/hooks/useRealtimePermissions.ts
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { PermissionDatabaseService } from '@/services/PermissionDatabaseService';
+import { BatchQueryService } from '@/services/BatchQueryService';
 
 interface User {
   id: string;
@@ -23,8 +23,12 @@ export function useRealtimePermissions() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // 使用 useRef 避免循环依赖
+  const usersRef = useRef<User[]>([]);
+  usersRef.current = users;
 
-  // 从数据库加载用户和权限数据
+  // 从数据库加载用户和权限数据（优化版本）
   const loadUsersWithPermissions = useCallback(async () => {
     try {
       setLoading(true);
@@ -40,38 +44,35 @@ export function useRealtimePermissions() {
         throw usersError;
       }
 
-      // 为每个用户加载权限数据
-      const usersWithPermissions = await Promise.all(
-        (usersData || []).map(async (user) => {
-          try {
-            const effectivePermissions = await PermissionDatabaseService.getUserEffectivePermissions(
-              user.id, 
-              user.role
-            );
-            
-            return {
-              ...user,
-              permissions: {
-                menu: effectivePermissions.menu_permissions,
-                function: effectivePermissions.function_permissions,
-                project: effectivePermissions.project_permissions,
-                data: effectivePermissions.data_permissions
-              }
-            };
-          } catch (error) {
-            console.error(`加载用户 ${user.id} 权限失败:`, error);
-            return {
-              ...user,
-              permissions: {
-                menu: [],
-                function: [],
-                project: [],
-                data: []
-              }
-            };
+      if (!usersData || usersData.length === 0) {
+        setUsers([]);
+        return;
+      }
+
+      // 批量获取用户权限（优化：减少数据库请求）
+      const userIds = usersData.map(user => user.id);
+      const batchPermissions = await BatchQueryService.getBatchUserEffectivePermissions(userIds);
+
+      // 构建用户权限数据
+      const usersWithPermissions = usersData.map(user => {
+        const permissions = batchPermissions.get(user.id) || {
+          menu_permissions: [],
+          function_permissions: [],
+          project_permissions: [],
+          data_permissions: [],
+          source: 'default' as const
+        };
+
+        return {
+          ...user,
+          permissions: {
+            menu: permissions.menu_permissions,
+            function: permissions.function_permissions,
+            project: permissions.project_permissions,
+            data: permissions.data_permissions
           }
-        })
-      );
+        };
+      });
 
       setUsers(usersWithPermissions);
     } catch (error) {
@@ -82,37 +83,41 @@ export function useRealtimePermissions() {
     }
   }, []);
 
-  // 刷新特定用户的权限
+  // 刷新特定用户的权限（优化版本）
   const refreshUserPermissions = useCallback(async (userId: string) => {
     try {
-      const userIndex = users.findIndex(user => user.id === userId);
+      // 使用 useRef 避免依赖 users 数组
+      const currentUsers = usersRef.current;
+      const userIndex = currentUsers.findIndex(user => user.id === userId);
       if (userIndex === -1) return;
 
-      const user = users[userIndex];
-      const effectivePermissions = await PermissionDatabaseService.getUserEffectivePermissions(
-        user.id, 
-        user.role
-      );
+      const user = currentUsers[userIndex];
+      
+      // 批量获取单个用户的权限
+      const batchPermissions = await BatchQueryService.getBatchUserEffectivePermissions([userId]);
+      const permissions = batchPermissions.get(userId);
 
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === userId 
-            ? {
-                ...user,
-                permissions: {
-                  menu: effectivePermissions.menu_permissions,
-                  function: effectivePermissions.function_permissions,
-                  project: effectivePermissions.project_permissions,
-                  data: effectivePermissions.data_permissions
+      if (permissions) {
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user.id === userId 
+              ? {
+                  ...user,
+                  permissions: {
+                    menu: permissions.menu_permissions,
+                    function: permissions.function_permissions,
+                    project: permissions.project_permissions,
+                    data: permissions.data_permissions
+                  }
                 }
-              }
-            : user
-        )
-      );
+              : user
+          )
+        );
+      }
     } catch (error) {
       console.error(`刷新用户 ${userId} 权限失败:`, error);
     }
-  }, [users]);
+  }, []); // 空依赖数组，避免循环依赖
 
   // 设置实时订阅
   useEffect(() => {

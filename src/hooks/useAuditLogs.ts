@@ -45,10 +45,10 @@ export function useAuditLogs() {
     try {
       setLoading(true);
       
-      // 构建查询条件 - 先简化查询，避免复杂的外键关联
+      // 构建查询条件 - 只查询需要的字段
       let query = supabase
         .from('permission_audit_logs')
-        .select('*')
+        .select('id, user_id, action, permission_type, permission_key, target_user_id, target_project_id, old_value, new_value, reason, created_at, created_by')
         .order('created_at', { ascending: false });
 
       // 应用过滤条件
