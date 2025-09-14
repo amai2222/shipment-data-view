@@ -59,7 +59,7 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
         });
       }
     }
-  }, [selectedRole, roleTemplates]);
+  }, [selectedRole]); // 移除 roleTemplates 依赖，避免覆盖用户修改
 
   // 切换权限
   const togglePermission = (type: string, key: string) => {
@@ -95,6 +95,13 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
         data_permissions: currentPermissions.data_permissions,
         is_system: true
       };
+
+      // 调试输出
+      console.log('保存权限数据:', permissionData);
+      console.log('菜单权限数量:', currentPermissions.menu_permissions.length);
+      console.log('功能权限数量:', currentPermissions.function_permissions.length);
+      console.log('项目权限数量:', currentPermissions.project_permissions.length);
+      console.log('数据权限数量:', currentPermissions.data_permissions.length);
 
       // 使用 upsert 操作，避免更新失败
       const { error } = await supabase
