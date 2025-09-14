@@ -22,6 +22,7 @@ import { ProjectPermissionManager } from '../ProjectPermissionManager';
 import { useProjects } from '@/hooks/useProjects';
 import { UserWithPermissions, RoleTemplate } from '@/types/permissions';
 import { UserCardSelector } from '../UserCardSelector';
+import { PermissionConfigDialog } from '../PermissionConfigDialog';
 
 interface PermissionConfigurationProps {
   users: UserWithPermissions[];
@@ -49,6 +50,8 @@ export function PermissionConfiguration({
   
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [selectedPermissionType, setSelectedPermissionType] = useState<'menu' | 'function' | 'project' | 'data'>('menu');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogUser, setDialogUser] = useState<UserWithPermissions | null>(null);
 
   // 合并用户和权限数据
   const usersWithPermissions = useMemo(() => {
@@ -142,6 +145,35 @@ export function PermissionConfiguration({
     onSetHasChanges(true);
   };
 
+  // 打开权限配置弹窗
+  const handleOpenDialog = (user: UserWithPermissions) => {
+    setDialogUser(user);
+    setIsDialogOpen(true);
+  };
+
+  // 关闭权限配置弹窗
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setDialogUser(null);
+  };
+
+  // 保存权限配置
+  const handleSavePermissions = (userId: string, permissions: any) => {
+    onSetUserPermissions(prev => ({
+      ...prev,
+      [userId]: {
+        ...prev[userId],
+        ...permissions
+      }
+    }));
+    onSetHasChanges(true);
+    
+    toast({
+      title: "保存成功",
+      description: "权限配置已保存",
+    });
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -153,14 +185,78 @@ export function PermissionConfiguration({
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* 用户选择 - 使用卡片选择器 */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">选择用户</label>
-              <UserCardSelector
-                users={users}
-                selectedUserId={selectedUserId}
-                onUserSelect={setSelectedUserId}
-              />
+            {/* 用户选择 - 卡片式布局 */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">选择用户</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="搜索用户..."
+                    className="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              
+              {/* 用户卡片网格 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {users.map(user => (
+                  <Card 
+                    key={user.id} 
+                    className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-blue-300"
+                    onClick={() => handleOpenDialog(user)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        {/* 用户信息 */}
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{user.full_name}</h3>
+                          <p className="text-sm text-gray-600">{user.email}</p>
+                        </div>
+                        
+                        {/* 角色标签 */}
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant={
+                              user.role === 'admin' ? 'destructive' :
+                              user.role === 'operator' ? 'default' :
+                              'secondary'
+                            }
+                            className="text-xs"
+                          >
+                            {user.role}
+                          </Badge>
+                        </div>
+                        
+                        {/* 权限数量 */}
+                        <div className="text-sm text-gray-600">
+                          权限数量: <span className="font-medium text-blue-600">
+                            {user.permissions ? 
+                              Object.values(user.permissions).flat().length : 
+                              0
+                            }项
+                          </span>
+                        </div>
+                        
+                        {/* 配置按钮 */}
+                        <div className="pt-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full text-blue-600 border-blue-200 hover:bg-blue-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDialog(user);
+                            }}
+                          >
+                            点击配置权限
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
 
             {/* 权限类型选择 */}
@@ -305,6 +401,14 @@ export function PermissionConfiguration({
           </div>
         </CardContent>
       </Card>
+
+      {/* 权限配置弹窗 */}
+      <PermissionConfigDialog
+        user={dialogUser}
+        isOpen={isDialogOpen}
+        onClose={handleCloseDialog}
+        onSave={handleSavePermissions}
+      />
     </div>
   );
 }
