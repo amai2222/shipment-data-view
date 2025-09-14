@@ -64,7 +64,7 @@ export function useOptimizedPermissions() {
   };
 
   // 批量加载数据
-  const loadAllData = async () => {
+  const loadAllData = async (forceRefresh = false) => {
     setLoading(true);
     try {
       // 首先确保有默认角色权限模板
@@ -72,7 +72,7 @@ export function useOptimizedPermissions() {
       
       // 并行加载所有必需的数据
       const [templatesRes, usersRes, permissionsRes] = await Promise.all([
-        supabase.from('role_permission_templates').select('role, menu_permissions, function_permissions, project_permissions, data_permissions, name, description'),
+        supabase.from('role_permission_templates').select('role, menu_permissions, function_permissions, project_permissions, data_permissions, name, description').order('updated_at', { ascending: false }),
         supabase.from('profiles').select('id, full_name, email, role, is_active, work_wechat_userid, work_wechat_name, phone'),
         supabase.from('user_permissions').select('id, user_id, project_id, menu_permissions, function_permissions, project_permissions, data_permissions, created_at').order('created_at', { ascending: false })
       ]);
@@ -83,6 +83,19 @@ export function useOptimizedPermissions() {
           return acc;
         }, {});
         setRoleTemplates(templateMap);
+        
+        // 强制刷新时输出调试信息
+        if (forceRefresh) {
+          console.log('强制刷新角色模板数据:', templateMap);
+          const operatorTemplate = templateMap['operator'];
+          if (operatorTemplate) {
+            const totalCount = (operatorTemplate.menu_permissions?.length || 0) + 
+                             (operatorTemplate.function_permissions?.length || 0) + 
+                             (operatorTemplate.project_permissions?.length || 0) + 
+                             (operatorTemplate.data_permissions?.length || 0);
+            console.log('operator角色权限数量:', totalCount);
+          }
+        }
       }
 
       if (usersRes.data) {
@@ -204,6 +217,12 @@ export function useOptimizedPermissions() {
     }
   };
 
+  // 强制刷新数据
+  const forceRefresh = async () => {
+    console.log('强制刷新权限数据...');
+    await loadAllData(true);
+  };
+
   useEffect(() => {
     loadAllData();
   }, []);
@@ -219,6 +238,7 @@ export function useOptimizedPermissions() {
     setUserPermissions,
     savePermissions,
     cleanupDuplicatePermissions,
-    loadAllData
+    loadAllData,
+    forceRefresh
   };
 }

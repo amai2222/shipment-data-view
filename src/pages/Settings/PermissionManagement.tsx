@@ -154,7 +154,8 @@ export default function PermissionManagement() {
     setRoleTemplates,
     setUserPermissions,
     savePermissions,
-    cleanupDuplicatePermissions
+    cleanupDuplicatePermissions,
+    forceRefresh
   } = useOptimizedPermissions();
 
   // 加载项目数据
@@ -183,6 +184,23 @@ export default function PermissionManagement() {
       toast({
         title: "清理失败", 
         description: "清理重复数据时发生错误",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // 强制刷新数据
+  const handleForceRefresh = async () => {
+    try {
+      await forceRefresh();
+      toast({
+        title: "刷新完成",
+        description: "权限数据已强制刷新",
+      });
+    } catch (error) {
+      toast({
+        title: "刷新失败", 
+        description: "强制刷新数据时发生错误",
         variant: "destructive"
       });
     }
@@ -323,6 +341,14 @@ export default function PermissionManagement() {
         >
           <Trash className="h-4 w-4 mr-2" />
           清理重复数据
+        </Button>
+        <Button 
+          onClick={handleForceRefresh} 
+          disabled={loading}
+          variant="outline"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          强制刷新
         </Button>
       </div>
 
