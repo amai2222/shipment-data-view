@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Save, RefreshCw } from 'lucide-react';
+import { Shield, Save, RefreshCw, Settings, Building2, Database } from 'lucide-react';
 import { 
   MENU_PERMISSIONS, 
   FUNCTION_PERMISSIONS, 
@@ -139,39 +139,64 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
     currentPerms: string[],
     type: string
   ) => {
+    const totalPermissions = Object.values(permissions).reduce((total: number, group: any) => total + (group.children?.length || 0), 0);
+    const selectedPermissions = currentPerms.length;
+    
     return (
       <div className="space-y-4">
-        {Object.entries(permissions).map(([key, group]: [string, any]) => (
-          <Card key={key} className="border-l-4 border-l-blue-500">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">{group.label}</CardTitle>
-                <Badge variant="outline">
-                  {group.children?.filter((child: any) => currentPerms.includes(child.key)).length || 0} / {group.children?.length || 0}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {group.children?.map((permission: any) => (
-                <div key={permission.key} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={permission.key}
-                    checked={currentPerms.includes(permission.key)}
-                    onCheckedChange={() => togglePermission(type, permission.key)}
-                  />
-                  <Label htmlFor={permission.key} className="text-sm flex-1">
-                    {permission.label}
-                  </Label>
-                  {permission.description && (
-                    <span className="text-xs text-muted-foreground">
-                      {permission.description}
-                    </span>
-                  )}
+        {/* 权限统计 */}
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            <span className="text-sm font-medium">权限概览</span>
+          </div>
+          <Badge variant="secondary" className="text-xs">
+            已选择 {selectedPermissions} / {totalPermissions} 个权限
+          </Badge>
+        </div>
+        
+        {/* 权限分组 */}
+        {Object.entries(permissions).map(([key, group]: [string, any]) => {
+          const selectedCount = group.children?.filter((child: any) => currentPerms.includes(child.key)).length || 0;
+          const totalCount = group.children?.length || 0;
+          
+          return (
+            <Card key={key} className="border-l-4 border-l-blue-500 hover:shadow-sm transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                    {group.label}
+                  </CardTitle>
+                  <Badge variant={selectedCount === totalCount ? "default" : selectedCount > 0 ? "secondary" : "outline"}>
+                    {selectedCount} / {totalCount}
+                  </Badge>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        ))}
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {group.children?.map((permission: any) => (
+                  <div key={permission.key} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted/30 transition-colors">
+                    <Checkbox
+                      id={permission.key}
+                      checked={currentPerms.includes(permission.key)}
+                      onCheckedChange={() => togglePermission(type, permission.key)}
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor={permission.key} className="text-sm font-medium cursor-pointer">
+                        {permission.label}
+                      </Label>
+                      {permission.description && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {permission.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     );
   };
@@ -213,22 +238,30 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
         {/* 权限配置标签页 */}
         <Tabs defaultValue="menu" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="menu">
+            <TabsTrigger value="menu" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
               菜单权限 ({currentPermissions.menu_permissions.length})
             </TabsTrigger>
-            <TabsTrigger value="function">
+            <TabsTrigger value="function" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
               功能权限 ({currentPermissions.function_permissions.length})
             </TabsTrigger>
-            <TabsTrigger value="project">
+            <TabsTrigger value="project" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
               项目权限 ({currentPermissions.project_permissions.length})
             </TabsTrigger>
-            <TabsTrigger value="data">
+            <TabsTrigger value="data" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
               数据权限 ({currentPermissions.data_permissions.length})
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="menu">
-            <div className="max-h-96 overflow-y-auto scroll-smooth">
+          <TabsContent value="menu" className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Shield className="h-4 w-4" />
+              <span>配置 {selectedRole} 角色的菜单访问权限</span>
+            </div>
+            <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
               {renderPermissionList(
                 MENU_PERMISSIONS,
                 currentPermissions.menu_permissions,
@@ -237,8 +270,12 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
             </div>
           </TabsContent>
 
-          <TabsContent value="function">
-            <div className="max-h-96 overflow-y-auto scroll-smooth">
+          <TabsContent value="function" className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Settings className="h-4 w-4" />
+              <span>配置 {selectedRole} 角色的功能操作权限</span>
+            </div>
+            <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
               {renderPermissionList(
                 FUNCTION_PERMISSIONS,
                 currentPermissions.function_permissions,
@@ -247,8 +284,12 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
             </div>
           </TabsContent>
 
-          <TabsContent value="project">
-            <div className="max-h-96 overflow-y-auto scroll-smooth">
+          <TabsContent value="project" className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Building2 className="h-4 w-4" />
+              <span>配置 {selectedRole} 角色的项目访问权限</span>
+            </div>
+            <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
               {renderPermissionList(
                 PROJECT_PERMISSIONS,
                 currentPermissions.project_permissions,
@@ -257,8 +298,12 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
             </div>
           </TabsContent>
 
-          <TabsContent value="data">
-            <div className="max-h-96 overflow-y-auto scroll-smooth">
+          <TabsContent value="data" className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Database className="h-4 w-4" />
+              <span>配置 {selectedRole} 角色的数据操作权限</span>
+            </div>
+            <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
               {renderPermissionList(
                 DATA_PERMISSIONS,
                 currentPermissions.data_permissions,
