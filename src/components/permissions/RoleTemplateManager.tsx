@@ -22,6 +22,7 @@ import {
   Database,
   Key
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS, DATA_PERMISSIONS } from '@/config/permissions';
 import { RoleTemplate } from '@/types/permissions';
 
@@ -99,17 +100,26 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
         return;
       }
 
+      const updateData = {
+        role: editingRole,
+        menu_permissions: newTemplate.menu_permissions,
+        function_permissions: newTemplate.function_permissions,
+        project_permissions: newTemplate.project_permissions || [],
+        data_permissions: newTemplate.data_permissions || [],
+        updated_at: new Date().toISOString()
+      };
+
+      // 调试输出
+      console.log('更新角色模板数据:', updateData);
+      console.log('菜单权限数量:', newTemplate.menu_permissions.length);
+      console.log('功能权限数量:', newTemplate.function_permissions.length);
+      console.log('项目权限数量:', newTemplate.project_permissions.length);
+      console.log('数据权限数量:', newTemplate.data_permissions.length);
+
       // 使用 upsert 操作，避免更新失败
       const { error } = await supabase
         .from('role_permission_templates')
-        .upsert({
-          role: editingRole,
-          menu_permissions: newTemplate.menu_permissions,
-          function_permissions: newTemplate.function_permissions,
-          project_permissions: newTemplate.project_permissions || [],
-          data_permissions: newTemplate.data_permissions || [],
-          updated_at: new Date().toISOString()
-        }, {
+        .upsert(updateData, {
           onConflict: 'role'
         });
 
@@ -451,50 +461,102 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
 
       {/* 编辑模板对话框 */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle>编辑角色模板</DialogTitle>
             <DialogDescription>
               编辑 "{editingRole}" 的权限配置
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6">
-            <OptimizedPermissionSelector
-              title="菜单权限"
-              permissions={MENU_PERMISSIONS}
-              selectedPermissions={newTemplate.menu_permissions}
-              onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, menu_permissions: permissions }))}
-            />
+          
+          <Tabs defaultValue="menu" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="menu" className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                菜单权限 ({newTemplate.menu_permissions.length})
+              </TabsTrigger>
+              <TabsTrigger value="function" className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                功能权限 ({newTemplate.function_permissions.length})
+              </TabsTrigger>
+              <TabsTrigger value="project" className="flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                项目权限 ({newTemplate.project_permissions.length})
+              </TabsTrigger>
+              <TabsTrigger value="data" className="flex items-center gap-2">
+                <Database className="h-4 w-4" />
+                数据权限 ({newTemplate.data_permissions.length})
+              </TabsTrigger>
+            </TabsList>
 
-            <OptimizedPermissionSelector
-              title="功能权限"
-              permissions={FUNCTION_PERMISSIONS}
-              selectedPermissions={newTemplate.function_permissions}
-              onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, function_permissions: permissions }))}
-            />
+            <TabsContent value="menu" className="space-y-4 mt-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Shield className="h-4 w-4" />
+                <span>配置 {editingRole} 角色的菜单访问权限</span>
+              </div>
+              <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
+                <OptimizedPermissionSelector
+                  title="菜单权限"
+                  permissions={MENU_PERMISSIONS}
+                  selectedPermissions={newTemplate.menu_permissions}
+                  onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, menu_permissions: permissions }))}
+                />
+              </div>
+            </TabsContent>
 
-            <OptimizedPermissionSelector
-              title="项目权限"
-              permissions={PROJECT_PERMISSIONS}
-              selectedPermissions={newTemplate.project_permissions}
-              onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, project_permissions: permissions }))}
-            />
+            <TabsContent value="function" className="space-y-4 mt-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Settings className="h-4 w-4" />
+                <span>配置 {editingRole} 角色的功能操作权限</span>
+              </div>
+              <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
+                <OptimizedPermissionSelector
+                  title="功能权限"
+                  permissions={FUNCTION_PERMISSIONS}
+                  selectedPermissions={newTemplate.function_permissions}
+                  onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, function_permissions: permissions }))}
+                />
+              </div>
+            </TabsContent>
 
-            <OptimizedPermissionSelector
-              title="数据权限"
-              permissions={DATA_PERMISSIONS}
-              selectedPermissions={newTemplate.data_permissions}
-              onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, data_permissions: permissions }))}
-            />
+            <TabsContent value="project" className="space-y-4 mt-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Building2 className="h-4 w-4" />
+                <span>配置 {editingRole} 角色的项目访问权限</span>
+              </div>
+              <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
+                <OptimizedPermissionSelector
+                  title="项目权限"
+                  permissions={PROJECT_PERMISSIONS}
+                  selectedPermissions={newTemplate.project_permissions}
+                  onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, project_permissions: permissions }))}
+                />
+              </div>
+            </TabsContent>
 
-            <div className="flex gap-2">
-              <Button onClick={handleUpdateTemplate} className="flex-1">
-                更新模板
-              </Button>
-              <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-                取消
-              </Button>
-            </div>
+            <TabsContent value="data" className="space-y-4 mt-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Database className="h-4 w-4" />
+                <span>配置 {editingRole} 角色的数据操作权限</span>
+              </div>
+              <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
+                <OptimizedPermissionSelector
+                  title="数据权限"
+                  permissions={DATA_PERMISSIONS}
+                  selectedPermissions={newTemplate.data_permissions}
+                  onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, data_permissions: permissions }))}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex gap-2 pt-4 border-t">
+            <Button onClick={handleUpdateTemplate} className="flex-1">
+              更新模板
+            </Button>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              取消
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
