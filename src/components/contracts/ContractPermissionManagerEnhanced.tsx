@@ -60,6 +60,8 @@ export function ContractPermissionManager({
   const [ownerPermissions, setOwnerPermissions] = useState<ContractOwnerPermission[]>([]);
   const [categoryTemplates, setCategoryTemplates] = useState<CategoryPermissionTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showCategoryTemplateDialog, setShowCategoryTemplateDialog] = useState(false);
   const [editingPermission, setEditingPermission] = useState<ContractPermission | null>(null);
@@ -127,16 +129,20 @@ export function ContractPermissionManager({
   }, [contractId]);
 
   const loadAllData = async () => {
+    if (loading) return; // 防止重复加载
+    
     try {
       setLoading(true);
-      await Promise.all([
-        loadPermissions(),
-        loadOwnerPermissions(),
-        loadCategoryTemplates(),
-        loadReferenceData()
-      ]);
+      setError(null);
+      
+      // 顺序加载，避免竞态条件
+      await loadPermissions();
+      await loadOwnerPermissions();
+      await loadCategoryTemplates();
+      await loadReferenceData();
     } catch (error) {
       console.error('加载数据失败:', error);
+      setError('加载权限数据失败');
       toast({
         title: "加载失败",
         description: "无法加载权限数据",
@@ -144,44 +150,56 @@ export function ContractPermissionManager({
       });
     } finally {
       setLoading(false);
+      setIsInitialized(true);
     }
   };
 
   const loadPermissions = async () => {
     try {
+      // 使用简化版服务，直接查询数据库
+      let query = supabase
+        .from('contract_permissions')
+        .select(`
+          *,
+          contracts(contract_number, counterparty_company, our_company, category),
+          profiles!contract_permissions_user_id_fkey(full_name, email),
+          granter:profiles!contract_permissions_granted_by_fkey(full_name)
+        `)
+        .order('created_at', { ascending: false });
+
       if (contractId) {
-        // 获取特定合同的权限
-        const data = await ContractPermissionService.getContractPermissions(contractId);
-        setPermissions(data || []);
-      } else {
-        // 获取所有权限（使用传统查询）
-        let query = supabase
-          .from('contract_permissions')
-          .select(`
-            *,
-            contracts!inner(contract_number, counterparty_company, our_company, category),
-            profiles!contract_permissions_user_id_fkey(full_name, email),
-            granter:profiles!contract_permissions_granted_by_fkey(full_name)
-          `)
-          .order('created_at', { ascending: false });
+        query = query.eq('contract_id', contractId);
+      }
 
-        const { data, error } = await query;
+      const { data, error } = await query;
 
-        if (error) {
-          console.error('加载权限失败:', error);
-          if (error.message.includes('relation "contract_permissions" does not exist')) {
-            toast({
-              title: "提示",
-              description: "合同权限表尚未创建，请联系管理员",
-              variant: "destructive"
-            });
-          }
+      if (error) {
+        console.error('加载权限失败:', error);
+        if (error.message.includes('relation "contract_permissions" does not exist')) {
+          console.log('合同权限表不存在，使用空数据');
           setPermissions([]);
           return;
         }
-
-        setPermissions(data || []);
+        throw error;
       }
+
+      // 安全地处理数据
+      const safeData = (data || []).map(item => ({
+        ...item,
+        contract_number: item.contracts?.contract_number || '未知合同',
+        counterparty_company: item.contracts?.counterparty_company || '未知公司',
+        our_company: item.contracts?.our_company || '未知公司',
+        category: item.contracts?.category || '未分类',
+        user_name: item.profiles?.full_name || `用户 ${item.user_id}`,
+        user_email: item.profiles?.email || '',
+        granter_name: item.granter?.full_name || `授权者 ${item.granted_by}`,
+        permission_type: item.permission_type || 'view',
+        is_active: item.is_active !== false,
+        expires_at: item.expires_at,
+        description: item.description || ''
+      }));
+
+      setPermissions(safeData);
     } catch (error) {
       console.error('加载权限失败:', error);
       setPermissions([]);
@@ -190,24 +208,45 @@ export function ContractPermissionManager({
 
   const loadOwnerPermissions = async () => {
     try {
-      if (contractId) {
-        const data = await ContractPermissionService.getContractOwnerPermissions(contractId);
-        setOwnerPermissions(data || []);
-      } else {
-        // 获取所有所有者权限
-        const { data, error } = await supabase
-          .from('contract_owner_permission_summary')
-          .select('*')
-          .order('granted_at', { ascending: false });
+      // 简化版：直接查询数据库
+      let query = supabase
+        .from('contract_owner_permissions')
+        .select(`
+          *,
+          contracts(contract_number, counterparty_company, our_company),
+          owner:profiles!contract_owner_permissions_owner_id_fkey(full_name, email)
+        `)
+        .order('created_at', { ascending: false });
 
-        if (error) {
-          console.error('加载所有者权限失败:', error);
+      if (contractId) {
+        query = query.eq('contract_id', contractId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('加载所有者权限失败:', error);
+        if (error.message.includes('relation "contract_owner_permissions" does not exist')) {
+          console.log('合同所有者权限表不存在，使用空数据');
           setOwnerPermissions([]);
           return;
         }
-
-        setOwnerPermissions(data || []);
+        throw error;
       }
+
+      // 安全地处理数据
+      const safeData = (data || []).map(item => ({
+        ...item,
+        contract_number: item.contracts?.contract_number || '未知合同',
+        counterparty_company: item.contracts?.counterparty_company || '未知公司',
+        our_company: item.contracts?.our_company || '未知公司',
+        owner_name: item.owner?.full_name || `所有者 ${item.owner_id}`,
+        owner_email: item.owner?.email || '',
+        permissions: item.permissions || [],
+        is_active: item.is_active !== false
+      }));
+
+      setOwnerPermissions(safeData);
     } catch (error) {
       console.error('加载所有者权限失败:', error);
       setOwnerPermissions([]);
@@ -216,8 +255,33 @@ export function ContractPermissionManager({
 
   const loadCategoryTemplates = async () => {
     try {
-      const data = await ContractPermissionService.getCategoryPermissionTemplates();
-      setCategoryTemplates(data || []);
+      // 简化版：直接查询数据库
+      const { data, error } = await supabase
+        .from('contract_category_permission_templates')
+        .select('*')
+        .order('template_name', { ascending: true });
+
+      if (error) {
+        console.error('加载分类模板失败:', error);
+        if (error.message.includes('relation "contract_category_permission_templates" does not exist')) {
+          console.log('分类权限模板表不存在，使用空数据');
+          setCategoryTemplates([]);
+          return;
+        }
+        throw error;
+      }
+
+      // 安全地处理数据
+      const safeData = (data || []).map(item => ({
+        ...item,
+        template_name: item.template_name || '未命名模板',
+        description: item.description || '',
+        default_permissions: item.default_permissions || [],
+        role_permissions: item.role_permissions || {},
+        is_active: item.is_active !== false
+      }));
+
+      setCategoryTemplates(safeData);
     } catch (error) {
       console.error('加载分类模板失败:', error);
       setCategoryTemplates([]);
@@ -226,17 +290,39 @@ export function ContractPermissionManager({
 
   const loadReferenceData = async () => {
     try {
-      const [contractsRes, usersRes, rolesRes] = await Promise.all([
+      // 安全地加载参考数据，处理表不存在的情况
+      const [contractsRes, usersRes, rolesRes] = await Promise.allSettled([
         supabase.from('contracts').select('id, contract_number, counterparty_company, category').order('contract_number'),
         supabase.from('profiles').select('id, full_name, email').order('full_name'),
         supabase.from('role_permission_templates').select('role').order('role')
       ]);
 
-      setContracts(contractsRes.data || []);
-      setUsers(usersRes.data || []);
-      setRoles(rolesRes.data || []);
+      // 处理合同数据
+      if (contractsRes.status === 'fulfilled' && !contractsRes.value.error) {
+        setContracts(contractsRes.value.data || []);
+      } else {
+        console.log('合同表不存在或查询失败，使用空数据');
+        setContracts([]);
+      }
+
+      // 处理用户数据
+      if (usersRes.status === 'fulfilled' && !usersRes.value.error) {
+        setUsers(usersRes.value.data || []);
+      } else {
+        console.log('用户表不存在或查询失败，使用空数据');
+        setUsers([]);
+      }
+
+      // 处理角色数据
+      if (rolesRes.status === 'fulfilled' && !rolesRes.value.error) {
+        setRoles(rolesRes.value.data || []);
+      } else {
+        console.log('角色表不存在或查询失败，使用空数据');
+        setRoles([]);
+      }
     } catch (error) {
       console.error('加载参考数据失败:', error);
+      // 设置默认空数据
       setContracts([]);
       setUsers([]);
       setRoles([]);
@@ -325,7 +411,7 @@ export function ContractPermissionManager({
         return;
       }
 
-      // 使用服务层创建权限
+      // 使用简化版服务创建权限
       await ContractPermissionService.createContractPermission({
         contract_id: formData.contract_id,
         user_id: formData.user_id || undefined,
