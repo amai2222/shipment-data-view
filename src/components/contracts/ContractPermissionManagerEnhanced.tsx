@@ -171,12 +171,17 @@ export function ContractPermissionManager({
   const loadOwnerPermissions = async () => {
     try {
       const { data, error } = await supabase
-        .from('contract_owner_permission_summary')
-        .select('*')
-        .order('granted_at', { ascending: false });
+        .rpc('get_contract_owner_permissions');
 
       if (error) {
         console.error('加载所有者权限失败:', error);
+        if (error.message.includes('function get_contract_owner_permissions() does not exist')) {
+          toast({
+            title: "提示",
+            description: "合同所有者权限功能尚未配置，请先执行数据库脚本",
+            variant: "destructive"
+          });
+        }
         return;
       }
 
@@ -189,12 +194,17 @@ export function ContractPermissionManager({
   const loadCategoryTemplates = async () => {
     try {
       const { data, error } = await supabase
-        .from('contract_category_permission_templates')
-        .select('*')
-        .order('category', { ascending: true });
+        .rpc('get_contract_category_templates');
 
       if (error) {
         console.error('加载分类模板失败:', error);
+        if (error.message.includes('function get_contract_category_templates() does not exist')) {
+          toast({
+            title: "提示",
+            description: "合同分类模板功能尚未配置，请先执行数据库脚本",
+            variant: "destructive"
+          });
+        }
         return;
       }
 
