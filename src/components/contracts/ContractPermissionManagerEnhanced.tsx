@@ -63,15 +63,15 @@ export function ContractPermissionManager({
   // 筛选和搜索
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
-    permissionType: '',
-    targetType: '',
+    permissionType: 'all',
+    targetType: 'all',
     status: 'active',
-    category: ''
+    category: 'all'
   });
   
   // 表单数据
   const [formData, setFormData] = useState({
-    contract_id: contractId || '',
+    contract_id: contractId || 'none',
     user_id: '',
     role_id: '',
     department_id: '',
@@ -259,19 +259,19 @@ export function ContractPermissionManager({
       }
 
       // 权限类型筛选
-      if (filters.permissionType && permission.permission_type !== filters.permissionType) {
+      if (filters.permissionType && filters.permissionType !== 'all' && permission.permission_type !== filters.permissionType) {
         return false;
       }
 
       // 目标类型筛选
-      if (filters.targetType) {
+      if (filters.targetType && filters.targetType !== 'all') {
         if (filters.targetType === 'user' && !permission.user_id) return false;
         if (filters.targetType === 'role' && !permission.role_id) return false;
         if (filters.targetType === 'department' && !permission.department_id) return false;
       }
 
       // 合同分类筛选
-      if (filters.category && permission.category !== filters.category) {
+      if (filters.category && filters.category !== 'all' && permission.category !== filters.category) {
         return false;
       }
 
@@ -286,6 +286,16 @@ export function ContractPermissionManager({
   // 创建权限
   const handleCreatePermission = async () => {
     try {
+      // 验证表单数据
+      if (formData.contract_id === 'none') {
+        toast({
+          title: "验证失败",
+          description: "请选择合同",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('contract_permissions')
         .insert({
@@ -347,7 +357,7 @@ export function ContractPermissionManager({
   // 重置表单
   const resetForm = () => {
     setFormData({
-      contract_id: contractId || '',
+      contract_id: contractId || 'none',
       user_id: '',
       role_id: '',
       department_id: '',
@@ -507,6 +517,7 @@ export function ContractPermissionManager({
                             <SelectValue placeholder="选择合同" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="none">请选择合同</SelectItem>
                             {contracts.map(contract => (
                               <SelectItem key={contract.id} value={contract.id}>
                                 {contract.contract_number} - {contract.counterparty_company} ({contract.category})
@@ -644,7 +655,7 @@ export function ContractPermissionManager({
                     <SelectValue placeholder="权限类型" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部类型</SelectItem>
+                    <SelectItem value="all">全部类型</SelectItem>
                     {permissionTypes.map(type => (
                       <SelectItem key={type.value} value={type.value}>
                         {type.label}
@@ -657,7 +668,7 @@ export function ContractPermissionManager({
                     <SelectValue placeholder="合同分类" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部分类</SelectItem>
+                    <SelectItem value="all">全部分类</SelectItem>
                     {contractCategories.map(category => (
                       <SelectItem key={category.value} value={category.value}>
                         {category.label}
@@ -670,7 +681,7 @@ export function ContractPermissionManager({
                     <SelectValue placeholder="目标类型" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部</SelectItem>
+                    <SelectItem value="all">全部</SelectItem>
                     <SelectItem value="user">用户</SelectItem>
                     <SelectItem value="role">角色</SelectItem>
                     <SelectItem value="department">部门</SelectItem>
