@@ -4,7 +4,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogisticsRecord } from '../types';
+import { LogisticsSummaryAndRecordsParams, LogisticsSummaryAndRecordsResponse, LogisticsRecord, LogisticsSummary, PaginationInfo } from '@/types/rpc';
 
 export interface LogisticsFilters {
   startDate: string;
@@ -59,7 +59,7 @@ export function useLogisticsData() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilters, setActiveFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
-  const [pagination, setPagination] = useState({ 
+  const [pagination, setPagination] = useState<PaginationInfo>({ 
     currentPage: 1, 
     totalPages: 1, 
     totalCount: 0, 
@@ -78,7 +78,7 @@ export function useLogisticsData() {
   ) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_logistics_summary_and_records' as any, {
+      const { data, error } = await supabase.rpc('get_logistics_summary_and_records', {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,
@@ -89,11 +89,15 @@ export function useLogisticsData() {
         p_page_size: pageSize,
         p_sort_field: currentSortField,
         p_sort_direction: currentSortDirection
-      });
+      } as LogisticsSummaryAndRecordsParams);
 
       if (error) throw error;
       
-      const responseData = (data as any) || {};
+      const responseData = (data as LogisticsSummaryAndRecordsResponse) || {
+        records: [],
+        summary: INITIAL_SUMMARY,
+        totalCount: 0
+      };
       
       // 数据库已经排序，不需要前端再排序
       setRecords(responseData.records || []);
@@ -106,8 +110,9 @@ export function useLogisticsData() {
         pageSize: pageSize
       }));
 
-    } catch (error: any) {
-      toast({ title: "错误", description: `加载运单记录失败: ${error.message}`, variant: "destructive" });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      toast({ title: "错误", description: `加载运单记录失败: ${errorMessage}`, variant: "destructive" });
       setRecords([]);
       setTotalSummary(INITIAL_SUMMARY);
     } finally {
@@ -147,8 +152,9 @@ export function useLogisticsData() {
       toast({ title: "成功", description: "运单记录已删除" });
       // 重新加载当前页数据
       await loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize);
-    } catch (error: any) {
-      toast({ title: "删除失败", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      toast({ title: "删除失败", description: errorMessage, variant: "destructive" });
     }
   }, [toast, loadPaginatedRecords, pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize]);
 
