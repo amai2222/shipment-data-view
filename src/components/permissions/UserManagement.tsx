@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import { UserWithPermissions, UserRole } from '@/types/permissions';
 import { EnterpriseUserEditDialog } from '../EnterpriseUserEditDialog';
 import { PermissionChangeConfirmDialog } from '../PermissionChangeConfirmDialog';
+import { ChangePasswordDialog } from '../ChangePasswordDialog';
 
 interface UserManagementProps {
   users: UserWithPermissions[];
@@ -59,6 +60,8 @@ export function UserManagement({
   const [editingUser, setEditingUser] = useState<UserWithPermissions | null>(null);
   const [showPermissionConfirmDialog, setShowPermissionConfirmDialog] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<any[]>([]);
+  const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const [passwordChangeUser, setPasswordChangeUser] = useState<UserWithPermissions | null>(null);
   
   // 表单数据
   const [createUserForm, setCreateUserForm] = useState({
@@ -72,6 +75,18 @@ export function UserManagement({
   const handleEditUser = (user: UserWithPermissions) => {
     setEditingUser(user);
     setShowEditDialog(true);
+  };
+
+  // 修改密码
+  const handleChangePassword = (user: UserWithPermissions) => {
+    setPasswordChangeUser(user);
+    setShowChangePasswordDialog(true);
+  };
+
+  // 关闭修改密码弹窗
+  const handleCloseChangePasswordDialog = () => {
+    setShowChangePasswordDialog(false);
+    setPasswordChangeUser(null);
   };
 
   // 保存用户编辑
@@ -536,34 +551,36 @@ export function UserManagement({
                       <span className="text-sm text-muted-foreground">-</span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => toggleUserStatus(user)}
-                          title={user.is_active ? "禁用用户" : "启用用户"}
+                          className={user.is_active ? "text-red-600 border-red-300 hover:bg-red-50" : "text-green-600 border-green-300 hover:bg-green-50"}
                         >
-                          {user.is_active ? (
-                            <XCircle className="h-4 w-4 text-red-600" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                          )}
+                          {user.is_active ? "禁用" : "启用"}
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          title="编辑用户"
                           onClick={() => handleEditUser(user)}
                         >
-                          <Edit className="h-4 w-4" />
+                          编辑
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          title="删除用户"
-                          className="text-red-600 hover:text-red-700"
+                          onClick={() => handleChangePassword(user)}
+                          className="text-blue-600 border-blue-300 hover:bg-blue-50"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          修改密码
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          删除
                         </Button>
                       </div>
                     </TableCell>
@@ -669,6 +686,20 @@ export function UserManagement({
         onClose={() => setShowPermissionConfirmDialog(false)}
         onConfirm={handleConfirmPermissionChanges}
         changes={pendingChanges}
+      />
+
+      {/* 修改密码对话框 */}
+      <ChangePasswordDialog
+        isOpen={showChangePasswordDialog}
+        onClose={handleCloseChangePasswordDialog}
+        userId={passwordChangeUser?.id || ''}
+        userName={passwordChangeUser?.full_name || ''}
+        onSuccess={() => {
+          toast({
+            title: "密码修改成功",
+            description: "用户密码已更新",
+          });
+        }}
       />
     </div>
   );
