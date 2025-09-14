@@ -310,23 +310,23 @@ export function UserPermissionManagement({
             </TabsList>
 
             <TabsContent value="menu">
-              <ScrollArea className="h-96">
+              <div className="max-h-96 overflow-y-auto scroll-smooth">
                 {renderPermissionList(
                   MENU_PERMISSIONS,
                   currentPermissions.menu_permissions,
                   'menu'
                 )}
-              </ScrollArea>
+              </div>
             </TabsContent>
 
             <TabsContent value="function">
-              <ScrollArea className="h-96">
+              <div className="max-h-96 overflow-y-auto scroll-smooth">
                 {renderPermissionList(
                   FUNCTION_PERMISSIONS,
                   currentPermissions.function_permissions,
                   'function'
                 )}
-              </ScrollArea>
+              </div>
             </TabsContent>
           </Tabs>
         )}

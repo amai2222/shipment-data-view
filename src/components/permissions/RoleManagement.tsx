@@ -221,43 +221,43 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
           </TabsList>
 
           <TabsContent value="menu">
-            <ScrollArea className="h-96">
+            <div className="max-h-96 overflow-y-auto scroll-smooth">
               {renderPermissionList(
                 MENU_PERMISSIONS,
                 currentPermissions.menu_permissions,
                 'menu'
               )}
-            </ScrollArea>
+            </div>
           </TabsContent>
 
           <TabsContent value="function">
-            <ScrollArea className="h-96">
+            <div className="max-h-96 overflow-y-auto scroll-smooth">
               {renderPermissionList(
                 FUNCTION_PERMISSIONS,
                 currentPermissions.function_permissions,
                 'function'
               )}
-            </ScrollArea>
+            </div>
           </TabsContent>
 
           <TabsContent value="project">
-            <ScrollArea className="h-96">
+            <div className="max-h-96 overflow-y-auto scroll-smooth">
               {renderPermissionList(
                 PROJECT_PERMISSIONS,
                 currentPermissions.project_permissions,
                 'project'
               )}
-            </ScrollArea>
+            </div>
           </TabsContent>
 
           <TabsContent value="data">
-            <ScrollArea className="h-96">
+            <div className="max-h-96 overflow-y-auto scroll-smooth">
               {renderPermissionList(
                 DATA_PERMISSIONS,
                 currentPermissions.data_permissions,
                 'data'
               )}
-            </ScrollArea>
+            </div>
           </TabsContent>
         </Tabs>
 

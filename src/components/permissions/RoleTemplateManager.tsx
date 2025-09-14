@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { OptimizedPermissionSelector } from './OptimizedPermissionSelector';
 import { 
   Settings, 
   Plus, 
@@ -232,9 +233,17 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
     };
 
     const handlePermissionToggle = (permissionKey: string, checked: boolean) => {
-      // 保存当前滚动位置
+      // 使用更稳定的滚动位置保持方法
       const scrollContainer = scrollAreaRefs.current[title];
       const scrollTop = scrollContainer?.scrollTop || 0;
+      const scrollHeight = scrollContainer?.scrollHeight || 0;
+      
+      // 使用 requestAnimationFrame 确保在DOM更新后恢复滚动位置
+      const restoreScroll = () => {
+        if (scrollContainer) {
+          scrollContainer.scrollTop = scrollTop;
+        }
+      };
       
       if (checked) {
         onSelectionChange([...selectedPermissions, permissionKey]);
@@ -242,12 +251,10 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
         onSelectionChange(selectedPermissions.filter(p => p !== permissionKey));
       }
       
-      // 恢复滚动位置
-      setTimeout(() => {
-        if (scrollContainer) {
-          scrollContainer.scrollTop = scrollTop;
-        }
-      }, 0);
+      // 使用 requestAnimationFrame 确保滚动位置在DOM更新后恢复
+      requestAnimationFrame(() => {
+        requestAnimationFrame(restoreScroll);
+      });
     };
 
     return (
@@ -255,7 +262,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
         <h4 className="font-medium">{title}</h4>
         <div 
           ref={(el) => scrollAreaRefs.current[title] = el}
-          className="space-y-2 max-h-64 overflow-y-auto"
+          className="space-y-2 max-h-80 overflow-y-auto scroll-smooth border rounded-lg p-4"
         >
           {permissions.map(group => (
             <div key={group.key} className="space-y-2">
@@ -452,28 +459,28 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
-            <PermissionSelector
+            <OptimizedPermissionSelector
               title="菜单权限"
               permissions={MENU_PERMISSIONS}
               selectedPermissions={newTemplate.menu_permissions}
               onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, menu_permissions: permissions }))}
             />
 
-            <PermissionSelector
+            <OptimizedPermissionSelector
               title="功能权限"
               permissions={FUNCTION_PERMISSIONS}
               selectedPermissions={newTemplate.function_permissions}
               onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, function_permissions: permissions }))}
             />
 
-            <PermissionSelector
+            <OptimizedPermissionSelector
               title="项目权限"
               permissions={PROJECT_PERMISSIONS}
               selectedPermissions={newTemplate.project_permissions}
               onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, project_permissions: permissions }))}
             />
 
-            <PermissionSelector
+            <OptimizedPermissionSelector
               title="数据权限"
               permissions={DATA_PERMISSIONS}
               selectedPermissions={newTemplate.data_permissions}

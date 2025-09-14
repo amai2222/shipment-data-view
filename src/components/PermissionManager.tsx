@@ -480,47 +480,47 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
                 </TabsList>
 
                 <TabsContent value="menu">
-                  <ScrollArea className="h-96">
+                  <div className="max-h-96 overflow-y-auto scroll-smooth">
                     {renderPermissionList(
                       MENU_PERMISSIONS,
                       getCurrentRolePermissions().menu_permissions,
                       (key) => toggleRolePermission('menu', key),
                       'menu'
                     )}
-                  </ScrollArea>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="function">
-                  <ScrollArea className="h-96">
+                  <div className="max-h-96 overflow-y-auto scroll-smooth">
                     {renderPermissionList(
                       FUNCTION_PERMISSIONS,
                       getCurrentRolePermissions().function_permissions,
                       (key) => toggleRolePermission('function', key),
                       'function'
                     )}
-                  </ScrollArea>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="project">
-                  <ScrollArea className="h-96">
+                  <div className="max-h-96 overflow-y-auto scroll-smooth">
                     {renderPermissionList(
                       PROJECT_PERMISSIONS,
                       getCurrentRolePermissions().project_permissions,
                       (key) => toggleRolePermission('project', key),
                       'project'
                     )}
-                  </ScrollArea>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="data">
-                  <ScrollArea className="h-96">
+                  <div className="max-h-96 overflow-y-auto scroll-smooth">
                     {renderPermissionList(
                       DATA_PERMISSIONS,
                       getCurrentRolePermissions().data_permissions,
                       (key) => toggleRolePermission('data', key),
                       'data'
                     )}
-                  </ScrollArea>
+                  </div>
                 </TabsContent>
               </Tabs>
 
