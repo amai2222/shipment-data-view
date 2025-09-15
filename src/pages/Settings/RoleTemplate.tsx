@@ -24,6 +24,11 @@ export default function RoleTemplatePage() {
     loadAllData
   } = useOptimizedPermissions();
 
+  // 将roleTemplates对象转换为数组
+  const roleTemplatesArray = Array.isArray(roleTemplates) 
+    ? roleTemplates 
+    : Object.values(roleTemplates || {});
+
   // 处理更新角色模板
   const handleUpdateRoleTemplates = async (updatedTemplates: any[]) => {
     try {
@@ -97,7 +102,7 @@ export default function RoleTemplatePage() {
             <Settings className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{roleTemplates.length}</div>
+            <div className="text-2xl font-bold">{roleTemplatesArray.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -107,7 +112,7 @@ export default function RoleTemplatePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {roleTemplates.filter(template => template.is_default).length}
+              {roleTemplatesArray.filter(template => template.is_default).length}
             </div>
           </CardContent>
         </Card>
@@ -118,7 +123,7 @@ export default function RoleTemplatePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {roleTemplates.filter(template => !template.is_default).length}
+              {roleTemplatesArray.filter(template => !template.is_default).length}
             </div>
           </CardContent>
         </Card>
@@ -145,7 +150,7 @@ export default function RoleTemplatePage() {
         </CardHeader>
         <CardContent>
           <RoleTemplateManager
-            roleTemplates={roleTemplates}
+            roleTemplates={roleTemplatesArray}
             onUpdate={handleUpdateRoleTemplates}
           />
         </CardContent>

@@ -26,6 +26,11 @@ export default function PermissionConfigPage() {
     savePermissions
   } = useOptimizedPermissions();
 
+  // 将roleTemplates对象转换为数组
+  const roleTemplatesArray = Array.isArray(roleTemplates) 
+    ? roleTemplates 
+    : Object.values(roleTemplates || {});
+
   // 合并用户和权限数据
   const usersWithPermissions = useMemo(() => {
     return users.map(user => {
@@ -125,7 +130,7 @@ export default function PermissionConfigPage() {
             <Settings className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{roleTemplates.length}</div>
+            <div className="text-2xl font-bold">{roleTemplatesArray.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -163,7 +168,7 @@ export default function PermissionConfigPage() {
         <CardContent>
           <PermissionConfiguration
             users={usersWithPermissions}
-            roleTemplates={roleTemplates}
+            roleTemplates={roleTemplatesArray}
             userPermissions={userPermissions}
             hasChanges={hasChanges}
             onSave={handleSavePermissions}
