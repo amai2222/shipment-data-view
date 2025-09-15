@@ -38,14 +38,19 @@ export default function RoleTemplatePage() {
     : roleTemplates || {};
 
   // 处理更新角色模板
-  const handleUpdateRoleTemplates = async (updatedTemplates: any[]) => {
+  const handleUpdateRoleTemplates = async () => {
     try {
+      console.log('开始更新角色模板...');
       setHasChanges(true);
+      // 强制刷新数据以显示最新状态
+      await loadAllData(true);
+      console.log('角色模板数据已强制刷新');
       toast({
         title: "模板更新",
         description: "角色模板已更新",
       });
     } catch (error) {
+      console.error('更新角色模板失败:', error);
       toast({
         title: "更新失败",
         description: "无法更新角色模板",
