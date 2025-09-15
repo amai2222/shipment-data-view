@@ -1,9 +1,9 @@
 // 权限系统配置
 
-import { PermissionGroup, AppRole, RoleDefinition } from '@/types/permission';
+import { PermissionGroup, UserRole, RoleDefinition } from '@/types/permission';
 
 // 角色定义
-export const ROLES: Record<AppRole, RoleDefinition> = {
+export const ROLES: Record<UserRole, RoleDefinition> = {
   admin: {
     label: '系统管理员',
     color: 'bg-red-500',
@@ -46,8 +46,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     children: [
       { key: 'dashboard.transport', label: '运输看板', url: '/dashboard/transport', icon: 'Truck', group: '数据看板' },
       { key: 'dashboard.financial', label: '财务看板', url: '/dashboard/financial', icon: 'DollarSign', group: '数据看板' },
-      { key: 'dashboard.project', label: '项目看板', url: '/dashboard/project', icon: 'PieChart', group: '数据看板' },
-      { key: 'dashboard.quantity', label: '数量概览', url: '/quantity-overview', icon: 'Package', group: '数据看板' }
+      { key: 'dashboard.project', label: '项目看板', url: '/dashboard/project', icon: 'PieChart', group: '数据看板' }
     ]
   },
   {
@@ -80,16 +79,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     label: '合同管理',
     icon: 'FileText',
     children: [
-      { key: 'contracts.list', label: '合同列表', url: '/contracts', icon: 'FileText', group: '合同管理' },
-      { key: 'contracts.create', label: '新增合同', url: '/contracts', icon: 'Plus', group: '合同管理' },
-      { key: 'contracts.edit', label: '编辑合同', url: '/contracts', icon: 'Edit', group: '合同管理' },
-      { key: 'contracts.delete', label: '删除合同', url: '/contracts', icon: 'Trash2', group: '合同管理' },
-      { key: 'contracts.files', label: '文件管理', url: '/contracts', icon: 'File', group: '合同管理' },
-      { key: 'contracts.permissions', label: '权限管理', url: '/contracts', icon: 'Shield', group: '合同管理' },
-      { key: 'contracts.audit', label: '审计日志', url: '/contracts', icon: 'History', group: '合同管理' },
-      { key: 'contracts.reminders', label: '提醒管理', url: '/contracts', icon: 'Bell', group: '合同管理' },
-      { key: 'contracts.tags', label: '标签管理', url: '/contracts', icon: 'Tag', group: '合同管理' },
-      { key: 'contracts.numbering', label: '编号管理', url: '/contracts', icon: 'Hash', group: '合同管理' }
+      { key: 'contracts.list', label: '合同列表', url: '/contracts', icon: 'FileText', group: '合同管理' }
     ]
   },
   {
@@ -170,22 +160,7 @@ export const FUNCTION_PERMISSIONS: FunctionPermission[] = [
     key: 'contract_management',
     label: '合同管理',
     children: [
-      { key: 'contract.view', label: '查看合同', description: '可以查看合同列表和基本信息', group: '合同管理' },
-      { key: 'contract.create', label: '新增合同', description: '可以创建新合同', group: '合同管理' },
-      { key: 'contract.edit', label: '编辑合同', description: '可以修改合同信息', group: '合同管理' },
-      { key: 'contract.delete', label: '删除合同', description: '可以删除合同', group: '合同管理' },
-      { key: 'contract.archive', label: '归档合同', description: '可以将合同归档', group: '合同管理' },
-      { key: 'contract.files_upload', label: '上传文件', description: '可以上传合同文件', group: '合同管理' },
-      { key: 'contract.files_download', label: '下载文件', description: '可以下载合同文件', group: '合同管理' },
-      { key: 'contract.files_delete', label: '删除文件', description: '可以删除合同文件', group: '合同管理' },
-      { key: 'contract.permissions_manage', label: '权限管理', description: '可以管理合同访问权限', group: '合同管理' },
-      { key: 'contract.audit_logs', label: '审计日志', description: '可以查看合同操作日志', group: '合同管理' },
-      { key: 'contract.reminders', label: '提醒管理', description: '可以设置合同提醒', group: '合同管理' },
-      { key: 'contract.tags', label: '标签管理', description: '可以管理合同标签', group: '合同管理' },
-      { key: 'contract.numbering', label: '编号管理', description: '可以管理合同编号规则', group: '合同管理' },
-      { key: 'contract.sensitive_fields', label: '敏感信息', description: '可以查看/编辑敏感字段', group: '合同管理' },
-      { key: 'contract.approve', label: '审批合同', description: '可以审批合同', group: '合同管理' },
-      { key: 'contract.export', label: '导出合同', description: '可以导出合同数据', group: '合同管理' }
+      { key: 'contract.view', label: '查看合同', description: '可以查看合同列表和基本信息', group: '合同管理' }
     ]
   },
   {
@@ -264,13 +239,13 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
   admin: {
     menu_permissions: [
       // 数据看板
-      'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project', 'dashboard.quantity',
+      'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project',
       // 信息维护
       'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
       // 业务管理
       'business', 'business.entry', 'business.scale', 'business.payment_request', 'business.payment_requests',
       // 合同管理
-      'contracts', 'contracts.list', 'contracts.create', 'contracts.edit', 'contracts.delete', 'contracts.files', 'contracts.permissions', 'contracts.audit', 'contracts.reminders', 'contracts.tags', 'contracts.numbering',
+      'contracts', 'contracts.list',
       // 财务对账
       'finance', 'finance.reconciliation', 'finance.payment_invoice',
       // 数据维护
@@ -282,7 +257,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'data', 'data.create', 'data.edit', 'data.delete', 'data.export', 'data.import',
       'scale_records', 'scale_records.create', 'scale_records.edit', 'scale_records.view', 'scale_records.delete',
       'finance', 'finance.view_cost', 'finance.approve_payment', 'finance.generate_invoice', 'finance.reconcile',
-      'contract_management', 'contract.view', 'contract.create', 'contract.edit', 'contract.delete', 'contract.archive', 'contract.files_upload', 'contract.files_download', 'contract.files_delete', 'contract.permissions_manage', 'contract.audit_logs', 'contract.reminders', 'contract.tags', 'contract.numbering', 'contract.sensitive_fields', 'contract.approve', 'contract.export',
+      'contract_management', 'contract.view',
       'system', 'system.manage_users', 'system.manage_roles', 'system.view_logs', 'system.backup'
     ],
     project_permissions: [
@@ -299,14 +274,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'dashboard', 'dashboard.financial', 'dashboard.project',
       'maintenance', 'maintenance.partners',
       'business', 'business.payment_request', 'business.payment_requests',
-      'contracts', 'contracts.list', 'contracts.files', 'contracts.audit',
+      'contracts', 'contracts.list',
       'finance', 'finance.reconciliation', 'finance.payment_invoice'
     ],
     function_permissions: [
       'data', 'data.view', 'data.export',
       'finance', 'finance.view_cost', 'finance.approve_payment', 'finance.generate_invoice', 'finance.reconcile',
       'scale_records', 'scale_records.view',
-      'contract_management', 'contract.view', 'contract.files_download', 'contract.audit_logs', 'contract.sensitive_fields', 'contract.export'
+      'contract_management', 'contract.view',
     ],
     project_permissions: [
       'project_access', 'project.view_all',
@@ -322,14 +297,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'dashboard', 'dashboard.transport', 'dashboard.project',
       'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
       'business', 'business.entry', 'business.scale',
-      'contracts', 'contracts.list', 'contracts.create', 'contracts.edit', 'contracts.files', 'contracts.reminders', 'contracts.tags',
+      'contracts', 'contracts.list',
       'finance', 'finance.reconciliation'
     ],
     function_permissions: [
       'data', 'data.create', 'data.edit', 'data.export',
       'scale_records', 'scale_records.create', 'scale_records.edit', 'scale_records.view',
       'finance', 'finance.view_cost',
-      'contract_management', 'contract.view', 'contract.create', 'contract.edit', 'contract.files_upload', 'contract.files_download', 'contract.reminders', 'contract.tags', 'contract.export'
+      'contract_management', 'contract.view',
     ],
     project_permissions: [
       'project_access', 'project.view_assigned', 'project.manage',
@@ -385,7 +360,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'data', 'data.view',
       'scale_records', 'scale_records.view',
       'finance', 'finance.view_cost',
-      'contract_management', 'contract.view', 'contract.files_download'
+      'contract_management', 'contract.view'
     ],
     project_permissions: [
       'project_access', 'project.view_all',

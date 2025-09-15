@@ -1,10 +1,12 @@
 // 用户管理类型定义
 
+import { UserRole } from './permissions';
+
 export interface User {
   id: string;
   email: string;
   full_name: string;
-  role: AppRole;
+  role: UserRole;
   is_active: boolean;
   phone?: string;
   work_wechat_userid?: string;
@@ -15,7 +17,7 @@ export interface User {
 export interface UserCreateData {
   email: string;
   full_name: string;
-  role: AppRole;
+  role: UserRole;
   phone?: string;
   work_wechat_userid?: string;
   password?: string;
@@ -24,7 +26,7 @@ export interface UserCreateData {
 export interface UserUpdateData {
   id: string;
   full_name?: string;
-  role?: AppRole;
+  role?: UserRole;
   is_active?: boolean;
   phone?: string;
   work_wechat_userid?: string;
@@ -33,7 +35,7 @@ export interface UserUpdateData {
 
 export interface UserBatchUpdateData {
   userIds: string[];
-  role?: AppRole;
+  role?: UserRole;
   is_active?: boolean;
 }
 
@@ -55,8 +57,6 @@ export interface UserOperationResult {
   data?: any;
   error?: string;
 }
-
-export type AppRole = 'admin' | 'finance' | 'business' | 'operator' | 'partner' | 'viewer';
 
 export interface RoleDefinition {
   label: string;

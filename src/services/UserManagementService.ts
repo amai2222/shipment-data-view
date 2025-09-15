@@ -6,8 +6,7 @@ import {
   UserCreateData, 
   UserUpdateData, 
   UserBatchUpdateData, 
-  UserOperationResult,
-  AppRole 
+  UserOperationResult
 } from '@/types/userManagement';
 
 export class UserManagementService {

@@ -1,10 +1,12 @@
 // 权限管理系统类型定义
 
+import { UserRole } from './permissions';
+
 export interface User {
   id: string;
   email: string;
   full_name: string;
-  role: AppRole;
+  role: UserRole;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -20,7 +22,7 @@ export interface Project {
 
 export interface RoleTemplate {
   id: string;
-  role: AppRole;
+  role: UserRole;
   name: string;
   description: string;
   color: string;
@@ -66,7 +68,7 @@ export interface PermissionConfig {
   data_permissions: PermissionGroup[];
 }
 
-export type AppRole = 'admin' | 'finance' | 'business' | 'operator' | 'partner' | 'viewer';
+export type AppRole = UserRole;
 
 export interface RoleDefinition {
   label: string;
@@ -77,7 +79,7 @@ export interface RoleDefinition {
 export interface PermissionState {
   users: User[];
   projects: Project[];
-  roleTemplates: Record<AppRole, RoleTemplate>;
+  roleTemplates: Record<UserRole, RoleTemplate>;
   userPermissions: UserPermission[];
   loading: boolean;
   error: string | null;
