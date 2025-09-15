@@ -36,6 +36,7 @@ import RoleTemplate from "./pages/Settings/RoleTemplate";
 import PermissionManagement from "./pages/Settings/PermissionManagement";
 import IntegratedUserManagement from "./pages/IntegratedUserManagement";
 import DebugPermissions from "./pages/DebugPermissions";
+import PermissionTest from "./pages/PermissionTest";
 import MobileIntegratedUserManagement from "./pages/mobile/MobileIntegratedUserManagement";
 import AuditLogs from "./pages/Settings/AuditLogs";
 import MobileAuditLogs from "./pages/mobile/MobileAuditLogs";
@@ -224,6 +225,12 @@ const App = () => (
             <Route path="/debug-permissions" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <AppLayout><DebugPermissions /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/permission-test" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><PermissionTest /></AppLayout>
               </ProtectedRoute>
             } />
             

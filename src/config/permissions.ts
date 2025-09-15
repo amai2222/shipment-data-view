@@ -119,6 +119,9 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     icon: 'Settings',
     children: [
       { key: 'settings.users', label: '用户管理', url: '/settings/users', icon: 'UserCog', group: '设置' },
+      { key: 'settings.permissions', label: '权限配置', url: '/settings/permissions', icon: 'Shield', group: '设置' },
+      { key: 'settings.contract_permissions', label: '合同权限', url: '/settings/contract-permissions', icon: 'FileText', group: '设置' },
+      { key: 'settings.role_templates', label: '角色模板', url: '/settings/role-templates', icon: 'Settings', group: '设置' },
       { key: 'settings.integrated', label: '集成权限管理', url: '/settings/integrated', icon: 'Shield', group: '设置' },
       { key: 'settings.audit_logs', label: '操作日志', url: '/settings/audit-logs', icon: 'History', group: '设置' }
     ],
@@ -273,7 +276,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       // 数据维护
       'data_maintenance', 'data_maintenance.waybill',
       // 设置
-      'settings', 'settings.users', 'settings.integrated', 'settings.audit_logs'
+      'settings', 'settings.users', 'settings.permissions', 'settings.contract_permissions', 'settings.role_templates', 'settings.integrated', 'settings.audit_logs'
     ],
     function_permissions: [
       'data', 'data.create', 'data.edit', 'data.delete', 'data.export', 'data.import',

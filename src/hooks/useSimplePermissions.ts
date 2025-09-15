@@ -1,4 +1,4 @@
-// 简化版权限管理Hook，避免循环依赖
+// 简化版权限管理Hook，从数据库加载权限
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,9 +6,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { UserRole } from '@/types/permissions';
 import { DEFAULT_ROLE_PERMISSIONS } from '@/config/permissions';
 
+interface RolePermissions {
+  menu_permissions: string[];
+  function_permissions: string[];
+  project_permissions: string[];
+  data_permissions: string[];
+}
+
 export function useSimplePermissions() {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [dbPermissions, setDbPermissions] = useState<RolePermissions | null>(null);
 
   // 获取用户角色
   const userRole = useMemo(() => {
@@ -17,17 +25,53 @@ export function useSimplePermissions() {
     return role;
   }, [profile?.role]);
 
-  // 获取角色默认权限
+  // 从数据库加载权限
+  useEffect(() => {
+    const loadPermissions = async () => {
+      if (!userRole) return;
+      
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('role_permission_templates')
+          .select('menu_permissions, function_permissions, project_permissions, data_permissions')
+          .eq('role', userRole)
+          .single();
+
+        if (error) {
+          console.warn('从数据库加载权限失败，使用默认权限:', error);
+          setDbPermissions(null);
+        } else {
+          console.log(`从数据库加载权限成功:`, data);
+          setDbPermissions(data);
+        }
+      } catch (error) {
+        console.error('加载权限失败:', error);
+        setDbPermissions(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPermissions();
+  }, [userRole]);
+
+  // 获取角色权限（优先使用数据库，回退到默认权限）
   const rolePermissions = useMemo(() => {
     try {
-      const permissions = DEFAULT_ROLE_PERMISSIONS[userRole] || DEFAULT_ROLE_PERMISSIONS.viewer;
-      console.log(`用户角色: ${userRole}, 权限配置:`, permissions);
-      return permissions;
+      if (dbPermissions) {
+        console.log(`使用数据库权限: ${userRole}`, dbPermissions);
+        return dbPermissions;
+      } else {
+        const permissions = DEFAULT_ROLE_PERMISSIONS[userRole] || DEFAULT_ROLE_PERMISSIONS.viewer;
+        console.log(`使用默认权限: ${userRole}`, permissions);
+        return permissions;
+      }
     } catch (error) {
       console.error('获取角色权限失败:', error);
       return DEFAULT_ROLE_PERMISSIONS.viewer;
     }
-  }, [userRole]);
+  }, [userRole, dbPermissions]);
 
   // 检查菜单权限
   const hasMenuAccess = (menuKey: string): boolean => {

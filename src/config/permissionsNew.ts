@@ -104,6 +104,9 @@ export const MENU_PERMISSIONS: PermissionGroup[] = [
     label: '设置',
     children: [
       { key: 'settings.users', label: '用户管理' },
+      { key: 'settings.permissions', label: '权限配置' },
+      { key: 'settings.contract_permissions', label: '合同权限' },
+      { key: 'settings.role_templates', label: '角色模板' },
       { key: 'settings.integrated', label: '集成权限管理' },
       { key: 'settings.audit_logs', label: '操作日志' }
     ]
