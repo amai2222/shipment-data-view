@@ -43,6 +43,7 @@ import MobileAuditLogs from "./pages/mobile/MobileAuditLogs";
 import ScaleRecords from "./pages/ScaleRecords";
 import ContractManagement from "./pages/ContractManagement";
 import WaybillMaintenance from "./pages/DataMaintenance/WaybillMaintenance";
+import QuantityOverview from "./pages/QuantityOverview";
 
 // ★★★ 1. 导入我们新创建的两个页面 ★★★
 import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
@@ -112,9 +113,9 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            <Route path="/dashboard/financial" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'viewer']}>
-                <AppLayout><FinancialOverview /></AppLayout>
+            <Route path="/quantity-overview" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+                <AppLayout><QuantityOverview /></AppLayout>
               </ProtectedRoute>
             } />
             
@@ -277,6 +278,12 @@ const App = () => (
               </ProtectedRoute>
             } />
 
+            <Route path="/m/quantity-overview" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+                <MobileLayout><QuantityOverview /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
             <Route path="/m/project/:projectId" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
                 <MobileProjectDashboard />
@@ -373,6 +380,24 @@ const App = () => (
               </ProtectedRoute>
             } />
 
+            <Route path="/m/settings/users" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileLayout><UserManagement /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/settings/contract-permissions" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileLayout><ContractPermission /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/settings/role-templates" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileLayout><RoleTemplate /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
             <Route path="/m/settings/integrated" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <MobileIntegratedUserManagement />
@@ -388,6 +413,12 @@ const App = () => (
             <Route path="/m/contracts" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
                 <MobileContractManagement />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/data-maintenance/waybill" element={
+              <ProtectedRoute requiredRoles={['admin', 'operator']}>
+                <MobileLayout><WaybillMaintenance /></MobileLayout>
               </ProtectedRoute>
             } />
 
