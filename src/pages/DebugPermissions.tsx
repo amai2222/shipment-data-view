@@ -26,9 +26,9 @@ export default function DebugPermissions() {
               <h3 className="font-semibold">菜单权限检查</h3>
               <div className="space-y-2">
                 <p>settings: <Badge variant={hasMenuAccess('settings') ? "default" : "secondary"}>{hasMenuAccess('settings') ? "有权限" : "无权限"}</Badge></p>
-                <p>settings.integrated: <Badge variant={hasMenuAccess('settings.integrated') ? "default" : "secondary"}>{hasMenuAccess('settings.integrated') ? "有权限" : "无权限"}</Badge></p>
-                <p>settings.audit_logs: <Badge variant={hasMenuAccess('settings.audit_logs') ? "default" : "secondary"}>{hasMenuAccess('settings.audit_logs') ? "有权限" : "无权限"}</Badge></p>
+                <p>settings.users: <Badge variant={hasMenuAccess('settings.users') ? "default" : "secondary"}>{hasMenuAccess('settings.users') ? "有权限" : "无权限"}</Badge></p>
                 <p>settings.permissions: <Badge variant={hasMenuAccess('settings.permissions') ? "default" : "secondary"}>{hasMenuAccess('settings.permissions') ? "有权限" : "无权限"}</Badge></p>
+                <p>settings.integrated: <Badge variant={hasMenuAccess('settings.integrated') ? "default" : "secondary"}>{hasMenuAccess('settings.integrated') ? "有权限" : "无权限"}</Badge></p>
               </div>
             </div>
             

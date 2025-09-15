@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Save
 } from 'lucide-react';
+import { UserManagement } from './permissions/UserManagement';
 import { PermissionConfiguration } from './permissions/PermissionConfiguration';
 import { RoleTemplateManager } from './permissions/RoleTemplateManager';
 import { ContractPermissionManager } from './contracts/ContractPermissionManagerEnhanced';
@@ -182,15 +183,12 @@ export function IntegratedUserPermissionManager() {
 
         {/* 用户管理标签页 */}
         <TabsContent value="users" className="space-y-4">
-          <PermissionConfiguration
+          <UserManagement
             users={usersWithPermissions}
-            roleTemplates={roleTemplates}
-            userPermissions={userPermissions}
-            hasChanges={hasChanges}
-            onSave={handleSavePermissions}
-            onLoadData={handleLoadData}
-            onSetHasChanges={setHasChanges}
-            onSetUserPermissions={handleSetUserPermissions}
+            loading={loading}
+            selectedUsers={selectedUsers}
+            onSelectionChange={setSelectedUsers}
+            onUserUpdate={handleUserUpdate}
           />
         </TabsContent>
 

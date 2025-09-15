@@ -29,6 +29,7 @@ import PaymentInvoiceDetail from "./pages/PaymentInvoiceDetail";
 import NotFound from "./pages/NotFound";
 import NotFoundWithStaticFileCheck from "./components/NotFoundWithStaticFileCheck";
 import PaymentRequestsList from "./pages/PaymentRequestsList";
+import UserManagement from "./pages/Settings/UserManagement";
 import PermissionManagement from "./pages/Settings/PermissionManagement";
 import IntegratedUserManagement from "./pages/IntegratedUserManagement";
 import DebugPermissions from "./pages/DebugPermissions";
@@ -38,6 +39,12 @@ import MobileAuditLogs from "./pages/mobile/MobileAuditLogs";
 import ScaleRecords from "./pages/ScaleRecords";
 import ContractManagement from "./pages/ContractManagement";
 import WaybillMaintenance from "./pages/DataMaintenance/WaybillMaintenance";
+
+// 新的用户管理相关页面
+import UserManagementPage from "./pages/UserManagementPage";
+import PermissionConfigPage from "./pages/PermissionConfigPage";
+import RoleTemplatesPage from "./pages/RoleTemplatesPage";
+import ContractPermissionsPage from "./pages/ContractPermissionsPage";
 
 // ★★★ 1. 导入我们新创建的两个页面 ★★★
 import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
@@ -55,6 +62,7 @@ import MobilePartners from "./pages/mobile/MobilePartners";
 import MobileDashboard from "./pages/mobile/MobileDashboard";
 import MobileFinancialOverview from "./pages/mobile/MobileFinancialOverview";
 import MobilePaymentRequestsList from "./pages/mobile/MobilePaymentRequestsList";
+import MobileUserManagement from "./pages/mobile/MobileUserManagement";
 import MobilePermissionManagement from "./pages/mobile/MobilePermissionManagement";
 import MobilePaymentRequestsManagement from "./pages/mobile/MobilePaymentRequestsManagement";
 import MobileContractManagement from "./pages/mobile/MobileContractManagement";
@@ -181,15 +189,35 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            <Route path="/settings/permissions" element={
+            {/* 用户管理相关路由 */}
+            <Route path="/user-management" element={
               <ProtectedRoute requiredRoles={['admin']}>
-                <AppLayout><PermissionManagement /></AppLayout>
+                <AppLayout><UserManagementPage /></AppLayout>
               </ProtectedRoute>
             } />
             
-            <Route path="/settings/integrated" element={
+            <Route path="/permission-config" element={
               <ProtectedRoute requiredRoles={['admin']}>
-                <AppLayout><IntegratedUserManagement /></AppLayout>
+                <AppLayout><PermissionConfigPage /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/role-templates" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><RoleTemplatesPage /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/contract-permissions" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><ContractPermissionsPage /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 设置相关路由 */}
+            <Route path="/settings/users" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><UserManagement /></AppLayout>
               </ProtectedRoute>
             } />
             
@@ -335,6 +363,37 @@ const App = () => (
             <Route path="/m/finance/payment-invoice/:requestId" element={
               <ProtectedRoute requiredRoles={['admin', 'finance']}>
                 <MobileLayout><PaymentInvoiceDetail /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            {/* 移动端用户管理相关路由 */}
+            <Route path="/m/user-management" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileLayout><UserManagementPage /></MobileLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/permission-config" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileLayout><PermissionConfigPage /></MobileLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/role-templates" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileLayout><RoleTemplatesPage /></MobileLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/contract-permissions" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileLayout><ContractPermissionsPage /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/settings/users" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileUserManagement />
               </ProtectedRoute>
             } />
 

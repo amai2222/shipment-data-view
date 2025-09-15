@@ -62,6 +62,7 @@ const MENU_PERMISSIONS = [
   {
     group: '设置',
     permissions: [
+      { key: 'settings.users', label: '用户管理' },
       { key: 'settings.permissions', label: '权限管理' }
     ]
   }
