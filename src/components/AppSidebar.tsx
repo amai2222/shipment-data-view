@@ -95,7 +95,6 @@ const menuItems = [
     title: "设置",
     icon: Settings,
     items: [
-      { title: "用户管理", url: "/settings/users", icon: UserCog },
       { title: "集成权限管理", url: "/settings/integrated", icon: Shield },
       { title: "操作日志", url: "/settings/audit-logs", icon: History },
     ]
@@ -144,8 +143,6 @@ export function AppSidebar() {
         menuKey = 'finance.payment_invoice';
       } else if (item.url === '/data-maintenance/waybill') {
         menuKey = 'data_maintenance.waybill';
-      } else if (item.url === '/settings/users') {
-        menuKey = 'settings.users';
       } else if (item.url === '/settings/integrated') {
         menuKey = 'settings.integrated';
       } else if (item.url === '/settings/audit-logs') {
