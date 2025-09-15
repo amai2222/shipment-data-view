@@ -158,7 +158,7 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{roleTemplates.length}</div>
+            <div className="text-2xl font-bold">{Object.keys(roleTemplates).length}</div>
             <p className="text-xs text-muted-foreground">已配置的角色</p>
           </CardContent>
         </Card>
