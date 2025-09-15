@@ -34,7 +34,14 @@ export default function PermissionConfigPage() {
   // 合并用户和权限数据
   const usersWithPermissions = useMemo(() => {
     return users.map(user => {
-      const permissions = userPermissions[user.id] || {};
+      // userPermissions 是数组，需要找到对应用户的权限记录
+      const userPermission = userPermissions.find(perm => perm.user_id === user.id);
+      const permissions = userPermission ? {
+        menu: userPermission.menu_permissions || [],
+        function: userPermission.function_permissions || [],
+        project: userPermission.project_permissions || [],
+        data: userPermission.data_permissions || []
+      } : {};
       return {
         ...user,
         permissions
@@ -140,7 +147,7 @@ export default function PermissionConfigPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {Object.keys(userPermissions).length}
+              {userPermissions.length}
             </div>
           </CardContent>
         </Card>

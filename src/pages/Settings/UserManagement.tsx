@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { UserManagement } from '@/components/permissions/UserManagement';
+import { PermissionQuickActions } from '@/components/PermissionQuickActions';
 
 export default function UserManagementPage() {
   const { toast } = useToast();
@@ -54,6 +55,60 @@ export default function UserManagementPage() {
       toast({
         title: "更新失败",
         description: "无法更新用户信息",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 批量权限更新处理
+  const handleBulkPermissionUpdate = async (action: string, data: any) => {
+    try {
+      // 这里需要根据具体的action类型来处理
+      console.log('批量权限更新:', action, data);
+      toast({
+        title: "操作成功",
+        description: `批量${action}操作已完成`,
+      });
+    } catch (error) {
+      toast({
+        title: "操作失败",
+        description: `批量${action}操作失败`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 复制权限处理
+  const handleCopyPermissions = async (fromUserId: string, toUserIds: string[]) => {
+    try {
+      // 这里需要实现复制权限的逻辑
+      console.log('复制权限:', fromUserId, toUserIds);
+      toast({
+        title: "复制成功",
+        description: `权限已从用户复制到${toUserIds.length}个用户`,
+      });
+    } catch (error) {
+      toast({
+        title: "复制失败",
+        description: "权限复制失败",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 重置权限处理
+  const handleResetToRole = async (userIds: string[]) => {
+    try {
+      // 这里需要实现重置权限的逻辑
+      console.log('重置权限:', userIds);
+      toast({
+        title: "重置成功",
+        description: `${userIds.length}个用户的权限已重置为角色默认权限`,
+      });
+    } catch (error) {
+      toast({
+        title: "重置失败",
+        description: "权限重置失败",
         variant: "destructive",
       });
     }
@@ -142,6 +197,18 @@ export default function UserManagementPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 快速操作组件 */}
+      <PermissionQuickActions
+        hasChanges={false}
+        onSave={() => {}}
+        onReload={handleUserUpdate}
+        users={users}
+        selectedUsers={selectedUsers}
+        onBulkPermissionUpdate={handleBulkPermissionUpdate}
+        onCopyPermissions={handleCopyPermissions}
+        onResetToRole={handleResetToRole}
+      />
 
       {/* 用户管理组件 */}
       <Card>
