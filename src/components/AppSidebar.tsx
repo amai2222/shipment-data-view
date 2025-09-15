@@ -95,7 +95,6 @@ const menuItems = [
     title: "设置",
     icon: Settings,
     items: [
-      { title: "用户管理", url: "/settings/users", icon: UserCog },
       { title: "集成权限管理", url: "/settings/integrated", icon: Shield },
       { title: "操作日志", url: "/settings/audit-logs", icon: History },
     ]

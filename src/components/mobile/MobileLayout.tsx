@@ -156,12 +156,6 @@ const menuGroups = [
 
 const settingsNavigation = [
   {
-    name: '用户管理',
-    href: '/m/settings/users',
-    icon: Users,
-    roles: ['admin']
-  },
-  {
     name: '集成权限管理',
     href: '/m/settings/integrated',
     icon: Shield,

@@ -56,7 +56,6 @@ import MobilePartners from "./pages/mobile/MobilePartners";
 import MobileDashboard from "./pages/mobile/MobileDashboard";
 import MobileFinancialOverview from "./pages/mobile/MobileFinancialOverview";
 import MobilePaymentRequestsList from "./pages/mobile/MobilePaymentRequestsList";
-import MobileUserManagement from "./pages/mobile/MobileUserManagement";
 import MobilePermissionManagement from "./pages/mobile/MobilePermissionManagement";
 import MobilePaymentRequestsManagement from "./pages/mobile/MobilePaymentRequestsManagement";
 import MobileContractManagement from "./pages/mobile/MobileContractManagement";
@@ -180,12 +179,6 @@ const App = () => (
             <Route path="/finance/payment-invoice/:requestId" element={
               <ProtectedRoute requiredRoles={['admin', 'finance']}>
                 <AppLayout><PaymentInvoiceDetail /></AppLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/settings/users" element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <AppLayout><UserManagement /></AppLayout>
               </ProtectedRoute>
             } />
             
@@ -343,12 +336,6 @@ const App = () => (
             <Route path="/m/finance/payment-invoice/:requestId" element={
               <ProtectedRoute requiredRoles={['admin', 'finance']}>
                 <MobileLayout><PaymentInvoiceDetail /></MobileLayout>
-              </ProtectedRoute>
-            } />
-
-            <Route path="/m/settings/users" element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <MobileUserManagement />
               </ProtectedRoute>
             } />
 
