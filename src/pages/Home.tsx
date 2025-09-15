@@ -242,15 +242,15 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
         <Card className="hover:shadow-lg transition-shadow duration-200">
           <CardContent className="flex items-center p-6">
-            <div className="p-3 bg-blue-100 rounded-lg mr-4">
+            <div className="p-3 bg-blue-100 rounded-lg mr-4 flex-shrink-0">
               <Package className="h-6 w-6 text-blue-600" />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0 flex-1">
               <p className="text-sm font-bold text-blue-600">总运输次数</p>
-              <p className="text-2xl font-bold text-gray-900">{dashboardData?.overview?.totalRecords || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 break-words">{dashboardData?.overview?.totalRecords || 0}</p>
               <p className="text-xs text-gray-500 mt-1">累计运输记录</p>
             </div>
           </CardContent>
@@ -265,12 +265,12 @@ export default function Home() {
             return (
               <Card key={typeId} className="hover:shadow-lg transition-shadow duration-200">
                 <CardContent className="flex items-center p-6">
-                  <div className={`p-3 ${typeInfo.bgColor} rounded-lg mr-4`}>
+                  <div className={`p-3 ${typeInfo.bgColor} rounded-lg mr-4 flex-shrink-0`}>
                     <Icon className={`h-6 w-6 ${typeInfo.color}`} />
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col min-w-0 flex-1">
                     <p className={`text-sm font-bold ${typeInfo.color}`}>{typeInfo.name}总量</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-gray-900 break-words">
                       {total.toFixed(2)} <span className="text-base font-normal text-gray-600">{typeInfo.unit}</span>
                     </p>
                     <p className="text-xs text-gray-500 mt-1">{typeInfo.name}统计</p>
@@ -282,24 +282,24 @@ export default function Home() {
 
         <Card className="hover:shadow-lg transition-shadow duration-200">
           <CardContent className="flex items-center p-6">
-            <div className="p-3 bg-yellow-100 rounded-lg mr-4">
+            <div className="p-3 bg-yellow-100 rounded-lg mr-4 flex-shrink-0">
               <TrendingUp className="h-6 w-6 text-yellow-600" />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0 flex-1">
               <p className="text-sm font-bold text-yellow-600">司机应收汇总</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(dashboardData?.overview?.totalCost)}</p>
+              <p className="text-2xl font-bold text-gray-900 break-words">{formatCurrency(dashboardData?.overview?.totalCost)}</p>
               <p className="text-xs text-gray-500 mt-1">累计应收费用</p>
             </div>
           </CardContent>
         </Card>
         <Card className="hover:shadow-lg transition-shadow duration-200">
           <CardContent className="flex items-center p-6">
-            <div className="p-3 bg-purple-100 rounded-lg mr-4">
+            <div className="p-3 bg-purple-100 rounded-lg mr-4 flex-shrink-0">
               <BarChart3 className="h-6 w-6 text-purple-600" />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0 flex-1">
               <p className="text-sm font-bold text-purple-600">实际运输/退货</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-gray-900 break-words">
                 {dashboardData?.overview?.actualTransportCount ?? '—'} / {dashboardData?.overview?.returnCount ?? '—'}
               </p>
               <p className="text-xs text-gray-500 mt-1">运输状态统计</p>
@@ -308,7 +308,7 @@ export default function Home() {
         </Card>
       </div>
       
-      <div className="space-y-6">
+      <div className="space-y-8">
         {Object.entries(dashboardData?.daily_stats_by_type || {}).map(([typeId, data]) => {
           const typeInfo = BILLING_TYPE_MAP[typeId as keyof typeof BILLING_TYPE_MAP];
           if (!typeInfo || !data) return null;
@@ -330,21 +330,42 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 {filteredData.length > 0 ? (
-                  <div className="h-96">
+                  <div className="h-[500px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={filteredData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={(d) => handleTypeChartClick(typeId as keyof typeof BILLING_TYPE_MAP, d)}>
+                      <BarChart data={filteredData} margin={{ top: 30, right: 40, left: 30, bottom: 80 }} onClick={(d) => handleTypeChartClick(typeId as keyof typeof BILLING_TYPE_MAP, d)}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} />
-                        <YAxis scale={useLogScale ? "log" : "auto"} domain={useLogScale ? [0.1, 'dataMax'] : [0, 'dataMax']} tickFormatter={(val) => val.toString()} />
-                        <Tooltip labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} formatter={(val, name) => [`${Number(val).toFixed(2)} ${typeInfo.unit}`, name === 'actualTransport' ? '有效运输' : '退货']} />
-                        <Legend onClick={() => handleTypeLegendClick(typeId as keyof typeof BILLING_TYPE_MAP)} formatter={(val) => `${val === 'actualTransport' ? '有效运输' : '退货'} (总计 ${val === 'actualTransport' ? data.totalActual.toFixed(1) : data.totalReturns.toFixed(1)} ${typeInfo.unit})`} wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }} />
-                        <Bar dataKey="actualTransport" fill="#4ade80" name="actualTransport" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? val.toFixed(1) : '' }} />
-                        <Bar dataKey="returns" fill="#ef4444" name="returns" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? val.toFixed(1) : '' }} />
+                        <XAxis 
+                          dataKey="date" 
+                          tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} 
+                          angle={-45} 
+                          textAnchor="end" 
+                          height={100}
+                          interval={0}
+                          tick={{ fontSize: 12 }}
+                        />
+                        <YAxis 
+                          scale={useLogScale ? "log" : "auto"} 
+                          domain={useLogScale ? [0.1, 'dataMax'] : [0, 'dataMax']} 
+                          tickFormatter={(val) => val.toString()}
+                          tick={{ fontSize: 12 }}
+                        />
+                        <Tooltip 
+                          labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} 
+                          formatter={(val, name) => [`${Number(val).toFixed(2)} ${typeInfo.unit}`, name === 'actualTransport' ? '有效运输' : '退货']}
+                          contentStyle={{ fontSize: '14px' }}
+                        />
+                        <Legend 
+                          onClick={() => handleTypeLegendClick(typeId as keyof typeof BILLING_TYPE_MAP)} 
+                          formatter={(val) => `${val === 'actualTransport' ? '有效运输' : '退货'} (总计 ${val === 'actualTransport' ? data.totalActual.toFixed(1) : data.totalReturns.toFixed(1)} ${typeInfo.unit})`} 
+                          wrapperStyle={{ paddingTop: '20px', cursor: 'pointer', fontSize: '14px' }} 
+                        />
+                        <Bar dataKey="actualTransport" fill="#4ade80" name="actualTransport" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 10, formatter: (val: number) => val > 0 ? val.toFixed(1) : '' }} />
+                        <Bar dataKey="returns" fill="#ef4444" name="returns" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 10, formatter: (val: number) => val > 0 ? val.toFixed(1) : '' }} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <div className="h-96 flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <div className="h-[500px] flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                     <div className="text-center">
                       {typeInfo.icon && <typeInfo.icon className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
                       <p className="text-gray-500 text-lg font-medium">暂无{typeInfo.name}数据</p>
@@ -366,20 +387,48 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             {dashboardData?.dailyCountStats && dashboardData.dailyCountStats.length > 0 ? (
-              <div className="h-80">
+              <div className="h-[500px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dashboardData.dailyCountStats.filter(d => d.count > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleOverviewChartClick}>
+                  <LineChart data={dashboardData.dailyCountStats.filter(d => d.count > 0)} margin={{ top: 30, right: 40, left: 30, bottom: 80 }} onClick={handleOverviewChartClick}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} />
-                    <YAxis allowDecimals={false} domain={[0, 'dataMax + 1']} />
-                    <Tooltip labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} formatter={(val) => [`${val} 次`, '运输次数']} />
-                    <Legend onClick={handleOverviewLegendClick} formatter={() => `运输次数 (总计 ${dashboardData.overview.totalRecords} 次)`} wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }} />
-                    <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? val.toString() : '' }} />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={100}
+                      interval={0}
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis 
+                      allowDecimals={false} 
+                      domain={[0, 'dataMax + 1']}
+                      tick={{ fontSize: 12 }}
+                    />
+                    <Tooltip 
+                      labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} 
+                      formatter={(val) => [`${val} 次`, '运输次数']}
+                      contentStyle={{ fontSize: '14px' }}
+                    />
+                    <Legend 
+                      onClick={handleOverviewLegendClick} 
+                      formatter={() => `运输次数 (总计 ${dashboardData.overview.totalRecords} 次)`} 
+                      wrapperStyle={{ paddingTop: '20px', cursor: 'pointer', fontSize: '14px' }} 
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="count" 
+                      stroke="#3b82f6" 
+                      strokeWidth={2} 
+                      dot={{ r: 4 }} 
+                      activeDot={{ r: 6 }} 
+                      label={{ position: 'top', fontSize: 10, formatter: (val: number) => val > 0 ? val.toString() : '' }} 
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="h-80 flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <div className="h-[500px] flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                 <div className="text-center">
                   <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500 text-lg font-medium">暂无运输数据</p>
@@ -399,20 +448,44 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             {dashboardData?.dailyCostStats && dashboardData.dailyCostStats.length > 0 ? (
-              <div className="h-80">
+              <div className="h-[500px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dashboardData.dailyCostStats.filter(d => d.totalCost > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }} onClick={handleOverviewChartClick}>
+                  <BarChart data={dashboardData.dailyCostStats.filter(d => d.totalCost > 0)} margin={{ top: 30, right: 40, left: 30, bottom: 80 }} onClick={handleOverviewChartClick}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} angle={-45} textAnchor="end" height={80} />
-                    <YAxis tickFormatter={(val) => `¥${Number(val).toLocaleString()}`} />
-                    <Tooltip labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} formatter={(val) => [formatCurrency(val as number), '总费用']} />
-                    <Legend onClick={handleOverviewLegendClick} formatter={() => `总费用 (${formatCurrency(dashboardData.overview.totalCost)})`} wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }} />
-                    <Bar dataKey="totalCost" fill="#10b981" radius={[2, 2, 0, 0]} label={{ position: 'top', fontSize: 12, formatter: (val: number) => val > 0 ? `¥${val.toFixed(0)}` : '' }} />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(val) => new Date(val).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={100}
+                      interval={0}
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis 
+                      tickFormatter={(val) => `¥${Number(val).toLocaleString()}`}
+                      tick={{ fontSize: 12 }}
+                    />
+                    <Tooltip 
+                      labelFormatter={(val) => new Date(val).toLocaleDateString('zh-CN')} 
+                      formatter={(val) => [formatCurrency(val as number), '总费用']}
+                      contentStyle={{ fontSize: '14px' }}
+                    />
+                    <Legend 
+                      onClick={handleOverviewLegendClick} 
+                      formatter={() => `总费用 (${formatCurrency(dashboardData.overview.totalCost)})`} 
+                      wrapperStyle={{ paddingTop: '20px', cursor: 'pointer', fontSize: '14px' }} 
+                    />
+                    <Bar 
+                      dataKey="totalCost" 
+                      fill="#10b981" 
+                      radius={[2, 2, 0, 0]} 
+                      label={{ position: 'top', fontSize: 10, formatter: (val: number) => val > 0 ? `¥${val.toFixed(0)}` : '' }} 
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="h-80 flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <div className="h-[500px] flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                 <div className="text-center">
                   <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500 text-lg font-medium">暂无费用数据</p>
