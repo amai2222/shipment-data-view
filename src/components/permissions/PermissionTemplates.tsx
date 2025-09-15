@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { 
   BookTemplate, 
@@ -33,6 +33,7 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [editingTemplate, setEditingTemplate] = useState<any>(null);
   
   // 新模板表单
   const [newTemplate, setNewTemplate] = useState({
@@ -197,6 +198,47 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
       title: "成功",
       description: "模板配置已导出",
     });
+  };
+
+  // 更新模板
+  const handleUpdateTemplate = async () => {
+    if (!editingTemplate) return;
+
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase
+        .from('role_permission_templates')
+        .update({
+          name: editingTemplate.name,
+          description: editingTemplate.description,
+          menu_permissions: editingTemplate.menu_permissions || [],
+          function_permissions: editingTemplate.function_permissions || [],
+          project_permissions: editingTemplate.project_permissions || [],
+          data_permissions: editingTemplate.data_permissions || []
+        })
+        .eq('id', editingTemplate.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "成功",
+        description: "权限模板更新成功",
+      });
+
+      setEditDialogOpen(false);
+      setEditingTemplate(null);
+      onDataChange();
+    } catch (error) {
+      console.error('更新模板失败:', error);
+      toast({
+        title: "错误",
+        description: "更新模板失败",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // 应用预设模板
@@ -454,6 +496,7 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
                   size="sm"
                   onClick={() => {
                     setSelectedTemplate(template);
+                    setEditingTemplate({...template});
                     setEditDialogOpen(true);
                   }}
                 >
@@ -511,35 +554,44 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
             </DialogDescription>
           </DialogHeader>
           
-          {selectedTemplate && (
+          {editingTemplate && (
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="template-name">模板名称</Label>
                   <Input
                     id="template-name"
-                    value={selectedTemplate.name}
-                    readOnly
-                    className="bg-gray-50"
+                    value={editingTemplate.name}
+                    onChange={(e) => setEditingTemplate({...editingTemplate, name: e.target.value})}
                   />
                 </div>
                 <div>
                   <Label htmlFor="template-role">角色</Label>
                   <Input
                     id="template-role"
-                    value={selectedTemplate.role}
+                    value={editingTemplate.role}
                     readOnly
                     className="bg-gray-50"
                   />
                 </div>
               </div>
               
+              <div>
+                <Label htmlFor="template-description">描述</Label>
+                <Input
+                  id="template-description"
+                  value={editingTemplate.description || ''}
+                  onChange={(e) => setEditingTemplate({...editingTemplate, description: e.target.value})}
+                  placeholder="输入模板描述"
+                />
+              </div>
+              
               <div className="space-y-4">
                 <div>
-                  <Label>菜单权限 ({selectedTemplate.menu_permissions?.length || 0})</Label>
+                  <Label>菜单权限 ({editingTemplate.menu_permissions?.length || 0})</Label>
                   <div className="mt-2 p-3 bg-gray-50 rounded-lg">
                     <div className="grid grid-cols-2 gap-2">
-                      {selectedTemplate.menu_permissions?.map((permission: string) => (
+                      {editingTemplate.menu_permissions?.map((permission: string) => (
                         <Badge key={permission} variant="outline" className="text-xs">
                           {permission}
                         </Badge>
@@ -549,10 +601,36 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
                 </div>
                 
                 <div>
-                  <Label>功能权限 ({selectedTemplate.function_permissions?.length || 0})</Label>
+                  <Label>功能权限 ({editingTemplate.function_permissions?.length || 0})</Label>
                   <div className="mt-2 p-3 bg-gray-50 rounded-lg">
                     <div className="grid grid-cols-2 gap-2">
-                      {selectedTemplate.function_permissions?.map((permission: string) => (
+                      {editingTemplate.function_permissions?.map((permission: string) => (
+                        <Badge key={permission} variant="outline" className="text-xs">
+                          {permission}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label>项目权限 ({editingTemplate.project_permissions?.length || 0})</Label>
+                  <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-2 gap-2">
+                      {editingTemplate.project_permissions?.map((permission: string) => (
+                        <Badge key={permission} variant="outline" className="text-xs">
+                          {permission}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label>数据权限 ({editingTemplate.data_permissions?.length || 0})</Label>
+                  <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-2 gap-2">
+                      {editingTemplate.data_permissions?.map((permission: string) => (
                         <Badge key={permission} variant="outline" className="text-xs">
                           {permission}
                         </Badge>
@@ -564,18 +642,14 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
               
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-                  关闭
+                  取消
                 </Button>
                 <Button 
-                  onClick={() => {
-                    toast({
-                      title: "提示",
-                      description: "编辑功能正在开发中，请使用角色管理页面进行编辑",
-                    });
-                    setEditDialogOpen(false);
-                  }}
+                  onClick={handleUpdateTemplate}
+                  disabled={loading}
                 >
-                  编辑权限
+                  <Save className="h-4 w-4 mr-2" />
+                  保存更改
                 </Button>
               </div>
             </div>

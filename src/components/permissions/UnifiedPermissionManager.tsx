@@ -41,7 +41,7 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
       const [usersResult, projectsResult, roleTemplatesResult, userPermissionsResult] = await Promise.all([
         supabase.from('profiles').select('id, full_name, email, role').order('full_name'),
         supabase.from('projects').select('id, name').order('name'),
-        supabase.from('role_permission_templates').select('*').order('role', { ascending: true }),
+        supabase.from('role_permission_templates').select('*').order('created_at', { ascending: true }),
         supabase.from('user_permissions').select('*')
       ]);
 
