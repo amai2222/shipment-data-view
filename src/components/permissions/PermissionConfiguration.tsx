@@ -25,7 +25,7 @@ import { UserWithPermissions, RoleTemplate } from '@/types/permissions';
 import { UserCardSelector } from '../UserCardSelector';
 import { PermissionConfigDialog } from '../PermissionConfigDialog';
 import { PermissionDatabaseService } from '@/services/PermissionDatabaseService';
-import { useRealtimePermissions } from '@/hooks/useRealtimePermissions';
+import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { PermissionChangeConfirmDialog } from '../PermissionChangeConfirmDialog';
 
 interface PermissionConfigurationProps {
@@ -59,26 +59,27 @@ export function PermissionConfiguration({
   const [showPermissionConfirmDialog, setShowPermissionConfirmDialog] = useState(false);
   const [pendingPermissionChanges, setPendingPermissionChanges] = useState<any[]>([]);
 
-  // 使用实时权限 Hook
-  const { users, loading, refreshUsers, refreshUserPermissions } = useRealtimePermissions();
+  // 使用优化的权限 Hook（与用户列表页面保持一致）
+  const { users, loading, roleTemplates: realtimeRoleTemplates, userPermissions: realtimeUserPermissions, loadAllData } = useOptimizedPermissions();
 
-  // 合并用户和权限数据
+  // 合并用户和权限数据（使用统一的数据源）
   const usersWithPermissions = useMemo(() => {
     return users.map(user => {
-      const userPerms = userPermissions[user.id] || {};
-      const roleTemplate = roleTemplates[user.role] || {};
+      // 查找用户的权限记录
+      const userPermission = realtimeUserPermissions.find(perm => perm.user_id === user.id);
+      const roleTemplate = realtimeRoleTemplates[user.role] || {};
       
       return {
         ...user,
         permissions: {
-          menu: userPerms.menu_permissions || roleTemplate.menu_permissions || [],
-          function: userPerms.function_permissions || roleTemplate.function_permissions || [],
-          project: userPerms.project_permissions || roleTemplate.project_permissions || [],
-          data: userPerms.data_permissions || roleTemplate.data_permissions || []
+          menu: userPermission?.menu_permissions || roleTemplate.menu_permissions || [],
+          function: userPermission?.function_permissions || roleTemplate.function_permissions || [],
+          project: userPermission?.project_permissions || roleTemplate.project_permissions || [],
+          data: userPermission?.data_permissions || roleTemplate.data_permissions || []
         }
       };
     });
-  }, [users, userPermissions, roleTemplates]);
+  }, [users, realtimeUserPermissions, realtimeRoleTemplates]);
 
   const selectedUser = usersWithPermissions.find(u => u.id === selectedUserId);
 
@@ -346,15 +347,16 @@ export function PermissionConfiguration({
                         <div className="text-sm text-gray-600">
                           权限数量: <span className="font-medium text-blue-600">
                             {(() => {
-                              const userPerms = userPermissions[user.id] || {};
-                              const roleTemplate = roleTemplates[user.role] || {};
+                              // 使用统一的权限计算逻辑
+                              const userPermission = realtimeUserPermissions.find(perm => perm.user_id === user.id);
+                              const roleTemplate = realtimeRoleTemplates[user.role] || {};
                               
                               // 计算实际生效的权限数量（用户自定义权限优先，否则使用角色模板权限）
                               const effectivePermissions = {
-                                menu: userPerms.menu_permissions || roleTemplate.menu_permissions || [],
-                                function: userPerms.function_permissions || roleTemplate.function_permissions || [],
-                                project: userPerms.project_permissions || roleTemplate.project_permissions || [],
-                                data: userPerms.data_permissions || roleTemplate.data_permissions || []
+                                menu: userPermission?.menu_permissions || roleTemplate.menu_permissions || [],
+                                function: userPermission?.function_permissions || roleTemplate.function_permissions || [],
+                                project: userPermission?.project_permissions || roleTemplate.project_permissions || [],
+                                data: userPermission?.data_permissions || roleTemplate.data_permissions || []
                               };
                               
                               return (
