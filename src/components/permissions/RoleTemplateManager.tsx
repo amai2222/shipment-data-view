@@ -36,7 +36,6 @@ interface RoleTemplateManagerProps {
 export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateManagerProps) {
   const { toast } = useToast();
   
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showCreateRoleDialog, setShowCreateRoleDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingRole, setEditingRole] = useState<string>('');
@@ -102,44 +101,6 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
     }
   };
 
-  // 创建新模板
-  const handleCreateTemplate = async () => {
-    try {
-      const { error } = await supabase
-        .from('role_permission_templates')
-        .insert({
-          role: newTemplate.role,
-          menu_permissions: newTemplate.menu_permissions,
-          function_permissions: newTemplate.function_permissions,
-          project_permissions: newTemplate.project_permissions,
-          data_permissions: newTemplate.data_permissions
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "创建成功",
-        description: "角色模板已创建",
-      });
-
-      setShowCreateDialog(false);
-      setNewTemplate({
-        role: '',
-        menu_permissions: [],
-        function_permissions: [],
-        project_permissions: [],
-        data_permissions: []
-      });
-      onUpdate();
-    } catch (error: any) {
-      console.error('创建模板失败:', error);
-      toast({
-        title: "创建失败",
-        description: "创建角色模板失败",
-        variant: "destructive"
-      });
-    }
-  };
 
   // 更新模板
   const handleUpdateTemplate = async () => {
@@ -402,14 +363,6 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                   </Button>
                 </DialogTrigger>
               </Dialog>
-              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    新建模板
-                  </Button>
-                </DialogTrigger>
-              </Dialog>
               
               {/* 创建角色对话框 */}
               <Dialog open={showCreateRoleDialog} onOpenChange={setShowCreateRoleDialog}>
@@ -512,64 +465,6 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
               </DialogContent>
             </Dialog>
             </div>
-              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>创建角色模板</DialogTitle>
-                  <DialogDescription>
-                    创建一个新的权限模板
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="role">角色名称</Label>
-                    <Input
-                      id="role"
-                      value={newTemplate.role}
-                      onChange={(e) => setNewTemplate(prev => ({ ...prev, role: e.target.value }))}
-                      placeholder="输入角色名称"
-                    />
-                  </div>
-
-                  <PermissionSelector
-                    title="菜单权限"
-                    permissions={MENU_PERMISSIONS}
-                    selectedPermissions={newTemplate.menu_permissions}
-                    onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, menu_permissions: permissions }))}
-                  />
-
-                  <PermissionSelector
-                    title="功能权限"
-                    permissions={FUNCTION_PERMISSIONS}
-                    selectedPermissions={newTemplate.function_permissions}
-                    onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, function_permissions: permissions }))}
-                  />
-
-                  <PermissionSelector
-                    title="项目权限"
-                    permissions={PROJECT_PERMISSIONS}
-                    selectedPermissions={newTemplate.project_permissions}
-                    onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, project_permissions: permissions }))}
-                  />
-
-                  <PermissionSelector
-                    title="数据权限"
-                    permissions={DATA_PERMISSIONS}
-                    selectedPermissions={newTemplate.data_permissions}
-                    onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, data_permissions: permissions }))}
-                  />
-
-                  <div className="flex gap-2">
-                    <Button onClick={handleCreateTemplate} className="flex-1">
-                      创建模板
-                    </Button>
-                    <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                      取消
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         </CardHeader>
         <CardContent>
