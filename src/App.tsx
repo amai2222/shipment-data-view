@@ -40,12 +40,6 @@ import ScaleRecords from "./pages/ScaleRecords";
 import ContractManagement from "./pages/ContractManagement";
 import WaybillMaintenance from "./pages/DataMaintenance/WaybillMaintenance";
 
-// 新的用户管理相关页面
-import UserManagementPage from "./pages/UserManagementPage";
-import PermissionConfigPage from "./pages/PermissionConfigPage";
-import RoleTemplatesPage from "./pages/RoleTemplatesPage";
-import ContractPermissionsPage from "./pages/ContractPermissionsPage";
-
 // ★★★ 1. 导入我们新创建的两个页面 ★★★
 import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
 import ProjectDashboard from "./pages/ProjectDashboard"; // 改造后的详情页
@@ -189,35 +183,21 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* 用户管理相关路由 */}
-            <Route path="/user-management" element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <AppLayout><UserManagementPage /></AppLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/permission-config" element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <AppLayout><PermissionConfigPage /></AppLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/role-templates" element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <AppLayout><RoleTemplatesPage /></AppLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/contract-permissions" element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <AppLayout><ContractPermissionsPage /></AppLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 设置相关路由 */}
             <Route path="/settings/users" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <AppLayout><UserManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings/permissions" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><PermissionManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings/integrated" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><IntegratedUserManagement /></AppLayout>
               </ProtectedRoute>
             } />
             
@@ -363,31 +343,6 @@ const App = () => (
             <Route path="/m/finance/payment-invoice/:requestId" element={
               <ProtectedRoute requiredRoles={['admin', 'finance']}>
                 <MobileLayout><PaymentInvoiceDetail /></MobileLayout>
-              </ProtectedRoute>
-            } />
-
-            {/* 移动端用户管理相关路由 */}
-            <Route path="/m/user-management" element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <MobileLayout><UserManagementPage /></MobileLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/m/permission-config" element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <MobileLayout><PermissionConfigPage /></MobileLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/m/role-templates" element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <MobileLayout><RoleTemplatesPage /></MobileLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/m/contract-permissions" element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <MobileLayout><ContractPermissionsPage /></MobileLayout>
               </ProtectedRoute>
             } />
 
