@@ -253,17 +253,12 @@ export default function MobileIntegratedUserManagement() {
         const restrictions = restrictedProjectIds.map(projectId => ({
           user_id: userId,
           project_id: projectId,
-          can_view: false, // 被限制的项目不能查看
-          can_edit: false,
-          can_delete: false
+          role: 'restricted' // 标记为被限制
         }));
 
-        // 使用 upsert 处理重复键问题
         const { error } = await supabase
           .from('user_projects')
-          .upsert(restrictions, {
-            onConflict: 'user_id,project_id'
-          });
+          .insert(restrictions);
 
         if (error) throw error;
       }

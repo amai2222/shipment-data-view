@@ -23,8 +23,7 @@ import {
   Database,
   Calculator,
   DollarSign,
-  Banknote,
-  UserCheck
+  Banknote
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -158,26 +157,14 @@ const menuGroups = [
 const settingsNavigation = [
   {
     name: '用户管理',
-    href: '/m/user-management',
+    href: '/m/settings/users',
     icon: Users,
     roles: ['admin']
   },
   {
-    name: '权限配置',
-    href: '/m/permission-config',
+    name: '集成权限管理',
+    href: '/m/settings/integrated',
     icon: Shield,
-    roles: ['admin']
-  },
-  {
-    name: '角色模板',
-    href: '/m/role-templates',
-    icon: UserCheck,
-    roles: ['admin']
-  },
-  {
-    name: '合同权限',
-    href: '/m/contract-permissions',
-    icon: FileText,
     roles: ['admin']
   },
   {
