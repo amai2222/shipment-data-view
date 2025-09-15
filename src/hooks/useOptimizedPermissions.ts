@@ -67,8 +67,10 @@ export function useOptimizedPermissions() {
   const loadAllData = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      // 首先确保有默认角色权限模板
-      await initializeDefaultRoleTemplates();
+      // 只在首次加载时初始化默认模板，避免覆盖用户修改
+      if (!forceRefresh) {
+        await initializeDefaultRoleTemplates();
+      }
       
       // 并行加载所有必需的数据
       const [templatesRes, usersRes, permissionsRes] = await Promise.all([
