@@ -100,10 +100,6 @@ export default function ContractPermissionPage() {
 
       {/* 合同权限管理组件 */}
       <Card>
-        <CardHeader>
-          <CardTitle>合同权限管理</CardTitle>
-          <CardDescription>配置合同相关的权限设置</CardDescription>
-        </CardHeader>
         <CardContent>
           <ContractPermissionManager 
             mode="global"

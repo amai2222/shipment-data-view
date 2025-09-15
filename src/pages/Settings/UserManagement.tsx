@@ -145,10 +145,6 @@ export default function UserManagementPage() {
 
       {/* 用户管理组件 */}
       <Card>
-        <CardHeader>
-          <CardTitle>用户列表</CardTitle>
-          <CardDescription>管理用户信息、角色和权限</CardDescription>
-        </CardHeader>
         <CardContent>
           <UserManagement
             users={usersWithPermissions}

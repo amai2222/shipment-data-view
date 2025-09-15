@@ -152,10 +152,6 @@ export default function RoleTemplatePage() {
 
       {/* 角色模板管理组件 */}
       <Card>
-        <CardHeader>
-          <CardTitle>角色模板管理</CardTitle>
-          <CardDescription>创建和管理角色权限模板</CardDescription>
-        </CardHeader>
         <CardContent>
           <RoleTemplateManager
             roleTemplates={roleTemplatesObject}

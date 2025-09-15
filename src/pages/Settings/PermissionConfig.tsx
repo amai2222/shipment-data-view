@@ -161,10 +161,6 @@ export default function PermissionConfigPage() {
 
       {/* 权限配置组件 */}
       <Card>
-        <CardHeader>
-          <CardTitle>权限配置</CardTitle>
-          <CardDescription>配置用户权限和角色模板</CardDescription>
-        </CardHeader>
         <CardContent>
           <PermissionConfiguration
             users={usersWithPermissions}
