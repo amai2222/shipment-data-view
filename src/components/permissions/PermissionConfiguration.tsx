@@ -61,6 +61,9 @@ export function PermissionConfiguration({
 
   // 使用优化的权限 Hook（与用户列表页面保持一致）
   const { users, loading, roleTemplates: realtimeRoleTemplates, userPermissions: realtimeUserPermissions, loadAllData } = useOptimizedPermissions();
+  
+  // 提供 refreshUsers 函数以保持兼容性
+  const refreshUsers = loadAllData;
 
   // 合并用户和权限数据（使用统一的数据源）
   const usersWithPermissions = useMemo(() => {
@@ -86,7 +89,7 @@ export function PermissionConfiguration({
   // 复制权限（包括项目分配）
   const handleCopyPermissions = async (sourceUserId: string, targetUserId: string) => {
     try {
-      const sourcePermissions = userPermissions[sourceUserId] || {};
+      const sourcePermissions = realtimeUserPermissions.find(perm => perm.user_id === sourceUserId) || {};
       
       // 复制用户权限
       const { error: userPermError } = await supabase
@@ -139,7 +142,7 @@ export function PermissionConfiguration({
         description: "权限和项目分配已成功复制",
       });
 
-      onLoadData();
+      loadAllData();
     } catch (error: any) {
       console.error('复制权限失败:', error);
       toast({
@@ -174,7 +177,7 @@ export function PermissionConfiguration({
         description: "权限和项目分配已重置为角色默认权限",
       });
 
-      onLoadData();
+      loadAllData();
     } catch (error: any) {
       console.error('重置权限失败:', error);
       toast({
@@ -189,12 +192,8 @@ export function PermissionConfiguration({
   const handleUpdateUserPermissions = (permissions: any) => {
     if (!selectedUserId) return;
     
-    const newUserPermissions = {
-      ...userPermissions,
-      [selectedUserId]: permissions
-    };
-    
-    onSetUserPermissions(newUserPermissions);
+    // 由于现在使用实时数据，直接刷新数据而不是更新本地状态
+    loadAllData();
     onSetHasChanges(true);
   };
 
@@ -242,13 +241,11 @@ export function PermissionConfiguration({
   const handleConfirmPermissionChanges = async () => {
     try {
       // 权限已经通过 PermissionConfigDialog 保存到数据库
-      // 刷新特定用户的权限数据
-      const userId = pendingPermissionChanges[0]?.userId;
-      if (userId) {
-        await refreshUserPermissions(userId);
-      }
+      // 刷新权限数据
+      await loadAllData();
       
       // 更新父组件的权限状态
+      const userId = pendingPermissionChanges[0]?.userId;
       if (userId) {
         onSetUserPermissions(prev => ({
           ...prev,
@@ -480,7 +477,7 @@ export function PermissionConfiguration({
                     userRole={selectedUser.role}
                     userProjectPermissions={selectedUser.permissions?.project || []}
                     onPermissionChange={(projectId, hasAccess) => {
-                      const currentPermissions = userPermissions[selectedUser.id] || {};
+                      const currentPermissions = realtimeUserPermissions.find(perm => perm.user_id === selectedUser.id) || {};
                       const newProjectPermissions = hasAccess 
                         ? [...(currentPermissions.project_permissions || []), projectId]
                         : (currentPermissions.project_permissions || []).filter(p => p !== projectId);
@@ -496,13 +493,13 @@ export function PermissionConfiguration({
                   <PermissionVisualizer
                     userPermissions={selectedUser.permissions}
                     rolePermissions={{
-                      menu: roleTemplates[selectedUser.role]?.menu_permissions || [],
-                      function: roleTemplates[selectedUser.role]?.function_permissions || [],
-                      project: roleTemplates[selectedUser.role]?.project_permissions || [],
-                      data: roleTemplates[selectedUser.role]?.data_permissions || []
+                      menu: realtimeRoleTemplates[selectedUser.role]?.menu_permissions || [],
+                      function: realtimeRoleTemplates[selectedUser.role]?.function_permissions || [],
+                      project: realtimeRoleTemplates[selectedUser.role]?.project_permissions || [],
+                      data: realtimeRoleTemplates[selectedUser.role]?.data_permissions || []
                     }}
                     onPermissionChange={(type, key, checked) => {
-                      const currentPermissions = userPermissions[selectedUser.id] || {};
+                      const currentPermissions = realtimeUserPermissions.find(perm => perm.user_id === selectedUser.id) || {};
                       const newPermissions = {
                         ...currentPermissions,
                         [`${type}_permissions`]: checked 
@@ -523,7 +520,7 @@ export function PermissionConfiguration({
                   <Save className="h-4 w-4 mr-2" />
                   保存更改
                 </Button>
-                <Button variant="outline" onClick={onLoadData}>
+                <Button variant="outline" onClick={loadAllData}>
                   <RefreshCw className="h-4 w-4 mr-2" />
                   重新加载
                 </Button>
