@@ -302,10 +302,25 @@ export function PermissionConfiguration({
                         {/* 权限数量 */}
                         <div className="text-sm text-gray-600">
                           权限数量: <span className="font-medium text-blue-600">
-                            {user.permissions ? 
-                              Object.values(user.permissions).flat().length : 
-                              0
-                            }项
+                            {(() => {
+                              const userPerms = userPermissions[user.id] || {};
+                              const roleTemplate = roleTemplates[user.role] || {};
+                              
+                              // 计算实际生效的权限数量（用户自定义权限优先，否则使用角色模板权限）
+                              const effectivePermissions = {
+                                menu: userPerms.menu_permissions || roleTemplate.menu_permissions || [],
+                                function: userPerms.function_permissions || roleTemplate.function_permissions || [],
+                                project: userPerms.project_permissions || roleTemplate.project_permissions || [],
+                                data: userPerms.data_permissions || roleTemplate.data_permissions || []
+                              };
+                              
+                              return (
+                                effectivePermissions.menu.length +
+                                effectivePermissions.function.length +
+                                effectivePermissions.project.length +
+                                effectivePermissions.data.length
+                              );
+                            })()}项
                           </span>
                         </div>
                         

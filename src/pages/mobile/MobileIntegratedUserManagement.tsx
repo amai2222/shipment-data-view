@@ -109,6 +109,7 @@ export default function MobileIntegratedUserManagement() {
 
   // 获取权限数量
   const getPermissionCount = (permissions: any) => {
+    if (!permissions) return 0;
     return (permissions.menu?.length || 0) + 
            (permissions.function?.length || 0) + 
            (permissions.project?.length || 0) + 

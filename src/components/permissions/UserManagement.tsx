@@ -358,23 +358,23 @@ export function UserManagement({
     // 获取用户角色的基础权限模板
     const roleTemplate = roleTemplates[user.role];
     
-    // 计算基础权限数量
-    const basePermissions = roleTemplate ? (
-      (roleTemplate.menu_permissions?.length || 0) +
-      (roleTemplate.function_permissions?.length || 0) +
-      (roleTemplate.project_permissions?.length || 0) +
-      (roleTemplate.data_permissions?.length || 0)
-    ) : 0;
+    // 计算实际生效的权限数量（用户自定义权限优先，否则使用角色模板权限）
+    const effectivePermissions = {
+      menu: user.permissions?.menu || roleTemplate?.menu_permissions || [],
+      function: user.permissions?.function || roleTemplate?.function_permissions || [],
+      project: user.permissions?.project || roleTemplate?.project_permissions || [],
+      data: user.permissions?.data || roleTemplate?.data_permissions || []
+    };
     
-    // 计算用户自定义权限数量
-    const customPermissions = user.permissions ? (
-      (user.permissions.menu?.length || 0) +
-      (user.permissions.function?.length || 0) +
-      (user.permissions.project?.length || 0) +
-      (user.permissions.data?.length || 0)
-    ) : 0;
+    // 计算总权限数量
+    const totalPermissions = (
+      effectivePermissions.menu.length +
+      effectivePermissions.function.length +
+      effectivePermissions.project.length +
+      effectivePermissions.data.length
+    );
     
-    return basePermissions + customPermissions;
+    return totalPermissions;
   };
 
   if (loading) {
