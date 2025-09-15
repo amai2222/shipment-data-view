@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { OptimizedPermissionSelector } from './OptimizedPermissionSelector';
+import { RoleManagementService, RoleCreationData } from '@/services/RoleManagementService';
 import { 
   Settings, 
   Plus, 
@@ -20,10 +21,11 @@ import {
   Users,
   Building2,
   Database,
-  Key
+  Key,
+  UserPlus
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS, DATA_PERMISSIONS } from '@/config/permissions';
+import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS, DATA_PERMISSIONS, ROLES } from '@/config/permissions';
 import { RoleTemplate } from '@/types/permissions';
 
 interface RoleTemplateManagerProps {
@@ -35,6 +37,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
   const { toast } = useToast();
   
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showCreateRoleDialog, setShowCreateRoleDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingRole, setEditingRole] = useState<string>('');
   const [newTemplate, setNewTemplate] = useState({
@@ -44,9 +47,60 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
     project_permissions: [] as string[],
     data_permissions: [] as string[]
   });
+  const [newRole, setNewRole] = useState<RoleCreationData>({
+    roleKey: '',
+    label: '',
+    color: 'bg-gray-500',
+    description: '',
+    menu_permissions: [],
+    function_permissions: [],
+    project_permissions: [],
+    data_permissions: []
+  });
 
   // 滚动位置保持
   const scrollAreaRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // 创建新角色
+  const handleCreateRole = async () => {
+    try {
+      if (!newRole.roleKey || !newRole.label) {
+        toast({
+          title: "输入错误",
+          description: "请填写角色键值和显示名称",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      await RoleManagementService.createRole(newRole);
+
+      toast({
+        title: "创建成功",
+        description: `角色 ${newRole.label} 已创建`,
+      });
+
+      setShowCreateRoleDialog(false);
+      setNewRole({
+        roleKey: '',
+        label: '',
+        color: 'bg-gray-500',
+        description: '',
+        menu_permissions: [],
+        function_permissions: [],
+        project_permissions: [],
+        data_permissions: []
+      });
+      onUpdate();
+    } catch (error: any) {
+      console.error('创建角色失败:', error);
+      toast({
+        title: "创建失败",
+        description: error.message || "创建角色失败",
+        variant: "destructive"
+      });
+    }
+  };
 
   // 创建新模板
   const handleCreateTemplate = async () => {
@@ -339,13 +393,124 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                 预设的权限配置模板，可快速应用到用户
               </CardDescription>
             </div>
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  新建模板
-                </Button>
-              </DialogTrigger>
+            <div className="flex gap-2">
+              <Dialog open={showCreateRoleDialog} onOpenChange={setShowCreateRoleDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    创建角色
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
+              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    新建模板
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
+              
+              {/* 创建角色对话框 */}
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>创建新角色</DialogTitle>
+                  <DialogDescription>
+                    创建一个新的系统角色，包括角色定义和权限配置
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="roleKey">角色键值</Label>
+                      <Input
+                        id="roleKey"
+                        value={newRole.roleKey}
+                        onChange={(e) => setNewRole(prev => ({ ...prev, roleKey: e.target.value }))}
+                        placeholder="例如: manager"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="label">显示名称</Label>
+                      <Input
+                        id="label"
+                        value={newRole.label}
+                        onChange={(e) => setNewRole(prev => ({ ...prev, label: e.target.value }))}
+                        placeholder="例如: 项目经理"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="color">角色颜色</Label>
+                      <Select value={newRole.color} onValueChange={(value) => setNewRole(prev => ({ ...prev, color: value }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="bg-red-500">红色</SelectItem>
+                          <SelectItem value="bg-blue-500">蓝色</SelectItem>
+                          <SelectItem value="bg-green-500">绿色</SelectItem>
+                          <SelectItem value="bg-yellow-500">黄色</SelectItem>
+                          <SelectItem value="bg-purple-500">紫色</SelectItem>
+                          <SelectItem value="bg-gray-500">灰色</SelectItem>
+                          <SelectItem value="bg-indigo-500">靛蓝</SelectItem>
+                          <SelectItem value="bg-pink-500">粉色</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="description">角色描述</Label>
+                      <Input
+                        id="description"
+                        value={newRole.description}
+                        onChange={(e) => setNewRole(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="角色的职责描述"
+                      />
+                    </div>
+                  </div>
+
+                  <PermissionSelector
+                    title="菜单权限"
+                    permissions={MENU_PERMISSIONS}
+                    selectedPermissions={newRole.menu_permissions}
+                    onSelectionChange={(permissions) => setNewRole(prev => ({ ...prev, menu_permissions: permissions }))}
+                  />
+
+                  <PermissionSelector
+                    title="功能权限"
+                    permissions={FUNCTION_PERMISSIONS}
+                    selectedPermissions={newRole.function_permissions}
+                    onSelectionChange={(permissions) => setNewRole(prev => ({ ...prev, function_permissions: permissions }))}
+                  />
+
+                  <PermissionSelector
+                    title="项目权限"
+                    permissions={PROJECT_PERMISSIONS}
+                    selectedPermissions={newRole.project_permissions}
+                    onSelectionChange={(permissions) => setNewRole(prev => ({ ...prev, project_permissions: permissions }))}
+                  />
+
+                  <PermissionSelector
+                    title="数据权限"
+                    permissions={DATA_PERMISSIONS}
+                    selectedPermissions={newRole.data_permissions}
+                    onSelectionChange={(permissions) => setNewRole(prev => ({ ...prev, data_permissions: permissions }))}
+                  />
+
+                  <div className="flex justify-end space-x-2">
+                    <Button variant="outline" onClick={() => setShowCreateRoleDialog(false)}>
+                      取消
+                    </Button>
+                    <Button onClick={handleCreateRole}>
+                      创建角色
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            </div>
               <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>创建角色模板</DialogTitle>

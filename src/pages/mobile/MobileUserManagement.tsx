@@ -12,15 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { useUnifiedUserManagement } from '@/hooks/useUnifiedUserManagement';
 import { UserRole } from '@/contexts/AuthContext';
-
-const ROLES = [
-  { value: 'admin', label: '系统管理员', color: 'bg-red-500' },
-  { value: 'finance', label: '财务人员', color: 'bg-blue-500' },
-  { value: 'business', label: '业务人员', color: 'bg-green-500' },
-  { value: 'operator', label: '操作员', color: 'bg-yellow-500' },
-  { value: 'partner', label: '合作方', color: 'bg-purple-500' },
-  { value: 'viewer', label: '查看者', color: 'bg-gray-500' }
-];
+import { DynamicRoleService } from '@/services/DynamicRoleService';
 
 interface CreateUserData {
   email: string;
@@ -148,7 +140,8 @@ export default function MobileUserManagement() {
   );
 
   const getRoleInfo = (role: string) => {
-    return ROLES.find(r => r.value === role) || ROLES[3];
+    const roleOptions = DynamicRoleService.generateRoleSelectOptions();
+    return roleOptions.find(r => r.value === role) || roleOptions[0];
   };
 
   if (loading) {
@@ -235,9 +228,12 @@ export default function MobileUserManagement() {
                        <SelectValue />
                      </SelectTrigger>
                      <SelectContent>
-                       {ROLES.map(role => (
+                       {DynamicRoleService.generateRoleSelectOptions().map(role => (
                          <SelectItem key={role.value} value={role.value}>
-                           {role.label}
+                           <div className="flex items-center">
+                             <div className={`w-3 h-3 rounded-full ${role.color} mr-2`} />
+                             {role.label}
+                           </div>
                          </SelectItem>
                        ))}
                      </SelectContent>
@@ -379,9 +375,12 @@ export default function MobileUserManagement() {
                        <SelectValue />
                      </SelectTrigger>
                      <SelectContent>
-                       {ROLES.map(role => (
+                       {DynamicRoleService.generateRoleSelectOptions().map(role => (
                          <SelectItem key={role.value} value={role.value}>
-                           {role.label}
+                           <div className="flex items-center">
+                             <div className={`w-3 h-3 rounded-full ${role.color} mr-2`} />
+                             {role.label}
+                           </div>
                          </SelectItem>
                        ))}
                      </SelectContent>

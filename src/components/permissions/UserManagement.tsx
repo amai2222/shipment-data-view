@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { DynamicRoleService } from '@/services/DynamicRoleService';
 import { 
   Users, 
   Plus, 
@@ -29,6 +30,8 @@ import { UserWithPermissions, UserRole } from '@/types/permissions';
 import { EnterpriseUserEditDialog } from '../EnterpriseUserEditDialog';
 import { PermissionChangeConfirmDialog } from '../PermissionChangeConfirmDialog';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';
+import { ProjectAssignmentManager } from '../ProjectAssignmentManager';
+import { PermissionCalculationService } from '@/services/PermissionCalculationService';
 
 interface UserManagementProps {
   users: UserWithPermissions[];
@@ -76,6 +79,10 @@ export function UserManagement({
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const [passwordChangeUser, setPasswordChangeUser] = useState<UserWithPermissions | null>(null);
   
+  // 项目分配功能
+  const [showProjectAssignmentDialog, setShowProjectAssignmentDialog] = useState(false);
+  const [projectAssignmentUser, setProjectAssignmentUser] = useState<UserWithPermissions | null>(null);
+  
   // 表单数据
   const [createUserForm, setCreateUserForm] = useState({
     email: '',
@@ -100,6 +107,18 @@ export function UserManagement({
   const handleCloseChangePasswordDialog = () => {
     setShowChangePasswordDialog(false);
     setPasswordChangeUser(null);
+  };
+
+  // 打开项目分配对话框
+  const handleProjectAssignment = (user: UserWithPermissions) => {
+    setProjectAssignmentUser(user);
+    setShowProjectAssignmentDialog(true);
+  };
+
+  // 关闭项目分配对话框
+  const handleCloseProjectAssignmentDialog = () => {
+    setShowProjectAssignmentDialog(false);
+    setProjectAssignmentUser(null);
   };
 
   // 保存用户编辑
@@ -353,7 +372,7 @@ export function UserManagement({
     }
   };
 
-  // 获取权限统计
+  // 获取权限统计（包括项目分配）
   const getPermissionCount = (user: UserWithPermissions) => {
     // 获取用户角色的基础权限模板
     const roleTemplate = roleTemplates[user.role];
@@ -366,15 +385,18 @@ export function UserManagement({
       data: user.permissions?.data || roleTemplate?.data_permissions || []
     };
     
-    // 计算总权限数量
-    const totalPermissions = (
+    // 计算基础权限数量
+    const basePermissions = (
       effectivePermissions.menu.length +
       effectivePermissions.function.length +
       effectivePermissions.project.length +
       effectivePermissions.data.length
     );
     
-    return totalPermissions;
+    // 注意：项目分配权限是额外的，会通过 PermissionCalculationService 异步计算
+    // 这里返回基础权限数量，实际显示的总数会在组件加载时通过服务计算
+    
+    return basePermissions;
   };
 
   if (loading) {
@@ -491,11 +513,14 @@ export function UserManagement({
                           <SelectValue placeholder="选择角色" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="admin">系统管理员</SelectItem>
-                          <SelectItem value="finance">财务人员</SelectItem>
-                          <SelectItem value="business">业务人员</SelectItem>
-                          <SelectItem value="operator">操作员</SelectItem>
-                          <SelectItem value="viewer">查看者</SelectItem>
+                          {DynamicRoleService.generateRoleSelectOptions().map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              <div className="flex items-center">
+                                <div className={`w-3 h-3 rounded-full ${option.color} mr-2`} />
+                                {option.label}
+                              </div>
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -639,6 +664,15 @@ export function UserManagement({
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => handleProjectAssignment(user)}
+                          className="text-green-600 border-green-300 hover:bg-green-50"
+                        >
+                          <Building2 className="h-4 w-4 mr-1" />
+                          项目分配
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleDeleteUser(user)}
                           className="text-red-600 border-red-300 hover:bg-red-50"
                         >
@@ -691,11 +725,14 @@ export function UserManagement({
                   <SelectValue placeholder="选择角色" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">系统管理员</SelectItem>
-                  <SelectItem value="finance">财务人员</SelectItem>
-                  <SelectItem value="business">业务人员</SelectItem>
-                  <SelectItem value="operator">操作员</SelectItem>
-                  <SelectItem value="viewer">查看者</SelectItem>
+                  {DynamicRoleService.generateRoleSelectOptions().map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <div className="flex items-center">
+                        <div className={`w-3 h-3 rounded-full ${option.color} mr-2`} />
+                        {option.label}
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -783,6 +820,35 @@ export function UserManagement({
           });
         }}
       />
+
+      {/* 项目分配对话框 */}
+      <Dialog open={showProjectAssignmentDialog} onOpenChange={setShowProjectAssignmentDialog}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              项目分配管理
+            </DialogTitle>
+            <DialogDescription>
+              管理用户 {projectAssignmentUser?.full_name} 的项目访问权限
+            </DialogDescription>
+          </DialogHeader>
+          {projectAssignmentUser && (
+            <ProjectAssignmentManager
+              userId={projectAssignmentUser.id}
+              userName={projectAssignmentUser.full_name}
+              userRole={projectAssignmentUser.role}
+              onAssignmentChange={() => {
+                onUserUpdate();
+                toast({
+                  title: "项目分配更新",
+                  description: "项目分配已更新",
+                });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

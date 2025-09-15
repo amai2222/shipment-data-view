@@ -82,12 +82,13 @@ export function PermissionConfiguration({
 
   const selectedUser = usersWithPermissions.find(u => u.id === selectedUserId);
 
-  // 复制权限
+  // 复制权限（包括项目分配）
   const handleCopyPermissions = async (sourceUserId: string, targetUserId: string) => {
     try {
       const sourcePermissions = userPermissions[sourceUserId] || {};
       
-      const { error } = await supabase
+      // 复制用户权限
+      const { error: userPermError } = await supabase
         .from('user_permissions')
         .upsert({
           user_id: targetUserId,
@@ -97,11 +98,44 @@ export function PermissionConfiguration({
           data_permissions: sourcePermissions.data_permissions || []
         });
 
-      if (error) throw error;
+      if (userPermError) throw userPermError;
+
+      // 复制项目分配
+      const { data: sourceProjectAssignments, error: fetchError } = await supabase
+        .from('user_projects')
+        .select('*')
+        .eq('user_id', sourceUserId);
+
+      if (fetchError) throw fetchError;
+
+      if (sourceProjectAssignments && sourceProjectAssignments.length > 0) {
+        // 先删除目标用户的所有项目分配
+        await supabase
+          .from('user_projects')
+          .delete()
+          .eq('user_id', targetUserId);
+
+        // 复制项目分配
+        const projectAssignments = sourceProjectAssignments.map(assignment => ({
+          user_id: targetUserId,
+          project_id: assignment.project_id,
+          role: assignment.role,
+          can_view: assignment.can_view,
+          can_edit: assignment.can_edit,
+          can_delete: assignment.can_delete,
+          created_by: assignment.created_by
+        }));
+
+        const { error: projectError } = await supabase
+          .from('user_projects')
+          .insert(projectAssignments);
+
+        if (projectError) throw projectError;
+      }
 
       toast({
         title: "复制成功",
-        description: "权限已成功复制",
+        description: "权限和项目分配已成功复制",
       });
 
       onLoadData();
@@ -115,19 +149,28 @@ export function PermissionConfiguration({
     }
   };
 
-  // 重置权限
+  // 重置权限（包括项目分配）
   const handleResetPermissions = async (userId: string) => {
     try {
-      const { error } = await supabase
+      // 重置用户权限
+      const { error: userPermError } = await supabase
         .from('user_permissions')
         .delete()
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (userPermError) throw userPermError;
+
+      // 重置项目分配
+      const { error: projectError } = await supabase
+        .from('user_projects')
+        .delete()
+        .eq('user_id', userId);
+
+      if (projectError) throw projectError;
 
       toast({
         title: "重置成功",
-        description: "权限已重置为角色默认权限",
+        description: "权限和项目分配已重置为角色默认权限",
       });
 
       onLoadData();
