@@ -43,16 +43,10 @@ const menuGroups = [
     icon: BarChart3,
     items: [
       {
-        name: '运输看板',
-        href: '/m/dashboard/transport',
-        icon: Truck,
+        name: '运输概览',
+        href: '/m/',
+        icon: Home,
         roles: ['admin', 'finance', 'business', 'operator', 'viewer']
-      },
-      {
-        name: '财务看板',
-        href: '/m/dashboard/financial',
-        icon: DollarSign,
-        roles: ['admin', 'finance', 'viewer']
       },
       {
         name: '项目看板',
@@ -61,10 +55,10 @@ const menuGroups = [
         roles: ['admin', 'finance', 'business', 'viewer']
       },
       {
-        name: '数量概览',
-        href: '/m/quantity-overview',
-        icon: Package,
-        roles: ['admin', 'finance', 'business', 'operator', 'viewer']
+        name: '财务概览',
+        href: '/m/dashboard/financial',
+        icon: DollarSign,
+        roles: ['admin', 'finance', 'viewer']
       }
     ]
   },
@@ -137,60 +131,6 @@ const menuGroups = [
         href: '/m/contracts',
         icon: FileSignature,
         roles: ['admin', 'finance', 'business']
-      },
-      {
-        name: '新增合同',
-        href: '/m/contracts',
-        icon: Plus,
-        roles: ['admin', 'business']
-      },
-      {
-        name: '编辑合同',
-        href: '/m/contracts',
-        icon: Edit,
-        roles: ['admin', 'business']
-      },
-      {
-        name: '删除合同',
-        href: '/m/contracts',
-        icon: Trash2,
-        roles: ['admin']
-      },
-      {
-        name: '文件管理',
-        href: '/m/contracts',
-        icon: FileText,
-        roles: ['admin', 'finance', 'business']
-      },
-      {
-        name: '权限管理',
-        href: '/m/contracts',
-        icon: Shield,
-        roles: ['admin']
-      },
-      {
-        name: '审计日志',
-        href: '/m/contracts',
-        icon: History,
-        roles: ['admin', 'finance']
-      },
-      {
-        name: '提醒管理',
-        href: '/m/contracts',
-        icon: Bell,
-        roles: ['admin', 'business']
-      },
-      {
-        name: '标签管理',
-        href: '/m/contracts',
-        icon: Tag,
-        roles: ['admin', 'business']
-      },
-      {
-        name: '编号管理',
-        href: '/m/contracts',
-        icon: Hash,
-        roles: ['admin']
       }
     ]
   },
@@ -211,18 +151,6 @@ const menuGroups = [
         roles: ['admin', 'finance']
       }
     ]
-  },
-  {
-    title: '数据维护',
-    icon: Database,
-    items: [
-      {
-        name: '运单维护',
-        href: '/m/data-maintenance/waybill',
-        icon: Truck,
-        roles: ['admin', 'operator']
-      }
-    ]
   }
 ];
 
@@ -231,24 +159,6 @@ const settingsNavigation = [
     name: '用户管理',
     href: '/m/settings/users',
     icon: Users,
-    roles: ['admin']
-  },
-  {
-    name: '权限配置',
-    href: '/m/settings/permissions',
-    icon: Shield,
-    roles: ['admin']
-  },
-  {
-    name: '合同权限',
-    href: '/m/settings/contract-permissions',
-    icon: FileText,
-    roles: ['admin']
-  },
-  {
-    name: '角色模板',
-    href: '/m/settings/role-templates',
-    icon: Settings,
     roles: ['admin']
   },
   {
