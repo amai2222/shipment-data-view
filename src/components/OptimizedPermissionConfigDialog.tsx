@@ -83,7 +83,6 @@ const PERMISSION_CATEGORIES = {
     { id: 'data_maintenance', name: '数据维护', description: '数据维护管理' },
     { id: 'data_maintenance.waybill', name: '运单维护', description: '运单数据维护' },
     { id: 'settings', name: '系统设置', description: '系统配置管理' },
-    { id: 'settings.users', name: '用户设置', description: '用户管理设置' },
     { id: 'settings.integrated', name: '集成设置', description: '集成权限管理' },
     { id: 'settings.audit_logs', name: '审计日志', description: '系统审计日志' }
   ],
