@@ -111,6 +111,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
 
       // 调试输出
       console.log('更新角色模板数据:', updateData);
+      console.log('newTemplate状态:', newTemplate);
       console.log('菜单权限数量:', newTemplate.menu_permissions.length);
       console.log('功能权限数量:', newTemplate.function_permissions.length);
       console.log('项目权限数量:', newTemplate.project_permissions.length);
@@ -499,7 +500,10 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                   title="菜单权限"
                   permissions={MENU_PERMISSIONS}
                   selectedPermissions={newTemplate.menu_permissions}
-                  onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, menu_permissions: permissions }))}
+                  onSelectionChange={(permissions) => {
+                    console.log('菜单权限变更:', permissions);
+                    setNewTemplate(prev => ({ ...prev, menu_permissions: permissions }));
+                  }}
                 />
               </div>
             </TabsContent>
