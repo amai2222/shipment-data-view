@@ -25,6 +25,7 @@ export default function UserManagementPage() {
   const {
     loading,
     users,
+    roleTemplates,
     userPermissions,
     loadAllData,
     savePermissions
@@ -155,6 +156,7 @@ export default function UserManagementPage() {
             selectedUsers={selectedUsers}
             onSelectionChange={setSelectedUsers}
             onUserUpdate={handleUserUpdate}
+            roleTemplates={roleTemplates}
           />
         </CardContent>
       </Card>

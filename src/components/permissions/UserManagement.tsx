@@ -36,6 +36,7 @@ interface UserManagementProps {
   selectedUsers: string[];
   onSelectionChange: (selected: string[]) => void;
   onUserUpdate: () => void;
+  roleTemplates?: Record<string, any>;
 }
 
 export function UserManagement({ 
@@ -43,9 +44,20 @@ export function UserManagement({
   loading, 
   selectedUsers, 
   onSelectionChange, 
-  onUserUpdate 
+  onUserUpdate,
+  roleTemplates = {}
 }: UserManagementProps) {
   const { toast } = useToast();
+  
+  // 角色名称映射
+  const roleNameMap: Record<string, string> = {
+    admin: '系统管理员',
+    finance: '财务人员',
+    business: '业务人员',
+    operator: '操作员',
+    partner: '合作伙伴',
+    viewer: '查看者'
+  };
   
   // 状态管理
   const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
@@ -343,13 +355,26 @@ export function UserManagement({
 
   // 获取权限统计
   const getPermissionCount = (user: UserWithPermissions) => {
-    if (!user.permissions) return 0;
-    return (
+    // 获取用户角色的基础权限模板
+    const roleTemplate = roleTemplates[user.role];
+    
+    // 计算基础权限数量
+    const basePermissions = roleTemplate ? (
+      (roleTemplate.menu_permissions?.length || 0) +
+      (roleTemplate.function_permissions?.length || 0) +
+      (roleTemplate.project_permissions?.length || 0) +
+      (roleTemplate.data_permissions?.length || 0)
+    ) : 0;
+    
+    // 计算用户自定义权限数量
+    const customPermissions = user.permissions ? (
       (user.permissions.menu?.length || 0) +
       (user.permissions.function?.length || 0) +
       (user.permissions.project?.length || 0) +
       (user.permissions.data?.length || 0)
-    );
+    ) : 0;
+    
+    return basePermissions + customPermissions;
   };
 
   if (loading) {
@@ -542,7 +567,7 @@ export function UserManagement({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{user.role}</Badge>
+                      <Badge variant="outline">{roleNameMap[user.role] || user.role}</Badge>
                     </TableCell>
                     <TableCell>
                       {user.is_active ? (
