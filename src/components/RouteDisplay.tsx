@@ -136,14 +136,14 @@ export function RouteDisplay({
 }
 
 // 导出便捷的预设组件
-export const CompactRoutePreset = (props: Omit<RouteDisplayProps, 'variant'>) => (
+export const CompactRoute = (props: Omit<RouteDisplayProps, 'variant'>) => (
   <RouteDisplay {...props} variant="compact" />
 );
 
-export const DetailedRoutePreset = (props: Omit<RouteDisplayProps, 'variant'>) => (
+export const DetailedRoute = (props: Omit<RouteDisplayProps, 'variant'>) => (
   <RouteDisplay {...props} variant="detailed" />
 );
 
-export const MinimalRoutePreset = (props: Omit<RouteDisplayProps, 'variant'>) => (
+export const MinimalRoute = (props: Omit<RouteDisplayProps, 'variant'>) => (
   <RouteDisplay {...props} variant="minimal" />
 );

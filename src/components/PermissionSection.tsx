@@ -1,16 +1,45 @@
-// 简化占位符组件
-import React from 'react';
+// 权限控制区域组件
 
-interface Props {
-  title?: string;
-  children?: React.ReactNode;
+import React from 'react';
+import { useAdvancedPermissions } from '@/hooks/useAdvancedPermissions';
+import { PermissionType } from '@/types/permissions';
+
+interface PermissionSectionProps {
+  permission: string;
+  permissionType?: PermissionType;
+  fallback?: React.ReactNode;
+  requireAll?: boolean;
+  permissions?: string[];
+  children: React.ReactNode;
 }
 
-export function PermissionSection({ title, children }: Props) {
-  return (
-    <div className="p-4 border rounded">
-      <h3 className="font-medium mb-2">{title}</h3>
-      {children}
-    </div>
-  );
+export function PermissionSection({
+  permission,
+  permissionType = 'function',
+  fallback = null,
+  requireAll = false,
+  permissions = [],
+  children
+}: PermissionSectionProps) {
+  const { hasPermission } = useAdvancedPermissions();
+
+  // 检查权限
+  const checkPermission = () => {
+    if (permissions.length > 0) {
+      if (requireAll) {
+        return permissions.every(p => hasPermission(p, permissionType).hasPermission);
+      } else {
+        return permissions.some(p => hasPermission(p, permissionType).hasPermission);
+      }
+    }
+    return hasPermission(permission, permissionType).hasPermission;
+  };
+
+  const hasAccess = checkPermission();
+
+  if (!hasAccess) {
+    return <>{fallback}</>;
+  }
+
+  return <>{children}</>;
 }

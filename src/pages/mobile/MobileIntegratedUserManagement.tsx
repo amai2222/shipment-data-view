@@ -16,7 +16,6 @@ import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS } from '@/config/permissions';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { ProjectPermissionManager } from '@/components/ProjectPermissionManager';
 import { useProjects } from '@/hooks/useProjects';
-import { supabase } from '@/integrations/supabase/client';
 
 interface UserWithPermissions {
   id: string;

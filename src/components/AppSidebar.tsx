@@ -47,7 +47,6 @@ const menuItems = [
       { title: "运输看板", url: "/dashboard/transport", icon: Truck },
       { title: "财务看板", url: "/dashboard/financial", icon: Banknote },
       { title: "项目看板", url: "/dashboard/project", icon: PieChart },
-      { title: "数量概览", url: "/quantity-overview", icon: Package },
     ]
   },
   {
@@ -75,15 +74,6 @@ const menuItems = [
     icon: FileText,
     items: [
       { title: "合同列表", url: "/contracts", icon: FileText },
-      { title: "新增合同", url: "/contracts", icon: Plus },
-      { title: "编辑合同", url: "/contracts", icon: RotateCcw },
-      { title: "删除合同", url: "/contracts", icon: RotateCcw },
-      { title: "文件管理", url: "/contracts", icon: FileText },
-      { title: "权限管理", url: "/contracts", icon: Shield },
-      { title: "审计日志", url: "/contracts", icon: History },
-      { title: "提醒管理", url: "/contracts", icon: RotateCcw },
-      { title: "标签管理", url: "/contracts", icon: RotateCcw },
-      { title: "编号管理", url: "/contracts", icon: RotateCcw },
     ]
   },
   {
@@ -105,11 +95,10 @@ const menuItems = [
     title: "设置",
     icon: Settings,
     items: [
-      { title: "用户管理", url: "/settings/users", icon: UserCog },
+      { title: "用户管理", url: "/settings/users", icon: Users },
       { title: "权限配置", url: "/settings/permissions", icon: Shield },
       { title: "合同权限", url: "/settings/contract-permissions", icon: FileText },
       { title: "角色模板", url: "/settings/role-templates", icon: Settings },
-      { title: "集成权限管理", url: "/settings/integrated", icon: Shield },
       { title: "操作日志", url: "/settings/audit-logs", icon: History },
     ]
   }
@@ -133,8 +122,6 @@ export function AppSidebar() {
       let menuKey = '';
       if (item.url.startsWith('/dashboard/')) {
         menuKey = `dashboard.${item.url.split('/')[2]}`;
-      } else if (item.url === '/quantity-overview') {
-        menuKey = 'dashboard.quantity';
       } else if (item.url === '/projects') {
         menuKey = 'maintenance.projects';
       } else if (item.url === '/drivers') {
@@ -152,30 +139,7 @@ export function AppSidebar() {
       } else if (item.url === '/payment-requests-list') {
         menuKey = 'business.payment_requests';
       } else if (item.url === '/contracts') {
-        // 根据菜单标题确定具体的合同权限
-        if (item.title === '合同列表') {
-          menuKey = 'contracts.list';
-        } else if (item.title === '新增合同') {
-          menuKey = 'contracts.create';
-        } else if (item.title === '编辑合同') {
-          menuKey = 'contracts.edit';
-        } else if (item.title === '删除合同') {
-          menuKey = 'contracts.delete';
-        } else if (item.title === '文件管理') {
-          menuKey = 'contracts.files';
-        } else if (item.title === '权限管理') {
-          menuKey = 'contracts.permissions';
-        } else if (item.title === '审计日志') {
-          menuKey = 'contracts.audit';
-        } else if (item.title === '提醒管理') {
-          menuKey = 'contracts.reminders';
-        } else if (item.title === '标签管理') {
-          menuKey = 'contracts.tags';
-        } else if (item.title === '编号管理') {
-          menuKey = 'contracts.numbering';
-        } else {
-          menuKey = 'contracts.list'; // 默认
-        }
+        menuKey = 'contracts.list';
       } else if (item.url === '/finance/reconciliation') {
         menuKey = 'finance.reconciliation';
       } else if (item.url === '/finance/payment-invoice') {

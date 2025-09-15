@@ -15,34 +15,6 @@ export interface UserWithPermissions {
   };
 }
 
-export type PermissionType = 'menu' | 'function' | 'project' | 'data';
-
-export interface UserPermission {
-  id: string;
-  user_id: string; 
-  permission_type: PermissionType;
-  permission_key: string;
-  granted_at: string;
-  granted_by: string;
-  expires_at?: string;
-  is_active: boolean;
-}
-
-export interface RolePermissionTemplate {
-  id: string;
-  role: string;
-  name: string;
-  description?: string;
-  color?: string;
-  menu_permissions: string[];
-  function_permissions: string[];
-  project_permissions: string[];
-  data_permissions: string[];
-  is_system: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface UserPermissions {
   menu: string[];
   function: string[];
