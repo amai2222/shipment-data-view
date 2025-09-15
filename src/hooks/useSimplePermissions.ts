@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { UserRole } from '@/types/permissions';
-import { DEFAULT_ROLE_PERMISSIONS } from '@/config/permissions';
 
 interface RolePermissions {
   menu_permissions: string[];

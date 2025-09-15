@@ -11,7 +11,6 @@ import {
   UserRole,
   PermissionType
 } from '@/types/permissions';
-import { DEFAULT_ROLE_PERMISSIONS } from '@/config/permissions';
 
 export function useAdvancedPermissions() {
   const { user, profile } = useAuth();

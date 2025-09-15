@@ -28,48 +28,10 @@ export function useOptimizedPermissions() {
     return Array.from(uniquePermissions.values());
   }, [userPermissions]);
 
-  // 初始化默认角色权限模板
-  const initializeDefaultRoleTemplates = async () => {
-    try {
-      const { DEFAULT_ROLE_PERMISSIONS } = await import('@/config/permissions');
-      
-      const templatePromises = Object.entries(DEFAULT_ROLE_PERMISSIONS).map(([role, permissions]) =>
-        supabase
-          .from('role_permission_templates')
-          .upsert({
-            role,
-            menu_permissions: permissions.menu_permissions,
-            function_permissions: permissions.function_permissions,
-            project_permissions: permissions.project_permissions,
-            data_permissions: permissions.data_permissions,
-            is_system: true,
-            name: role === 'admin' ? '系统管理员' : 
-                  role === 'finance' ? '财务人员' :
-                  role === 'business' ? '业务人员' :
-                  role === 'operator' ? '操作员' :
-                  role === 'partner' ? '合作伙伴' : '查看者',
-            description: `默认${role}角色权限模板`,
-            color: role === 'admin' ? 'bg-red-500' : 
-                   role === 'finance' ? 'bg-green-500' :
-                   role === 'business' ? 'bg-blue-500' :
-                   role === 'operator' ? 'bg-yellow-500' :
-                   role === 'partner' ? 'bg-purple-500' : 'bg-gray-500'
-          }, { onConflict: 'role' })
-      );
-      
-      await Promise.all(templatePromises);
-    } catch (error) {
-      console.error('初始化默认角色权限模板失败:', error);
-    }
-  };
-
   // 批量加载数据
   const loadAllData = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      // 完全禁用自动初始化，避免覆盖用户修改的权限
-      // await initializeDefaultRoleTemplates();
-      
       // 并行加载所有必需的数据
       const [templatesRes, usersRes, permissionsRes] = await Promise.all([
         supabase.from('role_permission_templates').select('role, menu_permissions, function_permissions, project_permissions, data_permissions, name, description').order('role', { ascending: true }),
