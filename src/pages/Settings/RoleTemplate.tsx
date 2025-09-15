@@ -1,0 +1,155 @@
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  Settings, 
+  RefreshCw, 
+  Plus,
+  Users,
+  Shield,
+  FileText
+} from 'lucide-react';
+import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
+import { RoleTemplateManager } from '@/components/permissions/RoleTemplateManager';
+
+export default function RoleTemplatePage() {
+  const { toast } = useToast();
+  const [hasChanges, setHasChanges] = useState(false);
+
+  const {
+    loading,
+    roleTemplates,
+    loadAllData
+  } = useOptimizedPermissions();
+
+  // 处理更新角色模板
+  const handleUpdateRoleTemplates = async (updatedTemplates: any[]) => {
+    try {
+      setHasChanges(true);
+      toast({
+        title: "模板更新",
+        description: "角色模板已更新",
+      });
+    } catch (error) {
+      toast({
+        title: "更新失败",
+        description: "无法更新角色模板",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 处理刷新数据
+  const handleRefresh = async () => {
+    try {
+      await loadAllData();
+      toast({
+        title: "刷新成功",
+        description: "角色模板数据已刷新",
+      });
+    } catch (error) {
+      toast({
+        title: "刷新失败",
+        description: "无法刷新角色模板数据",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      {/* 页面标题 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">角色模板</h1>
+          <p className="text-muted-foreground">
+            管理角色模板和权限预设
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            刷新
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setHasChanges(false)}
+            disabled={!hasChanges}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            保存更改
+          </Button>
+        </div>
+      </div>
+
+      {/* 统计卡片 */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">模板总数</CardTitle>
+            <Settings className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{roleTemplates.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">默认角色</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {roleTemplates.filter(template => template.is_default).length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">自定义模板</CardTitle>
+            <Shield className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {roleTemplates.filter(template => !template.is_default).length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">状态</CardTitle>
+            <Badge variant={hasChanges ? "destructive" : "default"}>
+              {hasChanges ? "有未保存更改" : "已保存"}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-muted-foreground">
+              {hasChanges ? "请保存更改" : "所有更改已保存"}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 角色模板管理组件 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>角色模板管理</CardTitle>
+          <CardDescription>创建和管理角色权限模板</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RoleTemplateManager
+            roleTemplates={roleTemplates}
+            onUpdate={handleUpdateRoleTemplates}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

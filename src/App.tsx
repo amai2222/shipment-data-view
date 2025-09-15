@@ -29,6 +29,10 @@ import PaymentInvoiceDetail from "./pages/PaymentInvoiceDetail";
 import NotFound from "./pages/NotFound";
 import NotFoundWithStaticFileCheck from "./components/NotFoundWithStaticFileCheck";
 import PaymentRequestsList from "./pages/PaymentRequestsList";
+import UserManagement from "./pages/Settings/UserManagement";
+import PermissionConfig from "./pages/Settings/PermissionConfig";
+import ContractPermission from "./pages/Settings/ContractPermission";
+import RoleTemplate from "./pages/Settings/RoleTemplate";
 import PermissionManagement from "./pages/Settings/PermissionManagement";
 import IntegratedUserManagement from "./pages/IntegratedUserManagement";
 import DebugPermissions from "./pages/DebugPermissions";
@@ -181,9 +185,27 @@ const App = () => (
               </ProtectedRoute>
             } />
             
+            <Route path="/settings/users" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><UserManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
             <Route path="/settings/permissions" element={
               <ProtectedRoute requiredRoles={['admin']}>
-                <AppLayout><PermissionManagement /></AppLayout>
+                <AppLayout><PermissionConfig /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings/contract-permissions" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><ContractPermission /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings/role-templates" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><RoleTemplate /></AppLayout>
               </ProtectedRoute>
             } />
             

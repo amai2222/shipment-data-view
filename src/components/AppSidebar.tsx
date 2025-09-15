@@ -95,7 +95,10 @@ const menuItems = [
     title: "设置",
     icon: Settings,
     items: [
-      { title: "集成权限管理", url: "/settings/integrated", icon: Shield },
+      { title: "用户管理", url: "/settings/users", icon: Users },
+      { title: "权限配置", url: "/settings/permissions", icon: Shield },
+      { title: "合同权限", url: "/settings/contract-permissions", icon: FileText },
+      { title: "角色模板", url: "/settings/role-templates", icon: Settings },
       { title: "操作日志", url: "/settings/audit-logs", icon: History },
     ]
   }
@@ -143,6 +146,14 @@ export function AppSidebar() {
         menuKey = 'finance.payment_invoice';
       } else if (item.url === '/data-maintenance/waybill') {
         menuKey = 'data_maintenance.waybill';
+      } else if (item.url === '/settings/users') {
+        menuKey = 'settings.users';
+      } else if (item.url === '/settings/permissions') {
+        menuKey = 'settings.permissions';
+      } else if (item.url === '/settings/contract-permissions') {
+        menuKey = 'settings.contract_permissions';
+      } else if (item.url === '/settings/role-templates') {
+        menuKey = 'settings.role_templates';
       } else if (item.url === '/settings/integrated') {
         menuKey = 'settings.integrated';
       } else if (item.url === '/settings/audit-logs') {
