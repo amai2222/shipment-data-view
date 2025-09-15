@@ -7,7 +7,6 @@ export interface UserWithPermissions {
   email: string;
   role: UserRole;
   is_active: boolean;
-  phone?: string;
   permissions?: {
     menu: string[];
     function: string[];
@@ -23,29 +22,6 @@ export interface UserPermissions {
   data: string[];
 }
 
-export interface UserPermission {
-  id: string;
-  user_id: string;
-  permissions: string[];
-  role: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface RolePermissionTemplate {
-  id: string;
-  role: string;
-  name: string;
-  description: string;
-  menu_permissions: string[];
-  function_permissions: string[];
-  project_permissions: string[];
-  data_permissions: string[];
-  is_system: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface RoleTemplate {
   role: string;
   menu_permissions: string[];
@@ -53,8 +29,6 @@ export interface RoleTemplate {
   project_permissions: string[];
   data_permissions: string[];
 }
-
-export type PermissionType = 'menu' | 'function' | 'project' | 'data';
 
 export interface ContractPermission {
   id: string;

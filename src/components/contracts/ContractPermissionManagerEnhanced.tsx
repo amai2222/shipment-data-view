@@ -321,7 +321,7 @@ export function ContractPermissionManager({
 
   // 筛选权限
   const filteredPermissions = useMemo(() => {
-    const safePermissions = Array.isArray(permissions) ? permissions : [];
+    const safePermissions = permissions || [];
     return safePermissions.filter(permission => {
       if (!permission) return false;
       
@@ -836,7 +836,7 @@ export function ContractPermissionManager({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(Array.isArray(filteredPermissions) ? filteredPermissions : []).map((permission) => {
+                    {(filteredPermissions || []).map((permission) => {
                       if (!permission) return null;
                       
                       const typeInfo = getPermissionTypeInfo(permission.permission_type);
