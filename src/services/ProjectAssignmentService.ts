@@ -113,6 +113,9 @@ export class ProjectAssignmentService {
       // 使用权限系统映射
       const rolePermissions = PROJECT_ROLE_PERMISSIONS[role];
 
+      // 获取当前用户ID
+      const currentUserId = (await supabase.auth.getUser()).data.user?.id;
+      
       const assignments = projectIds.map(projectId => ({
         user_id: userId,
         project_id: projectId,
@@ -120,7 +123,7 @@ export class ProjectAssignmentService {
         can_view: rolePermissions.can_view,
         can_edit: rolePermissions.can_edit,
         can_delete: rolePermissions.can_delete,
-        created_by: (await supabase.auth.getUser()).data.user?.id
+        created_by: currentUserId
       }));
 
       const { error } = await supabase
