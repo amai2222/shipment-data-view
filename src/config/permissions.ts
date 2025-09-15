@@ -1,9 +1,9 @@
 // 权限系统配置
 
-import { MenuPermission, FunctionPermission, ProjectPermission, DataPermission, UserRole, MenuPermissionItem, FunctionPermissionItem, ProjectPermissionItem, DataPermissionItem } from '@/types/permissions';
+import { PermissionGroup, AppRole, RoleDefinition } from '@/types/permission';
 
 // 角色定义
-export const ROLES: Record<UserRole, { label: string; color: string; description: string }> = {
+export const ROLES: Record<AppRole, RoleDefinition> = {
   admin: {
     label: '系统管理员',
     color: 'bg-red-500',
