@@ -412,7 +412,8 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
               </Dialog>
               
               {/* 创建角色对话框 */}
-              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <Dialog open={showCreateRoleDialog} onOpenChange={setShowCreateRoleDialog}>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>创建新角色</DialogTitle>
                   <DialogDescription>
@@ -511,7 +512,8 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
               </DialogContent>
             </Dialog>
             </div>
-              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>创建角色模板</DialogTitle>
                   <DialogDescription>
