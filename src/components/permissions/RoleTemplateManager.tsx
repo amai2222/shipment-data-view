@@ -407,7 +407,15 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(roleTemplates).map(([role, template]) => {
+            {Object.entries(roleTemplates)
+              .sort(([a], [b]) => {
+                // 定义固定的角色排序顺序
+                const roleOrder = ['admin', 'finance', 'business', 'operator', 'partner', 'viewer'];
+                const aIndex = roleOrder.indexOf(a);
+                const bIndex = roleOrder.indexOf(b);
+                return aIndex - bIndex;
+              })
+              .map(([role, template]) => {
               const stats = getPermissionStats(template);
               
               return (

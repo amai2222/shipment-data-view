@@ -72,7 +72,7 @@ export function useOptimizedPermissions() {
       
       // 并行加载所有必需的数据
       const [templatesRes, usersRes, permissionsRes] = await Promise.all([
-        supabase.from('role_permission_templates').select('role, menu_permissions, function_permissions, project_permissions, data_permissions, name, description').order('updated_at', { ascending: false }),
+        supabase.from('role_permission_templates').select('role, menu_permissions, function_permissions, project_permissions, data_permissions, name, description').order('role', { ascending: true }),
         supabase.from('profiles').select('id, full_name, email, role, is_active, work_wechat_userid, work_wechat_name, phone'),
         supabase.from('user_permissions').select('id, user_id, project_id, menu_permissions, function_permissions, project_permissions, data_permissions, created_at').order('created_at', { ascending: false })
       ]);

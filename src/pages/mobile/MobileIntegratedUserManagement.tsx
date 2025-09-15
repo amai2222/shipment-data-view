@@ -631,7 +631,15 @@ export default function MobileIntegratedUserManagement() {
               <CardContent>
                 <ScrollArea className="h-[calc(100vh-300px)]">
                   <div className="space-y-3">
-                    {Object.entries(roleTemplates).map(([role, template]) => (
+                    {Object.entries(roleTemplates)
+                      .sort(([a], [b]) => {
+                        // 定义固定的角色排序顺序
+                        const roleOrder = ['admin', 'finance', 'business', 'operator', 'partner', 'viewer'];
+                        const aIndex = roleOrder.indexOf(a);
+                        const bIndex = roleOrder.indexOf(b);
+                        return aIndex - bIndex;
+                      })
+                      .map(([role, template]) => (
                       <Card key={role} className="p-3">
                         <div className="flex items-center justify-between">
                           <div>
