@@ -248,9 +248,12 @@ export default function UserManagementPage() {
           can_delete: false
         }));
 
+        // 使用 upsert 处理重复键问题
         const { error } = await supabase
           .from('user_projects')
-          .insert(projectPermissions);
+          .upsert(projectPermissions, {
+            onConflict: 'user_id,project_id'
+          });
 
         if (error) throw error;
       }
