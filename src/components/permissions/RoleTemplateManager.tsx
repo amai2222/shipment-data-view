@@ -237,9 +237,19 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
       const groupPermissions = group.children?.map((child: any) => child.key) || [];
       
       if (checked) {
-        onSelectionChange([...selectedPermissions, ...groupPermissions]);
+        // 去重：只添加不存在的权限
+        const newPermissions = [...selectedPermissions];
+        groupPermissions.forEach(permission => {
+          if (!newPermissions.includes(permission)) {
+            newPermissions.push(permission);
+          }
+        });
+        console.log(`${title} 组权限变更:`, newPermissions);
+        onSelectionChange(newPermissions);
       } else {
-        onSelectionChange(selectedPermissions.filter(p => !groupPermissions.includes(p)));
+        const filteredPermissions = selectedPermissions.filter(p => !groupPermissions.includes(p));
+        console.log(`${title} 组权限移除:`, filteredPermissions);
+        onSelectionChange(filteredPermissions);
       }
     };
 
@@ -257,9 +267,18 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
       };
       
       if (checked) {
-        onSelectionChange([...selectedPermissions, permissionKey]);
+        // 去重：只添加不存在的权限
+        if (!selectedPermissions.includes(permissionKey)) {
+          const newPermissions = [...selectedPermissions, permissionKey];
+          console.log(`${title} 单个权限添加:`, permissionKey, '新权限列表:', newPermissions);
+          onSelectionChange(newPermissions);
+        } else {
+          console.log(`${title} 权限已存在:`, permissionKey);
+        }
       } else {
-        onSelectionChange(selectedPermissions.filter(p => p !== permissionKey));
+        const filteredPermissions = selectedPermissions.filter(p => p !== permissionKey);
+        console.log(`${title} 单个权限移除:`, permissionKey, '新权限列表:', filteredPermissions);
+        onSelectionChange(filteredPermissions);
       }
       
       // 使用 requestAnimationFrame 确保滚动位置在DOM更新后恢复
