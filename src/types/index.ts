@@ -37,6 +37,14 @@ export interface PlatformTracking {
   trackingNumbers: string[]; // 该平台的运单号列表
 }
 
+// 外部追踪号码数据类型
+export interface ExternalTrackingNumber {
+  id: string;
+  platform: string;
+  trackingNumber: string;
+  notes?: string;
+}
+
 // 物流记录数据类型
 export interface LogisticsRecord {
   id: string;

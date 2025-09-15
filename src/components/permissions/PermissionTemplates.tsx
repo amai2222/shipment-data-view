@@ -285,10 +285,9 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
         data_permissions: roleTemplate.data_permissions || []
       };
 
-    try {
       setLoading(true);
       
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('role_permission_templates')
         .insert({
           ...preset,
@@ -297,7 +296,7 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
           is_system: false
         });
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       toast({
         title: "成功",
