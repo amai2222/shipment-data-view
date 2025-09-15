@@ -120,8 +120,17 @@ export function ProjectAssignmentManager({
   // 获取项目分配状态
   const getProjectAssignmentStatus = (projectId: string) => {
     const assignment = assignments.find(a => a.project_id === projectId);
+    
+    // 默认所有用户都有所有项目权限
+    // 只有在 user_projects 表中有明确限制时才显示为未分配
+    const isExplicitlyRestricted = assignment && (
+      assignment.can_view === false || 
+      assignment.can_edit === false || 
+      assignment.can_delete === false
+    );
+    
     return {
-      isAssigned: !!assignment,
+      isAssigned: !isExplicitlyRestricted, // 默认已分配，除非明确限制
       role: assignment?.role || DynamicRoleService.getDefaultProjectRole(),
       canView: assignment?.can_view ?? true,
       canEdit: assignment?.can_edit ?? true,
@@ -136,9 +145,11 @@ export function ProjectAssignmentManager({
       setSaving(true);
       
       if (assigned) {
+        // 分配项目：创建或更新 user_projects 记录，设置完整权限
         await ProjectAssignmentService.assignProjectToUser(userId, projectId, role);
       } else {
-        await ProjectAssignmentService.removeProjectFromUser(userId, projectId);
+        // 取消分配：创建限制性记录，设置所有权限为 false
+        await ProjectAssignmentService.restrictProjectFromUser(userId, projectId);
       }
 
       // 重新加载数据
@@ -146,7 +157,7 @@ export function ProjectAssignmentManager({
       
       toast({
         title: '操作成功',
-        description: assigned ? '项目分配成功' : '项目分配已移除'
+        description: assigned ? '项目分配成功' : '项目访问已限制'
       });
 
       onAssignmentChange?.();
@@ -431,7 +442,7 @@ export function ProjectAssignmentManager({
         <CardHeader>
           <CardTitle>项目分配管理</CardTitle>
           <CardDescription>
-            默认所有用户都具有所有项目的访问权限，可以取消分配来限制访问
+            默认所有用户都具有所有项目的访问权限，取消勾选将限制用户访问该项目
           </CardDescription>
         </CardHeader>
         <CardContent>

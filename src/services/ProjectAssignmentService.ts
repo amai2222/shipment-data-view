@@ -103,6 +103,28 @@ export class ProjectAssignmentService {
     }
   }
 
+  // 限制用户项目访问（设置所有权限为 false）
+  static async restrictProjectFromUser(userId: string, projectId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('user_projects')
+        .upsert({
+          user_id: userId,
+          project_id: projectId,
+          role: DynamicRoleService.getDefaultProjectRole(),
+          can_view: false,
+          can_edit: false,
+          can_delete: false,
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('限制项目访问失败:', error);
+      throw error;
+    }
+  }
+
   // 批量分配项目给用户
   static async batchAssignProjectsToUser(
     userId: string, 
