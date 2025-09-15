@@ -24,10 +24,18 @@ export default function RoleTemplatePage() {
     loadAllData
   } = useOptimizedPermissions();
 
-  // 将roleTemplates对象转换为数组
+  // 将roleTemplates对象转换为数组用于统计，但保持对象格式用于组件
   const roleTemplatesArray = Array.isArray(roleTemplates) 
     ? roleTemplates 
     : Object.values(roleTemplates || {});
+  
+  // 确保roleTemplates是对象格式（RoleTemplateManager需要的格式）
+  const roleTemplatesObject = Array.isArray(roleTemplates) 
+    ? roleTemplates.reduce((acc, template, index) => {
+        acc[template.role || `template_${index}`] = template;
+        return acc;
+      }, {} as Record<string, any>)
+    : roleTemplates || {};
 
   // 处理更新角色模板
   const handleUpdateRoleTemplates = async (updatedTemplates: any[]) => {
@@ -150,7 +158,7 @@ export default function RoleTemplatePage() {
         </CardHeader>
         <CardContent>
           <RoleTemplateManager
-            roleTemplates={roleTemplatesArray}
+            roleTemplates={roleTemplatesObject}
             onUpdate={handleUpdateRoleTemplates}
           />
         </CardContent>

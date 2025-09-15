@@ -414,7 +414,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                 <Card key={role} className="relative">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">{role}</CardTitle>
+                      <CardTitle className="text-lg">{template.name || role}</CardTitle>
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
