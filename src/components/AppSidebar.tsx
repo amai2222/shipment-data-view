@@ -18,7 +18,8 @@ import {
   UserCog,
   Weight,
   Shield,
-  History
+  History,
+  UserCheck,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -92,11 +93,19 @@ const menuItems = [
     ]
   },
   {
+    title: "用户管理",
+    icon: UserCog,
+    items: [
+      { title: "用户列表", url: "/user-management", icon: Users },
+      { title: "权限配置", url: "/permission-config", icon: Shield },
+      { title: "角色模板", url: "/role-templates", icon: UserCheck },
+      { title: "合同权限", url: "/contract-permissions", icon: FileText },
+    ]
+  },
+  {
     title: "设置",
     icon: Settings,
     items: [
-      { title: "用户管理", url: "/settings/users", icon: UserCog },
-      { title: "集成权限管理", url: "/settings/integrated", icon: Shield },
       { title: "操作日志", url: "/settings/audit-logs", icon: History },
     ]
   }
