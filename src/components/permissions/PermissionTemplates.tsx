@@ -241,45 +241,49 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
     }
   };
 
-  // 应用预设模板
-  const applyPresetTemplate = async (presetType: string) => {
-    const presets: Record<string, any> = {
-      basic: {
-        role: 'viewer',
-        name: '基础查看者',
-        description: '只能查看基本数据',
-        color: 'bg-gray-500',
-        menu_permissions: ['dashboard'],
-        function_permissions: ['data.view']
-      },
-      business: {
-        role: 'business',
-        name: '业务人员',
-        description: '负责业务录入和基本管理',
-        color: 'bg-blue-500',
-        menu_permissions: ['dashboard', 'business'],
-        function_permissions: ['data.view', 'data.create', 'data.edit']
-      },
-      manager: {
-        role: 'admin',
-        name: '管理员',
-        description: '拥有完整系统权限',
-        color: 'bg-red-500',
-        menu_permissions: Object.keys(MENU_PERMISSIONS).reduce((acc: string[], group) => {
-          acc.push(group);
-          MENU_PERMISSIONS[group].children?.forEach(item => acc.push(item.key));
-          return acc;
-        }, []),
-        function_permissions: Object.keys(FUNCTION_PERMISSIONS).reduce((acc: string[], group) => {
-          acc.push(group);
-          FUNCTION_PERMISSIONS[group].children?.forEach(item => acc.push(item.key));
-          return acc;
-        }, [])
-      }
+  // 获取角色颜色
+  const getRoleColor = (role: string) => {
+    const colorMap: Record<string, string> = {
+      admin: 'bg-red-500',
+      finance: 'bg-green-500',
+      business: 'bg-blue-500',
+      operator: 'bg-yellow-500',
+      partner: 'bg-purple-500',
+      viewer: 'bg-gray-500'
     };
+    return colorMap[role] || 'bg-gray-500';
+  };
 
-    const preset = presets[presetType];
-    if (!preset) return;
+  // 应用预设模板 - 使用数据库中的角色模板
+  const applyPresetTemplate = async (presetType: string) => {
+    try {
+      // 从数据库获取对应角色的模板，而不是使用硬编码
+      const { data: roleTemplate, error } = await supabase
+        .from('role_permission_templates')
+        .select('*')
+        .eq('role', presetType)
+        .single();
+
+      if (error || !roleTemplate) {
+        toast({
+          title: "模板不存在",
+          description: `角色 ${presetType} 的模板不存在，请先创建该角色模板`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // 使用数据库中的模板数据
+      const preset = {
+        role: roleTemplate.role,
+        name: roleTemplate.name || roleTemplate.role,
+        description: roleTemplate.description || '',
+        color: getRoleColor(roleTemplate.role),
+        menu_permissions: roleTemplate.menu_permissions || [],
+        function_permissions: roleTemplate.function_permissions || [],
+        project_permissions: roleTemplate.project_permissions || [],
+        data_permissions: roleTemplate.data_permissions || []
+      };
 
     try {
       setLoading(true);

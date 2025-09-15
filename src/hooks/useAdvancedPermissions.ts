@@ -149,7 +149,12 @@ export function useAdvancedPermissions() {
       function_permissions: roleTemplate.function_permissions,
       project_permissions: roleTemplate.project_permissions,
       data_permissions: roleTemplate.data_permissions
-    } : DEFAULT_ROLE_PERMISSIONS[userRole];
+    } : {
+      menu_permissions: [],
+      function_permissions: [],
+      project_permissions: [],
+      data_permissions: []
+    };
 
     if (userPerm) {
       // 用户特定权限覆盖角色权限
@@ -212,7 +217,12 @@ export function useAdvancedPermissions() {
       function_permissions: roleTemplate.function_permissions,
       project_permissions: roleTemplate.project_permissions,
       data_permissions: roleTemplate.data_permissions
-    } : DEFAULT_ROLE_PERMISSIONS[userRole];
+    } : {
+      menu_permissions: [],
+      function_permissions: [],
+      project_permissions: [],
+      data_permissions: []
+    };
 
     if (userPerm) {
       // 用户特定权限覆盖角色权限

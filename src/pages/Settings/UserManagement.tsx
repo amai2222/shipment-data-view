@@ -17,6 +17,7 @@ import {
 import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { UserManagement } from '@/components/permissions/UserManagement';
 import { PermissionQuickActions } from '@/components/PermissionQuickActions';
+import { PermissionResetService } from '@/services/PermissionResetService';
 
 export default function UserManagementPage() {
   const { toast } = useToast();
@@ -96,16 +97,23 @@ export default function UserManagementPage() {
     }
   };
 
-  // 重置权限处理
+  // 重置权限处理 - 使用专门的重置服务
   const handleResetToRole = async (userIds: string[]) => {
     try {
-      // 这里需要实现重置权限的逻辑
-      console.log('重置权限:', userIds);
+      console.log('开始重置权限:', userIds);
+      
+      // 使用专门的重置服务，这是唯一可以使用硬编码权限的地方
+      await PermissionResetService.resetMultipleUsersToRoleDefault(userIds);
+      
       toast({
         title: "重置成功",
         description: `${userIds.length}个用户的权限已重置为角色默认权限`,
       });
+
+      // 刷新数据
+      await loadAllData();
     } catch (error) {
+      console.error('重置权限失败:', error);
       toast({
         title: "重置失败",
         description: "权限重置失败",

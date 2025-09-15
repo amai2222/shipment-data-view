@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { RoleTemplateManager } from '@/components/permissions/RoleTemplateManager';
+import { PermissionResetService } from '@/services/PermissionResetService';
 
 export default function RoleTemplatePage() {
   const { toast } = useToast();
@@ -76,6 +77,32 @@ export default function RoleTemplatePage() {
     }
   };
 
+  // 重置所有角色模板为默认权限
+  const handleResetAllToDefault = async () => {
+    try {
+      const roles = ['admin', 'finance', 'business', 'operator', 'partner', 'viewer'] as const;
+      
+      for (const role of roles) {
+        await PermissionResetService.resetRoleTemplateToDefault(role);
+      }
+      
+      toast({
+        title: "重置成功",
+        description: "所有角色模板已重置为默认权限",
+      });
+      
+      // 刷新数据
+      await loadAllData(true);
+    } catch (error) {
+      console.error('重置角色模板失败:', error);
+      toast({
+        title: "重置失败",
+        description: "无法重置角色模板",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* 页面标题 */}
@@ -95,6 +122,15 @@ export default function RoleTemplatePage() {
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             刷新
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleResetAllToDefault}
+            disabled={loading}
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            重置为默认
           </Button>
           <Button
             size="sm"

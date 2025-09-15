@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PermissionDatabaseService } from '@/services/PermissionDatabaseService';
+import { PermissionResetService } from '@/services/PermissionResetService';
 import { supabase } from '@/integrations/supabase/client';
 
 interface PermissionDebugInfo {
@@ -78,14 +79,10 @@ export function PermissionDebugger() {
 
   const createAdminTemplate = async () => {
     try {
-      await PermissionDatabaseService.saveRoleTemplate('admin', {
-        menu_permissions: ['dashboard', 'users', 'contracts', 'reports', 'settings'],
-        function_permissions: ['create_user', 'edit_user', 'delete_user', 'export_data', 'import_data'],
-        project_permissions: ['project_view', 'project_create', 'project_edit', 'project_delete'],
-        data_permissions: ['data_read', 'data_write', 'data_delete']
-      }, '拥有系统所有权限');
+      // 使用重置服务创建管理员模板，而不是硬编码权限
+      await PermissionResetService.resetRoleTemplateToDefault('admin');
       
-      alert('已创建admin角色模板');
+      alert('已创建admin角色模板（使用默认权限）');
       loadDebugInfo();
     } catch (error) {
       console.error('创建admin模板失败:', error);

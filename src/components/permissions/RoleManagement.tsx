@@ -48,16 +48,14 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
         data_permissions: template.data_permissions || []
       });
     } else {
-      // 使用默认权限
-      const defaultPerms = DEFAULT_ROLE_PERMISSIONS[selectedRole as keyof typeof DEFAULT_ROLE_PERMISSIONS];
-      if (defaultPerms) {
-        setCurrentPermissions({
-          menu_permissions: defaultPerms.menu_permissions || [],
-          function_permissions: defaultPerms.function_permissions || [],
-          project_permissions: defaultPerms.project_permissions || [],
-          data_permissions: defaultPerms.data_permissions || []
-        });
-      }
+      // 数据库中没有该角色的权限，使用空权限
+      console.warn(`角色 ${selectedRole} 在数据库中不存在，使用空权限`);
+      setCurrentPermissions({
+        menu_permissions: [],
+        function_permissions: [],
+        project_permissions: [],
+        data_permissions: []
+      });
     }
   }, [selectedRole]); // 移除 roleTemplates 依赖，避免覆盖用户修改
 

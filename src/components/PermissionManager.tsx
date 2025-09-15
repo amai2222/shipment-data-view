@@ -148,7 +148,12 @@ export function PermissionManager({ onPermissionChange }: PermissionManagerProps
         data_permissions: template.data_permissions
       };
     }
-    return DEFAULT_ROLE_PERMISSIONS[selectedRole];
+    return {
+      menu_permissions: [],
+      function_permissions: [],
+      project_permissions: [],
+      data_permissions: []
+    };
   };
 
   // 获取当前用户权限
