@@ -56,20 +56,30 @@ export function useSimplePermissions() {
     loadPermissions();
   }, [userRole]);
 
-  // 获取角色权限（优先使用数据库，回退到默认权限）
+  // 获取角色权限（优先使用数据库，智能回退）
   const rolePermissions = useMemo(() => {
     try {
       if (dbPermissions) {
         console.log(`使用数据库权限: ${userRole}`, dbPermissions);
         return dbPermissions;
       } else {
-        const permissions = DEFAULT_ROLE_PERMISSIONS[userRole] || DEFAULT_ROLE_PERMISSIONS.viewer;
-        console.log(`使用默认权限: ${userRole}`, permissions);
-        return permissions;
+        // 数据库加载失败时的回退策略
+        console.warn(`数据库权限加载失败，使用空权限: ${userRole}`);
+        return {
+          menu_permissions: [],
+          function_permissions: [],
+          project_permissions: [],
+          data_permissions: []
+        };
       }
     } catch (error) {
       console.error('获取角色权限失败:', error);
-      return DEFAULT_ROLE_PERMISSIONS.viewer;
+      return {
+        menu_permissions: [],
+        function_permissions: [],
+        project_permissions: [],
+        data_permissions: []
+      };
     }
   }, [userRole, dbPermissions]);
 
