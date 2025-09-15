@@ -452,7 +452,10 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled
+                  onClick={() => {
+                    setSelectedTemplate(template);
+                    setEditDialogOpen(true);
+                  }}
                 >
                   <Edit className="h-3 w-3" />
                 </Button>
@@ -497,6 +500,88 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
           </Card>
         ))}
       </div>
+
+      {/* 编辑模板对话框 */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>编辑权限模板</DialogTitle>
+            <DialogDescription>
+              编辑 "{selectedTemplate?.name}" 的权限配置
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedTemplate && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="template-name">模板名称</Label>
+                  <Input
+                    id="template-name"
+                    value={selectedTemplate.name}
+                    readOnly
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="template-role">角色</Label>
+                  <Input
+                    id="template-role"
+                    value={selectedTemplate.role}
+                    readOnly
+                    className="bg-gray-50"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label>菜单权限 ({selectedTemplate.menu_permissions?.length || 0})</Label>
+                  <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedTemplate.menu_permissions?.map((permission: string) => (
+                        <Badge key={permission} variant="outline" className="text-xs">
+                          {permission}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label>功能权限 ({selectedTemplate.function_permissions?.length || 0})</Label>
+                  <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedTemplate.function_permissions?.map((permission: string) => (
+                        <Badge key={permission} variant="outline" className="text-xs">
+                          {permission}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                  关闭
+                </Button>
+                <Button 
+                  onClick={() => {
+                    toast({
+                      title: "提示",
+                      description: "编辑功能正在开发中，请使用角色管理页面进行编辑",
+                    });
+                    setEditDialogOpen(false);
+                  }}
+                >
+                  编辑权限
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
