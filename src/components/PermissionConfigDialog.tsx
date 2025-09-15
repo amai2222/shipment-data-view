@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { PermissionDatabaseService } from '@/services/PermissionDatabaseService';
+import { useToast } from '@/hooks/use-toast';
 
 interface User {
   id: string;
@@ -220,6 +221,7 @@ export function PermissionConfigDialog({
   onClose, 
   onSave 
 }: PermissionConfigDialogProps) {
+  const { toast } = useToast();
   const [selectedPermissions, setSelectedPermissions] = useState<Record<string, string[]>>({
     menu: [],
     function: [],
@@ -295,21 +297,41 @@ export function PermissionConfigDialog({
     try {
       setLoading(true);
       
-      // 使用数据库服务保存权限
-      await PermissionDatabaseService.saveUserPermissions(user.id, {
-        menu_permissions: selectedPermissions.menu,
-        function_permissions: selectedPermissions.function,
-        project_permissions: selectedPermissions.project,
-        data_permissions: selectedPermissions.data
+      console.log('开始保存权限:', {
+        userId: user.id,
+        permissions: selectedPermissions
       });
+      
+      // 使用数据库服务保存权限
+      const result = await PermissionDatabaseService.saveUserPermissions(user.id, {
+        menu_permissions: selectedPermissions.menu || [],
+        function_permissions: selectedPermissions.function || [],
+        project_permissions: selectedPermissions.project || [],
+        data_permissions: selectedPermissions.data || []
+      });
+
+      console.log('权限保存成功:', result);
 
       // 调用父组件的保存回调
       onSave(user.id, selectedPermissions);
+      
+      // 显示成功提示
+      toast({
+        title: "保存成功",
+        description: "用户权限已成功保存",
+      });
+      
       onClose();
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('保存权限失败:', error);
-      // 这里可以添加错误提示
+      
+      // 显示错误提示
+      toast({
+        title: "保存失败",
+        description: `权限保存失败: ${error.message || '未知错误'}`,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

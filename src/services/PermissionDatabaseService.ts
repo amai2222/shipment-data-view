@@ -89,19 +89,21 @@ export class PermissionDatabaseService {
       project_permissions: string[];
       data_permissions: string[];
     },
+    projectId?: string,
     createdBy?: string
   ): Promise<DatabasePermission> {
     const { data, error } = await supabase
       .from('user_permissions')
       .upsert({
         user_id: userId,
+        project_id: projectId || null,
         ...permissions,
         inherit_role: false,
         custom_settings: {},
         updated_at: new Date().toISOString(),
         created_by: createdBy
       }, {
-        onConflict: 'user_id'
+        onConflict: 'user_id,project_id'
       })
       .select()
       .single();
