@@ -29,8 +29,8 @@ interface FormData {
   projectId: string;
   chainId: string;
   driverId: string;
-  loadingLocationIds: string[]; // 改为数组支持多地点
-  unloadingLocationIds: string[]; // 改为数组支持多地点
+  loadingLocationIds: string[]; // 地点ID数组
+  unloadingLocationIds: string[]; // 地点ID数组
   loadingDate: Date | undefined;
   unloadingDate: Date | undefined;
   licensePlate: string;
@@ -94,8 +94,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           projectId: editingRecord.project_id || '',
           chainId: editingRecord.chain_id || '',
           driverId: editingRecord.driver_id || '',
-          loadingLocationIds: [], // 临时设为空，稍后会被正确的地点数据覆盖
-          unloadingLocationIds: [], // 临时设为空，稍后会被正确的地点数据覆盖
+          loadingLocationIds: [], // 稍后会在useEffect中根据地点名称查找ID
+          unloadingLocationIds: [], // 稍后会在useEffect中根据地点名称查找ID
           loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
           unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
           licensePlate: editingRecord.license_plate || '',
@@ -111,24 +111,33 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
               return [];
             }
             
-            // 按平台分组，将同一平台的多个运单号合并
-            const groupedByPlatform: { [key: string]: string[] } = {};
+            // 处理外部运单号数据
+            const trackingItems: any[] = [];
+            
             editingRecord.external_tracking_numbers.forEach((item: any) => {
-              if (item.platform && item.tracking_number) {
-                if (!groupedByPlatform[item.platform]) {
-                  groupedByPlatform[item.platform] = [];
-                }
-                groupedByPlatform[item.platform].push(item.tracking_number);
+              // 处理新格式：trackingNumbers数组
+              if (item.platform && item.trackingNumbers && Array.isArray(item.trackingNumbers)) {
+                item.trackingNumbers.forEach((trackingNumber: string) => {
+                  trackingItems.push({
+                    platform: item.platform,
+                    tracking_number: trackingNumber,
+                    status: item.status || 'pending',
+                    created_at: item.created_at || new Date().toISOString()
+                  });
+                });
+              }
+              // 处理旧格式：单个tracking_number
+              else if (item.platform && item.tracking_number) {
+                trackingItems.push({
+                  platform: item.platform,
+                  tracking_number: item.tracking_number,
+                  status: item.status || 'pending',
+                  created_at: item.created_at || new Date().toISOString()
+                });
               }
             });
             
-            // 转换为表单格式
-            return Object.entries(groupedByPlatform).map(([platform, trackingNumbers]) => ({
-              platform,
-              tracking_number: trackingNumbers.join('|'),
-              status: 'pending',
-              created_at: new Date().toISOString()
-            }));
+            return trackingItems;
           })(),
         });
       } else {
@@ -159,53 +168,38 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   }, [chains, editingRecord]);
 
-  // 在编辑模式下，当数据加载完成后填充地点和司机信息
+  // 在编辑模式下，确保当前司机在司机列表中，并初始化地点ID
   useEffect(() => {
-    if (editingRecord && locations.length > 0 && drivers.length > 0) {
-      // 解析装卸货地点
-      const loadingLocationNames = parseLocationString(editingRecord.loading_location || '');
-      const unloadingLocationNames = parseLocationString(editingRecord.unloading_location || '');
-      
-      console.log('编辑模式加载地点数据:', {
-        loadingLocation: editingRecord.loading_location,
-        unloadingLocation: editingRecord.unloading_location,
-        loadingLocationNames,
-        unloadingLocationNames,
-        locationsCount: locations.length
-      });
-      
-      // 确保当前司机在司机列表中
+    if (editingRecord && drivers.length > 0) {
       const currentDriver = drivers.find(d => d.id === editingRecord.driver_id);
       if (!currentDriver && editingRecord.driver_id) {
         // 如果当前司机不在列表中，需要单独加载
         loadDriverById(editingRecord.driver_id);
       }
-      
-      // 确保地点在地点列表中
-      const missingLocations = [...loadingLocationNames, ...unloadingLocationNames]
-        .filter(name => !locations.find(l => l.name === name));
-      
-      if (missingLocations.length > 0) {
-        // 如果有缺失的地点，需要创建它们
-        createMissingLocations(missingLocations);
-      }
+    }
+    
+    // 当地点数据加载完成后，初始化地点ID
+    if (editingRecord && locations.length > 0) {
+      const loadingLocationNames = parseLocationString(editingRecord.loading_location || '');
+      const unloadingLocationNames = parseLocationString(editingRecord.unloading_location || '');
       
       const loadingLocationIds = findLocationIdsByName(loadingLocationNames);
       const unloadingLocationIds = findLocationIdsByName(unloadingLocationNames);
       
-      console.log('地点ID查找结果:', {
-        loadingLocationIds,
-        unloadingLocationIds,
-        locations: locations.map(l => ({ id: l.id, name: l.name }))
+      // 只有当地点ID发生变化时才更新表单数据
+      setFormData(prev => {
+        if (JSON.stringify(prev.loadingLocationIds) !== JSON.stringify(loadingLocationIds) ||
+            JSON.stringify(prev.unloadingLocationIds) !== JSON.stringify(unloadingLocationIds)) {
+          return {
+            ...prev,
+            loadingLocationIds,
+            unloadingLocationIds,
+          };
+        }
+        return prev;
       });
-      
-      setFormData(prev => ({
-        ...prev,
-        loadingLocationIds,
-        unloadingLocationIds,
-      }));
     }
-  }, [editingRecord, locations, drivers]);
+  }, [editingRecord, drivers, locations]);
 
   // 单独加载司机信息
   const loadDriverById = async (driverId: string) => {

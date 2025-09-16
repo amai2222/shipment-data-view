@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Download, FileDown, FileUp, Loader2, Search, Plus, MoreHorizontal, ArrowUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
@@ -14,7 +13,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 
 import { Project, LogisticsRecord } from './types';
@@ -491,7 +489,7 @@ export default function BusinessEntry() {
       </div>
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
-      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, currentPage: pagination.currentPage, pageSize: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} />)}
+      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} />)}
       {isAdmin && <EnhancedImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} duplicateActions={duplicateActions} setDuplicateActions={setDuplicateActions} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
       <LogisticsFormDialog
         isOpen={isFormDialogOpen}
