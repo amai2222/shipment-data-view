@@ -268,7 +268,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                   <TableRow 
                     key={record.id} 
                     onClick={() => !isBatchMode && onView(record)}
-                    className={`hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 whitespace-nowrap border-b border-gray-100 transition-all duration-200 py-2 ${isBatchMode ? 'cursor-default' : 'cursor-pointer'} ${records.indexOf(record) % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                    className={`hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 whitespace-nowrap border-b border-gray-100 transition-all duration-200 py-2 ${isBatchMode ? 'cursor-default' : 'cursor-pointer'} ${records.indexOf(record) % 2 === 0 ? 'bg-white' : 'bg-blue-50/50'}`}
                   >
                     {isBatchMode && (
                       <TableCell onClick={(e) => e.stopPropagation()} className="border-r border-blue-200 py-2">
@@ -286,19 +286,19 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                         </Button>
                       </TableCell>
                     )}
-                    <TableCell className="font-mono text-sm font-bold text-slate-800 py-2">{record.auto_number}</TableCell>
-                    <TableCell className="text-sm font-medium text-slate-700 py-2">{record.project_name}</TableCell>
-                    <TableCell className="text-xs font-medium text-slate-600 py-2">
+                    <TableCell className="font-mono text-sm text-slate-800 py-2">{record.auto_number}</TableCell>
+                    <TableCell className="text-sm text-slate-700 py-2">{record.project_name}</TableCell>
+                    <TableCell className="text-xs text-slate-600 py-2">
                       {new Date(record.loading_date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })}
                     </TableCell>
                     <TableCell className="text-sm py-2">
                       <div className="flex items-center space-x-1.5">
-                        <span className="font-bold text-slate-800">{record.driver_name}</span>
-                        <span className="text-slate-400 font-bold">|</span>
+                        <span className="text-slate-800">{record.driver_name}</span>
+                        <span className="text-slate-400">|</span>
                         <span className="text-xs text-slate-600 font-mono bg-slate-100 px-1.5 py-0.5 rounded">
                           {record.license_plate || '未填写'}
                         </span>
-                        <span className="text-slate-400 font-bold">|</span>
+                        <span className="text-slate-400">|</span>
                         <span className="text-xs text-slate-600 font-mono bg-blue-100 px-1.5 py-0.5 rounded">
                           {record.driver_phone || '未填写'}
                         </span>
@@ -312,11 +312,11 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                       />
                     </TableCell>
                     {/* [修改] 使用统一的显示函数 */}
-                    <TableCell className="font-mono text-sm font-medium text-slate-700 py-2">{getQuantityDisplay(record)}</TableCell>
-                    <TableCell className="font-mono text-sm font-medium text-slate-700 py-2">
+                    <TableCell className="font-mono text-sm text-slate-700 py-2">{getQuantityDisplay(record)}</TableCell>
+                    <TableCell className="font-mono text-sm text-slate-700 py-2">
                       {formatCurrency(record.current_cost)} / {formatCurrency(record.extra_cost)}
                     </TableCell>
-                    <TableCell className="font-mono text-sm font-bold text-blue-600 py-2">
+                    <TableCell className="font-mono text-sm text-blue-600 py-2">
                       {formatCurrency(driverPayable)}
                     </TableCell>
                     {/* 隐藏状态列 */}
@@ -403,22 +403,22 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               
           {/* [重构] 合计行逻辑 */}
           {records.length > 0 && (
-            <tfoot className="bg-gradient-to-r from-blue-100 via-indigo-100 to-purple-100 border-t-2 border-blue-300">
+            <tfoot className="border-t border-gray-200">
               <TableRow className="hover:bg-transparent">
-                <TableCell className="font-bold text-slate-800 text-sm py-3">合计</TableCell>
+                <TableCell className="text-slate-600 text-sm py-3">合计</TableCell>
                 <TableCell></TableCell>
                 <TableCell></TableCell>
-                <TableCell className="text-center font-bold text-slate-800 text-sm py-3">{records.length} 条运单</TableCell>
+                <TableCell className="text-center text-slate-600 text-sm py-3">{records.length} 条运单</TableCell>
                 <TableCell></TableCell>
-                <TableCell className="font-bold font-mono text-xs text-slate-700 py-3">
+                <TableCell className="font-mono text-xs text-slate-500 py-3">
                   {summaryTotals.weight.loading > 0 && <div>计重: {summaryTotals.weight.loading.toFixed(2)} / {summaryTotals.weight.unloading.toFixed(2)} 吨</div>}
                   {summaryTotals.trips.count > 0 && <div>计车: {summaryTotals.trips.count} 车</div>}
                   {summaryTotals.volume.loading > 0 && <div>计体积: {summaryTotals.volume.loading.toFixed(2)} / {summaryTotals.volume.unloading.toFixed(2)} 立方</div>}
                 </TableCell>
-                <TableCell className="font-bold font-mono text-slate-700 py-3">
+                <TableCell className="font-mono text-slate-500 py-3">
                   {formatCurrency(summaryTotals.currentCost)} / {formatCurrency(summaryTotals.extraCost)}
                 </TableCell>
-                <TableCell className="font-bold font-mono text-blue-600 py-3">
+                <TableCell className="font-mono text-slate-600 py-3">
                   {formatCurrency(summaryTotals.driverPayable)}
                 </TableCell>
                 {/* 隐藏状态列 */}
@@ -431,32 +431,32 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
         </Table>
       </div>
       {/* 完整的分页控件 */}
-      <div className="flex items-center justify-between py-3 px-6 bg-gradient-to-r from-slate-100 via-blue-100 to-indigo-100 border-t-2 border-blue-300 shadow-lg rounded-b-xl">
+      <div className="flex items-center justify-between py-4 px-6 border-t border-gray-200 bg-white">
         {/* 左侧：本页合计信息 */}
-        <div className="flex-1 text-sm text-slate-700">
-          <span className="font-bold text-slate-800">本页合计:</span>
-          <span className="ml-3 px-3 py-1.5 bg-gradient-to-r from-blue-200 to-blue-300 text-blue-800 rounded-lg font-bold shadow-sm">运费 {formatCurrency(summaryTotals.currentCost)}</span>
-          <span className="ml-2 px-3 py-1.5 bg-gradient-to-r from-green-200 to-green-300 text-green-800 rounded-lg font-bold shadow-sm">额外 {formatCurrency(summaryTotals.extraCost)}</span>
-          <span className="ml-2 px-3 py-1.5 bg-gradient-to-r from-purple-200 to-purple-300 text-purple-800 rounded-lg font-bold shadow-sm">应付款司机 {formatCurrency(summaryTotals.driverPayable)}</span>
-          <span className="ml-3 font-bold text-slate-800 bg-slate-200 px-3 py-1.5 rounded-lg">共{pagination.totalCount} 条记录</span>
+        <div className="flex-1 text-sm text-slate-600">
+          <span className="text-slate-600">本页合计:</span>
+          <span className="ml-3 text-slate-700">运费 {formatCurrency(summaryTotals.currentCost)}</span>
+          <span className="ml-3 text-slate-700">额外 {formatCurrency(summaryTotals.extraCost)}</span>
+          <span className="ml-3 text-slate-700">应付款司机 {formatCurrency(summaryTotals.driverPayable)}</span>
+          <span className="ml-3 text-slate-600">共{pagination.totalCount} 条记录</span>
         </div>
         
         {/* 右侧：分页控制 */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-4">
           {/* 每页显示条数选择 */}
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-slate-700 font-bold">每页显示</span>
+            <span className="text-sm text-slate-600">每页显示</span>
             <select
               value={pagination.pageSize}
               onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
-              className="px-3 py-1.5 text-sm border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-md font-medium"
+              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-            <span className="text-sm text-slate-700 font-bold">条</span>
+            <span className="text-sm text-slate-600">条</span>
           </div>
           
           {/* 分页按钮 */}
@@ -466,14 +466,14 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               size="sm" 
               onClick={() => handlePageChange(pagination.currentPage - 1)} 
               disabled={pagination.currentPage <= 1}
-              className="px-3 py-1.5 text-sm border-2 border-blue-300 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:border-blue-400 transition-all duration-200 font-medium rounded-lg shadow-sm"
+              className="px-3 py-1 text-sm border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-colors duration-150"
             >
               上一页
             </Button>
             
             {/* 页码输入 */}
             <div className="flex items-center space-x-1">
-              <span className="text-sm text-slate-700 font-bold">第</span>
+              <span className="text-sm text-slate-600">第</span>
               <input
                 type="number"
                 value={pagination.currentPage}
@@ -483,11 +483,11 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                     handlePageChange(page);
                   }
                 }}
-                className="w-12 px-2 py-1.5 text-sm text-center border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-md font-bold"
+                className="w-10 px-1 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 min="1"
                 max={Math.ceil(pagination.totalCount / pagination.pageSize)}
               />
-              <span className="text-sm text-slate-700 font-bold">页,共{Math.ceil(pagination.totalCount / pagination.pageSize)}页</span>
+              <span className="text-sm text-slate-600">页,共{Math.ceil(pagination.totalCount / pagination.pageSize)}页</span>
             </div>
             
             <Button 
@@ -495,7 +495,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               size="sm" 
               onClick={() => handlePageChange(pagination.currentPage + 1)} 
               disabled={pagination.currentPage >= Math.ceil(pagination.totalCount / pagination.pageSize)}
-              className="px-3 py-1.5 text-sm border-2 border-blue-300 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:border-blue-400 transition-all duration-200 font-medium rounded-lg shadow-sm"
+              className="px-3 py-1 text-sm border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-colors duration-150"
             >
               下一页
             </Button>
