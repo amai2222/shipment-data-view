@@ -625,69 +625,155 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             </div>
           </div>
           {/* ... 后续表单部分保持不变 ... */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>装货{quantityLabel} *</Label>
-              <Input type="number" step="0.01" value={formData.loading_weight} onChange={(e) => setFormData(prev => ({ ...prev, loading_weight: e.target.value }))} placeholder={`输入装货${quantityLabel}`} />
-            </div>
-            <div>
-              <Label>卸货{quantityLabel}</Label>
-              <Input type="number" step="0.01" value={formData.unloading_weight} onChange={(e) => setFormData(prev => ({ ...prev, unloading_weight: e.target.value }))} placeholder={`输入卸货${quantityLabel}`} />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>运费(元) *</Label>
-              <Input type="number" step="0.01" min="0" value={formData.currentCost} onChange={(e) => setFormData(prev => ({ ...prev, currentCost: e.target.value }))} placeholder="输入运费" />
-            </div>
-            <div>
-              <Label>额外费(元)</Label>
-              <Input type="number" step="0.01" value={formData.extraCost} onChange={(e) => setFormData(prev => ({ ...prev, extraCost: e.target.value }))} placeholder="输入额外费用，支持负数" />
-            </div>
-          </div>
-          <div>
-            <Label className="font-semibold">司机应收(元)</Label>
-            <div className="mt-1 px-3 py-2 bg-muted rounded-md font-mono text-primary font-semibold text-lg">¥{driverReceivable.toFixed(2)}</div>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-base font-medium">其他平台运单信息</Label>
-              <div className="text-sm text-muted-foreground mt-1 mb-3">
-                其他平台名称: {formData.other_platform_names ? formData.other_platform_names.split(',').filter(Boolean).length : 0} 个 | 
-                外部运单号: {formData.external_tracking_numbers ? formData.external_tracking_numbers.split(',').filter(Boolean).length : 0} 个
+          <div className="bg-gradient-to-br from-slate-50 to-gray-50 p-4 rounded-lg border border-slate-200">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 bg-slate-100 rounded-lg">
+                <Weight className="h-4 w-4 text-slate-600" />
               </div>
-              
-              {/* 其他平台名称输入 */}
-              <div className="space-y-2">
-                <Label className="text-sm">其他平台名称</Label>
-                <Input
-                  placeholder="输入平台名称，用逗号分隔，例如：拼多多,京东"
-                  value={formData.other_platform_names}
-                  onChange={(e) => setFormData(prev => ({ ...prev, other_platform_names: e.target.value }))}
+              <Label className="text-sm font-semibold text-slate-800">重量信息</Label>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-slate-600 font-medium">装货{quantityLabel} *</Label>
+                <Input 
+                  type="number" 
+                  step="0.01" 
+                  value={formData.loading_weight} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, loading_weight: e.target.value }))} 
+                  placeholder={`输入装货${quantityLabel}`} 
+                  className="mt-1"
                 />
-                <div className="text-xs text-muted-foreground">
-                  用逗号分隔不同平台名称，例如：拼多多,京东,淘宝
+              </div>
+              <div>
+                <Label className="text-xs text-slate-600 font-medium">卸货{quantityLabel}</Label>
+                <Input 
+                  type="number" 
+                  step="0.01" 
+                  value={formData.unloading_weight} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, unloading_weight: e.target.value }))} 
+                  placeholder={`输入卸货${quantityLabel}`} 
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 rounded-lg border border-emerald-200">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <Banknote className="h-4 w-4 text-emerald-600" />
+              </div>
+              <Label className="text-sm font-semibold text-emerald-800">费用信息</Label>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-emerald-600 font-medium">运费(元) *</Label>
+                <Input 
+                  type="number" 
+                  step="0.01" 
+                  min="0" 
+                  value={formData.currentCost} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, currentCost: e.target.value }))} 
+                  placeholder="输入运费" 
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-emerald-600 font-medium">额外费(元)</Label>
+                <Input 
+                  type="number" 
+                  step="0.01" 
+                  value={formData.extraCost} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, extraCost: e.target.value }))} 
+                  placeholder="输入额外费用，支持负数" 
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 p-4 rounded-lg border border-amber-200">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <Banknote className="h-4 w-4 text-amber-600" />
+              </div>
+              <Label className="text-sm font-semibold text-amber-800">司机应收金额</Label>
+            </div>
+            <div className="bg-white p-4 rounded-lg border border-amber-100 text-center">
+              <div className="text-2xl font-bold text-amber-600 font-mono">¥{driverReceivable.toFixed(2)}</div>
+              <div className="text-xs text-gray-500 mt-1">自动计算：运费 + 额外费</div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-violet-50 to-purple-50 p-4 rounded-lg border border-violet-200">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 bg-violet-100 rounded-lg">
+                <Package className="h-4 w-4 text-violet-600" />
+              </div>
+              <Label className="text-sm font-semibold text-violet-800">其他平台运单信息</Label>
+            </div>
+            <div className="bg-white p-3 rounded-lg border border-violet-100 mb-4">
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1">
+                  <span className="text-violet-600">📦</span>
+                  <span className="text-gray-600">其他平台名称:</span>
+                  <span className="font-semibold text-violet-600">
+                    {formData.other_platform_names ? formData.other_platform_names.split(',').filter(Boolean).length : 0} 个
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-violet-600">📋</span>
+                  <span className="text-gray-600">外部运单号:</span>
+                  <span className="font-semibold text-violet-600">
+                    {formData.external_tracking_numbers ? formData.external_tracking_numbers.split(',').filter(Boolean).length : 0} 个
+                  </span>
                 </div>
               </div>
+            </div>
               
-              {/* 外部运单号输入 */}
-              <div className="space-y-2">
-                <Label className="text-sm">外部运单号</Label>
-                <Input
-                  placeholder="输入运单号，用逗号分隔不同平台，用竖线分隔同一平台的多个运单号，例如：1234,1234|2345"
-                  value={formData.external_tracking_numbers}
-                  onChange={(e) => setFormData(prev => ({ ...prev, external_tracking_numbers: e.target.value }))}
-                />
-                <div className="text-xs text-muted-foreground">
-                  格式说明：用逗号分隔不同平台，用竖线分隔同一平台的多个运单号<br/>
-                  例如：1234,1234|2345 表示第一个平台运单号1234，第二个平台运单号1234和2345
+              <div className="space-y-4">
+                {/* 其他平台名称输入 */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-violet-600 font-medium">其他平台名称</Label>
+                  <Input
+                    placeholder="输入平台名称，用逗号分隔，例如：拼多多,京东"
+                    value={formData.other_platform_names}
+                    onChange={(e) => setFormData(prev => ({ ...prev, other_platform_names: e.target.value }))}
+                    className="border-violet-200 focus:border-violet-400"
+                  />
+                  <div className="text-xs text-gray-500 bg-violet-50 p-2 rounded border border-violet-100">
+                    💡 用逗号分隔不同平台名称，例如：拼多多,京东,淘宝
+                  </div>
+                </div>
+                
+                {/* 外部运单号输入 */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-violet-600 font-medium">外部运单号</Label>
+                  <Input
+                    placeholder="输入运单号，用逗号分隔不同平台，用竖线分隔同一平台的多个运单号，例如：1234,1234|2345"
+                    value={formData.external_tracking_numbers}
+                    onChange={(e) => setFormData(prev => ({ ...prev, external_tracking_numbers: e.target.value }))}
+                    className="border-violet-200 focus:border-violet-400"
+                  />
+                  <div className="text-xs text-gray-500 bg-violet-50 p-2 rounded border border-violet-100">
+                    💡 格式说明：用逗号分隔不同平台，用竖线分隔同一平台的多个运单号<br/>
+                    例如：1234,1234|2345 表示第一个平台运单号1234，第二个平台运单号1234和2345
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-          <div>
-            <Label>备注</Label>
-            <Textarea value={formData.remarks} onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))} placeholder="输入备注信息" rows={3} />
+          <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <CalendarIcon className="h-4 w-4 text-gray-600" />
+              </div>
+              <Label className="text-sm font-semibold text-gray-800">备注信息</Label>
+            </div>
+            <Textarea 
+              value={formData.remarks} 
+              onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))} 
+              placeholder="输入备注信息" 
+              rows={3}
+              className="border-gray-200 focus:border-gray-400"
+            />
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={onClose}><X className="mr-2 h-4 w-4" />取消</Button>
