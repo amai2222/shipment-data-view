@@ -175,13 +175,6 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
   const loadingLocations = parseLocations(record.loading_location);
   const unloadingLocations = parseLocations(record.unloading_location);
 
-  // 加载磅单数据
-  useEffect(() => {
-    if (isOpen && record?.auto_number) {
-      loadScaleRecords();
-    }
-  }, [isOpen, record?.auto_number, loadScaleRecords]);
-
   const loadScaleRecords = useCallback(async () => {
     if (!record?.auto_number) return;
     
@@ -200,6 +193,13 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
       setLoadingScaleRecords(false);
     }
   }, [record?.auto_number]);
+
+  // 加载磅单数据
+  useEffect(() => {
+    if (isOpen && record?.auto_number) {
+      loadScaleRecords();
+    }
+  }, [isOpen, record?.auto_number, loadScaleRecords]);
 
   const handleShowScaleImages = () => {
     setShowScaleImages(true);
