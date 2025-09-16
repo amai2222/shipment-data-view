@@ -412,19 +412,21 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
           {/* 其他平台信息 */}
           {(record.external_tracking_numbers && record.external_tracking_numbers.length > 0) || 
            (record.other_platform_names && record.other_platform_names.length > 0) ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-sm font-medium">其他平台信息</Label>
+            <div className="bg-gradient-to-br from-purple-50 to-violet-50 p-4 rounded-lg border border-purple-200">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Package className="h-4 w-4 text-purple-600" />
+                </div>
+                <Label className="text-sm font-semibold text-purple-800">其他平台信息</Label>
               </div>
-              <div className="pl-6 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* 其他平台名称 */}
                 {record.other_platform_names && record.other_platform_names.length > 0 && (
-                  <div>
-                    <Label className="text-xs text-muted-foreground">其他平台名称</Label>
-                    <div className="flex flex-wrap gap-1 mt-1">
+                  <div className="bg-white p-3 rounded-lg border border-purple-100">
+                    <Label className="text-xs text-purple-600 font-medium">其他平台名称</Label>
+                    <div className="flex flex-wrap gap-1 mt-2">
                       {record.other_platform_names.map((platform, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
+                        <Badge key={index} variant="outline" className="text-xs border-purple-200 text-purple-700">
                           {platform}
                         </Badge>
                       ))}
@@ -434,9 +436,9 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
                 
                 {/* 外部运单号 */}
                 {record.external_tracking_numbers && record.external_tracking_numbers.length > 0 && (
-                  <div>
-                    <Label className="text-xs text-muted-foreground">外部运单号</Label>
-                    <div className="space-y-2 mt-1">
+                  <div className="bg-white p-3 rounded-lg border border-purple-100">
+                    <Label className="text-xs text-purple-600 font-medium">外部运单号</Label>
+                    <div className="space-y-2 mt-2">
                       {(() => {
                         // 解析平台名称和运单号的对应关系
                         const platformNames = record.other_platform_names || [];
@@ -447,15 +449,13 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
                           
                           return (
                             <div key={index} className="space-y-1">
-                              <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
-                                <Badge variant="outline" className="text-xs">
-                                  {platformName}
-                                </Badge>
+                              <div className="text-xs font-medium text-purple-700">
+                                {platformName}
                               </div>
                               {platformTrackingNumbers.length > 0 && (
-                                <div className="pl-4 space-y-1">
+                                <div className="space-y-1">
                                   {platformTrackingNumbers.map((trackingNumber, tnIndex) => (
-                                    <div key={tnIndex} className="text-sm font-mono text-muted-foreground">
+                                    <div key={tnIndex} className="text-sm font-mono text-gray-700 bg-gray-50 px-2 py-1 rounded">
                                       {trackingNumber}
                                     </div>
                                   ))}
