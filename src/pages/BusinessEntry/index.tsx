@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Search, Plus, MoreHorizontal, ArrowUpDown } from "lucide-react";
+import { Download, FileDown, FileUp, Loader2, Search, Plus, MoreHorizontal, ArrowUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
@@ -17,10 +17,11 @@ import { Badge } from "@/components/ui/badge";
 
 import { Project, LogisticsRecord } from './types';
 import { useLogisticsData, INITIAL_FILTERS, TotalSummary, LogisticsFilters } from './hooks/useLogisticsData';
+import { useExcelImport } from './hooks/useExcelImport';
 import { FilterBar } from './components/FilterBar';
+import { EnhancedImportDialog } from './components/EnhancedImportDialog';
 import { LogisticsFormDialog } from './components/LogisticsFormDialog';
 import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
-import TransportDocumentGenerator from '@/components/TransportDocumentGenerator';
 
 const formatCurrency = (value: number | null | undefined): string => {
   if (value == null || isNaN(value)) return '¥0.00';
@@ -298,6 +299,7 @@ export default function BusinessEntry() {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch, sortField, sortDirection, handleSort, handlePageSizeChange } = useLogisticsData();
+  const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, duplicateActions, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates, setDuplicateActions } = useExcelImport(() => { refetch(); });
   const isSummaryStale = useMemo(() => JSON.stringify(uiFilters) !== JSON.stringify(activeFilters), [uiFilters, activeFilters]);
 
   const loadInitialOptions = useCallback(async () => {
@@ -349,6 +351,96 @@ export default function BusinessEntry() {
     }
   };
 
+  const handleTemplateDownload = () => {
+    const templateData = [
+      {
+        '项目名称': '示例项目A',
+        '合作链路': '默认链路',
+        '司机姓名': '张三',
+        '车牌号': '京A12345',
+        '司机电话': '13800138000',
+        '装货地点': '北京仓库|天津仓库',
+        '卸货地点': '上海仓库|苏州仓库',
+        '装货日期': '2025-01-20',
+        '卸货日期': '2025-01-21',
+        '装货数量': '25.5',
+        '卸货数量': '25.3',
+        '运费金额': '1500.00',
+        '额外费用': '100.00',
+        '运输类型': '实际运输',
+        '备注': '正常运输',
+        '其他平台名称': '货拉拉,满帮',
+        '其他平台运单号': 'HL20250120001|HL20250120002,MB20250120001'
+      },
+      {
+        '项目名称': '示例项目B',
+        '合作链路': '',
+        '司机姓名': '李四',
+        '车牌号': '沪B67890',
+        '司机电话': '13900139000',
+        '装货地点': '上海仓库',
+        '卸货地点': '广州仓库|深圳仓库|东莞仓库',
+        '装货日期': '2025-01-20',
+        '卸货日期': '',
+        '装货数量': '30.0',
+        '卸货数量': '29.8',
+        '运费金额': '2000.00',
+        '额外费用': '0.00',
+        '运输类型': '实际运输',
+        '备注': '',
+        '其他平台名称': '货拉拉',
+        '其他平台运单号': 'HL20250120003|HL20250120004'
+      },
+      {
+        '项目名称': '',
+        '合作链路': '',
+        '司机姓名': '',
+        '车牌号': '',
+        '司机电话': '',
+        '装货地点': '',
+        '卸货地点': '',
+        '装货日期': '',
+        '卸货日期': '',
+        '装货数量': '',
+        '卸货数量': '',
+        '运费金额': '',
+        '额外费用': '',
+        '运输类型': '实际运输',
+        '备注': '',
+        '其他平台名称': '',
+        '其他平台运单号': ''
+      }
+    ];
+    
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    
+    // 设置列宽
+    const colWidths = [
+      { wch: 15 }, // 项目名称
+      { wch: 15 }, // 合作链路
+      { wch: 12 }, // 司机姓名
+      { wch: 12 }, // 车牌号
+      { wch: 15 }, // 司机电话
+      { wch: 15 }, // 装货地点
+      { wch: 15 }, // 卸货地点
+      { wch: 12 }, // 装货日期
+      { wch: 12 }, // 卸货日期
+      { wch: 12 }, // 装货数量
+      { wch: 12 }, // 卸货数量
+      { wch: 12 }, // 运费金额
+      { wch: 12 }, // 额外费用
+      { wch: 12 }, // 运输类型
+      { wch: 15 }, // 备注
+      { wch: 20 }, // 其他平台名称
+      { wch: 25 }  // 其他平台运单号
+    ];
+    ws['!cols'] = colWidths;
+    
+    XLSX.utils.book_append_sheet(wb, ws, "运单导入模板");
+    XLSX.writeFile(wb, "运单导入模板.xlsx");
+  };
+
   const handleOpenAddDialog = () => {
     setEditingRecord(null);
     setIsFormDialogOpen(true);
@@ -368,12 +460,6 @@ export default function BusinessEntry() {
     refetch();
   };
 
-  // 生成运输单据
-  const handleGenerateDocument = (record: LogisticsRecord) => {
-    const generator = TransportDocumentGenerator({ record });
-    generator();
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -388,12 +474,23 @@ export default function BusinessEntry() {
               新增运单
             </Button>
           )}
+          <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
+          {isAdmin && (
+            <Button variant="outline" asChild disabled={loading || isImporting}>
+              <Label htmlFor="excel-upload" className="cursor-pointer flex items-center">
+                {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+                导入Excel
+                <Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={loading || isImporting}/>
+              </Label>
+            </Button>
+          )}
           <Button onClick={exportToExcel} disabled={loading}><Download className="mr-2 h-4 w-4" />导出数据</Button>
         </div>
       </div>
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
-      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} onGenerateDocument={handleGenerateDocument} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} />)}
+      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} />)}
+      {isAdmin && <EnhancedImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} duplicateActions={duplicateActions} setDuplicateActions={setDuplicateActions} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
       <LogisticsFormDialog
         isOpen={isFormDialogOpen}
         onClose={handleFormDialogClose}

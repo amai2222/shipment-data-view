@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit, FileText } from "lucide-react";
+import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogisticsRecord, PaginationState } from '../types';
 import { RouteDisplay } from '@/components/RouteDisplay';
@@ -18,14 +18,13 @@ interface LogisticsTableProps {
   onDelete: (id: string, autoNumber: string) => void;
   onView: (record: LogisticsRecord) => void;
   onEdit: (record: LogisticsRecord) => void;
-  onGenerateDocument?: (record: LogisticsRecord) => void;
   sortField?: string;
   sortDirection?: 'asc' | 'desc';
   onSort?: (field: string) => void;
   billingTypes?: { [key: number]: string };
 }
 
-export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, onGenerateDocument, sortField, sortDirection, onSort, billingTypes = {} }: LogisticsTableProps) => {
+export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, billingTypes = {} }: LogisticsTableProps) => {
   
   const handlePageChange = (newPage: number) => {
     setPagination(p => ({ ...p, currentPage: newPage }));
@@ -201,17 +200,6 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                             <Edit className="mr-2 h-4 w-4" />
                             <span>编辑</span>
                           </DropdownMenuItem>
-                          {onGenerateDocument && (
-                            <DropdownMenuItem 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onGenerateDocument(record);
-                              }}
-                            >
-                              <FileText className="mr-2 h-4 w-4" />
-                              <span>运输单据</span>
-                            </DropdownMenuItem>
-                          )}
                           <ConfirmDialog
                             title="确认删除"
                             description={`您确定要删除运单 "${record.auto_number}" 吗？此操作不可撤销。`}

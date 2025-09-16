@@ -10,12 +10,12 @@ export interface PlatformTracking {
 export interface LogisticsRecord {
   id: string;
   auto_number: string;
-  project_id: string | null;
+  project_id: string;
   project_name: string;
   chain_id: string | null;
   chain_name: string | null;
-  billing_type_id: number | null; // 更新为可空
-  driver_id: string | null; // 更新为可空
+  billing_type_id: number; // 新增billing_type_id字段
+  driver_id: string;
   driver_name: string;
   loading_location: string;
   unloading_location: string;
@@ -26,21 +26,14 @@ export interface LogisticsRecord {
   current_cost: number | null;
   payable_cost: number | null;
   driver_payable_cost: number | null;
-  license_plate: string; // 更新为必需字段
-  driver_phone: string; // 更新为必需字段
-  transport_type: string; // 更新为必需字段
+  license_plate: string | null;
+  driver_phone: string | null;
+  transport_type: string | null;
   extra_cost: number | null;
   remarks: string | null;
   external_tracking_numbers?: string[]; // 外部运单号数组
   other_platform_names?: string[]; // 其他平台名称数组
   created_at?: string;
-  // 新增字段
-  cargo_type?: string | null;
-  payment_status?: string;
-  loading_location_ids?: string[] | null;
-  unloading_location_ids?: string[] | null;
-  created_by_user_id?: string;
-  user_id?: string | null;
 }
 
 // [核心移除] - LogisticsFormData 类型已不再需要
