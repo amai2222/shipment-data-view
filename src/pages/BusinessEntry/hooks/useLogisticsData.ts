@@ -13,6 +13,9 @@ export interface LogisticsFilters {
   driverName: string;
   licensePlate: string;
   driverPhone: string;
+  otherPlatformName: string; // 其他平台名称筛选
+  waybillNumbers: string; // 运单编号筛选（支持多个，逗号分隔）
+  hasScaleRecord: string; // 是否有磅单筛选：'yes'有磅单, 'no'无磅单, ''不筛选
 }
 
 export const INITIAL_FILTERS: LogisticsFilters = {
@@ -22,6 +25,9 @@ export const INITIAL_FILTERS: LogisticsFilters = {
   driverName: "",
   licensePlate: "",
   driverPhone: "",
+  otherPlatformName: "",
+  waybillNumbers: "",
+  hasScaleRecord: "",
 };
 
 const PAGE_SIZE = 20; // 默认每页显示20条记录
@@ -78,13 +84,16 @@ export function useLogisticsData() {
   ) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_logistics_summary_and_records' as any, {
+      const { data, error } = await supabase.rpc('get_logistics_summary_and_records_enhanced' as any, {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,
         p_driver_name: filters.driverName || null,
         p_license_plate: filters.licensePlate || null,
         p_driver_phone: filters.driverPhone || null,
+        p_other_platform_name: filters.otherPlatformName || null,
+        p_waybill_numbers: filters.waybillNumbers || null,
+        p_has_scale_record: filters.hasScaleRecord || null,
         p_page_number: page,
         p_page_size: pageSize,
         p_sort_field: currentSortField,
