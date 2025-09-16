@@ -216,11 +216,11 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
       )}
 
       <div className="rounded-md border overflow-x-auto">
-        <Table className="table-fixed w-full">
+        <Table className="w-full">
           <TableHeader>
             <TableRow>
               {isBatchMode && (
-                <TableHead className="w-[50px]">
+                <TableHead className="w-[50px] min-w-[50px]">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -236,25 +236,25 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                   </Button>
                 </TableHead>
               )}
-              <SortableHeader field="auto_number" className="w-[120px]">运单编号</SortableHeader>
-              <SortableHeader field="project_name">项目</SortableHeader>
-              <SortableHeader field="loading_date" className="w-[100px]">装货日期</SortableHeader>
-              <SortableHeader field="driver_name">司机信息</SortableHeader>
-              <SortableHeader field="loading_location" className="w-[150px]">路线</SortableHeader>
-              {/* [修改] 合并为单一的“数量”列 */}
-              <SortableHeader field="loading_weight" className="w-[150px]">数量</SortableHeader>
-              <SortableHeader field="current_cost" className="w-[120px]">运费/额外费</SortableHeader>
-              <SortableHeader field="driver_payable_cost" className="w-[100px]">司机应收</SortableHeader>
-              <SortableHeader field="transport_type" className="w-[100px]">状态</SortableHeader>
-              <TableHead className="w-[100px] text-center">运输单据</TableHead>
-              <TableHead className="w-[80px] text-right">操作</TableHead>
+              <SortableHeader field="auto_number" className="w-[140px] min-w-[120px]">运单编号</SortableHeader>
+              <SortableHeader field="project_name" className="w-[120px] min-w-[100px]">项目</SortableHeader>
+              <SortableHeader field="loading_date" className="w-[100px] min-w-[80px]">装货日期</SortableHeader>
+              <SortableHeader field="driver_name" className="w-[180px] min-w-[150px]">司机信息</SortableHeader>
+              <SortableHeader field="loading_location" className="w-[160px] min-w-[140px]">路线</SortableHeader>
+              <SortableHeader field="loading_weight" className="w-[140px] min-w-[120px]">数量</SortableHeader>
+              <SortableHeader field="current_cost" className="w-[140px] min-w-[120px]">运费/额外费</SortableHeader>
+              <SortableHeader field="driver_payable_cost" className="w-[120px] min-w-[100px]">司机应收</SortableHeader>
+              {/* 隐藏状态列 */}
+              {/* <SortableHeader field="transport_type" className="w-[100px]">状态</SortableHeader> */}
+              <TableHead className="w-[120px] min-w-[100px] text-center">运输单据</TableHead>
+              <TableHead className="w-[80px] min-w-[60px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                {/* [修改] 更新 colSpan */}
-                <TableCell colSpan={isBatchMode ? 12 : 11} className="h-24 text-center">
+                {/* [修改] 更新 colSpan - 隐藏状态列后减少1 */}
+                <TableCell colSpan={isBatchMode ? 11 : 10} className="h-24 text-center">
                   <div className="flex justify-center items-center">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     正在加载数据...
@@ -298,7 +298,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                         {record.license_plate || '未填写'} | {record.driver_phone || '未填写'}
                       </div>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap min-w-[150px] w-[150px]" style={{ whiteSpace: 'nowrap', minWidth: '150px', width: '150px' }}>
+                    <TableCell className="whitespace-nowrap min-w-[160px] w-[160px]" style={{ whiteSpace: 'nowrap', minWidth: '160px', width: '160px' }}>
                       <RouteDisplay 
                         loadingLocation={record.loading_location}
                         unloadingLocation={record.unloading_location}
@@ -313,11 +313,12 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                     <TableCell className="font-mono text-sm font-semibold text-primary">
                       {formatCurrency(driverPayable)}
                     </TableCell>
-                    <TableCell>
+                    {/* 隐藏状态列 */}
+                    {/* <TableCell>
                       <span className={`px-2 py-1 text-xs rounded-full ${record.transport_type === '退货运输' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
                         {record.transport_type}
                       </span>
-                    </TableCell>
+                    </TableCell> */}
                     <TableCell className="text-center">
                       <Button
                         variant="outline"
@@ -386,8 +387,8 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               })
             ) : (
               <TableRow>
-                {/* [修改] 更新 colSpan */}
-                <TableCell colSpan={isBatchMode ? 12 : 11} className="h-24 text-center">
+                {/* [修改] 更新 colSpan - 隐藏状态列后减少1 */}
+                <TableCell colSpan={isBatchMode ? 11 : 10} className="h-24 text-center">
                   没有找到匹配的记录。
                 </TableCell>
               </TableRow>
@@ -414,6 +415,8 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                 <TableCell className="font-semibold font-mono text-primary">
                   {formatCurrency(summaryTotals.driverPayable)}
                 </TableCell>
+                {/* 隐藏状态列 */}
+                {/* <TableCell></TableCell> */}
                 <TableCell></TableCell>
                 <TableCell></TableCell>
               </TableRow>
