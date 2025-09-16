@@ -31,6 +31,8 @@ export interface LogisticsRecord {
   transport_type: string | null;
   extra_cost: number | null;
   remarks: string | null;
+  loading_weighbridge_image_url?: string | null; // 装货磅单图片URL
+  unloading_weighbridge_image_url?: string | null; // 卸货磅单图片URL
   external_tracking_numbers?: string[]; // 外部运单号数组
   other_platform_names?: string[]; // 其他平台名称数组
   created_at?: string;

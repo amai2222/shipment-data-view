@@ -205,19 +205,14 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                             onClick={(e) => {
                               e.stopPropagation();
                               try {
-                                // 生成运输单据PDF
+                                // 生成运输单据PDF预览
                                 const printHTML = generatePrintVersion(record);
-                                const printWindow = window.open('', '_blank', 'width=800,height=600');
-                                if (printWindow) {
-                                  printWindow.document.write(printHTML);
-                                  printWindow.document.close();
-                                  printWindow.onload = () => {
-                                    setTimeout(() => {
-                                      printWindow.print();
-                                    }, 500);
-                                  };
+                                const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
+                                if (previewWindow) {
+                                  previewWindow.document.write(printHTML);
+                                  previewWindow.document.close();
                                 } else {
-                                  alert('无法打开打印窗口，请检查浏览器弹窗设置');
+                                  alert('无法打开预览窗口，请检查浏览器弹窗设置');
                                 }
                               } catch (error) {
                                 console.error('生成PDF失败:', error);

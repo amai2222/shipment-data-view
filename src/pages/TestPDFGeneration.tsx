@@ -27,6 +27,8 @@ const testRecord: LogisticsRecord = {
   transport_type: '实际运输',
   extra_cost: 100.00,
   remarks: '正常运输，无异常',
+  loading_weighbridge_image_url: 'https://via.placeholder.com/300x200/4CAF50/FFFFFF?text=装货磅单',
+  unloading_weighbridge_image_url: 'https://via.placeholder.com/300x200/2196F3/FFFFFF?text=卸货磅单',
   external_tracking_numbers: ['HL20250127001', 'MB20250127001'],
   other_platform_names: ['货拉拉', '满帮'],
   created_at: '2025-01-27T10:00:00Z'
@@ -36,15 +38,12 @@ const TestPDFGeneration: React.FC = () => {
   const handleTestPDF = () => {
     try {
       const printHTML = generatePrintVersion(testRecord);
-      const printWindow = window.open('', '_blank', 'width=800,height=600');
-      if (printWindow) {
-        printWindow.document.write(printHTML);
-        printWindow.document.close();
-        printWindow.onload = () => {
-          setTimeout(() => {
-            printWindow.print();
-          }, 500);
-        };
+      const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
+      if (previewWindow) {
+        previewWindow.document.write(printHTML);
+        previewWindow.document.close();
+      } else {
+        alert('无法打开预览窗口，请检查浏览器弹窗设置');
       }
     } catch (error) {
       console.error('PDF生成测试失败:', error);
@@ -64,7 +63,7 @@ const TestPDFGeneration: React.FC = () => {
           onClick={handleTestPDF}
           className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium"
         >
-          🖨️ 测试生成运输单据PDF
+          📄 测试生成运输单据预览
         </button>
         
         <div className="mt-6 p-4 bg-gray-100 rounded-lg">

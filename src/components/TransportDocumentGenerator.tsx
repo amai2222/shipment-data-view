@@ -30,6 +30,29 @@ const escapeHtml = (text: string): string => {
   return div.innerHTML;
 };
 
+// 渲染信息项的函数，支持图片显示
+const renderInfoItem = (item: { label: string; value: string }) => {
+  const isImageUrl = item.label.includes('磅单') && item.value.startsWith('http');
+  
+  if (isImageUrl) {
+    return `
+      <div class="info-item">
+        <span class="info-label">${escapeHtml(item.label)}</span>
+        <div class="info-value">
+          <img src="${escapeHtml(item.value)}" alt="${escapeHtml(item.label)}" class="weighbridge-image" />
+        </div>
+      </div>
+    `;
+  } else {
+    return `
+      <div class="info-item">
+        <span class="info-label">${escapeHtml(item.label)}</span>
+        <span class="info-value">${escapeHtml(item.value)}</span>
+      </div>
+    `;
+  }
+};
+
 // 生成打印版本的HTML
 export const generatePrintVersion = (record: LogisticsRecord) => {
   // 数据验证
@@ -43,7 +66,6 @@ export const generatePrintVersion = (record: LogisticsRecord) => {
   const basicInfo = [
     { label: '客户名称:', value: record.project_name || '未知' },
     { label: '运输单号:', value: record.auto_number || '未知' },
-    { label: '所属订单:', value: record.chain_name || '默认订单' },
     { label: '运输线路:', value: `${record.loading_location || '未知'} → ${record.unloading_location || '未知'}` },
     { label: '车辆信息:', value: `${record.license_plate || '未知'} | ${record.driver_name || '未知'}` },
     { label: '司机信息:', value: `${record.driver_name || '未知'} | ${record.driver_phone || '未知'}` },
@@ -53,16 +75,24 @@ export const generatePrintVersion = (record: LogisticsRecord) => {
   const loadingInfo = [
     { label: '发货地址:', value: record.loading_location || '未知' },
     { label: '装货时间:', value: record.loading_date ? new Date(record.loading_date).toLocaleString('zh-CN') : '未知' },
-    { label: '装货吨数:', value: `${record.loading_weight?.toFixed(2) || '0.00'} 吨` },
-    { label: '装货磅单:', value: '待上传' }
+    { label: '装货吨数:', value: `${record.loading_weight?.toFixed(2) || '0.00'} 吨` }
   ];
+
+  // 如果有装货磅单图片，添加到装货信息中
+  if (record.loading_weighbridge_image_url) {
+    loadingInfo.push({ label: '装货磅单:', value: record.loading_weighbridge_image_url });
+  }
 
   const unloadingInfo = [
     { label: '收货地址:', value: record.unloading_location || '未知' },
     { label: '卸货时间:', value: record.unloading_date ? new Date(record.unloading_date).toLocaleString('zh-CN') : '待定' },
-    { label: '卸货吨数:', value: `${record.unloading_weight?.toFixed(2) || '0.00'} 吨` },
-    { label: '卸货磅单:', value: '待上传' }
+    { label: '卸货吨数:', value: `${record.unloading_weight?.toFixed(2) || '0.00'} 吨` }
   ];
+
+  // 如果有卸货磅单图片，添加到卸货信息中
+  if (record.unloading_weighbridge_image_url) {
+    unloadingInfo.push({ label: '卸货磅单:', value: record.unloading_weighbridge_image_url });
+  }
 
   const barcode = generateBarcode(record.auto_number || 'UNKNOWN');
 
@@ -152,6 +182,15 @@ export const generatePrintVersion = (record: LogisticsRecord) => {
           word-break: break-all;
         }
         
+        .weighbridge-image {
+          max-width: 200px;
+          max-height: 150px;
+          border: 1px solid #d1d5db;
+          border-radius: 4px;
+          object-fit: contain;
+          margin-top: 5px;
+        }
+        
         .barcode-section {
           text-align: center;
           margin: 30px 0;
@@ -231,32 +270,17 @@ export const generatePrintVersion = (record: LogisticsRecord) => {
       <div class="document-content">
         <div class="info-section">
           <div class="section-title">基础信息</div>
-          ${basicInfo.map(item => `
-            <div class="info-item">
-              <span class="info-label">${escapeHtml(item.label)}</span>
-              <span class="info-value">${escapeHtml(item.value)}</span>
-            </div>
-          `).join('')}
+          ${basicInfo.map(item => renderInfoItem(item)).join('')}
         </div>
         
         <div class="info-section">
           <div class="section-title">装货信息</div>
-          ${loadingInfo.map(item => `
-            <div class="info-item">
-              <span class="info-label">${escapeHtml(item.label)}</span>
-              <span class="info-value">${escapeHtml(item.value)}</span>
-            </div>
-          `).join('')}
+          ${loadingInfo.map(item => renderInfoItem(item)).join('')}
         </div>
         
         <div class="info-section">
           <div class="section-title">卸货信息</div>
-          ${unloadingInfo.map(item => `
-            <div class="info-item">
-              <span class="info-label">${escapeHtml(item.label)}</span>
-              <span class="info-value">${escapeHtml(item.value)}</span>
-            </div>
-          `).join('')}
+          ${unloadingInfo.map(item => renderInfoItem(item)).join('')}
         </div>
       </div>
       
@@ -291,25 +315,18 @@ export const TransportDocumentGenerator: React.FC<TransportDocumentGeneratorProp
       // 生成打印版本的HTML
       const printHTML = generatePrintVersion(record);
       
-      // 创建新窗口并写入HTML内容
-      const printWindow = window.open('', '_blank', 'width=800,height=600');
-      if (printWindow) {
-        printWindow.document.write(printHTML);
-        printWindow.document.close();
-        
-        // 等待内容加载完成后自动打开打印对话框
-        printWindow.onload = () => {
-          setTimeout(() => {
-            printWindow.print();
-          }, 500);
-        };
+      // 创建新窗口并写入HTML内容（预览模式，不自动打印）
+      const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
+      if (previewWindow) {
+        previewWindow.document.write(printHTML);
+        previewWindow.document.close();
         
         // 处理窗口关闭事件
-        printWindow.onbeforeunload = () => {
-          console.log('打印窗口已关闭');
+        previewWindow.onbeforeunload = () => {
+          console.log('预览窗口已关闭');
         };
       } else {
-        throw new Error('无法打开打印窗口，请检查浏览器弹窗设置');
+        throw new Error('无法打开预览窗口，请检查浏览器弹窗设置');
       }
     } catch (error) {
       console.error('生成PDF失败:', error);
