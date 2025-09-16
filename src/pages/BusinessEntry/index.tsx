@@ -301,7 +301,11 @@ export default function BusinessEntry() {
         <LogisticsTable 
           records={records} 
           loading={loading} 
-          pagination={pagination}
+          pagination={{
+            ...pagination,
+            page: pagination.currentPage,
+            size: pagination.pageSize
+          }}
           setPagination={setPagination} 
           onDelete={(id, autoNumber) => handleDelete(id)} 
           onView={setViewingRecord} 
