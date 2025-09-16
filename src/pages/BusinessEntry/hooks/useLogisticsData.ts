@@ -84,20 +84,15 @@ export function useLogisticsData() {
   ) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_logistics_summary_and_records_enhanced' as any, {
-        p_start_date: filters.startDate || null,
-        p_end_date: filters.endDate || null,
-        p_project_name: filters.projectName || null,
-        p_driver_name: filters.driverName || null,
-        p_license_plate: filters.licensePlate || null,
-        p_driver_phone: filters.driverPhone || null,
-        p_other_platform_name: filters.otherPlatformName || null,
-        p_waybill_numbers: filters.waybillNumbers || null,
-        p_has_scale_record: filters.hasScaleRecord || null,
+      const { data, error } = await supabase.rpc('get_logistics_summary_and_records', {
+        p_start_date: filters.startDate || '',
+        p_end_date: filters.endDate || '',
+        p_project_name: filters.projectName || '',
+        p_driver_name: filters.driverName || '',
+        p_license_plate: filters.licensePlate || '',
+        p_driver_phone: filters.driverPhone || '',
         p_page_number: page,
         p_page_size: pageSize,
-        p_sort_field: currentSortField,
-        p_sort_direction: currentSortDirection
       });
 
       if (error) throw error;
