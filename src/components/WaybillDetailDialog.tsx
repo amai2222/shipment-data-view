@@ -311,41 +311,34 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
                   <div>
                     <Label className="text-xs text-muted-foreground">外部运单号</Label>
                     <div className="space-y-2 mt-1">
-                      {record.external_tracking_numbers.map((tracking, index) => (
-                        <div key={index} className="space-y-1">
-                          <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
-                            <Badge variant="outline" className="text-xs">
-                              {tracking.platform}
-                            </Badge>
-                            {tracking.status && (
-                              <Badge 
-                                variant={tracking.status === 'pending' ? 'secondary' : 'default'}
-                                className="text-xs"
-                              >
-                                {tracking.status === 'pending' ? '待处理' : '已处理'}
-                              </Badge>
-                            )}
-                          </div>
-                          {/* 显示该平台的所有运单号 */}
-                          {tracking.trackingNumbers && tracking.trackingNumbers.length > 0 && (
-                            <div className="pl-4 space-y-1">
-                              {tracking.trackingNumbers.map((trackingNumber, tnIndex) => (
-                                <div key={tnIndex} className="text-sm font-mono text-muted-foreground">
-                                  {trackingNumber}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {/* 兼容旧格式：单个运单号 */}
-                          {tracking.tracking_number && (
-                            <div className="pl-4">
-                              <div className="text-sm font-mono text-muted-foreground">
-                                {tracking.tracking_number}
+                      {(() => {
+                        // 解析平台名称和运单号的对应关系
+                        const platformNames = record.other_platform_names || [];
+                        const trackingNumbers = record.external_tracking_numbers || [];
+                        
+                        return platformNames.map((platformName, index) => {
+                          const platformTrackingNumbers = trackingNumbers[index] ? trackingNumbers[index].split('|') : [];
+                          
+                          return (
+                            <div key={index} className="space-y-1">
+                              <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                                <Badge variant="outline" className="text-xs">
+                                  {platformName}
+                                </Badge>
                               </div>
+                              {platformTrackingNumbers.length > 0 && (
+                                <div className="pl-4 space-y-1">
+                                  {platformTrackingNumbers.map((trackingNumber, tnIndex) => (
+                                    <div key={tnIndex} className="text-sm font-mono text-muted-foreground">
+                                      {trackingNumber}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      ))}
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 )}

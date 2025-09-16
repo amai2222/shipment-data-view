@@ -31,8 +31,8 @@ export interface LogisticsRecord {
   transport_type: string | null;
   extra_cost: number | null;
   remarks: string | null;
-  external_tracking_numbers?: any[]; // 使用现有的数据库字段
-  other_platform_names?: string[]; // 使用现有的数据库字段
+  external_tracking_numbers?: string[]; // 外部运单号数组
+  other_platform_names?: string[]; // 其他平台名称数组
   created_at?: string;
 }
 

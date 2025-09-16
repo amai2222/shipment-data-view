@@ -41,7 +41,8 @@ interface FormData {
   currentCost: string;
   extraCost: string;
   remarks: string;
-  external_tracking_numbers: any[]; // 外部运单号数组
+  other_platform_names: string; // 其他平台名称，用逗号分隔
+  external_tracking_numbers: string; // 外部运单号，用逗号分隔不同平台，用竖线分隔同一平台的多个运单号
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -60,7 +61,8 @@ const INITIAL_FORM_DATA: FormData = {
   currentCost: '',
   extraCost: '',
   remarks: '',
-  other_platform_waybills: '',
+  other_platform_names: '', // 其他平台名称
+  external_tracking_numbers: '', // 外部运单号
 };
 
 export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, onSubmitSuccess }: LogisticsFormDialogProps) {
@@ -106,39 +108,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           currentCost: editingRecord.current_cost?.toString() || '',
           extraCost: editingRecord.extra_cost?.toString() || '',
           remarks: editingRecord.remarks || '',
-          external_tracking_numbers: (() => {
-            if (!editingRecord.external_tracking_numbers || !Array.isArray(editingRecord.external_tracking_numbers)) {
-              return [];
-            }
-            
-            // 处理外部运单号数据
-            const trackingItems: any[] = [];
-            
-            editingRecord.external_tracking_numbers.forEach((item: any) => {
-              // 处理新格式：trackingNumbers数组
-              if (item.platform && item.trackingNumbers && Array.isArray(item.trackingNumbers)) {
-                item.trackingNumbers.forEach((trackingNumber: string) => {
-                  trackingItems.push({
-                    platform: item.platform,
-                    tracking_number: trackingNumber,
-                    status: item.status || 'pending',
-                    created_at: item.created_at || new Date().toISOString()
-                  });
-                });
-              }
-              // 处理旧格式：单个tracking_number
-              else if (item.platform && item.tracking_number) {
-                trackingItems.push({
-                  platform: item.platform,
-                  tracking_number: item.tracking_number,
-                  status: item.status || 'pending',
-                  created_at: item.created_at || new Date().toISOString()
-                });
-              }
-            });
-            
-            return trackingItems;
-          })(),
+          other_platform_names: Array.isArray(editingRecord.other_platform_names) 
+            ? editingRecord.other_platform_names.join(',') 
+            : (editingRecord.other_platform_names || ''),
+          external_tracking_numbers: Array.isArray(editingRecord.external_tracking_numbers) 
+            ? editingRecord.external_tracking_numbers.join(',') 
+            : (editingRecord.external_tracking_numbers || ''),
         });
       } else {
         setFormData(INITIAL_FORM_DATA);
@@ -323,30 +298,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         .filter(Boolean)
         .join('|');
 
-      // 处理平台字段：从运单号数组中提取平台名称，支持运单号用|分隔
-      const externalTrackingNumbers: any[] = [];
-      const otherPlatformNames: string[] = [];
+      // 处理平台字段：解析逗号分隔的平台名称和运单号
+      const otherPlatformNames = formData.other_platform_names 
+        ? formData.other_platform_names.split(',').map(name => name.trim()).filter(Boolean)
+        : [];
       
-      (formData.external_tracking_numbers || []).forEach(item => {
-        if (item.platform && item.tracking_number) {
-          // 如果运单号包含|分隔符，则拆分成多个运单号
-          const trackingNumbers = item.tracking_number.split('|').map(tn => tn.trim()).filter(Boolean);
-          
-          trackingNumbers.forEach(trackingNumber => {
-            externalTrackingNumbers.push({
-              platform: item.platform,
-              tracking_number: trackingNumber,
-              status: 'pending',
-              created_at: new Date().toISOString()
-            });
-          });
-          
-          // 添加平台名称（去重）
-          if (!otherPlatformNames.includes(item.platform)) {
-            otherPlatformNames.push(item.platform);
-          }
-        }
-      });
+      const externalTrackingNumbers = formData.external_tracking_numbers 
+        ? formData.external_tracking_numbers.split(',').map(trackingGroup => {
+            // 每个trackingGroup可能包含多个运单号，用|分隔
+            const trackingNumbers = trackingGroup.split('|').map(tn => tn.trim()).filter(Boolean);
+            return trackingNumbers;
+          })
+        : [];
 
       const p_record = {
         project_id: formData.projectId,
@@ -674,68 +637,34 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <div>
               <Label className="text-base font-medium">其他平台运单信息</Label>
               <div className="text-sm text-muted-foreground mt-1 mb-3">
-                外部运单号: {formData.external_tracking_numbers?.length || 0} 个 | 其他平台: {(formData.external_tracking_numbers || []).map(item => item.platform).filter(Boolean).filter((platform, index, arr) => arr.indexOf(platform) === index).length} 个
+                其他平台名称: {formData.other_platform_names ? formData.other_platform_names.split(',').filter(Boolean).length : 0} 个 | 
+                外部运单号: {formData.external_tracking_numbers ? formData.external_tracking_numbers.split(',').filter(Boolean).length : 0} 个
+              </div>
+              
+              {/* 其他平台名称输入 */}
+              <div className="space-y-2">
+                <Label className="text-sm">其他平台名称</Label>
+                <Input
+                  placeholder="输入平台名称，用逗号分隔，例如：拼多多,京东"
+                  value={formData.other_platform_names}
+                  onChange={(e) => setFormData(prev => ({ ...prev, other_platform_names: e.target.value }))}
+                />
+                <div className="text-xs text-muted-foreground">
+                  用逗号分隔不同平台名称，例如：拼多多,京东,淘宝
+                </div>
               </div>
               
               {/* 外部运单号输入 */}
               <div className="space-y-2">
                 <Label className="text-sm">外部运单号</Label>
-                <div className="space-y-2">
-                  {(formData.external_tracking_numbers || []).map((tracking, index) => (
-                    <div key={index} className="flex gap-2 items-center">
-                      <Input
-                        placeholder="平台名称"
-                        value={tracking.platform || ''}
-                        onChange={(e) => {
-                          const newTrackings = [...(formData.external_tracking_numbers || [])];
-                          newTrackings[index] = { ...tracking, platform: e.target.value };
-                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
-                        }}
-                        className="w-32"
-                      />
-                      <Input
-                        placeholder="运单号"
-                        value={tracking.tracking_number || ''}
-                        onChange={(e) => {
-                          const newTrackings = [...(formData.external_tracking_numbers || [])];
-                          newTrackings[index] = { ...tracking, tracking_number: e.target.value };
-                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
-                        }}
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newTrackings = (formData.external_tracking_numbers || []).filter((_, i) => i !== index);
-                          setFormData(prev => ({ ...prev, external_tracking_numbers: newTrackings }));
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setFormData(prev => ({
-                        ...prev,
-                        external_tracking_numbers: [
-                          ...(prev.external_tracking_numbers || []),
-                          { platform: '', tracking_number: '', status: 'pending', created_at: new Date().toISOString() }
-                        ]
-                      }));
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    添加运单号
-                  </Button>
-                </div>
+                <Input
+                  placeholder="输入运单号，用逗号分隔不同平台，用竖线分隔同一平台的多个运单号，例如：1234,1234|2345"
+                  value={formData.external_tracking_numbers}
+                  onChange={(e) => setFormData(prev => ({ ...prev, external_tracking_numbers: e.target.value }))}
+                />
                 <div className="text-xs text-muted-foreground">
-                  每个运单号包含平台名称和对应的运单号码。如果同一平台有多个运单号，用|分隔，例如：HL123456|HL789012|HL345678
+                  格式说明：用逗号分隔不同平台，用竖线分隔同一平台的多个运单号<br/>
+                  例如：1234,1234|2345 表示第一个平台运单号1234，第二个平台运单号1234和2345
                 </div>
               </div>
             </div>
