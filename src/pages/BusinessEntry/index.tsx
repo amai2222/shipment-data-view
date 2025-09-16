@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, FileDown, FileUp, Loader2, Search, Plus, MoreHorizontal, ArrowUpDown } from "lucide-react";
+import { Download, FileDown, FileUp, Loader2, Search, Plus, MoreHorizontal, ArrowUpDown, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,7 @@ import { FilterBar } from './components/FilterBar';
 import { EnhancedImportDialog } from './components/EnhancedImportDialog';
 import { LogisticsFormDialog } from './components/LogisticsFormDialog';
 import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
+import { generatePrintVersion } from '@/components/TransportDocumentGenerator';
 
 const formatCurrency = (value: number | null | undefined): string => {
   if (value == null || isNaN(value)) return '¥0.00';
@@ -202,6 +203,33 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
                       <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => onView(record)}>查看详情</DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            try {
+                              // 生成运输单据PDF
+                              const printHTML = generatePrintVersion(record);
+                              const printWindow = window.open('', '_blank', 'width=800,height=600');
+                              if (printWindow) {
+                                printWindow.document.write(printHTML);
+                                printWindow.document.close();
+                                printWindow.onload = () => {
+                                  setTimeout(() => {
+                                    printWindow.print();
+                                  }, 500);
+                                };
+                              } else {
+                                alert('无法打开打印窗口，请检查浏览器弹窗设置');
+                              }
+                            } catch (error) {
+                              console.error('生成PDF失败:', error);
+                              const errorMessage = error instanceof Error ? error.message : '未知错误';
+                              alert(`生成PDF失败: ${errorMessage}，请重试`);
+                            }
+                          }}
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          运输单据
+                        </DropdownMenuItem>
                         {isAdmin && <DropdownMenuItem onClick={() => onEdit(record)}>编辑</DropdownMenuItem>}
                         {isAdmin && <DropdownMenuItem className="text-red-600" onClick={() => onDelete(record.id)}>删除</DropdownMenuItem>}
                       </DropdownMenuContent>

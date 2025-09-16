@@ -5,10 +5,11 @@ import { useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit } from "lucide-react";
+import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit, FileText } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogisticsRecord, PaginationState } from '../types';
 import { RouteDisplay } from '@/components/RouteDisplay';
+import { TransportDocumentGenerator, generatePrintVersion } from '@/components/TransportDocumentGenerator';
 
 interface LogisticsTableProps {
   records: LogisticsRecord[];
@@ -199,6 +200,34 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                           >
                             <Edit className="mr-2 h-4 w-4" />
                             <span>编辑</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              try {
+                                // 生成运输单据PDF
+                                const printHTML = generatePrintVersion(record);
+                                const printWindow = window.open('', '_blank', 'width=800,height=600');
+                                if (printWindow) {
+                                  printWindow.document.write(printHTML);
+                                  printWindow.document.close();
+                                  printWindow.onload = () => {
+                                    setTimeout(() => {
+                                      printWindow.print();
+                                    }, 500);
+                                  };
+                                } else {
+                                  alert('无法打开打印窗口，请检查浏览器弹窗设置');
+                                }
+                              } catch (error) {
+                                console.error('生成PDF失败:', error);
+                                const errorMessage = error instanceof Error ? error.message : '未知错误';
+                                alert(`生成PDF失败: ${errorMessage}，请重试`);
+                              }
+                            }}
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            <span>运输单据</span>
                           </DropdownMenuItem>
                           <ConfirmDialog
                             title="确认删除"
