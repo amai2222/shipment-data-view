@@ -1,11 +1,11 @@
 // 文件路径: src/pages/BusinessEntry/components/LogisticsTable.tsx
 // 描述: [最终修正版] 实现了单排显示、列合并、动态数量单位和统一的财务格式化。
 
-import { useMemo } from "react";
+// import { useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit } from "lucide-react";
+// import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogisticsRecord, PaginationState } from '../types';
 import { RouteDisplay } from '@/components/RouteDisplay';
@@ -14,7 +14,7 @@ interface LogisticsTableProps {
   records: LogisticsRecord[];
   loading: boolean;
   pagination: PaginationState;
-  setPagination: React.Dispatch<React.SetStateAction<PaginationState>>;
+  setPagination: (value: PaginationState | ((prev: PaginationState) => PaginationState)) => void;
   onDelete: (id: string, autoNumber: string) => void;
   onView: (record: LogisticsRecord) => void;
   onEdit: (record: LogisticsRecord) => void;
@@ -59,7 +59,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
   };
 
   // [新增] 使用 useMemo 优化合计行计算
-  const summaryTotals = useMemo(() => {
+  const summaryTotals = (() => {
     const totals = {
       weight: { loading: 0, unloading: 0 },
       trips: { count: 0 },
@@ -86,12 +86,12 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
     });
 
     return totals;
-  }, [records]);
+  })();
 
-  const SortableHeader = ({ field, children, className }: { field: string, children: React.ReactNode, className?: string }) => {
+  const SortableHeader = ({ field, children, className }: { field: string, children: any, className?: string }) => {
     const getSortIcon = () => {
-      if (sortField !== field) return <ChevronsUpDown className="ml-1 h-4 w-4 opacity-50" />;
-      return sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />;
+      if (sortField !== field) return <span className="ml-1 text-xs opacity-50">↕</span>;
+      return sortDirection === 'asc' ? <span className="ml-1 text-xs">↑</span> : <span className="ml-1 text-xs">↓</span>;
     };
 
     return (
@@ -132,7 +132,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                 {/* [修改] 更新 colSpan */}
                 <TableCell colSpan={10} className="h-24 text-center">
                   <div className="flex justify-center items-center">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span className="mr-2 text-sm">⏳</span>
                     正在加载数据...
                   </div>
                 </TableCell>
@@ -187,7 +187,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                             onClick={(e) => e.stopPropagation()}
                           >
                             <span className="sr-only">打开菜单</span>
-                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="text-sm">⋯</span>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
@@ -197,7 +197,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                               onEdit(record);
                             }}
                           >
-                            <Edit className="mr-2 h-4 w-4" />
+                            <span className="mr-2 text-sm">✏️</span>
                             <span>编辑</span>
                           </DropdownMenuItem>
                           <ConfirmDialog
@@ -206,7 +206,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                             onConfirm={() => onDelete(record.id, record.auto_number)}
                           >
                             <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
-                              <Trash2 className="mr-2 h-4 w-4" />
+                              <span className="mr-2 text-sm">🗑️</span>
                               <span>删除</span>
                             </div>
                           </ConfirmDialog>
