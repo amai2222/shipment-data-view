@@ -7,11 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, Save, X, Plus } from "lucide-react";
+import { CalendarIcon, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { LogisticsRecord, Project, PlatformTracking } from '../types';
-import { PlatformTrackingInput } from '@/components/PlatformTrackingInput';
+import { LogisticsRecord, Project } from '../types';
 import { MultiLocationInput } from '@/components/MultiLocationInput';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -72,6 +71,11 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const [locations, setLocations] = useState<Location[]>([]);
   const [chains, setChains] = useState<PartnerChain[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // 控制选择框显示的状态
+  const [showDriverSelect, setShowDriverSelect] = useState(false);
+  const [showLoadingLocationSelect, setShowLoadingLocationSelect] = useState(false);
+  const [showUnloadingLocationSelect, setShowUnloadingLocationSelect] = useState(false);
 
   const selectedChain = useMemo(() => chains.find(c => c.id === formData.chainId), [chains, formData.chainId]);
   const billingTypeId = selectedChain?.billing_type_id || 1;
@@ -201,6 +205,28 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   };
 
+  // 独立的司机加载函数
+  const loadDrivers = async () => {
+    try {
+      const { data, error } = await supabase.from('drivers').select('*').limit(100);
+      if (error) throw error;
+      setDrivers(data || []);
+    } catch (error) {
+      toast({ title: "错误", description: "加载司机数据失败", variant: "destructive" });
+    }
+  };
+
+  // 独立的地点加载函数
+  const loadLocations = async () => {
+    try {
+      const { data, error } = await supabase.from('locations').select('*').limit(100);
+      if (error) throw error;
+      setLocations(data || []);
+    } catch (error) {
+      toast({ title: "错误", description: "加载地点数据失败", variant: "destructive" });
+    }
+  };
+
   // 解析地点字符串为地点ID数组
   const parseLocationString = (locationString: string): string[] => {
     if (!locationString) return [];
@@ -238,6 +264,14 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       external_tracking_numbers: record.external_tracking_numbers || [],
       other_platform_names: record.other_platform_names || [],
     });
+  };
+
+  const handleClose = () => {
+    // 重置选择框显示状态
+    setShowDriverSelect(false);
+    setShowLoadingLocationSelect(false);
+    setShowUnloadingLocationSelect(false);
+    onClose();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -402,7 +436,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{editingRecord ? '编辑运单' : '新增运单'}</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
@@ -451,19 +485,61 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             {/* [修改] 司机改为下拉选择 */}
             <div>
               <Label>司机 *</Label>
-              <Select value={formData.driverId} onValueChange={handleDriverSelect} disabled={!formData.projectId}>
-                <SelectTrigger><SelectValue placeholder="选择司机" /></SelectTrigger>
-                <SelectContent>{drivers.map((d) => (<SelectItem key={d.id} value={d.id}>{d.name} - {d.license_plate || '无车牌'}</SelectItem>))}</SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                  <span className="text-sm font-medium">
+                    {editingRecord ? editingRecord.driver_name : '未选择司机'}
+                  </span>
+                  {editingRecord && (
+                    <Badge variant="outline" className="text-xs">
+                      {editingRecord.license_plate || '无车牌'}
+                    </Badge>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (!drivers.length) {
+                        loadDrivers();
+                      }
+                      setShowDriverSelect(true);
+                    }}
+                  >
+                    修改司机
+                  </Button>
+                </div>
+                
+                {showDriverSelect && (
+                  <Select value={formData.driverId} onValueChange={handleDriverSelect} disabled={!formData.projectId}>
+                    <SelectTrigger><SelectValue placeholder="选择司机" /></SelectTrigger>
+                    <SelectContent>
+                      {drivers.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name} - {d.license_plate || '无车牌'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
             
             <div>
               <Label>车牌号</Label>
-              <Input value={formData.licensePlate} onChange={(e) => setFormData(prev => ({ ...prev, licensePlate: e.target.value }))} placeholder="选择司机后自动填充" />
+              <Input 
+                value={formData.licensePlate} 
+                onChange={(e) => setFormData(prev => ({ ...prev, licensePlate: e.target.value }))} 
+                placeholder="车牌号" 
+              />
             </div>
             <div>
               <Label>司机电话</Label>
-              <Input value={formData.driverPhone} onChange={(e) => setFormData(prev => ({ ...prev, driverPhone: e.target.value }))} placeholder="选择司机后自动填充" />
+              <Input 
+                value={formData.driverPhone} 
+                onChange={(e) => setFormData(prev => ({ ...prev, driverPhone: e.target.value }))} 
+                placeholder="司机电话" 
+              />
             </div>
             {/* ... 运输类型保持不变 ... */}
             <div>
@@ -476,14 +552,45 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
 
             {/* [修改] 地点改为多地点选择 */}
             <div>
-              <MultiLocationInput
-                label="装货地点 *"
-                locations={locations}
-                value={formData.loadingLocationIds}
-                onChange={(locationIds) => setFormData(prev => ({ ...prev, loadingLocationIds: locationIds }))}
-                placeholder="选择装货地点"
-                maxLocations={5}
-                allowCustomInput={true}
+              <Label>装货地点 *</Label>
+              <div className="space-y-2">
+                {editingRecord && editingRecord.loading_location && (
+                  <div className="p-2 bg-muted/50 rounded-md">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-sm font-medium">当前装货地点：</div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!locations.length) {
+                            loadLocations();
+                          }
+                          setShowLoadingLocationSelect(true);
+                        }}
+                      >
+                        修改地点
+                      </Button>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {editingRecord.loading_location.split('|').map((loc, index) => (
+                        <Badge key={index} variant="secondary" className="mr-1 mb-1">
+                          {loc}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {showLoadingLocationSelect && (
+                  <MultiLocationInput
+                    label=""
+                    locations={locations}
+                    value={formData.loadingLocationIds}
+                    onChange={(locationIds) => setFormData(prev => ({ ...prev, loadingLocationIds: locationIds }))}
+                    placeholder="选择装货地点"
+                    maxLocations={5}
+                    allowCustomInput={true}
                 onCustomLocationAdd={async (locationName) => {
                   try {
                     // 使用数据库函数批量获取或创建地点
@@ -523,12 +630,43 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
               />
             </div>
             <div>
-              <MultiLocationInput
-                label="卸货地点 *"
-                locations={locations}
-                value={formData.unloadingLocationIds}
-                onChange={(locationIds) => setFormData(prev => ({ ...prev, unloadingLocationIds: locationIds }))}
-                placeholder="选择卸货地点"
+              <Label>卸货地点 *</Label>
+              <div className="space-y-2">
+                {editingRecord && editingRecord.unloading_location && (
+                  <div className="p-2 bg-muted/50 rounded-md">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-sm font-medium">当前卸货地点：</div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!locations.length) {
+                            loadLocations();
+                          }
+                          setShowUnloadingLocationSelect(true);
+                        }}
+                      >
+                        修改地点
+                      </Button>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {editingRecord.unloading_location.split('|').map((loc, index) => (
+                        <Badge key={index} variant="outline" className="mr-1 mb-1">
+                          {loc}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {showUnloadingLocationSelect && (
+                  <MultiLocationInput
+                    label=""
+                    locations={locations}
+                    value={formData.unloadingLocationIds}
+                    onChange={(locationIds) => setFormData(prev => ({ ...prev, unloadingLocationIds: locationIds }))}
+                    placeholder="选择卸货地点"
                 maxLocations={5}
                 allowCustomInput={true}
                 onCustomLocationAdd={async (locationName) => {
@@ -636,7 +774,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <Textarea value={formData.remarks} onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))} placeholder="输入备注信息" rows={3} />
           </div>
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}><X className="mr-2 h-4 w-4" />取消</Button>
+            <Button type="button" variant="outline" onClick={handleClose}><X className="mr-2 h-4 w-4" />取消</Button>
             <Button type="submit" disabled={loading}><Save className="mr-2 h-4 w-4" />{loading ? '保存中...' : '保存'}</Button>
           </div>
         </form>
