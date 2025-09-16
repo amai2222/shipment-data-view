@@ -424,12 +424,77 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
           )}
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <div className="flex-1 text-sm text-muted-foreground">
-          第 {pagination.currentPage} 页 / 共 {Math.ceil(pagination.totalCount / pagination.pageSize)} 页 (总计 {pagination.totalCount} 条记录)
+      {/* 完整的分页控件 */}
+      <div className="flex items-center justify-between py-4 px-4 bg-gray-50 border-t">
+        {/* 左侧：本页合计信息 */}
+        <div className="flex-1 text-sm text-gray-700">
+          <span className="font-medium">本页合计:</span>
+          <span className="ml-2">运费 {formatCurrency(summaryTotals.currentCost)}</span>
+          <span className="ml-2">额外 {formatCurrency(summaryTotals.extraCost)}</span>
+          <span className="ml-2">应付款司机 {formatCurrency(summaryTotals.driverPayable)}</span>
+          <span className="ml-2 font-medium">共{pagination.totalCount} 条记录</span>
         </div>
-        <Button variant="outline" size="sm" onClick={() => handlePageChange(pagination.currentPage - 1)} disabled={pagination.currentPage <= 1}>上一页</Button>
-        <Button variant="outline" size="sm" onClick={() => handlePageChange(pagination.currentPage + 1)} disabled={pagination.currentPage >= Math.ceil(pagination.totalCount / pagination.pageSize)}>下一页</Button>
+        
+        {/* 右侧：分页控制 */}
+        <div className="flex items-center space-x-4">
+          {/* 每页显示条数选择 */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-700">每页显示</span>
+            <select
+              value={pagination.pageSize}
+              onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-gray-700">条</span>
+          </div>
+          
+          {/* 分页按钮 */}
+          <div className="flex items-center space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => handlePageChange(pagination.currentPage - 1)} 
+              disabled={pagination.currentPage <= 1}
+              className="px-3 py-1 text-sm"
+            >
+              上一页
+            </Button>
+            
+            {/* 页码输入 */}
+            <div className="flex items-center space-x-1">
+              <span className="text-sm text-gray-700">第</span>
+              <input
+                type="number"
+                value={pagination.currentPage}
+                onChange={(e) => {
+                  const page = Number(e.target.value);
+                  if (page >= 1 && page <= Math.ceil(pagination.totalCount / pagination.pageSize)) {
+                    handlePageChange(page);
+                  }
+                }}
+                className="w-12 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                min="1"
+                max={Math.ceil(pagination.totalCount / pagination.pageSize)}
+              />
+              <span className="text-sm text-gray-700">页,共{Math.ceil(pagination.totalCount / pagination.pageSize)}页</span>
+            </div>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => handlePageChange(pagination.currentPage + 1)} 
+              disabled={pagination.currentPage >= Math.ceil(pagination.totalCount / pagination.pageSize)}
+              className="px-3 py-1 text-sm"
+            >
+              下一页
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
