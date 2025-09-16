@@ -1,11 +1,11 @@
 // 文件路径: src/pages/BusinessEntry/components/LogisticsTable.tsx
 // 描述: [最终修正版] 实现了单排显示、列合并、动态数量单位和统一的财务格式化。
 
-import { useMemo } from "react";
+import React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit } from "lucide-react";
+// import * as LucideIcons from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogisticsRecord, PaginationState } from '../types';
 import { RouteDisplay } from '@/components/RouteDisplay';
@@ -59,7 +59,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
   };
 
   // [新增] 使用 useMemo 优化合计行计算
-  const summaryTotals = useMemo(() => {
+  const summaryTotals = React.useMemo(() => {
     const totals = {
       weight: { loading: 0, unloading: 0 },
       trips: { count: 0 },
@@ -90,8 +90,8 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
 
   const SortableHeader = ({ field, children, className }: { field: string, children: React.ReactNode, className?: string }) => {
     const getSortIcon = () => {
-      if (sortField !== field) return <ChevronsUpDown className="ml-1 h-4 w-4 opacity-50" />;
-      return sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />;
+      if (sortField !== field) return <span className="ml-1 text-xs opacity-50">↕</span>;
+      return sortDirection === 'asc' ? <span className="ml-1 text-xs">↑</span> : <span className="ml-1 text-xs">↓</span>;
     };
 
     return (
@@ -110,20 +110,20 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
   return (
     <div className="space-y-4">
       <div className="rounded-md border overflow-x-auto">
-        <Table className="table-fixed w-full">
+        <Table className="w-full">
           <TableHeader>
             <TableRow>
-              <SortableHeader field="auto_number" className="w-[120px]">运单编号</SortableHeader>
+              <SortableHeader field="auto_number">运单编号</SortableHeader>
               <SortableHeader field="project_name">项目</SortableHeader>
-              <SortableHeader field="loading_date" className="w-[100px]">装货日期</SortableHeader>
+              <SortableHeader field="loading_date">装货日期</SortableHeader>
               <SortableHeader field="driver_name">司机信息</SortableHeader>
-              <SortableHeader field="loading_location" className="w-[150px]">路线</SortableHeader>
-              {/* [修改] 合并为单一的“数量”列 */}
-              <SortableHeader field="loading_weight" className="w-[150px]">数量</SortableHeader>
-              <SortableHeader field="current_cost" className="w-[120px]">运费/额外费</SortableHeader>
-              <SortableHeader field="driver_payable_cost" className="w-[100px]">司机应收</SortableHeader>
-              <SortableHeader field="transport_type" className="w-[100px]">状态</SortableHeader>
-              <TableHead className="w-[80px] text-right">操作</TableHead>
+              <SortableHeader field="loading_location">路线</SortableHeader>
+              {/* [修改] 合并为单一的"数量"列 */}
+              <SortableHeader field="loading_weight">数量</SortableHeader>
+              <SortableHeader field="current_cost">运费/额外费</SortableHeader>
+              <SortableHeader field="driver_payable_cost">司机应收</SortableHeader>
+              <SortableHeader field="transport_type">状态</SortableHeader>
+              <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -132,7 +132,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                 {/* [修改] 更新 colSpan */}
                 <TableCell colSpan={10} className="h-24 text-center">
                   <div className="flex justify-center items-center">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span className="mr-2 text-sm">⏳</span>
                     正在加载数据...
                   </div>
                 </TableCell>
@@ -158,7 +158,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                         {record.license_plate || '未填写'} | {record.driver_phone || '未填写'}
                       </div>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap min-w-[150px] w-[150px]" style={{ whiteSpace: 'nowrap', minWidth: '150px', width: '150px' }}>
+                    <TableCell className="whitespace-nowrap">
                       <RouteDisplay 
                         loadingLocation={record.loading_location}
                         unloadingLocation={record.unloading_location}
@@ -187,7 +187,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                             onClick={(e) => e.stopPropagation()}
                           >
                             <span className="sr-only">打开菜单</span>
-                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="text-sm">⋯</span>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
@@ -197,7 +197,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                               onEdit(record);
                             }}
                           >
-                            <Edit className="mr-2 h-4 w-4" />
+                            <span className="mr-2 text-sm">✏️</span>
                             <span>编辑</span>
                           </DropdownMenuItem>
                           <ConfirmDialog
@@ -206,7 +206,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                             onConfirm={() => onDelete(record.id, record.auto_number)}
                           >
                             <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
-                              <Trash2 className="mr-2 h-4 w-4" />
+                              <span className="mr-2 text-sm">🗑️</span>
                               <span>删除</span>
                             </div>
                           </ConfirmDialog>
