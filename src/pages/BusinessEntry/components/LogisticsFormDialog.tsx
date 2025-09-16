@@ -91,13 +91,13 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   useEffect(() => {
     if (isOpen) {
       if (editingRecord) {
-        // 先设置基本信息，地点信息会在数据加载完成后单独设置
+        // 直接使用数据库中的信息，不需要复杂的初始化
         setFormData({
           projectId: editingRecord.project_id || '',
           chainId: editingRecord.chain_id || '',
           driverId: editingRecord.driver_id || '',
-          loadingLocationIds: [], // 稍后会在useEffect中根据地点名称查找ID
-          unloadingLocationIds: [], // 稍后会在useEffect中根据地点名称查找ID
+          loadingLocationIds: [], // 地点ID会在locations加载后设置
+          unloadingLocationIds: [], // 地点ID会在locations加载后设置
           loadingDate: editingRecord.loading_date ? new Date(editingRecord.loading_date) : new Date(),
           unloadingDate: editingRecord.unloading_date ? new Date(editingRecord.unloading_date) : new Date(),
           licensePlate: editingRecord.license_plate || '',
@@ -143,17 +143,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   }, [chains, editingRecord]);
 
-  // 在编辑模式下，确保当前司机在司机列表中，并初始化地点ID
+  // 在编辑模式下，当地点数据加载完成后，直接设置地点ID
   useEffect(() => {
-    if (editingRecord && drivers.length > 0) {
-      const currentDriver = drivers.find(d => d.id === editingRecord.driver_id);
-      if (!currentDriver && editingRecord.driver_id) {
-        // 如果当前司机不在列表中，需要单独加载
-        loadDriverById(editingRecord.driver_id);
-      }
-    }
-    
-    // 当地点数据加载完成后，初始化地点ID
     if (editingRecord && locations.length > 0) {
       const loadingLocationNames = parseLocationString(editingRecord.loading_location || '');
       const unloadingLocationNames = parseLocationString(editingRecord.unloading_location || '');
@@ -161,44 +152,15 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       const loadingLocationIds = findLocationIdsByName(loadingLocationNames);
       const unloadingLocationIds = findLocationIdsByName(unloadingLocationNames);
       
-      // 只有当地点ID发生变化时才更新表单数据
-      setFormData(prev => {
-        if (JSON.stringify(prev.loadingLocationIds) !== JSON.stringify(loadingLocationIds) ||
-            JSON.stringify(prev.unloadingLocationIds) !== JSON.stringify(unloadingLocationIds)) {
-          return {
-            ...prev,
-            loadingLocationIds,
-            unloadingLocationIds,
-          };
-        }
-        return prev;
-      });
+      // 直接设置地点ID，不需要复杂的条件判断
+      setFormData(prev => ({
+        ...prev,
+        loadingLocationIds,
+        unloadingLocationIds,
+      }));
     }
-  }, [editingRecord, drivers, locations]);
+  }, [editingRecord, locations]);
 
-  // 单独加载司机信息
-  const loadDriverById = async (driverId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('drivers')
-        .select('*')
-        .eq('id', driverId)
-        .single();
-      
-      if (error) throw error;
-      if (data) {
-        setDrivers(prev => {
-          // 如果司机不在列表中，添加到列表
-          if (!prev.find(d => d.id === driverId)) {
-            return [...prev, data];
-          }
-          return prev;
-        });
-      }
-    } catch (error) {
-      console.error('Error loading driver:', error);
-    }
-  };
 
   // 创建缺失的地点
   const createMissingLocations = async (locationNames: string[]) => {
