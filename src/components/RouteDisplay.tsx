@@ -23,7 +23,7 @@ const formatLocationName = (location: string, maxLength: number = 2): string => 
 };
 
 // 紧凑模式：只显示前2个字符，单行显示
-const CompactRoute = ({ loadingLocations, unloadingLocations }: { 
+const CompactRouteInternal = ({ loadingLocations, unloadingLocations }: { 
   loadingLocations: string[], 
   unloadingLocations: string[] 
 }) => {
@@ -136,7 +136,7 @@ export function RouteDisplay({
 
   return (
     <div className={className}>
-      {variant === 'compact' && <CompactRoute {...routeProps} />}
+      {variant === 'compact' && <CompactRouteInternal {...routeProps} />}
       {variant === 'detailed' && <DetailedRoute {...routeProps} />}
       {variant === 'minimal' && <MinimalRoute {...routeProps} />}
     </div>
