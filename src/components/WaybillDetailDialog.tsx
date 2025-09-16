@@ -1,14 +1,25 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Truck, Calendar, Banknote, Weight, Package, User, Phone, Building2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MapPin, Truck, Calendar, Banknote, Weight, Package, User, Phone, Building2, FileImage, Eye } from 'lucide-react';
 import { LogisticsRecord } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 
 interface WaybillDetailDialogProps {
   isOpen: boolean;
   onClose: () => void;
   record: LogisticsRecord | null;
+}
+
+interface ScaleRecord {
+  id: string;
+  logistics_number: string | null;
+  image_urls: string[] | null;
+  valid_quantity: number | null;
+  trip_number: number;
+  created_at: string;
 }
 
 // 格式化货币
@@ -157,21 +168,71 @@ const getTransportTypeBadge = (transportType: string | null | undefined) => {
 export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDialogProps) {
   if (!record) return null;
 
+  const [scaleRecords, setScaleRecords] = useState<ScaleRecord[]>([]);
+  const [loadingScaleRecords, setLoadingScaleRecords] = useState(false);
+  const [showScaleImages, setShowScaleImages] = useState(false);
+
   const loadingLocations = parseLocations(record.loading_location);
   const unloadingLocations = parseLocations(record.unloading_location);
+
+  // 加载磅单数据
+  useEffect(() => {
+    if (isOpen && record?.auto_number) {
+      loadScaleRecords();
+    }
+  }, [isOpen, record?.auto_number, loadScaleRecords]);
+
+  const loadScaleRecords = useCallback(async () => {
+    if (!record?.auto_number) return;
+    
+    setLoadingScaleRecords(true);
+    try {
+      const { data, error } = await supabase
+        .from('scale_records')
+        .select('id, logistics_number, image_urls, valid_quantity, trip_number, created_at')
+        .eq('logistics_number', record.auto_number);
+      
+      if (error) throw error;
+      setScaleRecords(data || []);
+    } catch (error) {
+      console.error('加载磅单数据失败:', error);
+    } finally {
+      setLoadingScaleRecords(false);
+    }
+  }, [record?.auto_number]);
+
+  const handleShowScaleImages = () => {
+    setShowScaleImages(true);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
         <DialogHeader className="border-b pb-4">
-          <DialogTitle className="flex items-center gap-3 text-xl">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Package className="h-6 w-6 text-blue-600" />
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-3 text-xl">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Package className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <div className="font-bold">运单详情</div>
+                <div className="text-sm font-normal text-gray-600">{record.auto_number}</div>
+              </div>
             </div>
-            <div>
-              <div className="font-bold">运单详情</div>
-              <div className="text-sm font-normal text-gray-600">{record.auto_number}</div>
-            </div>
+            {scaleRecords.length > 0 && (
+              <Button
+                onClick={handleShowScaleImages}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <FileImage className="h-4 w-4" />
+                查看磅单
+                <Badge variant="secondary" className="ml-1">
+                  {scaleRecords.reduce((total, record) => total + (record.image_urls?.length || 0), 0)}
+                </Badge>
+              </Button>
+            )}
           </DialogTitle>
         </DialogHeader>
         
@@ -306,6 +367,48 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
             </div>
           </div>
 
+          {/* 磅单信息 */}
+          {scaleRecords.length > 0 && (
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-lg border border-indigo-200">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-indigo-100 rounded-lg">
+                  <FileImage className="h-4 w-4 text-indigo-600" />
+                </div>
+                <Label className="text-sm font-semibold text-indigo-800">磅单信息</Label>
+              </div>
+              <div className="space-y-3">
+                {scaleRecords.map((scaleRecord, index) => (
+                  <div key={scaleRecord.id} className="bg-white p-3 rounded-lg border border-indigo-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          磅单 {index + 1}
+                        </Badge>
+                        <span className="text-sm text-gray-600">
+                          车次: {scaleRecord.trip_number}
+                        </span>
+                        {scaleRecord.valid_quantity && (
+                          <span className="text-sm text-gray-600">
+                            有效数量: {scaleRecord.valid_quantity}吨
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => setShowScaleImages(true)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-indigo-600 hover:text-indigo-700"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        查看图片 ({scaleRecord.image_urls?.length || 0})
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 其他平台信息 */}
           {(record.external_tracking_numbers && record.external_tracking_numbers.length > 0) || 
            (record.other_platform_names && record.other_platform_names.length > 0) ? (
@@ -385,6 +488,71 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
           )}
         </div>
       </DialogContent>
+      
+      {/* 磅单图片展示对话框 */}
+      <Dialog open={showScaleImages} onOpenChange={setShowScaleImages}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileImage className="h-5 w-5" />
+              磅单图片 - {record.auto_number}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {scaleRecords.map((scaleRecord, index) => (
+              <div key={scaleRecord.id} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">磅单 {index + 1}</Badge>
+                  <span className="text-sm text-muted-foreground">
+                    车次: {scaleRecord.trip_number}
+                  </span>
+                  {scaleRecord.valid_quantity && (
+                    <span className="text-sm text-muted-foreground">
+                      有效数量: {scaleRecord.valid_quantity}吨
+                    </span>
+                  )}
+                </div>
+                
+                {scaleRecord.image_urls && scaleRecord.image_urls.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {scaleRecord.image_urls.map((imageUrl, imgIndex) => (
+                      <div key={imgIndex} className="relative group">
+                        <img
+                          src={imageUrl}
+                          alt={`磅单图片 ${index + 1}-${imgIndex + 1}`}
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors cursor-pointer"
+                          onClick={() => window.open(imageUrl, '_blank')}
+                          onError={(e) => {
+                            e.currentTarget.src = '/placeholder.svg';
+                            e.currentTarget.alt = '图片加载失败';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => window.open(imageUrl, '_blank')}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              查看大图
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    暂无图片
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
