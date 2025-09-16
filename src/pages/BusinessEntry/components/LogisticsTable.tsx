@@ -110,14 +110,14 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
   return (
     <div className="space-y-4">
       <div className="rounded-md border overflow-x-auto">
-        <Table>
+        <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
               <SortableHeader field="auto_number" className="w-[120px]">运单编号</SortableHeader>
               <SortableHeader field="project_name">项目</SortableHeader>
               <SortableHeader field="loading_date" className="w-[100px]">装货日期</SortableHeader>
               <SortableHeader field="driver_name">司机信息</SortableHeader>
-              <SortableHeader field="loading_location" className="w-[120px]">路线</SortableHeader>
+              <SortableHeader field="loading_location" className="w-[150px]">路线</SortableHeader>
               {/* [修改] 合并为单一的“数量”列 */}
               <SortableHeader field="loading_weight" className="w-[150px]">数量</SortableHeader>
               <SortableHeader field="current_cost" className="w-[120px]">运费/额外费</SortableHeader>
@@ -158,7 +158,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                         {record.license_plate || '未填写'} | {record.driver_phone || '未填写'}
                       </div>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap min-w-[120px]" style={{ whiteSpace: 'nowrap' }}>
+                    <TableCell className="whitespace-nowrap min-w-[150px] w-[150px]" style={{ whiteSpace: 'nowrap', minWidth: '150px', width: '150px' }}>
                       <RouteDisplay 
                         loadingLocation={record.loading_location}
                         unloadingLocation={record.unloading_location}

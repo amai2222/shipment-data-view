@@ -35,11 +35,19 @@ const CompactRoute = ({ loadingLocations, unloadingLocations }: {
     : '未知';
 
   return (
-    <div className="flex items-center gap-1 text-sm whitespace-nowrap" style={{ lineHeight: '1.2', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
+    <span 
+      className="inline-flex items-center gap-1 text-sm whitespace-nowrap" 
+      style={{ 
+        lineHeight: '1.2', 
+        whiteSpace: 'nowrap',
+        display: 'inline-flex',
+        alignItems: 'center'
+      }}
+    >
       <span className="font-medium">{loadingDisplay}</span>
       <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
       <span className="font-medium">{unloadingDisplay}</span>
-    </div>
+    </span>
   );
 };
 
