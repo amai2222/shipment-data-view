@@ -95,6 +95,18 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
   const loadPartners = async () => {
     setLoadingPartners(true);
     try {
+      // 先获取每个合作商的最高级别
+      const { data: maxLevelData, error: maxLevelError } = await supabase
+        .from('project_partners')
+        .select('level')
+        .order('level', { ascending: false })
+        .limit(1);
+      
+      if (maxLevelError) throw maxLevelError;
+      
+      // 获取最高级别的值
+      const maxLevel = maxLevelData?.[0]?.level || 1;
+      
       const { data, error } = await supabase
         .from('project_partners')
         .select(`
@@ -105,7 +117,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
             full_name
           )
         `)
-        .eq('level', 1) // 只获取最高级别合作商
+        .eq('level', maxLevel) // 只获取最高级别合作商
         .order('partners(name)');
       
       if (error) throw error;
@@ -231,7 +243,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
           <div className="space-y-2">
             <Label htmlFor="partner-name" className="text-sm font-medium text-blue-800 flex items-center gap-1">
               <Building2 className="h-4 w-4" />
-              合作商（最高级别）
+              合作商
             </Label>
             <Select
               value={selectedPartnerId || 'all'}
@@ -239,10 +251,10 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
               disabled={loading || loadingPartners}
             >
               <SelectTrigger id="partner-name" className="h-10">
-                <SelectValue placeholder="所有最高级别合作商" />
+                <SelectValue placeholder="所有合作商" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">所有最高级别合作商</SelectItem>
+                <SelectItem value="all">所有合作商</SelectItem>
                 {partners.map(partner => (
                   <SelectItem key={partner.id} value={partner.id}>
                     {partner.full_name || partner.name}
