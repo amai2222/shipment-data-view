@@ -162,26 +162,26 @@ const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete,
                   <TableCell>
                     {[record.driver_name, record.license_plate, record.driver_phone].filter(Boolean).join(' - ')}
                   </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      <div className="font-medium">
+                  <TableCell className="whitespace-nowrap">
+                    <span className="text-sm inline-flex items-center gap-1">
+                      <span className="font-medium">
                         {record.loading_location?.split('|').map((loc, index) => (
                           <span key={index}>
                             {loc.substring(0, 2)}
-                            {index < record.loading_location.split('|').length - 1 && ', '}
+                            {index < record.loading_location.split('|').length - 1 && ','}
                           </span>
                         ))}
-                      </div>
-                      <div className="text-muted-foreground">→</div>
-                      <div className="font-medium">
+                      </span>
+                      <span className="text-muted-foreground">→</span>
+                      <span className="font-medium">
                         {record.unloading_location?.split('|').map((loc, index) => (
                           <span key={index}>
                             {loc.substring(0, 2)}
-                            {index < record.unloading_location.split('|').length - 1 && ', '}
+                            {index < record.unloading_location.split('|').length - 1 && ','}
                           </span>
                         ))}
-                      </div>
-                    </div>
+                      </span>
+                    </span>
                   </TableCell>
                   <TableCell>
                     {billingTypeId === 2 ? (
