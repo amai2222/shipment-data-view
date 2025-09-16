@@ -9,7 +9,6 @@ import { LogisticsRecord } from '../types';
 export interface LogisticsFilters {
   startDate: string;
   endDate: string;
-  partnerId: string; // 合作商ID
   projectName: string;
   driverName: string;
   licensePlate: string;
@@ -22,7 +21,6 @@ export interface LogisticsFilters {
 export const INITIAL_FILTERS: LogisticsFilters = {
   startDate: "",
   endDate: "",
-  partnerId: "",
   projectName: "",
   driverName: "",
   licensePlate: "",
@@ -86,10 +84,9 @@ export function useLogisticsData() {
   ) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_logistics_summary_and_records_with_partner' as any, {
+      const { data, error } = await supabase.rpc('get_logistics_summary_and_records_enhanced' as any, {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
-        p_partner_id: filters.partnerId || null,
         p_project_name: filters.projectName || null,
         p_driver_name: filters.driverName || null,
         p_license_plate: filters.licensePlate || null,

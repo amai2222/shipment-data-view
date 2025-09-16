@@ -38,7 +38,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
   
   // 合作商和项目状态
   const [partners, setPartners] = useState<Partner[]>([]);
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string>(filters.partnerId || '');
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
   const [partnerProjects, setPartnerProjects] = useState<Project[]>([]);
   const [loadingPartners, setLoadingPartners] = useState(false);
 
@@ -126,7 +126,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     }
   };
 
-  // 根据合作商加载项目（只获取该最高级别合作商的项目）
+  // 根据合作商加载项目（获取该合作商的所有项目，不限级别）
   const loadProjectsByPartner = async (partnerId: string) => {
     if (!partnerId) {
       setPartnerProjects([]);
@@ -149,8 +149,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
             project_status
           )
         `)
-        .eq('partner_id', partnerId)
-        .eq('level', 1); // 只获取最高级别合作商的项目
+        .eq('partner_id', partnerId); // 获取该合作商的所有项目，不限级别
 
       if (error) throw error;
       
@@ -166,7 +165,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
   const handlePartnerChange = (partnerId: string) => {
     setSelectedPartnerId(partnerId);
     handleInputChange('projectName', ''); // 清空项目选择
-    onFiltersChange({ ...filters, partnerId: partnerId === 'all' ? '' : partnerId }); // 更新合作商筛选
+    // 不更新合作商筛选，只用于动态加载项目
     loadProjectsByPartner(partnerId);
   };
 
@@ -174,14 +173,6 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
   useEffect(() => {
     loadPartners();
   }, []);
-
-  // 同步合作商选择状态
-  useEffect(() => {
-    if (filters.partnerId && filters.partnerId !== selectedPartnerId) {
-      setSelectedPartnerId(filters.partnerId);
-      loadProjectsByPartner(filters.partnerId);
-    }
-  }, [filters.partnerId]);
 
   const getCurrentValue = () => {
     const type = batchDialog.type;
