@@ -52,7 +52,7 @@ const CompactRouteInternal = ({ loadingLocations, unloadingLocations }: {
 };
 
 // 详细模式：显示完整地点名称
-const DetailedRoute = ({ loadingLocations, unloadingLocations, maxLocations = 3 }: { 
+const DetailedRouteInternal = ({ loadingLocations, unloadingLocations, maxLocations = 3 }: { 
   loadingLocations: string[], 
   unloadingLocations: string[],
   maxLocations?: number
@@ -96,7 +96,7 @@ const DetailedRoute = ({ loadingLocations, unloadingLocations, maxLocations = 3 
 };
 
 // 最小模式：只显示箭头和地点数量
-const MinimalRoute = ({ loadingLocations, unloadingLocations }: { 
+const MinimalRouteInternal = ({ loadingLocations, unloadingLocations }: { 
   loadingLocations: string[], 
   unloadingLocations: string[] 
 }) => {
@@ -137,8 +137,8 @@ export function RouteDisplay({
   return (
     <div className={className}>
       {variant === 'compact' && <CompactRouteInternal {...routeProps} />}
-      {variant === 'detailed' && <DetailedRoute {...routeProps} />}
-      {variant === 'minimal' && <MinimalRoute {...routeProps} />}
+      {variant === 'detailed' && <DetailedRouteInternal {...routeProps} />}
+      {variant === 'minimal' && <MinimalRouteInternal {...routeProps} />}
     </div>
   );
 }
