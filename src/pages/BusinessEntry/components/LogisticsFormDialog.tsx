@@ -451,6 +451,14 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             {/* [修改] 司机改为下拉选择 */}
             <div>
               <Label>司机 *</Label>
+              {editingRecord && editingRecord.driver_name && (
+                <div className="mb-2 p-2 bg-muted/50 rounded-md">
+                  <div className="text-sm font-medium">当前司机：{editingRecord.driver_name}</div>
+                  {editingRecord.license_plate && (
+                    <div className="text-xs text-muted-foreground">车牌号：{editingRecord.license_plate}</div>
+                  )}
+                </div>
+              )}
               <Select value={formData.driverId} onValueChange={handleDriverSelect} disabled={!formData.projectId}>
                 <SelectTrigger><SelectValue placeholder="选择司机" /></SelectTrigger>
                 <SelectContent>{drivers.map((d) => (<SelectItem key={d.id} value={d.id}>{d.name} - {d.license_plate || '无车牌'}</SelectItem>))}</SelectContent>
@@ -476,8 +484,21 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
 
             {/* [修改] 地点改为多地点选择 */}
             <div>
+              <Label>装货地点 *</Label>
+              {editingRecord && editingRecord.loading_location && (
+                <div className="mb-2 p-2 bg-muted/50 rounded-md">
+                  <div className="text-sm font-medium mb-1">当前装货地点：</div>
+                  <div className="text-sm text-muted-foreground">
+                    {editingRecord.loading_location.split('|').map((loc, index) => (
+                      <span key={index} className="inline-block bg-secondary text-secondary-foreground px-2 py-1 rounded text-xs mr-1 mb-1">
+                        {loc}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <MultiLocationInput
-                label="装货地点 *"
+                label=""
                 locations={locations}
                 value={formData.loadingLocationIds}
                 onChange={(locationIds) => setFormData(prev => ({ ...prev, loadingLocationIds: locationIds }))}
@@ -523,8 +544,21 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
               />
             </div>
             <div>
+              <Label>卸货地点 *</Label>
+              {editingRecord && editingRecord.unloading_location && (
+                <div className="mb-2 p-2 bg-muted/50 rounded-md">
+                  <div className="text-sm font-medium mb-1">当前卸货地点：</div>
+                  <div className="text-sm text-muted-foreground">
+                    {editingRecord.unloading_location.split('|').map((loc, index) => (
+                      <span key={index} className="inline-block bg-secondary text-secondary-foreground px-2 py-1 rounded text-xs mr-1 mb-1">
+                        {loc}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <MultiLocationInput
-                label="卸货地点 *"
+                label=""
                 locations={locations}
                 value={formData.unloadingLocationIds}
                 onChange={(locationIds) => setFormData(prev => ({ ...prev, unloadingLocationIds: locationIds }))}
