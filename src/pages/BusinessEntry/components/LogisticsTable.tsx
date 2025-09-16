@@ -158,7 +158,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                         {record.license_plate || '未填写'} | {record.driver_phone || '未填写'}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <RouteDisplay 
                         loadingLocation={record.loading_location}
                         unloadingLocation={record.unloading_location}

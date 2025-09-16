@@ -530,7 +530,7 @@ export default function Home() {
                       <TableCell className="whitespace-nowrap max-w-[150px] truncate" title={record.projectName}>{record.projectName || '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{record.driverName}</TableCell>
                       <TableCell className="whitespace-nowrap">{record.licensePlate}</TableCell>
-                      <TableCell className="whitespace-nowrap">{route}</TableCell>
+                      <TableCell className="whitespace-nowrap text-sm">{route}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         {record.loadingWeight != null ? `${record.loadingWeight.toFixed(2)} ${unit}`.trim() : '-'}
                       </TableCell>

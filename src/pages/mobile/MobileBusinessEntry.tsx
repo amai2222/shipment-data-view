@@ -424,9 +424,9 @@ export default function MobileBusinessEntry() {
                     {record.driver_name} • {record.license_plate}
                   </div>
                   
-                  <div className="flex items-center text-muted-foreground">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    {record.loading_location?.substring(0, 4)} → {record.unloading_location?.substring(0, 4)}
+                  <div className="flex items-center text-muted-foreground whitespace-nowrap">
+                    <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span className="truncate">{record.loading_location?.substring(0, 4)} → {record.unloading_location?.substring(0, 4)}</span>
                   </div>
 
                   {record.payable_cost && (

@@ -22,7 +22,7 @@ const formatLocationName = (location: string, maxLength: number = 2): string => 
   return location.substring(0, maxLength);
 };
 
-// 紧凑模式：只显示前2个字符
+// 紧凑模式：只显示前2个字符，单行显示
 const CompactRoute = ({ loadingLocations, unloadingLocations }: { 
   loadingLocations: string[], 
   unloadingLocations: string[] 
@@ -35,9 +35,9 @@ const CompactRoute = ({ loadingLocations, unloadingLocations }: {
     : '未知';
 
   return (
-    <div className="flex items-center gap-1 text-sm">
+    <div className="flex items-center gap-1 text-sm whitespace-nowrap">
       <span className="font-medium">{loadingDisplay}</span>
-      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+      <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
       <span className="font-medium">{unloadingDisplay}</span>
     </div>
   );
