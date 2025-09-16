@@ -1,11 +1,11 @@
 // 文件路径: src/pages/BusinessEntry/components/LogisticsTable.tsx
 // 描述: [最终修正版] 实现了单排显示、列合并、动态数量单位和统一的财务格式化。
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit, FileText } from "lucide-react";
+import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit, FileText, CheckSquare, Square } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogisticsRecord, PaginationState } from '../types';
 import { RouteDisplay } from '@/components/RouteDisplay';
@@ -22,13 +22,69 @@ interface LogisticsTableProps {
   sortField?: string;
   sortDirection?: 'asc' | 'desc';
   onSort?: (field: string) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   billingTypes?: { [key: number]: string };
+  onBatchAction?: (selectedIds: string[], action: string) => void;
+  isBatchMode?: boolean;
+  onToggleBatchMode?: () => void;
 }
 
-export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, billingTypes = {} }: LogisticsTableProps) => {
+export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, onPageSizeChange, billingTypes = {}, onBatchAction, isBatchMode = false, onToggleBatchMode }: LogisticsTableProps) => {
+  const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
   
   const handlePageChange = (newPage: number) => {
     setPagination(p => ({ ...p, currentPage: newPage }));
+  };
+
+  // 批量选择处理函数
+  const handleSelectRecord = (recordId: string) => {
+    const newSelected = new Set(selectedRecords);
+    if (newSelected.has(recordId)) {
+      newSelected.delete(recordId);
+    } else {
+      newSelected.add(recordId);
+    }
+    setSelectedRecords(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedRecords.size === records.length) {
+      setSelectedRecords(new Set());
+    } else {
+      setSelectedRecords(new Set(records.map(r => r.id)));
+    }
+  };
+
+  const handleSelectCurrentPage = () => {
+    const currentPageRecords = records.map(r => r.id);
+    const allCurrentPageSelected = currentPageRecords.every(id => selectedRecords.has(id));
+    
+    if (allCurrentPageSelected) {
+      // 取消选择当前页所有记录
+      const newSelected = new Set(selectedRecords);
+      currentPageRecords.forEach(id => newSelected.delete(id));
+      setSelectedRecords(newSelected);
+    } else {
+      // 选择当前页所有记录
+      const newSelected = new Set(selectedRecords);
+      currentPageRecords.forEach(id => newSelected.add(id));
+      setSelectedRecords(newSelected);
+    }
+  };
+
+  const handleBatchAction = (action: string) => {
+    if (onBatchAction && selectedRecords.size > 0) {
+      onBatchAction(Array.from(selectedRecords), action);
+    }
+  };
+
+  const toggleBatchMode = () => {
+    if (onToggleBatchMode) {
+      onToggleBatchMode();
+    }
+    if (isBatchMode) {
+      setSelectedRecords(new Set());
+    }
   };
 
   const formatRoute = (loadingLoc: string, unloadingLoc:string) => {
@@ -110,10 +166,76 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
 
   return (
     <div className="space-y-4">
+      {/* 批量操作工具栏 */}
+      {isBatchMode && (
+        <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-blue-700">
+              已选择 {selectedRecords.size} 条记录
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSelectCurrentPage}
+                className="text-blue-600 border-blue-300"
+              >
+                {records.every(r => selectedRecords.has(r.id)) ? '取消当页' : '当页全选'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSelectAll}
+                className="text-blue-600 border-blue-300"
+              >
+                全部记录
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleBatchAction('generatePDF')}
+              disabled={selectedRecords.size === 0}
+              className="text-green-600 border-green-300"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              批量生成PDF
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleBatchMode}
+              className="text-gray-600"
+            >
+              退出批量模式
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-md border overflow-x-auto">
         <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
+              {isBatchMode && (
+                <TableHead className="w-[50px]">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSelectCurrentPage}
+                    className="h-8 w-8 p-0"
+                    title={records.every(r => selectedRecords.has(r.id)) ? '取消当页全选' : '当页全选'}
+                  >
+                    {records.every(r => selectedRecords.has(r.id)) ? (
+                      <CheckSquare className="h-4 w-4 text-blue-600" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TableHead>
+              )}
               <SortableHeader field="auto_number" className="w-[120px]">运单编号</SortableHeader>
               <SortableHeader field="project_name">项目</SortableHeader>
               <SortableHeader field="loading_date" className="w-[100px]">装货日期</SortableHeader>
@@ -124,6 +246,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               <SortableHeader field="current_cost" className="w-[120px]">运费/额外费</SortableHeader>
               <SortableHeader field="driver_payable_cost" className="w-[100px]">司机应收</SortableHeader>
               <SortableHeader field="transport_type" className="w-[100px]">状态</SortableHeader>
+              <TableHead className="w-[100px] text-center">运输单据</TableHead>
               <TableHead className="w-[80px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
@@ -131,7 +254,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
             {loading ? (
               <TableRow>
                 {/* [修改] 更新 colSpan */}
-                <TableCell colSpan={10} className="h-24 text-center">
+                <TableCell colSpan={isBatchMode ? 12 : 11} className="h-24 text-center">
                   <div className="flex justify-center items-center">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     正在加载数据...
@@ -144,10 +267,26 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                 return (
                   <TableRow 
                     key={record.id} 
-                    onClick={() => onView(record)}
+                    onClick={() => !isBatchMode && onView(record)}
                     // [修改] 添加 whitespace-nowrap 以实现单排显示
-                    className="cursor-pointer hover:bg-muted/50 whitespace-nowrap"
+                    className={`hover:bg-muted/50 whitespace-nowrap ${isBatchMode ? 'cursor-default' : 'cursor-pointer'}`}
                   >
+                    {isBatchMode && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSelectRecord(record.id)}
+                          className="h-8 w-8 p-0"
+                        >
+                          {selectedRecords.has(record.id) ? (
+                            <CheckSquare className="h-4 w-4 text-blue-600" />
+                          ) : (
+                            <Square className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                    )}
                     <TableCell className="font-mono">{record.auto_number}</TableCell>
                     <TableCell>{record.project_name}</TableCell>
                     <TableCell className="text-xs">
@@ -179,6 +318,34 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                         {record.transport_type}
                       </span>
                     </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          try {
+                            // 生成运输单据PDF预览
+                            const printHTML = generatePrintVersion(record);
+                            const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
+                            if (previewWindow) {
+                              previewWindow.document.write(printHTML);
+                              previewWindow.document.close();
+                            } else {
+                              alert('无法打开预览窗口，请检查浏览器弹窗设置');
+                            }
+                          } catch (error) {
+                            console.error('生成PDF失败:', error);
+                            const errorMessage = error instanceof Error ? error.message : '未知错误';
+                            alert(`生成PDF失败: ${errorMessage}，请重试`);
+                          }
+                        }}
+                        className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                      >
+                        <FileText className="h-4 w-4 mr-1" />
+                        单据
+                      </Button>
+                    </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -201,29 +368,6 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                             <Edit className="mr-2 h-4 w-4" />
                             <span>编辑</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              try {
-                                // 生成运输单据PDF预览
-                                const printHTML = generatePrintVersion(record);
-                                const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
-                                if (previewWindow) {
-                                  previewWindow.document.write(printHTML);
-                                  previewWindow.document.close();
-                                } else {
-                                  alert('无法打开预览窗口，请检查浏览器弹窗设置');
-                                }
-                              } catch (error) {
-                                console.error('生成PDF失败:', error);
-                                const errorMessage = error instanceof Error ? error.message : '未知错误';
-                                alert(`生成PDF失败: ${errorMessage}，请重试`);
-                              }
-                            }}
-                          >
-                            <FileText className="mr-2 h-4 w-4" />
-                            <span>运输单据</span>
-                          </DropdownMenuItem>
                           <ConfirmDialog
                             title="确认删除"
                             description={`您确定要删除运单 "${record.auto_number}" 吗？此操作不可撤销。`}
@@ -243,7 +387,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
             ) : (
               <TableRow>
                 {/* [修改] 更新 colSpan */}
-                <TableCell colSpan={10} className="h-24 text-center">
+                <TableCell colSpan={isBatchMode ? 12 : 11} className="h-24 text-center">
                   没有找到匹配的记录。
                 </TableCell>
               </TableRow>
