@@ -268,7 +268,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         ? formData.external_tracking_numbers.split(',').map(trackingGroup => {
             // 每个trackingGroup可能包含多个运单号，用|分隔
             const trackingNumbers = trackingGroup.split('|').map(tn => tn.trim()).filter(Boolean);
-            return trackingNumbers;
+            return trackingNumbers.join('|'); // 重新用|连接成一个字符串
           })
         : [];
 
