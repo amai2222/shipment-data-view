@@ -69,21 +69,50 @@ const formatRoute = (loadingLocations: string[], unloadingLocations: string[]): 
   }
   
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <div className="flex flex-wrap gap-1">
-        {loadingLocations.map((loc, index) => (
-          <Badge key={index} variant="secondary" className="text-xs">
-            {loc}
-          </Badge>
-        ))}
+    <div className="space-y-2">
+      {/* 装货地点 */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="text-green-600 text-xs">📍</span>
+          <span className="text-xs font-medium text-green-800">装货地点</span>
+        </div>
+        <div className="space-y-1">
+          {loadingLocations.map((loc, index) => (
+            <div key={index} className="flex items-start gap-2">
+              <span className="text-xs text-gray-500 mt-1">{index + 1}.</span>
+              <span className="text-sm text-gray-700 bg-green-50 px-2 py-1 rounded border border-green-200 flex-1 break-words">
+                {loc}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-      <span className="text-muted-foreground">→</span>
-      <div className="flex flex-wrap gap-1">
-        {unloadingLocations.map((loc, index) => (
-          <Badge key={index} variant="outline" className="text-xs">
-            {loc}
-          </Badge>
-        ))}
+      
+      {/* 箭头 */}
+      <div className="flex justify-center">
+        <div className="flex items-center gap-2 text-gray-400">
+          <div className="w-8 h-px bg-gray-300"></div>
+          <span className="text-sm">→</span>
+          <div className="w-8 h-px bg-gray-300"></div>
+        </div>
+      </div>
+      
+      {/* 卸货地点 */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="text-orange-600 text-xs">🏁</span>
+          <span className="text-xs font-medium text-orange-800">卸货地点</span>
+        </div>
+        <div className="space-y-1">
+          {unloadingLocations.map((loc, index) => (
+            <div key={index} className="flex items-start gap-2">
+              <span className="text-xs text-gray-500 mt-1">{index + 1}.</span>
+              <span className="text-sm text-gray-700 bg-orange-50 px-2 py-1 rounded border border-orange-200 flex-1 break-words">
+                {loc}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -133,125 +162,117 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            运单详情 - {record.auto_number}
+      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
+        <DialogHeader className="border-b pb-4">
+          <DialogTitle className="flex items-center gap-3 text-xl">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Package className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <div className="font-bold">运单详情</div>
+              <div className="text-sm font-normal text-gray-600">{record.auto_number}</div>
+            </div>
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6">
+        <div className="space-y-8 pt-4">
           {/* 基本信息 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-sm font-medium">项目信息</Label>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Building2 className="h-4 w-4 text-blue-600" />
+                </div>
+                <Label className="text-sm font-semibold text-blue-800">项目信息</Label>
               </div>
-              <div className="space-y-3 pl-6">
+              <div className="space-y-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground">项目名称</Label>
-                  <p className="font-medium">{record.project_name}</p>
+                  <Label className="text-xs text-blue-600 font-medium">项目名称</Label>
+                  <p className="font-semibold text-gray-800 mt-1">{record.project_name}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">合作链路</Label>
-                  <p className="text-sm">{record.chain_name || '默认'}</p>
+                  <Label className="text-xs text-blue-600 font-medium">合作链路</Label>
+                  <p className="text-sm text-gray-700 mt-1">{record.chain_name || '默认'}</p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-sm font-medium">时间信息</Label>
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Calendar className="h-4 w-4 text-green-600" />
+                </div>
+                <Label className="text-sm font-semibold text-green-800">时间信息</Label>
               </div>
-              <div className="space-y-3 pl-6">
+              <div className="space-y-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground">装货日期</Label>
-                  <p className="text-sm">{formatDate(record.loading_date)}</p>
+                  <Label className="text-xs text-green-600 font-medium">装货日期</Label>
+                  <p className="text-sm text-gray-700 mt-1">{formatDate(record.loading_date)}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">卸货日期</Label>
-                  <p className="text-sm">{formatDate(record.unloading_date)}</p>
+                  <Label className="text-xs text-green-600 font-medium">卸货日期</Label>
+                  <p className="text-sm text-gray-700 mt-1">{formatDate(record.unloading_date)}</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* 司机信息 */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Truck className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-sm font-medium">司机信息</Label>
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-lg border border-purple-200">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Truck className="h-4 w-4 text-purple-600" />
+              </div>
+              <Label className="text-sm font-semibold text-purple-800">司机信息</Label>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
-              <div>
-                <Label className="text-xs text-muted-foreground">司机姓名</Label>
-                <p className="font-medium">{record.driver_name}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-3 rounded-lg border border-purple-100">
+                <Label className="text-xs text-purple-600 font-medium">司机姓名</Label>
+                <p className="font-semibold text-gray-800 mt-1">{record.driver_name}</p>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">车牌号</Label>
-                <p className="text-sm font-mono">{record.license_plate || '未填写'}</p>
+              <div className="bg-white p-3 rounded-lg border border-purple-100">
+                <Label className="text-xs text-purple-600 font-medium">车牌号</Label>
+                <p className="text-sm font-mono text-gray-700 mt-1">{record.license_plate || '未填写'}</p>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">司机电话</Label>
-                <p className="text-sm">{record.driver_phone || '未填写'}</p>
+              <div className="bg-white p-3 rounded-lg border border-purple-100">
+                <Label className="text-xs text-purple-600 font-medium">司机电话</Label>
+                <p className="text-sm text-gray-700 mt-1">{record.driver_phone || '未填写'}</p>
               </div>
             </div>
           </div>
 
           {/* 路线信息 */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-sm font-medium">运输路线</Label>
-            </div>
-            <div className="pl-6">
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">装货地点</Label>
-                    <div className="mt-1">
-                      {formatMultiLocations(loadingLocations)}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-xs text-muted-foreground">卸货地点</Label>
-                    <div className="mt-1">
-                      {formatMultiLocations(unloadingLocations)}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-xs text-muted-foreground">路线概览</Label>
-                    <div className="mt-1">
-                      {formatRoute(loadingLocations, unloadingLocations)}
-                    </div>
-                  </div>
-                </div>
+          <div className="bg-gradient-to-br from-orange-50 to-yellow-50 p-4 rounded-lg border border-orange-200">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <MapPin className="h-4 w-4 text-orange-600" />
               </div>
+              <Label className="text-sm font-semibold text-orange-800">运输路线</Label>
+            </div>
+            <div className="bg-white p-4 rounded-lg border border-orange-100">
+              {formatRoute(loadingLocations, unloadingLocations)}
             </div>
           </div>
 
           {/* 货物信息 */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Weight className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-sm font-medium">货物信息</Label>
+          <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-4 rounded-lg border border-teal-200">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 bg-teal-100 rounded-lg">
+                <Weight className="h-4 w-4 text-teal-600" />
+              </div>
+              <Label className="text-sm font-semibold text-teal-800">货物信息</Label>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
-              <div>
-                <Label className="text-xs text-muted-foreground">计费方式</Label>
-                <p className="text-sm">{getBillingTypeLabel(record.billing_type_id)}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-3 rounded-lg border border-teal-100">
+                <Label className="text-xs text-teal-600 font-medium">计费方式</Label>
+                <p className="text-sm text-gray-700 mt-1">{getBillingTypeLabel(record.billing_type_id)}</p>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">装货数量</Label>
-                <p className="text-sm">{formatQuantity(record)}</p>
+              <div className="bg-white p-3 rounded-lg border border-teal-100">
+                <Label className="text-xs text-teal-600 font-medium">装货数量</Label>
+                <p className="text-sm text-gray-700 mt-1">{formatQuantity(record)}</p>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">运输类型</Label>
+              <div className="bg-white p-3 rounded-lg border border-teal-100">
+                <Label className="text-xs text-teal-600 font-medium">运输类型</Label>
                 <div className="mt-1">
                   {getTransportTypeBadge(record.transport_type)}
                 </div>
@@ -260,23 +281,25 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
           </div>
 
           {/* 费用信息 */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Banknote className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-sm font-medium">费用信息</Label>
+          <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 rounded-lg border border-emerald-200">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <Banknote className="h-4 w-4 text-emerald-600" />
+              </div>
+              <Label className="text-sm font-semibold text-emerald-800">费用信息</Label>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
-              <div>
-                <Label className="text-xs text-muted-foreground">运费金额</Label>
-                <p className="font-mono text-sm">{formatCurrency(record.current_cost)}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-3 rounded-lg border border-emerald-100">
+                <Label className="text-xs text-emerald-600 font-medium">运费金额</Label>
+                <p className="font-mono text-sm text-gray-700 mt-1">{formatCurrency(record.current_cost)}</p>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">额外费用</Label>
-                <p className="font-mono text-sm">{formatCurrency(record.extra_cost)}</p>
+              <div className="bg-white p-3 rounded-lg border border-emerald-100">
+                <Label className="text-xs text-emerald-600 font-medium">额外费用</Label>
+                <p className="font-mono text-sm text-gray-700 mt-1">{formatCurrency(record.extra_cost)}</p>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">司机应收</Label>
-                <p className="font-mono font-bold text-primary text-sm">
+              <div className="bg-white p-3 rounded-lg border border-emerald-100">
+                <Label className="text-xs text-emerald-600 font-medium">司机应收</Label>
+                <p className="font-mono font-bold text-emerald-600 text-sm mt-1">
                   {formatCurrency(record.payable_cost)}
                 </p>
               </div>

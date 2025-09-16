@@ -452,10 +452,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <div>
               <Label>司机 *</Label>
               {editingRecord && editingRecord.driver_name && (
-                <div className="mb-2 p-2 bg-muted/50 rounded-md">
-                  <div className="text-sm font-medium">当前司机：{editingRecord.driver_name}</div>
+                <div className="mb-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span className="text-sm font-semibold text-blue-800">当前司机信息</span>
+                  </div>
+                  <div className="text-sm font-medium text-gray-800">{editingRecord.driver_name}</div>
                   {editingRecord.license_plate && (
-                    <div className="text-xs text-muted-foreground">车牌号：{editingRecord.license_plate}</div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      <span className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                        🚗 {editingRecord.license_plate}
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
@@ -486,13 +494,19 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <div>
               <Label>装货地点 *</Label>
               {editingRecord && editingRecord.loading_location && (
-                <div className="mb-2 p-2 bg-muted/50 rounded-md">
-                  <div className="text-sm font-medium mb-1">当前装货地点：</div>
-                  <div className="text-sm text-muted-foreground">
+                <div className="mb-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm font-semibold text-green-800">当前装货地点</span>
+                  </div>
+                  <div className="space-y-1">
                     {editingRecord.loading_location.split('|').map((loc, index) => (
-                      <span key={index} className="inline-block bg-secondary text-secondary-foreground px-2 py-1 rounded text-xs mr-1 mb-1">
-                        {loc}
-                      </span>
+                      <div key={index} className="flex items-center gap-2">
+                        <span className="text-green-600 text-xs">📍</span>
+                        <span className="text-sm text-gray-700 bg-white px-2 py-1 rounded border text-xs font-medium">
+                          {loc}
+                        </span>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -546,13 +560,19 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <div>
               <Label>卸货地点 *</Label>
               {editingRecord && editingRecord.unloading_location && (
-                <div className="mb-2 p-2 bg-muted/50 rounded-md">
-                  <div className="text-sm font-medium mb-1">当前卸货地点：</div>
-                  <div className="text-sm text-muted-foreground">
+                <div className="mb-3 p-3 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span className="text-sm font-semibold text-orange-800">当前卸货地点</span>
+                  </div>
+                  <div className="space-y-1">
                     {editingRecord.unloading_location.split('|').map((loc, index) => (
-                      <span key={index} className="inline-block bg-secondary text-secondary-foreground px-2 py-1 rounded text-xs mr-1 mb-1">
-                        {loc}
-                      </span>
+                      <div key={index} className="flex items-center gap-2">
+                        <span className="text-orange-600 text-xs">🏁</span>
+                        <span className="text-sm text-gray-700 bg-white px-2 py-1 rounded border text-xs font-medium">
+                          {loc}
+                        </span>
+                      </div>
                     ))}
                   </div>
                 </div>
