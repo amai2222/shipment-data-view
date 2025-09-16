@@ -1,658 +1,465 @@
-// 权限模板和预设组件
-
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { 
-  BookTemplate, 
+  Settings, 
   Plus, 
   Edit, 
-  Copy, 
   Trash2, 
-  Download,
-  Upload,
-  Save,
-  AlertTriangle
+  Copy,
+  Shield,
+  Users,
+  Building2,
+  Database,
+  Key,
+  UserPlus,
+  Eye,
+  EyeOff
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { ROLES, MENU_PERMISSIONS, FUNCTION_PERMISSIONS } from '@/config/permissions';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS, DATA_PERMISSIONS } from '@/config/permissions';
+import { RoleTemplate } from '@/types/permissions';
 
 interface PermissionTemplatesProps {
-  roleTemplates: any[];
-  onDataChange: () => void;
+  roleTemplates: RoleTemplate[];
+  onDataChange?: () => void;
+}
+
+interface PermissionCategory {
+  key: string;
+  label: string;
+  permissions: string[];
+  icon: React.ReactNode;
 }
 
 export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionTemplatesProps) {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
-  const [editingTemplate, setEditingTemplate] = useState<any>(null);
   
-  // 新模板表单
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<RoleTemplate | null>(null);
   const [newTemplate, setNewTemplate] = useState({
     role: '',
-    name: '',
-    description: '',
-    color: 'bg-blue-500',
     menu_permissions: [] as string[],
-    function_permissions: [] as string[]
+    function_permissions: [] as string[],
+    project_permissions: [] as string[],
+    data_permissions: [] as string[]
   });
+  const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set());
 
-  // 创建新模板
+  const permissionCategories: PermissionCategory[] = [
+    {
+      key: 'menu_permissions',
+      label: '菜单权限',
+      permissions: MENU_PERMISSIONS,
+      icon: <Shield className="h-4 w-4" />
+    },
+    {
+      key: 'function_permissions',
+      label: '功能权限',
+      permissions: FUNCTION_PERMISSIONS,
+      icon: <Settings className="h-4 w-4" />
+    },
+    {
+      key: 'project_permissions',
+      label: '项目权限',
+      permissions: PROJECT_PERMISSIONS,
+      icon: <Building2 className="h-4 w-4" />
+    },
+    {
+      key: 'data_permissions',
+      label: '数据权限',
+      permissions: DATA_PERMISSIONS,
+      icon: <Database className="h-4 w-4" />
+    }
+  ];
+
   const handleCreateTemplate = async () => {
-    if (!newTemplate.role || !newTemplate.name) {
+    if (!newTemplate.role.trim()) {
       toast({
         title: "错误",
-        description: "请填写角色和名称",
-        variant: "destructive",
+        description: "请输入角色名称",
+        variant: "destructive"
       });
       return;
     }
 
     try {
-      setLoading(true);
-      
       const { error } = await supabase
-        .from('role_permission_templates')
-        .insert({
+        .from('role_templates')
+        .insert([{
           role: newTemplate.role,
-          name: newTemplate.name,
-          description: newTemplate.description,
-          color: newTemplate.color,
           menu_permissions: newTemplate.menu_permissions,
           function_permissions: newTemplate.function_permissions,
-          project_permissions: [],
-          data_permissions: [],
-          is_system: false
-        });
+          project_permissions: newTemplate.project_permissions,
+          data_permissions: newTemplate.data_permissions
+        }]);
 
       if (error) throw error;
 
       toast({
         title: "成功",
-        description: "权限模板创建成功",
+        description: "权限模板创建成功"
       });
 
-      setCreateDialogOpen(false);
+      setShowCreateDialog(false);
       setNewTemplate({
         role: '',
-        name: '',
-        description: '',
-        color: 'bg-blue-500',
         menu_permissions: [],
-        function_permissions: []
+        function_permissions: [],
+        project_permissions: [],
+        data_permissions: []
       });
-      onDataChange();
+      onDataChange?.();
     } catch (error) {
-      console.error('创建模板失败:', error);
+      console.error('创建权限模板失败:', error);
       toast({
         title: "错误",
-        description: "创建模板失败",
-        variant: "destructive",
+        description: "创建权限模板失败",
+        variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  // 复制模板
-  const handleCopyTemplate = async (template: any) => {
-    try {
-      setLoading(true);
-      
-      const { error } = await supabase
-        .from('role_permission_templates')
-        .insert({
-          role: template.role,
-          name: `${template.name} (副本)`,
-          description: `${template.description} - 副本`,
-          color: template.color,
-          menu_permissions: template.menu_permissions || [],
-          function_permissions: template.function_permissions || [],
-          project_permissions: template.project_permissions || [],
-          data_permissions: template.data_permissions || [],
-          is_system: false
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "成功",
-        description: "模板复制成功",
-      });
-
-      onDataChange();
-    } catch (error) {
-      console.error('复制模板失败:', error);
-      toast({
-        title: "错误",
-        description: "复制模板失败",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 删除模板
-  const handleDeleteTemplate = async (templateId: string) => {
-    try {
-      setLoading(true);
-      
-      const { error } = await supabase
-        .from('role_permission_templates')
-        .delete()
-        .eq('id', templateId);
-
-      if (error) throw error;
-
-      toast({
-        title: "成功",
-        description: "模板删除成功",
-      });
-
-      onDataChange();
-    } catch (error) {
-      console.error('删除模板失败:', error);
-      toast({
-        title: "错误",
-        description: "删除模板失败",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 导出模板配置
-  const handleExportTemplates = () => {
-    const exportData = roleTemplates.map(template => ({
-      role: template.role,
-      name: template.name,
-      description: template.description,
-      color: template.color,
-      menu_permissions: template.menu_permissions || [],
-      function_permissions: template.function_permissions || [],
-      project_permissions: template.project_permissions || [],
-      data_permissions: template.data_permissions || []
-    }));
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `permission-templates-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "成功",
-      description: "模板配置已导出",
-    });
-  };
-
-  // 更新模板
-  const handleUpdateTemplate = async () => {
+  const handleEditTemplate = async () => {
     if (!editingTemplate) return;
 
     try {
-      setLoading(true);
-      
       const { error } = await supabase
-        .from('role_permission_templates')
+        .from('role_templates')
         .update({
-          name: editingTemplate.name,
-          description: editingTemplate.description,
-          menu_permissions: editingTemplate.menu_permissions || [],
-          function_permissions: editingTemplate.function_permissions || [],
-          project_permissions: editingTemplate.project_permissions || [],
-          data_permissions: editingTemplate.data_permissions || []
+          menu_permissions: editingTemplate.menu_permissions,
+          function_permissions: editingTemplate.function_permissions,
+          project_permissions: editingTemplate.project_permissions,
+          data_permissions: editingTemplate.data_permissions
         })
-        .eq('id', editingTemplate.id);
+        .eq('role', editingTemplate.role);
 
       if (error) throw error;
 
       toast({
         title: "成功",
-        description: "权限模板更新成功",
+        description: "权限模板更新成功"
       });
 
-      setEditDialogOpen(false);
+      setShowEditDialog(false);
       setEditingTemplate(null);
-      onDataChange();
+      onDataChange?.();
     } catch (error) {
-      console.error('更新模板失败:', error);
+      console.error('更新权限模板失败:', error);
       toast({
         title: "错误",
-        description: "更新模板失败",
-        variant: "destructive",
+        description: "更新权限模板失败",
+        variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  // 获取角色颜色
-  const getRoleColor = (role: string) => {
-    const colorMap: Record<string, string> = {
-      admin: 'bg-red-500',
-      finance: 'bg-green-500',
-      business: 'bg-blue-500',
-      operator: 'bg-yellow-500',
-      partner: 'bg-purple-500',
-      viewer: 'bg-gray-500'
-    };
-    return colorMap[role] || 'bg-gray-500';
-  };
-
-  // 应用预设模板 - 使用数据库中的角色模板
-  const applyPresetTemplate = async (presetType: string) => {
+  const handleDeleteTemplate = async (role: string) => {
     try {
-      // 从数据库获取对应角色的模板，而不是使用硬编码
-      const { data: roleTemplate, error } = await supabase
-        .from('role_permission_templates')
-        .select('*')
-        .eq('role', presetType)
-        .single();
-
-      if (error || !roleTemplate) {
-        toast({
-          title: "模板不存在",
-          description: `角色 ${presetType} 的模板不存在，请先创建该角色模板`,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // 使用数据库中的模板数据
-      const preset = {
-        role: roleTemplate.role,
-        name: roleTemplate.name || roleTemplate.role,
-        description: roleTemplate.description || '',
-        color: getRoleColor(roleTemplate.role),
-        menu_permissions: roleTemplate.menu_permissions || [],
-        function_permissions: roleTemplate.function_permissions || [],
-        project_permissions: roleTemplate.project_permissions || [],
-        data_permissions: roleTemplate.data_permissions || []
-      };
-
-    try {
-      setLoading(true);
-      
       const { error } = await supabase
-        .from('role_permission_templates')
-        .insert({
-          ...preset,
-          project_permissions: [],
-          data_permissions: [],
-          is_system: false
-        });
+        .from('role_templates')
+        .delete()
+        .eq('role', role);
 
       if (error) throw error;
 
       toast({
         title: "成功",
-        description: `${preset.name}模板已应用`,
+        description: "权限模板删除成功"
       });
 
-      onDataChange();
+      onDataChange?.();
     } catch (error) {
-      console.error('应用预设模板失败:', error);
+      console.error('删除权限模板失败:', error);
       toast({
         title: "错误",
-        description: "应用预设模板失败",
-        variant: "destructive",
+        description: "删除权限模板失败",
+        variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
+  };
+
+  const handleCopyTemplate = (template: RoleTemplate) => {
+    setNewTemplate({
+      role: `${template.role}_副本`,
+      menu_permissions: [...template.menu_permissions],
+      function_permissions: [...template.function_permissions],
+      project_permissions: [...template.project_permissions],
+      data_permissions: [...template.data_permissions]
+    });
+    setShowCreateDialog(true);
+  };
+
+  const togglePermission = (category: string, permission: string, isChecked: boolean) => {
+    if (editingTemplate) {
+      const updatedTemplate = { ...editingTemplate };
+      const permissions = updatedTemplate[category as keyof RoleTemplate] as string[];
+      
+      if (isChecked) {
+        updatedTemplate[category as keyof RoleTemplate] = [...permissions, permission];
+      } else {
+        updatedTemplate[category as keyof RoleTemplate] = permissions.filter(p => p !== permission);
+      }
+      
+      setEditingTemplate(updatedTemplate);
+    } else {
+      const updatedTemplate = { ...newTemplate };
+      const permissions = updatedTemplate[category as keyof typeof newTemplate] as string[];
+      
+      if (isChecked) {
+        updatedTemplate[category as keyof typeof newTemplate] = [...permissions, permission];
+      } else {
+        updatedTemplate[category as keyof typeof newTemplate] = permissions.filter(p => p !== permission);
+      }
+      
+      setNewTemplate(updatedTemplate);
+    }
+  };
+
+  const toggleTemplateExpansion = (role: string) => {
+    const newExpanded = new Set(expandedTemplates);
+    if (newExpanded.has(role)) {
+      newExpanded.delete(role);
+    } else {
+      newExpanded.add(role);
+    }
+    setExpandedTemplates(newExpanded);
+  };
+
+  const getPermissionCount = (template: RoleTemplate) => {
+    return template.menu_permissions.length + 
+           template.function_permissions.length + 
+           template.project_permissions.length + 
+           template.data_permissions.length;
   };
 
   return (
     <div className="space-y-6">
-      {/* 操作面板 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <BookTemplate className="h-5 w-5 mr-2" />
-            权限模板管理
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">权限模板管理</h2>
+          <p className="text-muted-foreground">
+            管理角色权限模板，快速配置用户权限
+          </p>
+        </div>
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              创建模板
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>创建权限模板</DialogTitle>
+              <DialogDescription>
+                创建一个新的角色权限模板
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="role">角色名称</Label>
+                <Input
+                  id="role"
+                  value={newTemplate.role}
+                  onChange={(e) => setNewTemplate({ ...newTemplate, role: e.target.value })}
+                  placeholder="输入角色名称"
+                />
+              </div>
+
+              <Tabs defaultValue="menu" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  {permissionCategories.map((category) => (
+                    <TabsTrigger key={category.key} value={category.key}>
+                      {category.icon}
+                      <span className="ml-2">{category.label}</span>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
+                {permissionCategories.map((category) => (
+                  <TabsContent key={category.key} value={category.key} className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                      {category.permissions.map((permission) => (
+                        <div key={permission} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`${category.key}-${permission}`}
+                            checked={newTemplate[category.key as keyof typeof newTemplate].includes(permission)}
+                            onCheckedChange={(checked) => 
+                              togglePermission(category.key, permission, checked as boolean)
+                            }
+                          />
+                          <Label 
+                            htmlFor={`${category.key}-${permission}`}
+                            className="text-sm font-normal"
+                          >
+                            {permission}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
+
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                  取消
+                </Button>
+                <Button onClick={handleCreateTemplate}>
                   创建模板
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>创建权限模板</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="role">角色</Label>
-                    <select 
-                      className="w-full border rounded-md px-3 py-2"
-                      value={newTemplate.role}
-                      onChange={(e) => setNewTemplate({...newTemplate, role: e.target.value})}
-                    >
-                      <option value="">选择角色</option>
-                      {Object.entries(ROLES).map(([key, role]) => (
-                        <option key={key} value={key}>{role.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="name">模板名称</Label>
-                    <Input
-                      id="name"
-                      value={newTemplate.name}
-                      onChange={(e) => setNewTemplate({...newTemplate, name: e.target.value})}
-                      placeholder="输入模板名称"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="description">描述</Label>
-                    <Input
-                      id="description"
-                      value={newTemplate.description}
-                      onChange={(e) => setNewTemplate({...newTemplate, description: e.target.value})}
-                      placeholder="输入模板描述"
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                      取消
-                    </Button>
-                    <Button onClick={handleCreateTemplate} disabled={loading}>
-                      <Save className="h-4 w-4 mr-2" />
-                      保存
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            <Button variant="outline" onClick={handleExportTemplates}>
-              <Download className="h-4 w-4 mr-2" />
-              导出配置
-            </Button>
-
-            <Button variant="outline" disabled>
-              <Upload className="h-4 w-4 mr-2" />
-              导入配置
-            </Button>
-          </div>
-
-          {/* 预设模板 */}
-          <div>
-            <h4 className="text-sm font-medium mb-3">预设模板</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Button 
-                variant="outline" 
-                onClick={() => applyPresetTemplate('basic')}
-                disabled={loading}
-              >
-                基础查看者
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => applyPresetTemplate('business')}
-                disabled={loading}
-              >
-                业务人员
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => applyPresetTemplate('manager')}
-                disabled={loading}
-              >
-                系统管理员
-              </Button>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-      {/* 模板列表 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {roleTemplates.map(template => (
-          <Card key={template.id}>
+      <div className="grid gap-4">
+        {roleTemplates.map((template) => (
+          <Card key={template.role}>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className={`w-4 h-4 rounded-full ${template.color || 'bg-gray-500'} mr-2`} />
-                  <CardTitle className="text-lg">{template.name || template.role}</CardTitle>
+                <div className="flex items-center space-x-3">
+                  <Shield className="h-5 w-5" />
+                  <div>
+                    <CardTitle className="text-lg">{template.role}</CardTitle>
+                    <CardDescription>
+                      包含 {getPermissionCount(template)} 个权限
+                    </CardDescription>
+                  </div>
                 </div>
-                <Badge variant={template.is_system ? "default" : "secondary"}>
-                  {template.is_system ? "系统" : "自定义"}
-                </Badge>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleTemplateExpansion(template.role)}
+                  >
+                    {expandedTemplates.has(template.role) ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyTemplate(template)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingTemplate(template);
+                      setShowEditDialog(true);
+                    }}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteTemplate(template.role)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {template.description || '无描述'}
-              </p>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span>菜单权限:</span>
-                  <Badge variant="outline">
-                    {template.menu_permissions?.length || 0}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span>功能权限:</span>
-                  <Badge variant="outline">
-                    {template.function_permissions?.length || 0}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span>项目权限:</span>
-                  <Badge variant="outline">
-                    {template.project_permissions?.length || 0}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span>数据权限:</span>
-                  <Badge variant="outline">
-                    {template.data_permissions?.length || 0}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between text-xs font-medium border-t pt-2">
-                  <span>总权限:</span>
-                  <Badge variant="default">
-                    {(template.menu_permissions?.length || 0) + 
-                     (template.function_permissions?.length || 0) + 
-                     (template.project_permissions?.length || 0) + 
-                     (template.data_permissions?.length || 0)}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleCopyTemplate(template)}
-                  disabled={loading}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedTemplate(template);
-                    setEditingTemplate({...template});
-                    setEditDialogOpen(true);
-                  }}
-                >
-                  <Edit className="h-3 w-3" />
-                </Button>
-                
-                {!template.is_system && (
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Trash2 className="h-3 w-3 text-red-500" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center">
-                          <AlertTriangle className="h-5 w-5 mr-2 text-red-500" />
-                          确认删除模板
-                        </DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                          您即将删除模板 "{template.name}"，此操作不可撤销。
-                        </p>
-                        <div className="flex justify-end space-x-2">
-                          <Button variant="outline" size="sm">
-                            取消
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => handleDeleteTemplate(template.id)}
-                            disabled={loading}
-                          >
-                            确认删除
-                          </Button>
+            
+            {expandedTemplates.has(template.role) && (
+              <CardContent>
+                <div className="space-y-4">
+                  {permissionCategories.map((category) => {
+                    const permissions = template[category.key as keyof RoleTemplate] as string[];
+                    return (
+                      <div key={category.key} className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          {category.icon}
+                          <h4 className="font-medium">{category.label}</h4>
+                          <Badge variant="secondary">{permissions.length}</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {permissions.map((permission) => (
+                            <Badge key={permission} variant="outline">
+                              {permission}
+                            </Badge>
+                          ))}
                         </div>
                       </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </div>
-            </CardContent>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            )}
           </Card>
         ))}
       </div>
 
-      {/* 编辑模板对话框 */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      {/* 编辑对话框 */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>编辑权限模板</DialogTitle>
             <DialogDescription>
-              编辑 "{selectedTemplate?.name}" 的权限配置
+              编辑 {editingTemplate?.role} 的权限配置
             </DialogDescription>
           </DialogHeader>
           
           {editingTemplate && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="template-name">模板名称</Label>
-                  <Input
-                    id="template-name"
-                    value={editingTemplate.name}
-                    onChange={(e) => setEditingTemplate({...editingTemplate, name: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="template-role">角色</Label>
-                  <Input
-                    id="template-role"
-                    value={editingTemplate.role}
-                    readOnly
-                    className="bg-gray-50"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="template-description">描述</Label>
-                <Input
-                  id="template-description"
-                  value={editingTemplate.description || ''}
-                  onChange={(e) => setEditingTemplate({...editingTemplate, description: e.target.value})}
-                  placeholder="输入模板描述"
-                />
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <Label>菜单权限 ({editingTemplate.menu_permissions?.length || 0})</Label>
-                  <div className="mt-2 p-3 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-2 gap-2">
-                      {editingTemplate.menu_permissions?.map((permission: string) => (
-                        <Badge key={permission} variant="outline" className="text-xs">
-                          {permission}
-                        </Badge>
+            <div className="space-y-4">
+              <Tabs defaultValue="menu" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  {permissionCategories.map((category) => (
+                    <TabsTrigger key={category.key} value={category.key}>
+                      {category.icon}
+                      <span className="ml-2">{category.label}</span>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
+                {permissionCategories.map((category) => (
+                  <TabsContent key={category.key} value={category.key} className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                      {category.permissions.map((permission) => (
+                        <div key={permission} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`edit-${category.key}-${permission}`}
+                            checked={editingTemplate[category.key as keyof RoleTemplate].includes(permission)}
+                            onCheckedChange={(checked) => 
+                              togglePermission(category.key, permission, checked as boolean)
+                            }
+                          />
+                          <Label 
+                            htmlFor={`edit-${category.key}-${permission}`}
+                            className="text-sm font-normal"
+                          >
+                            {permission}
+                          </Label>
+                        </div>
                       ))}
                     </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <Label>功能权限 ({editingTemplate.function_permissions?.length || 0})</Label>
-                  <div className="mt-2 p-3 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-2 gap-2">
-                      {editingTemplate.function_permissions?.map((permission: string) => (
-                        <Badge key={permission} variant="outline" className="text-xs">
-                          {permission}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <Label>项目权限 ({editingTemplate.project_permissions?.length || 0})</Label>
-                  <div className="mt-2 p-3 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-2 gap-2">
-                      {editingTemplate.project_permissions?.map((permission: string) => (
-                        <Badge key={permission} variant="outline" className="text-xs">
-                          {permission}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <Label>数据权限 ({editingTemplate.data_permissions?.length || 0})</Label>
-                  <div className="mt-2 p-3 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-2 gap-2">
-                      {editingTemplate.data_permissions?.map((permission: string) => (
-                        <Badge key={permission} variant="outline" className="text-xs">
-                          {permission}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
+                  </TabsContent>
+                ))}
+              </Tabs>
+
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setShowEditDialog(false)}>
                   取消
                 </Button>
-                <Button 
-                  onClick={handleUpdateTemplate}
-                  disabled={loading}
-                >
-                  <Save className="h-4 w-4 mr-2" />
+                <Button onClick={handleEditTemplate}>
                   保存更改
                 </Button>
               </div>

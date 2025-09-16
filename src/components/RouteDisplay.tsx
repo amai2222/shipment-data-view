@@ -22,34 +22,6 @@ const formatLocationName = (location: string, maxLength: number = 2): string => 
   return location.substring(0, maxLength);
 };
 
-// 紧凑模式：只显示前2个字符，单行显示
-const CompactRoute = ({ loadingLocations, unloadingLocations }: { 
-  loadingLocations: string[], 
-  unloadingLocations: string[] 
-}) => {
-  const loadingDisplay = loadingLocations.length > 0 
-    ? loadingLocations.map(loc => formatLocationName(loc, 2)).join(',')
-    : '未知';
-  const unloadingDisplay = unloadingLocations.length > 0 
-    ? unloadingLocations.map(loc => formatLocationName(loc, 2)).join(',')
-    : '未知';
-
-  return (
-    <span 
-      className="inline-flex items-center gap-1 text-sm whitespace-nowrap" 
-      style={{ 
-        lineHeight: '1.2', 
-        whiteSpace: 'nowrap',
-        display: 'inline-flex',
-        alignItems: 'center'
-      }}
-    >
-      <span className="font-medium">{loadingDisplay}</span>
-      <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-      <span className="font-medium">{unloadingDisplay}</span>
-    </span>
-  );
-};
 
 // 详细模式：显示完整地点名称
 const DetailedRoute = ({ loadingLocations, unloadingLocations, maxLocations = 3 }: { 
