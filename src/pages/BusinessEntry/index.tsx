@@ -23,6 +23,7 @@ import { useExcelImport } from './hooks/useExcelImport';
 import { FilterBar } from './components/FilterBar';
 import { EnhancedImportDialog } from './components/EnhancedImportDialog';
 import { LogisticsFormDialog } from './components/LogisticsFormDialog';
+import { LogisticsTable } from './components/LogisticsTable';
 import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
 
 const formatCurrency = (value: number | null | undefined): string => {
@@ -87,208 +88,11 @@ const PageSummaryFooter = ({ records }: { records: LogisticsRecord[] }) => {
   );
 };
 
-const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, onPageSizeChange }: {
-  records: LogisticsRecord[];
-  loading: boolean;
-  pagination: { currentPage: number; totalPages: number; totalCount: number; pageSize: number; };
-  setPagination: React.Dispatch<React.SetStateAction<any>>;
-  onDelete: (id: string) => void;
-  onView: (record: LogisticsRecord) => void;
-  onEdit: (record: LogisticsRecord) => void;
-  sortField: string;
-  sortDirection: 'asc' | 'desc';
-  onSort: (field: string) => void;
-  onPageSizeChange: (pageSize: number) => void;
-}) => {
-  const { isAdmin } = usePermissions();
-
-  const SortableHeader = ({ field, children }: { field: string; children: React.ReactNode }) => (
-    <Button variant="ghost" onClick={() => onSort(field)} className="px-2 py-1 h-auto -ml-2">
-      {children}
-      <ArrowUpDown className="ml-2 h-3 w-3" />
-    </Button>
-  );
-
-  const getBillingUnit = (billingTypeId: number | null | undefined) => {
-    switch (billingTypeId) {
-      case 1: return '吨';
-      case 2: return '车';
-      case 3: return '立方';
-      default: return '吨';
-    }
-  };
-
-  const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= pagination.totalPages) {
-      setPagination((p: any) => ({ ...p, currentPage: page }));
-    }
-  };
-
-  return (
-    <div className="border rounded-lg">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead><SortableHeader field="auto_number">运单编号</SortableHeader></TableHead>
-            <TableHead><SortableHeader field="project_name">项目</SortableHeader></TableHead>
-            <TableHead><SortableHeader field="loading_date">装货日期</SortableHeader></TableHead>
-            <TableHead><SortableHeader field="driver_name">司机信息</SortableHeader></TableHead>
-            <TableHead>路线</TableHead>
-            <TableHead>数量</TableHead>
-            <TableHead><SortableHeader field="current_cost">运费/额外费</SortableHeader></TableHead>
-            <TableHead><SortableHeader field="payable_cost">司机应收</SortableHeader></TableHead>
-            <TableHead>状态</TableHead>
-            <TableHead>操作</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading ? (
-            <TableRow><TableCell colSpan={10} className="text-center h-24"><Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" /></TableCell></TableRow>
-          ) : records.length === 0 ? (
-            <TableRow><TableCell colSpan={10} className="text-center h-24">没有找到任何记录。</TableCell></TableRow>
-          ) : (
-            records.map((record) => {
-              const billingTypeId = record.billing_type_id || 1;
-              const unit = getBillingUnit(billingTypeId);
-              return (
-                <TableRow 
-                  key={record.id} 
-                  onClick={() => onView(record)}
-                  className="cursor-pointer hover:bg-muted/50"
-                >
-                  <TableCell className="font-mono">{record.auto_number}</TableCell>
-                  <TableCell>{record.project_name}</TableCell>
-                  <TableCell>{record.loading_date ? record.loading_date.substring(0, 10) : 'N/A'}</TableCell>
-                  <TableCell>
-                    {[record.driver_name, record.license_plate, record.driver_phone].filter(Boolean).join(' - ')}
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      <div className="font-medium">
-                        {record.loading_location?.split('|').map((loc, index) => (
-                          <span key={index}>
-                            {loc.substring(0, 2)}
-                            {index < record.loading_location.split('|').length - 1 && ', '}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="text-muted-foreground">→</div>
-                      <div className="font-medium">
-                        {record.unloading_location?.split('|').map((loc, index) => (
-                          <span key={index}>
-                            {loc.substring(0, 2)}
-                            {index < record.unloading_location.split('|').length - 1 && ', '}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {billingTypeId === 2 ? (
-                      `${record.loading_weight?.toFixed(0) || '0'} ${unit}`
-                    ) : (
-                      `${record.loading_weight?.toFixed(2) || '0.00'} / ${record.unloading_weight?.toFixed(2) || '0.00'} ${unit}`
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {`${formatCurrency(record.current_cost)} / ${record.extra_cost || 0}`}
-                  </TableCell>
-                  <TableCell className="font-bold text-primary">{formatCurrency(record.payable_cost)}</TableCell>
-                  <TableCell>
-                    <Badge variant={record.transport_type === '实际运输' ? 'default' : 'secondary'}>
-                      {record.transport_type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onView(record)}>查看详情</DropdownMenuItem>
-                        {isAdmin && <DropdownMenuItem onClick={() => onEdit(record)}>编辑</DropdownMenuItem>}
-                        {isAdmin && <DropdownMenuItem className="text-red-600" onClick={() => onDelete(record.id)}>删除</DropdownMenuItem>}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              );
-            })
-          )}
-        </TableBody>
-      </Table>
-      {/* 汉化分页组件 */}
-      <div className="flex items-center justify-between p-4 border-t">
-        <div className="flex items-center gap-4">
-          {records.length > 0 && <PageSummaryFooter records={records} />}
-          <div className="text-sm text-muted-foreground whitespace-nowrap">共 {pagination.totalCount} 条记录</div>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          {/* 每页显示数量选择器 */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">每页显示</span>
-            <Select value={pagination.pageSize.toString()} onValueChange={(value) => onPageSizeChange(parseInt(value))}>
-              <SelectTrigger className="w-20 h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
-              </SelectContent>
-            </Select>
-            <span className="text-sm text-muted-foreground">条</span>
-          </div>
-
-          {/* 分页导航 */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(pagination.currentPage - 1)}
-              disabled={pagination.currentPage <= 1}
-            >
-              上一页
-            </Button>
-            
-            <div className="flex items-center gap-1">
-              <span className="text-sm text-muted-foreground">第</span>
-              <Input
-                type="number"
-                min="1"
-                max={pagination.totalPages}
-                value={pagination.currentPage}
-                onChange={(e) => {
-                  const page = parseInt(e.target.value);
-                  if (page >= 1 && page <= pagination.totalPages) {
-                    handlePageChange(page);
-                  }
-                }}
-                className="w-12 h-8 text-center"
-              />
-              <span className="text-sm text-muted-foreground">页，共 {pagination.totalPages} 页</span>
-            </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(pagination.currentPage + 1)}
-              disabled={pagination.currentPage >= pagination.totalPages}
-            >
-              下一页
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const StaleDataPrompt = () => (
   <div className="text-center py-10 border rounded-lg bg-muted/20">
     <Search className="mx-auto h-12 w-12 text-muted-foreground" />
     <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3>
-    <p className="mt-1 text-sm text-muted-foreground">请点击“搜索”按钮以查看最新结果。</p>
+    <p className="mt-1 text-sm text-muted-foreground">请点击"搜索"按钮以查看最新结果。</p>
   </div>
 );
 
@@ -491,7 +295,22 @@ export default function BusinessEntry() {
       </div>
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
-      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={{ ...pagination, currentPage: pagination.currentPage, pageSize: pagination.pageSize }} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} />)}
+      {isSummaryStale ? (
+        <StaleDataPrompt />
+      ) : (
+        <LogisticsTable 
+          records={records} 
+          loading={loading} 
+          pagination={pagination}
+          setPagination={setPagination} 
+          onDelete={(id, autoNumber) => handleDelete(id)} 
+          onView={setViewingRecord} 
+          onEdit={handleOpenEditDialog} 
+          sortField={sortField} 
+          sortDirection={sortDirection} 
+          onSort={handleSort}
+        />
+      )}
       {isAdmin && <EnhancedImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} duplicateActions={duplicateActions} setDuplicateActions={setDuplicateActions} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
       <LogisticsFormDialog
         isOpen={isFormDialogOpen}
