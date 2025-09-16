@@ -285,7 +285,6 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
         data_permissions: roleTemplate.data_permissions || []
       };
 
-    try {
       setLoading(true);
       
       const { error } = await supabase
