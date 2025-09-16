@@ -314,9 +314,6 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_unloading_date: formData.unloadingDate?.toISOString()
         });
         
-        // 更新可选字段
-        if (error) throw error;
-        
         // 更新平台运单信息
         if (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0) {
           const { error: platformError } = await supabase
@@ -328,7 +325,6 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             .eq('id', editingRecord.id);
           if (platformError) throw platformError;
         }
-        if (error) throw error;
         toast({ title: "成功", description: "运单已更新" });
       } else {
         // 使用数据库函数来添加运单并自动计算合作方成本
