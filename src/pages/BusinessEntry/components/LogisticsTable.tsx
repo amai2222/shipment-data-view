@@ -217,7 +217,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
 
       <div className="rounded-xl border border-gray-200 shadow-lg overflow-x-auto bg-white">
         <Table className="w-full">
-          <TableHeader className="bg-gradient-to-r from-slate-50 to-blue-50">
+          <TableHeader className="bg-gradient-to-r from-slate-50 to-blue-50 border-b border-gray-200">
             <TableRow className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50">
               {isBatchMode && (
                 <TableHead className="min-w-[50px] bg-gradient-to-r from-slate-100 to-blue-100 border-r border-blue-200">
@@ -236,18 +236,18 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                   </Button>
                 </TableHead>
               )}
-              <SortableHeader field="auto_number" className="min-w-[120px] font-bold text-slate-700 text-sm py-3">运单编号</SortableHeader>
-              <SortableHeader field="project_name" className="min-w-[100px] font-bold text-slate-700 text-sm py-3">项目</SortableHeader>
-              <SortableHeader field="loading_date" className="min-w-[100px] font-bold text-slate-700 text-sm py-3">装货日期</SortableHeader>
-              <SortableHeader field="driver_name" className="min-w-[160px] font-bold text-slate-700 text-sm py-3">司机信息</SortableHeader>
-              <SortableHeader field="loading_location" className="min-w-[140px] font-bold text-slate-700 text-sm py-3">路线</SortableHeader>
-              <SortableHeader field="loading_weight" className="min-w-[120px] font-bold text-slate-700 text-sm py-3">数量</SortableHeader>
-              <SortableHeader field="current_cost" className="min-w-[120px] font-bold text-slate-700 text-sm py-3">运费/额外费</SortableHeader>
-              <SortableHeader field="driver_payable_cost" className="min-w-[100px] font-bold text-slate-700 text-sm py-3">司机应收</SortableHeader>
+              <SortableHeader field="auto_number" className="min-w-[120px] font-semibold text-slate-800 text-sm py-4">运单编号</SortableHeader>
+              <SortableHeader field="project_name" className="min-w-[100px] font-semibold text-slate-800 text-sm py-4">项目</SortableHeader>
+              <SortableHeader field="loading_date" className="min-w-[100px] font-semibold text-slate-800 text-sm py-4">装货日期</SortableHeader>
+              <SortableHeader field="driver_name" className="min-w-[160px] font-semibold text-slate-800 text-sm py-4">司机信息</SortableHeader>
+              <SortableHeader field="loading_location" className="min-w-[140px] font-semibold text-slate-800 text-sm py-4">路线</SortableHeader>
+              <SortableHeader field="loading_weight" className="min-w-[120px] font-semibold text-slate-800 text-sm py-4">数量</SortableHeader>
+              <SortableHeader field="current_cost" className="min-w-[120px] font-semibold text-slate-800 text-sm py-4">运费/额外费</SortableHeader>
+              <SortableHeader field="driver_payable_cost" className="min-w-[100px] font-semibold text-slate-800 text-sm py-4">司机应收</SortableHeader>
               {/* 隐藏状态列 */}
               {/* <SortableHeader field="transport_type" className="w-[100px]">状态</SortableHeader> */}
-              <TableHead className="min-w-[100px] text-center font-bold text-slate-700 text-sm py-3">运输单据</TableHead>
-              <TableHead className="min-w-[60px] text-right font-bold text-slate-700 text-sm py-3">操作</TableHead>
+              <TableHead className="min-w-[100px] text-center font-semibold text-slate-800 text-sm py-4">运输单据</TableHead>
+              <TableHead className="min-w-[60px] text-right font-semibold text-slate-800 text-sm py-4">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -299,7 +299,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                           {record.license_plate || '未填写'}
                         </span>
                         <span className="text-slate-400">|</span>
-                        <span className="text-xs text-slate-600 font-mono bg-blue-100 px-1.5 py-0.5 rounded">
+                        <span className="text-xs text-slate-600 font-mono">
                           {record.driver_phone || '未填写'}
                         </span>
                       </div>
