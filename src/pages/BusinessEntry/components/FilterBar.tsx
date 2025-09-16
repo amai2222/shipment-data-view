@@ -8,9 +8,16 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { LogisticsFilters } from '../hooks/useLogisticsData';
 import { Project } from '../types';
 import { DateRange } from "react-day-picker";
-import { Search, X, ChevronDown, ChevronUp, Users, Hash, Phone, FileText } from "lucide-react";
-import { useState } from "react";
+import { Search, X, ChevronDown, ChevronUp, Users, Hash, Phone, FileText, Building2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { BatchInputDialog } from "./BatchInputDialog";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Partner {
+  id: string;
+  name: string;
+  full_name?: string;
+}
 
 interface FilterBarProps {
   filters: LogisticsFilters;
@@ -28,6 +35,12 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     isOpen: boolean;
     type: 'driver' | 'license' | 'phone' | 'waybill' | null;
   }>({ isOpen: false, type: null });
+  
+  // 合作商和项目状态
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>(filters.partnerId || '');
+  const [partnerProjects, setPartnerProjects] = useState<Project[]>([]);
+  const [loadingPartners, setLoadingPartners] = useState(false);
 
   const handleInputChange = (field: keyof Omit<LogisticsFilters, 'startDate' | 'endDate'>, value: string) => {
     onFiltersChange({ ...filters, [field]: value });
@@ -77,6 +90,98 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     
     closeBatchDialog();
   };
+
+  // 加载合作商列表（只加载最高级别合作商）
+  const loadPartners = async () => {
+    setLoadingPartners(true);
+    try {
+      const { data, error } = await supabase
+        .from('project_partners')
+        .select(`
+          partner_id,
+          partners (
+            id,
+            name,
+            full_name
+          )
+        `)
+        .eq('level', 1) // 只获取最高级别合作商
+        .order('partners(name)');
+      
+      if (error) throw error;
+      
+      // 去重并格式化数据
+      const uniquePartners = new Map();
+      data?.forEach(item => {
+        if (item.partners && !uniquePartners.has(item.partners.id)) {
+          uniquePartners.set(item.partners.id, item.partners);
+        }
+      });
+      
+      setPartners(Array.from(uniquePartners.values()));
+    } catch (error) {
+      console.error('加载合作商失败:', error);
+    } finally {
+      setLoadingPartners(false);
+    }
+  };
+
+  // 根据合作商加载项目（只获取该最高级别合作商的项目）
+  const loadProjectsByPartner = async (partnerId: string) => {
+    if (!partnerId) {
+      setPartnerProjects([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('project_partners')
+        .select(`
+          project_id,
+          projects (
+            id,
+            name,
+            start_date,
+            end_date,
+            manager,
+            loading_address,
+            unloading_address,
+            project_status
+          )
+        `)
+        .eq('partner_id', partnerId)
+        .eq('level', 1); // 只获取最高级别合作商的项目
+
+      if (error) throw error;
+      
+      const projects = data?.map(item => item.projects).filter(Boolean) as Project[] || [];
+      setPartnerProjects(projects);
+    } catch (error) {
+      console.error('加载合作商项目失败:', error);
+      setPartnerProjects([]);
+    }
+  };
+
+  // 合作商选择变化
+  const handlePartnerChange = (partnerId: string) => {
+    setSelectedPartnerId(partnerId);
+    handleInputChange('projectName', ''); // 清空项目选择
+    onFiltersChange({ ...filters, partnerId: partnerId === 'all' ? '' : partnerId }); // 更新合作商筛选
+    loadProjectsByPartner(partnerId);
+  };
+
+  // 初始化加载合作商
+  useEffect(() => {
+    loadPartners();
+  }, []);
+
+  // 同步合作商选择状态
+  useEffect(() => {
+    if (filters.partnerId && filters.partnerId !== selectedPartnerId) {
+      setSelectedPartnerId(filters.partnerId);
+      loadProjectsByPartner(filters.partnerId);
+    }
+  }, [filters.partnerId]);
 
   const getCurrentValue = () => {
     const type = batchDialog.type;
@@ -130,7 +235,32 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     <div className="space-y-4">
       {/* 基础筛选器 */}
       <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          {/* 合作商选择 */}
+          <div className="space-y-2">
+            <Label htmlFor="partner-name" className="text-sm font-medium text-blue-800 flex items-center gap-1">
+              <Building2 className="h-4 w-4" />
+              合作商（最高级别）
+            </Label>
+            <Select
+              value={selectedPartnerId || 'all'}
+              onValueChange={(value) => handlePartnerChange(value === 'all' ? '' : value)}
+              disabled={loading || loadingPartners}
+            >
+              <SelectTrigger id="partner-name" className="h-10">
+                <SelectValue placeholder="所有最高级别合作商" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">所有最高级别合作商</SelectItem>
+                {partners.map(partner => (
+                  <SelectItem key={partner.id} value={partner.id}>
+                    {partner.full_name || partner.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* 项目名称 */}
           <div className="space-y-2">
             <Label htmlFor="project-name" className="text-sm font-medium text-blue-800 flex items-center gap-1">
@@ -140,14 +270,14 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
             <Select
               value={filters.projectName || 'all'}
               onValueChange={(value) => handleInputChange('projectName', value === 'all' ? '' : value)}
-              disabled={loading || projects.length === 0}
+              disabled={loading || (selectedPartnerId ? partnerProjects.length === 0 : projects.length === 0)}
             >
               <SelectTrigger id="project-name" className="h-10">
-                <SelectValue placeholder="所有项目" />
+                <SelectValue placeholder={selectedPartnerId ? "选择合作商的项目" : "所有项目"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">所有项目</SelectItem>
-                {(projects || []).map(project => (
+                {(selectedPartnerId ? partnerProjects : projects).map(project => (
                   <SelectItem key={project.id} value={project.name}>{project.name}</SelectItem>
                 ))}
               </SelectContent>
