@@ -169,7 +169,7 @@ export default function DataImportWithDuplicateCheck() {
         };
       });
 
-      const { data: previewResult, error } = await supabase.rpc('preview_import_with_duplicates_check', { 
+      const { data: previewResult, error } = await supabase.rpc('preview_import_with_optimized_duplicate_check', { 
         p_records: recordsToPreview 
       });
       
