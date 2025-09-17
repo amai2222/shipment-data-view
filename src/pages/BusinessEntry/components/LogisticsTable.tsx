@@ -1,7 +1,7 @@
 // 文件路径: src/pages/BusinessEntry/components/LogisticsTable.tsx
 // 描述: [最终修正版] 实现了单排显示、列合并、动态数量单位和统一的财务格式化。
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -37,6 +37,11 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
   const [allFilteredRecordIds, setAllFilteredRecordIds] = useState<string[]>([]);
   const { getAllFilteredRecordIds, loading: loadingAllRecords } = useAllFilteredRecords();
   
+  // 当筛选条件改变时，清空缓存的记录ID
+  useEffect(() => {
+    setAllFilteredRecordIds([]);
+  }, [activeFilters]);
+  
   const handlePageChange = (newPage: number) => {
     setPagination(p => ({ ...p, currentPage: newPage }));
   };
@@ -58,7 +63,10 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
       const result = await getAllFilteredRecordIds(activeFilters);
       if (result) {
         setAllFilteredRecordIds(result.recordIds);
+        // 选择所有筛选记录
+        setSelectedRecords(new Set(result.recordIds));
       }
+      return; // 获取完成后直接返回，不执行后续逻辑
     }
     
     // 检查是否所有记录都已选择
