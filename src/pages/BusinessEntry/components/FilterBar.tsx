@@ -264,7 +264,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
                 <SelectItem value="all">所有合作商</SelectItem>
                 {partners.map(partner => (
                   <SelectItem key={partner.id} value={partner.id}>
-                    {partner.full_name || partner.name}
+                    {partner.name}
                   </SelectItem>
                 ))}
               </SelectContent>

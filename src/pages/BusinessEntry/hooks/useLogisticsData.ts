@@ -6,6 +6,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogisticsRecord } from '../types';
 
+interface LogisticsResponse {
+  records: LogisticsRecord[];
+  summary: any;
+  totalCount: number;
+}
+
 export interface LogisticsFilters {
   startDate: string;
   endDate: string;
@@ -84,7 +90,7 @@ export function useLogisticsData() {
   ) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_logistics_summary_and_records_enhanced' as any, {
+      const { data, error } = await supabase.rpc('get_logistics_summary_and_records_enhanced', {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,
@@ -102,7 +108,7 @@ export function useLogisticsData() {
 
       if (error) throw error;
       
-      const responseData = (data as any) || {};
+      const responseData = (data as LogisticsResponse) || { records: [], summary: INITIAL_SUMMARY, totalCount: 0 };
       
       // 数据库已经排序，不需要前端再排序
       setRecords(responseData.records || []);
