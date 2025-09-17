@@ -57,14 +57,25 @@ export function usePartnerProjectRelation(): UsePartnerProjectRelationReturn {
   const [loadingProjects, setLoadingProjects] = useState(false);
   const { toast } = useToast();
 
-  // 加载所有项目的最高级合作商
+  // 加载每个项目的最高级合作商
   const loadAllPartners = useCallback(async () => {
     setLoadingPartners(true);
     try {
-      const { data, error } = await supabase
+      // 首先检查partners表是否有数据
+      const { data: partnersData, error: partnersError } = await supabase
+        .from('partners')
+        .select('id, name, full_name')
+        .order('name');
+      
+      if (partnersError) throw partnersError;
+      
+      // 然后检查project_partners表是否有数据
+      const { data: projectPartnersData, error: projectPartnersError } = await supabase
         .from('project_partners')
         .select(`
           partner_id,
+          project_id,
+          level,
           partners (
             id,
             name,
@@ -73,17 +84,50 @@ export function usePartnerProjectRelation(): UsePartnerProjectRelationReturn {
         `)
         .order('level', { ascending: false });
       
-      if (error) throw error;
+      if (projectPartnersError) {
+        // 如果project_partners表没有数据，使用partners表的数据
+        setPartners(partnersData || []);
+        return;
+      }
       
-      // 智能去重：由于按level降序排列，每个合作商的最高级别记录会先出现
-      const uniquePartners = new Map();
-      data?.forEach(item => {
-        if (item.partners && !uniquePartners.has(item.partners.id)) {
-          uniquePartners.set(item.partners.id, item.partners);
+      if (!projectPartnersData || projectPartnersData.length === 0) {
+        // 如果project_partners表为空，使用partners表的数据
+        setPartners(partnersData || []);
+        return;
+      }
+      
+      // 按项目分组，找到每个项目的最高级别合作商
+      const projectMaxLevels = new Map();
+      projectPartnersData.forEach(item => {
+        if (item.project_id) {
+          const currentMax = projectMaxLevels.get(item.project_id) || 0;
+          if (item.level > currentMax) {
+            projectMaxLevels.set(item.project_id, item.level);
+          }
         }
       });
       
-      setPartners(Array.from(uniquePartners.values()));
+      // 获取每个项目最高级别的合作商
+      const highestLevelPartners = new Map();
+      projectPartnersData.forEach(item => {
+        if (item.project_id && item.partners) {
+          const projectMaxLevel = projectMaxLevels.get(item.project_id);
+          if (item.level === projectMaxLevel) {
+            // 使用合作商ID作为key（确保每个合作商实体只显示一次）
+            if (!highestLevelPartners.has(item.partners.id)) {
+              highestLevelPartners.set(item.partners.id, {
+                id: item.partners.id,
+                name: item.partners.name,  // 使用简称
+                full_name: item.partners.full_name
+              });
+            }
+          }
+        }
+      });
+      
+      const partnersArray = Array.from(highestLevelPartners.values());
+      setPartners(partnersArray);
+      
     } catch (error) {
       console.error('加载合作商失败:', error);
       toast({
