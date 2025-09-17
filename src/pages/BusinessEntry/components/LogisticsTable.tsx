@@ -10,6 +10,8 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogisticsRecord, PaginationState } from '../types';
 import { RouteDisplay } from '@/components/RouteDisplay';
 import { TransportDocumentGenerator, generatePrintVersion } from '@/components/TransportDocumentGenerator';
+import { useAllFilteredRecords } from '../hooks/useAllFilteredRecords';
+import { LogisticsFilters } from '../hooks/useLogisticsData';
 
 interface LogisticsTableProps {
   records: LogisticsRecord[];
@@ -27,10 +29,13 @@ interface LogisticsTableProps {
   onBatchAction?: (selectedIds: string[], action: string) => void;
   isBatchMode?: boolean;
   onToggleBatchMode?: () => void;
+  activeFilters: LogisticsFilters; // 新增：当前活跃的筛选条件
 }
 
-export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, onPageSizeChange, billingTypes = {}, onBatchAction, isBatchMode = false, onToggleBatchMode }: LogisticsTableProps) => {
+export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, onPageSizeChange, billingTypes = {}, onBatchAction, isBatchMode = false, onToggleBatchMode, activeFilters }: LogisticsTableProps) => {
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
+  const [allFilteredRecordIds, setAllFilteredRecordIds] = useState<string[]>([]);
+  const { getAllFilteredRecordIds, loading: loadingAllRecords } = useAllFilteredRecords();
   
   const handlePageChange = (newPage: number) => {
     setPagination(p => ({ ...p, currentPage: newPage }));
@@ -47,11 +52,24 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
     setSelectedRecords(newSelected);
   };
 
-  const handleSelectAll = () => {
-    if (selectedRecords.size === records.length) {
+  const handleSelectAll = async () => {
+    // 如果还没有获取所有筛选记录，先获取
+    if (allFilteredRecordIds.length === 0) {
+      const result = await getAllFilteredRecordIds(activeFilters);
+      if (result) {
+        setAllFilteredRecordIds(result.recordIds);
+      }
+    }
+    
+    // 检查是否所有记录都已选择
+    const allSelected = allFilteredRecordIds.length > 0 && allFilteredRecordIds.every(id => selectedRecords.has(id));
+    
+    if (allSelected) {
+      // 取消选择所有记录
       setSelectedRecords(new Set());
     } else {
-      setSelectedRecords(new Set(records.map(r => r.id)));
+      // 选择所有筛选记录
+      setSelectedRecords(new Set(allFilteredRecordIds));
     }
   };
 
@@ -186,9 +204,19 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                 variant="outline"
                 size="sm"
                 onClick={handleSelectAll}
+                disabled={loadingAllRecords}
                 className="text-blue-600 border-blue-300"
               >
-                全部记录
+                {loadingAllRecords ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    加载中...
+                  </>
+                ) : (
+                  <>
+                    {allFilteredRecordIds.length > 0 && allFilteredRecordIds.every(id => selectedRecords.has(id)) ? '取消全部' : '全部记录'}
+                  </>
+                )}
               </Button>
             </div>
           </div>

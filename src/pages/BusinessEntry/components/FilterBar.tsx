@@ -165,8 +165,15 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
 
       if (error) throw error;
       
-      const projects = data?.map(item => item.projects).filter(Boolean) as Project[] || [];
-      setPartnerProjects(projects);
+      // 去重并格式化数据
+      const uniqueProjects = new Map();
+      data?.forEach(item => {
+        if (item.projects && !uniqueProjects.has(item.projects.id)) {
+          uniqueProjects.set(item.projects.id, item.projects);
+        }
+      });
+      
+      setPartnerProjects(Array.from(uniqueProjects.values()));
     } catch (error) {
       console.error('加载合作商项目失败:', error);
       setPartnerProjects([]);
