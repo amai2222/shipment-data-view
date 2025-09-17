@@ -1,5 +1,7 @@
--- 创建获取所有符合筛选条件的记录ID的函数
--- 用于支持真正的"全部记录"批量选择功能
+-- 修复后的get_all_filtered_record_ids函数
+-- 文件路径: scripts/fix-get-all-filtered-records-function.sql
+-- 描述: 修复created_at字段不存在的错误
+
 CREATE OR REPLACE FUNCTION public.get_all_filtered_record_ids(
     p_start_date text DEFAULT NULL,
     p_end_date text DEFAULT NULL,

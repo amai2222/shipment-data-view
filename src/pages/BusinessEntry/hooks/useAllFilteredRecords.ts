@@ -39,11 +39,11 @@ export function useAllFilteredRecords() {
       if (error) throw error;
 
       return data as AllFilteredRecordsResult;
-    } catch (error) {
+    } catch (error: any) {
       console.error('获取所有筛选记录失败:', error);
       toast({
         title: "错误",
-        description: "获取所有筛选记录失败",
+        description: `获取所有筛选记录失败: ${error.message || error}`,
         variant: "destructive"
       });
       return null;
