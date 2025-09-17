@@ -91,22 +91,11 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     closeBatchDialog();
   };
 
-  // 加载合作商列表（只加载最高级别合作商）
+  // 加载合作商列表（获取所有项目的最高级别合作商）
   const loadPartners = async () => {
     setLoadingPartners(true);
     try {
-      // 先获取每个合作商的最高级别
-      const { data: maxLevelData, error: maxLevelError } = await supabase
-        .from('project_partners')
-        .select('level')
-        .order('level', { ascending: false })
-        .limit(1);
-      
-      if (maxLevelError) throw maxLevelError;
-      
-      // 获取最高级别的值
-      const maxLevel = maxLevelData?.[0]?.level || 1;
-      
+      // 获取每个项目的最高级别合作商
       const { data, error } = await supabase
         .from('project_partners')
         .select(`
@@ -117,12 +106,11 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
             full_name
           )
         `)
-        .eq('level', maxLevel) // 只获取最高级别合作商
-        .order('partners(name)');
+        .order('level', { ascending: false }); // 按级别降序排列
       
       if (error) throw error;
       
-      // 去重并格式化数据
+      // 去重并格式化数据，只保留每个合作商的最高级别记录
       const uniquePartners = new Map();
       data?.forEach(item => {
         if (item.partners && !uniquePartners.has(item.partners.id)) {
