@@ -12,6 +12,7 @@ import { RouteDisplay } from '@/components/RouteDisplay';
 import { TransportDocumentGenerator, generatePrintVersion } from '@/components/TransportDocumentGenerator';
 import { useAllFilteredRecords } from '../hooks/useAllFilteredRecords';
 import { LogisticsFilters } from '../hooks/useLogisticsData';
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface LogisticsTableProps {
   records: LogisticsRecord[];
@@ -81,21 +82,17 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
     }
   };
 
-  const handleSelectCurrentPage = () => {
-    const currentPageRecords = records.map(r => r.id);
-    const allCurrentPageSelected = currentPageRecords.every(id => selectedRecords.has(id));
-    
-    if (allCurrentPageSelected) {
-      // 取消选择当前页所有记录
-      const newSelected = new Set(selectedRecords);
-      currentPageRecords.forEach(id => newSelected.delete(id));
-      setSelectedRecords(newSelected);
-    } else {
-      // 选择当前页所有记录
-      const newSelected = new Set(selectedRecords);
-      currentPageRecords.forEach(id => newSelected.add(id));
-      setSelectedRecords(newSelected);
-    }
+  const handleSelectPage = (select = true) => {
+    const currentPageIds = records.map(r => r.id);
+    setSelectedRecords(prev => {
+      const newSet = new Set(prev);
+      if (select) {
+        currentPageIds.forEach(id => newSet.add(id));
+      } else {
+        currentPageIds.forEach(id => newSet.delete(id));
+      }
+      return newSet;
+    });
   };
 
   const handleBatchAction = (action: string) => {
@@ -200,32 +197,34 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               已选择 {selectedRecords.size} 条记录
             </span>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSelectCurrentPage}
-                className="text-blue-600 border-blue-300"
-              >
-                {records.every(r => selectedRecords.has(r.id)) ? '取消当页' : '当页全选'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSelectAll}
-                disabled={loadingAllRecords}
-                className="text-blue-600 border-blue-300"
-              >
-                {loadingAllRecords ? (
-                  <>
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    加载中...
-                  </>
-                ) : (
-                  <>
-                    {allFilteredRecordIds.length > 0 && allFilteredRecordIds.every(id => selectedRecords.has(id)) ? '取消全部' : '全部记录'}
-                  </>
-                )}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-blue-600 border-blue-300">
+                    <CheckSquare className="h-3 w-3 mr-1" />
+                    选择操作
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onSelect={() => handleSelectPage(true)}>
+                    选择当前页 ({records.length})
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => handleSelectPage(false)}>
+                    取消选择当前页
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={handleSelectAll} disabled={loadingAllRecords}>
+                    {loadingAllRecords ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        加载中...
+                      </>
+                    ) : (
+                      <>
+                        选择所有 {allFilteredRecordIds.length > 0 ? allFilteredRecordIds.length : '筛选'} 条记录
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -257,19 +256,40 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
             <TableRow className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50">
               {isBatchMode && (
                 <TableHead className="min-w-[50px] bg-gradient-to-r from-slate-100 to-blue-100 border-r border-blue-200">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSelectCurrentPage}
-                    className="h-7 w-7 p-0 hover:bg-blue-100 rounded-md"
-                    title={records.every(r => selectedRecords.has(r.id)) ? '取消当页全选' : '当页全选'}
-                  >
-                    {records.every(r => selectedRecords.has(r.id)) ? (
-                      <CheckSquare className="h-3.5 w-3.5 text-blue-600" />
-                    ) : (
-                      <Square className="h-3.5 w-3.5 text-gray-500" />
-                    )}
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 hover:bg-blue-100 rounded-md"
+                      >
+                        <Checkbox 
+                          checked={records.length > 0 && records.every(r => selectedRecords.has(r.id))}
+                          className="h-3.5 w-3.5"
+                        />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onSelect={() => handleSelectPage(true)}>
+                        选择当前页 ({records.length})
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleSelectPage(false)}>
+                        取消选择当前页
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={handleSelectAll} disabled={loadingAllRecords}>
+                        {loadingAllRecords ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            加载中...
+                          </>
+                        ) : (
+                          <>
+                            选择所有 {allFilteredRecordIds.length > 0 ? allFilteredRecordIds.length : '筛选'} 条记录
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableHead>
               )}
               <SortableHeader field="auto_number" className="min-w-[120px] font-semibold text-slate-800 text-sm py-4">运单编号</SortableHeader>
