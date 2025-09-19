@@ -230,6 +230,76 @@
 - JSONB: 复杂数据结构
 - TEXT[]: 文本数组
 
+### 项目状态管理表
+- **`public.user_projects`** - 用户项目关联表
+  - `id` (UUID, PRIMARY KEY)
+  - `user_id` (UUID) - 用户ID
+  - `project_id` (UUID) - 项目ID
+  - `access_level` (TEXT) - 访问级别
+  - `created_at` (TIMESTAMPTZ)
+
+### 外部平台集成表
+- **`public.external_platforms`** - 外部平台表
+  - `id` (UUID, PRIMARY KEY)
+  - `name` (TEXT) - 平台名称
+  - `api_endpoint` (TEXT) - API端点
+  - `is_active` (BOOLEAN) - 是否启用
+  - `created_at` (TIMESTAMPTZ)
+
+### 银行信息表
+- **`public.partner_bank_details`** - 合作方银行详情表
+  - `id` (UUID, PRIMARY KEY)
+  - `partner_id` (UUID) - 合作方ID
+  - `bank_name` (TEXT) - 银行名称
+  - `account_number` (TEXT) - 账户号码
+  - `account_holder` (TEXT) - 账户持有人
+  - `created_at` (TIMESTAMPTZ)
+
+### 搜索保存表
+- **`public.saved_searches`** - 保存的搜索表
+  - `id` (UUID, PRIMARY KEY)
+  - `user_id` (UUID) - 用户ID
+  - `search_name` (TEXT) - 搜索名称
+  - `filters` (JSONB) - 筛选条件
+  - `created_at` (TIMESTAMPTZ)
+
+## 重要函数更新
+
+### 项目状态管理函数
+- **`public.handle_project_status_change()`** - 项目状态变更触发器函数
+- **`public.assign_project_to_all_users(p_project_id UUID)`** - 为所有用户分配项目权限
+
+### 数据导入函数
+- **`public.preview_import_with_duplicates_check(p_records jsonb)`** - 预览导入数据并检查重复
+- **`public.batch_import_logistics_records(p_records jsonb)`** - 批量导入运单记录
+- **`public.delete_waybills_by_project(p_project_name TEXT)`** - 按项目删除运单记录
+
+### 成本计算函数
+- **`public.recalculate_and_update_costs_for_records(record_ids UUID[])`** - 重新计算并更新指定记录的成本
+
+### 数据统计函数
+- **`public.get_dashboard_quick_stats(start_date DATE, end_date DATE, project_status_filter TEXT DEFAULT NULL)`** - 获取仪表板快速统计数据
+- **`public.get_dashboard_stats_with_billing_types(start_date DATE, end_date DATE, project_status_filter TEXT DEFAULT NULL)`** - 获取带计费类型的仪表板统计数据
+
+## 触发器
+
+### 项目状态变更触发器
+- **`project_status_change_trigger`** - 当项目状态变更为"进行中"时自动为所有用户分配访问权限
+
+## 自定义类型
+
+### 枚举类型
+- **`effective_quantity_type`** - 有效数量计算类型
+  - `min_value` - 取较小值
+  - `loading` - 取装货数量
+  - `unloading` - 取卸货数量
+
+- **`contract_category`** - 合同分类枚举
+- **`app_role`** - 应用角色枚举
+
 ## 更新记录
 - 2025-01-20: 初始版本，记录现有表结构
 - 2025-01-20: 添加导入模板相关表结构
+- 2025-01-27: 添加项目状态管理、外部平台集成、银行信息等新表结构
+- 2025-01-27: 更新函数列表，添加项目状态管理和数据统计函数
+- 2025-01-27: 添加触发器和自定义类型说明
