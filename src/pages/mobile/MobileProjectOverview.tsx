@@ -264,56 +264,104 @@ export default function MobileProjectOverview() {
       <div className="space-y-6 pb-6">
         {/* 页面头部 */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">项目看板</h1>
-              <p className="text-sm text-muted-foreground">
-                {format(new Date(), 'yyyy年MM月dd日', { locale: zhCN })}
-              </p>
+          {/* 现代化头部设计 */}
+          <div className="relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-blue-600 to-purple-600 opacity-10 rounded-2xl"></div>
+            <div className="relative p-6 bg-white/80 backdrop-blur-sm rounded-2xl border border-blue-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    项目看板
+                  </h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {format(new Date(), 'yyyy年MM月dd日 EEEE', { locale: zhCN })}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full border-blue-200 text-blue-600 hover:bg-blue-50"
+                    onClick={() => window.location.reload()}
+                  >
+                    <Activity className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={() => navigate('/m/projects/new')}
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-full shadow-lg"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    新建
+                  </Button>
+                </div>
+              </div>
             </div>
-            <Button 
-              size="sm" 
-              onClick={() => navigate('/m/projects/new')}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              新建
-            </Button>
           </div>
 
-          {/* 搜索和筛选 */}
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          {/* 现代化搜索和筛选 */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="搜索项目名称或负责人..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-white/80 backdrop-blur-sm border-gray-200"
+                className="pl-12 pr-4 py-3 bg-white/90 backdrop-blur-sm border-gray-200 rounded-2xl shadow-sm focus:shadow-md transition-all"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-24 bg-white/80 backdrop-blur-sm border-gray-200">
-                <Filter className="h-4 w-4" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部</SelectItem>
-                <SelectItem value="进行中">进行中</SelectItem>
-                <SelectItem value="已完成">已完成</SelectItem>
-                <SelectItem value="暂停">暂停</SelectItem>
-              </SelectContent>
-            </Select>
+            
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="bg-white/90 backdrop-blur-sm border-gray-200 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4 text-muted-foreground" />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="进行中">进行中</SelectItem>
+                    <SelectItem value="已完成">已完成</SelectItem>
+                    <SelectItem value="暂停">暂停</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex-1">
+                <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                  <SelectTrigger className="bg-white/90 backdrop-blur-sm border-gray-200 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">按名称</SelectItem>
+                    <SelectItem value="date">按日期</SelectItem>
+                    <SelectItem value="progress">按进度</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* 标签页 */}
+        {/* 现代化标签页 */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-100">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-2 bg-white/90 backdrop-blur-sm rounded-2xl p-1 shadow-sm border border-gray-100">
+            <TabsTrigger 
+              value="overview" 
+              className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white transition-all"
+            >
               <BarChart3 className="h-4 w-4" />
               总览
             </TabsTrigger>
-            <TabsTrigger value="projects" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="projects" 
+              className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white transition-all"
+            >
               <Briefcase className="h-4 w-4" />
               项目
             </TabsTrigger>
@@ -321,48 +369,55 @@ export default function MobileProjectOverview() {
 
           {/* 总览标签页 */}
           <TabsContent value="overview" className="space-y-4 mt-4">
-            {/* 核心指标卡片 */}
-            <div className="grid grid-cols-2 gap-3">
-              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-blue-600 font-medium">总项目</p>
-                      <p className="text-2xl font-bold text-blue-900">
-                        {overviewStats?.totalProjects || 0}
-                      </p>
-                      <p className="text-xs text-blue-600">
-                        进行中 {overviewStats?.activeProjects || 0}
-                      </p>
+            {/* 现代化指标卡片 */}
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="bg-gradient-to-br from-blue-50 via-blue-50 to-indigo-100 border-0 shadow-lg">
+                <CardContent className="p-5">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                        <Briefcase className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-blue-900">
+                          {overviewStats?.totalProjects || 0}
+                        </div>
+                        <div className="text-xs text-blue-600 font-medium">总项目</div>
+                      </div>
                     </div>
-                    <div className="h-12 w-12 bg-blue-500 rounded-full flex items-center justify-center">
-                      <Briefcase className="h-6 w-6 text-white" />
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-blue-700">
+                        进行中 {overviewStats?.activeProjects || 0} 个
+                      </span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-green-600 font-medium">今日运输</p>
-                      <p className="text-2xl font-bold text-green-900">
-                        {overviewStats?.todayRecords || 0}
-                      </p>
-                      <div className="flex items-center gap-1">
-                        {(overviewStats?.weeklyGrowth || 0) >= 0 ? (
-                          <TrendingUp className="h-3 w-3 text-green-600" />
-                        ) : (
-                          <TrendingDown className="h-3 w-3 text-red-600" />
-                        )}
-                        <p className="text-xs text-green-600">
-                          {Math.abs(overviewStats?.weeklyGrowth || 0).toFixed(1)}%
-                        </p>
+              <Card className="bg-gradient-to-br from-green-50 via-green-50 to-emerald-100 border-0 shadow-lg">
+                <CardContent className="p-5">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="h-12 w-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                        <Activity className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-green-900">
+                          {overviewStats?.todayRecords || 0}
+                        </div>
+                        <div className="text-xs text-green-600 font-medium">今日运输</div>
                       </div>
                     </div>
-                    <div className="h-12 w-12 bg-green-500 rounded-full flex items-center justify-center">
-                      <Activity className="h-6 w-6 text-white" />
+                    <div className="flex items-center gap-2">
+                      {(overviewStats?.weeklyGrowth || 0) >= 0 ? (
+                        <TrendingUp className="h-3 w-3 text-green-600" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3 text-red-600" />
+                      )}
+                      <span className="text-xs text-green-700">
+                        周增长 {Math.abs(overviewStats?.weeklyGrowth || 0).toFixed(1)}%
+                      </span>
                     </div>
                   </div>
                 </CardContent>

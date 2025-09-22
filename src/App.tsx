@@ -65,6 +65,7 @@ import MobilePaymentRequestsManagement from "./pages/mobile/MobilePaymentRequest
 import MobileContractManagement from "./pages/mobile/MobileContractManagement";
 import MobileProjectOverview from "./pages/mobile/MobileProjectOverview";
 import MobileProjectDetail from "./pages/mobile/MobileProjectDetail";
+import MobileHomeNew from "./pages/mobile/MobileHomeNew";
 
 const queryClient = new QueryClient();
 
@@ -251,7 +252,7 @@ const App = () => (
             {/* --- 移动端路由 --- */}
             <Route path="/m/" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
-                <MobileLayout><MobileHome /></MobileLayout>
+                <MobileHomeNew />
               </ProtectedRoute>
             } />
             
