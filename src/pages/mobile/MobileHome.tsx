@@ -52,7 +52,7 @@ const quickActions = [
     title: '项目看板',
     description: '查看项目概览',
     icon: BarChart3,
-    href: '/m/dashboard/project',
+    href: '/m/projects',
     color: 'bg-purple-500'
   },
   {

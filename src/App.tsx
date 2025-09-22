@@ -63,6 +63,8 @@ import MobilePaymentRequestsList from "./pages/mobile/MobilePaymentRequestsList"
 import MobilePermissionManagement from "./pages/mobile/MobilePermissionManagement";
 import MobilePaymentRequestsManagement from "./pages/mobile/MobilePaymentRequestsManagement";
 import MobileContractManagement from "./pages/mobile/MobileContractManagement";
+import MobileProjectOverview from "./pages/mobile/MobileProjectOverview";
+import MobileProjectDetail from "./pages/mobile/MobileProjectDetail";
 
 const queryClient = new QueryClient();
 
@@ -291,7 +293,13 @@ const App = () => (
 
             <Route path="/m/projects" element={
               <ProtectedRoute requiredRoles={['admin', 'business']}>
-                <MobileLayout><Projects /></MobileLayout>
+                <MobileProjectOverview />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/projects/detail/:projectId" element={
+              <ProtectedRoute requiredRoles={['admin', 'business', 'viewer']}>
+                <MobileProjectDetail />
               </ProtectedRoute>
             } />
 
