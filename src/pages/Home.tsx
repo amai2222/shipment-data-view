@@ -462,7 +462,7 @@ export default function Home() {
                       tick={{ fontSize: 12 }}
                     />
                     <YAxis 
-                      tickFormatter={(val) => `¥${Number(val).toLocaleString()}`}
+                      tickFormatter={(val) => `¥${Number(val || 0).toLocaleString()}`}
                       tick={{ fontSize: 12 }}
                     />
                     <Tooltip 

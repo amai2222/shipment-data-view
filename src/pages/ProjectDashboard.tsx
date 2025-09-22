@@ -244,7 +244,7 @@ export default function ProjectDashboard() {
                     <YAxis yAxisId="left-weight" orientation="left" stroke="#0d9488" label={{ value: unitConfig.unit, angle: -90, position: 'insideLeft', fill: '#0d9488' }} />
                     <YAxis yAxisId="middle-trips" orientation="left" stroke="#4338ca" label={{ value: '车次', angle: -90, position: 'insideLeft', offset: -20, fill: '#4338ca' }} />
                     <YAxis yAxisId="right-cost" orientation="right" stroke="#f59e0b" label={{ value: '元', angle: -90, position: 'insideRight', fill: '#f59e0b' }} />
-                    <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} ${name === '车次' ? '车' : name === '数量' ? unitConfig.unit : '元'}`, name]} />
+                    <Tooltip formatter={(value: number, name: string) => [`${(value || 0).toLocaleString()} ${name === '车次' ? '车' : name === '数量' ? unitConfig.unit : '元'}`, name]} />
                     <Legend 
                       onClick={(e: any) => handleLegendClick(e.dataKey as string)} 
                       formatter={(value, entry: any) => {

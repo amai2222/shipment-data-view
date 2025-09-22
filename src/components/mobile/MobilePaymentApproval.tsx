@@ -189,7 +189,7 @@ export function MobilePaymentApproval({
               <div className="flex justify-between items-start">
                 <span className="text-sm text-muted-foreground">付款金额</span>
                 <span className="text-lg font-bold text-green-600">
-                  ¥{amount.toLocaleString()}
+                  ¥{(amount || 0).toLocaleString()}
                 </span>
               </div>
               <div className="space-y-2">

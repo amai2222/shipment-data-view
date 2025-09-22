@@ -131,9 +131,9 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
     const loading = record.loading_weight || 0;
     const unloading = record.unloading_weight || 0;
     switch (billingTypeId) {
-      case 1: return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 吨`;
+      case 1: return `${(loading || 0).toFixed(2)} / ${(unloading || 0).toFixed(2)} 吨`;
       case 2: return `1 车`;
-      case 3: return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 立方`;
+      case 3: return `${(loading || 0).toFixed(2)} / ${(unloading || 0).toFixed(2)} 立方`;
       default: return '-';
     }
   };

@@ -272,7 +272,7 @@ export default function MobileProjectDashboard() {
     borderRadius: '6px'
   }), []);
   const tooltipFormatter = useCallback((value: number, name: string) => [
-    `${Number(value).toLocaleString()} ${
+    `${Number(value || 0).toLocaleString()} ${
       name === '车次' ? '车' : name === '数量' ? unitConfig.unit : '元'
     }`,
     name
@@ -531,7 +531,7 @@ export default function MobileProjectDashboard() {
                         orientation="right"
                         tick={{ fontSize: 10 }}
                         stroke="#94a3b8"
-                        tickFormatter={(v) => `¥${Number(v).toLocaleString()}`}
+                        tickFormatter={(v) => `¥${Number(v || 0).toLocaleString()}`}
                       />
                     )}
                     <Tooltip formatter={tooltipFormatter} contentStyle={tooltipStyle} />

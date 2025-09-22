@@ -247,7 +247,7 @@ export function MobileContractDetail({ contract, onBack, onEdit }: MobileContrac
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">合同金额</label>
                   <p className="font-semibold text-sm">
-                    {contract.contract_amount ? `¥${contract.contract_amount.toLocaleString()}` : '-'}
+                    {contract.contract_amount ? `¥${(contract.contract_amount || 0).toLocaleString()}` : '-'}
                   </p>
                 </div>
               </div>

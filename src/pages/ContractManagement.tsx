@@ -922,7 +922,7 @@ export default function ContractManagement() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {contract.contract_amount ? `¥${contract.contract_amount.toLocaleString()}` : '-'}
+                      {contract.contract_amount ? `¥${(contract.contract_amount || 0).toLocaleString()}` : '-'}
                     </TableCell>
                     <TableCell>
                       <Badge variant={

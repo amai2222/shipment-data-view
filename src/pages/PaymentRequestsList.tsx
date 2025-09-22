@@ -379,7 +379,7 @@ export default function PaymentRequestsList() {
                   <div key={pt.partner_id} className="flex justify-between items-baseline">
                     <span className="text-sm text-muted-foreground">{pt.partner_name}:</span>
                     <span className="font-mono font-semibold text-primary">
-                      {pt.total_amount.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                      {(pt.total_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
                     </span>
                   </div>
                 ))}
@@ -416,7 +416,7 @@ export default function PaymentRequestsList() {
                         <TableCell>{format(new Date(rec.loading_date), 'yyyy-MM-dd')}</TableCell>
                         <TableCell className="text-right">{rec.loading_weight ?? 'N/A'}</TableCell>
                         <TableCell className="text-right font-mono text-primary">
-                          {rec.payable_amount?.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' }) ?? 'N/A'}
+                          {(rec.payable_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
                         </TableCell>
                       </TableRow>
                     ))

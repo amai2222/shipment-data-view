@@ -254,21 +254,28 @@ export default function MobileProjectDashboardDetail() {
     }
   }, [dashboardData?.driver_report_table, driverSortBy]);
 
+  // 使用安全的格式化函数
   const formatNumber = (num: number | undefined | null) => {
-    if (!num && num !== 0) return '0';
-    if (num >= 10000) return `${(num / 10000).toFixed(1)}万`;
-    return num.toLocaleString();
+    if (num === null || num === undefined || isNaN(Number(num))) return '0';
+    const numValue = Number(num);
+    if (!isFinite(numValue)) return '0';
+    if (numValue >= 10000) return `${(numValue / 10000).toFixed(1)}万`;
+    return numValue.toLocaleString();
   };
 
   const formatWeight = (weight: number | undefined | null) => {
-    if (!weight && weight !== 0) return '0吨';
-    if (weight >= 1000) return `${(weight / 1000).toFixed(1)}K吨`;
-    return `${weight.toFixed(1)}吨`;
+    if (weight === null || weight === undefined || isNaN(Number(weight))) return '0吨';
+    const weightValue = Number(weight);
+    if (!isFinite(weightValue)) return '0吨';
+    if (weightValue >= 1000) return `${(weightValue / 1000).toFixed(1)}K吨`;
+    return `${weightValue.toFixed(1)}吨`;
   };
 
   const formatAmount = (amount: number | undefined | null) => {
-    if (!amount && amount !== 0) return '¥0';
-    return `¥${formatNumber(amount)}`;
+    if (amount === null || amount === undefined || isNaN(Number(amount))) return '¥0';
+    const amountValue = Number(amount);
+    if (!isFinite(amountValue)) return '¥0';
+    return `¥${formatNumber(amountValue)}`;
   };
 
   const toggleLineVisibility = (line: keyof typeof visibleLines) => {

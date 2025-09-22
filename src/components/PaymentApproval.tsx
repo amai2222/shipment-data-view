@@ -246,7 +246,7 @@ export function PaymentApproval({
               <div className="flex justify-between">
                 <span className="text-sm font-medium">付款金额:</span>
                 <span className="text-sm font-semibold text-green-600">
-                  ¥{amount.toLocaleString()}
+                  ¥{(amount || 0).toLocaleString()}
                 </span>
               </div>
               <div className="space-y-1">

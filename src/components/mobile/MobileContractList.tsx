@@ -302,7 +302,7 @@ export function MobileContractList({ onContractSelect, onSearch }: MobileContrac
                   <div className="flex items-center space-x-2">
                     <DollarSign className="h-4 w-4 text-green-600" />
                     <span className="text-sm font-medium">
-                      {contract.contract_amount ? `¥${contract.contract_amount.toLocaleString()}` : '未设置'}
+                      {contract.contract_amount ? `¥${(contract.contract_amount || 0).toLocaleString()}` : '未设置'}
                     </span>
                   </div>
                   <Badge variant={getPriorityBadgeVariant(contract.priority)}>

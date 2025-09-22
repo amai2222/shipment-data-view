@@ -215,7 +215,7 @@ export default function MobilePaymentRequestsList() {
   }, [toast]);
 
   const formatCurrency = (value: number) => 
-    value.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' });
+    (value || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' });
 
   const handleApprovalClick = (req: PaymentRequest) => {
     setShowApprovalPage(req);

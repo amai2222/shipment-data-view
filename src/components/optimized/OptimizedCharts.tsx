@@ -67,7 +67,7 @@ export const OptimizedLineChart = memo<OptimizedLineChartProps>(({
   // 缓存工具提示格式化函数
   const tooltipFormatter = useMemo(() => 
     (value: number, name: string) => [
-      `${value.toLocaleString()} ${
+      `${(value || 0).toLocaleString()} ${
         name === '车次' ? '车' : 
         name === '数量' ? unitConfig.unit : '元'
       }`,
@@ -293,7 +293,7 @@ export const OptimizedSimpleLineChart = memo<OptimizedSimpleLineChartProps>(({
 
   // 缓存工具提示格式化函数
   const tooltipFormatter = useMemo(() => 
-    (value: number) => [value.toLocaleString(), name],
+    (value: number) => [(value || 0).toLocaleString(), name],
     [name]
   );
 
