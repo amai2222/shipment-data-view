@@ -47,7 +47,9 @@ export default function WaybillMaintenance() {
     importLogRef, 
     handleExcelImport, 
     executeFinalImport, 
-    closeImportModal
+    closeImportModal,
+    approvedDuplicates,
+    setApprovedDuplicates
   } = useExcelImportWithUpdate(() => { 
     loadWaybillCount(); 
   });
