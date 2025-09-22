@@ -17,6 +17,9 @@ interface UpdateModeImportDialogProps {
   importLogs: string[];
   importLogRef: React.RefObject<HTMLDivElement>;
   onExecuteImport: () => void;
+  // 新增：被勾选的重复记录索引集合与设置器
+  approvedDuplicates: Set<number>;
+  setApprovedDuplicates: (value: Set<number>) => void;
 }
 
 export function UpdateModeImportDialog({ 
@@ -28,8 +31,25 @@ export function UpdateModeImportDialog({
   setImportMode,
   importLogs, 
   importLogRef, 
-  onExecuteImport 
+  onExecuteImport,
+  approvedDuplicates,
+  setApprovedDuplicates
 }: UpdateModeImportDialogProps) {
+  const toggleDuplicate = (index: number) => {
+    const next = new Set(approvedDuplicates);
+    if (next.has(index)) next.delete(index); else next.add(index);
+    setApprovedDuplicates(next);
+  };
+
+  const toggleAllDuplicates = (checked: boolean) => {
+    if (!importPreview) return;
+    if (checked) {
+      setApprovedDuplicates(new Set(importPreview.update_records.map((_, i) => i)));
+    } else {
+      setApprovedDuplicates(new Set());
+    }
+  };
+
   
   if (!isOpen) return null;
 
@@ -134,12 +154,27 @@ export function UpdateModeImportDialog({
                 )}
               </div>
 
-              {/* 重复记录详情 */}
+              {/* 重复记录详情（支持逐条勾选） */}
               {importPreview.update_records.length > 0 && (
                 <div className="p-4 border border-yellow-300 rounded-md bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-600">
                   <h4 className="font-semibold text-lg text-yellow-800 dark:text-yellow-300 mb-4">
                     重复记录详情
                   </h4>
+                  <div className="flex items-center justify-between mb-2 text-sm">
+                    <div>
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={approvedDuplicates.size === importPreview.update_records.length}
+                          onChange={(e) => toggleAllDuplicates(e.currentTarget.checked)}
+                        />
+                        <span>全选重复记录</span>
+                      </label>
+                    </div>
+                    <div className="text-muted-foreground">
+                      已选择 {approvedDuplicates.size} / {importPreview.update_records.length}
+                    </div>
+                  </div>
                   <div className="max-h-64 overflow-y-auto space-y-2">
                     {importPreview.update_records.map((item, index) => (
                       <div key={index} className="p-3 bg-white dark:bg-gray-800 rounded border border-yellow-200 dark:border-yellow-700">
@@ -154,8 +189,20 @@ export function UpdateModeImportDialog({
                         <div className="text-xs text-muted-foreground mb-2">
                           {item.record.loading_location} → {item.record.unloading_location} | {item.record.loading_date} | {item.record.loading_weight || 'N/A'}吨
                         </div>
-                        <div className="text-xs text-yellow-700 dark:text-yellow-300">
-                          处理方式: {importMode === 'create' ? '创建新记录' : '更新现有记录'}
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-yellow-700 dark:text-yellow-300">
+                            处理方式: {importMode === 'create' ? '已跳过(创建模式不导入重复)' : (approvedDuplicates.has(index) ? '更新现有记录' : '跳过此记录')}
+                          </div>
+                          {importMode === 'update' && (
+                            <label className="inline-flex items-center gap-2 text-xs">
+                              <input
+                                type="checkbox"
+                                checked={approvedDuplicates.has(index)}
+                                onChange={() => toggleDuplicate(index)}
+                              />
+                              <span>勾选以更新</span>
+                            </label>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -193,8 +240,8 @@ export function UpdateModeImportDialog({
                     <span className="font-medium">{importPreview.new_records.length + importPreview.update_records.length} 条记录</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>·{importMode === 'create' ? '创建新记录' : '更新现有记录'}:</span>
-                    <span className="font-medium text-red-600">{importPreview.update_records.length}条</span>
+                    <span>·{importMode === 'create' ? '创建新记录(跳过重复)' : '更新现有记录(勾选)'}:</span>
+                    <span className="font-medium text-red-600">{importMode === 'update' ? approvedDuplicates.size : 0}条</span>
                   </div>
                   <div className="flex justify-between">
                     <span>·新记录:</span>

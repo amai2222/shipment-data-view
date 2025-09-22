@@ -379,6 +379,8 @@ export default function WaybillMaintenance() {
           importLogs={importLogs}
           importLogRef={importLogRef}
           onExecuteImport={executeFinalImport}
+          approvedDuplicates={approvedDuplicates}
+          setApprovedDuplicates={setApprovedDuplicates}
         />
     </div>
   );

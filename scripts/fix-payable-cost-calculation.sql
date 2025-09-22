@@ -91,7 +91,7 @@ BEGIN
             LIMIT 1;
 
             IF driver_id_val IS NULL THEN
-                INSERT INTO public.drivers (name, license_plate, phone, created_by_user_id)
+                INSERT INTO public.drivers (name, license_plate, phone, user_id)
                 VALUES (
                     TRIM(record_data->>'driver_name'),
                     TRIM(record_data->>'license_plate'),

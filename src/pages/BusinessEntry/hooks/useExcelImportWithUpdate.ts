@@ -38,6 +38,8 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
   const [importMode, setImportMode] = useState<'create' | 'update'>('create');
   const [importLogs, setImportLogs] = useState<string[]>([]);
   const importLogRef = useRef<HTMLDivElement>(null);
+  // 勾选要更新的重复记录（按预览列表索引）
+  const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
 
   const closeImportModal = useCallback(() => {
     setIsImportModalOpen(false);
@@ -46,6 +48,7 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
     setImportPreview(null);
     setImportMode('create');
     setImportLogs([]);
+    setApprovedDuplicates(new Set());
   }, []);
 
   const getImportPreview = async (validRows: any[]) => {
@@ -59,6 +62,8 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
       if (error) throw error;
 
       setImportPreview(data);
+      // 预览生成后，默认不勾选任何重复记录
+      setApprovedDuplicates(new Set());
       setImportStep('confirmation');
     } catch (error: any) {
       console.error('获取导入预览失败:', error);
@@ -193,8 +198,14 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
     ]);
 
     const recordsToImport = [
+      // 新记录始终导入
       ...importPreview.new_records.map(item => item.record),
-      ...importPreview.update_records.map(item => item.record)
+      // 仅在更新模式下导入"被勾选"的重复记录（作为更新）
+      ...(importMode === 'update'
+        ? importPreview.update_records
+            .filter((_, index) => approvedDuplicates.has(index))
+            .map(item => item.record)
+        : [])
     ];
 
     if (recordsToImport.length === 0) {
@@ -204,8 +215,9 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
     }
 
     addLog(`准备导入 ${recordsToImport.length} 条记录...`);
-    addLog(`其中新记录 ${importPreview.new_records.length} 条，更新记录 ${importPreview.update_records.length} 条`);
-    addLog(`导入模式: ${importMode === 'create' ? '创建新记录' : '更新现有记录'}`);
+    addLog(`导入模式: ${importMode === 'create' ? '创建新记录(跳过重复)' : '更新现有记录(仅勾选的重复)'}`);
+    addLog(`其中新记录 ${importPreview.new_records.length} 条，`
+      + `${importMode === 'update' ? `将更新重复记录 ${approvedDuplicates.size} 条` : '重复记录已跳过'}`);
 
     try {
       const { data: result, error } = await supabase.rpc('batch_import_logistics_records_with_update', { 
@@ -291,6 +303,8 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
     setImportMode,
     importLogs,
     importLogRef,
+    approvedDuplicates,
+    setApprovedDuplicates,
     handleExcelImport,
     executeFinalImport,
     closeImportModal,
