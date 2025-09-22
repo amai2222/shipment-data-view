@@ -19,6 +19,9 @@ import { ContractAdvancedSearch } from '@/components/contracts/ContractAdvancedS
 import { ContractReminderSystem } from '@/components/contracts/ContractReminderSystem';
 import { ContractAuditLogs } from '@/components/contracts/ContractAuditLogs';
 import { ContractAdvancedPermissions } from '@/components/contracts/ContractAdvancedPermissions';
+import { ContractDashboard } from '@/components/contracts/ContractDashboard';
+import { ContractWorkflow } from '@/components/contracts/ContractWorkflow';
+import { ContractReports } from '@/components/contracts/ContractReports';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useFilterState } from '@/hooks/useFilterState';
@@ -103,7 +106,7 @@ export default function ContractManagement() {
   const [fileViewerOpen, setFileViewerOpen] = useState(false);
   const [currentFileUrl, setCurrentFileUrl] = useState('');
   const [currentFileName, setCurrentFileName] = useState('');
-  const [activeTab, setActiveTab] = useState<'contracts' | 'numbering' | 'tags' | 'permissions' | 'files' | 'reminders' | 'audit' | 'advanced-permissions'>('contracts');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'contracts' | 'workflow' | 'reports' | 'numbering' | 'tags' | 'permissions' | 'files' | 'reminders' | 'audit' | 'advanced-permissions'>('dashboard');
   const [advancedFilters, setAdvancedFilters] = useState<any>(null);
   const [formData, setFormData] = useState<ContractFormData>({
     category: '业务合同',
@@ -497,13 +500,34 @@ export default function ContractManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">合同管理</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant={activeTab === 'dashboard' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            仪表盘
+          </Button>
           <Button
             variant={activeTab === 'contracts' ? 'default' : 'outline'}
             onClick={() => setActiveTab('contracts')}
           >
             <FileText className="h-4 w-4 mr-2" />
             合同列表
+          </Button>
+          <Button
+            variant={activeTab === 'workflow' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('workflow')}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            工作流
+          </Button>
+          <Button
+            variant={activeTab === 'reports' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('reports')}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            统计报表
           </Button>
           <Button
             variant={activeTab === 'numbering' ? 'default' : 'outline'}
@@ -556,6 +580,18 @@ export default function ContractManagement() {
           </Button>
         </div>
       </div>
+
+      {activeTab === 'dashboard' && (
+        <ContractDashboard />
+      )}
+
+      {activeTab === 'workflow' && (
+        <ContractWorkflow />
+      )}
+
+      {activeTab === 'reports' && (
+        <ContractReports />
+      )}
 
       {activeTab === 'contracts' && (
         <>

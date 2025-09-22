@@ -7,9 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { MobileContractList } from '@/components/mobile/MobileContractList';
 import { MobileContractDetail } from '@/components/mobile/MobileContractDetail';
+import { MobileContractDashboard } from '@/components/mobile/MobileContractDashboard';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Plus, FileText, Calendar, Building, DollarSign, List, Eye, ArrowLeft } from 'lucide-react';
+import { Upload, Plus, FileText, Calendar, Building, DollarSign, List, Eye, ArrowLeft, BarChart3 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { format } from 'date-fns';
 
@@ -56,10 +58,10 @@ interface ContractFormData {
   is_confidential: boolean;
 }
 
-type ViewMode = 'list' | 'detail' | 'form';
+type ViewMode = 'dashboard' | 'list' | 'detail' | 'form';
 
 export default function MobileContractManagement() {
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState<ContractFormData>({
@@ -300,11 +302,27 @@ export default function MobileContractManagement() {
         );
       default:
         return (
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold">合同管理</h1>
-            <Button size="sm" onClick={() => setViewMode('form')}>
-              <Plus className="h-4 w-4" />
-            </Button>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl font-bold">合同管理</h1>
+              <Button size="sm" onClick={() => setViewMode('form')}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* 标签页导航 */}
+            <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  仪表盘
+                </TabsTrigger>
+                <TabsTrigger value="list" className="flex items-center gap-2">
+                  <List className="h-4 w-4" />
+                  合同列表
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         );
     }
@@ -312,6 +330,8 @@ export default function MobileContractManagement() {
 
   const renderContent = () => {
     switch (viewMode) {
+      case 'dashboard':
+        return <MobileContractDashboard />;
       case 'detail':
         return selectedContract ? (
           <MobileContractDetail
