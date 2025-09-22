@@ -308,12 +308,12 @@ export default function MobileProjects() {
             return (
               <MobileCard
                 key={project.id}
-                onClick={() => navigate(`/m/project/${project.id}`)}
+                onClick={() => navigate(`/m/projects/detail/${project.id}`)}
                 badge={{
                   text: project.project_status,
                   className: getStatusColor(project.project_status)
                 }}
-                onView={() => navigate(`/m/project/${project.id}`)}
+                onView={() => navigate(`/m/projects/detail/${project.id}`)}
                 onEdit={isAdmin ? () => navigate(`/m/projects/edit/${project.id}`) : undefined}
                 onDelete={isAdmin ? () => handleDelete(project.id) : undefined}
               >

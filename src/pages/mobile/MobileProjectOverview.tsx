@@ -236,12 +236,14 @@ export default function MobileProjectOverview() {
     return filtered;
   }, [projects, searchQuery, statusFilter, sortBy]);
 
-  const formatNumber = (num: number) => {
+  const formatNumber = (num: number | undefined | null) => {
+    if (!num && num !== 0) return '0';
     if (num >= 10000) return `${(num / 10000).toFixed(1)}万`;
     return num.toLocaleString();
   };
 
-  const formatWeight = (weight: number) => {
+  const formatWeight = (weight: number | undefined | null) => {
+    if (!weight && weight !== 0) return '0吨';
     if (weight >= 1000) return `${(weight / 1000).toFixed(1)}K吨`;
     return `${weight.toFixed(1)}吨`;
   };

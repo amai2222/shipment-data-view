@@ -231,12 +231,14 @@ export default function MobileProjectDetail() {
     enabled: !!projectId && !!project,
   });
 
-  const formatNumber = (num: number) => {
+  const formatNumber = (num: number | undefined | null) => {
+    if (!num && num !== 0) return '0';
     if (num >= 10000) return `${(num / 10000).toFixed(1)}万`;
     return num.toLocaleString();
   };
 
-  const formatWeight = (weight: number) => {
+  const formatWeight = (weight: number | undefined | null) => {
+    if (!weight && weight !== 0) return '0吨';
     if (weight >= 1000) return `${(weight / 1000).toFixed(1)}K吨`;
     return `${weight.toFixed(1)}吨`;
   };
@@ -775,14 +777,14 @@ export default function MobileProjectDetail() {
         <div className="grid grid-cols-2 gap-3 pt-4">
           <Button 
             variant="outline" 
-            onClick={() => navigate(`/m/project/${projectId}/records`)}
+            onClick={() => navigate(`/m/projects/detail/${projectId}/records`)}
             className="flex items-center gap-2"
           >
             <FileText className="h-4 w-4" />
             查看运单
           </Button>
           <Button 
-            onClick={() => navigate(`/m/project/${projectId}/dashboard`)}
+            onClick={() => navigate(`/m/projects/detail/${projectId}/dashboard`)}
             className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
           >
             <BarChart3 className="h-4 w-4" />

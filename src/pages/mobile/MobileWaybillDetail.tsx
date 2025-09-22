@@ -115,12 +115,12 @@ export default function MobileWaybillDetail() {
   });
 
   const formatAmount = (amount: number | undefined | null) => {
-    if (!amount) return '¥0';
+    if (!amount && amount !== 0) return '¥0';
     return `¥${amount.toLocaleString()}`;
   };
 
   const formatWeight = (weight: number | undefined | null) => {
-    if (!weight) return '0吨';
+    if (!weight && weight !== 0) return '0吨';
     return `${weight.toFixed(1)}吨`;
   };
 

@@ -283,11 +283,6 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-            <Route path="/m/project/:projectId" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
-                <MobileProjectDashboard />
-              </ProtectedRoute>
-            } />
 
             <Route path="/m/dashboard/financial" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'viewer']}>
@@ -307,13 +302,13 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-            <Route path="/m/project/:projectId/records" element={
+            <Route path="/m/projects/detail/:projectId/records" element={
               <ProtectedRoute requiredRoles={['admin', 'business', 'viewer']}>
                 <MobileProjectRecords />
               </ProtectedRoute>
             } />
 
-            <Route path="/m/project/:projectId/dashboard" element={
+            <Route path="/m/projects/detail/:projectId/dashboard" element={
               <ProtectedRoute requiredRoles={['admin', 'business', 'viewer']}>
                 <MobileProjectDashboardDetail />
               </ProtectedRoute>

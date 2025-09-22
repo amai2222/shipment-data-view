@@ -80,27 +80,37 @@ interface DailyReport {
   date: string; 
 }
 
-interface DriverReport {
+interface TrendData {
+  date: string;
+  trip_count: number;
+  total_tonnage: number;
+  daily_receivable_amount: number;
+}
+
+interface SummaryStats {
+  total_trips: number;
+  total_tonnage: number;
+  total_cost: number;
+  avg_cost: number;
+}
+
+interface DriverReportRow {
   driver_name: string;
   license_plate: string;
+  phone: string;
   daily_trip_count: number;
-  daily_tonnage: number;
   total_trip_count: number;
   total_tonnage: number;
-  total_receivable_amount: number;
+  total_driver_receivable: number;
+  total_partner_payable: number;
 }
 
 interface DashboardData {
   project_details: ProjectDetails[];
-  daily_reports: DailyReport[];
-  driver_reports: DriverReport[];
-  summary: {
-    total_trips: number;
-    total_tonnage: number;
-    total_amount: number;
-    completion_rate: number;
-    active_drivers: number;
-  };
+  daily_report: DailyReport;
+  seven_day_trend: TrendData[];
+  summary_stats: SummaryStats;
+  driver_report_table: DriverReportRow[];
 }
 
 const billingTypeConfig = {
@@ -182,7 +192,7 @@ export default function MobileProjectDashboardDetail() {
     refetchOnWindowFocus: false,
   });
 
-  // 计算数据
+  // 计算数据 - 对标桌面端逻辑
   const selectedProject = useMemo(() => {
     return dashboardData?.project_details?.find(p => p.id === projectId);
   }, [dashboardData, projectId]);
@@ -192,45 +202,72 @@ export default function MobileProjectDashboardDetail() {
     return billingTypeConfig[selectedProject.billing_type_id as keyof typeof billingTypeConfig] || billingTypeConfig[1];
   }, [selectedProject]);
 
-  const chartData = useMemo(() => {
-    if (!dashboardData?.daily_reports) return [];
+  const unitConfig = useMemo(() => {
+    const defaultConfig = { billingTypeId: 1, unit: '吨', progressCompleted: 0, progressPlanned: 1 };
+    if (!selectedProject || !dashboardData) return defaultConfig;
     
-    return dashboardData.daily_reports.map(report => ({
-      date: format(new Date(report.date), 'MM/dd'),
-      weight: report.total_tonnage,
-      trips: report.trip_count,
-      amount: report.daily_receivable_amount
+    const { billing_type_id, planned_total_tons } = selectedProject;
+    const { summary_stats } = dashboardData;
+    const typeId = parseInt(billing_type_id as any, 10);
+    
+    let unitText = '吨';
+    if (typeId === 2) unitText = '车';
+    if (typeId === 3) unitText = '立方';
+    
+    return {
+      billingTypeId: typeId,
+      unit: unitText,
+      progressCompleted: typeId === 2 ? summary_stats?.total_trips || 0 : summary_stats?.total_tonnage || 0,
+      progressPlanned: planned_total_tons || 1,
+    };
+  }, [selectedProject, dashboardData]);
+
+  const progressPercentage = useMemo(() => {
+    return (unitConfig.progressPlanned > 0) ? (unitConfig.progressCompleted / unitConfig.progressPlanned) * 100 : 0;
+  }, [unitConfig]);
+
+  const chartData = useMemo(() => {
+    if (!dashboardData?.seven_day_trend) return [];
+    
+    return dashboardData.seven_day_trend.map(trend => ({
+      date: format(new Date(trend.date), 'MM/dd'),
+      weight: trend.total_tonnage,
+      trips: trend.trip_count,
+      amount: trend.daily_receivable_amount
     }));
   }, [dashboardData]);
 
   const sortedDrivers = useMemo(() => {
-    if (!dashboardData?.driver_reports) return [];
+    if (!dashboardData?.driver_report_table) return [];
     
-    const drivers = [...dashboardData.driver_reports];
+    const drivers = [...dashboardData.driver_report_table];
     
     switch (driverSortBy) {
       case 'daily':
-        return drivers.sort((a, b) => b.daily_tonnage - a.daily_tonnage);
+        return drivers.sort((a, b) => b.daily_trip_count - a.daily_trip_count);
       case 'total':
         return drivers.sort((a, b) => b.total_tonnage - a.total_tonnage);
       case 'amount':
-        return drivers.sort((a, b) => b.total_receivable_amount - a.total_receivable_amount);
+        return drivers.sort((a, b) => b.total_driver_receivable - a.total_driver_receivable);
       default:
         return drivers;
     }
-  }, [dashboardData?.driver_reports, driverSortBy]);
+  }, [dashboardData?.driver_report_table, driverSortBy]);
 
-  const formatNumber = (num: number) => {
+  const formatNumber = (num: number | undefined | null) => {
+    if (!num && num !== 0) return '0';
     if (num >= 10000) return `${(num / 10000).toFixed(1)}万`;
     return num.toLocaleString();
   };
 
-  const formatWeight = (weight: number) => {
+  const formatWeight = (weight: number | undefined | null) => {
+    if (!weight && weight !== 0) return '0吨';
     if (weight >= 1000) return `${(weight / 1000).toFixed(1)}K吨`;
     return `${weight.toFixed(1)}吨`;
   };
 
-  const formatAmount = (amount: number) => {
+  const formatAmount = (amount: number | undefined | null) => {
+    if (!amount && amount !== 0) return '¥0';
     return `¥${formatNumber(amount)}`;
   };
 
@@ -351,7 +388,7 @@ export default function MobileProjectDashboardDetail() {
                   </div>
                   <div className="text-center">
                     <div className="text-xl font-bold text-blue-900">
-                      {dashboardData.summary?.completion_rate?.toFixed(1) || 0}%
+                      {progressPercentage.toFixed(1)}%
                     </div>
                     <div className="text-xs text-blue-600">完成进度</div>
                   </div>
@@ -372,7 +409,7 @@ export default function MobileProjectDashboardDetail() {
                   </div>
                   <div className="text-right">
                     <div className="text-xl font-bold text-green-900">
-                      {dashboardData.summary?.total_trips || 0}
+                      {dashboardData.summary_stats?.total_trips || 0}
                     </div>
                     <div className="text-xs text-green-600">总运输次数</div>
                   </div>
@@ -390,7 +427,7 @@ export default function MobileProjectDashboardDetail() {
                   </div>
                   <div className="text-right">
                     <div className="text-xl font-bold text-purple-900">
-                      {formatWeight(dashboardData.summary?.total_tonnage || 0)}
+                      {formatWeight(dashboardData.summary_stats?.total_tonnage || 0)}
                     </div>
                     <div className="text-xs text-purple-600">总运输量</div>
                   </div>
@@ -408,7 +445,7 @@ export default function MobileProjectDashboardDetail() {
                   </div>
                   <div className="text-right">
                     <div className="text-xl font-bold text-orange-900">
-                      {formatAmount(dashboardData.summary?.total_amount || 0)}
+                      {formatAmount(dashboardData.summary_stats?.total_cost || 0)}
                     </div>
                     <div className="text-xs text-orange-600">总金额</div>
                   </div>
@@ -426,7 +463,7 @@ export default function MobileProjectDashboardDetail() {
                   </div>
                   <div className="text-right">
                     <div className="text-xl font-bold text-blue-900">
-                      {dashboardData.summary?.active_drivers || 0}
+                      {sortedDrivers.length || 0}
                     </div>
                     <div className="text-xs text-blue-600">活跃司机</div>
                   </div>
@@ -563,11 +600,11 @@ export default function MobileProjectDashboardDetail() {
           <TabsContent value="progress" className="space-y-4 mt-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">完成进度</CardTitle>
+                <CardTitle className="text-lg">完成进度 ({unitConfig.unit})</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col items-center space-y-6">
                 <CircularProgressChart 
-                  percentage={dashboardData.summary?.completion_rate || 0}
+                  percentage={progressPercentage}
                   size={160}
                   strokeWidth={12}
                   color="#3B82F6"
@@ -577,25 +614,55 @@ export default function MobileProjectDashboardDetail() {
                   <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                     <span className="text-sm font-medium">已完成</span>
                     <span className="font-bold text-blue-600">
-                      {formatWeight(dashboardData.summary?.total_tonnage || 0)}
+                      {unitConfig.billingTypeId === 2 
+                        ? `${formatNumber(unitConfig.progressCompleted)}车`
+                        : formatWeight(unitConfig.progressCompleted)
+                      }
                     </span>
                   </div>
                   
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <span className="text-sm font-medium">计划总量</span>
                     <span className="font-bold">
-                      {formatWeight(selectedProject?.planned_total_tons || 0)}
+                      {unitConfig.billingTypeId === 2 
+                        ? `${formatNumber(unitConfig.progressPlanned)}车`
+                        : formatWeight(unitConfig.progressPlanned)
+                      }
                     </span>
                   </div>
                   
                   <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                     <span className="text-sm font-medium">剩余量</span>
                     <span className="font-bold text-green-600">
-                      {formatWeight(
-                        (selectedProject?.planned_total_tons || 0) - (dashboardData.summary?.total_tonnage || 0)
-                      )}
+                      {unitConfig.billingTypeId === 2 
+                        ? `${formatNumber(Math.max(0, unitConfig.progressPlanned - unitConfig.progressCompleted))}车`
+                        : formatWeight(Math.max(0, unitConfig.progressPlanned - unitConfig.progressCompleted))
+                      }
                     </span>
                   </div>
+
+                  {dashboardData.daily_report && (
+                    <div className="pt-4 border-t border-gray-200">
+                      <h4 className="text-sm font-medium mb-3">今日数据</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="text-center p-3 bg-orange-50 rounded-lg">
+                          <div className="text-lg font-bold text-orange-600">
+                            {dashboardData.daily_report.trip_count || 0}
+                          </div>
+                          <div className="text-xs text-muted-foreground">今日车次</div>
+                        </div>
+                        <div className="text-center p-3 bg-purple-50 rounded-lg">
+                          <div className="text-lg font-bold text-purple-600">
+                            {unitConfig.billingTypeId === 2 
+                              ? `${formatNumber(dashboardData.daily_report.trip_count)}车`
+                              : formatWeight(dashboardData.daily_report.total_tonnage)
+                            }
+                          </div>
+                          <div className="text-xs text-muted-foreground">今日运输量</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -652,10 +719,10 @@ export default function MobileProjectDashboardDetail() {
                         {driverSortBy === 'daily' && (
                           <>
                             <div className="font-bold text-blue-600">
-                              {formatWeight(driver.daily_tonnage)}
+                              {driver.daily_trip_count}次
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {driver.daily_trip_count}次
+                              今日
                             </div>
                           </>
                         )}
@@ -672,7 +739,7 @@ export default function MobileProjectDashboardDetail() {
                         {driverSortBy === 'amount' && (
                           <>
                             <div className="font-bold text-orange-600">
-                              {formatAmount(driver.total_receivable_amount)}
+                              {formatAmount(driver.total_driver_receivable)}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {driver.total_trip_count}次
@@ -692,7 +759,7 @@ export default function MobileProjectDashboardDetail() {
         <div className="grid grid-cols-2 gap-3 pt-4">
           <Button 
             variant="outline" 
-            onClick={() => navigate(`/m/project/${projectId}/records`)}
+            onClick={() => navigate(`/m/projects/detail/${projectId}/records`)}
             className="flex items-center gap-2"
           >
             <Eye className="h-4 w-4" />

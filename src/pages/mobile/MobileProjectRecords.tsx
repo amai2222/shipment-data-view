@@ -179,11 +179,13 @@ export default function MobileProjectRecords() {
     return filtered;
   }, [records, searchQuery, sortBy]);
 
-  const formatWeight = (weight: number) => {
+  const formatWeight = (weight: number | undefined | null) => {
+    if (!weight && weight !== 0) return '0吨';
     return `${weight.toFixed(1)}吨`;
   };
 
-  const formatAmount = (amount: number) => {
+  const formatAmount = (amount: number | undefined | null) => {
+    if (!amount && amount !== 0) return '¥0';
     return `¥${amount.toLocaleString()}`;
   };
 

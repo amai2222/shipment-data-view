@@ -303,7 +303,7 @@ export default function MobileProjectDashboard() {
       <div className="space-y-4">
         {/* 项目选择和日期选择 */}
         <div className="space-y-3">
-          <Select value={projectId || ''} onValueChange={(newId) => navigate(`/m/project/${newId}`)}>
+          <Select value={projectId || ''} onValueChange={(newId) => navigate(`/m/projects/detail/${newId}`)}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="请选择项目..." />
             </SelectTrigger>
