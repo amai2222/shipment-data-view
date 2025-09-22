@@ -66,6 +66,9 @@ import MobileContractManagement from "./pages/mobile/MobileContractManagement";
 import MobileProjectOverview from "./pages/mobile/MobileProjectOverview";
 import MobileProjectDetail from "./pages/mobile/MobileProjectDetail";
 import MobileHomeNew from "./pages/mobile/MobileHomeNew";
+import MobileProjectRecords from "./pages/mobile/MobileProjectRecords";
+import MobileWaybillDetail from "./pages/mobile/MobileWaybillDetail";
+import MobileProjectDashboardDetail from "./pages/mobile/MobileProjectDashboardDetail";
 
 const queryClient = new QueryClient();
 
@@ -301,6 +304,24 @@ const App = () => (
             <Route path="/m/projects/detail/:projectId" element={
               <ProtectedRoute requiredRoles={['admin', 'business', 'viewer']}>
                 <MobileProjectDetail />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/project/:projectId/records" element={
+              <ProtectedRoute requiredRoles={['admin', 'business', 'viewer']}>
+                <MobileProjectRecords />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/project/:projectId/dashboard" element={
+              <ProtectedRoute requiredRoles={['admin', 'business', 'viewer']}>
+                <MobileProjectDashboardDetail />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/waybill/:waybillId" element={
+              <ProtectedRoute requiredRoles={['admin', 'business', 'viewer']}>
+                <MobileWaybillDetail />
               </ProtectedRoute>
             } />
 
