@@ -50,6 +50,23 @@ export function UpdateModeImportDialog({
     }
   };
 
+  // 计算实际会导入的记录数量
+  const getActualImportCount = () => {
+    if (!importPreview) return 0;
+    return importPreview.new_records.length + 
+           (importMode === 'update' ? approvedDuplicates.size : 0);
+  };
+
+  // 检查全选框的状态
+  const isAllDuplicatesSelected = () => {
+    if (!importPreview || importPreview.update_records.length === 0) return false;
+    return approvedDuplicates.size === importPreview.update_records.length;
+  };
+
+  const isSomeDuplicatesSelected = () => {
+    return approvedDuplicates.size > 0 && approvedDuplicates.size < (importPreview?.update_records.length || 0);
+  };
+
   
   if (!isOpen) return null;
 
@@ -165,7 +182,10 @@ export function UpdateModeImportDialog({
                       <label className="inline-flex items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={approvedDuplicates.size === importPreview.update_records.length}
+                          checked={isAllDuplicatesSelected()}
+                          ref={(input) => {
+                            if (input) input.indeterminate = isSomeDuplicatesSelected();
+                          }}
                           onChange={(e) => toggleAllDuplicates(e.currentTarget.checked)}
                         />
                         <span>全选重复记录</span>
@@ -237,20 +257,20 @@ export function UpdateModeImportDialog({
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>预计导入:</span>
-                    <span className="font-medium">{importPreview.new_records.length + importPreview.update_records.length} 条记录</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>·{importMode === 'create' ? '创建新记录(跳过重复)' : '更新现有记录(勾选)'}:</span>
-                    <span className="font-medium text-red-600">{importMode === 'update' ? approvedDuplicates.size : 0}条</span>
+                    <span className="font-medium">{getActualImportCount()} 条记录</span>
                   </div>
                   <div className="flex justify-between">
                     <span>·新记录:</span>
                     <span className="font-medium text-green-600">{importPreview.new_records.length}条</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span>·{importMode === 'create' ? '跳过重复记录' : '更新重复记录(勾选)'}:</span>
+                    <span className="font-medium text-yellow-600">{importMode === 'update' ? approvedDuplicates.size : importPreview.update_records.length}条</span>
+                  </div>
                   {importPreview.error_records.length > 0 && (
                     <div className="flex justify-between">
                       <span>·错误记录:</span>
-                      <span className="font-medium text-red-600">{importPreview.error_records.length}条</span>
+                      <span className="font-medium text-red-600">{importPreview.error_records.length}条 (不会导入)</span>
                     </div>
                   )}
                 </div>
@@ -337,9 +357,9 @@ export function UpdateModeImportDialog({
               {importStep === 'confirmation' && (
                 <Button 
                   onClick={onExecuteImport}
-                  disabled={!importPreview || (importPreview.new_records.length + importPreview.update_records.length) === 0}
+                  disabled={!importPreview || getActualImportCount() === 0}
                 >
-                  确认并导入 ({importPreview ? importPreview.new_records.length + importPreview.update_records.length : 0})
+                  确认并导入 ({getActualImportCount()})
                 </Button>
               )}
             </>

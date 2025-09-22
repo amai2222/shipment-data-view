@@ -209,7 +209,14 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
     ];
 
     if (recordsToImport.length === 0) {
-      toast({ title: "操作完成", description: "没有需要导入的记录。" });
+      const message = importMode === 'update' && importPreview.update_records.length > 0
+        ? "没有勾选任何重复记录进行更新，请勾选要更新的记录或切换到创建模式。"
+        : "没有需要导入的记录。";
+      toast({ 
+        title: "操作提示", 
+        description: message,
+        variant: "default"
+      });
       setImportStep('confirmation');
       return;
     }
