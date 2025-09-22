@@ -43,6 +43,8 @@ import MobileAuditLogs from "./pages/mobile/MobileAuditLogs";
 import ScaleRecords from "./pages/ScaleRecords";
 import ContractManagement from "./pages/ContractManagement";
 import WaybillMaintenance from "./pages/DataMaintenance/WaybillMaintenance";
+import MobileNotifications from "./pages/mobile/MobileNotifications";
+import MobileSettings from "./pages/mobile/MobileSettings";
 
 // ★★★ 1. 导入我们新创建的两个页面 ★★★
 import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
@@ -413,6 +415,18 @@ const App = () => (
             <Route path="/m/contracts" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
                 <MobileContractManagement />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/notifications" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+                <MobileNotifications />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/settings" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+                <MobileSettings />
               </ProtectedRoute>
             } />
 
