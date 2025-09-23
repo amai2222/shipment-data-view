@@ -17,7 +17,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, LogOut, UserCheck, Key } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { User, LogOut, UserCheck, Key, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -91,37 +92,45 @@ export function UserMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-            <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-gradient-primary text-white">
+          <Button variant="ghost" className="relative h-11 w-11 rounded-full hover:bg-secondary/80 transition-all duration-200 group">
+            <Avatar className="h-10 w-10 ring-2 ring-transparent group-hover:ring-primary/20 transition-all duration-200">
+              <AvatarFallback className="bg-gradient-primary text-white font-semibold shadow-primary">
                 {getInitials(profile.full_name || profile.username)}
               </AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align="end" forceMount>
-          <DropdownMenuLabel className="font-normal">
-            <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none">
-                {profile.full_name || profile.username}
-              </p>
+        <DropdownMenuContent className="w-64 glass-effect" align="end" forceMount>
+          <DropdownMenuLabel className="font-normal p-4">
+            <div className="flex flex-col space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold leading-none text-foreground">
+                  {profile.full_name || profile.username}
+                </p>
+                <Badge variant="secondary" className="text-xs bg-gradient-primary text-white">
+                  {getRoleLabel(profile.role)}
+                </Badge>
+              </div>
               <p className="text-xs leading-none text-muted-foreground">
                 {profile.email}
-              </p>
-              <p className="text-xs leading-none text-muted-foreground">
-                {getRoleLabel(profile.role)}
               </p>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setIsSwitchDialogOpen(true)}>
-            <UserCheck className="mr-2 h-4 w-4" />
-            切换用户
+          <DropdownMenuItem 
+            onClick={() => setIsSwitchDialogOpen(true)}
+            className="py-3 cursor-pointer hover:bg-gradient-secondary transition-all duration-200"
+          >
+            <UserCheck className="mr-3 h-4 w-4 text-primary" />
+            <span className="font-medium">切换用户</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleSignOut}>
-            <LogOut className="mr-2 h-4 w-4" />
-            退出登录
+          <DropdownMenuItem 
+            onClick={handleSignOut}
+            className="py-3 cursor-pointer hover:bg-destructive/10 text-destructive hover:text-destructive transition-all duration-200"
+          >
+            <LogOut className="mr-3 h-4 w-4" />
+            <span className="font-medium">退出登录</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

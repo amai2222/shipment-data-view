@@ -194,40 +194,51 @@ export function AppSidebar() {
   const isActive = (path: string) => currentPath === path;
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
-      {/* Header Section */}
-      <SidebarHeader className="bg-gradient-primary text-white p-3 space-y-2">
-        <div className="flex items-center space-x-2">
-          <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-            <Truck className="h-6 w-6 text-white" />
+    <Sidebar className={`${collapsed ? "w-16" : "w-72"} transition-all duration-300 ease-in-out`} collapsible="icon">
+      {/* Enhanced Header Section */}
+      <SidebarHeader className="bg-gradient-primary text-white p-4 shadow-lg relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
+        
+        <div className="relative flex items-center space-x-3">
+          <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm border border-white/20 shadow-lg">
+            <Truck className="h-7 w-7 text-white drop-shadow-sm" />
           </div>
           {!collapsed && (
-            <div>
-              <h1 className="text-base font-bold text-white">中科物流业务跟踪系统</h1>
-              <p className="text-xs text-white/80">高效管理 · 精准统计</p>
+            <div className="space-y-1">
+              <h1 className="text-lg font-bold text-white drop-shadow-sm">中科物流业务跟踪系统</h1>
+              <p className="text-sm text-white/90 font-medium">高效管理 · 精准统计</p>
             </div>
           )}
         </div>
         
+        {/* Decorative Bottom Border */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
       </SidebarHeader>
 
-      <SidebarContent className="bg-gradient-to-b from-secondary to-background">
+      <SidebarContent className="bg-gradient-to-b from-secondary/20 to-background p-2 space-y-1">
         {filteredMenuItems.map((group) => {
           const isGroupOpen = openGroups.includes(group.title);
           const hasActiveItem = group.items.some(item => isActive(item.url));
 
           return (
-            <SidebarGroup key={group.title}>
+            <SidebarGroup key={group.title} className="space-y-1">
               <Collapsible open={isGroupOpen} onOpenChange={() => toggleGroup(group.title)}>
                 <CollapsibleTrigger asChild>
-                  <SidebarGroupLabel className="group/label text-sm font-medium hover:bg-gradient-primary hover:text-white rounded-lg p-3 cursor-pointer flex items-center justify-between transition-all shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <group.icon className="h-5 w-5" />
+                  <SidebarGroupLabel className={`group/label text-sm font-medium rounded-xl p-3 cursor-pointer flex items-center justify-between transition-all duration-200 border ${
+                    hasActiveItem 
+                      ? 'bg-gradient-primary text-white shadow-primary border-primary/20' 
+                      : 'hover:bg-gradient-secondary hover:shadow-card border-transparent hover:border-border/50'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded-lg transition-colors ${hasActiveItem ? 'bg-white/20' : 'bg-primary/10'}`}>
+                        <group.icon className="h-4 w-4" />
+                      </div>
                       {!collapsed && <span className="font-semibold">{group.title}</span>}
                     </div>
                     {!collapsed && (
                       <ChevronDown 
-                        className={`h-4 w-4 transition-transform ${isGroupOpen ? 'rotate-180' : ''}`} 
+                        className={`h-4 w-4 transition-transform duration-200 ${isGroupOpen ? 'rotate-180' : ''}`} 
                       />
                     )}
                   </SidebarGroupLabel>
@@ -235,20 +246,24 @@ export function AppSidebar() {
                 
                 {!collapsed && (
                   <CollapsibleContent>
-                    <SidebarGroupContent>
+                    <SidebarGroupContent className="pl-2 space-y-1">
                       <SidebarMenu>
                         {group.items.map((item) => (
                           <SidebarMenuItem key={item.title}>
                             <SidebarMenuButton asChild>
                               <Link
                                 to={item.url}
-                                className={`flex items-center gap-3 rounded-lg p-3 text-sm transition-all ${
+                                className={`flex items-center gap-3 rounded-lg p-3 text-sm transition-all duration-200 border ${
                                   isActive(item.url)
-                                    ? "bg-gradient-accent text-white shadow-primary font-medium"
-                                    : "hover:bg-gradient-secondary hover:shadow-card"
+                                    ? "bg-gradient-accent text-white shadow-primary font-medium border-accent/20"
+                                    : "hover:bg-secondary/80 hover:shadow-sm hover:border-border/30 border-transparent"
                                 }`}
                               >
-                                <item.icon className="h-4 w-4" />
+                                <div className={`p-1 rounded transition-colors ${
+                                  isActive(item.url) ? 'bg-white/20' : 'bg-primary/10'
+                                }`}>
+                                  <item.icon className="h-3.5 w-3.5" />
+                                </div>
                                 <span>{item.title}</span>
                               </Link>
                             </SidebarMenuButton>

@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { UserMenu } from "./UserMenu";
+import { EnhancedHeader } from "./EnhancedHeader";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -10,20 +10,18 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-gradient-to-br from-background to-secondary">
+      <div className="min-h-screen grid grid-cols-[auto_1fr] w-full bg-gradient-to-br from-background via-background to-secondary/30">
         <AppSidebar />
         
-        {/* Main Content - Full width and height */}
-        <main className="flex-1 w-full h-screen overflow-auto">
-          {/* Header */}
-          <header className="h-12 flex items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
-            <SidebarTrigger />
-            <UserMenu />
-          </header>
+        {/* Main Content Area */}
+        <main className="flex flex-col h-screen overflow-hidden">
+          <EnhancedHeader />
           
-          {/* Content */}
-          <div className="p-6">
-            {children}
+          {/* Content Area with Enhanced Scrolling */}
+          <div className="flex-1 overflow-auto bg-gradient-to-b from-background to-secondary/20">
+            <div className="container max-w-7xl mx-auto p-6 space-y-6">
+              {children}
+            </div>
           </div>
         </main>
       </div>

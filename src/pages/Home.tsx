@@ -243,15 +243,15 @@ export default function Home() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-        <Card className="hover:shadow-lg transition-shadow duration-200">
+        <Card className="card-enhanced group hover:scale-105 transition-all duration-300">
           <CardContent className="flex items-center p-6">
-            <div className="p-3 bg-blue-100 rounded-lg mr-4 flex-shrink-0">
-              <Package className="h-6 w-6 text-blue-600" />
+            <div className="p-4 bg-gradient-primary rounded-xl mr-4 flex-shrink-0 shadow-primary group-hover:shadow-elevated transition-all duration-300">
+              <Package className="h-6 w-6 text-white" />
             </div>
             <div className="flex flex-col min-w-0 flex-1">
-              <p className="text-sm font-bold text-blue-600">总运输次数</p>
-              <p className="text-2xl font-bold text-gray-900 break-words">{dashboardData?.overview?.totalRecords || 0}</p>
-              <p className="text-xs text-gray-500 mt-1">累计运输记录</p>
+              <p className="text-sm font-semibold text-gradient-primary mb-1">总运输次数</p>
+              <p className="text-3xl font-bold text-foreground break-words">{dashboardData?.overview?.totalRecords || 0}</p>
+              <p className="text-xs text-muted-foreground mt-2">累计运输记录</p>
             </div>
           </CardContent>
         </Card>
@@ -263,46 +263,46 @@ export default function Home() {
             if (!typeInfo || total <= 0) return null;
             const Icon = typeInfo.icon;
             return (
-              <Card key={typeId} className="hover:shadow-lg transition-shadow duration-200">
+              <Card key={typeId} className="card-enhanced group hover:scale-105 transition-all duration-300">
                 <CardContent className="flex items-center p-6">
-                  <div className={`p-3 ${typeInfo.bgColor} rounded-lg mr-4 flex-shrink-0`}>
-                    <Icon className={`h-6 w-6 ${typeInfo.color}`} />
+                  <div className="p-4 bg-gradient-accent rounded-xl mr-4 flex-shrink-0 shadow-soft group-hover:shadow-primary transition-all duration-300">
+                    <Icon className="h-6 w-6 text-white" />
                   </div>
                   <div className="flex flex-col min-w-0 flex-1">
-                    <p className={`text-sm font-bold ${typeInfo.color}`}>{typeInfo.name}总量</p>
-                    <p className="text-2xl font-bold text-gray-900 break-words">
-                      {total.toFixed(2)} <span className="text-base font-normal text-gray-600">{typeInfo.unit}</span>
+                    <p className="text-sm font-semibold text-gradient-accent mb-1">{typeInfo.name}总量</p>
+                    <p className="text-3xl font-bold text-foreground break-words">
+                      {total.toFixed(2)} <span className="text-lg font-medium text-muted-foreground">{typeInfo.unit}</span>
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">{typeInfo.name}统计</p>
+                    <p className="text-xs text-muted-foreground mt-2">{typeInfo.name}统计</p>
                   </div>
                 </CardContent>
               </Card>
             );
         })}
 
-        <Card className="hover:shadow-lg transition-shadow duration-200">
+        <Card className="card-enhanced group hover:scale-105 transition-all duration-300">
           <CardContent className="flex items-center p-6">
-            <div className="p-3 bg-yellow-100 rounded-lg mr-4 flex-shrink-0">
-              <TrendingUp className="h-6 w-6 text-yellow-600" />
+            <div className="p-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl mr-4 flex-shrink-0 shadow-soft group-hover:shadow-primary transition-all duration-300">
+              <TrendingUp className="h-6 w-6 text-white" />
             </div>
             <div className="flex flex-col min-w-0 flex-1">
-              <p className="text-sm font-bold text-yellow-600">司机应收汇总</p>
-              <p className="text-2xl font-bold text-gray-900 break-words">{formatCurrency(dashboardData?.overview?.totalCost)}</p>
-              <p className="text-xs text-gray-500 mt-1">累计应收费用</p>
+              <p className="text-sm font-semibold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent mb-1">司机应收汇总</p>
+              <p className="text-3xl font-bold text-foreground break-words">{formatCurrency(dashboardData?.overview?.totalCost)}</p>
+              <p className="text-xs text-muted-foreground mt-2">累计应收费用</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="hover:shadow-lg transition-shadow duration-200">
+        <Card className="card-enhanced group hover:scale-105 transition-all duration-300">
           <CardContent className="flex items-center p-6">
-            <div className="p-3 bg-purple-100 rounded-lg mr-4 flex-shrink-0">
-              <BarChart3 className="h-6 w-6 text-purple-600" />
+            <div className="p-4 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl mr-4 flex-shrink-0 shadow-soft group-hover:shadow-primary transition-all duration-300">
+              <BarChart3 className="h-6 w-6 text-white" />
             </div>
             <div className="flex flex-col min-w-0 flex-1">
-              <p className="text-sm font-bold text-purple-600">实际运输/退货</p>
-              <p className="text-2xl font-bold text-gray-900 break-words">
+              <p className="text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-1">实际运输/退货</p>
+              <p className="text-3xl font-bold text-foreground break-words">
                 {dashboardData?.overview?.actualTransportCount ?? '—'} / {dashboardData?.overview?.returnCount ?? '—'}
               </p>
-              <p className="text-xs text-gray-500 mt-1">运输状态统计</p>
+              <p className="text-xs text-muted-foreground mt-2">运输状态统计</p>
             </div>
           </CardContent>
         </Card>

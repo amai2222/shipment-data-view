@@ -35,20 +35,32 @@
     --input: 214 32% 91%;
     --ring: 217 91% 60%;
 
-    /* 物流主题渐变 */
+    /* 增强的物流主题渐变系统 */
     --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(212 100% 47%));
     --gradient-secondary: linear-gradient(135deg, hsl(210 40% 96%), hsl(210 20% 98%));
     --gradient-accent: linear-gradient(135deg, hsl(212 100% 47%), hsl(217 91% 60%));
+    --gradient-surface: linear-gradient(135deg, hsl(0 0% 100%), hsl(210 40% 98%));
+    --gradient-hover: linear-gradient(135deg, hsl(210 40% 94%), hsl(210 40% 96%));
     
-    /* 阴影系统 */
-    --shadow-card: 0 4px 12px hsl(217 91% 60% / 0.15);
-    --shadow-lg: 0 10px 25px hsl(217 91% 60% / 0.2);
-    --shadow-primary: 0 8px 20px hsl(217 91% 60% / 0.3);
+    /* 增强的阴影系统 */
+    --shadow-card: 0 4px 12px hsl(217 91% 60% / 0.12), 0 2px 4px hsl(217 91% 60% / 0.08);
+    --shadow-lg: 0 10px 25px hsl(217 91% 60% / 0.15), 0 4px 12px hsl(217 91% 60% / 0.1);
+    --shadow-primary: 0 8px 20px hsl(217 91% 60% / 0.25), 0 4px 8px hsl(217 91% 60% / 0.15);
+    --shadow-soft: 0 2px 8px hsl(217 91% 60% / 0.08), 0 1px 3px hsl(217 91% 60% / 0.06);
+    --shadow-elevated: 0 12px 32px hsl(217 91% 60% / 0.18), 0 4px 12px hsl(217 91% 60% / 0.12);
 
-    /* 动画 */
+    /* 增强的动画系统 */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
+    /* 增强的圆角系统 */
     --radius: 0.5rem;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -113,5 +125,77 @@
 
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* 增强滚动条样式 */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-secondary/50;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 hover:bg-muted-foreground/50;
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+}
+
+@layer components {
+  /* 增强的卡片样式 */
+  .card-enhanced {
+    @apply bg-gradient-surface border border-border/50 rounded-xl shadow-card hover:shadow-elevated transition-all duration-300;
+  }
+
+  .card-interactive {
+    @apply card-enhanced hover:border-primary/20 hover:-translate-y-0.5 cursor-pointer;
+  }
+
+  /* 增强的按钮样式 */
+  .btn-primary-enhanced {
+    @apply bg-gradient-primary text-primary-foreground border-0 shadow-primary hover:shadow-elevated transition-all duration-200 hover:-translate-y-0.5;
+  }
+
+  .btn-secondary-enhanced {
+    @apply bg-gradient-secondary text-secondary-foreground border border-border/50 shadow-soft hover:shadow-card transition-all duration-200;
+  }
+
+  /* 加载动画 */
+  .loading-shimmer {
+    background: linear-gradient(90deg, 
+      hsl(var(--muted)) 25%, 
+      hsl(var(--muted-foreground) / 0.1) 50%, 
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* 玻璃效果 */
+  .glass-effect {
+    @apply backdrop-blur-md bg-background/80 border border-border/50;
+  }
+
+  /* 渐变文字 */
+  .text-gradient-primary {
+    @apply bg-gradient-primary bg-clip-text text-transparent;
+  }
+
+  .text-gradient-accent {
+    @apply bg-gradient-accent bg-clip-text text-transparent;
   }
 }
