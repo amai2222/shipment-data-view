@@ -119,12 +119,6 @@ const menuGroups = [
         href: '/m/invoice-request',
         icon: FileText,
         roles: ['admin', 'finance', 'operator']
-      },
-      {
-        name: '申请单管理',
-        href: '/m/payment-requests-management',
-        icon: Receipt,
-        roles: ['admin', 'finance']
       }
     ]
   },
@@ -141,7 +135,7 @@ const menuGroups = [
     ]
   },
   {
-    title: '财务对账',
+    title: '财务管理',
     icon: Calculator,
     items: [
       {
@@ -154,6 +148,12 @@ const menuGroups = [
         name: '付款与开票',
         href: '/m/finance/payment-invoice',
         icon: Banknote,
+        roles: ['admin', 'finance']
+      },
+      {
+        name: '申请单管理',
+        href: '/m/payment-requests-management',
+        icon: Receipt,
         roles: ['admin', 'finance']
       }
     ]

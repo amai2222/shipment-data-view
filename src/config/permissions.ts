@@ -70,8 +70,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
       { key: 'business.entry', label: '运单管理', url: '/business-entry', icon: 'Plus', group: '业务管理' },
       { key: 'business.scale', label: '磅单管理', url: '/scale-records', icon: 'Weight', group: '业务管理' },
       { key: 'business.payment_request', label: '付款申请', url: '/payment-request', icon: 'DollarSign', group: '业务管理' },
-      { key: 'business.invoice_request', label: '开票申请', url: '/invoice-request', icon: 'FileText', group: '业务管理' },
-      { key: 'business.payment_requests', label: '申请单管理', url: '/payment-requests-list', icon: 'ClipboardList', group: '业务管理' }
+      { key: 'business.invoice_request', label: '开票申请', url: '/invoice-request', icon: 'FileText', group: '业务管理' }
     ]
   },
   {
@@ -84,13 +83,14 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     ]
   },
   {
-    group: '财务对账',
+    group: '财务管理',
     key: 'finance',
-    label: '财务对账',
+    label: '财务管理',
     icon: 'Calculator',
     children: [
-      { key: 'finance.reconciliation', label: '运费对账', url: '/finance/reconciliation', icon: 'Calculator', group: '财务对账' },
-      { key: 'finance.payment_invoice', label: '付款与开票', url: '/finance/payment-invoice', icon: 'DollarSign', group: '财务对账' }
+      { key: 'finance.reconciliation', label: '运费对账', url: '/finance/reconciliation', icon: 'Calculator', group: '财务管理' },
+      { key: 'finance.payment_invoice', label: '付款与开票', url: '/finance/payment-invoice', icon: 'DollarSign', group: '财务管理' },
+      { key: 'finance.payment_requests', label: '申请单管理', url: '/payment-requests-list', icon: 'ClipboardList', group: '财务管理' }
     ]
   },
   {
@@ -244,11 +244,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       // 信息维护
       'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
       // 业务管理
-      'business', 'business.entry', 'business.scale', 'business.payment_request', 'business.invoice_request', 'business.payment_requests',
+      'business', 'business.entry', 'business.scale', 'business.payment_request', 'business.invoice_request',
       // 合同管理
       'contracts', 'contracts.list',
-      // 财务对账
-      'finance', 'finance.reconciliation', 'finance.payment_invoice',
+      // 财务管理
+      'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests',
       // 数据维护
       'data_maintenance', 'data_maintenance.waybill',
       // 设置
@@ -274,9 +274,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
     menu_permissions: [
       'dashboard', 'dashboard.financial', 'dashboard.project',
       'maintenance', 'maintenance.partners',
-      'business', 'business.payment_request', 'business.invoice_request', 'business.payment_requests',
+      'business', 'business.payment_request', 'business.invoice_request',
       'contracts', 'contracts.list',
-      'finance', 'finance.reconciliation', 'finance.payment_invoice'
+      'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests'
     ],
     function_permissions: [
       'data', 'data.view', 'data.export',
