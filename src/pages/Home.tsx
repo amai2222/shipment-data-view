@@ -388,15 +388,15 @@ export default function Home() {
                   统计
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex flex-col">
-                  <span className="text-xs text-gray-500">实际运输</span>
-                  <ResponsiveNumber value={dashboardData?.overview?.actualTransportCount ?? '—'} className="text-gray-900 !text-xl" />
+              <div className="flex items-center space-x-6">
+                <div className="flex flex-col items-center">
+                  <span className="text-xs text-gray-500 mb-1">实际运输</span>
+                  <ResponsiveNumber value={dashboardData?.overview?.actualTransportCount ?? '—'} className="text-gray-900 !text-3xl !font-black !leading-none" />
                 </div>
-                <div className="text-2xl text-gray-300">/</div>
-                <div className="flex flex-col">
-                  <span className="text-xs text-gray-500">退货数量</span>
-                  <ResponsiveNumber value={dashboardData?.overview?.returnCount ?? '—'} className="text-gray-900 !text-xl" />
+                <div className="text-3xl text-gray-300 font-light">/</div>
+                <div className="flex flex-col items-center">
+                  <span className="text-xs text-gray-500 mb-1">退货数量</span>
+                  <ResponsiveNumber value={dashboardData?.overview?.returnCount ?? '—'} className="text-gray-900 !text-3xl !font-black !leading-none" />
                 </div>
               </div>
               <p className="text-xs text-gray-500">运输状态分布统计</p>

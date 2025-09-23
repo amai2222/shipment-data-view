@@ -199,20 +199,33 @@
     @apply bg-gradient-accent bg-clip-text text-transparent;
   }
 
-  /* 响应式数字显示 */
+  /* 响应式数字显示 - 优化版本 */
   .number-responsive {
     @apply whitespace-nowrap overflow-hidden;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
+    font-feature-settings: "tnum" on, "lnum" on;
+    letter-spacing: -0.025em;
+    line-height: 0.95;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .number-adaptive {
     font-size: clamp(1rem, 4vw, 2rem);
-    line-height: 1.2;
+    line-height: 1.1;
+    font-variant-numeric: proportional-nums;
+    letter-spacing: -0.015em;
+    text-rendering: optimizeLegibility;
   }
 
   .currency-adaptive {
     font-size: clamp(0.875rem, 3.5vw, 1.75rem);
-    line-height: 1.2;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" on, "lnum" on;
+    letter-spacing: -0.03em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
 }
