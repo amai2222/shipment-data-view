@@ -35,13 +35,29 @@ const formatCurrency = (value: number | null | undefined): string => {
 const formatDate = (dateString: string | null | undefined): string => {
   if (!dateString) return '未填写';
   try {
-    return new Date(dateString).toLocaleDateString('zh-CN', {
+    // 处理ISO日期格式
+    if (dateString.includes('T')) {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '格式错误';
+      return date.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+    // 处理简单日期格式
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString; // 如果无法解析，返回原始字符串
+    return date.toLocaleDateString('zh-CN', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
     });
-  } catch {
-    return '格式错误';
+  } catch (error) {
+    console.warn('日期格式化失败:', dateString, error);
+    return dateString; // 返回原始字符串而不是"格式错误"
   }
 };
 

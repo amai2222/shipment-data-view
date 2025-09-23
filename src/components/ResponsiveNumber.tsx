@@ -10,18 +10,18 @@ export function ResponsiveNumber({ value, className = "", maxLength = 12 }: Resp
   const valueStr = String(value);
   const length = valueStr.length;
   
-  // 优化数字字体大小，使其更加美观协调
+  // 缩小数字字体大小，使卡片更紧凑
   let sizeClass = "";
   if (length <= 2) {
-    sizeClass = "text-4xl sm:text-5xl lg:text-6xl xl:text-7xl"; // 1-2位数字，超大字体
+    sizeClass = "text-2xl sm:text-3xl lg:text-4xl"; // 1-2位数字，大字体
   } else if (length <= 4) {
-    sizeClass = "text-3xl sm:text-4xl lg:text-5xl xl:text-6xl"; // 3-4位数字，大字体
+    sizeClass = "text-xl sm:text-2xl lg:text-3xl"; // 3-4位数字，中等字体
   } else if (length <= 8) {
-    sizeClass = "text-2xl sm:text-3xl lg:text-4xl xl:text-5xl"; // 5-8位数字，中等字体
+    sizeClass = "text-lg sm:text-xl lg:text-2xl"; // 5-8位数字，较小字体
   } else if (length <= 12) {
-    sizeClass = "text-xl sm:text-2xl lg:text-3xl xl:text-4xl"; // 9-12位数字，较小字体
+    sizeClass = "text-base sm:text-lg lg:text-xl"; // 9-12位数字，小字体
   } else {
-    sizeClass = "text-lg sm:text-xl lg:text-2xl xl:text-3xl"; // 超长数字，最小字体
+    sizeClass = "text-sm sm:text-base lg:text-lg"; // 超长数字，最小字体
   }
   
   return (
@@ -45,16 +45,16 @@ export function ResponsiveCurrency({ value, className = "" }: ResponsiveCurrency
   const formattedValue = formatCurrency(value);
   const length = formattedValue.length;
   
-  // 优化货币显示的字体大小，提升美观度
+  // 缩小货币显示的字体大小，使卡片更紧凑
   let sizeClass = "";
   if (length <= 8) { // ¥1,234.56 - 短金额
-    sizeClass = "text-2xl sm:text-3xl lg:text-4xl xl:text-5xl";
+    sizeClass = "text-lg sm:text-xl lg:text-2xl";
   } else if (length <= 12) { // ¥12,345.67 - 中等金额
-    sizeClass = "text-xl sm:text-2xl lg:text-3xl xl:text-4xl";
+    sizeClass = "text-base sm:text-lg lg:text-xl";
   } else if (length <= 16) { // ¥123,456.78 - 较大金额
-    sizeClass = "text-lg sm:text-xl lg:text-2xl xl:text-3xl";
+    sizeClass = "text-sm sm:text-base lg:text-lg";
   } else { // 超大金额
-    sizeClass = "text-base sm:text-lg lg:text-xl xl:text-2xl";
+    sizeClass = "text-xs sm:text-sm lg:text-base";
   }
   
   return (
@@ -75,22 +75,22 @@ export function ResponsiveNumberWithUnit({ value, unit, className = "" }: Respon
   const fullText = `${formattedValue} ${unit}`;
   const length = fullText.length;
   
-  // 优化数字和单位的字体大小配比，提升视觉效果
+  // 缩小数字和单位的字体大小，使卡片更紧凑
   let numberSizeClass = "";
   let unitSizeClass = "";
   
   if (length <= 8) { // 短文本，如 "12.34 吨"
-    numberSizeClass = "text-3xl sm:text-4xl lg:text-5xl xl:text-6xl";
-    unitSizeClass = "text-xl sm:text-2xl lg:text-3xl xl:text-4xl";
+    numberSizeClass = "text-xl sm:text-2xl lg:text-3xl";
+    unitSizeClass = "text-sm sm:text-base lg:text-lg";
   } else if (length <= 12) { // 中等文本，如 "1234.56 吨"
-    numberSizeClass = "text-2xl sm:text-3xl lg:text-4xl xl:text-5xl";
-    unitSizeClass = "text-lg sm:text-xl lg:text-2xl xl:text-3xl";
+    numberSizeClass = "text-lg sm:text-xl lg:text-2xl";
+    unitSizeClass = "text-xs sm:text-sm lg:text-base";
   } else if (length <= 16) { // 较长文本
-    numberSizeClass = "text-xl sm:text-2xl lg:text-3xl xl:text-4xl";
-    unitSizeClass = "text-base sm:text-lg lg:text-xl xl:text-2xl";
+    numberSizeClass = "text-base sm:text-lg lg:text-xl";
+    unitSizeClass = "text-xs sm:text-sm lg:text-base";
   } else { // 超长文本
-    numberSizeClass = "text-lg sm:text-xl lg:text-2xl xl:text-3xl";
-    unitSizeClass = "text-sm sm:text-base lg:text-lg xl:text-xl";
+    numberSizeClass = "text-sm sm:text-base lg:text-lg";
+    unitSizeClass = "text-xs sm:text-xs lg:text-sm";
   }
   
   return (

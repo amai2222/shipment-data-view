@@ -203,12 +203,19 @@ export default function Home() {
       unloading_location: record.unloadingLocation || record.unloading_location,
       driver_name: record.driverName || record.driver_name,
       license_plate: record.licensePlate || record.license_plate,
+      driver_phone: record.driverPhone || record.driver_phone,
       project_name: record.projectName || record.project_name,
       transport_type: record.transportType || record.transport_type,
       loading_weight: record.loadingWeight || record.loading_weight,
       unloading_weight: record.unloadingWeight || record.unloading_weight,
-      payable_fee: record.payableFee || record.payable_fee,
-      billing_type_id: record.billing_type_id || record.billingTypeId
+      loading_date: record.loadingDate || record.loading_date,
+      unloading_date: record.unloadingDate || record.unloading_date,
+      payable_cost: record.payableFee || record.payable_cost || record.payableCost,
+      current_cost: record.currentCost || record.current_cost,
+      extra_cost: record.extraCost || record.extra_cost,
+      billing_type_id: record.billing_type_id || record.billingTypeId,
+      chain_name: record.chainName || record.chain_name,
+      remarks: record.remarks
     };
     setSelectedWaybill(mappedRecord as LogisticsRecord);
     setIsWaybillDetailOpen(true);
