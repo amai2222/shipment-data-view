@@ -275,66 +275,174 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-        <Card className="card-enhanced group hover:scale-105 transition-all duration-300 min-h-[160px]">
-          <CardContent className="flex items-center p-8">
-            <div className="p-4 bg-gradient-primary rounded-xl mr-4 flex-shrink-0 shadow-primary group-hover:shadow-elevated transition-all duration-300">
-              <Package className="h-6 w-6 text-white" />
+      {/* 数据概览标题 */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow-lg">
+                <BarChart3 className="h-6 w-6 text-white" />
+              </div>
+              数据概览
+            </h2>
+            <p className="text-gray-600">实时监控运输数据和业务指标</p>
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-500">
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+              实时更新
             </div>
-            <div className="flex flex-col min-w-0 flex-1">
-              <p className="text-sm font-semibold text-gradient-primary mb-1">总运输次数</p>
-              <ResponsiveNumber value={dashboardData?.overview?.totalRecords || 0} />
-              <p className="text-xs text-muted-foreground mt-2">累计运输记录</p>
+            <span>•</span>
+            <span>{new Date().toLocaleString('zh-CN')}</span>
+          </div>
+        </div>
+
+        {/* 重新设计的卡片组 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {/* 总运输次数卡片 - 主要指标 */}
+        <Card className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50 border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group cursor-pointer" onClick={handleOverviewLegendClick}>
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full -translate-y-16 translate-x-16"></div>
+          <CardContent className="relative p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
+                <Package className="h-7 w-7 text-white" />
+              </div>
+              <div className="text-right">
+                <div className="text-xs font-medium text-blue-600 uppercase tracking-wider">TOTAL RECORDS</div>
+                <div className="text-2xl font-bold text-gray-400">#{String(dashboardData?.overview?.totalRecords || 0).padStart(4, '0')}</div>
+              </div>
             </div>
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-sm font-semibold text-gray-600">总运输次数</h3>
+                <div className="flex items-center text-xs text-green-600">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  活跃
+                </div>
+              </div>
+              <ResponsiveNumber value={dashboardData?.overview?.totalRecords || 0} className="text-gray-900" />
+              <p className="text-xs text-gray-500">累计运输记录统计</p>
+            </div>
+            <div className="h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 rounded-full"></div>
           </CardContent>
         </Card>
         
+        {/* 货运类型统计卡片 */}
         {dashboardData?.totalQuantityByType && Object.entries(dashboardData.totalQuantityByType)
           .sort(([keyA], [keyB]) => parseInt(keyA) - parseInt(keyB))
-          .map(([typeId, total]) => {
+          .map(([typeId, total], index) => {
             const typeInfo = BILLING_TYPE_MAP[typeId as keyof typeof BILLING_TYPE_MAP];
             if (!typeInfo || total <= 0) return null;
             const Icon = typeInfo.icon;
+            
+            // 为不同类型定义不同的颜色主题
+            const colorThemes = [
+              { bg: 'from-emerald-50 via-white to-teal-50', gradient: 'from-emerald-500 to-teal-600', accent: 'emerald-600', ring: 'emerald-500/20' },
+              { bg: 'from-orange-50 via-white to-red-50', gradient: 'from-orange-500 to-red-600', accent: 'orange-600', ring: 'orange-500/20' },
+              { bg: 'from-purple-50 via-white to-indigo-50', gradient: 'from-purple-500 to-indigo-600', accent: 'purple-600', ring: 'purple-500/20' },
+              { bg: 'from-pink-50 via-white to-rose-50', gradient: 'from-pink-500 to-rose-600', accent: 'pink-600', ring: 'pink-500/20' }
+            ];
+            const theme = colorThemes[index % colorThemes.length];
+            
             return (
-              <Card key={typeId} className="card-enhanced group hover:scale-105 transition-all duration-300">
-                <CardContent className="flex items-center p-8">
-                  <div className="p-4 bg-gradient-accent rounded-xl mr-4 flex-shrink-0 shadow-soft group-hover:shadow-primary transition-all duration-300">
-                    <Icon className="h-6 w-6 text-white" />
+              <Card key={typeId} className={`relative overflow-hidden bg-gradient-to-br ${theme.bg} border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group cursor-pointer`}>
+                <div className={`absolute inset-0 bg-gradient-to-br from-${theme.accent}/5 via-transparent to-${theme.accent}/5`}></div>
+                <div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-${theme.accent}/10 to-transparent rounded-full`}></div>
+                <CardContent className="relative p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className={`p-3 bg-gradient-to-br ${theme.gradient} rounded-2xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300`}>
+                      <Icon className="h-7 w-7 text-white" />
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-xs font-medium text-${theme.accent} uppercase tracking-wider`}>{typeInfo.name}</div>
+                      <div className="text-lg font-bold text-gray-400">{typeInfo.unit}</div>
+                    </div>
                   </div>
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gradient-accent mb-1">{typeInfo.name}总量</p>
-                    <ResponsiveNumberWithUnit value={total} unit={typeInfo.unit} />
-                    <p className="text-xs text-muted-foreground mt-2">{typeInfo.name}统计</p>
+                  <div className="space-y-2">
+                    <div className="flex items-baseline justify-between">
+                      <h3 className="text-sm font-semibold text-gray-600">{typeInfo.name}总量</h3>
+                      <div className={`px-2 py-1 bg-${theme.accent}/10 rounded-full`}>
+                        <span className={`text-xs font-medium text-${theme.accent}`}>统计</span>
+                      </div>
+                    </div>
+                    <ResponsiveNumberWithUnit value={total} unit={typeInfo.unit} className="text-gray-900" />
+                    <p className="text-xs text-gray-500">累计{typeInfo.name}数据</p>
                   </div>
+                  <div className={`h-1 bg-gradient-to-r ${theme.gradient} rounded-full`}></div>
                 </CardContent>
               </Card>
             );
         })}
 
-        <Card className="card-enhanced group hover:scale-105 transition-all duration-300 min-h-[160px]">
-          <CardContent className="flex items-center p-8">
-            <div className="p-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl mr-4 flex-shrink-0 shadow-soft group-hover:shadow-primary transition-all duration-300">
-              <TrendingUp className="h-6 w-6 text-white" />
+        {/* 司机应收汇总卡片 */}
+        <Card className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-white to-yellow-50 border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group cursor-pointer">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-yellow-500/5"></div>
+          <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full"></div>
+          <CardContent className="relative p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="p-3 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-2xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
+                <TrendingUp className="h-7 w-7 text-white" />
+              </div>
+              <div className="text-right">
+                <div className="text-xs font-medium text-amber-600 uppercase tracking-wider">REVENUE</div>
+                <div className="text-lg font-bold text-gray-400">CNY</div>
+              </div>
             </div>
-            <div className="flex flex-col min-w-0 flex-1">
-              <p className="text-sm font-semibold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent mb-1">司机应收汇总</p>
-              <ResponsiveCurrency value={dashboardData?.overview?.totalCost} />
-              <p className="text-xs text-muted-foreground mt-2">累计应收费用</p>
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-sm font-semibold text-gray-600">司机应收汇总</h3>
+                <div className="flex items-center text-xs text-amber-600">
+                  <Banknote className="h-3 w-3 mr-1" />
+                  收入
+                </div>
+              </div>
+              <ResponsiveCurrency value={dashboardData?.overview?.totalCost} className="text-gray-900" />
+              <p className="text-xs text-gray-500">累计应收费用统计</p>
             </div>
+            <div className="h-1 bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-500 rounded-full"></div>
           </CardContent>
         </Card>
-        <Card className="card-enhanced group hover:scale-105 transition-all duration-300 min-h-[160px]">
-          <CardContent className="flex items-center p-8">
-            <div className="p-4 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl mr-4 flex-shrink-0 shadow-soft group-hover:shadow-primary transition-all duration-300">
-              <BarChart3 className="h-6 w-6 text-white" />
+
+        {/* 运输状态统计卡片 */}
+        <Card className="relative overflow-hidden bg-gradient-to-br from-violet-50 via-white to-purple-50 border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group cursor-pointer">
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 via-transparent to-purple-500/5"></div>
+          <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-violet-500/10 to-transparent rounded-full -translate-x-12 -translate-y-12"></div>
+          <CardContent className="relative p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
+                <BarChart3 className="h-7 w-7 text-white" />
+              </div>
+              <div className="text-right">
+                <div className="text-xs font-medium text-violet-600 uppercase tracking-wider">STATUS</div>
+                <div className="text-lg font-bold text-gray-400">STATS</div>
+              </div>
             </div>
-            <div className="flex flex-col min-w-0 flex-1">
-              <p className="text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-1">实际运输/退货</p>
-              <ResponsiveNumber value={`${dashboardData?.overview?.actualTransportCount ?? '—'} / ${dashboardData?.overview?.returnCount ?? '—'}`} />
-              <p className="text-xs text-muted-foreground mt-2">运输状态统计</p>
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-sm font-semibold text-gray-600">运输状态</h3>
+                <div className="flex items-center text-xs text-violet-600">
+                  <Truck className="h-3 w-3 mr-1" />
+                  统计
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-500">实际运输</span>
+                  <ResponsiveNumber value={dashboardData?.overview?.actualTransportCount ?? '—'} className="text-gray-900 !text-xl" />
+                </div>
+                <div className="text-2xl text-gray-300">/</div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-500">退货数量</span>
+                  <ResponsiveNumber value={dashboardData?.overview?.returnCount ?? '—'} className="text-gray-900 !text-xl" />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">运输状态分布统计</p>
             </div>
+            <div className="h-1 bg-gradient-to-r from-violet-500 via-purple-500 to-violet-500 rounded-full"></div>
           </CardContent>
         </Card>
+        </div>
       </div>
       
       <div className="space-y-8">
