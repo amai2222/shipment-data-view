@@ -10,16 +10,16 @@ export function ResponsiveNumber({ value, className = "", maxLength = 12 }: Resp
   const valueStr = String(value);
   const length = valueStr.length;
   
-  // 根据数字长度动态选择字体大小
+  // 根据数字长度动态选择字体大小，使用更大的字体
   let sizeClass = "";
   if (length <= 4) {
-    sizeClass = "text-2xl sm:text-3xl lg:text-4xl xl:text-5xl"; // 短数字用大字体
+    sizeClass = "text-3xl sm:text-4xl lg:text-5xl xl:text-6xl"; // 短数字用大字体
   } else if (length <= 8) {
-    sizeClass = "text-lg sm:text-xl lg:text-2xl xl:text-3xl"; // 中等长度
+    sizeClass = "text-2xl sm:text-3xl lg:text-4xl xl:text-5xl"; // 中等长度
   } else if (length <= 12) {
-    sizeClass = "text-base sm:text-lg lg:text-xl xl:text-2xl"; // 长数字用小字体
+    sizeClass = "text-xl sm:text-2xl lg:text-3xl xl:text-4xl"; // 长数字用小字体
   } else {
-    sizeClass = "text-sm sm:text-base lg:text-lg xl:text-xl"; // 超长数字用最小字体
+    sizeClass = "text-lg sm:text-xl lg:text-2xl xl:text-3xl"; // 超长数字用最小字体
   }
   
   return (
@@ -43,16 +43,16 @@ export function ResponsiveCurrency({ value, className = "" }: ResponsiveCurrency
   const formattedValue = formatCurrency(value);
   const length = formattedValue.length;
   
-  // 针对货币格式的响应式字体大小
+  // 针对货币格式的响应式字体大小，使用更大的字体
   let sizeClass = "";
   if (length <= 8) { // ¥1,234.56
-    sizeClass = "text-lg sm:text-xl lg:text-2xl xl:text-3xl";
+    sizeClass = "text-2xl sm:text-3xl lg:text-4xl xl:text-5xl";
   } else if (length <= 12) { // ¥12,345.67
-    sizeClass = "text-base sm:text-lg lg:text-xl xl:text-2xl";
+    sizeClass = "text-xl sm:text-2xl lg:text-3xl xl:text-4xl";
   } else if (length <= 16) { // ¥123,456.78
-    sizeClass = "text-sm sm:text-base lg:text-lg xl:text-xl";
+    sizeClass = "text-lg sm:text-xl lg:text-2xl xl:text-3xl";
   } else {
-    sizeClass = "text-xs sm:text-sm lg:text-base xl:text-lg";
+    sizeClass = "text-base sm:text-lg lg:text-xl xl:text-2xl";
   }
   
   return (
@@ -73,19 +73,19 @@ export function ResponsiveNumberWithUnit({ value, unit, className = "" }: Respon
   const fullText = `${formattedValue} ${unit}`;
   const length = fullText.length;
   
-  // 根据完整文本长度选择字体大小
+  // 根据完整文本长度选择字体大小，使用更大的字体
   let numberSizeClass = "";
   let unitSizeClass = "";
   
   if (length <= 10) {
+    numberSizeClass = "text-2xl sm:text-3xl lg:text-4xl xl:text-5xl";
+    unitSizeClass = "text-lg sm:text-xl lg:text-2xl xl:text-3xl";
+  } else if (length <= 15) {
+    numberSizeClass = "text-xl sm:text-2xl lg:text-3xl xl:text-4xl";
+    unitSizeClass = "text-base sm:text-lg lg:text-xl xl:text-2xl";
+  } else {
     numberSizeClass = "text-lg sm:text-xl lg:text-2xl xl:text-3xl";
     unitSizeClass = "text-sm sm:text-base lg:text-lg xl:text-xl";
-  } else if (length <= 15) {
-    numberSizeClass = "text-base sm:text-lg lg:text-xl xl:text-2xl";
-    unitSizeClass = "text-xs sm:text-sm lg:text-base xl:text-lg";
-  } else {
-    numberSizeClass = "text-sm sm:text-base lg:text-lg xl:text-xl";
-    unitSizeClass = "text-xs sm:text-xs lg:text-sm xl:text-base";
   }
   
   return (

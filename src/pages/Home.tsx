@@ -195,7 +195,22 @@ export default function Home() {
 
   // 处理运单详情点击
   const handleWaybillClick = useCallback((record: LogisticsRecord) => {
-    setSelectedWaybill(record);
+    // 转换字段名以兼容WaybillDetailDialog组件
+    const mappedRecord = {
+      ...record,
+      auto_number: record.autoNumber || record.auto_number,
+      loading_location: record.loadingLocation || record.loading_location,
+      unloading_location: record.unloadingLocation || record.unloading_location,
+      driver_name: record.driverName || record.driver_name,
+      license_plate: record.licensePlate || record.license_plate,
+      project_name: record.projectName || record.project_name,
+      transport_type: record.transportType || record.transport_type,
+      loading_weight: record.loadingWeight || record.loading_weight,
+      unloading_weight: record.unloadingWeight || record.unloading_weight,
+      payable_fee: record.payableFee || record.payable_fee,
+      billing_type_id: record.billing_type_id || record.billingTypeId
+    };
+    setSelectedWaybill(mappedRecord as LogisticsRecord);
     setIsWaybillDetailOpen(true);
   }, []);
 
@@ -260,9 +275,9 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-        <Card className="card-enhanced group hover:scale-105 transition-all duration-300">
-          <CardContent className="flex items-center p-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+        <Card className="card-enhanced group hover:scale-105 transition-all duration-300 min-h-[160px]">
+          <CardContent className="flex items-center p-8">
             <div className="p-4 bg-gradient-primary rounded-xl mr-4 flex-shrink-0 shadow-primary group-hover:shadow-elevated transition-all duration-300">
               <Package className="h-6 w-6 text-white" />
             </div>
@@ -282,7 +297,7 @@ export default function Home() {
             const Icon = typeInfo.icon;
             return (
               <Card key={typeId} className="card-enhanced group hover:scale-105 transition-all duration-300">
-                <CardContent className="flex items-center p-6">
+                <CardContent className="flex items-center p-8">
                   <div className="p-4 bg-gradient-accent rounded-xl mr-4 flex-shrink-0 shadow-soft group-hover:shadow-primary transition-all duration-300">
                     <Icon className="h-6 w-6 text-white" />
                   </div>
@@ -296,8 +311,8 @@ export default function Home() {
             );
         })}
 
-        <Card className="card-enhanced group hover:scale-105 transition-all duration-300">
-          <CardContent className="flex items-center p-6">
+        <Card className="card-enhanced group hover:scale-105 transition-all duration-300 min-h-[160px]">
+          <CardContent className="flex items-center p-8">
             <div className="p-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl mr-4 flex-shrink-0 shadow-soft group-hover:shadow-primary transition-all duration-300">
               <TrendingUp className="h-6 w-6 text-white" />
             </div>
@@ -308,8 +323,8 @@ export default function Home() {
             </div>
           </CardContent>
         </Card>
-        <Card className="card-enhanced group hover:scale-105 transition-all duration-300">
-          <CardContent className="flex items-center p-6">
+        <Card className="card-enhanced group hover:scale-105 transition-all duration-300 min-h-[160px]">
+          <CardContent className="flex items-center p-8">
             <div className="p-4 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl mr-4 flex-shrink-0 shadow-soft group-hover:shadow-primary transition-all duration-300">
               <BarChart3 className="h-6 w-6 text-white" />
             </div>
