@@ -320,12 +320,13 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
     menu_permissions: [
       'dashboard', 'dashboard.transport',
       'maintenance', 'maintenance.drivers', 'maintenance.locations',
-      'business', 'business.entry', 'business.scale',
+      'business', 'business.entry', 'business.scale', 'business.invoice_request',
       'data_maintenance', 'data_maintenance.waybill'
     ],
     function_permissions: [
       'data', 'data.create',
-      'scale_records', 'scale_records.create', 'scale_records.view'
+      'scale_records', 'scale_records.create', 'scale_records.view',
+      'finance', 'finance.generate_invoice'
     ],
     project_permissions: [
       'project_access', 'project.view_assigned',

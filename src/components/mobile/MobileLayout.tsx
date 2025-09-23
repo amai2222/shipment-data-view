@@ -118,7 +118,7 @@ const menuGroups = [
         name: '开票申请',
         href: '/m/invoice-request',
         icon: FileText,
-        roles: ['admin', 'finance']
+        roles: ['admin', 'finance', 'operator']
       },
       {
         name: '申请单管理',

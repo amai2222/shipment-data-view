@@ -201,6 +201,96 @@ LEFT JOIN logistics_partner_costs lpc ON lr.id = lpc.logistics_record_id
 GROUP BY lr.id, lr.auto_number, lr.project_name, lr.driver_name, lr.loading_date;
 
 -- =============================================================================
+-- 步骤 6: 确保 partners 表有必要的开票字段
+-- =============================================================================
+
+-- 6.1 添加税号字段
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'partners' 
+        AND column_name = 'tax_number' 
+        AND table_schema = 'public'
+    ) THEN
+        ALTER TABLE partners ADD COLUMN tax_number TEXT;
+        COMMENT ON COLUMN partners.tax_number IS '税号';
+    END IF;
+END $$;
+
+-- 6.2 添加公司地址字段
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'partners' 
+        AND column_name = 'company_address' 
+        AND table_schema = 'public'
+    ) THEN
+        ALTER TABLE partners ADD COLUMN company_address TEXT;
+        COMMENT ON COLUMN partners.company_address IS '公司地址';
+    END IF;
+END $$;
+
+-- 6.3 添加开户银行字段
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'partners' 
+        AND column_name = 'bank_name' 
+        AND table_schema = 'public'
+    ) THEN
+        ALTER TABLE partners ADD COLUMN bank_name TEXT;
+        COMMENT ON COLUMN partners.bank_name IS '开户银行';
+    END IF;
+END $$;
+
+-- 6.4 添加银行账户字段
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'partners' 
+        AND column_name = 'bank_account' 
+        AND table_schema = 'public'
+    ) THEN
+        ALTER TABLE partners ADD COLUMN bank_account TEXT;
+        COMMENT ON COLUMN partners.bank_account IS '银行账户';
+    END IF;
+END $$;
+
+-- =============================================================================
+-- 步骤 7: 创建权限检查函数
+-- =============================================================================
+
+-- 7.1 创建开票申请专用的管理员检查函数
+CREATE OR REPLACE FUNCTION public.is_admin_for_invoice(_user_id uuid DEFAULT auth.uid())
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = coalesce(_user_id, auth.uid())
+      AND role = 'admin'
+  );
+$$;
+
+-- 7.2 创建开票申请专用的财务或管理员检查函数
+CREATE OR REPLACE FUNCTION public.is_finance_or_admin_for_invoice()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT (SELECT role::text FROM public.profiles WHERE id = auth.uid()) IN ('admin','finance');
+$$;
+
+-- =============================================================================
 -- 步骤 8: 创建开票申请数据查询函数
 -- =============================================================================
 
@@ -246,10 +336,10 @@ BEGIN
             d.license_plate,
             d.phone as driver_phone,
             p.name as partner_name,
-            p.tax_number,
-            p.company_address,
-            p.bank_name,
-            p.bank_account,
+            COALESCE(p.tax_number, NULL) as tax_number,
+            COALESCE(p.company_address, NULL) as company_address,
+            COALESCE(p.bank_name, NULL) as bank_name,
+            COALESCE(p.bank_account, NULL) as bank_account,
             pc.chain_name
         FROM logistics_partner_costs lpc
         JOIN logistics_records lr ON lpc.logistics_record_id = lr.id
@@ -394,10 +484,10 @@ BEGIN
                 'tax_rate', lpc.tax_rate,
                 'invoice_status', lpc.invoice_status,
                 'payment_status', lpc.payment_status,
-                'tax_number', p.tax_number,
-                'company_address', p.company_address,
-                'bank_name', p.bank_name,
-                'bank_account', p.bank_account
+                'tax_number', COALESCE(p.tax_number, NULL),
+                'company_address', COALESCE(p.company_address, NULL),
+                'bank_name', COALESCE(p.bank_name, NULL),
+                'bank_account', COALESCE(p.bank_account, NULL)
             )
         ), '[]'::jsonb)
     )
