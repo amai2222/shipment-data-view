@@ -115,6 +115,12 @@ const menuGroups = [
         roles: ['admin', 'finance']
       },
       {
+        name: '开票申请',
+        href: '/m/invoice-request',
+        icon: FileText,
+        roles: ['admin', 'finance']
+      },
+      {
         name: '申请单管理',
         href: '/m/payment-requests-management',
         icon: Receipt,

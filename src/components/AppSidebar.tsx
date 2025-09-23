@@ -62,6 +62,7 @@ const menuItems = [
       { title: "运单管理", url: "/business-entry", icon: Plus },
       { title: "磅单管理", url: "/scale-records", icon: Weight },
       { title: "付款申请", url: "/payment-request", icon: Banknote },
+      { title: "开票申请", url: "/invoice-request", icon: FileText },
       { title: "申请单管理", url: "/payment-requests-list", icon: ClipboardList },
     ]
   },
@@ -132,6 +133,8 @@ export function AppSidebar() {
         menuKey = 'business.scale';
       } else if (item.url === '/payment-request') {
         menuKey = 'business.payment_request';
+      } else if (item.url === '/invoice-request') {
+        menuKey = 'business.invoice_request';
       } else if (item.url === '/payment-requests-list') {
         menuKey = 'business.payment_requests';
       } else if (item.url === '/contracts') {

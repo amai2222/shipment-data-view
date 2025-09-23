@@ -17,6 +17,7 @@ const routeMap: Record<string, string> = {
   '/business-entry': '运单管理',
   '/scale-records': '磅单管理',
   '/payment-request': '付款申请',
+  '/invoice-request': '开票申请',
   '/payment-requests-list': '申请单管理',
   '/contracts': '合同列表',
   '/finance/reconciliation': '运费对账',
