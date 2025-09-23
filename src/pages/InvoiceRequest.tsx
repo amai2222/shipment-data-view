@@ -132,7 +132,7 @@ const StaleDataPrompt = () => (
   <div className="text-center py-10 border rounded-lg bg-muted/20">
     <Search className="mx-auto h-12 w-12 text-muted-foreground" />
     <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3>
-    <p className="mt-1 text-sm text-muted-foreground">请点击"搜索"按钮以查看最新结果。</p>
+    <p className="mt-1 text-sm text-muted-foreground">请点击'搜索'按钮以查看最新结果。</p>
   </div>
 );
 
@@ -326,7 +326,7 @@ export default function InvoiceRequest() {
       }
 
       if (idsToProcess.length === 0) {
-        toast({ title: "无可处理记录", description: "在当前选择或筛选条件下，没有找到可申请开票的"未开票"合作方成本记录。" });
+        toast({ title: "无可处理记录", description: "在当前选择或筛选条件下，没有找到可申请开票的'未开票'合作方成本记录。" });
         setIsGenerating(false);
         return;
       }
