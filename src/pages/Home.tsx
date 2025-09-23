@@ -16,6 +16,8 @@ import { Project, LogisticsRecord } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { ResponsiveNumber, ResponsiveCurrency, ResponsiveNumberWithUnit } from "@/components/ResponsiveNumber";
+import { WaybillDetailDialog } from "@/components/WaybillDetailDialog";
 
 // --- 类型定义 ---
 
@@ -67,6 +69,10 @@ export default function Home() {
   const [isDialogLoading, setIsDialogLoading] = useState(false);
   const [dialogFilter, setDialogFilter] = useState<{ projectId: string | null; date: string | null; billingTypeId: keyof typeof BILLING_TYPE_MAP | null }>({ projectId: null, date: null, billingTypeId: null });
   const [dialogPagination, setDialogPagination] = useState({ currentPage: 1, pageSize: 15, totalCount: 0 });
+  
+  // 运单详情弹窗状态
+  const [isWaybillDetailOpen, setIsWaybillDetailOpen] = useState(false);
+  const [selectedWaybill, setSelectedWaybill] = useState<LogisticsRecord | null>(null);
 
   const [projectStatusFilter, setProjectStatusFilter] = useState('进行中');
   const [filterInputs, setFilterInputs] = useState(() => ({ ...getDefaultDateRange(), projectId: 'all' }));
@@ -187,6 +193,18 @@ export default function Home() {
     setIsDetailDialogOpen(true);
   }, [filterInputs.projectId]);
 
+  // 处理运单详情点击
+  const handleWaybillClick = useCallback((record: LogisticsRecord) => {
+    setSelectedWaybill(record);
+    setIsWaybillDetailOpen(true);
+  }, []);
+
+  // 关闭运单详情弹窗
+  const handleCloseWaybillDetail = useCallback(() => {
+    setIsWaybillDetailOpen(false);
+    setSelectedWaybill(null);
+  }, []);
+
   // --- 计算属性 ---
   const selectedProjectName = useMemo(() => {
     if (filterInputs.projectId === 'all') return '所有项目';
@@ -250,7 +268,7 @@ export default function Home() {
             </div>
             <div className="flex flex-col min-w-0 flex-1">
               <p className="text-sm font-semibold text-gradient-primary mb-1">总运输次数</p>
-              <p className="text-3xl font-bold text-foreground break-words">{dashboardData?.overview?.totalRecords || 0}</p>
+              <ResponsiveNumber value={dashboardData?.overview?.totalRecords || 0} />
               <p className="text-xs text-muted-foreground mt-2">累计运输记录</p>
             </div>
           </CardContent>
@@ -270,9 +288,7 @@ export default function Home() {
                   </div>
                   <div className="flex flex-col min-w-0 flex-1">
                     <p className="text-sm font-semibold text-gradient-accent mb-1">{typeInfo.name}总量</p>
-                    <p className="text-3xl font-bold text-foreground break-words">
-                      {total.toFixed(2)} <span className="text-lg font-medium text-muted-foreground">{typeInfo.unit}</span>
-                    </p>
+                    <ResponsiveNumberWithUnit value={total} unit={typeInfo.unit} />
                     <p className="text-xs text-muted-foreground mt-2">{typeInfo.name}统计</p>
                   </div>
                 </CardContent>
@@ -287,7 +303,7 @@ export default function Home() {
             </div>
             <div className="flex flex-col min-w-0 flex-1">
               <p className="text-sm font-semibold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent mb-1">司机应收汇总</p>
-              <p className="text-3xl font-bold text-foreground break-words">{formatCurrency(dashboardData?.overview?.totalCost)}</p>
+              <ResponsiveCurrency value={dashboardData?.overview?.totalCost} />
               <p className="text-xs text-muted-foreground mt-2">累计应收费用</p>
             </div>
           </CardContent>
@@ -299,9 +315,7 @@ export default function Home() {
             </div>
             <div className="flex flex-col min-w-0 flex-1">
               <p className="text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-1">实际运输/退货</p>
-              <p className="text-3xl font-bold text-foreground break-words">
-                {dashboardData?.overview?.actualTransportCount ?? '—'} / {dashboardData?.overview?.returnCount ?? '—'}
-              </p>
+              <ResponsiveNumber value={`${dashboardData?.overview?.actualTransportCount ?? '—'} / ${dashboardData?.overview?.returnCount ?? '—'}`} />
               <p className="text-xs text-muted-foreground mt-2">运输状态统计</p>
             </div>
           </CardContent>
@@ -500,10 +514,16 @@ export default function Home() {
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <Eye className="mr-2" />
-              {dialogFilter.date ? `${new Date(dialogFilter.date).toLocaleDateString('zh-CN')} 详细记录` : `全部筛选结果`} 
-              ({dialogFilter.billingTypeId ? BILLING_TYPE_MAP[dialogFilter.billingTypeId]?.name : '所有类型'})
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Eye className="mr-2" />
+                {dialogFilter.date ? `${new Date(dialogFilter.date).toLocaleDateString('zh-CN')} 详细记录` : `全部筛选结果`} 
+                ({dialogFilter.billingTypeId ? BILLING_TYPE_MAP[dialogFilter.billingTypeId]?.name : '所有类型'})
+              </div>
+              <div className="text-sm font-normal text-muted-foreground flex items-center">
+                <Package className="mr-1 h-4 w-4" />
+                点击行查看运单详情
+              </div>
             </DialogTitle>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto">
@@ -525,7 +545,11 @@ export default function Home() {
                   const route = `${record.loadingLocation?.substring(0, 2) || ''}-${record.unloadingLocation?.substring(0, 2) || ''}`;
                   
                   return (
-                    <TableRow key={record.id}>
+                    <TableRow 
+                      key={record.id}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => handleWaybillClick(record)}
+                    >
                       <TableCell className="whitespace-nowrap">{record.autoNumber}</TableCell>
                       <TableCell className="whitespace-nowrap max-w-[150px] truncate" title={record.projectName}>{record.projectName || '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{record.driverName}</TableCell>
@@ -561,6 +585,13 @@ export default function Home() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 运单详情弹窗 */}
+      <WaybillDetailDialog
+        isOpen={isWaybillDetailOpen}
+        onClose={handleCloseWaybillDetail}
+        record={selectedWaybill}
+      />
     </div>
   );
 }
