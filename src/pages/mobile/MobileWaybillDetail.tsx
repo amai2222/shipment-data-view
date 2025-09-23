@@ -124,6 +124,16 @@ export default function MobileWaybillDetail() {
     return `${weight.toFixed(1)}吨`;
   };
 
+  const formatDate = (dateString: string | undefined | null, formatStr: string = 'yyyy年MM月dd日 HH:mm') => {
+    if (!dateString) return '未填写';
+    try {
+      return format(parseISO(dateString), formatStr, { locale: zhCN });
+    } catch (error) {
+      console.warn('日期格式化失败:', dateString, error);
+      return dateString.includes('T') ? dateString.split('T')[0] : dateString;
+    }
+  };
+
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
       toast({
@@ -184,7 +194,7 @@ export default function MobileWaybillDetail() {
 
   return (
     <MobileLayout>
-      <div className="space-y-6 pb-6">
+      <div className="space-y-4 pb-4">
         {/* 页面头部 */}
         <div className="space-y-4">
           <div className="flex items-center gap-3">
@@ -225,7 +235,7 @@ export default function MobileWaybillDetail() {
 
         {/* 状态卡片 */}
         <Card className={`${transportConfig.bgColor} ${transportConfig.borderColor} border-2`}>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`w-12 h-12 ${transportConfig.color} rounded-full flex items-center justify-center`}>
@@ -239,7 +249,7 @@ export default function MobileWaybillDetail() {
                     {waybill.transport_type}
                   </Badge>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {format(parseISO(waybill.loading_date), 'yyyy年MM月dd日 HH:mm', { locale: zhCN })}
+                    {formatDate(waybill.loading_date, 'yyyy年MM月dd日 HH:mm')}
                   </p>
                 </div>
               </div>
@@ -257,21 +267,21 @@ export default function MobileWaybillDetail() {
 
         {/* 司机信息 */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <User className="h-5 w-5 text-blue-500" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <User className="h-4 w-4 text-blue-500" />
               司机信息
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-lg">
-              <Avatar className="h-12 w-12">
-                <AvatarFallback className="bg-blue-500 text-white font-semibold">
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-blue-500 text-white font-semibold text-sm">
                   {waybill.driver_name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <h3 className="font-semibold text-lg">{waybill.driver_name}</h3>
+                <h3 className="font-semibold text-base">{waybill.driver_name}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <Truck className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground font-mono">
@@ -322,15 +332,49 @@ export default function MobileWaybillDetail() {
           </CardContent>
         </Card>
 
+        {/* 时间信息 */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4 text-green-500" />
+              时间信息
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium text-green-600">装货日期</span>
+                </div>
+                <p className="text-sm font-mono">{formatDate(waybill.loading_date, 'MM-dd HH:mm')}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatDate(waybill.loading_date, 'yyyy年MM月dd日')}
+                </p>
+              </div>
+              <div className="p-3 bg-red-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="h-4 w-4 text-red-600" />
+                  <span className="text-sm font-medium text-red-600">卸货日期</span>
+                </div>
+                <p className="text-sm font-mono">{formatDate(waybill.unloading_date, 'MM-dd HH:mm')}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {waybill.unloading_date ? formatDate(waybill.unloading_date, 'yyyy年MM月dd日') : '待完成'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* 项目信息 */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-purple-500" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-purple-500" />
               项目信息
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
               <div className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-purple-600" />
@@ -373,13 +417,13 @@ export default function MobileWaybillDetail() {
 
         {/* 运输信息 */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-green-500" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-green-500" />
               运输路线
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             {/* 装货地点 */}
             <div className="space-y-2">
               <div className="flex items-start gap-3">
@@ -388,7 +432,7 @@ export default function MobileWaybillDetail() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-green-600 font-medium">装货地点</span>
                     <span className="text-xs text-muted-foreground">
-                      {format(parseISO(waybill.loading_date), 'MM-dd HH:mm')}
+                      {formatDate(waybill.loading_date, 'MM-dd HH:mm')}
                     </span>
                   </div>
                   <p className="text-base font-medium mt-1">{waybill.loading_location}</p>
@@ -413,11 +457,9 @@ export default function MobileWaybillDetail() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-red-600 font-medium">卸货地点</span>
-                    {waybill.unloading_date && (
-                      <span className="text-xs text-muted-foreground">
-                        {format(parseISO(waybill.unloading_date), 'MM-dd HH:mm')}
-                      </span>
-                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(waybill.unloading_date, 'MM-dd HH:mm')}
+                    </span>
                   </div>
                   <p className="text-base font-medium mt-1">{waybill.unloading_location}</p>
                   {waybill.unloading_weight && (
@@ -436,13 +478,13 @@ export default function MobileWaybillDetail() {
 
         {/* 费用明细 */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-orange-500" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-orange-500" />
               费用明细
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                 <div className="flex items-center gap-2">
