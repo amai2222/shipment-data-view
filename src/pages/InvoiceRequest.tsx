@@ -1,7 +1,7 @@
 // 文件路径: src/pages/InvoiceRequest.tsx
 // 描述: 开票申请管理页面，参考付款申请的业务逻辑
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,6 @@ import { format } from "date-fns";
 import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 
 // --- 类型定义 ---
 
@@ -285,7 +284,7 @@ export default function InvoiceRequest() {
   };
 
   const handleSelectAllOnPage = (isChecked: boolean) => { 
-    const pageIds = (reportData?.records || []).map((r: any) => r.id); 
+    const pageIds = (reportData?.records || []).map((r: PartnerCostRecord) => r.id); 
     if (isChecked) { 
       setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) })); 
     } else { 
@@ -409,7 +408,7 @@ export default function InvoiceRequest() {
   // --- 计算属性 ---
   const currentPageRecords = reportData?.records || [];
   const totalRecords = reportData?.count || 0;
-  const selectedOnCurrentPage = currentPageRecords.filter((r: any) => selection.selectedIds.has(r.id)).length;
+  const selectedOnCurrentPage = currentPageRecords.filter((r: PartnerCostRecord) => selection.selectedIds.has(r.id)).length;
   const allOnCurrentPageSelected = currentPageRecords.length > 0 && selectedOnCurrentPage === currentPageRecords.length;
   const someOnCurrentPageSelected = selectedOnCurrentPage > 0 && selectedOnCurrentPage < currentPageRecords.length;
 
