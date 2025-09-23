@@ -1,4 +1,4 @@
-// 移动端设置页面
+// 移动端设置页面 - 对标桌面端设置菜单
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,12 +9,12 @@ import { Separator } from '@/components/ui/separator';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useSimplePermissions } from '@/hooks/useSimplePermissions';
 import { 
   ArrowLeft,
   User,
   Shield,
   Bell,
-  Palette,
   Database,
   HelpCircle,
   LogOut,
@@ -23,19 +23,26 @@ import {
   Lock,
   Eye,
   Moon,
-  Sun,
-  Smartphone,
   Globe,
   Download,
-  Upload,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Users,
+  FileText,
+  History,
+  Smartphone,
+  Palette,
+  Volume2,
+  Wifi,
+  Battery,
+  Fingerprint
 } from 'lucide-react';
 
 export default function MobileSettings() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const { hasMenuAccess, isAdmin } = useSimplePermissions();
   
   const [settings, setSettings] = useState({
     notifications: {
@@ -55,13 +62,19 @@ export default function MobileSettings() {
       showOnlineStatus: true,
       allowDataCollection: false,
       autoLogout: true
+    },
+    mobile: {
+      vibration: true,
+      autoRotate: false,
+      wifiOnly: false,
+      batteryOptimization: true
     }
   });
 
-  // 设置项配置
+  // 设置项配置 - 对标桌面端设置菜单结构
   const settingsGroups = [
     {
-      title: '账户设置',
+      title: '个人设置',
       items: [
         {
           id: 'profile',
@@ -78,14 +91,72 @@ export default function MobileSettings() {
           icon: Lock,
           action: () => navigate('/m/security'),
           showChevron: true
+        }
+      ]
+    },
+    {
+      title: '系统管理',
+      description: '对标桌面端设置菜单',
+      items: [
+        {
+          id: 'user-management',
+          title: '用户管理',
+          description: '管理系统用户',
+          icon: Users,
+          action: () => navigate('/m/settings/users'),
+          showChevron: true,
+          requiresPermission: true,
+          roles: ['admin']
         },
         {
-          id: 'privacy',
-          title: '隐私设置',
-          description: '数据使用和隐私控制',
-          icon: Eye,
-          action: () => navigate('/m/privacy'),
-          showChevron: true
+          id: 'permissions',
+          title: '权限配置',
+          description: '配置用户权限',
+          icon: Shield,
+          action: () => navigate('/m/settings/permissions'),
+          showChevron: true,
+          requiresPermission: true,
+          roles: ['admin']
+        },
+        {
+          id: 'contract-permissions',
+          title: '合同权限',
+          description: '合同相关权限管理',
+          icon: FileText,
+          action: () => navigate('/m/settings/contract-permissions'),
+          showChevron: true,
+          requiresPermission: true,
+          roles: ['admin']
+        },
+        {
+          id: 'role-templates',
+          title: '角色模板',
+          description: '管理角色权限模板',
+          icon: Settings,
+          action: () => navigate('/m/settings/role-templates'),
+          showChevron: true,
+          requiresPermission: true,
+          roles: ['admin']
+        },
+        {
+          id: 'integrated-user-management',
+          title: '集成用户管理',
+          description: '统一用户权限管理',
+          icon: User,
+          action: () => navigate('/m/settings/integrated'),
+          showChevron: true,
+          requiresPermission: true,
+          roles: ['admin']
+        },
+        {
+          id: 'audit-logs',
+          title: '操作日志',
+          description: '查看系统操作记录',
+          icon: History,
+          action: () => navigate('/m/settings/audit-logs'),
+          showChevron: true,
+          requiresPermission: true,
+          roles: ['admin']
         }
       ]
     },
@@ -108,7 +179,7 @@ export default function MobileSettings() {
           id: 'business-notifications',
           title: '业务通知',
           description: '运单、项目相关通知',
-          icon: Bell,
+          icon: FileText,
           toggle: true,
           value: settings.notifications.business,
           onChange: (value: boolean) => setSettings(prev => ({
@@ -120,12 +191,24 @@ export default function MobileSettings() {
           id: 'finance-notifications',
           title: '财务通知',
           description: '付款、账单相关通知',
-          icon: Bell,
+          icon: Database,
           toggle: true,
           value: settings.notifications.finance,
           onChange: (value: boolean) => setSettings(prev => ({
             ...prev,
             notifications: { ...prev.notifications, finance: value }
+          }))
+        },
+        {
+          id: 'sound-notifications',
+          title: '声音提醒',
+          description: '通知声音和震动',
+          icon: Volume2,
+          toggle: true,
+          value: settings.mobile.vibration,
+          onChange: (value: boolean) => setSettings(prev => ({
+            ...prev,
+            mobile: { ...prev.mobile, vibration: value }
           }))
         }
       ]
@@ -145,7 +228,6 @@ export default function MobileSettings() {
               ...prev,
               display: { ...prev.display, darkMode: value }
             }));
-            // 这里可以实现主题切换逻辑
             toast({
               title: value ? '已切换到深色模式' : '已切换到浅色模式',
               description: '主题设置已保存'
@@ -159,38 +241,69 @@ export default function MobileSettings() {
           icon: Globe,
           action: () => navigate('/m/language'),
           showChevron: true
+        },
+        {
+          id: 'theme',
+          title: '主题样式',
+          description: '自定义界面主题',
+          icon: Palette,
+          action: () => navigate('/m/theme'),
+          showChevron: true
         }
       ]
     },
     {
-      title: '系统管理',
+      title: '移动端专属',
+      description: '移动设备特殊设置',
       items: [
         {
-          id: 'permissions',
-          title: '权限管理',
-          description: '用户权限配置',
-          icon: Shield,
-          action: () => navigate('/m/settings/permissions'),
-          showChevron: true,
-          badge: '管理员'
+          id: 'auto-rotate',
+          title: '自动旋转',
+          description: '自动旋转屏幕',
+          icon: Smartphone,
+          toggle: true,
+          value: settings.mobile.autoRotate,
+          onChange: (value: boolean) => setSettings(prev => ({
+            ...prev,
+            mobile: { ...prev.mobile, autoRotate: value }
+          }))
         },
         {
-          id: 'user-management',
-          title: '用户管理',
-          description: '集成用户管理',
-          icon: User,
-          action: () => navigate('/m/settings/integrated'),
-          showChevron: true,
-          badge: '管理员'
+          id: 'wifi-only',
+          title: '仅WiFi同步',
+          description: '仅在WiFi环境下同步数据',
+          icon: Wifi,
+          toggle: true,
+          value: settings.mobile.wifiOnly,
+          onChange: (value: boolean) => setSettings(prev => ({
+            ...prev,
+            mobile: { ...prev.mobile, wifiOnly: value }
+          }))
         },
         {
-          id: 'audit-logs',
-          title: '审计日志',
-          description: '查看系统操作记录',
-          icon: Database,
-          action: () => navigate('/m/settings/audit-logs'),
-          showChevron: true,
-          badge: '管理员'
+          id: 'battery-optimization',
+          title: '省电模式',
+          description: '优化电池使用',
+          icon: Battery,
+          toggle: true,
+          value: settings.mobile.batteryOptimization,
+          onChange: (value: boolean) => setSettings(prev => ({
+            ...prev,
+            mobile: { ...prev.mobile, batteryOptimization: value }
+          }))
+        },
+        {
+          id: 'biometric',
+          title: '生物识别',
+          description: '指纹或面部识别登录',
+          icon: Fingerprint,
+          action: () => {
+            toast({
+              title: '功能开发中',
+              description: '生物识别功能正在开发中'
+            });
+          },
+          showChevron: true
         }
       ]
     },
@@ -279,8 +392,22 @@ export default function MobileSettings() {
     }
   };
 
-  // 检查是否为管理员
-  const isAdmin = user?.user_metadata?.role === 'admin';
+  // 权限检查函数
+  const hasPermission = (roles?: string[]) => {
+    if (!roles || roles.length === 0) return true;
+    return isAdmin || roles.includes(user?.user_metadata?.role);
+  };
+
+  // 过滤设置组，只显示有权限的项目
+  const filteredSettingsGroups = settingsGroups.map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      if (item.requiresPermission && item.roles) {
+        return hasPermission(item.roles);
+      }
+      return true;
+    })
+  })).filter(group => group.items.length > 0);
 
   return (
     <MobileLayout>
@@ -323,56 +450,56 @@ export default function MobileSettings() {
         </Card>
 
         {/* 设置组 */}
-        {settingsGroups.map((group) => (
+        {filteredSettingsGroups.map((group) => (
           <div key={group.title}>
-            <h2 className="text-lg font-semibold mb-3 text-muted-foreground">
-              {group.title}
-            </h2>
+            <div className="mb-3">
+              <h2 className="text-lg font-semibold text-muted-foreground">
+                {group.title}
+              </h2>
+              {group.description && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {group.description}
+                </p>
+              )}
+            </div>
             <Card>
               <CardContent className="p-0">
-                {group.items.map((item, index) => {
-                  // 如果是管理员功能但用户不是管理员，则不显示
-                  if (item.badge === '管理员' && !isAdmin) {
-                    return null;
-                  }
-
-                  return (
-                    <div key={item.id}>
-                      <div 
-                        className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50"
-                        onClick={item.toggle ? undefined : item.action}
-                      >
-                        <div className="flex-shrink-0">
-                          <item.icon className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium">{item.title}</h4>
-                            {item.badge && (
-                              <Badge variant="secondary" className="text-xs">
-                                {item.badge}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {item.description}
-                          </p>
-                        </div>
-                        <div className="flex-shrink-0">
-                          {item.toggle ? (
-                            <Switch
-                              checked={item.value}
-                              onCheckedChange={item.onChange}
-                            />
-                          ) : item.showChevron ? (
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          ) : null}
-                        </div>
+                {group.items.map((item, index) => (
+                  <div key={item.id}>
+                    <div 
+                      className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={item.toggle ? undefined : item.action}
+                    >
+                      <div className="flex-shrink-0">
+                        <item.icon className="h-5 w-5 text-muted-foreground" />
                       </div>
-                      {index < group.items.length - 1 && <Separator />}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium">{item.title}</h4>
+                          {item.requiresPermission && (
+                            <Badge variant="outline" className="text-xs">
+                              管理员
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {item.description}
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        {item.toggle ? (
+                          <Switch
+                            checked={item.value}
+                            onCheckedChange={item.onChange}
+                          />
+                        ) : item.showChevron ? (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        ) : null}
+                      </div>
                     </div>
-                  );
-                })}
+                    {index < group.items.length - 1 && <Separator />}
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </div>

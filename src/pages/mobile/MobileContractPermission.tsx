@@ -1,15 +1,15 @@
-// 移动端用户管理页面
+// 移动端合同权限管理页面
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
-import { ArrowLeft, Users } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 
-// 引用桌面端的用户管理组件
-import UserManagementPage from '@/pages/Settings/UserManagement';
+// 引用桌面端的合同权限组件
+import ContractPermissionPage from '@/pages/Settings/ContractPermission';
 
-export default function MobileUserManagement() {
+export default function MobileContractPermission() {
   const navigate = useNavigate();
 
   return (
@@ -25,16 +25,16 @@ export default function MobileUserManagement() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold">用户管理</h1>
+            <h1 className="text-xl font-bold">合同权限</h1>
             <p className="text-sm text-muted-foreground">
-              管理系统用户
+              合同相关权限管理
             </p>
           </div>
         </div>
 
         {/* 使用桌面端组件，但适配移动端样式 */}
-        <div className="mobile-user-management">
-          <UserManagementPage />
+        <div className="mobile-contract-permission">
+          <ContractPermissionPage />
         </div>
       </div>
     </MobileLayout>

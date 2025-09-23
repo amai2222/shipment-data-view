@@ -45,6 +45,9 @@ import ContractManagement from "./pages/ContractManagement";
 import WaybillMaintenance from "./pages/DataMaintenance/WaybillMaintenance";
 import MobileNotifications from "./pages/mobile/MobileNotifications";
 import MobileSettings from "./pages/mobile/MobileSettings";
+import MobileUserManagement from "./pages/mobile/MobileUserManagement";
+import MobileContractPermission from "./pages/mobile/MobileContractPermission";
+import MobileRoleTemplate from "./pages/mobile/MobileRoleTemplate";
 
 // ★★★ 1. 导入我们新创建的两个页面 ★★★
 import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
@@ -421,6 +424,24 @@ const App = () => (
             <Route path="/m/notifications" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
                 <MobileNotifications />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/settings/users" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileUserManagement />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/settings/contract-permissions" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileContractPermission />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/settings/role-templates" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <MobileRoleTemplate />
               </ProtectedRoute>
             } />
 
