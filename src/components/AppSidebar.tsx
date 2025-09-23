@@ -11,17 +11,14 @@ import {
   MapPin,
   Users,
   Plus,
-  RotateCcw,
   ChevronDown,
   ClipboardList,
   Settings,
-  UserCog,
   Weight,
   Shield,
   History
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -35,7 +32,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { forceReimportData } from "@/utils/importData";
 import { useSimplePermissions } from "@/hooks/useSimplePermissions";
 
 // 菜单配置
