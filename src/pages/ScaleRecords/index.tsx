@@ -323,7 +323,7 @@ export default function ScaleRecords() {
   const isAllMatchingSelected = selectedRecordIds.size === totalRecordsCount && totalRecordsCount > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-end justify-between gap-4 flex-wrap">

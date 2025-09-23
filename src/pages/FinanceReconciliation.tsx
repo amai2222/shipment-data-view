@@ -268,7 +268,7 @@ export default function FinanceReconciliation() {
   if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">财务对账</h1>
         <p className="text-muted-foreground">运费收入与合作方应付金额统计</p>

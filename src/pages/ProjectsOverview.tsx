@@ -154,7 +154,7 @@ export default function ProjectsOverview() {
   const { all_projects_data, global_seven_day_trend, global_driver_report_table, global_summary } = dashboardData;
 
   return (
-    <div className="p-6 bg-slate-50 space-y-8">
+    <div className="p-4 md:p-6 space-y-8">
       <div className="flex flex-wrap justify-between items-center gap-4">
         {/* ★★★ 1. 主标题改名并改为黑色 ★★★ */}
         <h1 className="text-3xl font-bold text-slate-800 flex items-center">

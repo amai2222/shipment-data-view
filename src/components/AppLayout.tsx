@@ -19,9 +19,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           
           {/* Content Area with Enhanced Scrolling */}
           <div className="flex-1 overflow-auto bg-gradient-to-b from-background to-secondary/20">
-            <div className="container max-w-7xl mx-auto p-6 space-y-6">
-              {children}
-            </div>
+            {children}
           </div>
         </main>
       </div>

@@ -161,7 +161,7 @@ export default function PaymentInvoice() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <BatchInputDialog
         isOpen={isBatchDialogOpen}
         onClose={() => setIsBatchDialogOpen(false)}

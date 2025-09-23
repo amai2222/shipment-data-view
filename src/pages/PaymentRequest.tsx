@@ -318,7 +318,7 @@ export default function PaymentRequest() {
 
   // --- JSX 渲染 (已更新) ---
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <BatchInputDialog
         isOpen={isDriverBatchOpen}
         onClose={() => setIsDriverBatchOpen(false)}

@@ -497,7 +497,7 @@ export default function ContractManagement() {
   const isPartialSelected = selectedContracts.size > 0 && selectedContracts.size < contracts.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">合同管理</h1>
         <div className="flex items-center gap-2 flex-wrap">

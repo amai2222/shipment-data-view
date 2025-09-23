@@ -220,7 +220,7 @@ export default function Locations() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 md:p-6">
       {/* 页面标题 */}
       <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
         <div className="flex items-center justify-between">

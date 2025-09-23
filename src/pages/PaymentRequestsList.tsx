@@ -257,7 +257,7 @@ export default function PaymentRequestsList() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">付款申请单列表</h1>
         <p className="text-muted-foreground">查看和管理所有已生成的付款申请批次。</p>

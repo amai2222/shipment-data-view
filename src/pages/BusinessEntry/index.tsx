@@ -288,7 +288,7 @@ export default function BusinessEntry() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4 md:p-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">运单管理</h1>

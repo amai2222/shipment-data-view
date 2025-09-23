@@ -182,7 +182,7 @@ export default function WaybillMaintenance() {
   }, [loadWaybillCount]);
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="p-4 md:p-6">
       <div className="mx-auto max-w-4xl">
         <Card className="shadow-lg">
           <CardHeader className="text-center">
