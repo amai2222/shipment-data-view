@@ -35,21 +35,20 @@ const formatCurrency = (value: number | null | undefined): string => {
 const formatDate = (dateString: string | null | undefined): string => {
   if (!dateString) return '未填写';
   try {
-    // 处理ISO日期格式
+    // 处理日期字符串，确保转换为中国时区
+    let date: Date;
     if (dateString.includes('T')) {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return '格式错误';
-      return date.toLocaleDateString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      // 如果包含时间信息，直接解析
+      date = new Date(dateString);
+    } else {
+      // 如果只是日期，假设是UTC+0的日期，转换为中国时区
+      date = new Date(dateString + 'T00:00:00.000Z');
+      // 转换为中国时区 (UTC+8)
+      date = new Date(date.getTime() + 8 * 60 * 60 * 1000);
     }
-    // 处理简单日期格式
-    const date = new Date(dateString);
+    
     if (isNaN(date.getTime())) return dateString; // 如果无法解析，返回原始字符串
+    
     return date.toLocaleDateString('zh-CN', {
       year: 'numeric',
       month: '2-digit',

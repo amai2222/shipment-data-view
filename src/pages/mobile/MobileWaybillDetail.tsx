@@ -124,10 +124,21 @@ export default function MobileWaybillDetail() {
     return `${weight.toFixed(1)}吨`;
   };
 
-  const formatDate = (dateString: string | undefined | null, formatStr: string = 'yyyy年MM月dd日 HH:mm') => {
+  const formatDate = (dateString: string | undefined | null, formatStr: string = 'yyyy年MM月dd日') => {
     if (!dateString) return '未填写';
     try {
-      return format(parseISO(dateString), formatStr, { locale: zhCN });
+      // 处理日期字符串，确保转换为中国时区
+      let date: Date;
+      if (dateString.includes('T')) {
+        // 如果包含时间信息，直接解析
+        date = parseISO(dateString);
+      } else {
+        // 如果只是日期，假设是UTC+0的日期，转换为中国时区
+        date = new Date(dateString + 'T00:00:00.000Z');
+        // 转换为中国时区 (UTC+8)
+        date = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+      }
+      return format(date, formatStr, { locale: zhCN });
     } catch (error) {
       console.warn('日期格式化失败:', dateString, error);
       return dateString.includes('T') ? dateString.split('T')[0] : dateString;
@@ -249,7 +260,7 @@ export default function MobileWaybillDetail() {
                     {waybill.transport_type}
                   </Badge>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {formatDate(waybill.loading_date, 'yyyy年MM月dd日 HH:mm')}
+                    {formatDate(waybill.loading_date)}
                   </p>
                 </div>
               </div>
@@ -347,9 +358,9 @@ export default function MobileWaybillDetail() {
                   <Calendar className="h-4 w-4 text-green-600" />
                   <span className="text-sm font-medium text-green-600">装货日期</span>
                 </div>
-                <p className="text-sm font-mono">{formatDate(waybill.loading_date, 'MM-dd HH:mm')}</p>
+                <p className="text-sm font-mono">{formatDate(waybill.loading_date, 'MM-dd')}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {formatDate(waybill.loading_date, 'yyyy年MM月dd日')}
+                  {formatDate(waybill.loading_date)}
                 </p>
               </div>
               <div className="p-3 bg-red-50 rounded-lg">
@@ -357,9 +368,9 @@ export default function MobileWaybillDetail() {
                   <Calendar className="h-4 w-4 text-red-600" />
                   <span className="text-sm font-medium text-red-600">卸货日期</span>
                 </div>
-                <p className="text-sm font-mono">{formatDate(waybill.unloading_date, 'MM-dd HH:mm')}</p>
+                <p className="text-sm font-mono">{formatDate(waybill.unloading_date, 'MM-dd')}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {waybill.unloading_date ? formatDate(waybill.unloading_date, 'yyyy年MM月dd日') : '待完成'}
+                  {waybill.unloading_date ? formatDate(waybill.unloading_date) : '待完成'}
                 </p>
               </div>
             </div>
@@ -432,7 +443,7 @@ export default function MobileWaybillDetail() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-green-600 font-medium">装货地点</span>
                     <span className="text-xs text-muted-foreground">
-                      {formatDate(waybill.loading_date, 'MM-dd HH:mm')}
+                      {formatDate(waybill.loading_date, 'MM-dd')}
                     </span>
                   </div>
                   <p className="text-base font-medium mt-1">{waybill.loading_location}</p>
@@ -458,7 +469,7 @@ export default function MobileWaybillDetail() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-red-600 font-medium">卸货地点</span>
                     <span className="text-xs text-muted-foreground">
-                      {formatDate(waybill.unloading_date, 'MM-dd HH:mm')}
+                      {formatDate(waybill.unloading_date, 'MM-dd')}
                     </span>
                   </div>
                   <p className="text-base font-medium mt-1">{waybill.unloading_location}</p>

@@ -283,18 +283,18 @@ export default function Home() {
       </header>
 
       {/* 重新设计的卡片组 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 items-stretch">
         {/* 总运输次数卡片 - 主要指标 */}
         <Card className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50 border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group cursor-pointer" onClick={handleOverviewLegendClick}>
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5"></div>
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full -translate-y-12 translate-x-12"></div>
-          <CardContent className="relative p-4 space-y-3">
+          <CardContent className="relative p-4 space-y-3 h-full flex flex-col">
             <div className="flex items-center">
               <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
                 <Package className="h-6 w-6 text-white" />
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 flex-1">
               <div className="flex items-baseline justify-between">
                 <h3 className="text-sm font-semibold text-gray-600">总运输次数</h3>
                 <div className="flex items-center text-xs text-green-600">
@@ -330,13 +330,13 @@ export default function Home() {
               <Card key={typeId} className={`relative overflow-hidden bg-gradient-to-br ${theme.bg} border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group cursor-pointer`}>
                 <div className={`absolute inset-0 bg-gradient-to-br from-${theme.accent}/5 via-transparent to-${theme.accent}/5`}></div>
                 <div className={`absolute -top-6 -right-6 w-20 h-20 bg-gradient-to-br from-${theme.accent}/10 to-transparent rounded-full`}></div>
-                <CardContent className="relative p-4 space-y-3">
+                <CardContent className="relative p-4 space-y-3 h-full flex flex-col">
                   <div className="flex items-center">
                     <div className={`p-2 bg-gradient-to-br ${theme.gradient} rounded-xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300`}>
                       <Icon className="h-6 w-6 text-white" />
                     </div>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 flex-1">
                     <div className="flex items-baseline justify-between">
                       <h3 className="text-sm font-semibold text-gray-600">{typeInfo.name}总量</h3>
                       <div className={`px-2 py-1 bg-${theme.accent}/10 rounded-full`}>
@@ -356,13 +356,13 @@ export default function Home() {
         <Card className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-white to-yellow-50 border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group cursor-pointer">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-yellow-500/5"></div>
           <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full"></div>
-          <CardContent className="relative p-4 space-y-3">
+          <CardContent className="relative p-4 space-y-3 h-full flex flex-col">
             <div className="flex items-center">
               <div className="p-2 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
                 <TrendingUp className="h-6 w-6 text-white" />
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 flex-1">
               <div className="flex items-baseline justify-between">
                 <h3 className="text-sm font-semibold text-gray-600">司机应收汇总</h3>
                 <div className="flex items-center text-xs text-amber-600">
@@ -381,13 +381,13 @@ export default function Home() {
         <Card className="relative overflow-hidden bg-gradient-to-br from-violet-50 via-white to-purple-50 border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group cursor-pointer">
           <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 via-transparent to-purple-500/5"></div>
           <div className="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-violet-500/10 to-transparent rounded-full -translate-x-10 -translate-y-10"></div>
-          <CardContent className="relative p-4 space-y-3">
+          <CardContent className="relative p-4 space-y-3 h-full flex flex-col">
             <div className="flex items-center">
               <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
                 <BarChart3 className="h-6 w-6 text-white" />
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 flex-1">
               <div className="flex items-baseline justify-between">
                 <h3 className="text-sm font-semibold text-gray-600">运输状态</h3>
                 <div className="flex items-center text-xs text-violet-600">
@@ -395,18 +395,10 @@ export default function Home() {
                   统计
                 </div>
               </div>
-              <div className="flex items-center space-x-6">
-                <div className="flex flex-col items-center">
-                  <span className="text-xs text-gray-500 mb-1">实际运输</span>
-                  <ResponsiveNumber value={dashboardData?.overview?.actualTransportCount ?? '—'} className="text-gray-900 !text-3xl !font-black !leading-none" />
-                </div>
-                <div className="text-3xl text-gray-300 font-light">/</div>
-                <div className="flex flex-col items-center">
-                  <span className="text-xs text-gray-500 mb-1">退货数量</span>
-                  <ResponsiveNumber value={dashboardData?.overview?.returnCount ?? '—'} className="text-gray-900 !text-3xl !font-black !leading-none" />
-                </div>
+              <div className="text-center">
+                <ResponsiveNumber value={`${dashboardData?.overview?.actualTransportCount ?? 0} / ${dashboardData?.overview?.returnCount ?? 0}`} className="text-gray-900" />
               </div>
-              <p className="text-xs text-gray-500">运输状态分布统计</p>
+              <p className="text-xs text-gray-500">实际运输/退货数量</p>
             </div>
             <div className="h-1 bg-gradient-to-r from-violet-500 via-purple-500 to-violet-500 rounded-full"></div>
           </CardContent>
