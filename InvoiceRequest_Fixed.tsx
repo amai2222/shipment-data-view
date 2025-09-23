@@ -1,5 +1,5 @@
+// 修正版开票申请页面 - 以运单为主要对象，参考付款申请逻辑
 // 文件路径: src/pages/InvoiceRequest.tsx
-// 描述: 开票申请管理页面，参考付款申请的业务逻辑
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,8 +21,6 @@ import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, Pagi
 import { cn } from "@/lib/utils";
 
 // --- 类型定义 ---
-
-// 合作方成本信息
 interface PartnerCost { 
   id: string;
   partner_id: string; 
@@ -40,7 +38,6 @@ interface PartnerCost {
   bank_account?: string; 
 }
 
-// 运单记录（开票申请的主要对象）
 interface LogisticsRecord { 
   id: string; 
   auto_number: string; 
@@ -59,10 +56,10 @@ interface LogisticsRecord {
   billing_type_id: number | null;
   current_cost: number | null;
   extra_cost: number | null;
-  invoice_status: 'Uninvoiced' | 'Processing' | 'Invoiced'; // 运单整体开票状态
-  total_invoiceable_amount: number; // 总开票金额
-  partner_cost_count: number; // 合作方成本记录数量
-  partner_costs?: PartnerCost[]; // 详细的合作方成本信息
+  invoice_status: 'Uninvoiced' | 'Processing' | 'Invoiced';
+  total_invoiceable_amount: number;
+  partner_cost_count: number;
+  partner_costs?: PartnerCost[];
 }
 
 interface InvoiceFilters { 
@@ -81,7 +78,7 @@ interface PaginationState {
 
 interface SelectionState { 
   mode: 'none' | 'all_filtered'; 
-  selectedIds: Set<string>; // 存储运单ID
+  selectedIds: Set<string>; 
 }
 
 interface InvoicePreviewSheet { 
@@ -93,17 +90,17 @@ interface InvoicePreviewSheet {
   invoicing_partner_bank_account: string;
   record_count: number; 
   total_invoiceable: number; 
-  records: LogisticsRecord[]; // 存储运单记录
+  records: LogisticsRecord[];
 }
 
 interface InvoicePreviewData { 
   sheets: InvoicePreviewSheet[]; 
-  processed_record_ids: string[]; // 运单ID
+  processed_record_ids: string[];
 }
 
 interface FinalInvoiceData { 
   sheets: InvoicePreviewSheet[]; 
-  all_record_ids: string[]; // 运单ID
+  all_record_ids: string[];
 }
 
 // --- 常量和初始状态 ---
@@ -202,7 +199,6 @@ export default function InvoiceRequest() {
     if (!isStale) { 
       fetchReportData(); 
     } else { 
-      setLoading(false); 
       setReportData(null); 
     } 
   }, [fetchReportData, isStale]);
@@ -217,28 +213,6 @@ export default function InvoiceRequest() {
     return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value); 
   };
 
-  const simplifyRoute = (loading?: string, unloading?: string): string => { 
-    const start = (loading || '').substring(0, 2); 
-    const end = (unloading || '').substring(0, 2); 
-    return `${start}→${end}`; 
-  };
-  
-  const getBillingUnit = (billingTypeId: number | null | undefined): string => {
-    switch (billingTypeId) {
-      case 1: return '吨';
-      case 2: return '车';
-      case 3: return '立方';
-      default: return '';
-    }
-  };
-
-  const formatQuantity = (record: PartnerCostRecord): string => {
-    const unit = getBillingUnit(record.billing_type_id);
-    const loadingText = record.loading_weight ?? '-';
-    const unloadingText = record.unloading_weight ?? '-';
-    return `${loadingText} / ${unloadingText} ${unit}`;
-  };
-
   const getInvoiceStatusBadge = (status: string) => {
     switch (status) {
       case 'Uninvoiced':
@@ -248,39 +222,36 @@ export default function InvoiceRequest() {
       case 'Invoiced':
         return <Badge variant="default" className="bg-green-500">已完成开票</Badge>;
       default:
-        return <Badge variant="secondary">未知状态</Badge>;
+        return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
-  const handleFilterChange = <K extends keyof InvoiceFilters>(field: K, value: InvoiceFilters[K]) => { 
-    setUiFilters(prev => ({ ...prev, [field]: value })); 
+  const handleDateChange = (dateRange: DateRange | undefined) => {
+    setUiFilters(prev => ({
+      ...prev,
+      startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '',
+      endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '',
+    }));
   };
 
-  const handleDateChange = (dateRange: DateRange | undefined) => { 
-    setUiFilters(prev => ({ 
-      ...prev, 
-      startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', 
-      endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' 
-    })); 
+  const handleFilterChange = (key: keyof InvoiceFilters, value: string) => {
+    setUiFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleRecordSelect = (recordId: string) => { 
-    setSelection(prev => { 
-      const newSet = new Set(prev.selectedIds); 
-      if (newSet.has(recordId)) { 
-        newSet.delete(recordId); 
-      } else { 
-        newSet.add(recordId); 
-      } 
-      if (prev.mode === 'all_filtered') { 
-        return { mode: 'none', selectedIds: newSet }; 
-      } 
-      return { ...prev, selectedIds: newSet }; 
-    }); 
+  const handleSelectRecord = (recordId: string, isChecked: boolean) => {
+    if (isChecked) {
+      setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, recordId]) }));
+    } else {
+      setSelection(prev => {
+        const newSet = new Set(prev.selectedIds);
+        newSet.delete(recordId);
+        return { ...prev, selectedIds: newSet };
+      });
+    }
   };
 
   const handleSelectAllOnPage = (isChecked: boolean) => { 
-    const pageIds = (reportData?.records || []).map((r: PartnerCostRecord) => r.id); 
+    const pageIds = (reportData?.records || []).map((r: LogisticsRecord) => r.id); 
     if (isChecked) { 
       setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) })); 
     } else { 
@@ -296,11 +267,11 @@ export default function InvoiceRequest() {
   };
 
   const handleApplyForInvoiceClick = async () => {
-    const isCrossPageSelection = selection.mode === 'all_filtered';
     const selectionCount = selection.selectedIds.size;
+    const isCrossPageSelection = selection.mode === 'all_filtered';
 
     if (!isCrossPageSelection && selectionCount === 0) {
-        toast({ title: "提示", description: "请先选择需要申请开票的合作方成本记录。" });
+        toast({ title: "提示", description: "请先选择需要申请开票的运单。" });
         return;
     }
 
@@ -309,7 +280,7 @@ export default function InvoiceRequest() {
       let idsToProcess: string[] = [];
 
       if (isCrossPageSelection) {
-        const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_uninvoiced_partner_cost_ids', {
+        const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_uninvoiced_record_ids', {
             p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
             p_start_date: activeFilters.startDate || null,
             p_end_date: activeFilters.endDate || null,
@@ -322,50 +293,79 @@ export default function InvoiceRequest() {
       }
 
       if (idsToProcess.length === 0) {
-        toast({ title: "无可处理记录", description: "在当前选择或筛选条件下，没有找到可申请开票的'未开票'合作方成本记录。" });
+        toast({ title: "无可处理运单", description: "在当前选择或筛选条件下，没有找到可申请开票的'未开票'运单。" });
         setIsGenerating(false);
         return;
       }
 
       const { data: v2Data, error: rpcError } = await supabase.rpc('get_invoice_request_data_v2', {
-        p_partner_cost_ids: idsToProcess
+        p_record_ids: idsToProcess
       });
 
       if (rpcError) throw rpcError;
 
-      const v2 = (v2Data as { partner_costs?: PartnerCostRecord[] }) || {};
-      const partnerCosts: PartnerCostRecord[] = Array.isArray(v2.partner_costs) ? v2.partner_costs : [];
+      const v2 = (v2Data as { records?: LogisticsRecord[] }) || {};
+      const records: LogisticsRecord[] = Array.isArray(v2.records) ? v2.records : [];
       
-      // 按合作方分组
+      // 按合作方分组（参考付款申请逻辑）
+      let maxLevel = 0;
+      for (const rec of records) {
+        for (const cost of rec.partner_costs || []) {
+          if (cost.level > maxLevel) {
+            maxLevel = cost.level;
+          }
+        }
+      }
+
       const sheetMap = new Map<string, any>();
 
-      for (const partnerCost of partnerCosts) {
-        const key = partnerCost.partner_id;
-        if (!sheetMap.has(key)) {
-          sheetMap.set(key, {
-            invoicing_partner_id: key,
-            invoicing_partner_full_name: partnerCost.partner_name,
-            invoicing_partner_tax_number: partnerCost.tax_number || '',
-            invoicing_partner_company_address: partnerCost.company_address || '',
-            invoicing_partner_bank_name: partnerCost.bank_name || '',
-            invoicing_partner_bank_account: partnerCost.bank_account || '',
-            record_count: 0,
-            total_invoiceable: 0,
-            partner_costs: []
-          });
-        }
+      for (const rec of records) {
+        const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
+        if (costs.length === 0) continue;
 
-        const sheet = sheetMap.get(key);
-        sheet.record_count += 1;
-        sheet.total_invoiceable += partnerCost.payable_amount;
-        sheet.partner_costs.push(partnerCost);
+        for (const cost of costs) {
+          if (cost.level < maxLevel && cost.invoice_status === 'Uninvoiced') {
+            const key = cost.partner_id;
+            if (!sheetMap.has(key)) {
+              sheetMap.set(key, {
+                invoicing_partner_id: key,
+                invoicing_partner_full_name: cost.full_name || cost.partner_name,
+                invoicing_partner_tax_number: cost.tax_number || '',
+                invoicing_partner_company_address: cost.company_address || '',
+                invoicing_partner_bank_name: cost.bank_name || '',
+                invoicing_partner_bank_account: cost.bank_account || '',
+                record_count: 0,
+                total_invoiceable: 0,
+                records: []
+              });
+            }
+
+            const sheet = sheetMap.get(key);
+            
+            // 检查是否已经添加了这个运单
+            const existingRecord = sheet.records.find((r: any) => r.id === rec.id);
+            if (!existingRecord) {
+              // 计算该运单对当前合作方的开票金额
+              const totalInvoiceableForPartner = costs
+                .filter(c => c.partner_id === key && c.invoice_status === 'Uninvoiced')
+                .reduce((sum, c) => sum + c.payable_amount, 0);
+
+              sheet.records.push({
+                ...rec,
+                total_invoiceable_for_partner: totalInvoiceableForPartner
+              });
+              sheet.record_count += 1;
+              sheet.total_invoiceable += totalInvoiceableForPartner;
+            }
+          }
+        }
       }
 
       const sheets = Array.from(sheetMap.values());
-      const processedIds = partnerCosts.map(pc => pc.id);
+      const processedIds = idsToProcess;
 
-      setInvoicePreviewData({ sheets, processed_partner_cost_ids: processedIds });
-      setFinalInvoiceData({ sheets, all_partner_cost_ids: processedIds });
+      setInvoicePreviewData({ sheets, processed_record_ids: processedIds });
+      setFinalInvoiceData({ sheets, all_record_ids: processedIds });
       setIsPreviewModalOpen(true);
 
     } catch (error) {
@@ -404,7 +404,7 @@ export default function InvoiceRequest() {
   // --- 计算属性 ---
   const currentPageRecords = reportData?.records || [];
   const totalRecords = reportData?.count || 0;
-  const selectedOnCurrentPage = currentPageRecords.filter((r: PartnerCostRecord) => selection.selectedIds.has(r.id)).length;
+  const selectedOnCurrentPage = currentPageRecords.filter((r: LogisticsRecord) => selection.selectedIds.has(r.id)).length;
   const allOnCurrentPageSelected = currentPageRecords.length > 0 && selectedOnCurrentPage === currentPageRecords.length;
   const someOnCurrentPageSelected = selectedOnCurrentPage > 0 && selectedOnCurrentPage < currentPageRecords.length;
 
@@ -454,7 +454,7 @@ export default function InvoiceRequest() {
                   <SelectItem value="all">所有合作方</SelectItem>
                   {allPartners.map((partner) => (
                     <SelectItem key={partner.id} value={partner.id}>
-                      L{partner.level} - {partner.name}
+                      {partner.name} (级别{partner.level})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -465,7 +465,7 @@ export default function InvoiceRequest() {
               <Label>开票状态</Label>
               <Select value={uiFilters.invoiceStatus} onValueChange={(value) => handleFilterChange('invoiceStatus', value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="选择开票状态" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {INVOICE_STATUS_OPTIONS.map((option) => (
@@ -485,6 +485,7 @@ export default function InvoiceRequest() {
                   to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined,
                 }}
                 onChange={handleDateChange}
+                placeholder="选择日期范围"
               />
             </div>
           </div>
@@ -501,23 +502,37 @@ export default function InvoiceRequest() {
         </CardContent>
       </Card>
 
+      {/* 操作栏 */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">
+                已选择 {selection.selectedIds.size} 条运单
+                {selection.mode === 'all_filtered' && ` (跨页选择)`}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleApplyForInvoiceClick}
+                disabled={selection.selectedIds.size === 0 && selection.mode !== 'all_filtered'}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ListPlus className="mr-2 h-4 w-4" />}
+                申请开票
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 数据表格 */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5" />
-              合作方成本记录 ({totalRecords} 条记录)
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              {selection.selectedIds.size > 0 && (
-                <Button onClick={handleApplyForInvoiceClick} disabled={isGenerating}>
-                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ListPlus className="mr-2 h-4 w-4" />}
-                  申请开票 ({selection.selectedIds.size})
-                </Button>
-              )}
-            </div>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Receipt className="h-5 w-5" />
+            运单记录 ({totalRecords} 条记录)
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isStale ? (
@@ -525,123 +540,110 @@ export default function InvoiceRequest() {
           ) : loading ? (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="ml-2">加载中...</span>
             </div>
           ) : (
             <>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={allOnCurrentPageSelected}
+                        onCheckedChange={handleSelectAllOnPage}
+                        ref={(el) => el && (el.indeterminate = someOnCurrentPageSelected)}
+                      />
+                    </TableHead>
+                    <TableHead>运单号</TableHead>
+                    <TableHead>项目</TableHead>
+                    <TableHead>司机</TableHead>
+                    <TableHead>路线</TableHead>
+                    <TableHead>装货日期</TableHead>
+                    <TableHead>开票状态</TableHead>
+                    <TableHead>开票金额</TableHead>
+                    <TableHead>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {currentPageRecords.map((record: LogisticsRecord) => (
+                    <TableRow key={record.id}>
+                      <TableCell>
                         <Checkbox
-                          checked={allOnCurrentPageSelected}
-                          onCheckedChange={handleSelectAllOnPage}
-                          ref={(el) => {
-                            if (el) el.indeterminate = someOnCurrentPageSelected;
-                          }}
+                          checked={selection.selectedIds.has(record.id)}
+                          onCheckedChange={(checked) => handleSelectRecord(record.id, !!checked)}
                         />
-                      </TableHead>
-                      <TableHead>运单号</TableHead>
-                      <TableHead>合作方</TableHead>
-                      <TableHead>级别</TableHead>
-                      <TableHead>项目</TableHead>
-                      <TableHead>司机</TableHead>
-                      <TableHead>路线</TableHead>
-                      <TableHead>装货日期</TableHead>
-                      <TableHead>开票状态</TableHead>
-                      <TableHead>应付金额</TableHead>
-                      <TableHead>操作</TableHead>
+                      </TableCell>
+                      <TableCell>{record.auto_number}</TableCell>
+                      <TableCell>{record.project_name}</TableCell>
+                      <TableCell>{record.driver_name}</TableCell>
+                      <TableCell>{record.loading_location} → {record.unloading_location}</TableCell>
+                      <TableCell>{record.loading_date}</TableCell>
+                      <TableCell>{getInvoiceStatusBadge(record.invoice_status)}</TableCell>
+                      <TableCell>{formatCurrency(record.total_invoiceable_amount)}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setViewingRecord(record)}
+                        >
+                          查看详情
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {currentPageRecords.map((record: any) => (
-                      <TableRow key={record.id}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selection.selectedIds.has(record.id)}
-                            onCheckedChange={() => handleRecordSelect(record.id)}
-                          />
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{record.auto_number}</TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{record.partner_name}</div>
-                            {record.tax_number && <div className="text-xs text-muted-foreground">税号: {record.tax_number}</div>}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">L{record.level}</Badge>
-                        </TableCell>
-                        <TableCell>{record.project_name}</TableCell>
-                        <TableCell>{record.driver_name}</TableCell>
-                        <TableCell>{simplifyRoute(record.loading_location, record.unloading_location)}</TableCell>
-                        <TableCell>{record.loading_date}</TableCell>
-                        <TableCell>{getInvoiceStatusBadge(record.invoice_status)}</TableCell>
-                        <TableCell>{formatCurrency(record.payable_amount)}</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setViewingRecord(record)}
-                          >
-                            详情
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                  ))}
+                </TableBody>
+              </Table>
 
               {/* 分页 */}
-              {pagination.totalPages > 1 && (
-                <div className="mt-4">
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => setPagination(p => ({ ...p, currentPage: Math.max(1, p.currentPage - 1) }))}
-                          className={cn(pagination.currentPage <= 1 && "pointer-events-none opacity-50")}
-                        />
-                      </PaginationItem>
-                      {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
-                        <PaginationItem key={page}>
+              <div className="mt-4">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setPagination(prev => ({ ...prev, currentPage: Math.max(1, prev.currentPage - 1) }))}
+                        className={cn(pagination.currentPage <= 1 && "pointer-events-none opacity-50")}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                      const pageNum = i + 1;
+                      return (
+                        <PaginationItem key={pageNum}>
                           <PaginationLink
-                            onClick={() => setPagination(p => ({ ...p, currentPage: page }))}
-                            isActive={page === pagination.currentPage}
+                            onClick={() => setPagination(prev => ({ ...prev, currentPage: pageNum }))}
+                            isActive={pagination.currentPage === pageNum}
                           >
-                            {page}
+                            {pageNum}
                           </PaginationLink>
                         </PaginationItem>
-                      ))}
-                      <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => setPagination(p => ({ ...p, currentPage: Math.min(p.totalPages, p.currentPage + 1) }))}
-                          className={cn(pagination.currentPage >= pagination.totalPages && "pointer-events-none opacity-50")}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-              )}
+                      );
+                    })}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setPagination(prev => ({ ...prev, currentPage: Math.min(prev.totalPages, prev.currentPage + 1) }))}
+                        className={cn(pagination.currentPage >= pagination.totalPages && "pointer-events-none opacity-50")}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* 开票申请预览对话框 */}
+      {/* 预览对话框 */}
       <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>开票申请预览</DialogTitle>
             <DialogDescription>
-              请确认以下开票申请信息，确认无误后点击"确认申请"。
+              请确认以下开票申请信息，确认无误后点击保存。
             </DialogDescription>
           </DialogHeader>
-          
+
           {invoicePreviewData && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {invoicePreviewData.sheets.map((sheet, index) => (
                 <Card key={index}>
                   <CardHeader>
@@ -649,8 +651,6 @@ export default function InvoiceRequest() {
                       {sheet.invoicing_partner_full_name}
                     </CardTitle>
                     <div className="text-sm text-muted-foreground space-y-1">
-                      <div>税号: {sheet.invoicing_partner_tax_number || '未填写'}</div>
-                      <div>地址: {sheet.invoicing_partner_company_address || '未填写'}</div>
                       <div>运单数量: {sheet.record_count} 条</div>
                       <div>开票金额: {formatCurrency(sheet.total_invoiceable)}</div>
                     </div>
@@ -659,8 +659,7 @@ export default function InvoiceRequest() {
               ))}
               
               <div className="text-sm text-muted-foreground">
-                总计: {invoicePreviewData.sheets.length} 个合作方，
-                {invoicePreviewData.processed_partner_cost_ids.length} 条合作方成本记录，
+                总计: {invoicePreviewData.processed_record_ids.length} 条运单，
                 金额合计: {formatCurrency(invoicePreviewData.sheets.reduce((sum, sheet) => sum + sheet.total_invoiceable, 0))}
               </div>
             </div>
@@ -672,77 +671,32 @@ export default function InvoiceRequest() {
             </Button>
             <Button onClick={handleSaveInvoiceRequest} disabled={isSaving}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              确认申请
+              保存开票申请
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 合作方成本记录详情对话框 */}
-      <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
-        <DialogContent className="sm:max-w-4xl">
+      {/* 详情对话框 */}
+      <Dialog open={!!viewingRecord} onOpenChange={() => setViewingRecord(null)}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>合作方成本记录详情 (运单: {viewingRecord?.auto_number})</DialogTitle>
+            <DialogTitle>运单详情</DialogTitle>
           </DialogHeader>
+          
           {viewingRecord && (
-            <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
-              {/* 合作方信息 */}
-              <div className="space-y-1 col-span-2">
-                <Label className="text-muted-foreground">合作方</Label>
-                <p className="font-medium">{viewingRecord.partner_name}</p>
-              </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="space-y-1">
-                <Label className="text-muted-foreground">合作方级别</Label>
-                <p><Badge variant="outline">L{viewingRecord.level}</Badge></p>
+                <Label className="text-muted-foreground">运单号</Label>
+                <p className="font-mono">{viewingRecord.auto_number}</p>
               </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">税号</Label>
-                <p>{viewingRecord.tax_number || '未填写'}</p>
-              </div>
-              
-              {/* 成本信息 */}
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">基础金额</Label>
-                <p className="font-mono">{formatCurrency(viewingRecord.base_amount)}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">税率</Label>
-                <p>{(viewingRecord.tax_rate * 100).toFixed(2)}%</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">应付金额</Label>
-                <p className="font-mono font-bold text-primary">{formatCurrency(viewingRecord.payable_amount)}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">开票状态</Label>
-                <p>{getInvoiceStatusBadge(viewingRecord.invoice_status)}</p>
-              </div>
-
-              {/* 运单信息 */}
               <div className="space-y-1">
                 <Label className="text-muted-foreground">项目</Label>
                 <p>{viewingRecord.project_name}</p>
               </div>
               <div className="space-y-1">
-                <Label className="text-muted-foreground">合作链路</Label>
-                <p>{viewingRecord.chain_name || '未指定'}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">装货日期</Label>
-                <p>{viewingRecord.loading_date}</p>
-              </div>
-              <div className="space-y-1">
                 <Label className="text-muted-foreground">司机</Label>
                 <p>{viewingRecord.driver_name}</p>
-              </div>
-              
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">车牌号</Label>
-                <p>{viewingRecord.license_plate || '未填写'}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">司机电话</Label>
-                <p>{viewingRecord.driver_phone || '未填写'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground">装货地点</Label>
@@ -752,23 +706,43 @@ export default function InvoiceRequest() {
                 <Label className="text-muted-foreground">卸货地点</Label>
                 <p>{viewingRecord.unloading_location}</p>
               </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">装货日期</Label>
+                <p>{viewingRecord.loading_date}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">开票状态</Label>
+                <p>{getInvoiceStatusBadge(viewingRecord.invoice_status)}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">开票金额</Label>
+                <p className="font-mono font-bold text-primary">{formatCurrency(viewingRecord.total_invoiceable_amount)}</p>
+              </div>
               
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">装货重量</Label>
-                <p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">卸货重量</Label>
-                <p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">运费金额</Label>
-                <p className="font-mono">{formatCurrency(viewingRecord.current_cost)}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">额外费用</Label>
-                <p className="font-mono">{formatCurrency(viewingRecord.extra_cost)}</p>
-              </div>
+              {viewingRecord.loading_weight && (
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground">装货重量</Label>
+                  <p>{viewingRecord.loading_weight} 吨</p>
+                </div>
+              )}
+              {viewingRecord.unloading_weight && (
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground">卸货重量</Label>
+                  <p>{viewingRecord.unloading_weight} 吨</p>
+                </div>
+              )}
+              {viewingRecord.current_cost && (
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground">运费金额</Label>
+                  <p className="font-mono">{formatCurrency(viewingRecord.current_cost)}</p>
+                </div>
+              )}
+              {viewingRecord.extra_cost && (
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground">额外费用</Label>
+                  <p className="font-mono">{formatCurrency(viewingRecord.extra_cost)}</p>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
