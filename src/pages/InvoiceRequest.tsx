@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Search, FileSpreadsheet, Save, ListPlus, Receipt } from "lucide-react";
+import { Loader2, Search, Save, ListPlus, Receipt } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -20,9 +20,21 @@ import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { BatchInputDialog } from "@/components/ui/BatchInputDialog";
 
 // --- 类型定义 ---
+
+// RPC函数返回类型
+interface DatabaseError {
+  message: string;
+  code?: string;
+  details?: string;
+}
+
+interface SupabaseResponse<T> {
+  data: T | null;
+  error: DatabaseError | null;
+}
+
 interface PartnerCostRecord { 
   id: string; // 合作方成本记录ID
   logistics_record_id: string; // 运单ID
@@ -141,7 +153,6 @@ export default function InvoiceRequest() {
   const [finalInvoiceData, setFinalInvoiceData] = useState<FinalInvoiceData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDriverBatchOpen, setIsDriverBatchOpen] = useState(false);
 
   // --- 数据获取 ---
   const fetchInitialOptions = useCallback(async () => {
@@ -151,7 +162,13 @@ export default function InvoiceRequest() {
       const { data: partnersData } = await supabase.from('project_partners').select(`partner_id, level, partners!inner(name)`);
       const uniquePartners = Array.from(new Map(partnersData?.map(p => [ 
         p.partner_id, 
-        { id: p.partner_id, name: (p.partners as any).name, level: p.level } 
+        { 
+          id: p.partner_id, 
+          name: p.partners && typeof p.partners === 'object' && 'name' in p.partners 
+            ? (p.partners as { name: string }).name 
+            : 'Unknown Partner', 
+          level: p.level 
+        } 
       ]) || []).values()).sort((a, b) => a.level - b.level);
       setAllPartners(uniquePartners);
     } catch (error) {
@@ -174,10 +191,12 @@ export default function InvoiceRequest() {
       });
       if (error) throw error;
       setReportData(data);
-      setPagination(prev => ({ ...prev, totalPages: Math.ceil(((data as any)?.count || 0) / PAGE_SIZE) || 1 }));
+      const responseData = data as { count?: number } | null;
+      setPagination(prev => ({ ...prev, totalPages: Math.ceil((responseData?.count || 0) / PAGE_SIZE) || 1 }));
     } catch (error) {
       console.error("加载开票申请数据失败:", error);
-      toast({ title: "错误", description: `加载开票申请数据失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      toast({ title: "错误", description: `加载开票申请数据失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -295,7 +314,7 @@ export default function InvoiceRequest() {
       let idsToProcess: string[] = [];
 
       if (isCrossPageSelection) {
-        const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_uninvoiced_partner_cost_ids' as any, {
+        const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_uninvoiced_partner_cost_ids', {
             p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
             p_start_date: activeFilters.startDate || null,
             p_end_date: activeFilters.endDate || null,
@@ -313,13 +332,13 @@ export default function InvoiceRequest() {
         return;
       }
 
-      const { data: v2Data, error: rpcError } = await supabase.rpc('get_invoice_request_data_v2' as any, {
+      const { data: v2Data, error: rpcError } = await supabase.rpc('get_invoice_request_data_v2', {
         p_partner_cost_ids: idsToProcess
       });
 
       if (rpcError) throw rpcError;
 
-      const v2 = (v2Data as any) || {};
+      const v2 = (v2Data as { partner_costs?: PartnerCostRecord[] }) || {};
       const partnerCosts: PartnerCostRecord[] = Array.isArray(v2.partner_costs) ? v2.partner_costs : [];
       
       // 按合作方分组
@@ -356,7 +375,8 @@ export default function InvoiceRequest() {
 
     } catch (error) {
       console.error("生成开票申请预览失败:", error);
-      toast({ title: "错误", description: `生成开票申请预览失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      toast({ title: "错误", description: `生成开票申请预览失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
@@ -367,7 +387,7 @@ export default function InvoiceRequest() {
 
     setIsSaving(true);
     try {
-      const { error } = await supabase.rpc('save_invoice_request' as any, {
+      const { error } = await supabase.rpc('save_invoice_request', {
         p_invoice_data: finalInvoiceData
       });
 
@@ -379,7 +399,8 @@ export default function InvoiceRequest() {
       fetchReportData();
     } catch (error) {
       console.error("保存开票申请失败:", error);
-      toast({ title: "错误", description: `保存开票申请失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      toast({ title: "错误", description: `保存开票申请失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
