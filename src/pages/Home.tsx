@@ -275,42 +275,16 @@ export default function Home() {
         </div>
       </header>
 
-      {/* 数据概览标题 */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow-lg">
-                <BarChart3 className="h-6 w-6 text-white" />
-              </div>
-              数据概览
-            </h2>
-            <p className="text-gray-600">实时监控运输数据和业务指标</p>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-500">
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-              实时更新
-            </div>
-            <span>•</span>
-            <span>{new Date().toLocaleString('zh-CN')}</span>
-          </div>
-        </div>
-
-        {/* 重新设计的卡片组 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {/* 重新设计的卡片组 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
         {/* 总运输次数卡片 - 主要指标 */}
         <Card className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50 border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group cursor-pointer" onClick={handleOverviewLegendClick}>
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full -translate-y-16 translate-x-16"></div>
           <CardContent className="relative p-6 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
                 <Package className="h-7 w-7 text-white" />
-              </div>
-              <div className="text-right">
-                <div className="text-xs font-medium text-blue-600 uppercase tracking-wider">TOTAL RECORDS</div>
-                <div className="text-2xl font-bold text-gray-400">#{String(dashboardData?.overview?.totalRecords || 0).padStart(4, '0')}</div>
               </div>
             </div>
             <div className="space-y-2">
@@ -350,13 +324,9 @@ export default function Home() {
                 <div className={`absolute inset-0 bg-gradient-to-br from-${theme.accent}/5 via-transparent to-${theme.accent}/5`}></div>
                 <div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-${theme.accent}/10 to-transparent rounded-full`}></div>
                 <CardContent className="relative p-6 space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center">
                     <div className={`p-3 bg-gradient-to-br ${theme.gradient} rounded-2xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300`}>
                       <Icon className="h-7 w-7 text-white" />
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-xs font-medium text-${theme.accent} uppercase tracking-wider`}>{typeInfo.name}</div>
-                      <div className="text-lg font-bold text-gray-400">{typeInfo.unit}</div>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -380,13 +350,9 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-yellow-500/5"></div>
           <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full"></div>
           <CardContent className="relative p-6 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-2xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
                 <TrendingUp className="h-7 w-7 text-white" />
-              </div>
-              <div className="text-right">
-                <div className="text-xs font-medium text-amber-600 uppercase tracking-wider">REVENUE</div>
-                <div className="text-lg font-bold text-gray-400">CNY</div>
               </div>
             </div>
             <div className="space-y-2">
@@ -409,13 +375,9 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 via-transparent to-purple-500/5"></div>
           <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-violet-500/10 to-transparent rounded-full -translate-x-12 -translate-y-12"></div>
           <CardContent className="relative p-6 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
                 <BarChart3 className="h-7 w-7 text-white" />
-              </div>
-              <div className="text-right">
-                <div className="text-xs font-medium text-violet-600 uppercase tracking-wider">STATUS</div>
-                <div className="text-lg font-bold text-gray-400">STATS</div>
               </div>
             </div>
             <div className="space-y-2">
@@ -442,7 +404,6 @@ export default function Home() {
             <div className="h-1 bg-gradient-to-r from-violet-500 via-purple-500 to-violet-500 rounded-full"></div>
           </CardContent>
         </Card>
-        </div>
       </div>
       
       <div className="space-y-8">
