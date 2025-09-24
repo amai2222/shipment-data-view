@@ -471,46 +471,24 @@ export default function InvoiceRequest() {
   const displayedPartners = useMemo(() => {
     if (uiFilters.partnerId !== "all") {
       const selected = allPartners.find(p => p.id === uiFilters.partnerId);
-      return selected ? [{ ...selected, partner_id: selected.id, partner_name: selected.name }] : [];
+      return selected ? [selected] : [];
     }
     if (!reportData || !Array.isArray(reportData.records)) return [];
     
-    // 从partner_invoiceables中获取合作方信息，并过滤掉金额为0的合作方
-    if (reportData.partner_invoiceables && Array.isArray(reportData.partner_invoiceables)) {
-      // 只显示有实际金额的合作方
-      const partnersWithData = reportData.partner_invoiceables.filter((p: any) => 
-        p.total_payable && p.total_payable > 0
-      );
-      
-      const partnerIds = partnersWithData.map((p: any) => p.partner_id);
-      const result = allPartners
-        .filter(partner => partnerIds.includes(partner.id))
-        .sort((a, b) => a.level - b.level)
-        .map(partner => ({ ...partner, partner_id: partner.id, partner_name: partner.name }));
-      
-      return result;
-    }
-    
-    // 如果没有partner_invoiceables，则从records中获取，并过滤掉没有数据的合作方
-    const partnerTotals = new Map<string, number>();
-    
+    // 使用与付款申请页面相同的逻辑：直接从records中的partner_costs获取
+    const relevantPartnerIds = new Set<string>();
     reportData.records.forEach((record: any) => {
       if (record && Array.isArray(record.partner_costs)) {
         record.partner_costs.forEach((cost: any) => {
-          const currentTotal = partnerTotals.get(cost.partner_id) || 0;
-          partnerTotals.set(cost.partner_id, currentTotal + (cost.payable_amount || 0));
+          // 只有当payable_amount大于0时才添加到相关合作方列表
+          if (cost.payable_amount && cost.payable_amount > 0) {
+            relevantPartnerIds.add(cost.partner_id);
+          }
         });
       }
     });
     
-    // 只包含有实际金额的合作方
-    const relevantPartnerIds = Array.from(partnerTotals.keys()).filter(
-      partnerId => (partnerTotals.get(partnerId) || 0) > 0
-    );
-    
-    return allPartners
-      .filter(partner => relevantPartnerIds.includes(partner.id))
-      .sort((a, b) => a.level - b.level);
+    return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
   }, [reportData, allPartners, uiFilters.partnerId]);
 
   const currentPageRecords = reportData?.records || [];
@@ -689,8 +667,8 @@ export default function InvoiceRequest() {
                           <TableHead className="min-w-[120px] whitespace-nowrap hidden md:table-cell">装货日期</TableHead>
                           <TableHead className="min-w-[100px] whitespace-nowrap font-bold text-primary">司机应收</TableHead>
                           {Array.isArray(displayedPartners) && displayedPartners.map(p => (
-                            <TableHead key={p.partner_id} className="min-w-[100px] text-center whitespace-nowrap">
-                              <div className="text-xs font-medium">{p.partner_name}</div>
+                            <TableHead key={p.id} className="min-w-[100px] text-center whitespace-nowrap">
+                              <div className="text-xs font-medium">{p.name}</div>
                               <div className="text-xs text-muted-foreground">({p.level}级)</div>
                             </TableHead>
                           ))}
@@ -730,11 +708,10 @@ export default function InvoiceRequest() {
                               {formatCurrency(r.payable_cost)}
                             </TableCell>
                             {Array.isArray(displayedPartners) && displayedPartners.map(p => { 
-                              const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.partner_id)); 
-                              const amount = cost?.payable_amount || 0;
+                              const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.id)); 
                               return (
-                                <TableCell key={p.partner_id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
-                                  {formatCurrency(amount)}
+                                <TableCell key={p.id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
+                                  {formatCurrency(cost?.payable_amount)}
                                 </TableCell>
                               ); 
                             })}
@@ -750,11 +727,11 @@ export default function InvoiceRequest() {
                             <div className="text-xs text-muted-foreground font-normal">(司机应收)</div>
                           </TableCell>
                           {Array.isArray(displayedPartners) && displayedPartners.map(p => { 
-                            const total = (Array.isArray(reportData?.partner_invoiceables) && reportData.partner_invoiceables.find((pp: any) => pp.partner_id === p.partner_id)?.total_payable) || 0; 
+                            const total = (Array.isArray(reportData?.partner_invoiceables) && reportData.partner_invoiceables.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; 
                             return (
-                              <TableCell key={p.partner_id} className="text-center font-bold font-mono whitespace-nowrap">
+                              <TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap">
                                 <div>{formatCurrency(total)}</div>
-                                <div className="text-xs text-muted-foreground font-normal">({p.partner_name})</div>
+                                <div className="text-xs text-muted-foreground font-normal">({p.name})</div>
                               </TableCell>
                             );
                           })}
