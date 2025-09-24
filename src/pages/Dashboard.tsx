@@ -11,6 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { useToast } from "@/hooks/use-toast";
 import { format, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/PageHeader";
 
 // 每日运输次数统计
 interface DailyCountStats {
@@ -211,15 +212,13 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8 p-4 md:p-6">
-      {/* 页面标题 */}
-      <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
-        <h1 className="text-2xl font-bold mb-2 flex items-center">
-          <BarChart3 className="mr-2" />
-          数据看板
-        </h1>
-        <p className="opacity-90">运输数据统计分析与可视化</p>
-      </div>
+    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
+      <PageHeader 
+        title="数据看板" 
+        description="运输数据统计分析与可视化"
+        icon={BarChart3}
+        iconColor="text-blue-600"
+      />
 
       {/* 筛选器 */}
       <Card className="shadow-card">

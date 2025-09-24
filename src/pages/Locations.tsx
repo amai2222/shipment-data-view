@@ -12,6 +12,7 @@ import { SupabaseStorage } from "@/utils/supabase";
 import { Location, Project } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as XLSX from 'xlsx';
+import { PageHeader } from "@/components/PageHeader";
 
 export default function Locations() {
   const { toast } = useToast();
@@ -220,18 +221,13 @@ export default function Locations() {
   };
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="sticky top-4 z-10 mb-6">
-        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-                <MapPin className="mr-3 h-7 w-7 text-blue-600" />
-                地点管理
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">统一管理所有装卸货地点</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
+      <PageHeader 
+        title="地点管理" 
+        description="统一管理所有装卸货地点"
+        icon={MapPin}
+        iconColor="text-purple-600"
+      >
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="secondary" onClick={resetForm}>
@@ -303,13 +299,8 @@ export default function Locations() {
                 </div>
               </form>
             </DialogContent>
-          </Dialog>
-            </div>
-          </div>
-        </header>
-      </div>
-
-      <div className="space-y-6">
+        </Dialog>
+      </PageHeader>
 
       {/* 地点列表 */}
       <Card className="shadow-card">

@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Driver, Project } from "@/types";
 import * as XLSX from 'xlsx';
+import { PageHeader } from "@/components/PageHeader";
 
 const PAGE_SIZE = 30;
 
@@ -196,18 +197,13 @@ export default function Drivers() {
   };
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="sticky top-4 z-10 mb-6">
-        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
-        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-              <Truck className="mr-3 h-7 w-7 text-blue-600" />
-              司机与车辆管理
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">管理司机档案和车辆信息</p>
-          </div>
-          <div className="flex items-center gap-2">
+    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
+      <PageHeader 
+        title="司机与车辆管理" 
+        description="管理司机档案和车辆信息"
+        icon={Truck}
+        iconColor="text-orange-600"
+      >
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="secondary" onClick={resetForm}>
@@ -253,13 +249,8 @@ export default function Drivers() {
                 </div>
               </form>
             </DialogContent>
-          </Dialog>
-          </div>
-        </div>
-      </header>
-      </div>
-
-      <div className="space-y-6">
+        </Dialog>
+      </PageHeader>
         <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between">
