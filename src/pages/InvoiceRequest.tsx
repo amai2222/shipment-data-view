@@ -109,7 +109,7 @@ const INITIAL_INVOICE_FILTERS: InvoiceFilters = {
   partnerId: "all", 
   startDate: "", 
   endDate: "", 
-  invoiceStatus: 'Uninvoiced', 
+  invoiceStatus: 'all', 
   driverNames: [] 
 };
 
