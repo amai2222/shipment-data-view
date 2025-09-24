@@ -1,4 +1,4 @@
--- 基于付款申请函数精确复制的开票申请函数
+-- 最终的开票申请RPC函数修复
 -- 请在Supabase SQL编辑器中执行以下命令
 
 -- 删除有问题的函数
@@ -6,8 +6,9 @@ DROP FUNCTION IF EXISTS get_invoice_request_data(uuid,date,date,uuid,text[],inte
 DROP FUNCTION IF EXISTS get_invoice_request_data_v2(uuid,date,date,uuid,text[],integer,integer);
 DROP FUNCTION IF EXISTS get_filtered_uninvoiced_record_ids(uuid,date,date,uuid,text[]);
 DROP FUNCTION IF EXISTS save_invoice_request(uuid[],text);
+DROP FUNCTION IF EXISTS test_invoice_data(uuid,date,date,uuid,text[],integer,integer);
 
--- 创建开票申请RPC函数（完全基于付款申请函数）
+-- 创建最终修复的开票申请RPC函数
 CREATE OR REPLACE FUNCTION public.get_invoice_request_data(
     p_project_id uuid DEFAULT NULL::uuid, 
     p_start_date date DEFAULT NULL::date, 

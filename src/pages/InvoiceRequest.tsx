@@ -109,7 +109,7 @@ const INITIAL_INVOICE_FILTERS: InvoiceFilters = {
   partnerId: "all", 
   startDate: "", 
   endDate: "", 
-  invoiceStatus: 'all', 
+  invoiceStatus: 'Uninvoiced', 
   driverNames: [] 
 };
 
@@ -193,6 +193,15 @@ export default function InvoiceRequest() {
         p_page_number: pagination.currentPage,
       });
       if (error) throw error;
+      
+      // 调试信息：检查RPC返回的数据结构
+      console.log('开票申请RPC返回数据:', data);
+      if (data && data.records && data.records.length > 0) {
+        console.log('第一条记录:', data.records[0]);
+        console.log('第一条记录的partner_costs:', data.records[0].partner_costs);
+        console.log('partner_invoiceables:', data.partner_invoiceables);
+      }
+      
       setReportData(data);
       setPagination(prev => ({ 
         ...prev, 
@@ -217,13 +226,18 @@ export default function InvoiceRequest() {
   }, [fetchInitialOptions]);
 
   useEffect(() => {
-    if (Object.values(activeFilters).some(v => v !== '' && v !== 'all' && (!Array.isArray(v) || v.length > 0))) {
+    if (!isStale) {
       fetchReportData();
     } else {
       setLoading(false);
       setReportData(null);
     }
-  }, [fetchReportData, activeFilters]);
+  }, [fetchReportData, isStale]);
+
+  useEffect(() => {
+    setPagination(p => p.currentPage === 1 ? p : { ...p, currentPage: 1 });
+    setSelection({ mode: 'none', selectedIds: new Set() });
+  }, [activeFilters]);
 
   useEffect(() => {
     if (pagination.currentPage > 1) {
@@ -469,6 +483,22 @@ export default function InvoiceRequest() {
       return selected ? [selected] : [];
     }
     if (!reportData || !Array.isArray(reportData.records)) return [];
+    
+    // 从partner_invoiceables中获取合作方信息，而不是从records中
+    if (reportData.partner_invoiceables && Array.isArray(reportData.partner_invoiceables)) {
+      const partnerIds = reportData.partner_invoiceables.map((p: any) => p.partner_id);
+      const result = allPartners.filter(partner => partnerIds.includes(partner.id)).sort((a, b) => a.level - b.level);
+      
+      // 调试信息
+      console.log('从partner_invoiceables获取合作方:', reportData.partner_invoiceables);
+      console.log('partnerIds:', partnerIds);
+      console.log('allPartners:', allPartners);
+      console.log('displayedPartners结果:', result);
+      
+      return result;
+    }
+    
+    // 如果没有partner_invoiceables，则从records中获取
     const relevantPartnerIds = new Set<string>();
     reportData.records.forEach((record: any) => {
       if (record && Array.isArray(record.partner_costs)) {
@@ -477,6 +507,12 @@ export default function InvoiceRequest() {
         });
       }
     });
+    
+    // 调试信息
+    console.log('从records获取合作方 - relevantPartnerIds:', Array.from(relevantPartnerIds));
+    console.log('allPartners:', allPartners);
+    console.log('displayedPartners结果:', allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level));
+    
     return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
   }, [reportData, allPartners, uiFilters.partnerId]);
 
