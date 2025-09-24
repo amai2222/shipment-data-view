@@ -21,6 +21,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, Pagi
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { BatchInputDialog } from "@/components/ui/BatchInputDialog";
+import { PageHeader } from "@/components/PageHeader";
 
 // --- 类型定义 (已更新) ---
 interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; full_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; }
