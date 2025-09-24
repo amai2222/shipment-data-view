@@ -311,11 +311,42 @@ export default function FinanceReconciliation() {
 
       {isStale ? ( <StaleDataPrompt /> ) : (
         <>
-          <div className="grid gap-6 md:grid-cols-4">
-            <Card><CardHeader><CardTitle className="text-sm font-medium">运单总数</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{reportData?.overview?.total_records || 0}</div></CardContent></Card>
-            <Card><CardHeader><CardTitle className="text-sm font-medium">总运费</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(reportData?.overview?.total_current_cost)}</div></CardContent></Card>
-            <Card><CardHeader><CardTitle className="text-sm font-medium">总额外费用</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-orange-600">{formatCurrency(reportData?.overview?.total_extra_cost)}</div></CardContent></Card>
-            <Card><CardHeader><CardTitle className="text-sm font-medium">司机应收汇总</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{formatCurrency(reportData?.overview?.total_payable_cost)}</div></CardContent></Card>
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 auto-rows-fr">
+            <Card className="flex flex-col">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">运单总数</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex items-center">
+                <div className="text-2xl font-bold text-blue-600">{reportData?.overview?.total_records || 0}</div>
+              </CardContent>
+            </Card>
+            
+            <Card className="flex flex-col">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">总运费</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex items-center">
+                <div className="text-2xl font-bold text-green-600">{formatCurrency(reportData?.overview?.total_current_cost)}</div>
+              </CardContent>
+            </Card>
+            
+            <Card className="flex flex-col">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">总额外费用</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex items-center">
+                <div className="text-2xl font-bold text-orange-600">{formatCurrency(reportData?.overview?.total_extra_cost)}</div>
+              </CardContent>
+            </Card>
+            
+            <Card className="flex flex-col">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">司机应收汇总</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex items-center">
+                <div className="text-2xl font-bold text-purple-600">{formatCurrency(reportData?.overview?.total_payable_cost)}</div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* --- [已美化] 合作方应付汇总 Card --- */}
