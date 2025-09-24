@@ -148,6 +148,8 @@ export interface PlatformOption {
 }
 
 // 用户权限相关类型
+export type UserRole = "admin" | "finance" | "business" | "partner" | "operator" | "viewer";
+
 export interface UserPermission {
   id: string;
   user_id: string;
@@ -159,13 +161,18 @@ export interface UserPermission {
 
 export interface UserWithPermissions {
   id: string;
-  username: string;
-  full_name?: string;
-  email?: string;
-  role: string;
-  permissions: UserPermission[];
-  created_at: string;
-  updated_at: string;
+  full_name: string;
+  email: string;
+  role: UserRole;
+  is_active: boolean;
+  permissions?: {
+    menu: string[];
+    function: string[];
+    project: string[];
+    data: string[];
+  };
+  phone?: string;
+  work_wechat_userid?: string;
 }
 
 export interface RolePermissionTemplate {

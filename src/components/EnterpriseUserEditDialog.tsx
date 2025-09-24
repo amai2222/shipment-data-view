@@ -27,7 +27,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import { UserWithPermissions, UserRole } from '@/types/permissions';
+import { UserWithPermissions, UserRole } from '@/types';
 
 interface EnterpriseUserEditDialogProps {
   user: UserWithPermissions | null;

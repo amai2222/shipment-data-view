@@ -193,15 +193,6 @@ export default function InvoiceRequest() {
         p_page_number: pagination.currentPage,
       });
       if (error) throw error;
-      
-      // 调试信息：检查RPC返回的数据结构
-      console.log('开票申请RPC返回数据:', data);
-      if (data && data.records && data.records.length > 0) {
-        console.log('第一条记录:', data.records[0]);
-        console.log('第一条记录的partner_costs:', data.records[0].partner_costs);
-        console.log('partner_invoiceables:', data.partner_invoiceables);
-      }
-      
       setReportData(data);
       setPagination(prev => ({ 
         ...prev, 
@@ -492,12 +483,6 @@ export default function InvoiceRequest() {
         .sort((a, b) => a.level - b.level)
         .map(partner => ({ ...partner, partner_id: partner.id, partner_name: partner.name }));
       
-      // 调试信息
-      console.log('从partner_invoiceables获取合作方:', reportData.partner_invoiceables);
-      console.log('partnerIds:', partnerIds);
-      console.log('allPartners:', allPartners);
-      console.log('displayedPartners结果:', result);
-      
       return result;
     }
     
@@ -511,16 +496,7 @@ export default function InvoiceRequest() {
       }
     });
     
-    // 调试信息
-    console.log('从records获取合作方 - relevantPartnerIds:', Array.from(relevantPartnerIds));
-    console.log('allPartners:', allPartners);
-    const fallbackResult = allPartners
-      .filter(partner => relevantPartnerIds.has(partner.id))
-      .sort((a, b) => a.level - b.level)
-      .map(partner => ({ ...partner, partner_id: partner.id, partner_name: partner.name }));
-    console.log('displayedPartners结果:', fallbackResult);
-    
-    return fallbackResult;
+    return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
   }, [reportData, allPartners, uiFilters.partnerId]);
 
   const currentPageRecords = reportData?.records || [];
