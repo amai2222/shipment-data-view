@@ -236,7 +236,12 @@ export default function Home() {
   const totalDialogPages = Math.ceil(dialogPagination.totalCount / dialogPagination.pageSize);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-screen"><RefreshCw className="h-8 w-8 animate-spin" /><span className="ml-2">正在初始化...</span></div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <RefreshCw className="h-8 w-8 animate-spin" />
+        <span className="ml-2">正在初始化...</span>
+      </div>
+    );
   }
 
   return (
