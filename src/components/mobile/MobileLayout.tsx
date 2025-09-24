@@ -63,6 +63,18 @@ const menuGroups = [
     ]
   },
   {
+    title: '合同管理',
+    icon: FileSignature,
+    items: [
+      {
+        name: '合同列表',
+        href: '/m/contracts',
+        icon: FileSignature,
+        roles: ['admin', 'finance', 'business']
+      }
+    ]
+  },
+  {
     title: '信息维护',
     icon: Database,
     items: [
@@ -109,28 +121,16 @@ const menuGroups = [
         roles: ['admin', 'finance', 'business', 'operator']
       },
       {
-        name: '付款申请',
-        href: '/m/payment-request',
-        icon: CreditCard,
-        roles: ['admin', 'finance']
-      },
-      {
         name: '开票申请',
         href: '/m/invoice-request',
         icon: FileText,
         roles: ['admin', 'finance', 'operator']
-      }
-    ]
-  },
-  {
-    title: '合同管理',
-    icon: FileSignature,
-    items: [
+      },
       {
-        name: '合同列表',
-        href: '/m/contracts',
-        icon: FileSignature,
-        roles: ['admin', 'finance', 'business']
+        name: '付款申请',
+        href: '/m/payment-request',
+        icon: CreditCard,
+        roles: ['admin', 'finance']
       }
     ]
   },

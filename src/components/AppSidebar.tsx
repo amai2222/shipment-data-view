@@ -46,6 +46,13 @@ const menuItems = [
     ]
   },
   {
+    title: "合同管理",
+    icon: FileText,
+    items: [
+      { title: "合同列表", url: "/contracts", icon: FileText },
+    ]
+  },
+  {
     title: "信息维护",
     icon: Database,
     items: [
@@ -61,15 +68,8 @@ const menuItems = [
     items: [
       { title: "运单管理", url: "/business-entry", icon: Plus },
       { title: "磅单管理", url: "/scale-records", icon: Weight },
-      { title: "付款申请", url: "/payment-request", icon: Banknote },
       { title: "开票申请", url: "/invoice-request", icon: FileText },
-    ]
-  },
-  {
-    title: "合同管理",
-    icon: FileText,
-    items: [
-      { title: "合同列表", url: "/contracts", icon: FileText },
+      { title: "付款申请", url: "/payment-request", icon: Banknote },
     ]
   },
   {

@@ -50,6 +50,15 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     ]
   },
   {
+    group: '合同管理',
+    key: 'contracts',
+    label: '合同管理',
+    icon: 'FileText',
+    children: [
+      { key: 'contracts.list', label: '合同列表', url: '/contracts', icon: 'FileText', group: '合同管理' }
+    ]
+  },
+  {
     group: '信息维护',
     key: 'maintenance',
     label: '信息维护',
@@ -69,17 +78,8 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     children: [
       { key: 'business.entry', label: '运单管理', url: '/business-entry', icon: 'Plus', group: '业务管理' },
       { key: 'business.scale', label: '磅单管理', url: '/scale-records', icon: 'Weight', group: '业务管理' },
-      { key: 'business.payment_request', label: '付款申请', url: '/payment-request', icon: 'DollarSign', group: '业务管理' },
-      { key: 'business.invoice_request', label: '开票申请', url: '/invoice-request', icon: 'FileText', group: '业务管理' }
-    ]
-  },
-  {
-    group: '合同管理',
-    key: 'contracts',
-    label: '合同管理',
-    icon: 'FileText',
-    children: [
-      { key: 'contracts.list', label: '合同列表', url: '/contracts', icon: 'FileText', group: '合同管理' }
+      { key: 'business.invoice_request', label: '开票申请', url: '/invoice-request', icon: 'FileText', group: '业务管理' },
+      { key: 'business.payment_request', label: '付款申请', url: '/payment-request', icon: 'DollarSign', group: '业务管理' }
     ]
   },
   {
