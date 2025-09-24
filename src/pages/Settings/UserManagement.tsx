@@ -18,7 +18,6 @@ import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { UserManagement } from '@/components/permissions/UserManagement';
 import { PermissionQuickActions } from '@/components/PermissionQuickActions';
 import { PermissionResetService } from '@/services/PermissionResetService';
-import { PageHeader } from '@/components/PageHeader';
 
 export default function UserManagementPage() {
   const { toast } = useToast();
@@ -124,23 +123,27 @@ export default function UserManagementPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
-      <PageHeader 
-        title="用户管理" 
-        description="管理系统用户信息、角色和权限"
-        icon={Shield}
-        iconColor="text-red-600"
-      >
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleUserUpdate}
-          disabled={loading}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          刷新
-        </Button>
-      </PageHeader>
+    <div className="p-4 md:p-6 space-y-6">
+      {/* 页面标题 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">用户管理</h1>
+          <p className="text-muted-foreground">
+            管理系统用户信息、角色和权限
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleUserUpdate}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            刷新
+          </Button>
+        </div>
+      </div>
 
       {/* 统计卡片 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

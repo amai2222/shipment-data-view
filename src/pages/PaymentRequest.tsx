@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Search, FileSpreadsheet, Save, ListPlus, Banknote } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -319,7 +318,7 @@ export default function PaymentRequest() {
 
   // --- JSX 渲染 (已更新) ---
   return (
-    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
+    <div className="p-4 md:p-6">
       <BatchInputDialog
         isOpen={isDriverBatchOpen}
         onClose={() => setIsDriverBatchOpen(false)}
@@ -330,19 +329,29 @@ export default function PaymentRequest() {
         initialValue={uiFilters.driverNames}
       />
       
-      <PageHeader 
-        title="合作方付款申请" 
-        description="向合作方申请支付运费"
-        icon={Banknote}
-        iconColor="text-green-600"
-      >
-        {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
-          <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
-            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-            一键申请付款 ({selectionCount})
-          </Button>
-        )}
-      </PageHeader>
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+              <Banknote className="mr-3 h-7 w-7 text-blue-600" />
+              合作方付款申请
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">向合作方申请支付运费</p>
+          </div>
+        <div className="flex gap-2">
+          {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
+            <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
+              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+              一键申请付款 ({selectionCount})
+            </Button>
+          )}
+        </div>
+        </div>
+      </header>
+      </div>
+
+      <div className="space-y-6">
         <Card className="border-muted/40">
         <CardContent className="p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 items-end">

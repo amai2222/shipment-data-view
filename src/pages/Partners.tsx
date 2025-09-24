@@ -15,7 +15,6 @@ import { Partner } from '@/types';
 import { Trash2, Edit, Plus, Download, Upload, Users } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { usePermissions } from '@/hooks/usePermissions';
-import { PageHeader } from "@/components/PageHeader";
 
 // 扩展 Partner 类型，使其可以直接包含项目列表
 interface PartnerWithProjects extends Partner {
@@ -307,14 +306,19 @@ export default function Partners() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
-      <PageHeader 
-        title="合作方管理" 
-        description="管理物流合作伙伴信息"
-        icon={Users}
-        iconColor="text-indigo-600"
-      >
-        <Button variant="outline" onClick={exportToExcel}><Download className="h-4 w-4 mr-2" />导出</Button>
+    <div className="p-4 md:p-6">
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                <Users className="mr-3 h-7 w-7 text-blue-600" />
+                合作方管理
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">管理物流合作伙伴信息</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={exportToExcel}><Download className="h-4 w-4 mr-2" />导出</Button>
           <label className="cursor-pointer">
             <Button variant="outline" asChild><span><Upload className="h-4 w-4 mr-2" />导入</span></Button>
             <input type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
@@ -354,8 +358,13 @@ export default function Partners() {
                 </div>
               </form>
             </DialogContent>
-        </Dialog>
-      </PageHeader>
+          </Dialog>
+            </div>
+          </div>
+        </header>
+      </div>
+
+      <div className="space-y-6">
 
       <Card>
         <CardHeader><CardTitle>合作方列表</CardTitle></CardHeader>
