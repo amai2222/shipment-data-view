@@ -475,9 +475,14 @@ export default function InvoiceRequest() {
     }
     if (!reportData || !Array.isArray(reportData.records)) return [];
     
-    // 从partner_invoiceables中获取合作方信息，而不是从records中
+    // 从partner_invoiceables中获取合作方信息，并过滤掉金额为0的合作方
     if (reportData.partner_invoiceables && Array.isArray(reportData.partner_invoiceables)) {
-      const partnerIds = reportData.partner_invoiceables.map((p: any) => p.partner_id);
+      // 只显示有实际金额的合作方
+      const partnersWithData = reportData.partner_invoiceables.filter((p: any) => 
+        p.total_payable && p.total_payable > 0
+      );
+      
+      const partnerIds = partnersWithData.map((p: any) => p.partner_id);
       const result = allPartners
         .filter(partner => partnerIds.includes(partner.id))
         .sort((a, b) => a.level - b.level)
@@ -486,17 +491,26 @@ export default function InvoiceRequest() {
       return result;
     }
     
-    // 如果没有partner_invoiceables，则从records中获取
-    const relevantPartnerIds = new Set<string>();
+    // 如果没有partner_invoiceables，则从records中获取，并过滤掉没有数据的合作方
+    const partnerTotals = new Map<string, number>();
+    
     reportData.records.forEach((record: any) => {
       if (record && Array.isArray(record.partner_costs)) {
         record.partner_costs.forEach((cost: any) => {
-          relevantPartnerIds.add(cost.partner_id);
+          const currentTotal = partnerTotals.get(cost.partner_id) || 0;
+          partnerTotals.set(cost.partner_id, currentTotal + (cost.payable_amount || 0));
         });
       }
     });
     
-    return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
+    // 只包含有实际金额的合作方
+    const relevantPartnerIds = Array.from(partnerTotals.keys()).filter(
+      partnerId => (partnerTotals.get(partnerId) || 0) > 0
+    );
+    
+    return allPartners
+      .filter(partner => relevantPartnerIds.includes(partner.id))
+      .sort((a, b) => a.level - b.level);
   }, [reportData, allPartners, uiFilters.partnerId]);
 
   const currentPageRecords = reportData?.records || [];
@@ -717,9 +731,10 @@ export default function InvoiceRequest() {
                             </TableCell>
                             {Array.isArray(displayedPartners) && displayedPartners.map(p => { 
                               const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.partner_id)); 
+                              const amount = cost?.payable_amount || 0;
                               return (
                                 <TableCell key={p.partner_id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
-                                  {formatCurrency(cost?.payable_amount)}
+                                  {amount > 0 ? formatCurrency(amount) : '-'}
                                 </TableCell>
                               ); 
                             })}
@@ -738,7 +753,7 @@ export default function InvoiceRequest() {
                             const total = (Array.isArray(reportData?.partner_invoiceables) && reportData.partner_invoiceables.find((pp: any) => pp.partner_id === p.partner_id)?.total_payable) || 0; 
                             return (
                               <TableCell key={p.partner_id} className="text-center font-bold font-mono whitespace-nowrap">
-                                <div>{formatCurrency(total)}</div>
+                                <div>{total > 0 ? formatCurrency(total) : '-'}</div>
                                 <div className="text-xs text-muted-foreground font-normal">({p.partner_name})</div>
                               </TableCell>
                             );
