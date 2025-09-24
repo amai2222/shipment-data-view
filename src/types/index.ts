@@ -37,6 +37,15 @@ export interface PlatformTracking {
   trackingNumbers: string[]; // 该平台的运单号列表
 }
 
+// 外部跟踪号数据类型
+export interface ExternalTrackingNumber {
+  platform: string;
+  tracking_number: string;
+  status?: 'pending' | 'in_transit' | 'delivered' | 'failed' | 'completed' | 'cancelled';
+  remarks?: string;
+  created_at?: string;
+}
+
 // 物流记录数据类型
 export interface LogisticsRecord {
   id: string;
