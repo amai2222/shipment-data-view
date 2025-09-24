@@ -120,6 +120,24 @@ const INVOICE_STATUS_OPTIONS = [
   { value: 'Invoiced', label: '已完成开票' }, 
 ];
 
+// 日期格式化函数 - 将UTC日期转换为中国时区日期显示
+const formatChineseDate = (dateString: string): string => {
+  if (!dateString) return '-';
+  try {
+    // 如果日期字符串没有时间部分，添加UTC时间
+    const utcDateString = dateString.includes('T') ? dateString : dateString + 'T00:00:00Z';
+    const utcDate = new Date(utcDateString);
+    
+    // 转换为中国时区 (UTC+8)
+    const chinaDate = new Date(utcDate.getTime() + 8 * 60 * 60 * 1000);
+    
+    return format(chinaDate, "yyyy-MM-dd");
+  } catch (error) {
+    console.error('日期格式化错误:', error);
+    return dateString;
+  }
+};
+
 const StaleDataPrompt = () => ( 
   <div className="text-center py-10 border rounded-lg bg-muted/20"> 
     <Search className="mx-auto h-12 w-12 text-muted-foreground" /> 
@@ -448,7 +466,9 @@ export default function InvoiceRequest() {
   const displayedPartners = useMemo(() => {
     if (!reportData?.partner_invoiceables) return [];
     return Array.isArray(reportData.partner_invoiceables) 
-      ? reportData.partner_invoiceables.sort((a: any, b: any) => a.level - b.level)
+      ? reportData.partner_invoiceables
+          .filter((p: any) => (p.total_invoiceable || 0) > 0) // 只显示有数据的合作方
+          .sort((a: any, b: any) => a.level - b.level)
       : [];
   }, [reportData?.partner_invoiceables]);
 
@@ -609,68 +629,71 @@ export default function InvoiceRequest() {
                 </div>
               ) : (
                 <>
-                  <div className="overflow-x-auto">
-                    <Table>
+                  <div className="overflow-x-auto -mx-4 px-4">
+                    <Table className="min-w-full">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-12">
+                          <TableHead className="w-12 sticky left-0 bg-background z-10">
                             <Checkbox
                               checked={allOnCurrentPageSelected}
                               onCheckedChange={handleSelectAllOnPage}
                               ref={(el) => el && (el.indeterminate = someOnCurrentPageSelected)}
                             />
                           </TableHead>
-                          <TableHead className="whitespace-nowrap">运单号</TableHead>
-                          <TableHead className="whitespace-nowrap">项目</TableHead>
-                          <TableHead className="whitespace-nowrap">司机</TableHead>
-                          <TableHead className="whitespace-nowrap">路线</TableHead>
-                          <TableHead className="whitespace-nowrap">装/卸数量</TableHead>
-                          <TableHead className="whitespace-nowrap">日期</TableHead>
-                          <TableHead className="whitespace-nowrap font-bold text-primary">司机应收</TableHead>
+                          <TableHead className="min-w-[120px] sticky left-12 bg-background z-10 whitespace-nowrap font-medium">运单号</TableHead>
+                          <TableHead className="min-w-[100px] whitespace-nowrap">项目</TableHead>
+                          <TableHead className="min-w-[80px] whitespace-nowrap">司机</TableHead>
+                          <TableHead className="min-w-[140px] whitespace-nowrap">路线</TableHead>
+                          <TableHead className="min-w-[100px] whitespace-nowrap hidden sm:table-cell">装/卸数量</TableHead>
+                          <TableHead className="min-w-[120px] whitespace-nowrap hidden md:table-cell">装货日期</TableHead>
+                          <TableHead className="min-w-[100px] whitespace-nowrap font-bold text-primary">司机应收</TableHead>
                           {Array.isArray(displayedPartners) && displayedPartners.map(p => (
-                            <TableHead key={p.partner_id} className="text-center whitespace-nowrap">
-                              {p.partner_name}
+                            <TableHead key={p.partner_id} className="min-w-[100px] text-center whitespace-nowrap">
+                              <div className="text-xs font-medium">{p.partner_name}</div>
                               <div className="text-xs text-muted-foreground">({p.level}级)</div>
                             </TableHead>
                           ))}
-                          <TableHead className="whitespace-nowrap">开票状态</TableHead>
+                          <TableHead className="min-w-[80px] whitespace-nowrap">开票状态</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {Array.isArray(reportData?.records) && reportData.records.map((r: LogisticsRecordWithPartners) => (
                           <TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"}>
-                            <TableCell className="whitespace-nowrap">
+                            <TableCell className="sticky left-0 bg-background z-10 whitespace-nowrap">
                               <Checkbox 
                                 checked={selection.mode === 'all_filtered' || selection.selectedIds.has(r.id)} 
                                 onCheckedChange={() => handleRecordSelect(r.id)} 
                               />
                             </TableCell>
-                            <TableCell className="font-mono cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
+                            <TableCell className="font-mono cursor-pointer sticky left-12 bg-background z-10 whitespace-nowrap font-medium" onClick={() => setViewingRecord(r)}>
                               {r.auto_number}
                             </TableCell>
                             <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
-                              {r.project_name}
+                              <div className="max-w-[100px] truncate" title={r.project_name}>{r.project_name}</div>
                             </TableCell>
                             <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
-                              {r.driver_name}
+                              <div className="max-w-[80px] truncate" title={r.driver_name}>{r.driver_name}</div>
                             </TableCell>
                             <TableCell className="text-sm cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
-                              {simplifyRoute(r.loading_location, r.unloading_location)}
+                              <div className="max-w-[140px] truncate" title={`${r.loading_location} → ${r.unloading_location}`}>
+                                {simplifyRoute(r.loading_location, r.unloading_location)}
+                              </div>
                             </TableCell>
-                            <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
+                            <TableCell className="cursor-pointer whitespace-nowrap hidden sm:table-cell" onClick={() => setViewingRecord(r)}>
                               {formatQuantity(r)}
                             </TableCell>
-                            <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
-                              {r.loading_date}
+                            <TableCell className="cursor-pointer whitespace-nowrap hidden md:table-cell" onClick={() => setViewingRecord(r)}>
+                              {formatChineseDate(r.loading_date)}
                             </TableCell>
                             <TableCell className="font-mono cursor-pointer whitespace-nowrap font-bold text-primary" onClick={() => setViewingRecord(r)}>
                               {formatCurrency(r.payable_cost)}
                             </TableCell>
                             {Array.isArray(displayedPartners) && displayedPartners.map(p => { 
                               const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.partner_id)); 
+                              const amount = cost?.payable_amount || 0;
                               return (
                                 <TableCell key={p.partner_id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
-                                  {formatCurrency(cost?.payable_amount)}
+                                  {amount > 0 ? formatCurrency(amount) : '-'}
                                 </TableCell>
                               ); 
                             })}
