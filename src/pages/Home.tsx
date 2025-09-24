@@ -248,44 +248,44 @@ export default function Home() {
     <div className="p-4 md:p-6">
       <div className="sticky top-4 z-10 mb-6">
         <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
-        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-              <Truck className="mr-3 h-7 w-7 text-blue-600" />
-              运输看板
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">实时监控运输数据和业务指标</p>
-          </div>
-          <div className="flex items-end gap-2 flex-wrap">
-            <div className="space-y-1"><Label htmlFor="startDate" className="text-xs font-medium">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(p => ({...p, startDate: e.target.value}))} /></div>
-            <div className="space-y-1"><Label htmlFor="endDate" className="text-xs font-medium">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(p => ({...p, endDate: e.target.value}))} /></div>
-            <div className="space-y-1">
-              <Label htmlFor="projectStatusFilter" className="text-xs font-medium">项目状态</Label>
-              <Select value={projectStatusFilter} onValueChange={setProjectStatusFilter}>
-                <SelectTrigger id="projectStatusFilter"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="进行中">进行中</SelectItem>
-                  <SelectItem value="已完成">已完成</SelectItem>
-                  <SelectItem value="所有状态">所有状态</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                <Truck className="mr-3 h-7 w-7 text-blue-600" />
+                运输看板
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">实时监控运输数据和业务指标</p>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="projectFilter" className="text-xs font-medium">项目筛选</Label>
-              <Select value={filterInputs.projectId} onValueChange={(val) => setFilterInputs(p => ({...p, projectId: val}))}>
-                <SelectTrigger id="projectFilter"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">所有项目</SelectItem>
-                  {projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-end gap-2 flex-wrap">
+              <div className="space-y-1"><Label htmlFor="startDate" className="text-xs font-medium">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(p => ({...p, startDate: e.target.value}))} /></div>
+              <div className="space-y-1"><Label htmlFor="endDate" className="text-xs font-medium">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(p => ({...p, endDate: e.target.value}))} /></div>
+              <div className="space-y-1">
+                <Label htmlFor="projectStatusFilter" className="text-xs font-medium">项目状态</Label>
+                <Select value={projectStatusFilter} onValueChange={setProjectStatusFilter}>
+                  <SelectTrigger id="projectStatusFilter"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="进行中">进行中</SelectItem>
+                    <SelectItem value="已完成">已完成</SelectItem>
+                    <SelectItem value="所有状态">所有状态</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="projectFilter" className="text-xs font-medium">项目筛选</Label>
+                <Select value={filterInputs.projectId} onValueChange={(val) => setFilterInputs(p => ({...p, projectId: val}))}>
+                  <SelectTrigger id="projectFilter"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">所有项目</SelectItem>
+                    {projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={() => handleSearch(false)} disabled={isSearching}>
+                {isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                {isSearching ? '搜索中...' : '搜索'}
+              </Button>
             </div>
-            <Button onClick={() => handleSearch(false)} disabled={isSearching}>
-              {isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-              {isSearching ? '搜索中...' : '搜索'}
-            </Button>
           </div>
-        </div>
         </header>
       </div>
 
