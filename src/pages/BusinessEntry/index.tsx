@@ -288,49 +288,41 @@ export default function BusinessEntry() {
   };
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="sticky top-4 z-10 mb-6">
-        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-                <FileText className="mr-3 h-7 w-7 text-blue-600" />
-                运单管理
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">查询、导入、导出和管理所有运单记录</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-          <Button 
-            variant={isBatchMode ? "default" : "outline"} 
-            onClick={toggleBatchMode}
-            className={isBatchMode ? "bg-blue-600 text-white" : ""}
-          >
-            <CheckSquare className="mr-2 h-4 w-4" />
-            {isBatchMode ? "退出批量模式" : "批量选择"}
+    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
+      <PageHeader 
+        title="运单管理" 
+        description="查询、导入、导出和管理所有运单记录"
+        icon={FileText}
+        iconColor="text-blue-600"
+      >
+        <Button 
+          variant={isBatchMode ? "default" : "outline"} 
+          onClick={toggleBatchMode}
+          className={isBatchMode ? "bg-blue-600 text-white" : ""}
+        >
+          <CheckSquare className="mr-2 h-4 w-4" />
+          {isBatchMode ? "退出批量模式" : "批量选择"}
+        </Button>
+        {isAdmin && (
+          <Button onClick={handleOpenAddDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            新增运单
           </Button>
-          {isAdmin && (
-            <Button onClick={handleOpenAddDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              新增运单
-            </Button>
-          )}
-          <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
-          {isAdmin && (
-            <Button variant="outline" asChild disabled={loading || isImporting}>
-              <Label htmlFor="excel-upload" className="cursor-pointer flex items-center">
-                {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
-                导入Excel
-                <Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={loading || isImporting}/>
-              </Label>
-            </Button>
-          )}
-          <Button onClick={exportToExcel} disabled={loading}><Download className="mr-2 h-4 w-4" />导出数据</Button>
-            </div>
-          </div>
-        </header>
-      </div>
+        )}
+        <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
+        {isAdmin && (
+          <Button variant="outline" asChild disabled={loading || isImporting}>
+            <Label htmlFor="excel-upload" className="cursor-pointer flex items-center">
+              {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+              导入Excel
+              <Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={loading || isImporting}/>
+            </Label>
+          </Button>
+        )}
+        <Button onClick={exportToExcel} disabled={loading}><Download className="mr-2 h-4 w-4" />导出数据</Button>
+      </PageHeader>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
       {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} onBatchAction={handleBatchAction} isBatchMode={isBatchMode} onToggleBatchMode={toggleBatchMode} activeFilters={activeFilters} />)}
