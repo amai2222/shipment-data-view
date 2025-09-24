@@ -226,12 +226,12 @@ export function AppSidebar() {
                 <CollapsibleTrigger asChild>
                   <SidebarGroupLabel className={`group/label text-sm font-medium rounded-xl p-3 cursor-pointer flex items-center justify-between transition-all duration-200 border ${
                     hasActiveItem 
-                      ? 'bg-gradient-primary text-white shadow-primary border-primary/20' 
-                      : 'hover:bg-gradient-secondary hover:shadow-card border-transparent hover:border-border/50'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg border-blue-500/30' 
+                      : 'hover:bg-gradient-to-r hover:from-gray-100 hover:to-gray-50 hover:shadow-md border-transparent hover:border-gray-200'
                   }`}>
                     <div className="flex items-center gap-3">
-                      <div className={`p-1.5 rounded-lg transition-colors ${hasActiveItem ? 'bg-white/20' : 'bg-primary/10'}`}>
-                        <group.icon className="h-4 w-4" />
+                      <div className={`p-1.5 rounded-lg transition-colors ${hasActiveItem ? 'bg-white/25' : 'bg-blue-100/60'}`}>
+                        <group.icon className={`h-4 w-4 ${hasActiveItem ? 'text-white' : 'text-blue-700'}`} />
                       </div>
                       {!collapsed && <span className="font-semibold">{group.title}</span>}
                     </div>
@@ -254,14 +254,16 @@ export function AppSidebar() {
                                 to={item.url}
                                 className={`flex items-center gap-3 rounded-lg p-3 text-sm transition-all duration-200 border ${
                                   isActive(item.url)
-                                    ? "bg-gradient-accent text-white shadow-primary font-medium border-accent/20"
-                                    : "hover:bg-secondary/80 hover:shadow-sm hover:border-border/30 border-transparent"
+                                    ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md font-medium border-indigo-400/30"
+                                    : "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-sm hover:border-blue-200/50 border-transparent text-gray-700 hover:text-blue-700"
                                 }`}
                               >
                                 <div className={`p-1 rounded transition-colors ${
-                                  isActive(item.url) ? 'bg-white/20' : 'bg-primary/10'
+                                  isActive(item.url) ? 'bg-white/25' : 'bg-blue-100/80'
                                 }`}>
-                                  <item.icon className="h-3.5 w-3.5" />
+                                  <item.icon className={`h-3.5 w-3.5 ${
+                                    isActive(item.url) ? 'text-white' : 'text-blue-600'
+                                  }`} />
                                 </div>
                                 <span>{item.title}</span>
                               </Link>
