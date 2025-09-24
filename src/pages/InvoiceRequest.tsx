@@ -734,7 +734,7 @@ export default function InvoiceRequest() {
                               const amount = cost?.payable_amount || 0;
                               return (
                                 <TableCell key={p.partner_id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
-                                  {amount > 0 ? formatCurrency(amount) : '-'}
+                                  {formatCurrency(amount)}
                                 </TableCell>
                               ); 
                             })}
@@ -753,7 +753,7 @@ export default function InvoiceRequest() {
                             const total = (Array.isArray(reportData?.partner_invoiceables) && reportData.partner_invoiceables.find((pp: any) => pp.partner_id === p.partner_id)?.total_payable) || 0; 
                             return (
                               <TableCell key={p.partner_id} className="text-center font-bold font-mono whitespace-nowrap">
-                                <div>{total > 0 ? formatCurrency(total) : '-'}</div>
+                                <div>{formatCurrency(total)}</div>
                                 <div className="text-xs text-muted-foreground font-normal">({p.partner_name})</div>
                               </TableCell>
                             );
