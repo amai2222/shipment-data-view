@@ -245,10 +245,9 @@ export default function Home() {
   }
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="sticky top-4 z-10 mb-6">
-        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+    <div className="space-y-6 p-4 md:p-6">
+      <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm sticky top-4 z-10">
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
                 <Truck className="mr-3 h-7 w-7 text-blue-600" />
@@ -285,13 +284,11 @@ export default function Home() {
                 {isSearching ? '搜索中...' : '搜索'}
               </Button>
             </div>
-          </div>
-        </header>
-      </div>
+        </div>
+      </header>
 
-      <div className="space-y-6">
-        {/* 重新设计的卡片组 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+      {/* 重新设计的卡片组 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
         {/* 总运输次数卡片 - 主要指标 */}
         <Card className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50 border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group cursor-pointer" onClick={handleOverviewLegendClick}>
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5"></div>
@@ -683,7 +680,6 @@ export default function Home() {
         onClose={handleCloseWaybillDetail}
         record={selectedWaybill}
       />
-      </div>
     </div>
   );
 }
