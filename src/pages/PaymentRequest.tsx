@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Search, FileSpreadsheet, Save, ListPlus } from "lucide-react";
+import { Loader2, Search, FileSpreadsheet, Save, ListPlus, Banknote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -328,8 +328,15 @@ export default function PaymentRequest() {
         placeholder="例如:&#10;张三,&#10;李四&#10;王五"
         initialValue={uiFilters.driverNames}
       />
-      <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-foreground">合作方付款申请</h1><p className="text-muted-foreground">向合作方申请支付运费。</p></div>
+      <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 sticky top-4 z-10 shadow-sm">
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+              <Banknote className="mr-3 h-7 w-7 text-blue-600" />
+              合作方付款申请
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">向合作方申请支付运费</p>
+          </div>
         <div className="flex gap-2">
           {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
             <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
@@ -338,7 +345,8 @@ export default function PaymentRequest() {
             </Button>
           )}
         </div>
-      </div>
+        </div>
+      </header>
 
       <Card className="border-muted/40">
         <CardContent className="p-4">

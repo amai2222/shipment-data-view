@@ -14,11 +14,11 @@ export function AppLayout({ children }: AppLayoutProps) {
         <AppSidebar />
         
         {/* Main Content Area */}
-        <main className="flex flex-col flex-1 min-h-screen">
+        <main className="flex flex-col flex-1 h-screen">
           <EnhancedHeader />
           
           {/* Content Area with Enhanced Scrolling */}
-          <div className="flex-1 bg-gradient-to-b from-background to-secondary/20">
+          <div className="flex-1 overflow-auto bg-gradient-to-b from-background to-secondary/20">
             {children}
           </div>
         </main>

@@ -314,15 +314,19 @@ export default function Projects() {
   }
 
   return (
-    <div className="space-y-8 p-4 md:p-6">
-      <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
-        <div className="flex items-center justify-between">
+    <div className="space-y-6 p-4 md:p-6">
+      <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 sticky top-4 z-10 shadow-sm">
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold mb-2 flex items-center"><Package className="mr-2" />项目管理</h1>
-            <p className="opacity-90">管理所有物流项目的基本信息，支持多种合作链路配置</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+              <Package className="mr-3 h-7 w-7 text-blue-600" />
+              项目管理
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">管理所有物流项目的基本信息，支持多种合作链路配置</p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild><Button variant="secondary" onClick={resetForm}><Plus className="h-4 w-4 mr-2" />新增项目</Button></DialogTrigger>
+          <div className="flex items-center gap-2">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild><Button onClick={resetForm}><Plus className="h-4 w-4 mr-2" />新增项目</Button></DialogTrigger>
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingProject ? "编辑项目" : "新增项目"}</DialogTitle>
@@ -421,8 +425,9 @@ export default function Projects() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
-      </div>
+      </header>
 
       <Card className="shadow-card">
         <CardHeader>
