@@ -480,14 +480,17 @@ export default function InvoiceRequest() {
   const displayedPartners = useMemo(() => {
     if (uiFilters.partnerId !== "all") {
       const selected = allPartners.find(p => p.id === uiFilters.partnerId);
-      return selected ? [selected] : [];
+      return selected ? [{ ...selected, partner_id: selected.id, partner_name: selected.name }] : [];
     }
     if (!reportData || !Array.isArray(reportData.records)) return [];
     
     // 从partner_invoiceables中获取合作方信息，而不是从records中
     if (reportData.partner_invoiceables && Array.isArray(reportData.partner_invoiceables)) {
       const partnerIds = reportData.partner_invoiceables.map((p: any) => p.partner_id);
-      const result = allPartners.filter(partner => partnerIds.includes(partner.id)).sort((a, b) => a.level - b.level);
+      const result = allPartners
+        .filter(partner => partnerIds.includes(partner.id))
+        .sort((a, b) => a.level - b.level)
+        .map(partner => ({ ...partner, partner_id: partner.id, partner_name: partner.name }));
       
       // 调试信息
       console.log('从partner_invoiceables获取合作方:', reportData.partner_invoiceables);
@@ -511,9 +514,13 @@ export default function InvoiceRequest() {
     // 调试信息
     console.log('从records获取合作方 - relevantPartnerIds:', Array.from(relevantPartnerIds));
     console.log('allPartners:', allPartners);
-    console.log('displayedPartners结果:', allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level));
+    const fallbackResult = allPartners
+      .filter(partner => relevantPartnerIds.has(partner.id))
+      .sort((a, b) => a.level - b.level)
+      .map(partner => ({ ...partner, partner_id: partner.id, partner_name: partner.name }));
+    console.log('displayedPartners结果:', fallbackResult);
     
-    return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
+    return fallbackResult;
   }, [reportData, allPartners, uiFilters.partnerId]);
 
   const currentPageRecords = reportData?.records || [];
