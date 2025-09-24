@@ -464,13 +464,23 @@ export default function InvoiceRequest() {
 
   // --- 计算派生状态 ---
   const displayedPartners = useMemo(() => {
-    if (!reportData?.partner_invoiceables) return [];
-    return Array.isArray(reportData.partner_invoiceables) 
-      ? reportData.partner_invoiceables
-          .filter((p: any) => (p.total_invoiceable || 0) > 0) // 只显示有数据的合作方
-          .sort((a: any, b: any) => a.level - b.level)
-      : [];
-  }, [reportData?.partner_invoiceables]);
+    if (uiFilters.partnerId !== "all") {
+      const selected = allPartners.find(p => p.id === uiFilters.partnerId);
+      return selected ? [selected] : [];
+    }
+    if (!reportData || !Array.isArray(reportData.records)) return [];
+    const relevantPartnerIds = new Set<string>();
+    reportData.records.forEach((record: any) => {
+      if (record && Array.isArray(record.partner_costs)) {
+        record.partner_costs.forEach((cost: any) => {
+          if ((cost.payable_amount || 0) > 0) { // 只包含有开票金额的合作方
+            relevantPartnerIds.add(cost.partner_id);
+          }
+        });
+      }
+    });
+    return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
+  }, [reportData, allPartners, uiFilters.partnerId]);
 
   const currentPageRecords = reportData?.records || [];
   const totalRecords = reportData?.count || 0;
