@@ -220,18 +220,19 @@ export default function Locations() {
   };
 
   return (
-    <div className="space-y-8 p-4 md:p-6">
-      {/* 页面标题 */}
-      <div className="bg-gradient-primary p-6 rounded-lg shadow-primary text-primary-foreground">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold mb-2 flex items-center">
-              <MapPin className="mr-2" />
-              地点管理
-            </h1>
-            <p className="opacity-90">统一管理所有装卸货地点</p>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <div className="p-4 md:p-6">
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                <MapPin className="mr-3 h-7 w-7 text-blue-600" />
+                地点管理
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">统一管理所有装卸货地点</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="secondary" onClick={resetForm}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -303,8 +304,12 @@ export default function Locations() {
               </form>
             </DialogContent>
           </Dialog>
-        </div>
+            </div>
+          </div>
+        </header>
       </div>
+
+      <div className="space-y-6">
 
       {/* 地点列表 */}
       <Card className="shadow-card">
@@ -394,6 +399,7 @@ export default function Locations() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

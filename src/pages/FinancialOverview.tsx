@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Loader2 } from "lucide-react";
+import { Loader2, Banknote } from "lucide-react";
 
 // --- 类型定义 ---
 interface FinancialStats { totalReceivables: number; monthlyReceivables: number; pendingPayment: number; pendingInvoice: number; }
@@ -119,10 +119,24 @@ export default function FinancialOverview() {
   if (error) { return <div className="flex flex-col justify-center items-center h-screen text-center p-4"><h2 className="text-xl font-semibold text-destructive">数据加载失败</h2><p className="mt-2 text-sm text-muted-foreground max-w-md">无法获取财务概览数据，这可能是由于数据库权限或函数错误导致的。</p><code className="mt-4 p-2 bg-muted text-muted-foreground rounded-md text-xs">{error}</code></div> }
 
   return (
-    <div className="space-y-6 p-4 md:p-6 relative">
+    <div className="p-4 md:p-6">
       {loading && <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex justify-center items-center z-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
       
-      <div><h1 className="text-3xl font-bold text-foreground">财务概览</h1><p className="text-muted-foreground">运输财务统计分析</p></div>
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                <Banknote className="mr-3 h-7 w-7 text-blue-600" />
+                财务看板
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">运输财务统计分析</p>
+            </div>
+          </div>
+        </header>
+      </div>
+
+      <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card><CardHeader><CardTitle className="text-sm font-medium">总应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.totalReceivables || 0)}</div><p className="text-xs text-muted-foreground">我司应收总额</p></CardContent></Card>
         <Card><CardHeader><CardTitle className="text-sm font-medium">本月应收</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(stats?.monthlyReceivables || 0)}</div><p className="text-xs text-muted-foreground">我司本月应收</p></CardContent></Card>
@@ -236,6 +250,7 @@ export default function FinancialOverview() {
           }
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

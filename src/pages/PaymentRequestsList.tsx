@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, FileSpreadsheet, Trash2 } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, ClipboardList } from 'lucide-react';
 import { PaymentApproval } from '@/components/PaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -257,11 +257,22 @@ export default function PaymentRequestsList() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">付款申请单列表</h1>
-        <p className="text-muted-foreground">查看和管理所有已生成的付款申请批次。</p>
+    <div className="p-4 md:p-6">
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                <ClipboardList className="mr-3 h-7 w-7 text-blue-600" />
+                申请单管理
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">查看和管理所有已生成的付款申请批次</p>
+            </div>
+          </div>
+        </header>
       </div>
+
+      <div className="space-y-6">
 
       <div className="flex justify-between items-center">
         <div/>
@@ -433,6 +444,7 @@ export default function PaymentRequestsList() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

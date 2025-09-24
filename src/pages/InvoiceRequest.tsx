@@ -464,8 +464,9 @@ export default function InvoiceRequest() {
 
   // --- 渲染 ---
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 sticky top-4 z-10 shadow-sm">
+    <div className="p-4 md:p-6">
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
@@ -484,9 +485,11 @@ export default function InvoiceRequest() {
           </div>
         </div>
       </header>
+      </div>
 
-      {/* 筛选条件 */}
-      <Card>
+      <div className="space-y-6">
+        {/* 筛选条件 */}
+        <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Search className="h-5 w-5" />
@@ -860,6 +863,7 @@ export default function InvoiceRequest() {
           )}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

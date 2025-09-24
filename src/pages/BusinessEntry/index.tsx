@@ -288,13 +288,18 @@ export default function BusinessEntry() {
   };
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">运单管理</h1>
-          <p className="text-muted-foreground">查询、导入、导出和管理所有运单记录</p>
-        </div>
-        <div className="flex gap-2">
+    <div className="p-4 md:p-6">
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                <FileText className="mr-3 h-7 w-7 text-blue-600" />
+                运单管理
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">查询、导入、导出和管理所有运单记录</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
           <Button 
             variant={isBatchMode ? "default" : "outline"} 
             onClick={toggleBatchMode}
@@ -320,8 +325,12 @@ export default function BusinessEntry() {
             </Button>
           )}
           <Button onClick={exportToExcel} disabled={loading}><Download className="mr-2 h-4 w-4" />导出数据</Button>
-        </div>
+            </div>
+          </div>
+        </header>
       </div>
+
+      <div className="space-y-4">
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
       {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} onBatchAction={handleBatchAction} isBatchMode={isBatchMode} onToggleBatchMode={toggleBatchMode} activeFilters={activeFilters} />)}
@@ -343,6 +352,7 @@ export default function BusinessEntry() {
         onClose={() => setIsBatchPDFOpen(false)}
         selectedRecords={selectedRecords}
       />
+      </div>
     </div>
   );
 }

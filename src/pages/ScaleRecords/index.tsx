@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Search, Image as ImageIcon, Trash2, Loader2, Link2, Edit, Eye, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, Image as ImageIcon, Trash2, Loader2, Link2, Edit, Eye, MoreHorizontal, Weight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -323,10 +323,25 @@ export default function ScaleRecords() {
   const isAllMatchingSelected = selectedRecordIds.size === totalRecordsCount && totalRecordsCount > 0;
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-end justify-between gap-4 flex-wrap">
+    <div className="p-4 md:p-6">
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                <Weight className="mr-3 h-7 w-7 text-blue-600" />
+                磅单管理
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">管理货物称重记录</p>
+            </div>
+          </div>
+        </header>
+      </div>
+
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-end justify-between gap-4 flex-wrap">
             <div className="flex items-end gap-4 flex-grow">
               <div className="flex-1 min-w-[180px]"><Label htmlFor="project">项目</Label><Select value={uiFilters.projectId || "all"} onValueChange={(value) => setUiFilters(prev => ({ ...prev, projectId: value === "all" ? "" : value }))}><SelectTrigger><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent><SelectItem value="all">全部项目</SelectItem>{projects.filter(p => p.id && p.id.trim() !== '').map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
               <div className="flex-1 min-w-[280px]"><Label htmlFor="date-range">日期范围</Label><DateRangePicker date={{ from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined, }} setDate={handleDateRangeChange} /></div>
@@ -641,6 +656,7 @@ export default function ScaleRecords() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 }

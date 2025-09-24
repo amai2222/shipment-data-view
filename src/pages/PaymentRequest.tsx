@@ -318,7 +318,7 @@ export default function PaymentRequest() {
 
   // --- JSX 渲染 (已更新) ---
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="p-4 md:p-6">
       <BatchInputDialog
         isOpen={isDriverBatchOpen}
         onClose={() => setIsDriverBatchOpen(false)}
@@ -328,7 +328,9 @@ export default function PaymentRequest() {
         placeholder="例如:&#10;张三,&#10;李四&#10;王五"
         initialValue={uiFilters.driverNames}
       />
-      <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 sticky top-4 z-10 shadow-sm">
+      
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
@@ -347,8 +349,10 @@ export default function PaymentRequest() {
         </div>
         </div>
       </header>
+      </div>
 
-      <Card className="border-muted/40">
+      <div className="space-y-6">
+        <Card className="border-muted/40">
         <CardContent className="p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 items-end">
             <div className="flex flex-col gap-1.5"><Label>项目</Label><Select value={uiFilters.projectId} onValueChange={(v) => handleFilterChange('projectId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{Array.isArray(projects) && projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
@@ -526,6 +530,7 @@ export default function PaymentRequest() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

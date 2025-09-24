@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, ListPlus } from 'lucide-react';
+import { Loader2, ListPlus, CreditCard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -161,20 +161,31 @@ export default function PaymentInvoice() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <BatchInputDialog
-        isOpen={isBatchDialogOpen}
-        onClose={() => setIsBatchDialogOpen(false)}
-        onConfirm={handleBatchConfirm}
-        title="批量输入运单号"
-        description="请粘贴运单号，用换行或逗号分隔。"
-        placeholder="例如:&#10;YDH-001,&#10;YDH-002&#10;YDH-003"
-        initialValue={uiFilters.logisticsRecordNumbers}
-      />
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">付款与开票</h1>
-        <p className="text-muted-foreground">选择付款申请单查看运单财务明细并进行批量付款与开票操作。</p>
+    <div className="p-4 md:p-6">
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                <CreditCard className="mr-3 h-7 w-7 text-blue-600" />
+                付款与开票
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">管理付款申请和开票流程</p>
+            </div>
+          </div>
+        </header>
       </div>
+
+      <div className="space-y-6">
+        <BatchInputDialog
+          isOpen={isBatchDialogOpen}
+          onClose={() => setIsBatchDialogOpen(false)}
+          onConfirm={handleBatchConfirm}
+          title="批量输入运单号"
+          description="请粘贴运单号，用换行或逗号分隔。"
+          placeholder="例如:&#10;YDH-001,&#10;YDH-002&#10;YDH-003"
+          initialValue={uiFilters.logisticsRecordNumbers}
+        />
 
       <Card>
         <CardHeader>
@@ -293,6 +304,7 @@ export default function PaymentInvoice() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

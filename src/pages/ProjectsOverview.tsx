@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, TrendingUp, Wallet, Truck, Users, Calendar as CalendarIcon, Briefcase, BarChart2, ListChecks } from "lucide-react";
+import { Loader2, TrendingUp, Wallet, Truck, Users, Calendar as CalendarIcon, Briefcase, BarChart2, ListChecks, PieChart } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -154,23 +154,31 @@ export default function ProjectsOverview() {
   const { all_projects_data, global_seven_day_trend, global_driver_report_table, global_summary } = dashboardData;
 
   return (
-    <div className="p-4 md:p-6 space-y-8">
-      <div className="flex flex-wrap justify-between items-center gap-4">
-        {/* ★★★ 1. 主标题改名并改为黑色 ★★★ */}
-        <h1 className="text-3xl font-bold text-slate-800 flex items-center">
-          <BarChart2 className="mr-3 h-8 w-8 text-blue-600" />
-          项目综合看板
-        </h1>
-        <div className="flex flex-wrap items-center gap-4">
+    <div className="p-4 md:p-6">
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                <PieChart className="mr-3 h-7 w-7 text-blue-600" />
+                项目看板
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">项目运营数据综合分析</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
           <MultiSelectProjects options={projectOptions} selected={selectedProjectIds} onChange={setSelectedProjectIds} className="w-[300px] lg:w-[400px]" />
           <Popover>
             <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-slate-500")}><CalendarIcon className="mr-2 h-4 w-4" />{reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}</Button></PopoverTrigger>
             <PopoverContent className="w-auto p-0"><CalendarComponent mode="single" selected={reportDate} onSelect={(date) => date && setReportDate(date)} initialFocus /></PopoverContent>
           </Popover>
-        </div>
+            </div>
+          </div>
+        </header>
       </div>
-      {/* ★★★ 1. 调整小卡片布局和颜色 ★★★ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      <div className="space-y-6">
+        {/* ★★★ 1. 调整小卡片布局和颜色 ★★★ */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center text-sm font-medium text-slate-700">
@@ -284,6 +292,7 @@ export default function ProjectsOverview() {
           </div>
         </div>
       ))}
+      </div>
     </div>
   );
 }

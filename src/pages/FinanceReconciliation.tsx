@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Loader2, RefreshCw, Search } from "lucide-react";
+import { Download, Loader2, RefreshCw, Search, Calculator } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
@@ -268,11 +268,22 @@ export default function FinanceReconciliation() {
   if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">财务对账</h1>
-        <p className="text-muted-foreground">运费收入与合作方应付金额统计</p>
+    <div className="p-4 md:p-6">
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                <Calculator className="mr-3 h-7 w-7 text-blue-600" />
+                运费对账
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">运费收入与合作方应付金额统计</p>
+            </div>
+          </div>
+        </header>
       </div>
+
+      <div className="space-y-6">
 
       <Card className="border-muted/40">
         <CardContent className="p-4">
@@ -405,6 +416,7 @@ export default function FinanceReconciliation() {
           <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button></div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

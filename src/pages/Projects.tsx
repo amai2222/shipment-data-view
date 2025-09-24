@@ -314,8 +314,9 @@ export default function Projects() {
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 sticky top-4 z-10 shadow-sm">
+    <div className="p-4 md:p-6">
+      <div className="sticky top-4 z-10 mb-6">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
@@ -428,8 +429,10 @@ export default function Projects() {
           </div>
         </div>
       </header>
+      </div>
 
-      <Card className="shadow-card">
+      <div className="space-y-6">
+        <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between"><CardTitle>项目列表 ({projects.length} 个项目)</CardTitle></div>
         </CardHeader>
@@ -562,6 +565,7 @@ export default function Projects() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
