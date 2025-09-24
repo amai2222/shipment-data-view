@@ -204,13 +204,17 @@ export default function Drivers() {
         icon={Truck}
         iconColor="text-orange-600"
       >
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="secondary" onClick={resetForm}>
-                <Plus className="h-4 w-4 mr-2" />
-                新增司机
-              </Button>
-            </DialogTrigger>
+        <Button onClick={() => setIsDialogOpen(true)} className="bg-gradient-primary hover:bg-primary-hover">
+          <Plus className="mr-2 h-4 w-4" />
+          添加司机
+        </Button>
+        <Button onClick={exportToExcel} variant="outline">
+          <Download className="mr-2 h-4 w-4" />
+          导出数据
+        </Button>
+      </PageHeader>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>{editingDriver ? "编辑司机" : "新增司机"}</DialogTitle>
@@ -250,8 +254,8 @@ export default function Drivers() {
               </form>
             </DialogContent>
         </Dialog>
-      </PageHeader>
-        <Card className="shadow-card">
+
+      <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>司机列表 (共 {totalCount} 条记录)</CardTitle>
