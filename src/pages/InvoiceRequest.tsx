@@ -473,9 +473,7 @@ export default function InvoiceRequest() {
     reportData.records.forEach((record: any) => {
       if (record && Array.isArray(record.partner_costs)) {
         record.partner_costs.forEach((cost: any) => {
-          if ((cost.payable_amount || 0) > 0) { // 只包含有开票金额的合作方
-            relevantPartnerIds.add(cost.partner_id);
-          }
+          relevantPartnerIds.add(cost.partner_id);
         });
       }
     });
@@ -700,10 +698,9 @@ export default function InvoiceRequest() {
                             </TableCell>
                             {Array.isArray(displayedPartners) && displayedPartners.map(p => { 
                               const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.partner_id)); 
-                              const amount = cost?.payable_amount || 0;
                               return (
                                 <TableCell key={p.partner_id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
-                                  {amount > 0 ? formatCurrency(amount) : '-'}
+                                  {formatCurrency(cost?.payable_amount)}
                                 </TableCell>
                               ); 
                             })}
@@ -719,7 +716,7 @@ export default function InvoiceRequest() {
                             <div className="text-xs text-muted-foreground font-normal">(司机应收)</div>
                           </TableCell>
                           {Array.isArray(displayedPartners) && displayedPartners.map(p => { 
-                            const total = p.total_invoiceable || 0; 
+                            const total = (Array.isArray(reportData?.partner_invoiceables) && reportData.partner_invoiceables.find((pp: any) => pp.partner_id === p.partner_id)?.total_payable) || 0; 
                             return (
                               <TableCell key={p.partner_id} className="text-center font-bold font-mono whitespace-nowrap">
                                 <div>{formatCurrency(total)}</div>
