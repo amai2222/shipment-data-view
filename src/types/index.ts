@@ -129,6 +129,55 @@ export interface PartnerCostCalculation {
   taxRate: number;
 }
 
+// 外部跟踪号类型
+export interface ExternalTrackingNumber {
+  platform: string;
+  tracking_number: string;
+  status: 'pending' | 'in_transit' | 'completed' | 'cancelled';
+  remarks?: string;
+}
+
+// 平台选项类型
+export interface PlatformOption {
+  platform_code: string;
+  primary_name: string;
+  aliases: string[];
+  description?: string;
+  is_custom: boolean;
+  sort_order: number;
+}
+
+// 用户权限相关类型
+export interface UserPermission {
+  id: string;
+  user_id: string;
+  permission_key: string;
+  permission_value: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserWithPermissions {
+  id: string;
+  username: string;
+  full_name?: string;
+  email?: string;
+  role: string;
+  permissions: UserPermission[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RolePermissionTemplate {
+  id: string;
+  role_name: string;
+  permission_key: string;
+  permission_value: boolean;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // 统计数据类型
 export interface DailyTransportStats {
   date: string;

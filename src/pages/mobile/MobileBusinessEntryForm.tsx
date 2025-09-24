@@ -13,6 +13,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { ExternalTrackingNumber } from '@/types';
 
 interface Driver {
   id: string;

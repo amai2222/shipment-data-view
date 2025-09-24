@@ -8,16 +8,19 @@ export function useOptimizedPermissions() {
   const [loading, setLoading] = useState(true);
   const [roleTemplates, setRoleTemplates] = useState<Record<string, any>>({});
   const [users, setUsers] = useState<any[]>([]);
-  const [userPermissions, setUserPermissions] = useState<any[]>([]);
+  const [userPermissions, setUserPermissions] = useState<Record<string, any>>({});
   const [hasChanges, setHasChanges] = useState(false);
 
   // 使用 useMemo 优化计算
   const optimizedUserPermissions = useMemo(() => {
+    // 将用户权限对象转换为数组进行处理
+    const permissionsArray = Object.values(userPermissions).flat();
+    
     // 去重逻辑：每个用户每个项目只保留最新的权限记录
     const uniquePermissions = new Map();
     
-    userPermissions
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    permissionsArray
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
       .forEach(perm => {
         const key = `${perm.user_id}_${perm.project_id || 'global'}`;
         if (!uniquePermissions.has(key)) {
@@ -65,7 +68,16 @@ export function useOptimizedPermissions() {
       }
 
       if (permissionsRes.data) {
-        setUserPermissions(permissionsRes.data);
+        // 将权限数据按用户ID分组
+        const permissionsByUser = permissionsRes.data.reduce((acc, perm) => {
+          if (!acc[perm.user_id]) {
+            acc[perm.user_id] = [];
+          }
+          acc[perm.user_id].push(perm);
+          return acc;
+        }, {} as Record<string, any[]>);
+        
+        setUserPermissions(permissionsByUser);
       }
 
     } catch (error) {
