@@ -21,6 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
+import { PageHeader } from '@/components/PageHeader';
 
 // --- 类型定义 ---
 interface PaymentRequest {
@@ -257,20 +258,13 @@ export default function PaymentRequestsList() {
   };
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="sticky top-4 z-10 mb-6">
-        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-                <ClipboardList className="mr-3 h-7 w-7 text-blue-600" />
-                申请单管理
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">查看和管理所有已生成的付款申请批次</p>
-            </div>
-          </div>
-        </header>
-      </div>
+    <div className="space-y-6 p-4 md:p-6">
+      <PageHeader 
+        title="申请单管理" 
+        description="查看和管理所有已生成的付款申请批次"
+        icon={ClipboardList}
+        iconColor="text-green-600"
+      />
 
       <div className="space-y-6">
 

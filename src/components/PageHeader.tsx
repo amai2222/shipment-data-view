@@ -17,7 +17,7 @@ export function PageHeader({
   children 
 }: PageHeaderProps) {
   return (
-    <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm sticky top-4 z-10">
+    <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm sticky top-4 z-10 mx-4">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">

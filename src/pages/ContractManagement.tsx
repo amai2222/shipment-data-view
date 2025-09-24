@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useFilterState } from '@/hooks/useFilterState';
 import { Upload, Search, FileText, Filter, Plus, Download, Trash2, Settings, Tag, Hash, Shield, Archive, Bell, FileSearch, UserCheck } from 'lucide-react';
+import { PageHeader } from '@/components/PageHeader';
 import { format } from 'date-fns';
 
 interface Contract {
@@ -497,18 +498,13 @@ export default function ContractManagement() {
   const isPartialSelected = selectedContracts.size > 0 && selectedContracts.size < contracts.length;
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="sticky top-4 z-10 mb-6">
-        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-                <FileText className="mr-3 h-7 w-7 text-blue-600" />
-                合同管理
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">管理企业各类合同档案</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-6 p-4 md:p-6">
+      <PageHeader 
+        title="合同管理" 
+        description="管理企业各类合同档案"
+        icon={FileText}
+        iconColor="text-blue-600"
+      >
           <Button
             variant={activeTab === 'dashboard' ? 'default' : 'outline'}
             onClick={() => setActiveTab('dashboard')}
@@ -586,10 +582,7 @@ export default function ContractManagement() {
             <UserCheck className="h-4 w-4 mr-2" />
             高级权限
           </Button>
-            </div>
-          </div>
-        </header>
-      </div>
+      </PageHeader>
 
       <div className="space-y-6">
 

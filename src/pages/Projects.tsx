@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Project, Location, Partner, ProjectPartner, PartnerChain } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
+import { PageHeader } from "@/components/PageHeader";
 
 // 【核心类型】扩展 Project 类型，使其可以直接包含从后端一次性获取的嵌套数据
 interface ProjectWithDetails extends Project {
@@ -314,7 +315,7 @@ export default function Projects() {
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
+    <div className="space-y-6 p-4 md:p-6">
       <PageHeader 
         title="项目管理" 
         description="管理所有物流项目的基本信息，支持多种合作链路配置"

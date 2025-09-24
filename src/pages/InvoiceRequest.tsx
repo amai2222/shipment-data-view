@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/PageHeader";
 
 // --- 类型定义 (与付款申请完全一致) ---
 interface PartnerCost { 
@@ -464,28 +465,20 @@ export default function InvoiceRequest() {
 
   // --- 渲染 ---
   return (
-    <div className="p-4 md:p-6">
-      <div className="sticky top-4 z-10 mb-6">
-        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
-        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-              <Receipt className="mr-3 h-7 w-7 text-blue-600" />
-              开票申请管理
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">向合作方申请开具发票</p>
-          </div>
-          <div className="flex gap-2">
-            {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
-              <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForInvoiceClick}>
-                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Receipt className="mr-2 h-4 w-4" />}
-                一键申请开票 ({selectionCount})
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
-      </div>
+    <div className="space-y-6 p-4 md:p-6">
+      <PageHeader 
+        title="开票申请管理" 
+        description="向合作方申请开具发票"
+        icon={Receipt}
+        iconColor="text-green-600"
+      >
+        {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
+          <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForInvoiceClick}>
+            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Receipt className="mr-2 h-4 w-4" />}
+            一键申请开票 ({selectionCount})
+          </Button>
+        )}
+      </PageHeader>
 
       <div className="space-y-6">
         {/* 筛选条件 */}

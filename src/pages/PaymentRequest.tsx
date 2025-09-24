@@ -318,7 +318,7 @@ export default function PaymentRequest() {
 
   // --- JSX 渲染 (已更新) ---
   return (
-    <div className="p-4 md:p-6">
+    <div className="space-y-6 p-4 md:p-6">
       <BatchInputDialog
         isOpen={isDriverBatchOpen}
         onClose={() => setIsDriverBatchOpen(false)}
@@ -329,27 +329,19 @@ export default function PaymentRequest() {
         initialValue={uiFilters.driverNames}
       />
       
-      <div className="sticky top-4 z-10 mb-6">
-        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
-        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-              <Banknote className="mr-3 h-7 w-7 text-blue-600" />
-              合作方付款申请
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">向合作方申请支付运费</p>
-          </div>
-        <div className="flex gap-2">
-          {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
-            <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
-              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-              一键申请付款 ({selectionCount})
-            </Button>
-          )}
-        </div>
-        </div>
-      </header>
-      </div>
+      <PageHeader 
+        title="合作方付款申请" 
+        description="向合作方申请支付运费"
+        icon={Banknote}
+        iconColor="text-green-600"
+      >
+        {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
+          <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
+            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+            一键申请付款 ({selectionCount})
+          </Button>
+        )}
+      </PageHeader>
 
       <div className="space-y-6">
         <Card className="border-muted/40">

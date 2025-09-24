@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { MultiSelectProjects, OptionType } from '@/components/ui/MultiSelectProjects';
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PageHeader } from '@/components/PageHeader';
 
 // --- 类型定义 (无修改) ---
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
@@ -154,27 +155,19 @@ export default function ProjectsOverview() {
   const { all_projects_data, global_seven_day_trend, global_driver_report_table, global_summary } = dashboardData;
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="sticky top-4 z-10 mb-6">
-        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm">
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-                <PieChart className="mr-3 h-7 w-7 text-blue-600" />
-                项目看板
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">项目运营数据综合分析</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
+    <div className="space-y-6 p-4 md:p-6">
+      <PageHeader 
+        title="项目看板" 
+        description="项目运营数据综合分析"
+        icon={PieChart}
+        iconColor="text-purple-600"
+      >
           <MultiSelectProjects options={projectOptions} selected={selectedProjectIds} onChange={setSelectedProjectIds} className="w-[300px] lg:w-[400px]" />
           <Popover>
             <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-slate-500")}><CalendarIcon className="mr-2 h-4 w-4" />{reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}</Button></PopoverTrigger>
             <PopoverContent className="w-auto p-0"><CalendarComponent mode="single" selected={reportDate} onSelect={(date) => date && setReportDate(date)} initialFocus /></PopoverContent>
-          </Popover>
-            </div>
-          </div>
-        </header>
-      </div>
+        </Popover>
+      </PageHeader>
 
       <div className="space-y-6">
         {/* ★★★ 1. 调整小卡片布局和颜色 ★★★ */}

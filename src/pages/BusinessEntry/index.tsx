@@ -26,6 +26,7 @@ import { generatePrintVersion } from '@/components/TransportDocumentGenerator';
 import { BatchPDFGenerator } from '@/components/BatchPDFGenerator';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { LogisticsTable } from './components/LogisticsTable';
+import { PageHeader } from "@/components/PageHeader";
 
 const formatCurrency = (value: number | null | undefined): string => {
   if (value == null || isNaN(value)) return '¥0.00';
@@ -288,7 +289,7 @@ export default function BusinessEntry() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
+    <div className="space-y-6 p-4 md:p-6">
       <PageHeader 
         title="运单管理" 
         description="查询、导入、导出和管理所有运单记录"

@@ -18,6 +18,7 @@ import { ScaleRecordForm } from './components/ScaleRecordForm';
 import { ImageViewer } from './components/ImageViewer';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
+import { PageHeader } from '@/components/PageHeader';
 
 // 接口定义 (已更新)
 interface Project { id: string; name: string; }
@@ -323,7 +324,7 @@ export default function ScaleRecords() {
   const isAllMatchingSelected = selectedRecordIds.size === totalRecordsCount && totalRecordsCount > 0;
 
   return (
-    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
+    <div className="space-y-6 p-4 md:p-6">
       <PageHeader 
         title="磅单管理" 
         description="管理货物称重记录"

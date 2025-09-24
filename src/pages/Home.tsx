@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ResponsiveNumber, ResponsiveCurrency, ResponsiveNumberWithUnit } from "@/components/ResponsiveNumber";
 import { WaybillDetailDialog } from "@/components/WaybillDetailDialog";
+import { PageHeader } from "@/components/PageHeader";
 
 // --- 类型定义 ---
 
@@ -245,47 +246,41 @@ export default function Home() {
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
-      <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm sticky top-4 z-10">
-        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-                <Truck className="mr-3 h-7 w-7 text-blue-600" />
-                运输看板
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">实时监控运输数据和业务指标</p>
-            </div>
-            <div className="flex items-end gap-2 flex-wrap">
-              <div className="space-y-1"><Label htmlFor="startDate" className="text-xs font-medium">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(p => ({...p, startDate: e.target.value}))} /></div>
-              <div className="space-y-1"><Label htmlFor="endDate" className="text-xs font-medium">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(p => ({...p, endDate: e.target.value}))} /></div>
-              <div className="space-y-1">
-                <Label htmlFor="projectStatusFilter" className="text-xs font-medium">项目状态</Label>
-                <Select value={projectStatusFilter} onValueChange={setProjectStatusFilter}>
-                  <SelectTrigger id="projectStatusFilter"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="进行中">进行中</SelectItem>
-                    <SelectItem value="已完成">已完成</SelectItem>
-                    <SelectItem value="所有状态">所有状态</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="projectFilter" className="text-xs font-medium">项目筛选</Label>
-                <Select value={filterInputs.projectId} onValueChange={(val) => setFilterInputs(p => ({...p, projectId: val}))}>
-                  <SelectTrigger id="projectFilter"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">所有项目</SelectItem>
-                    {projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={() => handleSearch(false)} disabled={isSearching}>
-                {isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                {isSearching ? '搜索中...' : '搜索'}
-              </Button>
-            </div>
+    <div className="space-y-6 p-4 md:p-6">
+      <PageHeader 
+        title="运输看板" 
+        description="实时监控运输数据和业务指标"
+        icon={Truck}
+        iconColor="text-blue-600"
+      >
+        <div className="space-y-1"><Label htmlFor="startDate" className="text-xs font-medium">开始日期</Label><Input id="startDate" type="date" value={filterInputs.startDate} onChange={(e) => setFilterInputs(p => ({...p, startDate: e.target.value}))} /></div>
+        <div className="space-y-1"><Label htmlFor="endDate" className="text-xs font-medium">结束日期</Label><Input id="endDate" type="date" value={filterInputs.endDate} onChange={(e) => setFilterInputs(p => ({...p, endDate: e.target.value}))} /></div>
+        <div className="space-y-1">
+          <Label htmlFor="projectStatusFilter" className="text-xs font-medium">项目状态</Label>
+          <Select value={projectStatusFilter} onValueChange={setProjectStatusFilter}>
+            <SelectTrigger id="projectStatusFilter"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="进行中">进行中</SelectItem>
+              <SelectItem value="已完成">已完成</SelectItem>
+              <SelectItem value="所有状态">所有状态</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-      </header>
+        <div className="space-y-1">
+          <Label htmlFor="projectFilter" className="text-xs font-medium">项目筛选</Label>
+          <Select value={filterInputs.projectId} onValueChange={(val) => setFilterInputs(p => ({...p, projectId: val}))}>
+            <SelectTrigger id="projectFilter"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">所有项目</SelectItem>
+              {projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={() => handleSearch(false)} disabled={isSearching}>
+          {isSearching ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+          {isSearching ? '搜索中...' : '搜索'}
+        </Button>
+      </PageHeader>
 
       {/* 重新设计的卡片组 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
