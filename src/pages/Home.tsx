@@ -245,7 +245,7 @@ export default function Home() {
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6 pl-4 md:pl-6">
+    <div className="space-y-6 p-4 md:p-6 pl-6 md:pl-8">
       <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm sticky top-4 z-10">
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
             <div>
