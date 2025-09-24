@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Loader2, Banknote } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 
 // --- 类型定义 ---
 interface FinancialStats { totalReceivables: number; monthlyReceivables: number; pendingPayment: number; pendingInvoice: number; }
