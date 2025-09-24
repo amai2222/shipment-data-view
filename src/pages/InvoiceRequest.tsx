@@ -353,7 +353,7 @@ export default function InvoiceRequest() {
         return;
       }
 
-      const { data: v2Data, error: rpcError } = await supabase.rpc('get_invoice_request_data_v2', {
+      const { data: v2Data, error: rpcError } = await supabase.rpc('get_invoice_data_by_record_ids', {
         p_record_ids: idsToProcess
       });
 
