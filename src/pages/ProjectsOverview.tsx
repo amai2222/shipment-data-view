@@ -168,8 +168,9 @@ export default function ProjectsOverview() {
             <PopoverContent className="w-auto p-0"><CalendarComponent mode="single" selected={reportDate} onSelect={(date) => date && setReportDate(date)} initialFocus /></PopoverContent>
           </Popover>
       </PageHeader>
-        {/* ★★★ 1. 调整小卡片布局和颜色 ★★★ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      {/* ★★★ 1. 调整小卡片布局和颜色 ★★★ */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center text-sm font-medium text-slate-700">
