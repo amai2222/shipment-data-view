@@ -459,7 +459,7 @@ export default function InvoiceRequest() {
 
   // --- 渲染 ---
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       {/* 筛选条件 */}
       <Card>
         <CardHeader>

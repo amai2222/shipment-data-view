@@ -10,15 +10,15 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen grid grid-cols-[auto_1fr] w-full bg-gradient-to-br from-background via-background to-secondary/30">
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-background via-background to-secondary/30">
         <AppSidebar />
         
         {/* Main Content Area */}
-        <main className="flex flex-col h-screen overflow-hidden">
+        <main className="flex flex-col flex-1 min-h-screen">
           <EnhancedHeader />
           
           {/* Content Area with Enhanced Scrolling */}
-          <div className="flex-1 overflow-auto bg-gradient-to-b from-background to-secondary/20">
+          <div className="flex-1 bg-gradient-to-b from-background to-secondary/20">
             {children}
           </div>
         </main>
