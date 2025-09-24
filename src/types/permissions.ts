@@ -1,19 +1,7 @@
 // 共享类型定义
-export type UserRole = "admin" | "finance" | "business" | "partner" | "operator" | "viewer";
-
-export interface UserWithPermissions {
-  id: string;
-  full_name: string;
-  email: string;
-  role: UserRole;
-  is_active: boolean;
-  permissions?: {
-    menu: string[];
-    function: string[];
-    project: string[];
-    data: string[];
-  };
-}
+// 注意：UserRole 和 UserWithPermissions 已在 src/types/index.ts 中定义
+// 这里重新导出以保持向后兼容
+export { UserRole, UserWithPermissions } from './index';
 
 export interface UserPermissions {
   menu: string[];
