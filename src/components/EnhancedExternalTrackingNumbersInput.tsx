@@ -59,20 +59,21 @@ export function EnhancedExternalTrackingNumbersInput({
   useEffect(() => {
     const fetchPlatforms = async () => {
       try {
-        // 使用预定义的平台选项
-        const defaultPlatforms: PlatformOption[] = [
-          { platform_code: 'jd', primary_name: '京东物流', aliases: ['京东', 'JD'], is_custom: false, sort_order: 1 },
-          { platform_code: 'sf', primary_name: '顺丰速运', aliases: ['顺丰', 'SF'], is_custom: false, sort_order: 2 },
-          { platform_code: 'yt', primary_name: '圆通速递', aliases: ['圆通'], is_custom: false, sort_order: 3 },
-          { platform_code: 'zt', primary_name: '中通快递', aliases: ['中通'], is_custom: false, sort_order: 4 },
-          { platform_code: 'yd', primary_name: '韵达速递', aliases: ['韵达'], is_custom: false, sort_order: 5 },
-          { platform_code: 'st', primary_name: '申通快递', aliases: ['申通'], is_custom: false, sort_order: 6 },
-          { platform_code: 'db', primary_name: '德邦物流', aliases: ['德邦'], is_custom: false, sort_order: 7 },
-          { platform_code: 'bs', primary_name: '百世快递', aliases: ['百世'], is_custom: false, sort_order: 8 },
-          { platform_code: 'other', primary_name: '其他', aliases: [], is_custom: false, sort_order: 9 }
-        ];
+        const { data, error } = await supabase.rpc('get_available_platforms', {
+          p_user_id: (await supabase.auth.getUser()).data.user?.id
+        });
         
-        setPlatforms(defaultPlatforms);
+        if (error) {
+          console.error('获取平台列表失败:', error);
+          toast({
+            title: "获取平台列表失败",
+            description: error.message,
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        setPlatforms(data || []);
       } catch (error) {
         console.error('获取平台列表异常:', error);
       }
@@ -145,22 +146,31 @@ export function EnhancedExternalTrackingNumbersInput({
     }
 
     try {
-      // 简化添加自定义平台功能
-      const newPlatform: PlatformOption = {
-        platform_code: customPlatformCode.trim() || customPlatformName.trim().toLowerCase().replace(/\s+/g, '_'),
-        primary_name: customPlatformName.trim(),
-        aliases: [],
-        description: customPlatformDescription.trim() || undefined,
-        is_custom: true,
-        sort_order: platforms.length + 1
-      };
+      const { error } = await supabase.rpc('add_custom_platform', {
+        p_platform_name: customPlatformName.trim(),
+        p_platform_code: customPlatformCode.trim() || null,
+        p_description: customPlatformDescription.trim() || null
+      });
 
-      setPlatforms(prev => [...prev, newPlatform]);
+      if (error) {
+        toast({
+          title: "添加自定义平台失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
         title: "添加成功",
         description: `自定义平台 "${customPlatformName}" 已添加`,
       });
+
+      // 重新获取平台列表
+      const { data } = await supabase.rpc('get_available_platforms', {
+        p_user_id: (await supabase.auth.getUser()).data.user?.id
+      });
+      setPlatforms(data || []);
 
       // 重置表单
       setCustomPlatformName('');

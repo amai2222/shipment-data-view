@@ -7,13 +7,6 @@ export interface UserWithPermissions {
   email: string;
   role: UserRole;
   is_active: boolean;
-  phone?: string;
-  work_wechat_userid?: string;
-  work_wechat_department?: number[];
-  username?: string;
-  avatar_url?: string;
-  created_at?: string;
-  updated_at?: string;
   permissions?: {
     menu: string[];
     function: string[];
@@ -148,41 +141,4 @@ export interface UpdateContractPermissionParams {
   expires_at?: string;
   description?: string;
   is_active?: boolean;
-}
-
-// 添加缺失的权限类型
-export type PermissionType = 'menu' | 'function' | 'project' | 'data';
-
-export interface UserPermission {
-  id: string;
-  user_id: string;
-  permission_type: string;
-  permission_value: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  project_id?: string;
-  menu_permissions?: string[];
-  function_permissions?: string[];
-  project_permissions?: string[];
-  data_permissions?: string[];
-  inherit_role?: boolean;
-  custom_settings?: any;
-  created_by?: string;
-}
-
-export interface RolePermissionTemplate {
-  id: string;
-  role: UserRole;
-  name?: string;
-  description?: string;
-  color?: string;
-  is_system?: boolean;
-  menu_permissions: string[];
-  function_permissions: string[];
-  project_permissions: string[];
-  data_permissions: string[];
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
 }
