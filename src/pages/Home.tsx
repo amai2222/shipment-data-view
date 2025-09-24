@@ -285,7 +285,6 @@ export default function Home() {
               {isSearching ? '搜索中...' : '搜索'}
             </Button>
           </div>
-          </div>
         </div>
         </header>
       </div>
