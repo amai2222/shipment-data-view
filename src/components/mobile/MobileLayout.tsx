@@ -142,19 +142,19 @@ const menuGroups = [
         name: '运费对账',
         href: '/m/finance/reconciliation',
         icon: Calculator,
-        roles: ['admin', 'finance', 'business']
+        roles: ['admin', 'finance', 'business', 'operator']
       },
       {
         name: '付款与开票',
         href: '/m/finance/payment-invoice',
         icon: Banknote,
-        roles: ['admin', 'finance']
+        roles: ['admin', 'finance', 'operator']
       },
       {
         name: '申请单管理',
         href: '/m/payment-requests-management',
         icon: Receipt,
-        roles: ['admin', 'finance']
+        roles: ['admin', 'finance', 'operator']
       }
     ]
   }

@@ -40,6 +40,7 @@ export function useSimplePermissions() {
         if (error) {
           console.warn('从数据库加载权限失败，使用默认权限:', error);
           setDbPermissions(null);
+          // 可以在这里添加用户通知
         } else {
           console.log(`从数据库加载权限成功:`, data);
           setDbPermissions(data);

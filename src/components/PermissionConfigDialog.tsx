@@ -88,10 +88,22 @@ const getDefaultPermissionsByRole = (role: string) => {
       return allPermissions; // 超级用户拥有所有权限
     case 'operator':
       return {
-        menu: ['dashboard', 'dashboard.transport', 'dashboard.project', 'business', 'business.entry', 'business.scale', 'contracts', 'contracts.list'],
-        function: ['data', 'data.create', 'data.edit', 'scale_records', 'scale_records.create', 'scale_records.edit', 'scale_records.view'],
-        project: ['project_access', 'project.view_assigned', 'project_data', 'project_data.view_operational'],
-        data: ['data_scope', 'data.own', 'data_operations', 'data.create', 'data.edit']
+        menu: [
+          'dashboard', 'dashboard.transport', 'dashboard.financial',
+          'maintenance', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
+          'business', 'business.entry', 'business.scale', 'business.invoice_request', 'business.payment_request',
+          'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests',
+          'data_maintenance', 'data_maintenance.waybill',
+          'contracts', 'contracts.list'
+        ],
+        function: [
+          'data', 'data.create', 'data.edit', 'data.view', 'data.export',
+          'scale_records', 'scale_records.create', 'scale_records.edit', 'scale_records.view', 'scale_records.delete',
+          'finance', 'finance.view_cost', 'finance.generate_invoice', 'finance.reconcile',
+          'contract_management', 'contract.view'
+        ],
+        project: ['project_access', 'project.view_assigned', 'project.view_all', 'project_data', 'project_data.view_operational', 'project_data.view_financial'],
+        data: ['data_scope', 'data.own', 'data.team', 'data.all', 'data_operations', 'data.create', 'data.edit', 'data.view', 'data.export']
       };
     case 'viewer':
       return {
