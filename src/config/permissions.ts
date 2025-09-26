@@ -318,23 +318,36 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
   },
   operator: {
     menu_permissions: [
-      'dashboard', 'dashboard.transport',
-      'maintenance', 'maintenance.drivers', 'maintenance.locations',
-      'business', 'business.entry', 'business.scale', 'business.invoice_request',
-      'data_maintenance', 'data_maintenance.waybill'
+      // 数据看板
+      'dashboard', 'dashboard.transport', 'dashboard.financial',
+      // 信息维护
+      'maintenance', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
+      // 业务管理
+      'business', 'business.entry', 'business.scale', 'business.invoice_request', 'business.payment_request',
+      // 财务管理
+      'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests',
+      // 数据维护
+      'data_maintenance', 'data_maintenance.waybill',
+      // 合同管理
+      'contracts', 'contracts.list'
     ],
     function_permissions: [
-      'data', 'data.create',
-      'scale_records', 'scale_records.create', 'scale_records.view',
-      'finance', 'finance.generate_invoice'
+      // 数据操作
+      'data', 'data.create', 'data.edit', 'data.view', 'data.export',
+      // 磅单管理
+      'scale_records', 'scale_records.create', 'scale_records.edit', 'scale_records.view', 'scale_records.delete',
+      // 财务操作
+      'finance', 'finance.view_cost', 'finance.generate_invoice', 'finance.reconcile',
+      // 合同管理
+      'contract_management', 'contract.view'
     ],
     project_permissions: [
-      'project_access', 'project.view_assigned',
-      'project_data', 'project_data.view_operational'
+      'project_access', 'project.view_assigned', 'project.view_all',
+      'project_data', 'project_data.view_operational', 'project_data.view_financial'
     ],
     data_permissions: [
-      'data_scope', 'data.own',
-      'data_operations', 'data.create'
+      'data_scope', 'data.own', 'data.team', 'data.all',
+      'data_operations', 'data.create', 'data.edit', 'data.view', 'data.export'
     ]
   },
   partner: {
