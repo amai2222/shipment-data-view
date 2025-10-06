@@ -40,7 +40,7 @@ export function useSimplePermissions() {
         if (error) {
           console.warn('从数据库加载权限失败，使用默认权限:', error);
           setDbPermissions(null);
-          // 可以在这里添加用户通知
+          // 可以在这里添加用户通知或错误提示
         } else {
           console.log(`从数据库加载权限成功:`, data);
           setDbPermissions(data);
@@ -86,11 +86,17 @@ export function useSimplePermissions() {
   // 检查菜单权限
   const hasMenuAccess = (menuKey: string): boolean => {
     try {
+      if (!menuKey) return false;
+      
+      // 管理员拥有所有权限
+      if (userRole === 'admin') return true;
+      
       if (!rolePermissions || !rolePermissions.menu_permissions) {
         console.log(`菜单权限检查失败 - 角色权限未加载: ${menuKey}`);
         return false;
       }
-      const hasAccess = rolePermissions.menu_permissions.includes(menuKey);
+      const hasAccess = rolePermissions.menu_permissions.includes(menuKey) || 
+                       rolePermissions.menu_permissions.includes('all');
       console.log(`菜单权限检查: ${menuKey} - 用户角色: ${userRole} - 有权限: ${hasAccess}`);
       return hasAccess;
     } catch (error) {
@@ -102,10 +108,16 @@ export function useSimplePermissions() {
   // 检查功能权限
   const hasFunctionAccess = (functionKey: string): boolean => {
     try {
+      if (!functionKey) return false;
+      
+      // 管理员拥有所有权限
+      if (userRole === 'admin') return true;
+      
       if (!rolePermissions || !rolePermissions.function_permissions) {
         return false;
       }
-      return rolePermissions.function_permissions.includes(functionKey);
+      return rolePermissions.function_permissions.includes(functionKey) || 
+             rolePermissions.function_permissions.includes('all');
     } catch (error) {
       console.error('功能权限检查失败:', error);
       return false;
@@ -115,10 +127,16 @@ export function useSimplePermissions() {
   // 检查项目权限
   const hasProjectAccess = (projectKey: string): boolean => {
     try {
+      if (!projectKey) return false;
+      
+      // 管理员拥有所有权限
+      if (userRole === 'admin') return true;
+      
       if (!rolePermissions || !rolePermissions.project_permissions) {
         return false;
       }
-      return rolePermissions.project_permissions.includes(projectKey);
+      return rolePermissions.project_permissions.includes(projectKey) || 
+             rolePermissions.project_permissions.includes('all');
     } catch (error) {
       console.error('项目权限检查失败:', error);
       return false;
@@ -128,10 +146,16 @@ export function useSimplePermissions() {
   // 检查数据权限
   const hasDataAccess = (dataKey: string): boolean => {
     try {
+      if (!dataKey) return false;
+      
+      // 管理员拥有所有权限
+      if (userRole === 'admin') return true;
+      
       if (!rolePermissions || !rolePermissions.data_permissions) {
         return false;
       }
-      return rolePermissions.data_permissions.includes(dataKey);
+      return rolePermissions.data_permissions.includes(dataKey) || 
+             rolePermissions.data_permissions.includes('all');
     } catch (error) {
       console.error('数据权限检查失败:', error);
       return false;
