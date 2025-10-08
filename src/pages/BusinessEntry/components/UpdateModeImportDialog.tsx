@@ -313,13 +313,73 @@ export function UpdateModeImportDialog({
             <div className="space-y-4">
               <div className="flex items-center justify-center py-8">
                 <div className="text-center">
-                  <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-lg font-medium text-green-600">导入完成！</p>
-                  <p className="text-sm text-muted-foreground">所有数据已成功导入并处理</p>
+                  {(() => {
+                    // 从日志中解析成功和失败数量
+                    const successLog = importLogs.find(log => log.includes('导入完成！成功:') && log.includes('失败:'));
+                    if (successLog) {
+                      const successMatch = successLog.match(/成功: (\d+)/);
+                      const failMatch = successLog.match(/失败: (\d+)/);
+                      const successCount = successMatch ? parseInt(successMatch[1]) : 0;
+                      const failCount = failMatch ? parseInt(failMatch[1]) : 0;
+                      const totalCount = successCount + failCount;
+                      
+                      if (failCount === 0) {
+                        // 全部成功
+                        return (
+                          <>
+                            <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <p className="text-lg font-medium text-green-600">导入完成！</p>
+                            <p className="text-sm text-muted-foreground">所有数据已成功导入并处理</p>
+                          </>
+                        );
+                      } else if (successCount === 0) {
+                        // 全部失败
+                        return (
+                          <>
+                            <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </div>
+                            <p className="text-lg font-medium text-red-600">导入失败！</p>
+                            <p className="text-sm text-muted-foreground">所有 {failCount} 条记录导入失败</p>
+                          </>
+                        );
+                      } else {
+                        // 部分成功
+                        return (
+                          <>
+                            <div className="h-16 w-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <svg className="h-8 w-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                              </svg>
+                            </div>
+                            <p className="text-lg font-medium text-yellow-600">部分导入成功！</p>
+                            <p className="text-sm text-muted-foreground">
+                              成功导入 {successCount} 条，失败 {failCount} 条（共 {totalCount} 条）
+                            </p>
+                          </>
+                        );
+                      }
+                    } else {
+                      // 默认显示（无法解析日志时）
+                      return (
+                        <>
+                          <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="h-8 w-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <p className="text-lg font-medium text-gray-600">导入完成！</p>
+                          <p className="text-sm text-muted-foreground">请查看下方日志了解详细信息</p>
+                        </>
+                      );
+                    }
+                  })()}
                 </div>
               </div>
 
