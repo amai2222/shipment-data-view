@@ -291,7 +291,7 @@ const App = () => (
 
             <Route path="/m/dashboard/project" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
-                <MobileLayout><ProjectsOverview /></MobileLayout>
+                <MobileProjectOverview />
               </ProtectedRoute>
             } />
 
