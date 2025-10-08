@@ -286,8 +286,6 @@ export default function TemplateBasedImport() {
       });
 
       setIsResultDialogOpen(true);
-      
-      const result = data as any;
       if (Number(result.success_count) > 0) {
         toast({ 
           title: "导入成功", 
