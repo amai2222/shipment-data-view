@@ -124,8 +124,8 @@ export function ExternalTrackingNumbersDisplay({
               
               <div className="flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
-                  {tracking.created_at && (
-                    <span>创建时间: {formatCreatedAt(tracking.created_at)}</span>
+                  {tracking.remarks && (
+                    <span>备注: {tracking.remarks}</span>
                   )}
                 </div>
                 <Button 

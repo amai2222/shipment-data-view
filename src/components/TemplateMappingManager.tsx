@@ -143,7 +143,13 @@ export default function TemplateMappingManager() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTemplates(data || []);
+      setTemplates((data || []).map(t => ({
+        id: t.id,
+        name: t.name,
+        description: t.description || '',
+        platform_name: t.platform_type || 'unknown',
+        is_active: t.is_active
+      })));
     } catch (error: any) {
       console.error('加载模板失败:', error);
       toast({ title: "错误", description: "加载模板列表失败", variant: "destructive" });
@@ -160,7 +166,17 @@ export default function TemplateMappingManager() {
         .order('sort_order');
 
       if (error) throw error;
-      setFieldMappings(data || []);
+      setFieldMappings((data || []).map(m => ({
+        id: m.id,
+        template_id: m.template_id,
+        source_field: m.excel_column || '',
+        target_field: m.database_field || '',
+        field_type: m.field_type || 'string',
+        is_required: m.is_required || false,
+        default_value: m.default_value || '',
+        transformation_rule: '',
+        sort_order: m.display_order || 0
+      })));
     } catch (error: any) {
       console.error('加载字段映射失败:', error);
       toast({ title: "错误", description: "加载字段映射失败", variant: "destructive" });
@@ -176,7 +192,13 @@ export default function TemplateMappingManager() {
         .eq('template_id', templateId);
 
       if (error) throw error;
-      setFixedMappings(data || []);
+      setFixedMappings((data || []).map(m => ({
+        id: m.id,
+        template_id: m.template_id,
+        target_field: m.mapping_type || '',
+        fixed_value: m.database_value || '',
+        description: ''
+      })));
     } catch (error: any) {
       console.error('加载固定映射失败:', error);
       toast({ title: "错误", description: "加载固定映射失败", variant: "destructive" });

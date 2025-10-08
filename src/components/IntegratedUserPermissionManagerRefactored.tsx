@@ -139,6 +139,10 @@ export function IntegratedUserPermissionManager() {
         onSave={handleSavePermissions}
         onReload={handleLoadData}
         users={usersWithPermissions}
+        selectedUsers={selectedUsers}
+        onBulkPermissionUpdate={() => {}}
+        onCopyPermissions={() => {}}
+        onResetToRole={() => {}}
       />
 
       {/* 主要内容区域 */}
