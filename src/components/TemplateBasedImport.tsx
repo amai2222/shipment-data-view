@@ -95,7 +95,10 @@ export default function TemplateBasedImport() {
         .order('name');
 
       if (error) throw error;
-      setTemplates(data || []);
+      setTemplates((data || []).map(t => ({
+        ...t,
+        platform_name: t.platform_type || 'unknown'
+      })));
     } catch (error: unknown) {
       console.error('加载模板失败:', error);
       toast({ title: "错误", description: "加载模板列表失败", variant: "destructive" });
@@ -120,8 +123,24 @@ export default function TemplateBasedImport() {
       if (fieldMappingsResult.error) throw fieldMappingsResult.error;
       if (fixedMappingsResult.error) throw fixedMappingsResult.error;
 
-      setFieldMappings(fieldMappingsResult.data || []);
-      setFixedMappings(fixedMappingsResult.data || []);
+      setFieldMappings((fieldMappingsResult.data || []).map(m => ({
+        id: m.id,
+        template_id: m.template_id,
+        source_field: m.excel_column || '',
+        target_field: m.database_field || '',
+        field_type: m.field_type || 'string',
+        is_required: m.is_required || false,
+        default_value: m.default_value || '',
+        transformation_rule: '',
+        sort_order: m.display_order || 0
+      })));
+      setFixedMappings((fixedMappingsResult.data || []).map(m => ({
+        id: m.id,
+        template_id: m.template_id,
+        target_field: m.mapping_type || '',
+        fixed_value: m.database_value || '',
+        description: ''
+      })));
     } catch (error: unknown) {
       console.error('加载模板映射失败:', error);
       toast({ title: "错误", description: "加载模板映射失败", variant: "destructive" });
@@ -184,23 +203,25 @@ export default function TemplateBasedImport() {
             
             // 数据类型转换
             if (mapping.field_type === 'number' && value !== null && value !== undefined) {
-              value = parseFloat(value) || 0;
+              record[mapping.target_field] = parseFloat(String(value)) || 0;
             } else if (mapping.field_type === 'date' && value) {
               // 日期处理
               if (value instanceof Date) {
-                value = value.toISOString().split('T')[0];
+                record[mapping.target_field] = value.toISOString().split('T')[0];
               } else if (typeof value === 'string') {
                 // 尝试解析日期字符串
                 const date = new Date(value);
                 if (!isNaN(date.getTime())) {
-                  value = date.toISOString().split('T')[0];
+                  record[mapping.target_field] = date.toISOString().split('T')[0];
+                } else {
+                  record[mapping.target_field] = value;
                 }
               }
             } else if (mapping.field_type === 'boolean') {
-              value = Boolean(value);
+              record[mapping.target_field] = Boolean(value) ? 'true' : 'false';
+            } else {
+              record[mapping.target_field] = String(value || '');
             }
-            
-            record[mapping.target_field] = value;
           } else if (mapping.default_value) {
             // 使用默认值
             record[mapping.target_field] = mapping.default_value;
@@ -257,25 +278,27 @@ export default function TemplateBasedImport() {
 
       if (error) throw error;
 
+      const result = data as any;
       setImportResult({
-        success_count: data.success_count || 0,
-        error_count: data.error_count || 0,
-        errors: data.errors || []
+        success_count: Number(result.success_count) || 0,
+        error_count: Number(result.error_count) || 0,
+        errors: Array.isArray(result.errors) ? result.errors : []
       });
 
       setIsResultDialogOpen(true);
       
-      if (data.success_count > 0) {
+      const result = data as any;
+      if (Number(result.success_count) > 0) {
         toast({ 
           title: "导入成功", 
-          description: `成功导入 ${data.success_count} 条记录` 
+          description: `成功导入 ${result.success_count} 条记录` 
         });
       }
       
-      if (data.error_count > 0) {
+      if (Number(result.error_count) > 0) {
         toast({ 
           title: "部分失败", 
-          description: `${data.error_count} 条记录导入失败`, 
+          description: `${result.error_count} 条记录导入失败`, 
           variant: "destructive" 
         });
       }

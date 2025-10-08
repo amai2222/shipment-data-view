@@ -469,17 +469,16 @@ export default function Locations() {
                       )}
                     </TableCell>
                   </TableRow>
-                ) : (
-                  filteredLocations.map((location) => (
+                ) : filteredLocations.map((location) => (
                    <TableRow key={location.id}>
-                     <TableCell className="font-medium">{location.name}</TableCell>
-                     <TableCell>
-                       {location.projectIds && location.projectIds.length > 0 ? 
-                         location.projectIds.map(id => projects.find(p => p.id === id)?.name).filter(Boolean).join(', ') : 
-                         '可用于所有项目'
-                       }
-                     </TableCell>
-                     <TableCell>{new Date(location.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell className="font-medium">{location.name}</TableCell>
+                    <TableCell>
+                      {location.projectIds && location.projectIds.length > 0 ? 
+                        location.projectIds.map(id => projects.find(p => p.id === id)?.name).filter(Boolean).join(', ') : 
+                        '可用于所有项目'
+                      }
+                    </TableCell>
+                    <TableCell>{new Date(location.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
                         <Button
