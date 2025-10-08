@@ -1,11 +1,17 @@
 // 移动端通知页面
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
+import { MobileSkeletonLoader } from '@/components/mobile/MobileSkeletonLoader';
+import { NoDataState } from '@/components/mobile/MobileEmptyState';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Bell, 
   AlertTriangle, 
@@ -28,62 +34,69 @@ interface Notification {
   message: string;
   time: string;
   isRead: boolean;
-  category: 'system' | 'business' | 'finance';
+  category: 'system' | 'business' | 'finance' | 'contract';
+  link?: string;
+  related_id?: string;
 }
-
-// 模拟通知数据
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'warning',
-    title: '付款申请待审批',
-    message: '有5笔付款申请等待您的审批，总金额¥125,000',
-    time: '2024-01-15T10:30:00Z',
-    isRead: false,
-    category: 'finance'
-  },
-  {
-    id: '2',
-    type: 'info',
-    title: '新运单录入',
-    message: '司机张师傅提交了新的运输单据，请及时处理',
-    time: '2024-01-15T09:15:00Z',
-    isRead: false,
-    category: 'business'
-  },
-  {
-    id: '3',
-    type: 'success',
-    title: '项目完成',
-    message: '项目"煤炭运输A"已顺利完成，总运量达到10,000吨',
-    time: '2024-01-15T08:45:00Z',
-    isRead: true,
-    category: 'business'
-  },
-  {
-    id: '4',
-    type: 'error',
-    title: '系统异常',
-    message: '数据同步出现异常，部分数据可能存在延迟',
-    time: '2024-01-14T16:20:00Z',
-    isRead: false,
-    category: 'system'
-  },
-  {
-    id: '5',
-    type: 'info',
-    title: '合同到期提醒',
-    message: '合同"HT202401001"将于3天后到期，请及时续签',
-    time: '2024-01-14T14:10:00Z',
-    isRead: true,
-    category: 'business'
-  }
-];
 
 export default function MobileNotifications() {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('all');
+
+  // 使用React Query获取真实通知数据
+  const { data: notifications = [], isLoading } = useQuery({
+    queryKey: ['user-notifications', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase.rpc('get_user_notifications', {
+        p_user_id: user.id,
+        p_limit: 100,
+        p_offset: 0,
+        p_is_read: null
+      });
+
+      if (error) throw error;
+
+      // 转换数据格式
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        type: item.type,
+        category: item.category,
+        title: item.title,
+        message: item.message,
+        time: item.created_at,
+        isRead: item.is_read,
+        link: item.link,
+        related_id: item.related_id
+      }));
+    },
+    enabled: !!user?.id,
+    staleTime: 30 * 1000, // 30秒刷新一次
+    cacheTime: 5 * 60 * 1000,
+    refetchInterval: 60 * 1000, // 每分钟自动刷新
+  });
+
+  // 获取未读数量
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['unread-notification-count', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      
+      const { data, error } = await supabase.rpc('get_unread_notification_count', {
+        p_user_id: user.id
+      });
+
+      if (error) throw error;
+      return data || 0;
+    },
+    enabled: !!user?.id,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  });
 
   // 获取通知图标
   const getNotificationIcon = (type: Notification['type']) => {
@@ -117,24 +130,69 @@ export default function MobileNotifications() {
   };
 
   // 标记为已读
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === id ? { ...notif, isRead: true } : notif
-      )
-    );
+  const markAsRead = async (id: string) => {
+    if (!user?.id) return;
+    
+    try {
+      const { error } = await supabase.rpc('mark_notification_as_read', {
+        p_notification_id: id,
+        p_user_id: user.id
+      });
+
+      if (error) throw error;
+
+      // 刷新通知列表
+      queryClient.invalidateQueries({ queryKey: ['user-notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-notification-count'] });
+    } catch (error) {
+      console.error('标记已读失败:', error);
+      toast({ title: '操作失败', description: '标记已读失败', variant: 'destructive' });
+    }
   };
 
   // 删除通知
-  const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(notif => notif.id !== id));
+  const deleteNotification = async (id: string) => {
+    if (!user?.id) return;
+    
+    try {
+      const { error } = await supabase.rpc('delete_notification', {
+        p_notification_id: id,
+        p_user_id: user.id
+      });
+
+      if (error) throw error;
+
+      // 刷新通知列表
+      queryClient.invalidateQueries({ queryKey: ['user-notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-notification-count'] });
+      
+      toast({ title: '已删除', description: '通知已删除' });
+    } catch (error) {
+      console.error('删除通知失败:', error);
+      toast({ title: '删除失败', description: '删除通知失败', variant: 'destructive' });
+    }
   };
 
   // 全部标记为已读
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notif => ({ ...notif, isRead: true }))
-    );
+  const markAllAsRead = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { error } = await supabase.rpc('mark_all_notifications_as_read', {
+        p_user_id: user.id
+      });
+
+      if (error) throw error;
+
+      // 刷新通知列表
+      queryClient.invalidateQueries({ queryKey: ['user-notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-notification-count'] });
+      
+      toast({ title: '操作成功', description: '所有通知已标记为已读' });
+    } catch (error) {
+      console.error('标记所有已读失败:', error);
+      toast({ title: '操作失败', description: '标记已读失败', variant: 'destructive' });
+    }
   };
 
   // 筛选通知
@@ -148,13 +206,22 @@ export default function MobileNotifications() {
         return notif.category === 'finance';
       case 'system':
         return notif.category === 'system';
+      case 'contract':
+        return notif.category === 'contract';
       case 'all':
       default:
         return true;
     }
   });
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  // 加载状态
+  if (isLoading) {
+    return (
+      <MobileLayout>
+        <MobileSkeletonLoader count={5} type="list" />
+      </MobileLayout>
+    );
+  }
 
   return (
     <MobileLayout>
@@ -192,32 +259,23 @@ export default function MobileNotifications() {
 
         {/* 通知分类标签 */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4 text-xs">
             <TabsTrigger value="all">全部</TabsTrigger>
             <TabsTrigger value="unread">
               未读
               {unreadCount > 0 && (
-                <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 text-xs">
-                  {unreadCount}
+                <Badge variant="destructive" className="ml-1 h-4 min-w-[16px] p-0 text-xs flex items-center justify-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
                 </Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="business">业务</TabsTrigger>
             <TabsTrigger value="finance">财务</TabsTrigger>
-            <TabsTrigger value="system">系统</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="space-y-3 mt-4">
             {filteredNotifications.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">暂无通知</h3>
-                  <p className="text-muted-foreground">
-                    {activeTab === 'unread' ? '所有通知都已读完' : '当前分类下没有通知'}
-                  </p>
-                </CardContent>
-              </Card>
+              <NoDataState />
             ) : (
               filteredNotifications.map((notification) => (
                 <Card 
@@ -225,6 +283,15 @@ export default function MobileNotifications() {
                   className={`${getNotificationBg(notification.type, notification.isRead)} ${
                     !notification.isRead ? 'border-l-4 border-l-blue-500' : ''
                   }`}
+                  onClick={() => {
+                    // 点击通知时标记为已读并跳转（如果有链接）
+                    if (!notification.isRead) {
+                      markAsRead(notification.id);
+                    }
+                    if (notification.link) {
+                      navigate(notification.link);
+                    }
+                  }}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
@@ -246,12 +313,15 @@ export default function MobileNotifications() {
                             </p>
                           </div>
                           
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                             {!notification.isRead && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => markAsRead(notification.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markAsRead(notification.id);
+                                }}
                                 className="h-6 w-6 p-0"
                               >
                                 <Eye className="h-3 w-3" />
@@ -260,7 +330,10 @@ export default function MobileNotifications() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => deleteNotification(notification.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNotification(notification.id);
+                              }}
                               className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
                             >
                               <Trash2 className="h-3 w-3" />
