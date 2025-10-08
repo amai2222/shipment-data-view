@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { 
   BarChart3, 
   Database, 
@@ -108,68 +108,53 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { hasMenuAccess, isAdmin } = useSimplePermissions();
 
-  // 添加调试日志
-  console.log('AppSidebar - 当前用户是管理员:', isAdmin);
+  // 优化：使用useMemo缓存菜单URL到权限键的映射
+  const getMenuKey = useMemo(() => {
+    const urlToKeyMap: Record<string, string> = {
+      '/dashboard/transport': 'dashboard.transport',
+      '/dashboard/financial': 'dashboard.financial',
+      '/dashboard/project': 'dashboard.project',
+      '/projects': 'maintenance.projects',
+      '/drivers': 'maintenance.drivers',
+      '/locations': 'maintenance.locations',
+      '/partners': 'maintenance.partners',
+      '/business-entry': 'business.entry',
+      '/scale-records': 'business.scale',
+      '/payment-request': 'business.payment_request',
+      '/invoice-request': 'business.invoice_request',
+      '/payment-requests-list': 'finance.payment_requests',
+      '/contracts': 'contracts.list',
+      '/finance/reconciliation': 'finance.reconciliation',
+      '/finance/payment-invoice': 'finance.payment_invoice',
+      '/data-maintenance/waybill': 'data_maintenance.waybill',
+      '/settings/users': 'settings.users',
+      '/settings/permissions': 'settings.permissions',
+      '/settings/contract-permissions': 'settings.contract_permissions',
+      '/settings/role-templates': 'settings.role_templates',
+      '/settings/integrated': 'settings.integrated',
+      '/settings/audit-logs': 'settings.audit_logs',
+    };
+    
+    return (url: string) => urlToKeyMap[url] || '';
+  }, []);
 
-  // 根据权限过滤菜单项
-  const filteredMenuItems = menuItems.map(group => ({
-    ...group,
-    items: group.items.filter(item => {
-      // 检查菜单权限 - 根据URL生成正确的菜单键
-      let menuKey = '';
-      if (item.url.startsWith('/dashboard/')) {
-        menuKey = `dashboard.${item.url.split('/')[2]}`;
-      } else if (item.url === '/projects') {
-        menuKey = 'maintenance.projects';
-      } else if (item.url === '/drivers') {
-        menuKey = 'maintenance.drivers';
-      } else if (item.url === '/locations') {
-        menuKey = 'maintenance.locations';
-      } else if (item.url === '/partners') {
-        menuKey = 'maintenance.partners';
-      } else if (item.url === '/business-entry') {
-        menuKey = 'business.entry';
-      } else if (item.url === '/scale-records') {
-        menuKey = 'business.scale';
-      } else if (item.url === '/payment-request') {
-        menuKey = 'business.payment_request';
-      } else if (item.url === '/invoice-request') {
-        menuKey = 'business.invoice_request';
-      } else if (item.url === '/payment-requests-list') {
-        menuKey = 'finance.payment_requests';
-      } else if (item.url === '/contracts') {
-        menuKey = 'contracts.list';
-      } else if (item.url === '/finance/reconciliation') {
-        menuKey = 'finance.reconciliation';
-      } else if (item.url === '/finance/payment-invoice') {
-        menuKey = 'finance.payment_invoice';
-      } else if (item.url === '/data-maintenance/waybill') {
-        menuKey = 'data_maintenance.waybill';
-      } else if (item.url === '/settings/users') {
-        menuKey = 'settings.users';
-      } else if (item.url === '/settings/permissions') {
-        menuKey = 'settings.permissions';
-      } else if (item.url === '/settings/contract-permissions') {
-        menuKey = 'settings.contract_permissions';
-      } else if (item.url === '/settings/role-templates') {
-        menuKey = 'settings.role_templates';
-      } else if (item.url === '/settings/integrated') {
-        menuKey = 'settings.integrated';
-      } else if (item.url === '/settings/audit-logs') {
-        menuKey = 'settings.audit_logs';
+  // 优化：使用useMemo缓存过滤后的菜单项，避免每次渲染都重新计算
+  const filteredMenuItems = useMemo(() => {
+    return menuItems.map(group => ({
+      ...group,
+      items: group.items.filter(item => {
+        const menuKey = getMenuKey(item.url);
+        return menuKey && hasMenuAccess(menuKey);
+      })
+    })).filter(group => {
+      // 非管理员隐藏设置菜单
+      if (group.title === "设置" && !isAdmin) {
+        return false;
       }
-      
-      console.log(`检查菜单权限: ${menuKey} - ${hasMenuAccess(menuKey)}`);
-      return hasMenuAccess(menuKey);
-    })
-  })).filter(group => {
-    if (group.title === "设置" && !isAdmin) {
-      console.log('隐藏设置菜单 - 非管理员用户');
-      return false; // 非管理员隐藏设置菜单
-    }
-    // 如果组内没有可访问的菜单项，隐藏整个组
-    return group.items.length > 0;
-  });
+      // 如果组内没有可访问的菜单项，隐藏整个组
+      return group.items.length > 0;
+    });
+  }, [hasMenuAccess, isAdmin, getMenuKey]);
 
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     // 初始化时展开包含当前路由的分组

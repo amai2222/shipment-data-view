@@ -2,7 +2,8 @@
 // 描述: [rz64l-Final-V3] 完整版。根据用户要求，重命名并美化了主标题和卡片，
 //       优化了项目卡片中的单位显示，并增加了日期上下文信息。
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -110,37 +111,39 @@ const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectData
   );
 };
 
-// --- 主组件 (★★★ 已修改 ★★★) ---
+// --- 主组件 (★★★ 性能优化版 ★★★) ---
 export default function ProjectsOverview() {
-  const [dashboardData, setDashboardData] = useState<OverviewDashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const [reportDate, setReportDate] = useState<Date>(new Date());
   const navigate = useNavigate();
+  const [reportDate, setReportDate] = useState<Date>(new Date());
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true);
-      try {
-        const params = {
-          p_report_date: format(reportDate, 'yyyy-MM-dd'),
-          p_project_ids: selectedProjectIds.length > 0 ? selectedProjectIds : null
-        };
-        
-        const { data, error } = await supabase.rpc('get_all_projects_overview_data' as any, params);
-        
-        if (error) throw error;
-        setDashboardData(data as unknown as OverviewDashboardData);
-      } catch (error) {
-        console.error("加载看板数据失败:", error);
-        toast({ title: "错误", description: `加载看板数据失败: ${(error as any).message}`, variant: "destructive" });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDashboardData();
-  }, [reportDate, toast, selectedProjectIds]);
+  // 优化：使用React Query缓存看板数据
+  const { data: dashboardData, isLoading: loading, error } = useQuery({
+    queryKey: ['projects-overview', format(reportDate, 'yyyy-MM-dd'), selectedProjectIds],
+    queryFn: async () => {
+      const params = {
+        p_report_date: format(reportDate, 'yyyy-MM-dd'),
+        p_project_ids: selectedProjectIds.length > 0 ? selectedProjectIds : null
+      };
+      
+      const { data, error } = await supabase.rpc('get_all_projects_overview_data' as any, params);
+      
+      if (error) throw error;
+      return data as unknown as OverviewDashboardData;
+    },
+    staleTime: 2 * 60 * 1000, // 2分钟缓存
+    cacheTime: 10 * 60 * 1000, // 10分钟保留
+    refetchOnWindowFocus: false,
+    retry: 1,
+    onError: (error: any) => {
+      toast({ 
+        title: "错误", 
+        description: `加载看板数据失败: ${error?.message}`, 
+        variant: "destructive" 
+      });
+    }
+  });
 
   const projectOptions = useMemo((): OptionType[] => {
     if (!dashboardData?.all_projects_data) return [];

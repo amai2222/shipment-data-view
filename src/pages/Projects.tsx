@@ -1,7 +1,8 @@
 // 文件路径: src/pages/Projects.tsx
 // 描述: 这是包含了所有修复的、最终的、完整的代码。
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,12 +47,10 @@ const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
 
 export default function Projects() {
   const { toast } = useToast();
-  const [projects, setProjects] = useState<ProjectWithDetails[]>([]);
-  const [partners, setPartners] = useState<Partner[]>([]);
+  const queryClient = useQueryClient();
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectWithDetails | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "",
@@ -64,15 +63,11 @@ export default function Projects() {
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
   }[]>([]);
 
-  const loadData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const [projectsResponse, partnersResponse] = await Promise.all([
-        supabase.rpc('get_projects_with_details'),
-        supabase.from('partners').select('*').order('name', { ascending: true }),
-      ]);
-
-      const { data: projectsData, error: projectsError } = projectsResponse;
+  // 优化：使用React Query缓存项目数据
+  const { data: projects = [], isLoading: isLoadingProjects } = useQuery({
+    queryKey: ['projects-with-details'],
+    queryFn: async () => {
+      const { data: projectsData, error: projectsError } = await supabase.rpc('get_projects_with_details');
       if (projectsError) throw projectsError;
 
       const payload = (projectsData as any) || {};
@@ -88,27 +83,36 @@ export default function Projects() {
         return { ...p, partnerChains: chains } as ProjectWithDetails;
       });
 
-      setProjects(composedProjects);
-      
-      const { data: partnersData, error: partnersError } = partnersResponse;
-      if(partnersError) throw partnersError;
-      setPartners(partnersData?.map(p => ({...p, taxRate: Number(p.tax_rate), createdAt: p.created_at})) || []);
+      return composedProjects;
+    },
+    staleTime: 2 * 60 * 1000, // 2分钟缓存
+    cacheTime: 10 * 60 * 1000, // 10分钟保留
+    refetchOnWindowFocus: false,
+  });
 
-    } catch (error) {
-      console.error("数据加载失败:", error);
-      toast({ title: "数据加载失败", description: "无法从数据库加载数据，请重试。", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
+  // 优化：使用React Query缓存合作方数据
+  const { data: partners = [] } = useQuery({
+    queryKey: ['partners-list'],
+    queryFn: async () => {
+      const { data: partnersData, error: partnersError } = await supabase
+        .from('partners')
+        .select('*')
+        .order('name', { ascending: true });
 
-  useEffect(() => { loadData(); }, [loadData]);
+      if (partnersError) throw partnersError;
+      return partnersData?.map(p => ({...p, taxRate: Number(p.tax_rate), createdAt: p.created_at})) || [];
+    },
+    staleTime: 10 * 60 * 1000, // 10分钟缓存（合作方变化不频繁）
+    cacheTime: 30 * 60 * 1000,
+  });
 
-  const resetForm = () => {
-    setFormData({ name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "", financeManager: "", plannedTotalTons: "", projectStatus: "进行中", cargoType: "货品" });
+  const isLoading = isLoadingProjects;
+
+  const resetForm = useCallback(() => {
+    setFormData({ name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "", financeManager: "", plannedTotalTons: "", projectStatus: "进行中", cargoType: "货品", effectiveQuantityType: "min_value" });
     setSelectedChains([]);
     setEditingProject(null);
-  };
+  }, []);
 
   const handleEdit = (project: ProjectWithDetails) => {
     setFormData({
@@ -206,7 +210,8 @@ export default function Projects() {
       if (error) throw error;
       toast({ title: editingProject ? "项目更新成功" : "项目创建成功", description: `项目 "${formData.name}" 已成功保存。` });
 
-      await loadData();
+      // 优化：只刷新缓存，不重新加载
+      await queryClient.invalidateQueries({ queryKey: ['projects-with-details'] });
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
@@ -220,7 +225,8 @@ export default function Projects() {
   const handleDelete = async (id: string, name: string) => {
     try {
       await SupabaseStorage.deleteProject(id);
-      await loadData();
+      // 优化：只刷新缓存
+      await queryClient.invalidateQueries({ queryKey: ['projects-with-details'] });
       toast({ title: "项目删除成功", description: `项目"${name}"已从列表中移除` });
     } catch (error) {
       toast({ title: "删除失败", description: "删除项目时出现错误", variant: "destructive" });
@@ -241,8 +247,10 @@ export default function Projects() {
         description: `项目"${projectName}"状态已更新为"${newStatus}"` 
       });
 
-      await loadData();
+      // 优化：只刷新缓存
+      await queryClient.invalidateQueries({ queryKey: ['projects-with-details'] });
     } catch (error) {
+      // KEEP: 错误日志保留
       console.error('更新项目状态失败:', error);
       toast({ 
         title: "状态更新失败", 
