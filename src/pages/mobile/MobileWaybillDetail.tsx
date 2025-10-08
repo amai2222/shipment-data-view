@@ -584,7 +584,7 @@ export default function MobileWaybillDetail() {
                 <span className="text-sm">创建时间</span>
               </div>
               <span className="text-sm">
-                {format(parseISO(waybill.created_at), 'yyyy-MM-dd HH:mm:ss', { locale: zhCN })}
+                {waybill.created_at ? format(parseISO(waybill.created_at), 'yyyy-MM-dd HH:mm:ss', { locale: zhCN }) : '未知'}
               </span>
             </div>
 
@@ -594,7 +594,7 @@ export default function MobileWaybillDetail() {
                 <span className="text-sm">更新时间</span>
               </div>
               <span className="text-sm">
-                {format(parseISO(waybill.updated_at), 'yyyy-MM-dd HH:mm:ss', { locale: zhCN })}
+                {waybill.updated_at ? format(parseISO(waybill.updated_at), 'yyyy-MM-dd HH:mm:ss', { locale: zhCN }) : '未知'}
               </span>
             </div>
           </CardContent>
