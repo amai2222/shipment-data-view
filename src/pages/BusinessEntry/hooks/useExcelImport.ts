@@ -242,13 +242,25 @@ export function useExcelImport(onImportSuccess: () => void) {
         if (failure_count > 0) {
           addLog("---------------- 失败详情 ----------------");
           safeResult.failures.forEach(failure => {
-            const rowData = failure.data;
-            const driverInfo = rowData?.driver_name || '未知司机';
-            const dateInfo = rowData?.loading_date || '未知日期';
-            const projectInfo = rowData?.project_name || '未知项目';
-            addLog(`[Excel第 ${failure.row_index} 行] 项目: ${projectInfo}, 司机: ${driverInfo}, 日期: ${dateInfo} => ${failure.error}`);
+            const excelRow = failure.excel_row || (failure.row_index + 1);
+            const projectInfo = failure.project_name || '未知项目';
+            const driverInfo = failure.driver_name || '未知司机';
+            const licensePlate = failure.license_plate || '未知车牌';
+            
+            addLog(`[Excel第 ${excelRow} 行] 项目: ${projectInfo}, 司机: ${driverInfo}, 车牌: ${licensePlate}`);
+            addLog(`  错误: ${failure.error}`);
+            
+            // 显示字段错误详情
+            if (failure.field_errors) {
+              const fieldErrors = failure.field_errors;
+              Object.entries(fieldErrors).forEach(([fieldName, fieldInfo]) => {
+                if (fieldInfo && fieldInfo.is_valid === false) {
+                  addLog(`  ${fieldName}: "${fieldInfo.value}" (无效格式)`);
+                }
+              });
+            }
+            addLog("------------------------------------------");
           });
-          addLog("------------------------------------------");
           
           toast({
             title: `导入部分完成`,

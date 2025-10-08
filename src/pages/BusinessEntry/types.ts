@@ -90,6 +90,15 @@ export interface ImportPreviewResult {
 // 导入失败详情（用于日志展示）
 export interface ImportFailure {
   row_index: number;
+  excel_row?: number;  // Excel行号（从1开始）
   data: LogisticsRecord;
   error: string;
+  field_errors?: Record<string, {
+    value: string;
+    is_valid: boolean;
+    converted_value?: number;
+  }>;
+  project_name?: string;
+  driver_name?: string;
+  license_plate?: string;
 }

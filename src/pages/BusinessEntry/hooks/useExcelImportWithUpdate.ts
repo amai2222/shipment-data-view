@@ -248,11 +248,21 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
           const errorDetails = result.error_details || [];
           addLog(`详细错误信息:`);
           errorDetails.forEach((error: any, index: number) => {
-            addLog(`  记录 ${error.record_index}: ${error.error_message}`);
+            const excelRow = error.record_index + 1; // Excel行号从1开始
+            addLog(`  Excel第 ${excelRow} 行: ${error.error_message}`);
             if (error.record_data) {
               addLog(`    项目: ${error.record_data.project_name || 'N/A'}`);
               addLog(`    司机: ${error.record_data.driver_name || 'N/A'}`);
               addLog(`    车牌: ${error.record_data.license_plate || 'N/A'}`);
+            }
+            
+            // 显示字段错误详情（如果存在）
+            if (error.field_errors) {
+              Object.entries(error.field_errors).forEach(([fieldName, fieldInfo]: [string, any]) => {
+                if (fieldInfo && fieldInfo.is_valid === false) {
+                  addLog(`    ${fieldName}: "${fieldInfo.value}" (无效格式)`);
+                }
+              });
             }
           });
           
