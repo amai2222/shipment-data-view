@@ -54,7 +54,7 @@ export default function Locations() {
   const clearFilters = () => {
     setSearchQuery("");
     setProjectFilter("all");
-  };
+  }
 
   const activeFiltersCount = (searchQuery ? 1 : 0) + (projectFilter !== "all" ? 1 : 0);
 
@@ -79,7 +79,7 @@ export default function Locations() {
         variant: "destructive",
       });
     }
-  };
+  }
 
   // 重置表单
   const resetForm = () => {
@@ -88,7 +88,7 @@ export default function Locations() {
       projectIds: [],
     });
     setEditingLocation(null);
-  };
+  }
 
   // 打开编辑对话框
   const handleEdit = (location: Location) => {
@@ -98,7 +98,7 @@ export default function Locations() {
     });
     setEditingLocation(location);
     setIsDialogOpen(true);
-  };
+  }
 
   // 提交表单
   const handleSubmit = async (e: React.FormEvent) => {
@@ -139,7 +139,7 @@ export default function Locations() {
         variant: "destructive",
       });
     }
-  };
+  }
 
   // 删除地点
   const handleDelete = async (id: string) => {
@@ -158,7 +158,7 @@ export default function Locations() {
         variant: "destructive",
       });
     }
-  };
+  }
 
   // Excel导入功能
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,7 +188,7 @@ export default function Locations() {
 
           const locationData = {
             name: row['地点名称'] || '',
-          };
+          }
 
           // 验证必填字段
           if (!locationData.name) {
@@ -214,14 +214,14 @@ export default function Locations() {
           variant: "destructive",
         });
       }
-    };
+    }
     reader.readAsArrayBuffer(file);
     
     // 清空文件输入
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
+  }
 
   // Excel导出功能
   const handleExcelExport = () => {
@@ -250,7 +250,7 @@ export default function Locations() {
         variant: "destructive",
       });
     }
-  };
+  }
 
   return (
     <div className="space-y-6 p-4 md:p-6">
