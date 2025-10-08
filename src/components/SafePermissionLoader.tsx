@@ -25,8 +25,6 @@ export function SafePermissionLoader({ contractId }: SafePermissionLoaderProps) 
       setLoading(true);
       setError(null);
       
-      console.log('开始加载权限数据...');
-      
       // 安全地查询权限数据
       let query = supabase
         .from('contract_permissions')
@@ -47,7 +45,6 @@ export function SafePermissionLoader({ contractId }: SafePermissionLoaderProps) 
         console.error('数据库查询错误:', error);
         
         if (error.message.includes('relation "contract_permissions" does not exist')) {
-          console.log('合同权限表不存在，这是正常的');
           setPermissions([]);
           setError('合同权限表尚未创建');
           return;
@@ -56,8 +53,6 @@ export function SafePermissionLoader({ contractId }: SafePermissionLoaderProps) 
         throw error;
       }
 
-      console.log('权限数据加载成功:', data?.length || 0, '条记录');
-      
       // 安全地处理数据
       const safeData = (data || []).map(item => ({
         id: item.id,

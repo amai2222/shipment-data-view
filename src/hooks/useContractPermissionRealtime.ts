@@ -108,7 +108,6 @@ export function useContractPermissionRealtime(
         .on('broadcast', 
           { event: 'permission_cache_refresh' },
           (payload) => {
-            console.log('权限缓存已刷新:', payload);
             // 可以在这里触发数据重新加载
           }
         )

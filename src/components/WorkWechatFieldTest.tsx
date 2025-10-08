@@ -44,7 +44,6 @@ export function WorkWechatFieldTest() {
         throw error;
       }
 
-      console.log('从数据库加载的用户数据:', data);
       setUsers(data || []);
 
       toast({

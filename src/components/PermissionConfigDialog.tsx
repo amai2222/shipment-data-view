@@ -273,7 +273,7 @@ export function PermissionConfigDialog({
         data: effectivePermissions.data_permissions
       });
 
-      console.log(`权限来源: ${effectivePermissions.source}`, effectivePermissions);
+      
 
     } catch (error) {
       console.error('加载权限数据失败:', error);
@@ -312,11 +312,6 @@ export function PermissionConfigDialog({
     try {
       setLoading(true);
       
-      console.log('开始保存权限:', {
-        userId: user.id,
-        permissions: selectedPermissions
-      });
-      
       // 使用数据库服务保存权限
       const result = await PermissionDatabaseService.saveUserPermissions(user.id, {
         menu_permissions: selectedPermissions.menu || [],
@@ -324,8 +319,6 @@ export function PermissionConfigDialog({
         project_permissions: selectedPermissions.project || [],
         data_permissions: selectedPermissions.data || []
       });
-
-      console.log('权限保存成功:', result);
 
       // 调用父组件的保存回调
       onSave(user.id, selectedPermissions);

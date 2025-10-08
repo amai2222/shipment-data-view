@@ -68,7 +68,6 @@ export function PermissionErrorTest() {
         isOpen={showConfirmDialog}
         onClose={() => setShowConfirmDialog(false)}
         onConfirm={() => {
-          console.log('确认权限变更');
           setShowConfirmDialog(false);
         }}
         changes={testChanges}
@@ -80,7 +79,6 @@ export function PermissionErrorTest() {
         isOpen={showConfigDialog}
         onClose={() => setShowConfigDialog(false)}
         onSave={(userId, permissions) => {
-          console.log('保存权限:', userId, permissions);
           setShowConfigDialog(false);
         }}
       />

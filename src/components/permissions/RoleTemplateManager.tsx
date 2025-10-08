@@ -124,14 +124,6 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
         updated_at: new Date().toISOString()
       };
 
-      // 调试输出
-      console.log('更新角色模板数据:', updateData);
-      console.log('newTemplate状态:', newTemplate);
-      console.log('菜单权限数量:', newTemplate.menu_permissions.length);
-      console.log('功能权限数量:', newTemplate.function_permissions.length);
-      console.log('项目权限数量:', newTemplate.project_permissions.length);
-      console.log('数据权限数量:', newTemplate.data_permissions.length);
-
       // 使用 upsert 操作，避免更新失败
       const { error } = await supabase
         .from('role_permission_templates')
@@ -259,11 +251,9 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
             newPermissions.push(permission);
           }
         });
-        console.log(`${title} 组权限变更:`, newPermissions);
         onSelectionChange(newPermissions);
       } else {
         const filteredPermissions = selectedPermissions.filter(p => !groupPermissions.includes(p));
-        console.log(`${title} 组权限移除:`, filteredPermissions);
         onSelectionChange(filteredPermissions);
       }
     };
@@ -285,14 +275,10 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
         // 去重：只添加不存在的权限
         if (!selectedPermissions.includes(permissionKey)) {
           const newPermissions = [...selectedPermissions, permissionKey];
-          console.log(`${title} 单个权限添加:`, permissionKey, '新权限列表:', newPermissions);
           onSelectionChange(newPermissions);
-        } else {
-          console.log(`${title} 权限已存在:`, permissionKey);
         }
       } else {
         const filteredPermissions = selectedPermissions.filter(p => p !== permissionKey);
-        console.log(`${title} 单个权限移除:`, permissionKey, '新权限列表:', filteredPermissions);
         onSelectionChange(filteredPermissions);
       }
       
@@ -590,7 +576,6 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                   permissions={MENU_PERMISSIONS}
                   selectedPermissions={newTemplate.menu_permissions}
                   onSelectionChange={(permissions) => {
-                    console.log('菜单权限变更:', permissions);
                     setNewTemplate(prev => ({ ...prev, menu_permissions: permissions }));
                   }}
                 />

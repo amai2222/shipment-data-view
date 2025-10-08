@@ -322,9 +322,7 @@ export const TransportDocumentGenerator: React.FC<TransportDocumentGeneratorProp
         previewWindow.document.close();
         
         // 处理窗口关闭事件
-        previewWindow.onbeforeunload = () => {
-          console.log('预览窗口已关闭');
-        };
+        previewWindow.onbeforeunload = () => {};
       } else {
         throw new Error('无法打开预览窗口，请检查浏览器弹窗设置');
       }

@@ -189,7 +189,6 @@ export function useAuditLogs() {
 
       // 如果没有数据，创建一些示例数据
       if (!data || data.length === 0) {
-        console.log('创建示例操作日志数据...');
         
         // 获取当前用户ID
         const { data: { user } } = await supabase.auth.getUser();
@@ -221,8 +220,6 @@ export function useAuditLogs() {
 
         if (insertError) {
           console.error('创建示例数据失败:', insertError);
-        } else {
-          console.log('示例操作日志数据创建成功');
         }
       }
     } catch (error) {

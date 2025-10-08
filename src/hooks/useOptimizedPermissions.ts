@@ -48,19 +48,6 @@ export function useOptimizedPermissions() {
           return acc;
         }, {});
         setRoleTemplates(templateMap);
-        
-        // 强制刷新时输出调试信息
-        if (forceRefresh) {
-          console.log('强制刷新角色模板数据:', templateMap);
-          const operatorTemplate = templateMap['operator'];
-          if (operatorTemplate) {
-            const totalCount = (operatorTemplate.menu_permissions?.length || 0) + 
-                             (operatorTemplate.function_permissions?.length || 0) + 
-                             (operatorTemplate.project_permissions?.length || 0) + 
-                             (operatorTemplate.data_permissions?.length || 0);
-            console.log('operator角色权限数量:', totalCount);
-          }
-        }
       }
 
       if (usersRes.data) {

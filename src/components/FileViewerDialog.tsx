@@ -115,12 +115,8 @@ export function FileViewerDialog({
                 src={fileUrl}
                 className="w-full h-full border-0"
                 title={fileName}
-                onLoad={() => {
-                  console.log('iframe loaded successfully');
-                }}
-                onError={(e) => {
-                  console.log('iframe failed to load:', e);
-                }}
+                onLoad={() => {}}
+                onError={(e) => {}}
               />
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="flex gap-2 justify-center">

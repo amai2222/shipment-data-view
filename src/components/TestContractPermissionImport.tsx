@@ -11,7 +11,6 @@ export function TestContractPermissionImport() {
   const testService = async () => {
     try {
       const result = await ContractPermissionServiceSimple.getUserContractPermissions('test-user-id');
-      console.log('服务调用成功:', result);
     } catch (error) {
       console.error('服务调用失败:', error);
     }

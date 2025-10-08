@@ -116,7 +116,6 @@ export function ContractPermissionManager({
   // 实时订阅状态
   const { isConnected, lastChange, error: realtimeError, reconnect } = useContractPermissionRealtime({
     onPermissionChange: (change) => {
-      console.log('权限变更:', change);
       // 重新加载数据
       loadAllData();
       onPermissionUpdate?.();
