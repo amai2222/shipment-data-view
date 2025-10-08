@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, TrendingUp, Wallet, Truck, Users, Calendar as CalendarIcon, Briefcase, BarChart2, ListChecks, PieChart } from "lucide-react";
+import { Loader2, TrendingUp, Wallet, Truck, Users, Calendar as CalendarIcon, Briefcase, BarChart2, ListChecks, PieChart, AlertTriangle } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -119,7 +119,7 @@ export default function ProjectsOverview() {
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
 
   // 优化：使用React Query缓存看板数据
-  const { data: dashboardData, isLoading: loading, error } = useQuery({
+  const { data: dashboardData, isLoading: loading, error, isError } = useQuery({
     queryKey: ['projects-overview', format(reportDate, 'yyyy-MM-dd'), selectedProjectIds],
     queryFn: async () => {
       const params = {
@@ -127,9 +127,34 @@ export default function ProjectsOverview() {
         p_project_ids: selectedProjectIds.length > 0 ? selectedProjectIds : null
       };
       
+      // 调试日志
+      if (import.meta.env.DEV) {
+        console.log('项目看板查询参数:', params);
+      }
+      
       const { data, error } = await supabase.rpc('get_all_projects_overview_data' as any, params);
       
-      if (error) throw error;
+      // 调试日志
+      if (import.meta.env.DEV) {
+        console.log('RPC返回数据:', data);
+        console.log('RPC错误:', error);
+      }
+      
+      if (error) {
+        console.error('RPC调用失败:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        console.warn('RPC返回空数据');
+        return {
+          all_projects_data: [],
+          global_seven_day_trend: [],
+          global_driver_report_table: [],
+          global_summary: { total_projects: 0, total_receivable: 0, total_trips: 0 }
+        } as OverviewDashboardData;
+      }
+      
       return data as unknown as OverviewDashboardData;
     },
     staleTime: 2 * 60 * 1000, // 2分钟缓存
@@ -137,9 +162,10 @@ export default function ProjectsOverview() {
     refetchOnWindowFocus: false,
     retry: 1,
     onError: (error: any) => {
+      console.error('查询错误:', error);
       toast({ 
-        title: "错误", 
-        description: `加载看板数据失败: ${error?.message}`, 
+        title: "加载失败", 
+        description: `加载看板数据失败: ${error?.message || '未知错误'}`, 
         variant: "destructive" 
       });
     }
@@ -152,8 +178,58 @@ export default function ProjectsOverview() {
 
   const isFiltering = selectedProjectIds.length > 0;
 
-  if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-blue-600" /></div>;
-  if (!dashboardData) return <div className="p-6 bg-slate-50 min-h-screen"><h1 className="text-3xl font-bold text-slate-800">项目综合看板</h1><div className="text-center py-10 text-slate-500">暂无运行中的项目数据</div></div>;
+  // 加载状态
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  // 错误状态
+  if (isError) {
+    return (
+      <div className="p-6 bg-slate-50 min-h-screen">
+        <h1 className="text-3xl font-bold text-slate-800 mb-4">项目看板</h1>
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-red-900">加载失败</h3>
+            </div>
+            <p className="text-red-700 mb-4">
+              {error?.message || '无法加载看板数据，请检查数据库连接或联系管理员。'}
+            </p>
+            <Button onClick={() => window.location.reload()} variant="outline">
+              刷新页面
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 空数据状态
+  if (!dashboardData || !dashboardData.all_projects_data || dashboardData.all_projects_data.length === 0) {
+    return (
+      <div className="p-6 bg-slate-50 min-h-screen">
+        <h1 className="text-3xl font-bold text-slate-800 mb-4">项目看板</h1>
+        <Card>
+          <CardContent className="p-12 text-center">
+            <PieChart className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">暂无项目数据</h3>
+            <p className="text-muted-foreground mb-4">
+              {isFiltering ? '当前筛选条件下没有项目数据' : '系统中还没有运行中的项目'}
+            </p>
+            <Button onClick={() => navigate('/projects')}>
+              前往项目管理
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const { all_projects_data, global_seven_day_trend, global_driver_report_table, global_summary } = dashboardData;
 
