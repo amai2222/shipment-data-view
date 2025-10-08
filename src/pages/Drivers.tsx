@@ -1,19 +1,21 @@
 // 文件路径: src/pages/Drivers.tsx
 // 这是最终的、完整的、修复后的代码，请直接替换
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2, Filter, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Driver, Project } from "@/types";
 import * as XLSX from 'xlsx';
 import { PageHeader } from '@/components/PageHeader';
+import { Badge } from "@/components/ui/badge";
 
 const PAGE_SIZE = 30;
 
@@ -24,6 +26,8 @@ export default function Drivers() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [quickFilter, setQuickFilter] = useState("");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -36,6 +40,23 @@ export default function Drivers() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+
+  // 客户端筛选驱动列表
+  const filteredDrivers = useMemo(() => {
+    if (projectFilter === "all") {
+      return drivers;
+    }
+    return drivers.filter(driver => 
+      driver.projectIds && driver.projectIds.includes(projectFilter)
+    );
+  }, [drivers, projectFilter]);
+
+  const clearFilters = () => {
+    setQuickFilter("");
+    setProjectFilter("all");
+  };
+
+  const activeFiltersCount = (quickFilter ? 1 : 0) + (projectFilter !== "all" ? 1 : 0);
 
   const loadData = useCallback(async (page: number, filter: string) => {
     setIsLoading(true);
@@ -263,11 +284,68 @@ export default function Drivers() {
               <Button variant="outline" onClick={handleExcelExport} className="flex items-center space-x-2"><Download className="h-4 w-4" /><span>导出Excel</span></Button>
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-4 space-y-3">
+            {/* 搜索框 */}
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input placeholder="按姓名、车牌、电话模糊搜索..." value={quickFilter} onChange={(e) => setQuickFilter(e.target.value)} className="pl-10" />
             </div>
+            
+            {/* 筛选器 */}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="relative"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                高级筛选
+                {activeFiltersCount > 0 && (
+                  <Badge variant="destructive" className="ml-2 h-5 min-w-[20px] px-1">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </Button>
+
+              {activeFiltersCount > 0 && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    <X className="h-4 w-4 mr-1" />
+                    清除筛选
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    显示 {filteredDrivers.length} / {drivers.length} 条
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* 筛选选项 */}
+            {showFilters && (
+              <Card className="bg-muted/30">
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>按项目筛选</Label>
+                      <Select value={projectFilter} onValueChange={setProjectFilter}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">全部项目</SelectItem>
+                          {projects.map(project => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -293,8 +371,8 @@ export default function Drivers() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : drivers.length > 0 ? (
-                  drivers.map((driver) => (
+                ) : filteredDrivers.length > 0 ? (
+                  filteredDrivers.map((driver) => (
                     <TableRow key={driver.id}>
                       <TableCell className="font-medium">{driver.name}</TableCell>
                       <TableCell className="font-mono">{driver.licensePlate}</TableCell>
@@ -316,8 +394,21 @@ export default function Drivers() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                      {quickFilter ? "没有找到匹配的司机" : "暂无司机数据"}
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      <Truck className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <p className="mt-2 text-muted-foreground">
+                        {activeFiltersCount > 0 ? '当前筛选条件下无数据' : '暂无司机数据'}
+                      </p>
+                      {activeFiltersCount > 0 && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={clearFilters}
+                          className="mt-2"
+                        >
+                          清除筛选条件
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 )}

@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, MapPin, Upload, Download } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, Upload, Download, Search, Filter, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SupabaseStorage } from "@/utils/supabase";
@@ -13,6 +13,7 @@ import { Location, Project } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as XLSX from 'xlsx';
 import { PageHeader } from '@/components/PageHeader';
+import { Badge } from "@/components/ui/badge";
 
 export default function Locations() {
   const { toast } = useToast();
@@ -20,11 +21,42 @@ export default function Locations() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
     projectIds: [] as string[],
   });
+
+  // 筛选后的地点列表
+  const filteredLocations = useMemo(() => {
+    let filtered = locations;
+
+    // 搜索筛选
+    if (searchQuery) {
+      filtered = filtered.filter(location =>
+        location.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // 项目筛选
+    if (projectFilter !== "all") {
+      filtered = filtered.filter(location =>
+        location.projectIds && location.projectIds.includes(projectFilter)
+      );
+    }
+
+    return filtered;
+  }, [locations, searchQuery, projectFilter]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setProjectFilter("all");
+  };
+
+  const activeFiltersCount = (searchQuery ? 1 : 0) + (projectFilter !== "all" ? 1 : 0);
 
   // 加载地点数据
   useEffect(() => {
@@ -308,7 +340,7 @@ export default function Locations() {
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>地点列表 ({locations.length} 个地点)</CardTitle>
+            <CardTitle>地点列表 ({filteredLocations.length} / {locations.length} 个地点)</CardTitle>
             <div className="flex space-x-2">
               <input
                 ref={fileInputRef}
@@ -335,6 +367,76 @@ export default function Locations() {
               </Button>
             </div>
           </div>
+
+          {/* 搜索和筛选区域 */}
+          <div className="mt-4 space-y-3">
+            {/* 搜索框 */}
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="按地点名称搜索..." 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                className="pl-10" 
+              />
+            </div>
+
+            {/* 筛选器按钮和状态 */}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="relative"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                高级筛选
+                {activeFiltersCount > 0 && (
+                  <Badge variant="destructive" className="ml-2 h-5 min-w-[20px] px-1">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </Button>
+
+              {activeFiltersCount > 0 && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    <X className="h-4 w-4 mr-1" />
+                    清除筛选
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    显示 {filteredLocations.length} / {locations.length} 条
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* 筛选选项（可展开/收起） */}
+            {showFilters && (
+              <Card className="bg-muted/30">
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>按项目筛选</Label>
+                      <Select value={projectFilter} onValueChange={setProjectFilter}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">全部项目</SelectItem>
+                          {projects.map(project => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -348,7 +450,27 @@ export default function Locations() {
                  </TableRow>
               </TableHeader>
               <TableBody>
-                {locations.map((location) => (
+                {filteredLocations.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      <MapPin className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <p className="mt-2 text-muted-foreground">
+                        {activeFiltersCount > 0 ? '当前筛选条件下无数据' : '暂无地点数据'}
+                      </p>
+                      {activeFiltersCount > 0 && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={clearFilters}
+                          className="mt-2"
+                        >
+                          清除筛选条件
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredLocations.map((location) => (
                    <TableRow key={location.id}>
                      <TableCell className="font-medium">{location.name}</TableCell>
                      <TableCell>
