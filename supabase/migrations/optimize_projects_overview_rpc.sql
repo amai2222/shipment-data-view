@@ -75,17 +75,13 @@ BEGIN
   ),
   
   -- 3. 批量获取所有项目的汇总统计（截至报告日期）
-  summary_stats AS (
+  -- 分两步：先聚合，再计算（避免嵌套聚合错误）
+  summary_stats_base AS (
     SELECT 
       lr.project_id,
       COUNT(*) AS total_trips,
-      COALESCE(SUM(COALESCE(lr.unloading_weight, lr.loading_weight)), 0) AS total_tonnage,
-      COALESCE(SUM(lpc_top.payable_amount), 0) AS total_cost,
-      CASE 
-        WHEN SUM(COALESCE(lr.unloading_weight, lr.loading_weight)) > 0 
-        THEN SUM(lpc_top.payable_amount) / SUM(COALESCE(lr.unloading_weight, lr.loading_weight))
-        ELSE 0
-      END AS avg_cost
+      SUM(COALESCE(lr.unloading_weight, lr.loading_weight)) AS total_tonnage,
+      SUM(lpc_top.payable_amount) AS total_cost
     FROM logistics_records lr
     LEFT JOIN LATERAL (
       SELECT payable_amount
@@ -97,6 +93,19 @@ BEGIN
     WHERE lr.loading_date::date <= p_report_date
     AND (p_project_ids IS NULL OR lr.project_id = ANY(p_project_ids))
     GROUP BY lr.project_id
+  ),
+  summary_stats AS (
+    SELECT 
+      project_id,
+      total_trips,
+      COALESCE(total_tonnage, 0) AS total_tonnage,
+      COALESCE(total_cost, 0) AS total_cost,
+      CASE 
+        WHEN COALESCE(total_tonnage, 0) > 0 
+        THEN COALESCE(total_cost, 0) / total_tonnage
+        ELSE 0
+      END AS avg_cost
+    FROM summary_stats_base
   ),
   
   -- 4. 批量获取7日趋势（所有项目）
@@ -211,18 +220,27 @@ BEGIN
   ),
   
   -- 8. 全局司机报表
+  -- 分两步：先聚合司机数据，再转换为jsonb
+  global_drivers_agg AS (
+    SELECT 
+      driver_name,
+      SUM(trip_count) AS trip_count,
+      SUM(total_tonnage) AS total_tonnage,
+      SUM(total_driver_receivable) AS total_driver_receivable
+    FROM driver_reports
+    GROUP BY driver_name
+  ),
   global_drivers AS (
     SELECT jsonb_agg(
       jsonb_build_object(
         'driver_name', driver_name,
-        'trip_count', SUM(trip_count),
-        'total_tonnage', SUM(total_tonnage),
-        'total_driver_receivable', SUM(total_driver_receivable)
+        'trip_count', trip_count,
+        'total_tonnage', total_tonnage,
+        'total_driver_receivable', total_driver_receivable
       )
-      ORDER BY SUM(total_driver_receivable) DESC
+      ORDER BY total_driver_receivable DESC
     ) AS global_driver_report_table
-    FROM driver_reports
-    GROUP BY driver_name
+    FROM global_drivers_agg
   ),
   
   -- 9. 全局汇总
