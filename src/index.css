@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 移动端优化样式 */
+@import './styles/mobile.css';
+
 /* 物流业务跟踪系统设计系统 - 现代化蓝色主题 */
 
 @layer base {
