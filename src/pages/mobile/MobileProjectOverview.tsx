@@ -158,55 +158,77 @@ export default function MobileProjectOverview() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // 获取项目列表数据
+  // 优化：获取项目列表数据 - 使用单次查询解决N+1问题
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ['mobileProjectsList'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const today = format(new Date(), 'yyyy-MM-dd');
+
+      // 第一步：获取所有项目
+      const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (projectsError) throw projectsError;
+      if (!projectsData || projectsData.length === 0) return [];
 
-      // 为每个项目获取统计数据
-      const projectsWithStats = await Promise.all(
-        (data || []).map(async (project) => {
-          const { data: records } = await supabase
-            .from('logistics_records')
-            .select('loading_weight, driver_payable_cost, loading_date, driver_name')
-            .eq('project_id', project.id);
+      const projectIds = projectsData.map(p => p.id);
 
-          const { data: todayRecords } = await supabase
-            .from('logistics_records')
-            .select('loading_weight')
-            .eq('project_id', project.id)
-            .gte('loading_date', format(new Date(), 'yyyy-MM-dd'));
+      // 第二步：批量获取所有项目的统计数据（一次查询）
+      const { data: allRecords, error: recordsError } = await supabase
+        .from('logistics_records')
+        .select('project_id, loading_weight, driver_payable_cost, loading_date, driver_name')
+        .in('project_id', projectIds);
 
-          const totalWeight = records?.reduce((sum, r) => sum + (r.loading_weight || 0), 0) || 0;
-          const totalAmount = records?.reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0) || 0;
-          const completionRate = project.planned_total_tons ? 
-            Math.min((totalWeight / project.planned_total_tons) * 100, 100) : 0;
-          const activeDrivers = new Set(records?.map(r => r.driver_name)).size;
-          const todayWeight = todayRecords?.reduce((sum, r) => sum + (r.loading_weight || 0), 0) || 0;
+      if (recordsError) throw recordsError;
 
-          return {
-            ...project,
-            stats: {
-              totalRecords: records?.length || 0,
-              totalWeight,
-              totalAmount,
-              completionRate,
-              activeDrivers,
-              todayRecords: todayRecords?.length || 0,
-              todayWeight,
-              weeklyTrend: Math.random() > 0.5 ? Math.floor(Math.random() * 20) : -Math.floor(Math.random() * 10)
-            }
-          };
-        })
-      );
+      // 第三步：在内存中聚合数据
+      const statsMap = new Map<string, any>();
+      
+      projectIds.forEach(projectId => {
+        const projectRecords = (allRecords || []).filter(r => r.project_id === projectId);
+        const todayRecords = projectRecords.filter(r => r.loading_date >= today);
+        
+        const totalWeight = projectRecords.reduce((sum, r) => sum + (r.loading_weight || 0), 0);
+        const totalAmount = projectRecords.reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0);
+        const activeDrivers = new Set(projectRecords.map(r => r.driver_name)).size;
+        const todayWeight = todayRecords.reduce((sum, r) => sum + (r.loading_weight || 0), 0);
 
-      return projectsWithStats;
+        statsMap.set(projectId, {
+          totalRecords: projectRecords.length,
+          totalWeight,
+          totalAmount,
+          activeDrivers,
+          todayRecords: todayRecords.length,
+          todayWeight,
+          weeklyTrend: 0 // 可以后续优化计算
+        });
+      });
+
+      // 第四步：组合项目和统计数据
+      return projectsData.map(project => {
+        const stats = statsMap.get(project.id) || {
+          totalRecords: 0,
+          totalWeight: 0,
+          totalAmount: 0,
+          activeDrivers: 0,
+          todayRecords: 0,
+          todayWeight: 0,
+          weeklyTrend: 0
+        };
+
+        const completionRate = project.planned_total_tons ? 
+          Math.min((stats.totalWeight / project.planned_total_tons) * 100, 100) : 0;
+
+        return {
+          ...project,
+          stats: {
+            ...stats,
+            completionRate
+          }
+        };
+      });
     },
     staleTime: 5 * 60 * 1000,
   });

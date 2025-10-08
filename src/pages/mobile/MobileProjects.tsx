@@ -73,7 +73,7 @@ export default function MobileProjects() {
     try {
       setLoading(true);
       
-      // 获取项目列表
+      // 第一步：获取项目列表
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
         .select('*')
@@ -81,33 +81,43 @@ export default function MobileProjects() {
 
       if (projectsError) throw projectsError;
 
-      // 获取每个项目的统计数据
-      const stats: Record<string, ProjectStats> = {};
-      
-      for (const project of projectsData || []) {
-        const { data: records, error: recordsError } = await supabase
-          .from('logistics_records')
-          .select('loading_weight, current_cost, extra_cost, driver_payable_cost')
-          .eq('project_id', project.id);
-
-        if (!recordsError && records) {
-          const totalWeight = records.reduce((sum, r) => sum + (r.loading_weight || 0), 0);
-          const totalCost = records.reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0);
-          const completionRate = project.planned_total_tons ? 
-            Math.min((totalWeight / project.planned_total_tons) * 100, 100) : 0;
-
-          stats[project.id] = {
-            totalRecords: records.length,
-            totalWeight,
-            totalCost,
-            completionRate
-          };
-        }
+      if (!projectsData || projectsData.length === 0) {
+        setProjects([]);
+        setProjectStats({});
+        return;
       }
 
-      setProjects(projectsData || []);
+      // 第二步：批量获取所有项目的统计数据（优化：一次查询代替N次）
+      const projectIds = projectsData.map(p => p.id);
+      const { data: allRecords, error: recordsError } = await supabase
+        .from('logistics_records')
+        .select('project_id, loading_weight, driver_payable_cost')
+        .in('project_id', projectIds);
+
+      if (recordsError) throw recordsError;
+
+      // 第三步：在内存中聚合统计数据
+      const stats: Record<string, ProjectStats> = {};
+      
+      projectsData.forEach(project => {
+        const records = (allRecords || []).filter(r => r.project_id === project.id);
+        const totalWeight = records.reduce((sum, r) => sum + (r.loading_weight || 0), 0);
+        const totalCost = records.reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0);
+        const completionRate = project.planned_total_tons ? 
+          Math.min((totalWeight / project.planned_total_tons) * 100, 100) : 0;
+
+        stats[project.id] = {
+          totalRecords: records.length,
+          totalWeight,
+          totalCost,
+          completionRate
+        };
+      });
+
+      setProjects(projectsData);
       setProjectStats(stats);
     } catch (error) {
+      // KEEP: 错误日志保留用于调试
       console.error('Error loading projects:', error);
       toast({
         title: "加载失败",
