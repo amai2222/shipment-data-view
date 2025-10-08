@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { UserRole } from '@/types/permissions';
+import { logger } from '@/utils/logger';
 
 interface RolePermissions {
   menu_permissions: string[];
@@ -20,7 +21,7 @@ export function useSimplePermissions() {
   // 获取用户角色
   const userRole = useMemo(() => {
     const role = profile?.role as UserRole || 'viewer';
-    console.log(`当前用户角色: ${role}, 用户信息:`, profile);
+    logger.debug('当前用户角色:', role, '用户信息:', profile);
     return role;
   }, [profile?.role]);
 
@@ -38,15 +39,14 @@ export function useSimplePermissions() {
           .single();
 
         if (error) {
-          console.warn('从数据库加载权限失败，使用默认权限:', error);
+          logger.warn('从数据库加载权限失败，使用默认权限:', error);
           setDbPermissions(null);
-          // 可以在这里添加用户通知或错误提示
         } else {
-          console.log(`从数据库加载权限成功:`, data);
+          logger.debug('从数据库加载权限成功:', data);
           setDbPermissions(data);
         }
       } catch (error) {
-        console.error('加载权限失败:', error);
+        logger.error('加载权限失败:', error);
         setDbPermissions(null);
       } finally {
         setLoading(false);
@@ -60,11 +60,11 @@ export function useSimplePermissions() {
   const rolePermissions = useMemo(() => {
     try {
       if (dbPermissions) {
-        console.log(`使用数据库权限: ${userRole}`, dbPermissions);
+        logger.debug(`使用数据库权限: ${userRole}`, dbPermissions);
         return dbPermissions;
       } else {
         // 数据库加载失败时的回退策略
-        console.warn(`数据库权限加载失败，使用空权限: ${userRole}`);
+        logger.warn(`数据库权限加载失败，使用空权限: ${userRole}`);
         return {
           menu_permissions: [],
           function_permissions: [],
@@ -73,7 +73,7 @@ export function useSimplePermissions() {
         };
       }
     } catch (error) {
-      console.error('获取角色权限失败:', error);
+      logger.error('获取角色权限失败:', error);
       return {
         menu_permissions: [],
         function_permissions: [],
@@ -92,15 +92,15 @@ export function useSimplePermissions() {
       if (userRole === 'admin') return true;
       
       if (!rolePermissions || !rolePermissions.menu_permissions) {
-        console.log(`菜单权限检查失败 - 角色权限未加载: ${menuKey}`);
+        logger.debug('菜单权限检查失败 - 角色权限未加载:', menuKey);
         return false;
       }
       const hasAccess = rolePermissions.menu_permissions.includes(menuKey) || 
                        rolePermissions.menu_permissions.includes('all');
-      console.log(`菜单权限检查: ${menuKey} - 用户角色: ${userRole} - 有权限: ${hasAccess}`);
+      logger.permission('menu', menuKey, hasAccess);
       return hasAccess;
     } catch (error) {
-      console.error('菜单权限检查失败:', error);
+      logger.error('菜单权限检查失败:', error);
       return false;
     }
   };
@@ -119,7 +119,7 @@ export function useSimplePermissions() {
       return rolePermissions.function_permissions.includes(functionKey) || 
              rolePermissions.function_permissions.includes('all');
     } catch (error) {
-      console.error('功能权限检查失败:', error);
+      logger.error('功能权限检查失败:', error);
       return false;
     }
   };
@@ -138,7 +138,7 @@ export function useSimplePermissions() {
       return rolePermissions.project_permissions.includes(projectKey) || 
              rolePermissions.project_permissions.includes('all');
     } catch (error) {
-      console.error('项目权限检查失败:', error);
+      logger.error('项目权限检查失败:', error);
       return false;
     }
   };
@@ -157,7 +157,7 @@ export function useSimplePermissions() {
       return rolePermissions.data_permissions.includes(dataKey) || 
              rolePermissions.data_permissions.includes('all');
     } catch (error) {
-      console.error('数据权限检查失败:', error);
+      logger.error('数据权限检查失败:', error);
       return false;
     }
   };
@@ -165,7 +165,7 @@ export function useSimplePermissions() {
   // 检查是否为管理员
   const isAdmin = useMemo(() => {
     const admin = userRole === 'admin';
-    console.log(`用户是否为管理员: ${admin}`);
+    logger.debug('用户是否为管理员:', admin);
     return admin;
   }, [userRole]);
 
