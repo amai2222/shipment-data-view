@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { PermissionConfiguration } from '@/components/permissions/PermissionConfiguration';
+import { PageHeader } from '@/components/PageHeader';
 
 export default function PermissionConfigPage() {
   const { toast } = useToast();
@@ -90,35 +91,31 @@ export default function PermissionConfigPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">权限配置</h1>
-          <p className="text-muted-foreground">
-            配置用户权限和角色模板
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLoadData}
-            disabled={loading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            刷新
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSavePermissions}
-            disabled={!hasChanges || loading}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            保存
-          </Button>
-        </div>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="权限配置"
+        description="配置用户权限和角色模板"
+        icon={Shield}
+        iconColor="text-blue-600"
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleLoadData}
+          disabled={loading}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          刷新
+        </Button>
+        <Button
+          size="sm"
+          onClick={handleSavePermissions}
+          disabled={!hasChanges || loading}
+        >
+          <Save className="h-4 w-4 mr-2" />
+          保存
+        </Button>
+      </PageHeader>
 
       {/* 统计卡片 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

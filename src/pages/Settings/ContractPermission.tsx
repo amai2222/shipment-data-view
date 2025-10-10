@@ -11,6 +11,7 @@ import {
   Users
 } from 'lucide-react';
 import { ContractPermissionManager } from '@/components/contracts/ContractPermissionManagerEnhanced';
+import { PageHeader } from '@/components/PageHeader';
 
 export default function ContractPermissionPage() {
   const { toast } = useToast();
@@ -24,26 +25,22 @@ export default function ContractPermissionPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">合同权限</h1>
-          <p className="text-muted-foreground">
-            管理合同相关的权限配置
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.location.reload()}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            刷新
-          </Button>
-        </div>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="合同权限"
+        description="管理合同相关的权限配置"
+        icon={FileText}
+        iconColor="text-blue-600"
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.location.reload()}
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          刷新
+        </Button>
+      </PageHeader>
 
       {/* 统计卡片 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

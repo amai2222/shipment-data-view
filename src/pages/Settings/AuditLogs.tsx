@@ -22,10 +22,12 @@ import {
   Settings,
   FileText,
   Building2,
-  Database
+  Database,
+  History
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { PageHeader } from '@/components/PageHeader';
 
 export default function AuditLogs() {
   const { auditLogs, loading, totalCount, page, setPage, pageSize, loadAuditLogs, getActionOptions, getPermissionTypeOptions } = useAuditLogs();
@@ -136,12 +138,13 @@ export default function AuditLogs() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      {/* 页面标题 */}
-      <div>
-        <h1 className="text-3xl font-bold">操作日志</h1>
-        <p className="text-muted-foreground">查看系统用户的操作记录和权限变更历史</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="操作日志"
+        description="查看系统用户的操作记录和权限变更历史"
+        icon={History}
+        iconColor="text-blue-600"
+      />
 
       {/* 操作栏 */}
       <Card>

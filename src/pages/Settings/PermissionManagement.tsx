@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
+import { PageHeader } from '@/components/PageHeader';
 
 // 角色定义
 const ROLES = [
@@ -316,18 +317,13 @@ export default function PermissionManagement() {
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-primary rounded-lg">
-            <Shield className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">权限管理</h1>
-            <p className="text-muted-foreground">配置角色模板和用户的菜单访问权限与功能权限</p>
-          </div>
-        </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="权限管理"
+        description="配置角色模板和用户的菜单访问权限与功能权限"
+        icon={Shield}
+        iconColor="text-blue-600"
+      >
         <Button 
           onClick={handleSavePermissions} 
           disabled={!hasChanges || loading}
@@ -353,7 +349,7 @@ export default function PermissionManagement() {
           <RefreshCw className="h-4 w-4 mr-2" />
           强制刷新
         </Button>
-      </div>
+      </PageHeader>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList className="grid w-full grid-cols-2">

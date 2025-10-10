@@ -18,6 +18,7 @@ import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { UserManagement } from '@/components/permissions/UserManagement';
 import { PermissionQuickActions } from '@/components/PermissionQuickActions';
 import { PermissionResetService } from '@/services/PermissionResetService';
+import { PageHeader } from '@/components/PageHeader';
 
 export default function UserManagementPage() {
   const { toast } = useToast();
@@ -123,15 +124,13 @@ export default function UserManagementPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">用户管理</h1>
-          <p className="text-muted-foreground">
-            管理系统用户信息、角色和权限
-          </p>
-        </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="用户管理"
+        description="管理系统用户信息、角色和权限"
+        icon={Users}
+        iconColor="text-blue-600"
+      >
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -143,7 +142,7 @@ export default function UserManagementPage() {
             刷新
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       {/* 统计卡片 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

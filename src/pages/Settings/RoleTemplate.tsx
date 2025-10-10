@@ -14,6 +14,7 @@ import {
 import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { RoleTemplateManager } from '@/components/permissions/RoleTemplateManager';
 import { PermissionResetService } from '@/services/PermissionResetService';
+import { PageHeader } from '@/components/PageHeader';
 
 export default function RoleTemplatePage() {
   const { toast } = useToast();
@@ -104,44 +105,40 @@ export default function RoleTemplatePage() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">角色模板</h1>
-          <p className="text-muted-foreground">
-            管理角色模板和权限预设
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="角色模板"
+        description="管理角色模板和权限预设"
+        icon={Settings}
+        iconColor="text-blue-600"
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={loading}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          刷新
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={handleResetAllToDefault}
             disabled={loading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            刷新
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleResetAllToDefault}
-            disabled={loading}
-          >
-            <Shield className="h-4 w-4 mr-2" />
-            重置为默认
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setHasChanges(false)}
-            disabled={!hasChanges}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            保存更改
-          </Button>
-        </div>
-      </div>
+          <Shield className="h-4 w-4 mr-2" />
+          重置为默认
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => setHasChanges(false)}
+          disabled={!hasChanges}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          保存更改
+        </Button>
+      </PageHeader>
 
       {/* 统计卡片 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
