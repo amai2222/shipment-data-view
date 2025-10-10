@@ -10,13 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Package, Loader2, ChevronDown, ChevronRight, Link, Settings } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Loader2, ChevronDown, ChevronRight, Link, Settings, Search, Filter, X, ArrowUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Project, Location, Partner, ProjectPartner, PartnerChain } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
+import { Badge } from "@/components/ui/badge";
 
 // 【核心类型】扩展 Project 类型，使其可以直接包含从后端一次性获取的嵌套数据
 interface ProjectWithDetails extends Project {
@@ -62,6 +63,12 @@ export default function Projects() {
     id: string; dbId?: string; chainName: string; description?: string; billingTypeId?: number | null;
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
   }[]>([]);
+  
+  // 筛选和排序状态
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [sortBy, setSortBy] = useState<"status" | "date">("status"); // 默认按状态排序
 
   // 优化：使用React Query缓存项目数据
   const { data: projects = [], isLoading: isLoadingProjects } = useQuery({
@@ -105,6 +112,66 @@ export default function Projects() {
     staleTime: 10 * 60 * 1000, // 10分钟缓存（合作方变化不频繁）
     cacheTime: 30 * 60 * 1000,
   });
+
+  // 筛选和排序逻辑
+  const filteredAndSortedProjects = useMemo(() => {
+    let filtered = [...projects];
+
+    // 1. 搜索筛选
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(project => 
+        project.name.toLowerCase().includes(query) ||
+        project.manager.toLowerCase().includes(query) ||
+        (project.financeManager && project.financeManager.toLowerCase().includes(query)) ||
+        project.loadingAddress.toLowerCase().includes(query) ||
+        project.unloadingAddress.toLowerCase().includes(query)
+      );
+    }
+
+    // 2. 状态筛选
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(project => 
+        (project as any).projectStatus === statusFilter
+      );
+    }
+
+    // 3. 排序
+    filtered.sort((a, b) => {
+      if (sortBy === "status") {
+        // 按状态排序：进行中 > 已暂停 > 已完成 > 已取消
+        const statusOrder: Record<string, number> = {
+          '进行中': 1,
+          '已暂停': 2,
+          '已完成': 3,
+          '已取消': 4
+        };
+        const statusA = (a as any).projectStatus || '进行中';
+        const statusB = (b as any).projectStatus || '进行中';
+        const orderDiff = (statusOrder[statusA] || 999) - (statusOrder[statusB] || 999);
+        
+        // 如果状态相同，按创建时间降序（最新的在上面）
+        if (orderDiff === 0) {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+        return orderDiff;
+      } else {
+        // 按日期排序：最新的在上面
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+
+    return filtered;
+  }, [projects, searchQuery, statusFilter, sortBy]);
+
+  // 清除筛选器
+  const clearFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+  };
+
+  // 活动筛选器数量
+  const activeFiltersCount = (searchQuery ? 1 : 0) + (statusFilter !== "all" ? 1 : 0);
 
   const isLoading = isLoadingProjects;
 
@@ -435,11 +502,96 @@ export default function Projects() {
       <div className="space-y-6">
         <Card className="shadow-card">
         <CardHeader>
-          <div className="flex items-center justify-between"><CardTitle>项目列表 ({projects.length} 个项目)</CardTitle></div>
+          <div className="flex items-center justify-between">
+            <CardTitle>项目列表 (共 {projects.length} 个项目，显示 {filteredAndSortedProjects.length} 个)</CardTitle>
+          </div>
+          
+          {/* 筛选和排序工具栏 */}
+          <div className="mt-4 space-y-3">
+            {/* 搜索框 */}
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="搜索项目名称、负责人、地址..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            {/* 筛选器和排序 */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="relative"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                筛选
+                {activeFiltersCount > 0 && (
+                  <Badge variant="destructive" className="ml-2 h-5 min-w-[20px] px-1">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </Button>
+              
+              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                <SelectTrigger className="w-48">
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="status">按状态排序（默认）</SelectItem>
+                  <SelectItem value="date">按创建时间排序</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {activeFiltersCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  清除筛选
+                </Button>
+              )}
+              
+              <span className="text-sm text-muted-foreground">
+                显示 {filteredAndSortedProjects.length} / {projects.length} 条
+              </span>
+            </div>
+            
+            {/* 高级筛选面板 */}
+            {showFilters && (
+              <Card className="bg-muted/30">
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>项目状态</Label>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">全部状态</SelectItem>
+                          <SelectItem value="进行中">进行中</SelectItem>
+                          <SelectItem value="已暂停">已暂停</SelectItem>
+                          <SelectItem value="已完成">已完成</SelectItem>
+                          <SelectItem value="已取消">已取消</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {projects.map((project) => (
+            {filteredAndSortedProjects.map((project) => (
               <Card key={project.id} className="border shadow-sm">
                 <CardHeader 
                   className="cursor-pointer hover:bg-muted/50 transition-colors pb-3" 
