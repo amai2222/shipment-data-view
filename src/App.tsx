@@ -44,6 +44,7 @@ import MobileAuditLogs from "./pages/mobile/MobileAuditLogs";
 import ScaleRecords from "./pages/ScaleRecords";
 import ContractManagement from "./pages/ContractManagement";
 import WaybillMaintenance from "./pages/DataMaintenance/WaybillMaintenance";
+import EnhancedWaybillMaintenance from "./pages/DataMaintenance/EnhancedWaybillMaintenance";
 import MobileNotifications from "./pages/mobile/MobileNotifications";
 import MobileSettings from "./pages/mobile/MobileSettings";
 import MobileUserManagement from "./pages/mobile/MobileUserManagement";
@@ -258,9 +259,17 @@ const App = () => (
               </ProtectedRoute>
             } />
             
+            {/* 运单维护 - 原有页面（默认） */}
             <Route path="/data-maintenance/waybill" element={
               <ProtectedRoute requiredRoles={['admin', 'operator']}>
                 <AppLayout><WaybillMaintenance /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 运单维护 - 增强版本（可选） */}
+            <Route path="/data-maintenance/waybill-enhanced" element={
+              <ProtectedRoute requiredRoles={['admin', 'operator']}>
+                <AppLayout><EnhancedWaybillMaintenance /></AppLayout>
               </ProtectedRoute>
             } />
             

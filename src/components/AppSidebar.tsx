@@ -86,6 +86,7 @@ const menuItems = [
     icon: Database,
     items: [
       { title: "运单维护", url: "/data-maintenance/waybill", icon: Truck },
+      { title: "运单维护（增强版）", url: "/data-maintenance/waybill-enhanced", icon: Truck },
     ]
   },
   {
@@ -127,6 +128,7 @@ export function AppSidebar() {
       '/finance/reconciliation': 'finance.reconciliation',
       '/finance/payment-invoice': 'finance.payment_invoice',
       '/data-maintenance/waybill': 'data_maintenance.waybill',
+      '/data-maintenance/waybill-enhanced': 'data_maintenance.waybill',
       '/settings/users': 'settings.users',
       '/settings/permissions': 'settings.permissions',
       '/settings/contract-permissions': 'settings.contract_permissions',
