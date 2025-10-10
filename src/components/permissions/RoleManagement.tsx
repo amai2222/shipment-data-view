@@ -18,10 +18,23 @@ import {
   DATA_PERMISSIONS,
   ROLES
 } from '@/config/permissions';
+import { PermissionGroup } from '@/types/permission';
 import { supabase } from '@/integrations/supabase/client';
 
+interface RoleTemplate {
+  role: string;
+  name: string;
+  description: string;
+  color: string;
+  menu_permissions: string[];
+  function_permissions: string[];
+  project_permissions: string[];
+  data_permissions: string[];
+  is_system: boolean;
+}
+
 interface RoleManagementProps {
-  roleTemplates: any[];
+  roleTemplates: RoleTemplate[];
   onDataChange: () => void;
 }
 
@@ -47,14 +60,24 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
         data_permissions: template.data_permissions || []
       });
     } else {
-      // 数据库中没有该角色的权限，使用空权限
-      console.warn(`角色 ${selectedRole} 在数据库中不存在，使用空权限`);
-      setCurrentPermissions({
-        menu_permissions: [],
-        function_permissions: [],
-        project_permissions: [],
-        data_permissions: []
-      });
+      // 数据库中没有该角色的权限，使用默认权限
+      if (selectedRole === 'admin') {
+        console.info(`Admin角色使用默认全权限`);
+        setCurrentPermissions({
+          menu_permissions: ['projects', 'business-entry', 'drivers', 'partners', 'locations', 'reports', 'finance-management', 'user-management', 'role-management', 'system-settings', 'all'],
+          function_permissions: ['create', 'edit', 'delete', 'view', 'export', 'import', 'approve', 'reject', 'assign', 'unassign', 'all'],
+          project_permissions: ['all', 'create', 'edit', 'delete', 'view', 'assign', 'approve'],
+          data_permissions: ['all', 'own', 'team', 'department', 'company']
+        });
+      } else {
+        console.info(`角色 ${selectedRole} 使用默认权限配置`);
+        setCurrentPermissions({
+          menu_permissions: [],
+          function_permissions: [],
+          project_permissions: [],
+          data_permissions: []
+        });
+      }
     }
   }, [selectedRole]); // 移除 roleTemplates 依赖，避免覆盖用户修改
 
@@ -125,11 +148,11 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
 
   // 渲染权限列表
   const renderPermissionList = (
-    permissions: any,
+    permissions: PermissionGroup[],
     currentPerms: string[],
     type: string
   ) => {
-    const totalPermissions = Object.values(permissions).reduce((total: number, group: any) => total + (group.children?.length || 0), 0);
+    const totalPermissions = permissions.reduce((total: number, group) => total + (group.children?.length || 0), 0);
     const selectedPermissions = currentPerms.length;
     
     return (
@@ -146,12 +169,12 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
         </div>
         
         {/* 权限分组 */}
-        {Object.entries(permissions).map(([key, group]: [string, any]) => {
-          const selectedCount = group.children?.filter((child: any) => currentPerms.includes(child.key)).length || 0;
+        {permissions.map((group) => {
+          const selectedCount = group.children?.filter((child) => currentPerms.includes(child.key)).length || 0;
           const totalCount = group.children?.length || 0;
           
           return (
-            <Card key={key} className="border-l-4 border-l-blue-500 hover:shadow-sm transition-shadow">
+            <Card key={group.key} className="border-l-4 border-l-blue-500 hover:shadow-sm transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -164,7 +187,7 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {group.children?.map((permission: any) => (
+                {group.children?.map((permission) => (
                   <div key={permission.key} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted/30 transition-colors">
                     <Checkbox
                       id={permission.key}

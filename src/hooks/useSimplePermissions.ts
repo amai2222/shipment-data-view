@@ -39,6 +39,18 @@ export function useSimplePermissions() {
           .single();
 
         if (error) {
+          // Admin角色使用默认全权限
+          if (userRole === 'admin') {
+            logger.info('Admin角色使用默认全权限');
+            setDbPermissions({
+              menu_permissions: ['projects', 'business-entry', 'drivers', 'partners', 'locations', 'reports', 'finance-management', 'user-management', 'role-management', 'system-settings', 'all'],
+              function_permissions: ['create', 'edit', 'delete', 'view', 'export', 'import', 'approve', 'reject', 'assign', 'unassign', 'all'],
+              project_permissions: ['all', 'create', 'edit', 'delete', 'view', 'assign', 'approve'],
+              data_permissions: ['all', 'own', 'team', 'department', 'company']
+            });
+            return;
+          }
+          
           logger.warn('从数据库加载权限失败，使用默认权限:', error);
           setDbPermissions(null);
         } else {
@@ -64,7 +76,7 @@ export function useSimplePermissions() {
         return dbPermissions;
       } else {
         // 数据库加载失败时的回退策略
-        logger.warn(`数据库权限加载失败，使用空权限: ${userRole}`);
+        logger.info(`使用默认权限配置: ${userRole}`);
         return {
           menu_permissions: [],
           function_permissions: [],
