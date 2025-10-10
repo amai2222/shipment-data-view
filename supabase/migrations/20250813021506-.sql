@@ -24,6 +24,7 @@ BEGIN
       'cargoType', p.cargo_type,
       'financeManager', p.finance_manager,
       'projectStatus', p.project_status,
+      'effectiveQuantityType', p.effective_quantity_type,
       'createdAt', p.created_at
     ) ORDER BY p.created_at DESC
   ), '[]'::jsonb)

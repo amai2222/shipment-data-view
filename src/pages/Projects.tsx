@@ -74,7 +74,7 @@ export default function Projects() {
   const { data: projects = [], isLoading: isLoadingProjects } = useQuery({
     queryKey: ['projects-with-details'],
     queryFn: async () => {
-      const { data: projectsData, error: projectsError } = await supabase.rpc('get_projects_with_details');
+      const { data: projectsData, error: projectsError } = await supabase.rpc('get_projects_with_details_fixed');
       if (projectsError) throw projectsError;
 
       const payload = (projectsData as any) || {};
@@ -268,7 +268,7 @@ export default function Projects() {
         }))
       }));
 
-      const { error } = await supabase.rpc('save_project_with_chains', {
+      const { error } = await supabase.rpc('save_project_with_chains_fixed', {
         project_id_in: projectId,
         project_data: projectPayloadForDb,
         chains_data: chainsPayload

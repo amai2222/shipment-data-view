@@ -10,6 +10,9 @@ export interface Project {
   autoCode?: string;
   plannedTotalTons?: number;
   financeManager?: string;
+  projectStatus?: string;
+  cargoType?: string;
+  effectiveQuantityType?: string;
   createdAt: string;
 }
 

@@ -1,102 +1,93 @@
--- 1) Create get_my_claim helper used by role/claims functions
-CREATE OR REPLACE FUNCTION public.get_my_claim(claim text)
-RETURNS text
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-  claims jsonb;
-BEGIN
-  claims := current_setting('request.jwt.claims', true)::jsonb;
-  IF claims IS NULL THEN
-    RETURN NULL;
-  END IF;
-  RETURN claims ->> claim;
-END;
-$$;
+-- 修复项目管理中项目状态更新不生效的问题
+-- 1. 更新get_projects_with_details_optimized函数，添加projectStatus和effectiveQuantityType字段
+-- 2. 更新save_project_with_chains函数，确保project_status字段被正确更新
 
--- 2) Update optimized project details function to include new optional fields
+-- 更新get_projects_with_details_optimized函数
 CREATE OR REPLACE FUNCTION public.get_projects_with_details_optimized()
 RETURNS jsonb
 LANGUAGE plpgsql
 STABLE
-AS $$
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  projects_json jsonb;
+  chains_json jsonb;
+  partners_json jsonb;
 BEGIN
-  RETURN (
-    SELECT jsonb_build_object(
-      'projects', COALESCE(jsonb_agg(
+  -- Projects list with project_status and effective_quantity_type
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'id', p.id,
+      'name', p.name,
+      'startDate', p.start_date,
+      'endDate', p.end_date,
+      'manager', p.manager,
+      'loadingAddress', p.loading_address,
+      'unloadingAddress', p.unloading_address,
+      'autoCode', p.auto_code,
+      'plannedTotalTons', p.planned_total_tons,
+      'cargoType', p.cargo_type,
+      'financeManager', p.finance_manager,
+      'projectStatus', p.project_status,
+      'effectiveQuantityType', p.effective_quantity_type,
+      'createdAt', p.created_at
+    ) ORDER BY p.created_at DESC
+  ), '[]'::jsonb)
+  INTO projects_json
+  FROM public.projects p;
+
+  -- Chains grouped per project (no nested aggregates)
+  SELECT COALESCE(jsonb_object_agg(project_id, chains_array), '{}'::jsonb)
+  INTO chains_json
+  FROM (
+    SELECT c.project_id,
+      jsonb_agg(
         jsonb_build_object(
-          'id', p.id,
-          'name', p.name,
-          'startDate', p.start_date,
-          'endDate', p.end_date,
-          'manager', p.manager,
-          'loadingAddress', p.loading_address,
-          'unloadingAddress', p.unloading_address,
-          'autoCode', p.auto_code,
-          'plannedTotalTons', p.planned_total_tons,
-          'cargoType', p.cargo_type,
-          'financeManager', p.finance_manager,
-          'createdAt', p.created_at
-        ) ORDER BY p.created_at DESC
-      ), '[]'::jsonb),
-      'chains', COALESCE((
-        SELECT jsonb_object_agg(
-          c.project_id,
-          jsonb_agg(
-            jsonb_build_object(
-              'id', c.id,
-              'projectId', c.project_id,
-              'chainName', c.chain_name,
-              'description', c.description,
-              'isDefault', c.is_default,
-              'createdAt', c.created_at
-            ) ORDER BY c.is_default DESC, c.created_at
-          )
-        )
-        FROM public.partner_chains c
-      ), '{}'::jsonb),
-      'partners', COALESCE((
-        SELECT jsonb_object_agg(
-          pp.project_id,
-          jsonb_agg(
-            jsonb_build_object(
-              'id', pp.id,
-              'projectId', pp.project_id,
-              'partnerId', pp.partner_id,
-              'chainId', pp.chain_id,
-              'level', pp.level,
-              'taxRate', pp.tax_rate,
-              'calculationMethod', pp.calculation_method,
-              'profitRate', pp.profit_rate,
-              'createdAt', pp.created_at,
-              'partnerName', p.name
-            ) ORDER BY pp.level
-          )
-        )
-        FROM public.project_partners pp
-        JOIN public.partners p ON pp.partner_id = p.id
-      ), '{}'::jsonb)
-    )
-    FROM public.projects p
+          'id', c.id,
+          'projectId', c.project_id,
+          'chainName', c.chain_name,
+          'description', c.description,
+          'isDefault', c.is_default,
+          'createdAt', c.created_at
+        ) ORDER BY c.is_default DESC, c.created_at
+      ) AS chains_array
+    FROM public.partner_chains c
+    GROUP BY c.project_id
+  ) AS chains_grouped;
+
+  -- Partners grouped per project (no nested aggregates)
+  SELECT COALESCE(jsonb_object_agg(project_id, partners_array), '{}'::jsonb)
+  INTO partners_json
+  FROM (
+    SELECT pp.project_id,
+      jsonb_agg(
+        jsonb_build_object(
+          'id', pp.id,
+          'projectId', pp.project_id,
+          'partnerId', pp.partner_id,
+          'chainId', pp.chain_id,
+          'level', pp.level,
+          'taxRate', pp.tax_rate,
+          'calculationMethod', pp.calculation_method,
+          'profitRate', pp.profit_rate,
+          'createdAt', pp.created_at,
+          'partnerName', p.name
+        ) ORDER BY pp.level
+      ) AS partners_array
+    FROM public.project_partners pp
+    JOIN public.partners p ON pp.partner_id = p.id
+    GROUP BY pp.project_id
+  ) AS partners_grouped;
+
+  RETURN jsonb_build_object(
+    'projects', projects_json,
+    'chains', chains_json,
+    'partners', partners_json
   );
 END;
-$$;
+$function$;
 
--- 3) Provide stable wrapper aligning with callers expecting this name
-CREATE OR REPLACE FUNCTION public.get_projects_with_details()
-RETURNS jsonb
-LANGUAGE plpgsql
-STABLE
-AS $$
-BEGIN
-  RETURN public.get_projects_with_details_optimized();
-END;
-$$;
-
--- 4) Update save_project_with_chains to handle planned_total_tons, cargo_type, finance_manager on both update and insert
+-- 更新save_project_with_chains函数，确保project_status字段被正确更新
 CREATE OR REPLACE FUNCTION public.save_project_with_chains(
   project_id_in uuid,
   project_data jsonb,
