@@ -121,12 +121,12 @@ export function ProjectAssignmentManager({
   const getProjectAssignmentStatus = (projectId: string) => {
     const assignment = assignments.find(a => a.project_id === projectId);
     
-    // 修复：项目分配只关注项目访问权限
-    // 有分配记录 = 已分配，无分配记录 = 未分配
-    // 具体操作权限（can_view, can_edit, can_delete）由权限配置系统管理
+    // 修复：项目分配采用"默认开放，明确限制"策略
+    // 默认所有用户都可以访问所有项目
+    // 只有在 user_projects 表中有记录时才表示用户被限制访问该项目
     
     return {
-      isAssigned: !!assignment, // 有分配记录就算已分配
+      isAssigned: assignment ? assignment.can_view : true, // 有记录且can_view=true = 可访问，有记录且can_view=false = 被限制，无记录 = 可访问
       role: assignment?.role || DynamicRoleService.getDefaultProjectRole(),
       canView: assignment?.can_view ?? true, // 这些权限由权限配置系统管理
       canEdit: assignment?.can_edit ?? true,
@@ -135,16 +135,16 @@ export function ProjectAssignmentManager({
     };
   };
 
-  // 切换项目分配
+  // 切换项目访问限制
   const toggleProjectAssignment = async (projectId: string, assigned: boolean, role: string = DynamicRoleService.getDefaultProjectRole()) => {
     try {
       setSaving(true);
       
       if (assigned) {
-        // 分配项目：创建或更新 user_projects 记录，设置完整权限
-        await ProjectAssignmentService.assignProjectToUser(userId, projectId, role);
+        // 允许访问：创建或更新记录，设置 can_view = true
+        await ProjectAssignmentService.allowProjectAccess(userId, projectId, role);
       } else {
-        // 取消分配：创建限制性记录，设置所有权限为 false
+        // 限制访问：创建或更新记录，设置 can_view = false
         await ProjectAssignmentService.restrictProjectFromUser(userId, projectId);
       }
 
@@ -153,15 +153,15 @@ export function ProjectAssignmentManager({
       
       toast({
         title: '操作成功',
-        description: assigned ? '项目分配成功' : '项目访问已限制'
+        description: assigned ? '项目访问限制已取消' : '项目访问已限制'
       });
 
       onAssignmentChange?.();
     } catch (error) {
-      console.error('切换项目分配失败:', error);
+      console.error('切换项目访问限制失败:', error);
       toast({
         title: '操作失败',
-        description: '无法更新项目分配',
+        description: '无法更新项目访问限制',
         variant: 'destructive'
       });
     } finally {
@@ -169,29 +169,29 @@ export function ProjectAssignmentManager({
     }
   };
 
-  // 批量分配项目
+  // 批量取消限制项目
   const handleBulkAssign = async () => {
     if (selectedProjects.length === 0) return;
 
     try {
       setSaving(true);
-      await ProjectAssignmentService.batchAssignProjectsToUser(userId, selectedProjects, bulkRole);
+      await ProjectAssignmentService.batchRemoveProjectRestrictions(userId, selectedProjects);
       
       await loadData();
       setSelectedProjects([]);
       setShowBulkDialog(false);
       
       toast({
-        title: '批量分配成功',
-        description: `已为用户分配 ${selectedProjects.length} 个项目`
+        title: '批量取消限制成功',
+        description: `已为用户取消 ${selectedProjects.length} 个项目的访问限制`
       });
 
       onAssignmentChange?.();
     } catch (error) {
-      console.error('批量分配失败:', error);
+      console.error('批量取消限制失败:', error);
       toast({
-        title: '批量分配失败',
-        description: '无法批量分配项目',
+        title: '批量取消限制失败',
+        description: '无法批量取消项目限制',
         variant: 'destructive'
       });
     } finally {
@@ -199,28 +199,28 @@ export function ProjectAssignmentManager({
     }
   };
 
-  // 批量移除项目分配
+  // 批量限制项目访问
   const handleBulkRemove = async () => {
     if (selectedProjects.length === 0) return;
 
     try {
       setSaving(true);
-      await ProjectAssignmentService.batchRemoveProjectsFromUser(userId, selectedProjects);
+      await ProjectAssignmentService.batchRestrictProjectsFromUser(userId, selectedProjects);
       
       await loadData();
       setSelectedProjects([]);
       
       toast({
-        title: '批量移除成功',
-        description: `已移除 ${selectedProjects.length} 个项目分配`
+        title: '批量限制成功',
+        description: `已限制用户访问 ${selectedProjects.length} 个项目`
       });
 
       onAssignmentChange?.();
     } catch (error) {
-      console.error('批量移除失败:', error);
+      console.error('批量限制失败:', error);
       toast({
-        title: '批量移除失败',
-        description: '无法批量移除项目分配',
+        title: '批量限制失败',
+        description: '无法批量限制项目访问',
         variant: 'destructive'
       });
     } finally {
@@ -277,7 +277,7 @@ export function ProjectAssignmentManager({
       );
     }
     
-    return <Badge variant="outline" className="text-red-700 border-red-300">未分配</Badge>;
+    return <Badge variant="outline" className="text-red-700 border-red-300">被限制</Badge>;
   };
 
   if (loading) {
@@ -297,10 +297,10 @@ export function ProjectAssignmentManager({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
-            项目分配概览
+            项目访问限制概览
           </CardTitle>
           <CardDescription>
-            管理用户 {userName} 的项目分配权限
+            管理用户 {userName} 的项目访问限制
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -311,15 +311,15 @@ export function ProjectAssignmentManager({
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">{stats.assignedProjects}</div>
-              <div className="text-sm text-gray-500">已分配</div>
+              <div className="text-sm text-gray-500">可访问</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-orange-600">{stats.activeProjects}</div>
               <div className="text-sm text-gray-500">进行中</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">{stats.unassignedProjects}</div>
-              <div className="text-sm text-gray-500">未分配</div>
+              <div className="text-2xl font-bold text-red-600">{stats.unassignedProjects}</div>
+              <div className="text-sm text-gray-500">被限制</div>
             </div>
           </div>
         </CardContent>
@@ -374,12 +374,12 @@ export function ProjectAssignmentManager({
                   <DialogTrigger asChild>
                     <Button size="sm" variant="outline">
                       <Plus className="h-4 w-4 mr-1" />
-                      批量分配
+                      批量取消限制
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>批量分配项目</DialogTitle>
+                      <DialogTitle>批量取消限制</DialogTitle>
                       <DialogDescription>
                         为选中的 {selectedProjects.length} 个项目设置角色
                       </DialogDescription>
@@ -418,7 +418,7 @@ export function ProjectAssignmentManager({
                   disabled={saving}
                 >
                   <Minus className="h-4 w-4 mr-1" />
-                  批量移除
+                  批量限制
                 </Button>
                 <Button 
                   size="sm" 
@@ -436,9 +436,9 @@ export function ProjectAssignmentManager({
       {/* 项目列表 */}
       <Card>
         <CardHeader>
-          <CardTitle>项目分配管理</CardTitle>
+          <CardTitle>项目访问限制管理</CardTitle>
           <CardDescription>
-            默认所有用户都具有所有项目的访问权限，取消勾选将限制用户访问该项目
+            默认所有用户都具有所有项目的访问权限，勾选将限制用户访问该项目
           </CardDescription>
         </CardHeader>
         <CardContent>

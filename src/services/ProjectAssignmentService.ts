@@ -87,7 +87,7 @@ export class ProjectAssignmentService {
     }
   }
 
-  // 移除用户的项目分配
+  // 移除用户的项目分配（删除限制记录，恢复默认访问权限）
   static async removeProjectFromUser(userId: string, projectId: string): Promise<void> {
     try {
       const { error } = await supabase
@@ -103,7 +103,45 @@ export class ProjectAssignmentService {
     }
   }
 
-  // 限制用户项目访问（设置所有权限为 false）
+  // 移除项目限制（恢复默认访问权限）
+  static async removeProjectRestriction(userId: string, projectId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('user_projects')
+        .delete()
+        .eq('user_id', userId)
+        .eq('project_id', projectId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('移除项目限制失败:', error);
+      throw error;
+    }
+  }
+
+  // 允许用户项目访问（设置 can_view = true）
+  static async allowProjectAccess(userId: string, projectId: string, role: string = DynamicRoleService.getDefaultProjectRole()): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('user_projects')
+        .upsert({
+          user_id: userId,
+          project_id: projectId,
+          role: role,
+          can_view: true,
+          can_edit: true,
+          can_delete: false,
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        }, { onConflict: 'user_id,project_id' });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('允许项目访问失败:', error);
+      throw error;
+    }
+  }
+
+  // 限制用户项目访问（设置 can_view = false）
   static async restrictProjectFromUser(userId: string, projectId: string): Promise<void> {
     try {
       const { error } = await supabase
@@ -116,7 +154,7 @@ export class ProjectAssignmentService {
           can_edit: false,
           can_delete: false,
           created_by: (await supabase.auth.getUser()).data.user?.id
-        });
+        }, { onConflict: 'user_id,project_id' });
 
       if (error) throw error;
     } catch (error) {
@@ -159,8 +197,8 @@ export class ProjectAssignmentService {
     }
   }
 
-  // 批量移除用户的项目分配
-  static async batchRemoveProjectsFromUser(userId: string, projectIds: string[]): Promise<void> {
+  // 批量移除项目限制
+  static async batchRemoveProjectRestrictions(userId: string, projectIds: string[]): Promise<void> {
     try {
       const { error } = await supabase
         .from('user_projects')
@@ -170,7 +208,33 @@ export class ProjectAssignmentService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('批量移除项目分配失败:', error);
+      console.error('批量移除项目限制失败:', error);
+      throw error;
+    }
+  }
+
+  // 批量限制项目访问
+  static async batchRestrictProjectsFromUser(userId: string, projectIds: string[]): Promise<void> {
+    try {
+      const currentUserId = (await supabase.auth.getUser()).data.user?.id;
+      
+      const restrictions = projectIds.map(projectId => ({
+        user_id: userId,
+        project_id: projectId,
+        role: DynamicRoleService.getDefaultProjectRole(),
+        can_view: false,
+        can_edit: false,
+        can_delete: false,
+        created_by: currentUserId
+      }));
+
+      const { error } = await supabase
+        .from('user_projects')
+        .upsert(restrictions, { onConflict: 'user_id,project_id' });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('批量限制项目访问失败:', error);
       throw error;
     }
   }
@@ -185,23 +249,23 @@ export class ProjectAssignmentService {
 
       const activeProjects = projects.filter(p => p.project_status === '进行中');
       
-      // 修复：项目分配只关注项目访问权限，不关注具体操作权限
-      // 默认所有用户都有所有项目访问权限
-      // 只有在 user_projects 表中有记录时才表示用户被明确分配了项目
+      // 修复：项目分配逻辑
+      // 统计可访问的项目（can_view = true 或无记录）
+      // 统计被限制的项目（can_view = false）
       
-      // 获取用户有分配记录的项目ID
+      // 获取用户有记录的项目
       const assignedProjectIds = new Set(assignments.map(a => a.project_id));
       
-      // 计算已分配的项目（有分配记录的项目）
-      const assignedProjects = assignments.length;
+      // 计算可访问的项目（can_view = true 的项目 + 无记录的项目）
+      const accessibleProjects = assignments.filter(a => a.can_view).length + (projects.length - assignedProjectIds.size);
       
-      // 计算未分配的项目（没有分配记录的项目）
-      const unassignedProjects = projects.length - assignedProjects;
+      // 计算被限制的项目（can_view = false 的项目）
+      const restrictedProjects = assignments.filter(a => !a.can_view).length;
 
       return {
         totalProjects: projects.length,
-        assignedProjects: assignedProjects, // 有分配记录的项目数
-        unassignedProjects: unassignedProjects, // 没有分配记录的项目数
+        assignedProjects: accessibleProjects, // 可以访问的项目数
+        unassignedProjects: restrictedProjects, // 被限制访问的项目数
         activeProjects: activeProjects.length
       };
     } catch (error) {
@@ -257,10 +321,10 @@ export class ProjectAssignmentService {
   // 检查用户是否有项目访问权限
   static async hasProjectAccess(userId: string, projectId: string): Promise<boolean> {
     try {
-      // 检查 user_projects 表中是否有分配记录
+      // 检查 user_projects 表中的记录
       const { data, error } = await supabase
         .from('user_projects')
-        .select('id')
+        .select('can_view')
         .eq('user_id', userId)
         .eq('project_id', projectId)
         .single();
@@ -269,11 +333,11 @@ export class ProjectAssignmentService {
         throw error;
       }
 
-      // 有分配记录 = 有访问权限，无分配记录 = 无访问权限
-      return !!data;
+      // 无记录 = 有访问权限，有记录且can_view=true = 有访问权限，有记录且can_view=false = 无访问权限
+      return !data || data.can_view;
     } catch (error) {
       console.error('检查项目访问权限失败:', error);
-      return false; // 默认返回 false，确保安全
+      return true; // 默认返回 true，确保用户有访问权限
     }
   }
 
