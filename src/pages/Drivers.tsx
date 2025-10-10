@@ -9,13 +9,15 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2, Filter, X } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2, Filter, X, FileImage } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Driver, Project } from "@/types";
 import * as XLSX from 'xlsx';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge } from "@/components/ui/badge";
+import { DriverPhotoUpload, DriverPhotos } from "@/components/DriverPhotoUpload";
 
 const PAGE_SIZE = 30;
 
@@ -34,6 +36,11 @@ export default function Drivers() {
     licensePlate: "",
     phone: "",
     projectIds: [] as string[],
+  });
+  const [driverPhotos, setDriverPhotos] = useState<DriverPhotos>({
+    id_card_photos: [],
+    driver_license_photos: [],
+    qualification_certificate_photos: []
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -107,6 +114,11 @@ export default function Drivers() {
 
   const resetForm = () => {
     setFormData({ name: "", licensePlate: "", phone: "", projectIds: [] });
+    setDriverPhotos({
+      id_card_photos: [],
+      driver_license_photos: [],
+      qualification_certificate_photos: []
+    });
     setEditingDriver(null);
   };
 
@@ -116,6 +128,11 @@ export default function Drivers() {
       licensePlate: driver.licensePlate,
       phone: driver.phone,
       projectIds: driver.projectIds || [],
+    });
+    setDriverPhotos({
+      id_card_photos: driver.id_card_photos || [],
+      driver_license_photos: driver.driver_license_photos || [],
+      qualification_certificate_photos: driver.qualification_certificate_photos || []
     });
     setEditingDriver(driver);
     setIsDialogOpen(true);
@@ -128,11 +145,18 @@ export default function Drivers() {
       return;
     }
     try {
+      const driverDataWithPhotos = {
+        ...formData,
+        id_card_photos: driverPhotos.id_card_photos,
+        driver_license_photos: driverPhotos.driver_license_photos,
+        qualification_certificate_photos: driverPhotos.qualification_certificate_photos
+      };
+      
       if (editingDriver) {
-        await SupabaseStorage.updateDriver(editingDriver.id, formData);
+        await SupabaseStorage.updateDriver(editingDriver.id, driverDataWithPhotos);
         toast({ title: "更新成功" });
       } else {
-        await SupabaseStorage.addDriver(formData);
+        await SupabaseStorage.addDriver(driverDataWithPhotos);
         toast({ title: "添加成功" });
       }
       await loadData(currentPage, quickFilter);
@@ -232,43 +256,78 @@ export default function Drivers() {
                 新增司机
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingDriver ? "编辑司机" : "新增司机"}</DialogTitle>
+                <DialogTitle className="flex items-center gap-2">
+                  <Truck className="h-5 w-5" />
+                  {editingDriver ? "编辑司机" : "新增司机"}
+                </DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">司机姓名 *</Label>
-                  <Input id="name" value={formData.name} onChange={(e) => setFormData(prev => ({...prev, name: e.target.value}))} placeholder="请输入司机姓名" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="licensePlate">车牌号 *</Label>
-                  <Input id="licensePlate" value={formData.licensePlate} onChange={(e) => setFormData(prev => ({...prev, licensePlate: e.target.value}))} placeholder="请输入车牌号" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">司机电话 *</Label>
-                  <Input id="phone" value={formData.phone} onChange={(e) => setFormData(prev => ({...prev, phone: e.target.value}))} placeholder="请输入电话号码" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="projectIds">关联项目</Label>
-                  <div className="max-h-40 overflow-y-auto border rounded-md p-2">
-                    {projects.map((project) => (
-                      <div key={project.id} className="flex items-center space-x-2 py-1">
-                        <input type="checkbox" id={`project-${project.id}`} checked={formData.projectIds.includes(project.id)} onChange={(e) => {
-                          const { checked } = e.target;
-                          setFormData(prev => ({ ...prev, projectIds: checked ? [...prev.projectIds, project.id] : prev.projectIds.filter(id => id !== project.id) }));
-                        }} className="rounded" />
-                        <Label htmlFor={`project-${project.id}`} className="text-sm">{project.name}</Label>
+              
+              <Tabs defaultValue="basic" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="basic">基本信息</TabsTrigger>
+                  <TabsTrigger value="photos" className="flex items-center gap-2">
+                    <FileImage className="h-4 w-4" />
+                    证件照片
+                  </TabsTrigger>
+                </TabsList>
+                
+                {/* 基本信息标签页 */}
+                <TabsContent value="basic">
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">司机姓名 *</Label>
+                      <Input id="name" value={formData.name} onChange={(e) => setFormData(prev => ({...prev, name: e.target.value}))} placeholder="请输入司机姓名" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="licensePlate">车牌号 *</Label>
+                      <Input id="licensePlate" value={formData.licensePlate} onChange={(e) => setFormData(prev => ({...prev, licensePlate: e.target.value}))} placeholder="请输入车牌号" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">司机电话 *</Label>
+                      <Input id="phone" value={formData.phone} onChange={(e) => setFormData(prev => ({...prev, phone: e.target.value}))} placeholder="请输入电话号码" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="projectIds">关联项目</Label>
+                      <div className="max-h-40 overflow-y-auto border rounded-md p-2">
+                        {projects.map((project) => (
+                          <div key={project.id} className="flex items-center space-x-2 py-1">
+                            <input type="checkbox" id={`project-${project.id}`} checked={formData.projectIds.includes(project.id)} onChange={(e) => {
+                              const { checked } = e.target;
+                              setFormData(prev => ({ ...prev, projectIds: checked ? [...prev.projectIds, project.id] : prev.projectIds.filter(id => id !== project.id) }));
+                            }} className="rounded" />
+                            <Label htmlFor={`project-${project.id}`} className="text-sm">{project.name}</Label>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                      <p className="text-xs text-muted-foreground">选择司机可以参与的项目</p>
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
+                      <Button type="submit" className="bg-gradient-primary hover:bg-primary-hover">{editingDriver ? "更新" : "添加"}</Button>
+                    </div>
+                  </form>
+                </TabsContent>
+                
+                {/* 证件照片标签页 */}
+                <TabsContent value="photos">
+                  <div className="space-y-4">
+                    <DriverPhotoUpload
+                      driverName={formData.name || '未命名司机'}
+                      licensePlate={formData.licensePlate || '未知车牌'}
+                      existingPhotos={driverPhotos}
+                      onChange={setDriverPhotos}
+                    />
+                    <div className="flex justify-end space-x-2 pt-4 border-t">
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>关闭</Button>
+                      <Button type="button" onClick={handleSubmit} className="bg-gradient-primary hover:bg-primary-hover">
+                        {editingDriver ? "更新司机信息" : "保存司机信息"}
+                      </Button>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">选择司机可以参与的项目</p>
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-                  <Button type="submit" className="bg-gradient-primary hover:bg-primary-hover">{editingDriver ? "更新" : "添加"}</Button>
-                </div>
-              </form>
+                </TabsContent>
+              </Tabs>
             </DialogContent>
         </Dialog>
       </PageHeader>

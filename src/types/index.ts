@@ -20,6 +20,9 @@ export interface Driver {
   licensePlate: string;
   phone: string;
   projectIds?: string[]; // 关联的项目ID数组
+  id_card_photos?: string[]; // 身份证照片URL数组
+  driver_license_photos?: string[]; // 驾驶证照片URL数组
+  qualification_certificate_photos?: string[]; // 从业资格证照片URL数组
   createdAt: string;
 }
 
