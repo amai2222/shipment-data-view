@@ -121,20 +121,31 @@ export function ProjectAssignmentManager({
   const getProjectAssignmentStatus = (projectId: string) => {
     const assignment = assignments.find(a => a.project_id === projectId);
     
+    // 修复：正确判断项目分配状态
     // 默认所有用户都有所有项目权限
     // 只有在 user_projects 表中有明确限制时才显示为未分配
-    const isExplicitlyRestricted = assignment && (
-      assignment.can_view === false || 
-      assignment.can_edit === false || 
-      assignment.can_delete === false
-    );
+    
+    // 如果没有分配记录，表示使用默认权限（已分配）
+    if (!assignment) {
+      return {
+        isAssigned: true, // 默认已分配
+        role: DynamicRoleService.getDefaultProjectRole(),
+        canView: true,
+        canEdit: true,
+        canDelete: false,
+        assignment: null
+      };
+    }
+    
+    // 如果有分配记录，检查是否被明确限制
+    const isExplicitlyRestricted = assignment.can_view === false;
     
     return {
-      isAssigned: !isExplicitlyRestricted, // 默认已分配，除非明确限制
-      role: assignment?.role || DynamicRoleService.getDefaultProjectRole(),
-      canView: assignment?.can_view ?? true,
-      canEdit: assignment?.can_edit ?? true,
-      canDelete: assignment?.can_delete ?? false,
+      isAssigned: !isExplicitlyRestricted, // 只有明确限制查看才算未分配
+      role: assignment.role || DynamicRoleService.getDefaultProjectRole(),
+      canView: assignment.can_view ?? true,
+      canEdit: assignment.can_edit ?? true,
+      canDelete: assignment.can_delete ?? false,
       assignment
     };
   };

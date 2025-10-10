@@ -183,13 +183,31 @@ export class ProjectAssignmentService {
         this.getUserProjectAssignments(userId)
       ]);
 
-      const assignedProjectIds = new Set(assignments.map(a => a.project_id));
       const activeProjects = projects.filter(p => p.project_status === '进行中');
+      
+      // 修复：正确计算项目分配状态
+      // 默认所有用户都有所有项目权限，只有在 user_projects 表中有明确限制时才计算为未分配
+      
+      // 获取所有项目ID
+      const allProjectIds = new Set(projects.map(p => p.id));
+      
+      // 获取用户有分配记录的项目ID
+      const assignedProjectIds = new Set(assignments.map(a => a.project_id));
+      
+      // 计算明确限制的项目（can_view = false 表示完全限制访问）
+      const explicitlyRestrictedProjects = assignments.filter(assignment => 
+        assignment.can_view === false
+      );
+      
+      // 计算正常分配的项目（有分配记录且can_view = true）
+      const normalAssignedProjects = assignments.filter(assignment => 
+        assignment.can_view === true
+      );
 
       return {
         totalProjects: projects.length,
-        assignedProjects: assignments.length,
-        unassignedProjects: projects.length - assignments.length,
+        assignedProjects: normalAssignedProjects.length + (projects.length - assignedProjectIds.size), // 正常分配 + 默认权限
+        unassignedProjects: explicitlyRestrictedProjects.length, // 只有明确限制查看的项目才算未分配
         activeProjects: activeProjects.length
       };
     } catch (error) {
