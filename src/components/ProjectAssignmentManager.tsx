@@ -91,7 +91,7 @@ export function ProjectAssignmentManager({
     }
   };
 
-  // 过滤项目
+  // 过滤和排序项目
   const filteredProjects = useMemo(() => {
     let filtered = projects;
 
@@ -113,6 +113,30 @@ export function ProjectAssignmentManager({
         return true;
       });
     }
+
+    // 自动排序：最新项目在上面，已完成项目在最下面
+    filtered.sort((a, b) => {
+      // 首先按项目状态排序：进行中 > 其他状态 > 已完成
+      const statusOrder = {
+        '进行中': 1,
+        '已暂停': 2,
+        '已取消': 3,
+        '已完成': 4
+      };
+      
+      const aStatusOrder = statusOrder[a.project_status as keyof typeof statusOrder] || 5;
+      const bStatusOrder = statusOrder[b.project_status as keyof typeof statusOrder] || 5;
+      
+      if (aStatusOrder !== bStatusOrder) {
+        return aStatusOrder - bStatusOrder;
+      }
+      
+      // 相同状态下按创建时间排序：最新的在上面
+      const aCreatedAt = new Date(a.created_at || a.start_date).getTime();
+      const bCreatedAt = new Date(b.created_at || b.start_date).getTime();
+      
+      return bCreatedAt - aCreatedAt; // 降序排列，最新的在上面
+    });
 
     return filtered;
   }, [projects, searchTerm, statusFilter]);
@@ -297,10 +321,10 @@ export function ProjectAssignmentManager({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
-            项目访问限制概览
+            访问权限统计
           </CardTitle>
           <CardDescription>
-            管理用户 {userName} 的项目访问限制
+            用户 {userName} 的项目访问权限概览
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -436,7 +460,7 @@ export function ProjectAssignmentManager({
       {/* 项目列表 */}
       <Card>
         <CardHeader>
-          <CardTitle>项目访问限制管理</CardTitle>
+          <CardTitle>项目列表</CardTitle>
           <CardDescription>
             默认所有用户都具有所有项目的访问权限，勾选将限制用户访问该项目
           </CardDescription>

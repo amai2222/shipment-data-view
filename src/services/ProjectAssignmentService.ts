@@ -42,15 +42,17 @@ export class ProjectAssignmentService {
     }
   }
 
-  // 获取所有项目列表
+  // 获取所有项目列表（按状态和时间排序）
   static async getAllProjects(): Promise<any[]> {
     try {
       const { data, error } = await supabase
         .from('projects')
         .select('*')
-        .order('name', { ascending: true });
+        .order('created_at', { ascending: false }); // 按创建时间降序排列
 
       if (error) throw error;
+      
+      // 前端会进一步按状态排序，这里只按时间排序
       return data || [];
     } catch (error) {
       console.error('获取项目列表失败:', error);

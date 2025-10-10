@@ -214,18 +214,18 @@ export default function MobileIntegratedUserManagement() {
     }
   };
 
-  // 加载用户项目分配（现在存储的是被限制的项目）
+  // 加载用户项目分配（修复：加载can_view=false的项目）
   const loadUserProjectAssignments = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('user_projects')
-        .select('project_id')
+        .select('project_id, can_view')
         .eq('user_id', userId);
 
       if (error) throw error;
 
-      // 现在存储的是被限制访问的项目ID
-      const restrictedProjectIds = data?.map(item => item.project_id) || [];
+      // 存储被限制访问的项目ID（can_view = false）
+      const restrictedProjectIds = data?.filter(item => !item.can_view).map(item => item.project_id) || [];
       setUserProjectAssignments(prev => ({
         ...prev,
         [userId]: restrictedProjectIds
@@ -235,7 +235,7 @@ export default function MobileIntegratedUserManagement() {
     }
   };
 
-  // 保存用户项目分配（现在存储的是被限制的项目）
+  // 保存用户项目分配（修复：使用can_view标志）
   const handleSaveProjectAssignments = async () => {
     if (!userForProjectAssignment) return;
 
@@ -243,18 +243,22 @@ export default function MobileIntegratedUserManagement() {
       const userId = userForProjectAssignment.id;
       const restrictedProjectIds = userProjectAssignments[userId] || [];
 
-      // 删除现有的项目限制
+      // 删除现有的项目记录
       await supabase
         .from('user_projects')
         .delete()
         .eq('user_id', userId);
 
-      // 添加新的项目限制（只存储被限制的项目）
+      // 添加新的项目限制（只存储被限制的项目，设置can_view=false）
       if (restrictedProjectIds.length > 0) {
         const restrictions = restrictedProjectIds.map(projectId => ({
           user_id: userId,
           project_id: projectId,
-          role: 'restricted' // 标记为被限制
+          role: 'viewer',
+          can_view: false,
+          can_edit: false,
+          can_delete: false,
+          created_by: (await supabase.auth.getUser()).data.user?.id
         }));
 
         const { error } = await supabase
@@ -265,8 +269,8 @@ export default function MobileIntegratedUserManagement() {
       }
 
       toast({
-        title: "项目权限更新成功",
-        description: `用户 ${userForProjectAssignment.full_name} 的项目访问权限已更新`,
+        title: "项目访问限制更新成功",
+        description: `用户 ${userForProjectAssignment.full_name} 的项目访问限制已更新`,
       });
 
       setShowProjectAssignmentDialog(false);
@@ -281,7 +285,7 @@ export default function MobileIntegratedUserManagement() {
     }
   };
 
-  // 切换项目分配（现在切换的是限制状态）
+  // 切换项目分配（修复：切换访问限制状态）
   const toggleProjectAssignment = (projectId: string) => {
     if (!userForProjectAssignment) return;
 
@@ -491,7 +495,7 @@ export default function MobileIntegratedUserManagement() {
                                 await loadUserProjectAssignments(user.id);
                                 setShowProjectAssignmentDialog(true);
                               }}
-                              title="分配项目"
+                              title="项目限制"
                             >
                               <Building2 className="h-4 w-4" />
                             </Button>
@@ -802,17 +806,17 @@ export default function MobileIntegratedUserManagement() {
         <Dialog open={showProjectAssignmentDialog} onOpenChange={setShowProjectAssignmentDialog}>
           <DialogContent className="w-[95vw] max-w-md max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>分配项目权限</DialogTitle>
+              <DialogTitle>项目访问限制管理</DialogTitle>
               <DialogDescription>
-                为用户 {userForProjectAssignment.full_name} 分配可查看的项目
+                管理用户 {userForProjectAssignment.full_name} 的项目访问限制
               </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4">
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-medium text-blue-800 mb-2">项目权限说明</h4>
+                <h4 className="font-medium text-blue-800 mb-2">项目访问限制说明</h4>
                 <p className="text-sm text-blue-700">
-                  <strong>默认所有项目都可访问</strong>。勾选的项目表示用户可以查看和访问，未勾选的项目表示用户被限制访问。
+                  <strong>默认所有项目都可访问</strong>。勾选的项目表示用户可以访问，取消勾选的项目表示用户被限制访问。
                 </p>
               </div>
               

@@ -79,7 +79,7 @@ export function UserManagement({
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const [passwordChangeUser, setPasswordChangeUser] = useState<UserWithPermissions | null>(null);
   
-  // 项目分配功能
+  // 项目访问限制功能
   const [showProjectAssignmentDialog, setShowProjectAssignmentDialog] = useState(false);
   const [projectAssignmentUser, setProjectAssignmentUser] = useState<UserWithPermissions | null>(null);
   
@@ -109,13 +109,13 @@ export function UserManagement({
     setPasswordChangeUser(null);
   };
 
-  // 打开项目分配对话框
+  // 打开项目访问限制对话框
   const handleProjectAssignment = (user: UserWithPermissions) => {
     setProjectAssignmentUser(user);
     setShowProjectAssignmentDialog(true);
   };
 
-  // 关闭项目分配对话框
+  // 关闭项目访问限制对话框
   const handleCloseProjectAssignmentDialog = () => {
     setShowProjectAssignmentDialog(false);
     setProjectAssignmentUser(null);
@@ -668,7 +668,7 @@ export function UserManagement({
                           className="text-green-600 border-green-300 hover:bg-green-50"
                         >
                           <Building2 className="h-4 w-4 mr-1" />
-                          项目分配
+                          项目限制
                         </Button>
                         <Button
                           variant="outline"
@@ -821,13 +821,13 @@ export function UserManagement({
         }}
       />
 
-      {/* 项目分配对话框 */}
+      {/* 项目访问限制对话框 */}
       <Dialog open={showProjectAssignmentDialog} onOpenChange={setShowProjectAssignmentDialog}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
-              项目分配管理
+              项目访问限制管理
             </DialogTitle>
             <DialogDescription>
               管理用户 {projectAssignmentUser?.full_name} 的项目访问权限
@@ -841,8 +841,8 @@ export function UserManagement({
               onAssignmentChange={() => {
                 onUserUpdate();
                 toast({
-                  title: "项目分配更新",
-                  description: "项目分配已更新",
+                  title: "项目访问限制更新",
+                  description: "项目访问限制已更新",
                 });
               }}
             />
