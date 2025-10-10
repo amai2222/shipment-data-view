@@ -80,7 +80,7 @@ interface OverviewStats {
 const statusConfig = {
   '进行中': { color: 'bg-green-500', textColor: 'text-green-700', bgColor: 'bg-green-50', label: '进行中' },
   '已完成': { color: 'bg-blue-500', textColor: 'text-blue-700', bgColor: 'bg-blue-50', label: '已完成' },
-  '暂停': { color: 'bg-yellow-500', textColor: 'text-yellow-700', bgColor: 'bg-yellow-50', label: '暂停' },
+  '已暂停': { color: 'bg-yellow-500', textColor: 'text-yellow-700', bgColor: 'bg-yellow-50', label: '已暂停' },
   '已取消': { color: 'bg-gray-500', textColor: 'text-gray-700', bgColor: 'bg-gray-50', label: '已取消' }
 };
 
@@ -88,7 +88,7 @@ export default function MobileProjectOverview() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('进行中'); // 默认显示进行中的项目
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'progress'>('name');
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -345,10 +345,11 @@ export default function MobileProjectOverview() {
                     </div>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">全部状态</SelectItem>
                     <SelectItem value="进行中">进行中</SelectItem>
                     <SelectItem value="已完成">已完成</SelectItem>
-                    <SelectItem value="暂停">暂停</SelectItem>
+                    <SelectItem value="已暂停">已暂停</SelectItem>
+                    <SelectItem value="已取消">已取消</SelectItem>
+                    <SelectItem value="all">全部状态</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

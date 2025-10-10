@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, TrendingUp, Wallet, Truck, Users, Calendar as CalendarIcon, Briefcase, BarChart2, ListChecks, PieChart, AlertTriangle } from "lucide-react";
@@ -117,14 +118,36 @@ export default function ProjectsOverview() {
   const navigate = useNavigate();
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>('进行中'); // 默认显示进行中的项目
 
   // 优化：使用React Query缓存看板数据
   const { data: dashboardData, isLoading: loading, error, isError } = useQuery({
-    queryKey: ['projects-overview', format(reportDate, 'yyyy-MM-dd'), selectedProjectIds],
+    queryKey: ['projects-overview', format(reportDate, 'yyyy-MM-dd'), selectedProjectIds, statusFilter],
     queryFn: async () => {
+      let projectIds = selectedProjectIds;
+      
+      // 如果没有选择具体项目，根据状态筛选器获取项目
+      if (projectIds.length === 0) {
+        let query = supabase.from('projects').select('id');
+        
+        // 如果不是"全部状态"，则添加状态筛选
+        if (statusFilter !== 'all') {
+          query = query.eq('project_status', statusFilter);
+        }
+        
+        const { data: filteredProjects, error: projectError } = await query;
+        
+        if (projectError) {
+          console.error('获取项目列表失败:', projectError);
+          throw projectError;
+        }
+        
+        projectIds = filteredProjects?.map(p => p.id) || [];
+      }
+      
       const params = {
         p_report_date: format(reportDate, 'yyyy-MM-dd'),
-        p_project_ids: selectedProjectIds.length > 0 ? selectedProjectIds : null
+        p_project_ids: projectIds.length > 0 ? projectIds : null
       };
       
       // 调试日志
@@ -241,11 +264,50 @@ export default function ProjectsOverview() {
         icon={PieChart}
         iconColor="text-purple-600"
       >
-          <MultiSelectProjects options={projectOptions} selected={selectedProjectIds} onChange={setSelectedProjectIds} className="w-[300px] lg:w-[400px]" />
+        <div className="flex flex-wrap gap-3">
+          {/* 项目状态筛选器 */}
+          <Select value={statusFilter} onValueChange={(value) => {
+            setStatusFilter(value);
+            setSelectedProjectIds([]); // 切换状态时清空项目选择
+          }}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="选择项目状态" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="进行中">进行中</SelectItem>
+              <SelectItem value="已完成">已完成</SelectItem>
+              <SelectItem value="已暂停">已暂停</SelectItem>
+              <SelectItem value="已取消">已取消</SelectItem>
+              <SelectItem value="all">全部状态</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {/* 项目选择器 */}
+          <MultiSelectProjects 
+            options={projectOptions} 
+            selected={selectedProjectIds} 
+            onChange={(ids) => {
+              setSelectedProjectIds(ids);
+              if (ids.length > 0) {
+                setStatusFilter('all'); // 选择具体项目时切换到全部状态
+              }
+            }} 
+            className="w-[300px] lg:w-[400px]" 
+          />
+          
+          {/* 日期选择器 */}
           <Popover>
-            <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-slate-500")}><CalendarIcon className="mr-2 h-4 w-4" />{reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}</Button></PopoverTrigger>
-            <PopoverContent className="w-auto p-0"><CalendarComponent mode="single" selected={reportDate} onSelect={(date) => date && setReportDate(date)} initialFocus /></PopoverContent>
-        </Popover>
+            <PopoverTrigger asChild>
+              <Button variant={"outline"} className={cn("w-[200px] justify-start text-left font-normal", !reportDate && "text-slate-500")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {reportDate ? format(reportDate, "yyyy-MM-dd") : <span>选择日期</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <CalendarComponent mode="single" selected={reportDate} onSelect={(date) => date && setReportDate(date)} initialFocus />
+            </PopoverContent>
+          </Popover>
+        </div>
       </PageHeader>
 
       <div className="space-y-6">
@@ -255,7 +317,7 @@ export default function ProjectsOverview() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center text-sm font-medium text-slate-700">
               <Briefcase className="mr-2 h-4 w-4 text-slate-500"/>
-              {isFiltering ? '已选项目' : '运行中项目'}
+              {isFiltering ? '已选项目' : (statusFilter === 'all' ? '全部项目' : `${statusFilter}项目`)}
             </CardTitle>
           </CardHeader>
           <CardContent><p className="text-2xl font-bold text-slate-800">{global_summary?.total_projects || 0}</p></CardContent>
@@ -283,7 +345,11 @@ export default function ProjectsOverview() {
         {/* ★★★ 2. 章节标题增加日期并美化 ★★★ */}
         <h2 className="text-2xl font-bold text-slate-700 mb-4 flex items-center">
           <ListChecks className="mr-3 h-6 w-6" />
-          <span>{isFiltering ? '已选项目详情' : '各项目概览'}</span>
+          <span>
+            {isFiltering ? '已选项目详情' : 
+             statusFilter === 'all' ? '全部项目概览' : 
+             `${statusFilter}项目概览`}
+          </span>
           <span className="text-base font-normal text-slate-500 ml-2">({format(reportDate, "yyyy-MM-dd")})</span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
