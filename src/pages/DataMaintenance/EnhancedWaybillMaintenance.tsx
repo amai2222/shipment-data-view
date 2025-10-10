@@ -27,6 +27,7 @@ import { UpdateModeImportDialog } from '@/pages/BusinessEntry/components/UpdateM
 import { useExcelImportWithUpdate } from '@/pages/BusinessEntry/hooks/useExcelImportWithUpdate';
 import TemplateMappingManager from '@/components/TemplateMappingManager';
 import TemplateBasedImport from '@/components/TemplateBasedImport';
+import { PageHeader } from "@/components/PageHeader";
 import * as XLSX from 'xlsx';
 
 // 导入增强的工具函数
@@ -423,20 +424,20 @@ export default function EnhancedWaybillMaintenance() {
   }, [loadWaybillCount]);
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">运单维护</h1>
-            <p className="text-muted-foreground">管理和维护运单数据</p>
-          </div>
-        </div>
-
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="运单维护（增强版）"
+        description="专业的运单数据导入和维护管理 - 支持多种日期格式、详细日志和实时进度"
+        icon={Database}
+        iconColor="text-green-600"
+      />
+      
+      <div className="mx-auto max-w-7xl">
         <Alert className="border-blue-200 bg-blue-50">
           <Database className="h-4 w-4" />
-          <AlertTitle>数据维护权限</AlertTitle>
+          <AlertTitle>增强版功能</AlertTitle>
           <AlertDescription>
-            您当前拥有数据维护权限，可以进行运单数据的导入和删除操作。
+            支持6种日期格式、复杂外部平台数据、详细日志系统和实时进度显示。
           </AlertDescription>
         </Alert>
 
@@ -591,9 +592,10 @@ export default function EnhancedWaybillMaintenance() {
             <TemplateMappingManager />
           </TabsContent>
         </Tabs>
-
-        {/* 增强导入对话框 */}
-        {importStep !== 'upload' && (
+      </div>
+      
+      {/* 增强导入对话框 */}
+      {importStep !== 'upload' && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
@@ -675,7 +677,6 @@ export default function EnhancedWaybillMaintenance() {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }

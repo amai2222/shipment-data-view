@@ -23,6 +23,7 @@ import { UpdateModeImportDialog } from '@/pages/BusinessEntry/components/UpdateM
 import { useExcelImportWithUpdate } from '@/pages/BusinessEntry/hooks/useExcelImportWithUpdate';
 import TemplateMappingManager from '@/components/TemplateMappingManager';
 import TemplateBasedImport from '@/components/TemplateBasedImport';
+import { PageHeader } from "@/components/PageHeader";
 import * as XLSX from 'xlsx';
 
 export default function WaybillMaintenance() {
@@ -182,19 +183,17 @@ export default function WaybillMaintenance() {
   }, [loadWaybillCount]);
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="mx-auto max-w-4xl">
-        <Card className="shadow-lg">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2">
-              <Database className="h-6 w-6" />
-              运单维护
-            </CardTitle>
-            <CardDescription>
-              运单数据的导入、删除和维护管理
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="运单维护"
+        description="运单数据的导入、删除和维护管理"
+        icon={Database}
+        iconColor="text-blue-600"
+      />
+      
+      <div className="mx-auto max-w-7xl">
+        <Card className="shadow-sm">
+          <CardContent className="p-6 space-y-6">
             {/* 权限提示 */}
             <Alert className="bg-blue-50 border-blue-200">
               <Database className="h-4 w-4" />
@@ -369,9 +368,9 @@ export default function WaybillMaintenance() {
           </CardContent>
         </Card>
       </div>
-
-        {/* 导入对话框 */}
-        <UpdateModeImportDialog
+      
+      {/* 导入对话框 */}
+      <UpdateModeImportDialog
           isOpen={isImportModalOpen}
           onClose={closeImportModal}
           importStep={importStep}
