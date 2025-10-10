@@ -185,29 +185,23 @@ export class ProjectAssignmentService {
 
       const activeProjects = projects.filter(p => p.project_status === '进行中');
       
-      // 修复：正确计算项目分配状态
-      // 默认所有用户都有所有项目权限，只有在 user_projects 表中有明确限制时才计算为未分配
-      
-      // 获取所有项目ID
-      const allProjectIds = new Set(projects.map(p => p.id));
+      // 修复：项目分配只关注项目访问权限，不关注具体操作权限
+      // 默认所有用户都有所有项目访问权限
+      // 只有在 user_projects 表中有记录时才表示用户被明确分配了项目
       
       // 获取用户有分配记录的项目ID
       const assignedProjectIds = new Set(assignments.map(a => a.project_id));
       
-      // 计算明确限制的项目（can_view = false 表示完全限制访问）
-      const explicitlyRestrictedProjects = assignments.filter(assignment => 
-        assignment.can_view === false
-      );
+      // 计算已分配的项目（有分配记录的项目）
+      const assignedProjects = assignments.length;
       
-      // 计算正常分配的项目（有分配记录且can_view = true）
-      const normalAssignedProjects = assignments.filter(assignment => 
-        assignment.can_view === true
-      );
+      // 计算未分配的项目（没有分配记录的项目）
+      const unassignedProjects = projects.length - assignedProjects;
 
       return {
         totalProjects: projects.length,
-        assignedProjects: normalAssignedProjects.length + (projects.length - assignedProjectIds.size), // 正常分配 + 默认权限
-        unassignedProjects: explicitlyRestrictedProjects.length, // 只有明确限制查看的项目才算未分配
+        assignedProjects: assignedProjects, // 有分配记录的项目数
+        unassignedProjects: unassignedProjects, // 没有分配记录的项目数
         activeProjects: activeProjects.length
       };
     } catch (error) {
@@ -260,11 +254,10 @@ export class ProjectAssignmentService {
     }
   }
 
-  // 检查用户是否有项目访问权限（默认所有用户都有所有项目权限）
+  // 检查用户是否有项目访问权限
   static async hasProjectAccess(userId: string, projectId: string): Promise<boolean> {
     try {
-      // 默认所有用户都有所有项目权限
-      // 只有在 user_projects 表中有明确限制时才返回 false
+      // 检查 user_projects 表中是否有分配记录
       const { data, error } = await supabase
         .from('user_projects')
         .select('id')
@@ -276,12 +269,11 @@ export class ProjectAssignmentService {
         throw error;
       }
 
-      // 如果没有记录，说明用户有访问权限（默认权限）
-      // 如果有记录，说明用户有访问权限（明确分配）
-      return true;
+      // 有分配记录 = 有访问权限，无分配记录 = 无访问权限
+      return !!data;
     } catch (error) {
       console.error('检查项目访问权限失败:', error);
-      return true; // 默认返回 true，确保用户有访问权限
+      return false; // 默认返回 false，确保安全
     }
   }
 
