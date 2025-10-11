@@ -1,6 +1,7 @@
 // 权限管理系统类型定义
 
-import { UserRole } from './permissions';
+// 用户角色类型定义
+export type UserRole = "admin" | "finance" | "business" | "partner" | "operator" | "viewer";
 
 export interface User {
   id: string;

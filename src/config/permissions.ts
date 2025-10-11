@@ -2,6 +2,42 @@
 
 import { PermissionGroup, UserRole, RoleDefinition } from '@/types/permission';
 
+// 权限项接口
+export interface PermissionItem {
+  key: string;
+  label: string;
+  description?: string;
+  url?: string;
+  icon?: string;
+  group: string;
+  scope?: string;
+  requiredRoles?: string[];
+}
+
+// 菜单权限接口
+export interface MenuPermission extends PermissionGroup {
+  icon?: string;
+  url?: string;
+  requiredRoles?: string[];
+}
+
+// 功能权限接口
+export interface FunctionPermission extends PermissionGroup {
+  requiredRoles?: string[];
+}
+
+// 项目权限接口
+export interface ProjectPermission extends PermissionGroup {
+  scope?: string;
+  requiredRoles?: string[];
+}
+
+// 数据权限接口
+export interface DataPermission extends PermissionGroup {
+  scope?: string;
+  requiredRoles?: string[];
+}
+
 // 角色定义
 export const ROLES: Record<UserRole, RoleDefinition> = {
   admin: {

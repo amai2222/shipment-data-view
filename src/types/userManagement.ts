@@ -1,6 +1,6 @@
 // 用户管理类型定义
 
-import { UserRole } from './permissions';
+import { UserRole } from './permission';
 
 export interface User {
   id: string;

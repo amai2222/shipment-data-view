@@ -26,7 +26,8 @@ import {
   Building2
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { UserWithPermissions, UserRole } from '@/types/permissions';
+import { UserWithPermissions } from '@/types/permissions';
+import { UserRole } from '@/types/permission';
 import { EnterpriseUserEditDialog } from '../EnterpriseUserEditDialog';
 import { PermissionChangeConfirmDialog } from '../PermissionChangeConfirmDialog';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { UserRole } from '@/types/permissions';
+import { UserRole } from '@/types/permission';
 import { logger } from '@/utils/logger';
 
 interface RolePermissions {

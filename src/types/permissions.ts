@@ -1,7 +1,7 @@
 // 共享类型定义
 // 注意：UserRole 和 UserWithPermissions 已在 src/types/index.ts 中定义
 // 这里重新导出以保持向后兼容
-export { UserRole, UserWithPermissions } from './index';
+export { UserWithPermissions } from './index';
 
 export interface UserPermissions {
   menu: string[];
