@@ -251,6 +251,7 @@ export default function MobileIntegratedUserManagement() {
 
       // 添加新的项目限制（只存储被限制的项目，设置can_view=false）
       if (restrictedProjectIds.length > 0) {
+        const currentUserId = (await supabase.auth.getUser()).data.user?.id;
         const restrictions = restrictedProjectIds.map(projectId => ({
           user_id: userId,
           project_id: projectId,
@@ -258,7 +259,7 @@ export default function MobileIntegratedUserManagement() {
           can_view: false,
           can_edit: false,
           can_delete: false,
-          created_by: (await supabase.auth.getUser()).data.user?.id
+          created_by: currentUserId
         }));
 
         const { error } = await supabase
