@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 interface ProjectDetails { id: string; name: string; partner_name: string; start_date: string; planned_total_tons: number; billing_type_id: number; }
 interface DailyReport { trip_count: number; total_tonnage: number; driver_receivable: number; partner_payable: number; }
 interface TrendData { date: string; trips: number; weight: number; receivable: number; }
-interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; }
+interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; total_driver_receivable: number; }
 interface DriverReportRow { driver_name: string; license_plate: string; phone: string; daily_trip_count: number; total_trip_count: number; total_tonnage: number; total_driver_receivable: number; total_partner_payable: number; }
 interface DashboardData { project_details: ProjectDetails[]; daily_report: DailyReport; seven_day_trend: TrendData[]; summary_stats: SummaryStats; driver_report_table: DriverReportRow[]; }
 
@@ -213,9 +213,9 @@ export default function ProjectDashboard() {
                     </div>
                   </Card>
                   <Card className="flex flex-col justify-center items-center p-2">
-                    <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.summary_stats?.avg_cost, `元/${unitConfig.unit}`)}</p>
+                    <p className="text-2xl font-bold text-green-600">{formatNumber(dashboardData.summary_stats?.total_driver_receivable, '元')}</p>
                     <div className="flex items-center text-sm text-slate-500 mt-1">
-                      <BarChartHorizontal className="h-4 w-4 mr-2"/>平均单位成本
+                      <BarChartHorizontal className="h-4 w-4 mr-2"/>司机应收总额
                     </div>
                   </Card>
                   <Card className="flex flex-col justify-center items-center p-2">

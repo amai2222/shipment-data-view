@@ -33,7 +33,7 @@ interface ProjectDataPackage {
   seven_day_trend: TrendData[];
   driver_report_table: DriverReportRow[];
 }
-interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; }
+interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; total_driver_receivable: number; }
 interface OverviewDashboardData { all_projects_data: ProjectDataPackage[]; global_seven_day_trend: TrendData[]; global_driver_report_table: DriverReportRow[]; global_summary: { total_projects: number; total_receivable: number; total_trips: number; } }
 
 // --- 辅助函数 (无修改) ---
@@ -155,7 +155,7 @@ export default function ProjectsOverview() {
         console.log('项目看板查询参数:', params);
       }
       
-      const { data, error } = await supabase.rpc('get_all_projects_overview_data' as any, params);
+      const { data, error } = await supabase.rpc('get_all_projects_overview_data_with_driver_receivable' as any, params);
       
       // 调试日志
       if (import.meta.env.DEV) {
