@@ -28,7 +28,6 @@ export interface SummaryStats {
   total_trips: number;
   total_cost: number;
   avg_cost: number;
-  total_driver_receivable: number;
   total_tonnage: number;
 }
 
@@ -130,7 +129,7 @@ export class DashboardDataService {
         p_project_ids: projectIds && projectIds.length > 0 ? projectIds : null
       };
       
-      const { data, error } = await supabase.rpc('get_all_projects_overview_data_with_driver_receivable' as any, params);
+      const { data, error } = await supabase.rpc('get_all_projects_overview_data' as any, params);
 
       if (error) {
         return { data: null, error };

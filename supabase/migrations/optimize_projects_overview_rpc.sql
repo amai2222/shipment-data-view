@@ -81,8 +81,7 @@ BEGIN
       lr.project_id,
       COUNT(*) AS total_trips,
       SUM(COALESCE(lr.unloading_weight, lr.loading_weight)) AS total_tonnage,
-      SUM(lpc_top.payable_amount) AS total_cost,
-      SUM(lpc_driver.base_amount) AS total_driver_receivable
+      SUM(lpc_top.payable_amount) AS total_cost
     FROM logistics_records lr
     LEFT JOIN LATERAL (
       SELECT payable_amount
@@ -91,8 +90,6 @@ BEGIN
       ORDER BY level DESC
       LIMIT 1
     ) lpc_top ON true
-    LEFT JOIN logistics_partner_costs lpc_driver 
-      ON lr.id = lpc_driver.logistics_record_id AND lpc_driver.level = 1
     WHERE lr.loading_date::date <= p_report_date
     AND (p_project_ids IS NULL OR lr.project_id = ANY(p_project_ids))
     GROUP BY lr.project_id
@@ -103,7 +100,6 @@ BEGIN
       total_trips,
       COALESCE(total_tonnage, 0) AS total_tonnage,
       COALESCE(total_cost, 0) AS total_cost,
-      COALESCE(total_driver_receivable, 0) AS total_driver_receivable,
       CASE 
         WHEN COALESCE(total_tonnage, 0) > 0 
         THEN COALESCE(total_cost, 0) / total_tonnage

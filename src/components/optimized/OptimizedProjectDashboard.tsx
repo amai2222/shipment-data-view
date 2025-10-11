@@ -298,10 +298,10 @@ export default function OptimizedProjectDashboard() {
               
               <Card className="flex flex-col justify-center items-center p-2">
                 <p className="text-2xl font-bold text-green-600">
-                  {formatNumber(dashboardData.summary_stats?.total_driver_receivable, '元')}
+                  {formatNumber(dashboardData.summary_stats?.avg_cost, `元/${unitConfig.unit}`)}
                 </p>
                 <div className="flex items-center text-sm text-slate-500 mt-1">
-                  <BarChartHorizontal className="h-4 w-4 mr-2"/>司机应收总额
+                  <BarChartHorizontal className="h-4 w-4 mr-2"/>平均单位成本
                 </div>
               </Card>
               

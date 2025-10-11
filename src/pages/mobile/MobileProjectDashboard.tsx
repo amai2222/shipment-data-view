@@ -70,7 +70,6 @@ interface SummaryStats {
   total_cost: number; 
   avg_cost: number; 
   total_tonnage: number; 
-  total_driver_receivable: number;
 }
 
 interface DriverReportRow { 
@@ -458,10 +457,10 @@ export default function MobileProjectDashboard() {
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <div className="flex items-center">
                   <BarChartHorizontal className="h-4 w-4 mr-2 text-muted-foreground" />
-                  <span className="text-sm">司机应收总额</span>
+                  <span className="text-sm">平均单价</span>
                 </div>
                 <span className="font-semibold">
-                  {formatNumber(dashboardData.summary_stats?.total_driver_receivable, '元')}
+                  {formatNumber(dashboardData.summary_stats?.avg_cost, `元/${unitConfig.unit}`)}
                 </span>
               </div>
               

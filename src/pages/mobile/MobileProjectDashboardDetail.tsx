@@ -92,7 +92,6 @@ interface SummaryStats {
   total_tonnage: number;
   total_cost: number;
   avg_cost: number;
-  total_driver_receivable: number;
 }
 
 interface DriverReportRow {
