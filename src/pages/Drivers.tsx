@@ -82,25 +82,89 @@ export default function Drivers() {
   const loadData = useCallback(async (page: number, filter: string, currentPageSize: number = pageSize) => {
     setIsLoading(true);
     try {
+      // 先尝试加载项目数据
       if (projects.length === 0) {
-        const loadedProjects = await SupabaseStorage.getProjects();
-        setProjects(loadedProjects);
+        try {
+          const loadedProjects = await SupabaseStorage.getProjects();
+          setProjects(loadedProjects);
+        } catch (projectError) {
+          console.warn('项目数据加载失败，继续加载司机数据:', projectError);
+          setProjects([]);
+        }
       }
       
-      const { drivers: loadedDrivers, totalCount: loadedTotalCount } = await SupabaseStorage.getDrivers(filter, page, currentPageSize);
-      
-      setDrivers(loadedDrivers || []);
-      setTotalCount(loadedTotalCount);
-      setTotalPages(Math.ceil(loadedTotalCount / currentPageSize));
-      setCurrentPage(page);
+      // 尝试使用RPC函数加载司机数据
+      try {
+        const { drivers: loadedDrivers, totalCount: loadedTotalCount } = await SupabaseStorage.getDrivers(filter, page, currentPageSize);
+        
+        setDrivers(loadedDrivers || []);
+        setTotalCount(loadedTotalCount);
+        setTotalPages(Math.ceil(loadedTotalCount / currentPageSize));
+        setCurrentPage(page);
+        
+      } catch (rpcError) {
+        console.warn('RPC函数调用失败，尝试直接查询:', rpcError);
+        
+        // 如果RPC函数失败，尝试直接查询
+        const { data: directData, error: directError } = await supabase
+          .from('drivers')
+          .select('id, name, license_plate, phone, created_at')
+          .limit(currentPageSize)
+          .range((page - 1) * currentPageSize, page * currentPageSize - 1);
+        
+        if (directError) {
+          throw directError;
+        }
+        
+        // 转换数据格式
+        const convertedDrivers = (directData || []).map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          licensePlate: d.license_plate,
+          phone: d.phone,
+          projectIds: [],
+          id_card_photos: d.id_card_photos || [],
+          driver_license_photos: d.driver_license_photos || [],
+          qualification_certificate_photos: d.qualification_certificate_photos || [],
+          driving_license_photos: d.driving_license_photos || [],
+          transport_license_photos: d.transport_license_photos || [],
+          createdAt: d.created_at
+        }));
+        
+        setDrivers(convertedDrivers);
+        setTotalCount(convertedDrivers.length);
+        setTotalPages(1);
+        setCurrentPage(1);
+      }
 
     } catch (error) {
       console.error('Error loading data:', error);
+      
+      // 提供更详细的错误信息
+      let errorMessage = "无法加载司机数据";
+      if (error?.message) {
+        if (error.message.includes('permission')) {
+          errorMessage = "权限不足，无法访问司机数据";
+        } else if (error.message.includes('function')) {
+          errorMessage = "数据库函数不存在，请联系管理员";
+        } else if (error.message.includes('connection')) {
+          errorMessage = "数据库连接失败，请检查网络";
+        } else {
+          errorMessage = `加载失败: ${error.message}`;
+        }
+      }
+      
       toast({
         title: "加载失败",
-        description: "无法加载司机数据",
+        description: errorMessage,
         variant: "destructive",
       });
+      
+      // 设置空数据状态
+      setDrivers([]);
+      setTotalCount(0);
+      setTotalPages(0);
+      setCurrentPage(1);
     } finally {
       setIsLoading(false);
     }
