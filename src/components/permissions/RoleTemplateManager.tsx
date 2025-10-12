@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS, DATA_PERMISSIONS, ROLES } from '@/config/permissions';
-import { RoleTemplate } from '@/types/permissions';
+import { RoleTemplate } from '@/types/permission';
 
 interface RoleTemplateManagerProps {
   roleTemplates: Record<string, RoleTemplate>;

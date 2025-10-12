@@ -3,7 +3,8 @@
 import React from 'react';
 import { Button, ButtonProps } from '@/components/ui/button';
 import { useAdvancedPermissions } from '@/hooks/useAdvancedPermissions';
-import { PermissionType } from '@/types/permissions';
+
+type PermissionType = 'menu' | 'function' | 'project' | 'data';
 
 interface PermissionButtonProps extends ButtonProps {
   permission: string;

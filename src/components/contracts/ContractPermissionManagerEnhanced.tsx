@@ -38,7 +38,7 @@ import {
   WifiOff
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { ContractPermission, ContractOwnerPermission, CategoryPermissionTemplate } from '@/types/permissions';
+import type { ContractPermission, ContractOwnerPermission, CategoryPermissionTemplate } from '@/types/permissions';
 import { ContractPermissionServiceSimple as ContractPermissionService } from '@/services/contractPermissionServiceSimple';
 import { useContractPermissionRealtime } from '@/hooks/useContractPermissionRealtime';
 

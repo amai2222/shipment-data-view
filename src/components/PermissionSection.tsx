@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useAdvancedPermissions } from '@/hooks/useAdvancedPermissions';
-import { PermissionType } from '@/types/permissions';
+
+type PermissionType = 'menu' | 'function' | 'project' | 'data';
 
 interface PermissionSectionProps {
   permission: string;

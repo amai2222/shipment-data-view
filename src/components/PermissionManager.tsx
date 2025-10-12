@@ -35,9 +35,8 @@ import {
 import { 
   UserPermission, 
   RolePermissionTemplate, 
-  UserRole, 
-  PermissionType 
-} from '@/types/permissions';
+  UserRole
+} from '@/types/index';
 import { supabase } from '@/integrations/supabase/client';
 
 interface PermissionManagerProps {

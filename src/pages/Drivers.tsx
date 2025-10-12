@@ -563,6 +563,7 @@ export default function Drivers() {
                     </div>
                   </div>
                 </TabsContent>
+              </Tabs>
             </DialogContent>
         </Dialog>
         </div>

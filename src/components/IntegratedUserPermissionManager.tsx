@@ -17,7 +17,8 @@ import { PermissionConfiguration } from './permissions/PermissionConfiguration';
 import { RoleTemplateManager } from './permissions/RoleTemplateManager';
 import { ContractPermissionManager } from './contracts/ContractPermissionManagerEnhanced';
 import { PermissionQuickActions } from './PermissionQuickActions';
-import { UserWithPermissions, RoleTemplate } from '@/types/permissions';
+import { UserWithPermissions } from '@/types/index';
+import { RoleTemplate } from '@/types/permission';
 
 export function IntegratedUserPermissionManager() {
   const { toast } = useToast();

@@ -21,7 +21,8 @@ import {
 import { PermissionVisualizer } from '../PermissionVisualizer';
 import { ProjectPermissionManager } from '../ProjectPermissionManager';
 import { useProjects } from '@/hooks/useProjects';
-import { UserWithPermissions, RoleTemplate } from '@/types/permissions';
+import { UserWithPermissions } from '@/types/index';
+import { RoleTemplate } from '@/types/permission';
 import { UserCardSelector } from '../UserCardSelector';
 import { PermissionConfigDialog } from '../PermissionConfigDialog';
 import { PermissionDatabaseService } from '@/services/PermissionDatabaseService';
