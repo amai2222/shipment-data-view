@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2, Filter, X, FileImage, CheckSquare, Square, Link, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { Driver, Project } from "@/types";
 import * as XLSX from 'xlsx';
 import { PageHeader } from '@/components/PageHeader';
@@ -50,7 +51,7 @@ export default function Drivers() {
 
   // 批量选择和自动关联项目相关状态
   const [selectedDrivers, setSelectedDrivers] = useState<string[]>([]);
-  const [isSelectAll, setIsSelectAll] = useState(false);
+  const [isSelectAll, setIsSelectAll] = useState(false); // 默认为false，非选择状态
   const [showAssociateDialog, setShowAssociateDialog] = useState(false);
   const [associatePreview, setAssociatePreview] = useState<any>(null);
   const [isAssociating, setIsAssociating] = useState(false);
@@ -280,12 +281,17 @@ export default function Drivers() {
     setIsSelectAll(true);
   };
 
-  const handleSelectAllRecords = () => {
-    // 获取所有司机的ID（这里需要调用API获取所有司机ID）
-    // 暂时使用当前页面的司机ID，实际应用中需要获取所有记录
-    const allDriverIds = drivers.map(driver => driver.id);
-    setSelectedDrivers(allDriverIds);
-    setIsSelectAll(true);
+  const handleSelectAllRecords = async () => {
+    try {
+      // 获取所有司机的ID（不分页）
+      const { drivers: allDrivers } = await SupabaseStorage.getDrivers(quickFilter, 1, totalCount);
+      const allDriverIds = allDrivers.map(driver => driver.id);
+      setSelectedDrivers(allDriverIds);
+      setIsSelectAll(true);
+    } catch (error) {
+      console.error('获取所有司机失败:', error);
+      toast({ title: "获取所有司机失败", variant: "destructive" });
+    }
   };
 
   const handleDeselectCurrentPage = () => {
@@ -303,7 +309,7 @@ export default function Drivers() {
 
     try {
       setIsLoading(true);
-      const { data, error } = await SupabaseStorage.supabase.rpc('preview_driver_project_association', {
+      const { data, error } = await supabase.rpc('preview_driver_project_association', {
         p_driver_ids: selectedDrivers
       });
 
@@ -335,7 +341,7 @@ export default function Drivers() {
 
     try {
       setIsAssociating(true);
-      const { data, error } = await SupabaseStorage.supabase.rpc('batch_associate_driver_projects', {
+      const { data, error } = await supabase.rpc('batch_associate_driver_projects', {
         p_driver_ids: selectedDrivers
       });
 
@@ -374,7 +380,7 @@ export default function Drivers() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
-                <CheckSquare className="h-4 w-4 mr-2" />
+                {selectedDrivers.length > 0 ? <CheckSquare className="h-4 w-4 mr-2" /> : <Square className="h-4 w-4 mr-2" />}
                 批量选择
                 <ChevronDown className="h-4 w-4 ml-2" />
               </Button>
