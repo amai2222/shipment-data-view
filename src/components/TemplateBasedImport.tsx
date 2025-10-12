@@ -206,9 +206,10 @@ export default function TemplateBasedImport() {
               record[mapping.target_field] = parseFloat(String(value)) || 0;
             } else if (mapping.field_type === 'date' && value) {
               // 日期处理
-              if (value instanceof Date) {
-                record[mapping.target_field] = value.toISOString().split('T')[0];
-              } else if (typeof value === 'string') {
+              const dateValue = value as any;
+              if (Object.prototype.toString.call(dateValue) === '[object Date]') {
+                record[mapping.target_field] = dateValue.toISOString().split('T')[0];
+              } else if (typeof dateValue === 'string') {
                 // 尝试解析日期字符串
                 const date = new Date(value);
                 if (!isNaN(date.getTime())) {

@@ -310,7 +310,7 @@ export function PermissionVisualizer({
   // 渲染菜单权限
   const renderMenuPermissions = () => {
     const groupedMenus = MENU_PERMISSIONS.reduce((acc, menu) => {
-      const group = menu.group || '其他';
+      const group = menu.label || '其他';
       if (!acc[group]) {
         acc[group] = [];
       }
@@ -338,7 +338,7 @@ export function PermissionVisualizer({
                       <div className="flex items-center gap-3">
                         <Icon className="h-4 w-4 text-gray-600" />
                         <div>
-                          <div className="font-medium text-sm">{menu.title}</div>
+                          <div className="font-medium text-sm">{menu.label}</div>
                           <div className="text-xs text-gray-500">{menu.key}</div>
                         </div>
                       </div>
@@ -368,7 +368,7 @@ export function PermissionVisualizer({
   // 渲染功能权限
   const renderFunctionPermissions = () => {
     const groupedFunctions = FUNCTION_PERMISSIONS.reduce((acc, func) => {
-      const group = func.group || '其他';
+      const group = func.label || '其他';
       if (!acc[group]) {
         acc[group] = [];
       }
@@ -395,7 +395,7 @@ export function PermissionVisualizer({
                       <div className="flex items-center gap-3">
                         <Settings className="h-4 w-4 text-gray-600" />
                         <div>
-                          <div className="font-medium text-sm">{func.title}</div>
+                          <div className="font-medium text-sm">{func.label}</div>
                           <div className="text-xs text-gray-500">{func.key}</div>
                         </div>
                       </div>

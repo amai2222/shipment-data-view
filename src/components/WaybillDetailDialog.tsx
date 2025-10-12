@@ -268,7 +268,7 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
                 </div>
                 <div>
                   <Label className="text-xs text-blue-600 font-medium">合作链路</Label>
-                  <p className="text-sm text-gray-700 mt-1">{record.chain_name || '默认'}</p>
+                  <p className="text-sm text-gray-700 mt-1">{String('chain_name' in record ? record.chain_name || '默认' : '默认')}</p>
                 </div>
               </div>
             </div>
@@ -460,7 +460,8 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
                         const trackingNumbers = record.external_tracking_numbers || [];
                         
                         return platformNames.map((platformName, index) => {
-                          const platformTrackingNumbers = trackingNumbers[index] ? trackingNumbers[index].split('|') : [];
+                          const trackingItem = trackingNumbers[index];
+                          const platformTrackingNumbers = (typeof trackingItem === 'string' ? trackingItem.split('|') : []) as string[];
                           
                           return (
                             <div key={index} className="space-y-1">

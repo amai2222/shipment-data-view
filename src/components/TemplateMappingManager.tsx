@@ -224,8 +224,10 @@ export default function TemplateMappingManager() {
       const { data, error } = await supabase
         .from('import_templates')
         .upsert({
-          id: selectedTemplate?.id,
-          ...templateForm,
+          ...(selectedTemplate?.id && { id: selectedTemplate.id }),
+          name: templateForm.name,
+          platform_type: templateForm.platform_type,
+          description: templateForm.description,
           created_by_user_id: (await supabase.auth.getUser()).data.user?.id
         })
         .select()
@@ -256,9 +258,14 @@ export default function TemplateMappingManager() {
       const { error } = await supabase
         .from('import_field_mappings')
         .upsert({
-          ...(editingField?.id && { id: editingField.id }), // 只有编辑时才传递ID
+          ...(editingField?.id && { id: editingField.id }),
           template_id: selectedTemplate.id,
-          ...fieldForm
+          excel_column: fieldForm.excel_column,
+          database_field: fieldForm.database_field,
+          field_type: fieldForm.field_type,
+          is_required: fieldForm.is_required,
+          default_value: fieldForm.default_value,
+          display_order: fieldForm.display_order
         });
 
       if (error) throw error;
@@ -284,9 +291,12 @@ export default function TemplateMappingManager() {
       const { error } = await supabase
         .from('import_fixed_mappings')
         .upsert({
-          ...(editingFixed?.id && { id: editingFixed.id }), // 只有编辑时才传递ID
+          ...(editingFixed?.id && { id: editingFixed.id }),
           template_id: selectedTemplate.id,
-          ...fixedForm
+          excel_value: fixedForm.excel_value,
+          database_value: fixedForm.database_value,
+          mapping_type: fixedForm.mapping_type,
+          is_case_sensitive: fixedForm.is_case_sensitive
         });
 
       if (error) throw error;
