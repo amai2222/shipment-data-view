@@ -69,7 +69,7 @@ export function BatchPermissionOperations({ users, projects, onDataChange }: Bat
       
       const { error } = await supabase
         .from('profiles')
-        .update({ role: batchRole })
+        .update({ role: batchRole as any })
         .in('id', selectedUsers);
 
       if (error) throw error;

@@ -135,11 +135,12 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
         ...item,
         user_email: item.user_id ? `用户 ${item.user_id}` : null,
         user_name: item.user_id ? `用户 ${item.user_id}` : null,
-        role_name: item.role_name,
-        contract_number: item.contracts?.contract_number
+        role_name: (item as any).role_name || null,
+        contract_number: item.contracts?.contract_number,
+        granted_at: item.created_at
       }));
 
-      setPermissions(formattedData);
+      setPermissions(formattedData as any);
     } catch (error) {
       console.error('Error loading permissions:', error);
       toast({
@@ -331,7 +332,7 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
       user_id: permission.user_id || '',
       role_id: permission.role_id || '',
       department: permission.department || '',
-      field_permissions: permission.field_permissions || {
+      field_permissions: (permission.field_permissions || {
         contract_number: true,
         counterparty_company: true,
         our_company: true,
@@ -343,7 +344,7 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
         department: true,
         priority: true,
         status: true
-      },
+      }) as any,
       file_permissions: permission.file_permissions || {
         original: true,
         attachment: true
