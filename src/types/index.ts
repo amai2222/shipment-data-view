@@ -26,6 +26,8 @@ export interface Driver {
   id_card_photos?: string[]; // 身份证照片URL数组
   driver_license_photos?: string[]; // 驾驶证照片URL数组
   qualification_certificate_photos?: string[]; // 从业资格证照片URL数组
+  driving_license_photos?: string[]; // 行驶证照片URL数组
+  transport_license_photos?: string[]; // 道路运输许可证照片URL数组
   createdAt: string;
 }
 

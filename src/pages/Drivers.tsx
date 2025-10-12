@@ -20,6 +20,7 @@ import * as XLSX from 'xlsx';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge } from "@/components/ui/badge";
 import { DriverPhotoUpload, DriverPhotos } from "@/components/DriverPhotoUpload";
+import { VehiclePhotoUpload, VehiclePhotos } from "@/components/VehiclePhotoUpload";
 
 export default function Drivers() {
   const { toast } = useToast();
@@ -41,6 +42,10 @@ export default function Drivers() {
     id_card_photos: [],
     driver_license_photos: [],
     qualification_certificate_photos: []
+  });
+  const [vehiclePhotos, setVehiclePhotos] = useState<VehiclePhotos>({
+    driving_license_photos: [],
+    transport_license_photos: []
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -134,6 +139,10 @@ export default function Drivers() {
       driver_license_photos: [],
       qualification_certificate_photos: []
     });
+    setVehiclePhotos({
+      driving_license_photos: [],
+      transport_license_photos: []
+    });
     setEditingDriver(null);
   };
 
@@ -148,6 +157,10 @@ export default function Drivers() {
       id_card_photos: driver.id_card_photos || [],
       driver_license_photos: driver.driver_license_photos || [],
       qualification_certificate_photos: driver.qualification_certificate_photos || []
+    });
+    setVehiclePhotos({
+      driving_license_photos: driver.driving_license_photos || [],
+      transport_license_photos: driver.transport_license_photos || []
     });
     setEditingDriver(driver);
     setIsDialogOpen(true);
@@ -164,7 +177,9 @@ export default function Drivers() {
         ...formData,
         id_card_photos: driverPhotos.id_card_photos,
         driver_license_photos: driverPhotos.driver_license_photos,
-        qualification_certificate_photos: driverPhotos.qualification_certificate_photos
+        qualification_certificate_photos: driverPhotos.qualification_certificate_photos,
+        driving_license_photos: vehiclePhotos.driving_license_photos,
+        transport_license_photos: vehiclePhotos.transport_license_photos
       };
       
       if (editingDriver) {
@@ -464,11 +479,15 @@ export default function Drivers() {
               </DialogHeader>
               
               <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="basic">基本信息</TabsTrigger>
                   <TabsTrigger value="photos" className="flex items-center gap-2">
                     <FileImage className="h-4 w-4" />
                     证件照片
+                  </TabsTrigger>
+                  <TabsTrigger value="vehicle-photos" className="flex items-center gap-2">
+                    <Truck className="h-4 w-4" />
+                    车辆照片
                   </TabsTrigger>
                 </TabsList>
                 
@@ -526,7 +545,24 @@ export default function Drivers() {
                     </div>
                   </div>
                 </TabsContent>
-              </Tabs>
+                
+                {/* 车辆照片标签页 */}
+                <TabsContent value="vehicle-photos">
+                  <div className="space-y-4">
+                    <VehiclePhotoUpload
+                      driverName={formData.name || '未命名司机'}
+                      licensePlate={formData.licensePlate || '未知车牌'}
+                      existingPhotos={vehiclePhotos}
+                      onChange={setVehiclePhotos}
+                    />
+                    <div className="flex justify-end space-x-2 pt-4 border-t">
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>关闭</Button>
+                      <Button type="button" onClick={handleSubmit} className="bg-gradient-primary hover:bg-primary-hover">
+                        {editingDriver ? "更新司机信息" : "保存司机信息"}
+                      </Button>
+                    </div>
+                  </div>
+                </TabsContent>
             </DialogContent>
         </Dialog>
         </div>

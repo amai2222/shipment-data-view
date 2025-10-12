@@ -168,6 +168,11 @@ export class SupabaseStorage {
           licensePlate: d.license_plate,
           phone: d.phone,
           projectIds: d.project_ids,
+          id_card_photos: d.id_card_photos || [],
+          driver_license_photos: d.driver_license_photos || [],
+          qualification_certificate_photos: d.qualification_certificate_photos || [],
+          driving_license_photos: d.driving_license_photos || [],
+          transport_license_photos: d.transport_license_photos || [],
           createdAt: d.created_at
         })),
         totalCount: data[0].total_records || 0,
@@ -201,7 +206,17 @@ export class SupabaseStorage {
 
     const { data, error } = await supabase
       .from('drivers')
-      .insert([{ user_id: user.id, name: driver.name, license_plate: driver.licensePlate, phone: driver.phone }])
+      .insert([{ 
+        user_id: user.id, 
+        name: driver.name, 
+        license_plate: driver.licensePlate, 
+        phone: driver.phone,
+        id_card_photos: driver.id_card_photos || [],
+        driver_license_photos: driver.driver_license_photos || [],
+        qualification_certificate_photos: driver.qualification_certificate_photos || [],
+        driving_license_photos: driver.driving_license_photos || [],
+        transport_license_photos: driver.transport_license_photos || []
+      }])
       .select().single();
 
     if (error) throw error;
@@ -214,15 +229,33 @@ export class SupabaseStorage {
     }
 
     return {
-      id: data.id, name: data.name, licensePlate: data.license_plate, phone: data.phone,
-      projectIds: driver.projectIds || [], createdAt: data.created_at,
+      id: data.id, 
+      name: data.name, 
+      licensePlate: data.license_plate, 
+      phone: data.phone,
+      projectIds: driver.projectIds || [], 
+      id_card_photos: driver.id_card_photos || [],
+      driver_license_photos: driver.driver_license_photos || [],
+      qualification_certificate_photos: driver.qualification_certificate_photos || [],
+      driving_license_photos: driver.driving_license_photos || [],
+      transport_license_photos: driver.transport_license_photos || [],
+      createdAt: data.created_at,
     };
   }
 
   static async updateDriver(id: string, updates: Partial<Driver>): Promise<void> {
     const { error } = await supabase
       .from('drivers')
-      .update({ name: updates.name, license_plate: updates.licensePlate, phone: updates.phone })
+      .update({ 
+        name: updates.name, 
+        license_plate: updates.licensePlate, 
+        phone: updates.phone,
+        id_card_photos: updates.id_card_photos,
+        driver_license_photos: updates.driver_license_photos,
+        qualification_certificate_photos: updates.qualification_certificate_photos,
+        driving_license_photos: updates.driving_license_photos,
+        transport_license_photos: updates.transport_license_photos
+      })
       .eq('id', id);
     if (error) throw error;
 
