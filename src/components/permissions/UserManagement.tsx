@@ -322,7 +322,7 @@ export function UserManagement({
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ role: bulkRole })
+        .update({ role: bulkRole as any })
         .in('id', selectedUsers);
 
       if (error) throw error;

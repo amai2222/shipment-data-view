@@ -75,7 +75,9 @@ export function PermissionSelector({
                   id={`group-${group.key}`}
                   checked={allSelected}
                   ref={(el) => {
-                    if (el) el.indeterminate = someSelected;
+                    if (el && el instanceof HTMLInputElement) {
+                      el.indeterminate = someSelected;
+                    }
                   }}
                   onCheckedChange={() => toggleGroup(group)}
                   disabled={disabled}

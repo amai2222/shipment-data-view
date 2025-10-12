@@ -127,7 +127,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
       // 使用 upsert 操作，避免更新失败
       const { error } = await supabase
         .from('role_permission_templates')
-        .upsert(updateData, {
+        .upsert([updateData], {
           onConflict: 'role'
         });
 
@@ -191,7 +191,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
         project_permissions: [...sourceTemplate.project_permissions],
         data_permissions: [...sourceTemplate.data_permissions]
       });
-      setShowCreateDialog(true);
+      setShowCreateRoleDialog(true);
     }
   };
 

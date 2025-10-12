@@ -5,7 +5,7 @@
 
 import React, { useCallback, useRef } from 'react';
 import { FixedSizeList as VirtualList, ListChildComponentProps } from 'react-window';
-import AutoSizer from 'react-virtualized-auto-sizer';
+// import AutoSizer from 'react-virtualized-auto-sizer';
 import { MobilePullToRefresh } from './MobilePullToRefresh';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { MobileSkeletonLoader } from './MobileSkeletonLoader';
@@ -100,19 +100,15 @@ export function MobileOptimizedList<T>({
       // 使用虚拟列表
       return (
         <div className="h-[calc(100vh-200px)]">
-          <AutoSizer>
-            {({ height, width }) => (
-              <VirtualList
-                height={height}
-                width={width}
-                itemCount={items.length}
-                itemSize={itemHeight}
-                overscanCount={3}
-              >
-                {VirtualRow}
-              </VirtualList>
-            )}
-          </AutoSizer>
+          <VirtualList
+            height={600}
+            width="100%"
+            itemCount={items.length}
+            itemSize={itemHeight}
+            overscanCount={3}
+          >
+            {VirtualRow}
+          </VirtualList>
         </div>
       );
     }

@@ -128,11 +128,11 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
           </p>
         </div>
         <div className="flex space-x-2">
-          <Button onClick={loadData} variant="outline" size="sm">
+          <Button onClick={() => loadData()} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             刷新
           </Button>
-          <Button onClick={handleForceRefresh} variant="outline" size="sm">
+          <Button onClick={() => handleForceRefresh()} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             强制刷新
           </Button>
@@ -206,7 +206,7 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
 
         <TabsContent value="roles" className="space-y-4">
           <RoleManagement 
-            roleTemplates={Object.values(roleTemplates)}
+            roleTemplates={Object.values(roleTemplates) as any[]}
             onDataChange={handleDataChange}
           />
         </TabsContent>
@@ -231,7 +231,7 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
 
         <TabsContent value="templates" className="space-y-4">
           <PermissionTemplates 
-            roleTemplates={Object.values(roleTemplates)}
+            roleTemplates={Object.values(roleTemplates) as any[]}
             onDataChange={handleDataChange}
           />
         </TabsContent>
@@ -239,7 +239,7 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
         <TabsContent value="visualization" className="space-y-4">
           <PermissionVisualization 
             users={users}
-            roleTemplates={Object.values(roleTemplates)}
+            roleTemplates={Object.values(roleTemplates) as any[]}
             userPermissions={userPermissions}
           />
         </TabsContent>

@@ -61,8 +61,8 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
       
       const { error } = await supabase
         .from('role_permission_templates')
-        .insert({
-          role: newTemplate.role,
+        .insert([{
+          role: newTemplate.role as any,
           name: newTemplate.name,
           description: newTemplate.description,
           color: newTemplate.color,
@@ -71,7 +71,7 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
           project_permissions: [],
           data_permissions: [],
           is_system: false
-        });
+        }]);
 
       if (error) throw error;
 
@@ -258,13 +258,13 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
   const applyPresetTemplate = async (presetType: string) => {
     try {
       // 从数据库获取对应角色的模板，而不是使用硬编码
-      const { data: roleTemplate, error } = await supabase
+      const { data: roleTemplate, error: fetchError } = await supabase
         .from('role_permission_templates')
         .select('*')
         .eq('role', presetType)
         .single();
 
-      if (error || !roleTemplate) {
+      if (fetchError || !roleTemplate) {
         toast({
           title: "模板不存在",
           description: `角色 ${presetType} 的模板不存在，请先创建该角色模板`,
@@ -287,7 +287,7 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
 
       setLoading(true);
       
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('role_permission_templates')
         .insert({
           ...preset,
@@ -296,7 +296,7 @@ export function PermissionTemplates({ roleTemplates, onDataChange }: PermissionT
           is_system: false
         });
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       toast({
         title: "成功",

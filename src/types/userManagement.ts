@@ -2,6 +2,9 @@
 
 import { UserRole } from './permission';
 
+// 重新导出AppRole类型
+export type AppRole = UserRole;
+
 export interface User {
   id: string;
   email: string;

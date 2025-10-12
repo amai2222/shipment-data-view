@@ -88,7 +88,7 @@ export function BatchOperations({
                 <SelectContent>
                   {Object.entries(ROLES).map(([key, role]) => (
                     <SelectItem key={key} value={key}>
-                      {role.label}
+                      {(role as any).label}
                     </SelectItem>
                   ))}
                 </SelectContent>

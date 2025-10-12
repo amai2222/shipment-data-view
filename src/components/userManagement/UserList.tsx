@@ -85,7 +85,9 @@ export function UserList({
                 <Checkbox
                   checked={allSelected}
                   ref={(el) => {
-                    if (el) el.indeterminate = someSelected;
+                    if (el && el instanceof HTMLInputElement) {
+                      el.indeterminate = someSelected;
+                    }
                   }}
                   onCheckedChange={onSelectAll}
                 />

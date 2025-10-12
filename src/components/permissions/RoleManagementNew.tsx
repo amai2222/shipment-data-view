@@ -1,247 +1,275 @@
-// 角色管理组件 - 简化版本
+// 新角色管理组件
+// 文件: src/components/permissions/RoleManagementNew.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Settings, Building2, Database } from 'lucide-react';
-import { PermissionSelector } from './PermissionSelector';
+import { Shield, Save, RefreshCw, Settings, Building2, Database } from 'lucide-react';
 import { 
-  RoleTemplate, 
-  AppRole, 
-  PermissionGroup 
-} from '@/types/permission';
-import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS, DATA_PERMISSIONS } from '@/config/permissionsNew';
+  MENU_PERMISSIONS_NEW, 
+  FUNCTION_PERMISSIONS_NEW, 
+  PROJECT_PERMISSIONS_NEW, 
+  DATA_PERMISSIONS_NEW,
+  ROLES_NEW
+} from '@/config/permissionsNew';
+import { PermissionGroupNew } from '@/config/permissionsNew';
+import { supabase } from '@/integrations/supabase/client';
 
-interface RoleManagementProps {
-  roleTemplates: Record<AppRole, RoleTemplate>;
-  onSaveRoleTemplate: (template: Partial<RoleTemplate>) => Promise<any>;
-  loading?: boolean;
+interface RoleTemplateNew {
+  role: string;
+  name: string;
+  description: string;
+  color: string;
+  menu_permissions: string[];
+  function_permissions: string[];
+  project_permissions: string[];
+  data_permissions: string[];
+  is_system: boolean;
 }
 
-export function RoleManagement({ 
-  roleTemplates, 
-  onSaveRoleTemplate, 
-  loading = false 
-}: RoleManagementProps) {
+interface RoleManagementNewProps {
+  roleTemplates: RoleTemplateNew[];
+  onDataChange: () => void;
+}
+
+export function RoleManagementNew({ roleTemplates, onDataChange }: RoleManagementNewProps) {
   const { toast } = useToast();
-  const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
-  const [currentTemplate, setCurrentTemplate] = useState<Partial<RoleTemplate>>({});
+  const [selectedRole, setSelectedRole] = useState<string>('admin');
   const [saving, setSaving] = useState(false);
+  const [currentPermissions, setCurrentPermissions] = useState({
+    menu_permissions: [] as string[],
+    function_permissions: [] as string[],
+    project_permissions: [] as string[],
+    data_permissions: [] as string[]
+  });
 
-  // 角色选项
-  const roleOptions: { value: AppRole; label: string }[] = [
-    { value: 'admin', label: '系统管理员' },
-    { value: 'finance', label: '财务人员' },
-    { value: 'business', label: '业务人员' },
-    { value: 'operator', label: '操作员' },
-    { value: 'partner', label: '合作伙伴' },
-    { value: 'viewer', label: '查看者' }
-  ];
-
-  // 当选择角色时，加载对应的模板
-  useEffect(() => {
-    if (selectedRole && roleTemplates[selectedRole]) {
-      const template = roleTemplates[selectedRole];
-      setCurrentTemplate({
-        role: template.role,
-        name: template.name,
-        description: template.description,
-        color: template.color,
-        menu_permissions: [...template.menu_permissions],
-        function_permissions: [...template.function_permissions],
-        project_permissions: [...template.project_permissions],
-        data_permissions: [...template.data_permissions]
+  // 获取当前角色的权限配置
+  React.useEffect(() => {
+    const template = roleTemplates.find(t => t.role === selectedRole);
+    if (template) {
+      setCurrentPermissions({
+        menu_permissions: template.menu_permissions || [],
+        function_permissions: template.function_permissions || [],
+        project_permissions: template.project_permissions || [],
+        data_permissions: template.data_permissions || []
       });
-    } else if (selectedRole) {
-      // 创建新模板
-      setCurrentTemplate({
-        role: selectedRole,
-        name: roleOptions.find(r => r.value === selectedRole)?.label || selectedRole,
-        description: '',
-        color: 'bg-blue-500',
-        menu_permissions: [],
-        function_permissions: [],
-        project_permissions: [],
-        data_permissions: []
-      });
+    } else {
+      // 数据库中没有该角色的权限，使用默认权限
+      if (selectedRole === 'admin') {
+        console.info(`Admin角色使用默认全权限`);
+        setCurrentPermissions({
+          menu_permissions: ['dashboard', 'contracts', 'maintenance', 'business', 'finance', 'settings'],
+          function_permissions: ['data.create', 'data.edit', 'data.delete', 'data.export', 'data.import'],
+          project_permissions: ['project.view_all', 'project.create', 'project.edit', 'project.delete'],
+          data_permissions: ['data.view_all', 'data.export_all']
+        });
+      } else {
+        console.info(`角色 ${selectedRole} 使用默认权限配置`);
+        setCurrentPermissions({
+          menu_permissions: [],
+          function_permissions: [],
+          project_permissions: [],
+          data_permissions: []
+        });
+      }
     }
-  }, [selectedRole, roleTemplates]);
+  }, [selectedRole]);
 
-  // 保存角色模板
-  const handleSave = async () => {
-    if (!selectedRole || !currentTemplate) {
-      toast({
-        title: "错误",
-        description: "请选择角色",
-        variant: "destructive"
-      });
-      return;
-    }
+  // 切换权限
+  const togglePermission = (type: string, key: string) => {
+    setCurrentPermissions(prev => {
+      const field = `${type}_permissions` as keyof typeof prev;
+      const current = prev[field] || [];
+      const updated = current.includes(key)
+        ? current.filter(p => p !== key)
+        : [...current, key];
+      
+      return {
+        ...prev,
+        [field]: updated
+      };
+    });
+  };
 
+  // 保存角色权限
+  const handleSaveRolePermissions = async () => {
     try {
       setSaving(true);
       
-      const result = await onSaveRoleTemplate(currentTemplate);
-      
-      if (result.success) {
-        toast({
-          title: "成功",
-          description: result.message
+      const permissionData = {
+        role: selectedRole,
+        name: ROLES_NEW[selectedRole as keyof typeof ROLES_NEW]?.label || selectedRole,
+        description: ROLES_NEW[selectedRole as keyof typeof ROLES_NEW]?.description || '',
+        color: ROLES_NEW[selectedRole as keyof typeof ROLES_NEW]?.color || 'bg-gray-500',
+        menu_permissions: currentPermissions.menu_permissions,
+        function_permissions: currentPermissions.function_permissions,
+        project_permissions: currentPermissions.project_permissions,
+        data_permissions: currentPermissions.data_permissions,
+        is_system: true
+      };
+
+      // 使用 upsert 操作，避免更新失败
+      const { error } = await supabase
+        .from('role_permission_templates')
+        .upsert([permissionData], {
+          onConflict: 'role'
         });
-      } else {
-        toast({
-          title: "错误",
-          description: result.message,
-          variant: "destructive"
-        });
+
+      if (error) {
+        console.error('数据库错误详情:', error);
+        throw new Error(`数据库操作失败: ${error.message}`);
       }
-    } catch (error: any) {
+
+      toast({
+        title: "成功",
+        description: "角色权限已保存",
+      });
+
+      onDataChange();
+    } catch (error) {
+      console.error('保存角色权限失败:', error);
       toast({
         title: "错误",
-        description: `保存失败: ${error.message}`,
-        variant: "destructive"
+        description: "保存角色权限失败",
+        variant: "destructive",
       });
     } finally {
       setSaving(false);
     }
   };
 
-  // 更新权限
-  const updatePermissions = (type: 'menu' | 'function' | 'project' | 'data', permissions: string[]) => {
-    setCurrentTemplate(prev => ({
-      ...prev,
-      [`${type}_permissions`]: permissions
-    }));
-  };
-
-  // 计算总权限数
-  const getTotalPermissions = () => {
-    if (!currentTemplate) return 0;
-    return (currentTemplate.menu_permissions?.length || 0) +
-           (currentTemplate.function_permissions?.length || 0) +
-           (currentTemplate.project_permissions?.length || 0) +
-           (currentTemplate.data_permissions?.length || 0);
-  };
-
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center">加载中...</div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // 渲染权限列表
+  const renderPermissionList = (
+    permissions: PermissionGroupNew[],
+    type: string,
+    title: string,
+    icon: React.ReactNode
+  ) => (
+    <div className="space-y-4">
+      <div className="flex items-center space-x-2">
+        {icon}
+        <h3 className="text-lg font-medium">{title}</h3>
+        <Badge variant="outline">
+          {permissions.reduce((acc, group) => acc + group.children.length, 0)} 项权限
+        </Badge>
+      </div>
+      
+      <ScrollArea className="h-96">
+        <div className="space-y-4">
+          {permissions.map(group => (
+            <Card key={group.key}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">{group.label}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {group.children.map(item => (
+                  <div key={item.key} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`${type}-${item.key}`}
+                      checked={currentPermissions[`${type}_permissions` as keyof typeof currentPermissions].includes(item.key)}
+                      onCheckedChange={() => togglePermission(type, item.key)}
+                    />
+                    <Label htmlFor={`${type}-${item.key}`} className="text-sm">
+                      {item.label}
+                    </Label>
+                    {item.description && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        {item.description}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      {/* 角色选择 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Shield className="h-5 w-5 mr-2" />
-            角色权限管理
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1">
-              <label className="text-sm font-medium">选择角色</label>
-              <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as AppRole)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择要管理的角色" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roleOptions.map(role => (
-                    <SelectItem key={role.value} value={role.value}>
-                      {role.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {selectedRole && (
-              <div className="flex items-center space-x-2">
-                <Badge variant="outline">
-                  总权限: {getTotalPermissions()}
-                </Badge>
-                <Button 
-                  onClick={handleSave} 
-                  disabled={saving}
-                  className="min-w-[100px]"
-                >
-                  {saving ? '保存中...' : '保存'}
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <Shield className="h-5 w-5" />
+          <span>角色权限管理</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* 角色选择 */}
+        <div className="flex items-center space-x-4">
+          <Label htmlFor="role-select">选择角色:</Label>
+          <Select value={selectedRole} onValueChange={setSelectedRole}>
+            <SelectTrigger id="role-select" className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(ROLES_NEW).map(([key, role]) => (
+                <SelectItem key={key} value={key}>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${role.color}`} />
+                    <span>{role.label}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Button 
+            onClick={handleSaveRolePermissions} 
+            disabled={saving}
+            className="flex items-center space-x-2"
+          >
+            <Save className="h-4 w-4" />
+            <span>{saving ? '保存中...' : '保存权限'}</span>
+          </Button>
+        </div>
 
-      {/* 权限配置 */}
-      {selectedRole && currentTemplate && (
-        <Tabs defaultValue="menu" className="space-y-4">
+        {/* 权限配置 */}
+        <Tabs defaultValue="menu" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="menu" className="flex items-center">
-              <Shield className="h-4 w-4 mr-2" />
-              菜单权限
+            <TabsTrigger value="menu" className="flex items-center space-x-2">
+              <Settings className="h-4 w-4" />
+              <span>菜单权限</span>
             </TabsTrigger>
-            <TabsTrigger value="function" className="flex items-center">
-              <Settings className="h-4 w-4 mr-2" />
-              功能权限
+            <TabsTrigger value="function" className="flex items-center space-x-2">
+              <Shield className="h-4 w-4" />
+              <span>功能权限</span>
             </TabsTrigger>
-            <TabsTrigger value="project" className="flex items-center">
-              <Building2 className="h-4 w-4 mr-2" />
-              项目权限
+            <TabsTrigger value="project" className="flex items-center space-x-2">
+              <Building2 className="h-4 w-4" />
+              <span>项目权限</span>
             </TabsTrigger>
-            <TabsTrigger value="data" className="flex items-center">
-              <Database className="h-4 w-4 mr-2" />
-              数据权限
+            <TabsTrigger value="data" className="flex items-center space-x-2">
+              <Database className="h-4 w-4" />
+              <span>数据权限</span>
             </TabsTrigger>
           </TabsList>
-
+          
           <TabsContent value="menu">
-            <PermissionSelector
-              title="菜单权限"
-              permissions={MENU_PERMISSIONS}
-              selectedPermissions={currentTemplate.menu_permissions || []}
-              onPermissionChange={(permissions) => updatePermissions('menu', permissions)}
-            />
+            {renderPermissionList(MENU_PERMISSIONS_NEW, 'menu', '菜单权限', <Settings className="h-5 w-5" />)}
           </TabsContent>
-
+          
           <TabsContent value="function">
-            <PermissionSelector
-              title="功能权限"
-              permissions={FUNCTION_PERMISSIONS}
-              selectedPermissions={currentTemplate.function_permissions || []}
-              onPermissionChange={(permissions) => updatePermissions('function', permissions)}
-            />
+            {renderPermissionList(FUNCTION_PERMISSIONS_NEW, 'function', '功能权限', <Shield className="h-5 w-5" />)}
           </TabsContent>
-
+          
           <TabsContent value="project">
-            <PermissionSelector
-              title="项目权限"
-              permissions={PROJECT_PERMISSIONS}
-              selectedPermissions={currentTemplate.project_permissions || []}
-              onPermissionChange={(permissions) => updatePermissions('project', permissions)}
-            />
+            {renderPermissionList(PROJECT_PERMISSIONS_NEW, 'project', '项目权限', <Building2 className="h-5 w-5" />)}
           </TabsContent>
-
+          
           <TabsContent value="data">
-            <PermissionSelector
-              title="数据权限"
-              permissions={DATA_PERMISSIONS}
-              selectedPermissions={currentTemplate.data_permissions || []}
-              onPermissionChange={(permissions) => updatePermissions('data', permissions)}
-            />
+            {renderPermissionList(DATA_PERMISSIONS_NEW, 'data', '数据权限', <Database className="h-5 w-5" />)}
           </TabsContent>
         </Tabs>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -7,9 +7,7 @@ export interface PermissionItem {
   key: string;
   label: string;
   description?: string;
-  url?: string;
   icon?: string;
-  group: string;
   scope?: string;
   requiredRoles?: string[];
 }
@@ -80,9 +78,9 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     label: '数据看板',
     icon: 'BarChart3',
     children: [
-      { key: 'dashboard.transport', label: '运输看板', url: '/dashboard/transport', icon: 'Truck', group: '数据看板' },
-      { key: 'dashboard.financial', label: '财务看板', url: '/dashboard/financial', icon: 'DollarSign', group: '数据看板' },
-      { key: 'dashboard.project', label: '项目看板', url: '/dashboard/project', icon: 'PieChart', group: '数据看板' }
+      { key: 'dashboard.transport', label: '运输看板', icon: 'Truck' },
+      { key: 'dashboard.financial', label: '财务看板', icon: 'DollarSign' },
+      { key: 'dashboard.project', label: '项目看板', icon: 'PieChart' }
     ]
   },
   {
@@ -91,7 +89,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     label: '合同管理',
     icon: 'FileText',
     children: [
-      { key: 'contracts.list', label: '合同列表', url: '/contracts', icon: 'FileText', group: '合同管理' }
+      { key: 'contracts.list', label: '合同列表', icon: 'FileText' }
     ]
   },
   {
@@ -100,10 +98,10 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     label: '信息维护',
     icon: 'Database',
     children: [
-      { key: 'maintenance.projects', label: '项目管理', url: '/projects', icon: 'Package', group: '信息维护' },
-      { key: 'maintenance.drivers', label: '司机管理', url: '/drivers', icon: 'Truck', group: '信息维护' },
-      { key: 'maintenance.locations', label: '地点管理', url: '/locations', icon: 'MapPin', group: '信息维护' },
-      { key: 'maintenance.partners', label: '合作方管理', url: '/partners', icon: 'Users', group: '信息维护' }
+      { key: 'maintenance.projects', label: '项目管理', icon: 'Package' },
+      { key: 'maintenance.drivers', label: '司机管理', icon: 'Truck' },
+      { key: 'maintenance.locations', label: '地点管理', icon: 'MapPin' },
+      { key: 'maintenance.partners', label: '合作方管理', icon: 'Users' }
     ]
   },
   {
@@ -112,10 +110,10 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     label: '业务管理',
     icon: 'FileText',
     children: [
-      { key: 'business.entry', label: '运单管理', url: '/business-entry', icon: 'Plus', group: '业务管理' },
-      { key: 'business.scale', label: '磅单管理', url: '/scale-records', icon: 'Weight', group: '业务管理' },
-      { key: 'business.invoice_request', label: '开票申请', url: '/invoice-request', icon: 'FileText', group: '业务管理' },
-      { key: 'business.payment_request', label: '付款申请', url: '/payment-request', icon: 'DollarSign', group: '业务管理' }
+      { key: 'business.entry', label: '运单管理', icon: 'Plus' },
+      { key: 'business.scale', label: '磅单管理', icon: 'Weight' },
+      { key: 'business.invoice_request', label: '开票申请', icon: 'FileText' },
+      { key: 'business.payment_request', label: '付款申请', icon: 'DollarSign' }
     ]
   },
   {
@@ -124,9 +122,9 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     label: '财务管理',
     icon: 'Calculator',
     children: [
-      { key: 'finance.reconciliation', label: '运费对账', url: '/finance/reconciliation', icon: 'Calculator', group: '财务管理' },
-      { key: 'finance.payment_invoice', label: '付款与开票', url: '/finance/payment-invoice', icon: 'DollarSign', group: '财务管理' },
-      { key: 'finance.payment_requests', label: '申请单管理', url: '/payment-requests-list', icon: 'ClipboardList', group: '财务管理' }
+      { key: 'finance.reconciliation', label: '运费对账', icon: 'Calculator' },
+      { key: 'finance.payment_invoice', label: '付款与开票', icon: 'DollarSign' },
+      { key: 'finance.payment_requests', label: '申请单管理', icon: 'ClipboardList' }
     ]
   },
   {
@@ -135,7 +133,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     label: '数据维护',
     icon: 'Database',
     children: [
-      { key: 'data_maintenance.waybill', label: '运单维护', url: '/data-maintenance/waybill', icon: 'Truck', group: '数据维护' }
+      { key: 'data_maintenance.waybill', label: '运单维护', icon: 'Truck' }
     ],
     requiredRoles: ['admin', 'operator']
   },
@@ -145,12 +143,12 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     label: '设置',
     icon: 'Settings',
     children: [
-      { key: 'settings.users', label: '用户管理', url: '/settings/users', icon: 'UserCog', group: '设置' },
-      { key: 'settings.permissions', label: '权限配置', url: '/settings/permissions', icon: 'Shield', group: '设置' },
-      { key: 'settings.contract_permissions', label: '合同权限', url: '/settings/contract-permissions', icon: 'FileText', group: '设置' },
-      { key: 'settings.role_templates', label: '角色模板', url: '/settings/role-templates', icon: 'Settings', group: '设置' },
-      { key: 'settings.integrated', label: '集成权限管理', url: '/settings/integrated', icon: 'Shield', group: '设置' },
-      { key: 'settings.audit_logs', label: '操作日志', url: '/settings/audit-logs', icon: 'History', group: '设置' }
+      { key: 'settings.users', label: '用户管理', icon: 'UserCog' },
+      { key: 'settings.permissions', label: '权限配置', icon: 'Shield' },
+      { key: 'settings.contract_permissions', label: '合同权限', icon: 'FileText' },
+      { key: 'settings.role_templates', label: '角色模板', icon: 'Settings' },
+      { key: 'settings.integrated', label: '集成权限管理', icon: 'Shield' },
+      { key: 'settings.audit_logs', label: '操作日志', icon: 'History' }
     ],
     requiredRoles: ['admin']
   }
@@ -163,11 +161,11 @@ export const FUNCTION_PERMISSIONS: FunctionPermission[] = [
     key: 'data',
     label: '数据操作',
     children: [
-      { key: 'data.create', label: '新增数据', description: '可以创建新的业务数据', group: '数据操作' },
-      { key: 'data.edit', label: '编辑数据', description: '可以修改现有数据', group: '数据操作' },
-      { key: 'data.delete', label: '删除数据', description: '可以删除数据', group: '数据操作' },
-      { key: 'data.export', label: '导出数据', description: '可以导出数据到Excel', group: '数据操作' },
-      { key: 'data.import', label: '导入数据', description: '可以从Excel导入数据', group: '数据操作' }
+      { key: 'data.create', label: '新增数据', description: '可以创建新的业务数据' },
+      { key: 'data.edit', label: '编辑数据', description: '可以修改现有数据' },
+      { key: 'data.delete', label: '删除数据', description: '可以删除数据' },
+      { key: 'data.export', label: '导出数据', description: '可以导出数据到Excel' },
+      { key: 'data.import', label: '导入数据', description: '可以从Excel导入数据' }
     ]
   },
   {
@@ -175,10 +173,10 @@ export const FUNCTION_PERMISSIONS: FunctionPermission[] = [
     key: 'scale_records',
     label: '磅单管理',
     children: [
-      { key: 'scale_records.create', label: '新增磅单', description: '可以创建新的磅单记录', group: '磅单管理' },
-      { key: 'scale_records.edit', label: '编辑磅单', description: '可以修改磅单记录', group: '磅单管理' },
-      { key: 'scale_records.view', label: '查看磅单', description: '可以查看磅单记录', group: '磅单管理' },
-      { key: 'scale_records.delete', label: '删除磅单', description: '可以删除磅单记录', group: '磅单管理' }
+      { key: 'scale_records.create', label: '新增磅单', description: '可以创建新的磅单记录' },
+      { key: 'scale_records.edit', label: '编辑磅单', description: '可以修改磅单记录' },
+      { key: 'scale_records.view', label: '查看磅单', description: '可以查看磅单记录' },
+      { key: 'scale_records.delete', label: '删除磅单', description: '可以删除磅单记录' }
     ]
   },
   {
@@ -186,10 +184,10 @@ export const FUNCTION_PERMISSIONS: FunctionPermission[] = [
     key: 'finance',
     label: '财务操作',
     children: [
-      { key: 'finance.view_cost', label: '查看成本信息', description: '可以查看成本相关数据', group: '财务操作' },
-      { key: 'finance.approve_payment', label: '审批付款', description: '可以审批付款申请', group: '财务操作' },
-      { key: 'finance.generate_invoice', label: '生成发票', description: '可以生成发票', group: '财务操作' },
-      { key: 'finance.reconcile', label: '财务对账', description: '可以进行财务对账', group: '财务操作' }
+      { key: 'finance.view_cost', label: '查看成本信息', description: '可以查看成本相关数据' },
+      { key: 'finance.approve_payment', label: '审批付款', description: '可以审批付款申请' },
+      { key: 'finance.generate_invoice', label: '生成发票', description: '可以生成发票' },
+      { key: 'finance.reconcile', label: '财务对账', description: '可以进行财务对账' }
     ]
   },
   {
@@ -197,7 +195,7 @@ export const FUNCTION_PERMISSIONS: FunctionPermission[] = [
     key: 'contract_management',
     label: '合同管理',
     children: [
-      { key: 'contract.view', label: '查看合同', description: '可以查看合同列表和基本信息', group: '合同管理' }
+      { key: 'contract.view', label: '查看合同', description: '可以查看合同列表和基本信息' }
     ]
   },
   {

@@ -119,7 +119,7 @@ export function RoleManagement({ roleTemplates, onDataChange }: RoleManagementPr
       // 使用 upsert 操作，避免更新失败
       const { error } = await supabase
         .from('role_permission_templates')
-        .upsert(permissionData, {
+        .upsert([permissionData], {
           onConflict: 'role'
         });
 
