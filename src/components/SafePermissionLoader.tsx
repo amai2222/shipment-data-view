@@ -63,8 +63,22 @@ export function SafePermissionLoader({ contractId }: SafePermissionLoaderProps) 
         created_at: item.created_at,
         contract_number: item.contracts?.contract_number || '未知合同',
         counterparty_company: item.contracts?.counterparty_company || '未知公司',
-        user_name: (item.profiles && item.profiles !== null && typeof item.profiles === 'object' && 'full_name' in item.profiles) ? (item.profiles as any).full_name : `用户 ${item.user_id}`,
-        user_email: (item.profiles && item.profiles !== null && typeof item.profiles === 'object' && 'email' in item.profiles) ? (item.profiles as any).email : ''
+        user_name: (() => {
+          const profiles = item.profiles;
+          if (!profiles || profiles === null) return `用户 ${item.user_id}`;
+          if (typeof profiles === 'object' && 'full_name' in profiles) {
+            return (profiles as any).full_name;
+          }
+          return `用户 ${item.user_id}`;
+        })(),
+        user_email: (() => {
+          const profiles = item.profiles;
+          if (!profiles || profiles === null) return '';
+          if (typeof profiles === 'object' && 'email' in profiles) {
+            return (profiles as any).email;
+          }
+          return '';
+        })()
       }));
 
       setPermissions(safeData);

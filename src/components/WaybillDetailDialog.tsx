@@ -460,8 +460,8 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
                         const trackingNumbers = record.external_tracking_numbers || [];
                         
                         return platformNames.map((platformName, index) => {
-                          const trackingItem = trackingNumbers[index];
-                          const platformTrackingNumbers = (typeof trackingItem === 'string' ? trackingItem.split('|') : []) as string[];
+                          const trackingItem = trackingNumbers[index] as any;
+                          const platformTrackingNumbers: string[] = typeof trackingItem === 'string' ? trackingItem.split('|') : [];
                           
                           return (
                             <div key={index} className="space-y-1">

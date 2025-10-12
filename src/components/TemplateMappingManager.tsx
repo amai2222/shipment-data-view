@@ -119,19 +119,19 @@ export default function TemplateMappingManager() {
   });
 
   const [fieldForm, setFieldForm] = useState({
-    source_field: '',
-    target_field: '',
+    excel_column: '',
+    database_field: '',
     field_type: 'text',
     is_required: false,
     default_value: '',
-    transformation_rule: '',
-    sort_order: 0
+    display_order: 0
   });
 
   const [fixedForm, setFixedForm] = useState({
-    target_field: '',
-    fixed_value: '',
-    description: ''
+    excel_value: '',
+    database_value: '',
+    mapping_type: '',
+    is_case_sensitive: false
   });
 
   // 加载模板列表
@@ -148,7 +148,9 @@ export default function TemplateMappingManager() {
         name: t.name,
         description: t.description || '',
         platform_name: t.platform_type || 'unknown',
-        is_active: t.is_active
+        is_active: t.is_active ?? true,
+        created_at: t.created_at || new Date().toISOString(),
+        updated_at: t.updated_at || new Date().toISOString()
       })));
     } catch (error: any) {
       console.error('加载模板失败:', error);
@@ -226,7 +228,7 @@ export default function TemplateMappingManager() {
         .upsert({
           ...(selectedTemplate?.id && { id: selectedTemplate.id }),
           name: templateForm.name,
-          platform_type: templateForm.platform_type,
+          platform_type: templateForm.platform_name,
           description: templateForm.description,
           created_by_user_id: (await supabase.auth.getUser()).data.user?.id
         })
