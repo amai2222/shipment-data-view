@@ -162,7 +162,7 @@ export function ContractAdvancedSearch({ onSearch, onClear, initialFilters }: Co
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setSavedSearches(data || []);
+      setSavedSearches((data || []) as any);
     } catch (error) {
       console.error('Error loading saved searches:', error);
     }
@@ -219,7 +219,7 @@ export function ContractAdvancedSearch({ onSearch, onClear, initialFilters }: Co
         .insert({
           name: saveSearchName.trim(),
           search_type: 'contract',
-          filters: filters
+          filters: filters as any
         });
 
       if (error) throw error;

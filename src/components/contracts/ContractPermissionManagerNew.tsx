@@ -151,7 +151,7 @@ export function ContractPermissionManager({
         return;
       }
 
-      setPermissions(data || []);
+      setPermissions((data || []) as any);
     } catch (error) {
       console.error('加载权限失败:', error);
       toast({

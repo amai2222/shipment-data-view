@@ -101,7 +101,7 @@ export function ContractReminderSystem({ onReminderUpdate }: ContractReminderSys
         end_date: item.contracts?.end_date
       }));
 
-      setReminders(formattedData);
+      setReminders(formattedData as any);
     } catch (error) {
       console.error('Error loading reminders:', error);
       toast({

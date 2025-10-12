@@ -177,23 +177,27 @@ export function ContractPermissionManager({
         throw error;
       }
 
-      // 安全地处理数据
-      const safeData = (data || []).map(item => ({
-        ...item,
-        contract_number: item.contracts?.contract_number || '未知合同',
-        counterparty_company: item.contracts?.counterparty_company || '未知公司',
-        our_company: item.contracts?.our_company || '未知公司',
-        category: item.contracts?.category || '未分类',
-        user_name: item.profiles?.full_name || `用户 ${item.user_id}`,
-        user_email: item.profiles?.email || '',
-        granter_name: item.granter?.full_name || `授权者 ${item.granted_by}`,
-        permission_type: item.permission_type || 'view',
-        is_active: item.is_active !== false,
-        expires_at: item.expires_at,
-        description: item.description || ''
-      }));
+      const safeData = (data || []).map(item => {
+        const profileData = item.profiles as any;
+        const granterData = item.granter as any;
+        return {
+          ...item,
+          contract_number: item.contracts?.contract_number || '未知合同',
+          counterparty_company: item.contracts?.counterparty_company || '未知公司',
+          our_company: item.contracts?.our_company || '未知公司',
+          category: item.contracts?.category || '未分类',
+          user_name: (profileData && profileData.full_name) || `用户 ${item.user_id}`,
+          user_email: (profileData && profileData.email) || '',
+          granter_name: (granterData && granterData.full_name) || `授权者 ${(item as any).granted_by || ''}`,
+          permission_type: item.permission_type || 'view',
+          is_active: item.is_active !== false,
+          expires_at: (item as any).expires_at || null,
+          description: (item as any).description || '',
+          granted_at: item.created_at
+        };
+      });
 
-      setPermissions(safeData);
+      setPermissions(safeData as any);
     } catch (error) {
       console.error('加载权限失败:', error);
       setPermissions([]);
@@ -232,10 +236,11 @@ export function ContractPermissionManager({
         owner_name: item.owner?.full_name || `所有者 ${item.owner_id}`,
         owner_email: item.owner?.email || '',
         permissions: item.permissions || [],
-        is_active: item.is_active !== false
+        is_active: (item as any).is_active !== false,
+        granted_at: item.created_at || new Date().toISOString()
       }));
 
-      setOwnerPermissions(safeData);
+      setOwnerPermissions(safeData as any);
     } catch (error) {
       console.error('加载所有者权限失败:', error);
       setOwnerPermissions([]);
@@ -265,7 +270,7 @@ export function ContractPermissionManager({
         is_active: item.is_active !== false
       }));
 
-      setCategoryTemplates(safeData);
+      setCategoryTemplates(safeData as any);
     } catch (error) {
       console.error('加载分类模板失败:', error);
       setCategoryTemplates([]);
@@ -409,7 +414,7 @@ export function ContractPermissionManager({
       const { error } = await supabase
         .from('contract_category_permission_templates')
         .update({
-          permissions: template.permissions,
+          permissions: (template as any).permissions || template.default_permissions || [],
           updated_at: new Date().toISOString()
         })
         .eq('id', template.id);
@@ -1057,9 +1062,9 @@ export function ContractPermissionManager({
                               return (
                                 <div key={template.id} className="flex items-center justify-between p-3 border rounded-lg">
                                   <div className="flex items-center gap-3">
-                                    <Badge variant="outline">{template.role}</Badge>
-                                    <div className="flex gap-1">
-                                      {(template.permissions || []).map(permission => {
+                                    <Badge variant="outline">{(template as any).role || template.category}</Badge>
+                           <div className="flex gap-1">
+                             {((template as any).permissions || (template as any).default_permissions || []).map((permission: string) => {
                                         const typeInfo = getPermissionTypeInfo(permission);
                                         return (
                                           <Badge key={permission} className={typeInfo.color}>

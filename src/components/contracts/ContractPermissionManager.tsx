@@ -99,12 +99,13 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
         counterparty_company: item.contracts?.counterparty_company,
         our_company: item.contracts?.our_company,
         user_name: item.user_id ? `用户 ${item.user_id}` : null,
-        role_name: item.role_name,
-        department_name: item.department_name,
-        granter_name: item.granted_by ? `授权者 ${item.granted_by}` : null
+        role_name: (item as any).role_name || null,
+        department_name: (item as any).department_name || item.department,
+        granter_name: (item as any).granted_by ? `授权者 ${(item as any).granted_by}` : null,
+        granted_at: item.created_at
       }));
 
-      setPermissions(formattedData);
+      setPermissions(formattedData as any);
     } catch (error) {
       console.error('Error loading permissions:', error);
       toast({
@@ -161,7 +162,7 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
     }
 
     try {
-      const permissionData = {
+      const permissionData: any = {
         contract_id: formData.contract_id,
         permission_type: formData.permission_type,
         expires_at: formData.expires_at || null,
@@ -171,11 +172,11 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
       if (formData.user_id) {
         permissionData.user_id = formData.user_id;
       }
-      if (formData.role_id) {
-        permissionData.role_id = formData.role_id;
+      if ((formData as any).role_id) {
+        permissionData.role_id = (formData as any).role_id;
       }
-      if (formData.department_id) {
-        permissionData.department_id = formData.department_id;
+      if ((formData as any).department_id) {
+        permissionData.department_id = (formData as any).department_id;
       }
 
       if (editingPermission) {

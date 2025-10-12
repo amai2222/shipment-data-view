@@ -297,7 +297,7 @@ export function PermissionConfiguration({
                     />
                   </div>
                   <Button 
-                    onClick={refreshUsers} 
+                     onClick={() => refreshUsers()} 
                     disabled={loading}
                     variant="outline"
                     size="sm"
@@ -521,7 +521,7 @@ export function PermissionConfiguration({
                   <Save className="h-4 w-4 mr-2" />
                   保存更改
                 </Button>
-                <Button variant="outline" onClick={loadAllData}>
+                <Button variant="outline" onClick={() => loadAllData()}>
                   <RefreshCw className="h-4 w-4 mr-2" />
                   重新加载
                 </Button>

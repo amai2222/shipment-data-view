@@ -93,7 +93,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
         contract_number: item.contracts?.contract_number
       }));
 
-      setFiles(formattedData);
+      setFiles(formattedData as any);
     } catch (error) {
       console.error('Error loading files:', error);
       toast({

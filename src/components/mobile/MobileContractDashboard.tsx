@@ -106,7 +106,7 @@ export function MobileContractDashboard() {
 
         // 金额统计
         if (contract.contract_amount) {
-          contractStats.total_amount += parseFloat(contract.contract_amount);
+          contractStats.total_amount += parseFloat(String(contract.contract_amount));
         }
 
         // 分类统计

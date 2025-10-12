@@ -131,7 +131,8 @@ export default function TemplateMappingManager() {
     excel_value: '',
     database_value: '',
     mapping_type: '',
-    is_case_sensitive: false
+    is_case_sensitive: false,
+    description: ''
   });
 
   // 加载模板列表
@@ -251,7 +252,7 @@ export default function TemplateMappingManager() {
 
   // 保存字段映射
   const handleSaveFieldMapping = async () => {
-    if (!selectedTemplate || !fieldForm.source_field || !fieldForm.target_field) {
+    if (!selectedTemplate || !fieldForm.excel_column || !fieldForm.database_field) {
       toast({ title: "错误", description: "请填写源字段和目标字段", variant: "destructive" });
       return;
     }
@@ -284,7 +285,7 @@ export default function TemplateMappingManager() {
 
   // 保存固定映射
   const handleSaveFixedMapping = async () => {
-    if (!selectedTemplate || !fixedForm.target_field || !fixedForm.fixed_value) {
+    if (!selectedTemplate || !fixedForm.database_value || !fixedForm.excel_value) {
       toast({ title: "错误", description: "请填写目标字段和固定值", variant: "destructive" });
       return;
     }
@@ -368,20 +369,21 @@ export default function TemplateMappingManager() {
 
   const resetFieldForm = () => {
     setFieldForm({
-      source_field: '',
-      target_field: '',
+      excel_column: '',
+      database_field: '',
       field_type: 'text',
       is_required: false,
       default_value: '',
-      transformation_rule: '',
-      sort_order: 0
+      display_order: 0
     });
   };
 
   const resetFixedForm = () => {
     setFixedForm({
-      target_field: '',
-      fixed_value: '',
+      excel_value: '',
+      database_value: '',
+      mapping_type: '',
+      is_case_sensitive: false,
       description: ''
     });
   };
@@ -390,13 +392,12 @@ export default function TemplateMappingManager() {
   const handleEditFieldMapping = (mapping: FieldMapping) => {
     setEditingField(mapping);
     setFieldForm({
-      source_field: mapping.source_field,
-      target_field: mapping.target_field,
+      excel_column: mapping.source_field,
+      database_field: mapping.target_field,
       field_type: mapping.field_type,
       is_required: mapping.is_required,
       default_value: mapping.default_value || '',
-      transformation_rule: mapping.transformation_rule || '',
-      sort_order: mapping.sort_order
+      display_order: mapping.sort_order
     });
   };
 
@@ -404,8 +405,10 @@ export default function TemplateMappingManager() {
   const handleEditFixedMapping = (mapping: FixedMapping) => {
     setEditingFixed(mapping);
     setFixedForm({
-      target_field: mapping.target_field,
-      fixed_value: mapping.fixed_value,
+      excel_value: mapping.fixed_value,
+      database_value: mapping.target_field,
+      mapping_type: 'fixed',
+      is_case_sensitive: false,
       description: mapping.description || ''
     });
   };
@@ -708,16 +711,16 @@ export default function TemplateMappingManager() {
               <Label htmlFor="source_field">源字段（Excel中的字段名）</Label>
               <Input
                 id="source_field"
-                value={fieldForm.source_field}
-                onChange={(e) => setFieldForm(prev => ({ ...prev, source_field: e.target.value }))}
+                value={fieldForm.excel_column}
+                onChange={(e) => setFieldForm(prev => ({ ...prev, excel_column: e.target.value }))}
                 placeholder="如：运输单号"
               />
             </div>
             <div>
               <Label htmlFor="target_field">目标字段</Label>
               <Select
-                value={fieldForm.target_field}
-                onValueChange={(value) => setFieldForm(prev => ({ ...prev, target_field: value }))}
+                value={fieldForm.database_field}
+                onValueChange={(value) => setFieldForm(prev => ({ ...prev, database_field: value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择目标字段" />
@@ -793,8 +796,8 @@ export default function TemplateMappingManager() {
             <div>
               <Label htmlFor="fixed_target_field">目标字段</Label>
               <Select
-                value={fixedForm.target_field}
-                onValueChange={(value) => setFixedForm(prev => ({ ...prev, target_field: value }))}
+                value={fixedForm.database_value}
+                onValueChange={(value) => setFixedForm(prev => ({ ...prev, database_value: value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择目标字段" />
@@ -812,8 +815,8 @@ export default function TemplateMappingManager() {
               <Label htmlFor="fixed_value">固定值</Label>
               <Input
                 id="fixed_value"
-                value={fixedForm.fixed_value}
-                onChange={(e) => setFixedForm(prev => ({ ...prev, fixed_value: e.target.value }))}
+                value={fixedForm.excel_value}
+                onChange={(e) => setFixedForm(prev => ({ ...prev, excel_value: e.target.value }))}
                 placeholder="输入固定值"
               />
             </div>

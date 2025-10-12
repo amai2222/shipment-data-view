@@ -127,7 +127,7 @@ export function ContractReports({ contractId }: ContractReportsProps) {
         }
         monthlyData[monthKey].contracts++;
         if (contract.contract_amount) {
-          monthlyData[monthKey].amount += parseFloat(contract.contract_amount);
+          monthlyData[monthKey].amount += parseFloat(String(contract.contract_amount));
         }
 
         // 状态统计
@@ -143,7 +143,7 @@ export function ContractReports({ contractId }: ContractReportsProps) {
 
         // 金额统计
         if (contract.contract_amount) {
-          stats.total_amount += parseFloat(contract.contract_amount);
+          stats.total_amount += parseFloat(String(contract.contract_amount));
         }
 
         // 分类统计

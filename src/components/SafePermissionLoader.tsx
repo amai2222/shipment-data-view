@@ -54,32 +54,21 @@ export function SafePermissionLoader({ contractId }: SafePermissionLoaderProps) 
       }
 
       // 安全地处理数据
-      const safeData = (data || []).map(item => ({
-        id: item.id,
-        contract_id: item.contract_id,
-        user_id: item.user_id,
-        permission_type: item.permission_type || 'view',
-        is_active: item.is_active !== false,
-        created_at: item.created_at,
-        contract_number: item.contracts?.contract_number || '未知合同',
-        counterparty_company: item.contracts?.counterparty_company || '未知公司',
-        user_name: (() => {
-          const profiles = item.profiles;
-          if (!profiles || profiles === null) return `用户 ${item.user_id}`;
-          if (typeof profiles === 'object' && 'full_name' in profiles) {
-            return (profiles as any).full_name;
-          }
-          return `用户 ${item.user_id}`;
-        })(),
-        user_email: (() => {
-          const profiles = item.profiles;
-          if (!profiles || profiles === null) return '';
-          if (typeof profiles === 'object' && 'email' in profiles) {
-            return (profiles as any).email;
-          }
-          return '';
-        })()
-      }));
+      const safeData = (data || []).map(item => {
+        const profileData = item.profiles as any;
+        return {
+          id: item.id,
+          contract_id: item.contract_id,
+          user_id: item.user_id,
+          permission_type: item.permission_type || 'view',
+          is_active: item.is_active !== false,
+          created_at: item.created_at,
+          contract_number: item.contracts?.contract_number || '未知合同',
+          counterparty_company: item.contracts?.counterparty_company || '未知公司',
+          user_name: (profileData && typeof profileData === 'object' && profileData.full_name) || `用户 ${item.user_id}`,
+          user_email: (profileData && typeof profileData === 'object' && profileData.email) || ''
+        };
+      });
 
       setPermissions(safeData);
       setError(null);
