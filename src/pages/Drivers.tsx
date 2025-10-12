@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2, Filter, X, FileImage } from "lucide-react";
+import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2, Filter, X, FileImage, CheckSquare, Square, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Driver, Project } from "@/types";
@@ -18,8 +18,6 @@ import * as XLSX from 'xlsx';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge } from "@/components/ui/badge";
 import { DriverPhotoUpload, DriverPhotos } from "@/components/DriverPhotoUpload";
-
-const PAGE_SIZE = 30;
 
 export default function Drivers() {
   const { toast } = useToast();
@@ -47,6 +45,14 @@ export default function Drivers() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [pageSize, setPageSize] = useState(30); // 添加页面大小状态
+
+  // 批量选择和自动关联项目相关状态
+  const [selectedDrivers, setSelectedDrivers] = useState<string[]>([]);
+  const [isSelectAll, setIsSelectAll] = useState(false);
+  const [showAssociateDialog, setShowAssociateDialog] = useState(false);
+  const [associatePreview, setAssociatePreview] = useState<any>(null);
+  const [isAssociating, setIsAssociating] = useState(false);
 
   // 客户端筛选驱动列表
   const filteredDrivers = useMemo(() => {
@@ -65,7 +71,7 @@ export default function Drivers() {
 
   const activeFiltersCount = (quickFilter ? 1 : 0) + (projectFilter !== "all" ? 1 : 0);
 
-  const loadData = useCallback(async (page: number, filter: string) => {
+  const loadData = useCallback(async (page: number, filter: string, currentPageSize: number = pageSize) => {
     setIsLoading(true);
     try {
       if (projects.length === 0) {
@@ -73,11 +79,11 @@ export default function Drivers() {
         setProjects(loadedProjects);
       }
       
-      const { drivers: loadedDrivers, totalCount: loadedTotalCount } = await SupabaseStorage.getDrivers(filter, page, PAGE_SIZE);
+      const { drivers: loadedDrivers, totalCount: loadedTotalCount } = await SupabaseStorage.getDrivers(filter, page, currentPageSize);
       
       setDrivers(loadedDrivers || []);
       setTotalCount(loadedTotalCount);
-      setTotalPages(Math.ceil(loadedTotalCount / PAGE_SIZE));
+      setTotalPages(Math.ceil(loadedTotalCount / currentPageSize));
       setCurrentPage(page);
 
     } catch (error) {
@@ -90,7 +96,7 @@ export default function Drivers() {
     } finally {
       setIsLoading(false);
     }
-  }, [projects.length, toast]);
+  }, [projects.length, toast, pageSize]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -110,6 +116,12 @@ export default function Drivers() {
     if (newPage >= 1 && newPage <= totalPages && !isLoading) {
       loadData(newPage, quickFilter);
     }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // 重置到第一页
+    loadData(1, quickFilter, newPageSize);
   };
 
   const resetForm = () => {
@@ -238,6 +250,92 @@ export default function Drivers() {
       XLSX.writeFile(workbook, fileName);
     } catch (error) {
       toast({ title: "导出失败", variant: "destructive" });
+    }
+  };
+
+  // 批量选择相关函数
+  const handleSelectDriver = (driverId: string) => {
+    setSelectedDrivers(prev => 
+      prev.includes(driverId) 
+        ? prev.filter(id => id !== driverId)
+        : [...prev, driverId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (isSelectAll) {
+      setSelectedDrivers([]);
+      setIsSelectAll(false);
+    } else {
+      const allDriverIds = drivers.map(driver => driver.id);
+      setSelectedDrivers(allDriverIds);
+      setIsSelectAll(true);
+    }
+  };
+
+  const handleSelectPage = () => {
+    const currentPageDriverIds = drivers.map(driver => driver.id);
+    setSelectedDrivers(currentPageDriverIds);
+    setIsSelectAll(true);
+  };
+
+  // 预览自动关联项目
+  const handlePreviewAssociate = async () => {
+    if (selectedDrivers.length === 0) {
+      toast({ title: "请先选择要关联的司机", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const { data, error } = await SupabaseStorage.supabase.rpc('preview_driver_project_association', {
+        p_driver_ids: selectedDrivers
+      });
+
+      if (error) throw error;
+
+      setAssociatePreview(data);
+      setShowAssociateDialog(true);
+    } catch (error) {
+      console.error('预览关联失败:', error);
+      toast({ title: "预览关联失败", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 执行自动关联项目
+  const handleExecuteAssociate = async () => {
+    if (selectedDrivers.length === 0) {
+      toast({ title: "请先选择要关联的司机", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setIsAssociating(true);
+      const { data, error } = await SupabaseStorage.supabase.rpc('batch_associate_driver_projects', {
+        p_driver_ids: selectedDrivers
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: "自动关联完成", 
+        description: data.message 
+      });
+
+      // 重新加载数据
+      await loadData(currentPage, quickFilter);
+      
+      // 清空选择
+      setSelectedDrivers([]);
+      setIsSelectAll(false);
+      setShowAssociateDialog(false);
+    } catch (error) {
+      console.error('自动关联失败:', error);
+      toast({ title: "自动关联失败", variant: "destructive" });
+    } finally {
+      setIsAssociating(false);
     }
   };
 
@@ -412,6 +510,16 @@ export default function Drivers() {
             <Table>
               <TableHeader>
                 <TableRow>
+                   <TableHead className="w-12">
+                     <Button
+                       variant="ghost"
+                       size="sm"
+                       onClick={handleSelectAll}
+                       className="h-8 w-8 p-0"
+                     >
+                       {isSelectAll ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                     </Button>
+                   </TableHead>
                    <TableHead>司机姓名</TableHead>
                    <TableHead>车牌号</TableHead>
                    <TableHead>司机电话</TableHead>
@@ -423,7 +531,7 @@ export default function Drivers() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="flex justify-center items-center">
                         <Loader2 className="h-6 w-6 animate-spin mr-2" />
                         正在加载数据...
@@ -433,6 +541,16 @@ export default function Drivers() {
                 ) : filteredDrivers.length > 0 ? (
                   filteredDrivers.map((driver) => (
                     <TableRow key={driver.id}>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSelectDriver(driver.id)}
+                          className="h-8 w-8 p-0"
+                        >
+                          {selectedDrivers.includes(driver.id) ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                        </Button>
+                      </TableCell>
                       <TableCell className="font-medium">{driver.name}</TableCell>
                       <TableCell className="font-mono">{driver.licensePlate}</TableCell>
                       <TableCell>{driver.phone}</TableCell>
@@ -453,7 +571,7 @@ export default function Drivers() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       <Truck className="mx-auto h-12 w-12 text-muted-foreground" />
                       <p className="mt-2 text-muted-foreground">
                         {activeFiltersCount > 0 ? '当前筛选条件下无数据' : '暂无司机数据'}
@@ -475,32 +593,217 @@ export default function Drivers() {
             </Table>
           </div>
         </CardContent>
-        <CardFooter>
-          <div className="flex items-center justify-between w-full text-sm text-muted-foreground">
-            <div>
-              第 {totalPages > 0 ? currentPage : 0} / {totalPages} 页
+        
+        {/* 批量操作区域 */}
+        {selectedDrivers.length > 0 && (
+          <div className="border-t bg-muted/30 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-muted-foreground">
+                  已选择 {selectedDrivers.length} 个司机
+                </span>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectPage}
+                  >
+                    选择当前页
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedDrivers([]);
+                      setIsSelectAll(false);
+                    }}
+                  >
+                    取消选择
+                  </Button>
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handlePreviewAssociate}
+                  disabled={isLoading}
+                >
+                  <Link className="h-4 w-4 mr-2" />
+                  预览自动关联项目
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage <= 1 || isLoading}
-              >
-                上一页
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage >= totalPages || isLoading}
-              >
-                下一页
-              </Button>
+          </div>
+        )}
+        
+        <CardFooter>
+          <div className="flex items-center justify-between w-full py-4 px-6 border-t border-gray-200 bg-white">
+            {/* 左侧：统计信息 */}
+            <div className="flex-1 text-sm text-slate-600">
+              <span className="text-slate-600">共{totalCount} 条记录</span>
+            </div>
+            
+            {/* 右侧：分页控制 */}
+            <div className="flex items-center space-x-4">
+              {/* 每页显示条数选择 */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-slate-600">每页显示</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={30}>30</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span className="text-sm text-slate-600">条</span>
+              </div>
+              
+              {/* 分页按钮 */}
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handlePageChange(currentPage - 1)} 
+                  disabled={currentPage <= 1 || isLoading}
+                  className="px-3 py-1 text-sm border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-colors duration-150"
+                >
+                  上一页
+                </Button>
+                
+                {/* 页码输入 */}
+                <div className="flex items-center space-x-1">
+                  <span className="text-sm text-slate-600">第</span>
+                  <input
+                    type="number"
+                    value={currentPage}
+                    onChange={(e) => {
+                      const page = Number(e.target.value);
+                      if (page >= 1 && page <= totalPages) {
+                        handlePageChange(page);
+                      }
+                    }}
+                    className="w-10 px-1 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    min="1"
+                    max={totalPages}
+                  />
+                  <span className="text-sm text-slate-600">页,共{totalPages}页</span>
+                </div>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handlePageChange(currentPage + 1)} 
+                  disabled={currentPage >= totalPages || isLoading}
+                  className="px-3 py-1 text-sm border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-colors duration-150"
+                >
+                  下一页
+                </Button>
+              </div>
             </div>
           </div>
         </CardFooter>
       </Card>
+
+      {/* 自动关联项目预览对话框 */}
+      <Dialog open={showAssociateDialog} onOpenChange={setShowAssociateDialog}>
+        <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link className="h-5 w-5" />
+              自动关联项目预览
+            </DialogTitle>
+          </DialogHeader>
+          
+          {associatePreview && (
+            <div className="space-y-4">
+              {/* 汇总信息 */}
+              <div className="bg-muted/30 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">关联汇总</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">总司机数：</span>
+                    <span className="font-medium">{associatePreview.summary.total_drivers}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">找到项目：</span>
+                    <span className="font-medium text-green-600">{associatePreview.summary.drivers_with_projects}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">未找到项目：</span>
+                    <span className="font-medium text-orange-600">{associatePreview.summary.drivers_without_projects}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">总运单数：</span>
+                    <span className="font-medium">{associatePreview.summary.total_records}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 司机详情列表 */}
+              <div className="space-y-2">
+                <h3 className="font-medium">司机详情</h3>
+                <div className="max-h-60 overflow-y-auto border rounded-lg">
+                  {associatePreview.drivers.map((driver: any, index: number) => (
+                    <div key={index} className="p-3 border-b last:border-b-0">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium">{driver.driver_name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {driver.license_plate} • {driver.record_count} 条运单记录
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {driver.has_projects ? (
+                            <div className="text-sm">
+                              <div className="text-green-600 font-medium">找到 {driver.project_names.length} 个项目</div>
+                              <div className="text-xs text-muted-foreground">
+                                {driver.project_names.join(', ')}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-orange-600 text-sm">未找到项目</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 操作按钮 */}
+              <div className="flex justify-end space-x-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAssociateDialog(false)}
+                >
+                  取消
+                </Button>
+                <Button
+                  onClick={handleExecuteAssociate}
+                  disabled={isAssociating || associatePreview.summary.drivers_with_projects === 0}
+                >
+                  {isAssociating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      正在关联...
+                    </>
+                  ) : (
+                    <>
+                      <Link className="h-4 w-4 mr-2" />
+                      确认关联
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   );
