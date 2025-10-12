@@ -666,7 +666,7 @@ export default function Drivers() {
                         if (isBatchSelecting) {
                           handleSelectDriver(driver.id); // 批量选择模式下点击行切换选择状态
                         } else {
-                          handleEditDriver(driver); // 非批量选择模式下点击行编辑
+                          handleEdit(driver); // 非批量选择模式下点击行编辑
                         }
                       }}
                       className={!isBatchSelecting ? "cursor-pointer hover:bg-gray-50" : ""} // 添加鼠标样式
@@ -698,8 +698,26 @@ export default function Drivers() {
                       <TableCell>{new Date(driver.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEdit(driver)}><Edit className="h-4 w-4" /></Button>
-                          <Button variant="outline" size="sm" onClick={() => handleDelete(driver.id)}><Trash2 className="h-4 w-4" /></Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={(e) => {
+                              e.stopPropagation(); // 阻止事件冒泡到TableRow
+                              handleEdit(driver);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={(e) => {
+                              e.stopPropagation(); // 阻止事件冒泡到TableRow
+                              handleDelete(driver.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
