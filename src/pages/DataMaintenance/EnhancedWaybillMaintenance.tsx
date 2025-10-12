@@ -229,30 +229,42 @@ export default function EnhancedWaybillMaintenance() {
           rowData.unloading_date_parsed = rowData.loading_date_parsed;
         }
 
-        // 处理外部平台数据
-        const platformData = processExternalPlatformData(rowData);
-        rowData.external_tracking_numbers = platformData.externalTrackingNumbers;
-        rowData.other_platform_names = platformData.otherPlatformNames;
+        // 处理平台字段 - 参考正常版本的逻辑
+        if (rowData['其他平台名称']) {
+          const platformNames = String(rowData['其他平台名称']).split(',').map((name: string) => name.trim()).filter(Boolean);
+          rowData['other_platform_names'] = platformNames;
+        }
 
-        // 映射字段名
+        if (rowData['其他平台运单号']) {
+          // 处理运单号：同一平台的多个运单号用|分隔，存储为TEXT[]数组
+          // Excel格式：2021615278|2021615821
+          // 数据库格式：{"2021615278|2021615821"} (TEXT[]数组)
+          const trackingNumbers = String(rowData['其他平台运单号'])
+            .split(',')
+            .map((tracking: string) => tracking.trim())
+            .filter((tracking: string) => tracking);
+          rowData['external_tracking_numbers'] = trackingNumbers;
+        }
+
+        // 映射字段名 - 参考正常版本的逻辑，保持中文字段名用于验证
         const mappedData = {
-          project_name: rowData['项目名称']?.trim(),
-          chain_name: rowData['合作链路']?.trim() || null,
-          driver_name: rowData['司机姓名']?.trim(),
-          license_plate: rowData['车牌号']?.toString().trim(),
-          driver_phone: rowData['司机电话']?.toString().trim() || null,
-          loading_location: rowData['装货地点']?.trim(),
-          unloading_location: rowData['卸货地点']?.trim(),
-          loading_date: rowData.loading_date_parsed,
-          unloading_date: rowData.unloading_date_parsed,
-          loading_weight: rowData['装货数量']?.toString(),
-          unloading_weight: rowData['卸货数量']?.toString() || null,
-          current_cost: rowData['运费金额']?.toString() || '0',
-          extra_cost: rowData['额外费用']?.toString() || '0',
-          transport_type: rowData['运输类型']?.trim() || '实际运输',
-          remarks: rowData['备注']?.toString().trim() || null,
-          external_tracking_numbers: rowData.external_tracking_numbers,
-          other_platform_names: rowData.other_platform_names
+          '项目名称': rowData['项目名称'],
+          '合作链路': rowData['合作链路(可选)'] || rowData['合作链路'],
+          '司机姓名': rowData['司机姓名'],
+          '车牌号': rowData['车牌号'],
+          '司机电话': rowData['司机电话(可选)'] || rowData['司机电话'],
+          '装货地点': rowData['装货地点'],
+          '卸货地点': rowData['卸货地点'],
+          '装货日期': rowData.loading_date_parsed,
+          '卸货日期': rowData.unloading_date_parsed,
+          '装货数量': rowData['装货数量'],
+          '卸货数量': rowData['卸货数量(可选)'] || rowData['卸货数量'],
+          '运费金额': rowData['运费金额(可选)'] || rowData['运费金额'],
+          '额外费用': rowData['额外费用(可选)'] || rowData['额外费用'],
+          '运输类型': rowData['运输类型(可选)'] || rowData['运输类型'] || '实际运输',
+          '备注': rowData['备注(可选)'] || rowData['备注'],
+          'external_tracking_numbers': rowData['external_tracking_numbers'] || [],
+          'other_platform_names': rowData['other_platform_names'] || []
         };
 
         validRows.push(mappedData);
@@ -275,12 +287,33 @@ export default function EnhancedWaybillMaintenance() {
         throw new Error('没有有效的数据可以导入');
       }
 
+      // 将中文字段名转换为英文字段名，用于数据库导入
+      const recordsForImport = processedResult.processedRows.map(record => ({
+        project_name: record['项目名称'],
+        chain_name: record['合作链路'],
+        driver_name: record['司机姓名'],
+        license_plate: record['车牌号'],
+        driver_phone: record['司机电话'],
+        loading_location: record['装货地点'],
+        unloading_location: record['卸货地点'],
+        loading_date: record['装货日期'],
+        unloading_date: record['卸货日期'],
+        loading_weight: record['装货数量'],
+        unloading_weight: record['卸货数量'],
+        current_cost: record['运费金额'],
+        extra_cost: record['额外费用'],
+        transport_type: record['运输类型'],
+        remarks: record['备注'],
+        external_tracking_numbers: record['external_tracking_numbers'],
+        other_platform_names: record['other_platform_names']
+      }));
+
       // 设置预览数据
       setImportPreview({
-        new_records: processedResult.processedRows.map(record => ({ record })),
+        new_records: recordsForImport.map(record => ({ record })),
         duplicate_records: [],
-        total_count: processedResult.processedRows.length,
-        valid_count: processedResult.processedRows.length,
+        total_count: recordsForImport.length,
+        valid_count: recordsForImport.length,
         invalid_count: validationResult.invalidRows.length
       });
 
