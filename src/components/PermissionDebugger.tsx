@@ -80,7 +80,7 @@ export function PermissionDebugger() {
   const createAdminTemplate = async () => {
     try {
       // 使用重置服务创建管理员模板，而不是硬编码权限
-      await PermissionResetService.resetRoleTemplateToDefault('admin');
+      await PermissionResetService.resetRoleTemplateToSystemDefault('admin');
       
       alert('已创建admin角色模板（使用默认权限）');
       loadDebugInfo();

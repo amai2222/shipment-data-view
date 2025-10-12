@@ -72,11 +72,12 @@ export function IntegratedUserPermissionManager() {
   // 保存权限
   const handleSavePermissions = async () => {
     try {
-      await savePermissions();
+      await savePermissions(roleTemplates, Object.values(userPermissions).flat());
       toast({
         title: "保存成功",
         description: "权限配置已保存",
       });
+      await loadAllData();
     } catch (error) {
       console.error('保存权限失败:', error);
       toast({
