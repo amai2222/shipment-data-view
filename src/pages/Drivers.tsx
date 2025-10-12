@@ -369,7 +369,54 @@ export default function Drivers() {
         icon={Truck}
         iconColor="text-orange-600"
       >
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <div className="flex items-center space-x-2">
+          {/* 批量选择按钮 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <CheckSquare className="h-4 w-4 mr-2" />
+                批量选择
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={handleSelectPage}>
+                选择当前页({drivers.length})
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDeselectCurrentPage}>
+                取消选择当前页
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSelectAllRecords}>
+                选择所有 {totalCount} 条记录
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* 批量关联按钮 - 只在选择了司机时显示 */}
+          {selectedDrivers.length > 0 && (
+            <>
+              <Button
+                variant="default"
+                onClick={handlePreviewAssociate}
+                disabled={isLoading}
+              >
+                <Link className="h-4 w-4 mr-2" />
+                批量关联项目({selectedDrivers.length})
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedDrivers([]);
+                  setIsSelectAll(false);
+                }}
+              >
+                取消选择
+              </Button>
+            </>
+          )}
+
+          {/* 新增司机按钮 */}
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="secondary" onClick={resetForm}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -450,6 +497,7 @@ export default function Drivers() {
               </Tabs>
             </DialogContent>
         </Dialog>
+        </div>
       </PageHeader>
 
       <div className="space-y-6">
@@ -630,40 +678,6 @@ export default function Drivers() {
             </Table>
           </div>
         </CardContent>
-        
-        {/* 批量操作区域 */}
-        {selectedDrivers.length > 0 && (
-          <div className="border-t bg-muted/30 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-muted-foreground">
-                  已选择 {selectedDrivers.length} 个司机
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedDrivers([]);
-                    setIsSelectAll(false);
-                  }}
-                >
-                  取消选择
-                </Button>
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handlePreviewAssociate}
-                  disabled={isLoading}
-                >
-                  <Link className="h-4 w-4 mr-2" />
-                  预览自动关联项目
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
         
         <CardFooter>
           <div className="flex items-center justify-between w-full py-4 px-6 border-t border-gray-200 bg-white">
