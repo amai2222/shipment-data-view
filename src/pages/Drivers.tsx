@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2, Filter, X, FileImage, CheckSquare, Square, Link } from "lucide-react";
+import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2, Filter, X, FileImage, CheckSquare, Square, Link, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Driver, Project } from "@/types";
@@ -279,6 +280,20 @@ export default function Drivers() {
     setIsSelectAll(true);
   };
 
+  const handleSelectAllRecords = () => {
+    // 获取所有司机的ID（这里需要调用API获取所有司机ID）
+    // 暂时使用当前页面的司机ID，实际应用中需要获取所有记录
+    const allDriverIds = drivers.map(driver => driver.id);
+    setSelectedDrivers(allDriverIds);
+    setIsSelectAll(true);
+  };
+
+  const handleDeselectCurrentPage = () => {
+    const currentPageDriverIds = drivers.map(driver => driver.id);
+    setSelectedDrivers(prev => prev.filter(id => !currentPageDriverIds.includes(id)));
+    setIsSelectAll(false);
+  };
+
   // 预览自动关联项目
   const handlePreviewAssociate = async () => {
     if (selectedDrivers.length === 0) {
@@ -292,13 +307,20 @@ export default function Drivers() {
         p_driver_ids: selectedDrivers
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('预览关联失败:', error);
+        throw error;
+      }
 
       setAssociatePreview(data);
       setShowAssociateDialog(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('预览关联失败:', error);
-      toast({ title: "预览关联失败", variant: "destructive" });
+      toast({ 
+        title: "预览关联失败", 
+        description: error.message || "请检查数据库连接或联系管理员",
+        variant: "destructive" 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -511,14 +533,29 @@ export default function Drivers() {
               <TableHeader>
                 <TableRow>
                    <TableHead className="w-12">
-                     <Button
-                       variant="ghost"
-                       size="sm"
-                       onClick={handleSelectAll}
-                       className="h-8 w-8 p-0"
-                     >
-                       {isSelectAll ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-                     </Button>
+                     <DropdownMenu>
+                       <DropdownMenuTrigger asChild>
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           className="h-8 w-8 p-0"
+                         >
+                           {isSelectAll ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                           <ChevronDown className="h-3 w-3 ml-1" />
+                         </Button>
+                       </DropdownMenuTrigger>
+                       <DropdownMenuContent align="start">
+                         <DropdownMenuItem onClick={handleSelectPage}>
+                           选择当前页({drivers.length})
+                         </DropdownMenuItem>
+                         <DropdownMenuItem onClick={handleDeselectCurrentPage}>
+                           取消选择当前页
+                         </DropdownMenuItem>
+                         <DropdownMenuItem onClick={handleSelectAllRecords}>
+                           选择所有 {totalCount} 条记录
+                         </DropdownMenuItem>
+                       </DropdownMenuContent>
+                     </DropdownMenu>
                    </TableHead>
                    <TableHead>司机姓名</TableHead>
                    <TableHead>车牌号</TableHead>
@@ -602,25 +639,16 @@ export default function Drivers() {
                 <span className="text-sm text-muted-foreground">
                   已选择 {selectedDrivers.length} 个司机
                 </span>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSelectPage}
-                  >
-                    选择当前页
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedDrivers([]);
-                      setIsSelectAll(false);
-                    }}
-                  >
-                    取消选择
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedDrivers([]);
+                    setIsSelectAll(false);
+                  }}
+                >
+                  取消选择
+                </Button>
               </div>
               <div className="flex space-x-2">
                 <Button
