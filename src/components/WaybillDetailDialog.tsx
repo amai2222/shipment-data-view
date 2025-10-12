@@ -338,7 +338,7 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
               </div>
               <Label className="text-sm font-semibold text-teal-800">货物信息</Label>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className={`grid grid-cols-1 gap-4 ${record.cargo_type ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
               <div className="bg-white p-3 rounded-lg border border-teal-100">
                 <Label className="text-xs text-teal-600 font-medium">计费方式</Label>
                 <p className="text-sm text-gray-700 mt-1">{getBillingTypeLabel(record.billing_type_id)}</p>
@@ -347,12 +347,12 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
                 <Label className="text-xs text-teal-600 font-medium">装货数量</Label>
                 <p className="text-sm text-gray-700 mt-1">{formatQuantity(record)}</p>
               </div>
-              <div className="bg-white p-3 rounded-lg border border-teal-100">
-                <Label className="text-xs text-teal-600 font-medium">运输类型</Label>
-                <div className="mt-1">
-                  {getTransportTypeBadge(record.transport_type)}
+              {record.cargo_type && (
+                <div className="bg-white p-3 rounded-lg border border-teal-100">
+                  <Label className="text-xs text-teal-600 font-medium">货物类型</Label>
+                  <p className="text-sm text-gray-700 mt-1">{record.cargo_type}</p>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
