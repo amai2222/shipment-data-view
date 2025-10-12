@@ -52,6 +52,7 @@ export default function Drivers() {
   // 批量选择和自动关联项目相关状态
   const [selectedDrivers, setSelectedDrivers] = useState<string[]>([]);
   const [isSelectAll, setIsSelectAll] = useState(false); // 默认为false，非选择状态
+  const [isBatchSelecting, setIsBatchSelecting] = useState(false); // 新增：是否处于批量选择模式
   const [showAssociateDialog, setShowAssociateDialog] = useState(false);
   const [associatePreview, setAssociatePreview] = useState<any>(null);
   const [isAssociating, setIsAssociating] = useState(false);
@@ -300,6 +301,15 @@ export default function Drivers() {
     setIsSelectAll(false);
   };
 
+  // 切换批量选择模式
+  const toggleBatchSelecting = () => {
+    setIsBatchSelecting(prev => !prev);
+    if (isBatchSelecting) { // 如果从选择模式退出，则清空所有选择
+      setSelectedDrivers([]);
+      setIsSelectAll(false);
+    }
+  };
+
   // 预览自动关联项目
   const handlePreviewAssociate = async () => {
     if (selectedDrivers.length === 0) {
@@ -320,6 +330,11 @@ export default function Drivers() {
 
       setAssociatePreview(data);
       setShowAssociateDialog(true);
+      
+      // 添加调试信息
+      console.log('预览数据:', data);
+      console.log('司机数量:', data?.drivers?.length);
+      console.log('汇总信息:', data?.summary);
     } catch (error: any) {
       console.error('预览关联失败:', error);
       toast({ 
@@ -359,9 +374,13 @@ export default function Drivers() {
       setSelectedDrivers([]);
       setIsSelectAll(false);
       setShowAssociateDialog(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('自动关联失败:', error);
-      toast({ title: "自动关联失败", variant: "destructive" });
+      toast({ 
+        title: "自动关联失败", 
+        description: error.message || "请检查数据库连接或联系管理员",
+        variant: "destructive" 
+      });
     } finally {
       setIsAssociating(false);
     }
@@ -376,27 +395,34 @@ export default function Drivers() {
         iconColor="text-orange-600"
       >
         <div className="flex items-center space-x-2">
-          {/* 批量选择按钮 */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                {selectedDrivers.length > 0 ? <CheckSquare className="h-4 w-4 mr-2" /> : <Square className="h-4 w-4 mr-2" />}
-                批量选择
-                <ChevronDown className="h-4 w-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={handleSelectPage}>
-                选择当前页({drivers.length})
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDeselectCurrentPage}>
-                取消选择当前页
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSelectAllRecords}>
-                选择所有 {totalCount} 条记录
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* 批量选择模式切换按钮 */}
+          <Button variant="outline" onClick={toggleBatchSelecting}>
+            {isBatchSelecting ? <CheckSquare className="h-4 w-4 mr-2" /> : <Square className="h-4 w-4 mr-2" />}
+            {isBatchSelecting ? "退出批量选择" : "批量选择"}
+            {isBatchSelecting && <ChevronDown className="h-4 w-4 ml-2" />}
+          </Button>
+
+          {/* 批量选择下拉菜单 - 只在批量选择模式下显示 */}
+          {isBatchSelecting && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="ml-2">
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={handleSelectPage}>
+                  选择当前页({drivers.length})
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDeselectCurrentPage}>
+                  取消选择当前页
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSelectAllRecords}>
+                  选择所有 {totalCount} 条记录
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           {/* 批量关联按钮 - 只在选择了司机时显示 */}
           {selectedDrivers.length > 0 && (
@@ -586,31 +612,33 @@ export default function Drivers() {
             <Table>
               <TableHeader>
                 <TableRow>
-                   <TableHead className="w-12">
-                     <DropdownMenu>
-                       <DropdownMenuTrigger asChild>
-                         <Button
-                           variant="ghost"
-                           size="sm"
-                           className="h-8 w-8 p-0"
-                         >
-                           {isSelectAll ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-                           <ChevronDown className="h-3 w-3 ml-1" />
-                         </Button>
-                       </DropdownMenuTrigger>
-                       <DropdownMenuContent align="start">
-                         <DropdownMenuItem onClick={handleSelectPage}>
-                           选择当前页({drivers.length})
-                         </DropdownMenuItem>
-                         <DropdownMenuItem onClick={handleDeselectCurrentPage}>
-                           取消选择当前页
-                         </DropdownMenuItem>
-                         <DropdownMenuItem onClick={handleSelectAllRecords}>
-                           选择所有 {totalCount} 条记录
-                         </DropdownMenuItem>
-                       </DropdownMenuContent>
-                     </DropdownMenu>
-                   </TableHead>
+          {isBatchSelecting && (
+            <TableHead className="w-12">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                  >
+                    {isSelectAll ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={handleSelectPage}>
+                    选择当前页({drivers.length})
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDeselectCurrentPage}>
+                    取消选择当前页
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSelectAllRecords}>
+                    选择所有 {totalCount} 条记录
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TableHead>
+          )}
                    <TableHead>司机姓名</TableHead>
                    <TableHead>车牌号</TableHead>
                    <TableHead>司机电话</TableHead>
@@ -622,7 +650,7 @@ export default function Drivers() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={isBatchSelecting ? 7 : 6} className="text-center py-8">
                       <div className="flex justify-center items-center">
                         <Loader2 className="h-6 w-6 animate-spin mr-2" />
                         正在加载数据...
@@ -631,17 +659,33 @@ export default function Drivers() {
                   </TableRow>
                 ) : filteredDrivers.length > 0 ? (
                   filteredDrivers.map((driver) => (
-                    <TableRow key={driver.id}>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSelectDriver(driver.id)}
-                          className="h-8 w-8 p-0"
-                        >
-                          {selectedDrivers.includes(driver.id) ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-                        </Button>
-                      </TableCell>
+                    <TableRow 
+                      key={driver.id}
+                      data-state={selectedDrivers.includes(driver.id) && "selected"}
+                      onClick={() => {
+                        if (isBatchSelecting) {
+                          handleSelectDriver(driver.id); // 批量选择模式下点击行切换选择状态
+                        } else {
+                          handleEditDriver(driver); // 非批量选择模式下点击行编辑
+                        }
+                      }}
+                      className={!isBatchSelecting ? "cursor-pointer hover:bg-gray-50" : ""} // 添加鼠标样式
+                    >
+                      {isBatchSelecting && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation(); // 阻止事件冒泡到TableRow的onClick
+                              handleSelectDriver(driver.id);
+                            }}
+                            className="h-8 w-8 p-0"
+                          >
+                            {selectedDrivers.includes(driver.id) ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                          </Button>
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium">{driver.name}</TableCell>
                       <TableCell className="font-mono">{driver.licensePlate}</TableCell>
                       <TableCell>{driver.phone}</TableCell>
@@ -662,7 +706,7 @@ export default function Drivers() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={isBatchSelecting ? 7 : 6} className="h-24 text-center">
                       <Truck className="mx-auto h-12 w-12 text-muted-foreground" />
                       <p className="mt-2 text-muted-foreground">
                         {activeFiltersCount > 0 ? '当前筛选条件下无数据' : '暂无司机数据'}
