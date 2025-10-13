@@ -1,6 +1,7 @@
 // 最终文件路径: src/pages/BusinessEntry/components/LogisticsFormDialog.tsx
+/// <reference path="../../../react-shim.d.ts" />
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LogisticsRecord, Project, PlatformTracking } from '../types';
 import { PlatformTrackingInput } from '@/components/PlatformTrackingInput';
 import { MultiLocationInput } from '@/components/MultiLocationInput';
+import { DriverComboInput } from '@/components/DriverComboInput';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -260,8 +262,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       currentCost: record.current_cost?.toString() || '',
       extraCost: record.extra_cost?.toString() || '',
       remarks: record.remarks || '',
-      external_tracking_numbers: record.external_tracking_numbers || [],
-      other_platform_names: record.other_platform_names || [],
+      external_tracking_numbers: Array.isArray(record.external_tracking_numbers) 
+        ? record.external_tracking_numbers.join(',') 
+        : (record.external_tracking_numbers || ''),
+      other_platform_names: Array.isArray(record.other_platform_names) 
+        ? record.other_platform_names.join(',') 
+        : (record.other_platform_names || ''),
     });
   };
 
@@ -468,14 +474,23 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   };
 
   // [新增] 当选择司机时，自动填充车牌和电话
-  const handleDriverSelect = (driverId: string) => {
-    const driver = drivers.find(d => d.id === driverId);
+  const handleDriverSelect = (driverId: string, driverData?: { name: string; license_plate: string; phone: string }) => {
     setFormData(prev => ({
       ...prev,
       driverId: driverId,
-      licensePlate: driver?.license_plate || '',
-      driverPhone: driver?.phone || ''
+      licensePlate: driverData?.license_plate || '',
+      driverPhone: driverData?.phone || ''
     }));
+  };
+
+  // 重新加载司机列表
+  const handleDriversUpdate = async () => {
+    if (formData.projectId) {
+      const { data, error } = await supabase.from('drivers').select('*').limit(100);
+      if (data && !error) {
+        setDrivers(data);
+      }
+    }
   };
 
   return (
@@ -525,7 +540,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
               </Popover>
             </div>
             
-            {/* [修改] 司机改为下拉选择 */}
+            {/* [修改] 司机改为支持搜索和自定义输入的复合组件 */}
             <div>
               <Label>司机 *</Label>
               {editingRecord && editingRecord.driver_name && (
@@ -544,10 +559,14 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                   )}
                 </div>
               )}
-              <Select value={formData.driverId} onValueChange={handleDriverSelect} disabled={!formData.projectId}>
-                <SelectTrigger><SelectValue placeholder="选择司机" /></SelectTrigger>
-                <SelectContent>{drivers.map((d) => (<SelectItem key={d.id} value={d.id}>{d.name} - {d.license_plate || '无车牌'}</SelectItem>))}</SelectContent>
-              </Select>
+              <DriverComboInput
+                drivers={drivers}
+                value={formData.driverId}
+                onChange={handleDriverSelect}
+                onDriversUpdate={handleDriversUpdate}
+                disabled={!formData.projectId}
+                placeholder="搜索或选择司机"
+              />
             </div>
             
             <div>
