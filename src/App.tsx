@@ -19,6 +19,7 @@ import TransportOverview from "./pages/TransportOverview";
 import Projects from "./pages/Projects";
 import Drivers from "./pages/Drivers";
 import Locations from "./pages/Locations";
+import EnhancedLocations from "./pages/EnhancedLocations";
 import Partners from "./pages/Partners";
 import BusinessEntry from "./pages/BusinessEntry";
 import PaymentRequest from "./pages/PaymentRequest";
@@ -148,6 +149,13 @@ const App = () => (
             <Route path="/locations" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
                 <AppLayout><Locations /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 增强版地点管理 - 支持批量地理编码 */}
+            <Route path="/locations-enhanced" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+                <AppLayout><EnhancedLocations /></AppLayout>
               </ProtectedRoute>
             } />
             

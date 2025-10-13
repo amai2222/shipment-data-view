@@ -29,7 +29,14 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  Loader2
+  Loader2,
+  Zap,
+  Target,
+  BarChart3,
+  Settings,
+  ChevronDown,
+  CheckSquare,
+  Square
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -38,6 +45,8 @@ import { Location, Project } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from '@/components/PageHeader';
 import { createLocationGeocodingService, LocationWithGeocoding, BatchGeocodingResult } from '@/services/LocationGeocodingService';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import * as XLSX from 'xlsx';
 
 export default function EnhancedLocations() {
@@ -51,6 +60,9 @@ export default function EnhancedLocations() {
   const [showFilters, setShowFilters] = useState(false);
   const [showGeocodingInfo, setShowGeocodingInfo] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [showBatchActions, setShowBatchActions] = useState(false);
   const [geocodingStats, setGeocodingStats] = useState({
     total: 0,
     success: 0,
@@ -97,6 +109,130 @@ export default function EnhancedLocations() {
   }
 
   const activeFiltersCount = (searchQuery ? 1 : 0) + (projectFilter !== "all" ? 1 : 0);
+
+  // 批量选择相关函数
+  const handleSelectAll = (checked: boolean) => {
+    setSelectAll(checked);
+    if (checked) {
+      setSelectedLocations(filteredLocations.map(loc => loc.id));
+    } else {
+      setSelectedLocations([]);
+    }
+  };
+
+  const handleSelectLocation = (locationId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedLocations(prev => [...prev, locationId]);
+    } else {
+      setSelectedLocations(prev => prev.filter(id => id !== locationId));
+    }
+  };
+
+  const isLocationSelected = (locationId: string) => {
+    return selectedLocations.includes(locationId);
+  };
+
+  // 批量操作函数
+  const handleBatchGeocodingSelected = async () => {
+    if (selectedLocations.length === 0) {
+      toast({
+        title: "请选择地点",
+        description: "请先选择要地理编码的地点",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      const result: BatchGeocodingResult = await geocodingService.batchGeocodeLocations(selectedLocations);
+
+      toast({
+        title: "批量地理编码完成",
+        description: `成功: ${result.success}, 失败: ${result.failed}`,
+      });
+
+      await loadData();
+      await loadGeocodingStats();
+      setSelectedLocations([]);
+      setSelectAll(false);
+    } catch (error) {
+      console.error('Batch geocoding failed:', error);
+      toast({
+        title: "批量地理编码失败",
+        description: "网络错误或API限制",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
+  const handleBatchDeleteSelected = async () => {
+    if (selectedLocations.length === 0) {
+      toast({
+        title: "请选择地点",
+        description: "请先选择要删除的地点",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await Promise.all(selectedLocations.map(id => SupabaseStorage.deleteLocation(id)));
+      
+      toast({
+        title: "批量删除成功",
+        description: `已删除 ${selectedLocations.length} 个地点`,
+      });
+
+      await loadData();
+      await loadGeocodingStats();
+      setSelectedLocations([]);
+      setSelectAll(false);
+    } catch (error) {
+      console.error('Batch delete failed:', error);
+      toast({
+        title: "批量删除失败",
+        description: "无法删除选中的地点",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportSelected = () => {
+    if (selectedLocations.length === 0) {
+      toast({
+        title: "请选择地点",
+        description: "请先选择要导出的地点",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedData = locations.filter(loc => selectedLocations.includes(loc.id));
+    const exportData = selectedData.map(location => ({
+      '地点名称': location.name,
+      '详细地址': location.formatted_address || location.address || '',
+      '纬度': location.latitude || '',
+      '经度': location.longitude || '',
+      '省份': location.province || '',
+      '城市': location.city || '',
+      '区县': location.district || '',
+      '地理编码状态': getGeocodingStatusText(location.geocoding_status || 'pending'),
+      '创建时间': new Date(location.createdAt).toLocaleDateString()
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '地点数据');
+    XLSX.writeFile(wb, `地点数据_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    toast({
+      title: "导出成功",
+      description: `已导出 ${selectedLocations.length} 个地点的数据`,
+    });
+  };
 
   // 加载地点数据
   useEffect(() => {
@@ -520,6 +656,38 @@ export default function EnhancedLocations() {
               </Dialog>
 
               <div className="flex items-center space-x-2">
+                {/* 批量操作下拉菜单 */}
+                {selectedLocations.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline">
+                        <Zap className="h-4 w-4 mr-2" />
+                        批量操作 ({selectedLocations.length})
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={handleBatchGeocodingSelected}>
+                        <Map className="h-4 w-4 mr-2" />
+                        地理编码选中
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleExportSelected}>
+                        <Download className="h-4 w-4 mr-2" />
+                        导出选中
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={handleBatchDeleteSelected}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        删除选中
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
+                {/* 全量操作按钮 */}
                 <Button
                   variant="outline"
                   onClick={handleBatchGeocoding}
@@ -530,7 +698,7 @@ export default function EnhancedLocations() {
                   ) : (
                     <Map className="h-4 w-4 mr-2" />
                   )}
-                  批量地理编码
+                  全部地理编码
                 </Button>
 
                 {geocodingStats.failed > 0 && (
@@ -602,12 +770,59 @@ export default function EnhancedLocations() {
         </CardContent>
       </Card>
 
+      {/* 批量操作状态栏 */}
+      {selectedLocations.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-5 w-5 text-blue-600" />
+                <span className="font-medium text-blue-800">
+                  已选择 {selectedLocations.length} 个地点
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedLocations([]);
+                    setSelectAll(false);
+                  }}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  取消选择
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBatchGeocodingSelected}
+                  disabled={isGeocoding}
+                >
+                  {isGeocoding ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Map className="h-4 w-4 mr-1" />
+                  )}
+                  地理编码
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 地点列表 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
             地点列表 ({filteredLocations.length})
+            {selectedLocations.length > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                已选择 {selectedLocations.length}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -615,6 +830,13 @@ export default function EnhancedLocations() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectAll}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="选择全部"
+                    />
+                  </TableHead>
                   <TableHead>地点名称</TableHead>
                   {showGeocodingInfo && <TableHead>详细地址</TableHead>}
                   {showGeocodingInfo && <TableHead>坐标</TableHead>}
@@ -626,7 +848,14 @@ export default function EnhancedLocations() {
               </TableHeader>
               <TableBody>
                 {filteredLocations.map((location) => (
-                  <TableRow key={location.id}>
+                  <TableRow key={location.id} className={isLocationSelected(location.id) ? "bg-blue-50" : ""}>
+                    <TableCell>
+                      <Checkbox
+                        checked={isLocationSelected(location.id)}
+                        onCheckedChange={(checked) => handleSelectLocation(location.id, checked as boolean)}
+                        aria-label={`选择 ${location.name}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{location.name}</TableCell>
                     {showGeocodingInfo && (
                       <TableCell>

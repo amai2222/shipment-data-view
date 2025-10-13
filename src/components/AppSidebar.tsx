@@ -59,6 +59,7 @@ const menuItems = [
       { title: "项目管理", url: "/projects", icon: Package },
       { title: "司机管理", url: "/drivers", icon: Truck },
       { title: "地点管理", url: "/locations", icon: MapPin },
+      { title: "地点管理（增强版）", url: "/locations-enhanced", icon: MapPin },
       { title: "合作方管理", url: "/partners", icon: Users },
     ]
   },
