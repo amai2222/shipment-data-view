@@ -99,17 +99,32 @@ export default function Partners() {
 
       if (error) throw error;
 
-      const formattedData: PartnerWithProjects[] = data.map(item => ({
-        id: item.id,
-        name: item.name,
-        fullName: item.partner_bank_details?.[0]?.full_name || '',
-        bankAccount: item.partner_bank_details?.[0]?.bank_account || '',
-        bankName: item.partner_bank_details?.[0]?.bank_name || '',
-        branchName: item.partner_bank_details?.[0]?.branch_name || '',
-        taxNumber: item.partner_bank_details?.[0]?.tax_number || '',
-        companyAddress: item.partner_bank_details?.[0]?.company_address || '',
-        taxRate: Number(item.tax_rate),
-        createdAt: item.created_at,
+      // 调试：打印原始数据
+      console.log('原始合作方数据:', data);
+      if (data && data.length > 0) {
+        console.log('第一个合作方的partner_bank_details:', data[0].partner_bank_details);
+      }
+      
+      // 调试：检查用户权限
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('当前用户:', user?.id);
+      console.log('canViewSensitive:', canViewSensitive);
+
+      const formattedData: PartnerWithProjects[] = data.map(item => {
+        // 调试：打印每个合作方的银行详情
+        console.log(`合作方 ${item.name} 的银行详情:`, item.partner_bank_details);
+        
+        return {
+          id: item.id,
+          name: item.name,
+          fullName: item.partner_bank_details?.[0]?.full_name || '',
+          bankAccount: item.partner_bank_details?.[0]?.bank_account || '',
+          bankName: item.partner_bank_details?.[0]?.bank_name || '',
+          branchName: item.partner_bank_details?.[0]?.branch_name || '',
+          taxNumber: item.partner_bank_details?.[0]?.tax_number || '',
+          companyAddress: item.partner_bank_details?.[0]?.company_address || '',
+          taxRate: Number(item.tax_rate),
+          createdAt: item.created_at,
         projects: (item.project_partners || []).map((pp: any) => ({
           projectId: pp.projects.id,
           projectName: pp.projects.name,
@@ -117,7 +132,8 @@ export default function Partners() {
           level: pp.level,
           taxRate: Number(pp.tax_rate)
         }))
-      }));
+        };
+      });
 
       setPartners(formattedData);
     } catch (error) {
