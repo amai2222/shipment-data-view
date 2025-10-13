@@ -129,7 +129,13 @@ export class SupabaseAMapService {
       });
 
       if (error) {
+        console.error('Edge Function 错误详情:', error);
         throw new Error(`智能地理编码请求失败: ${error.message}`);
+      }
+
+      if (!data.success) {
+        console.error('地理编码业务错误:', data);
+        throw new Error(data.error || '地理编码失败');
       }
 
       return data;

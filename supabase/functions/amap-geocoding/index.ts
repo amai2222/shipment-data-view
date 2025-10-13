@@ -400,12 +400,35 @@ async function handleBatchUpdateGeocoding(supabaseClient: any, locations: Locati
 }
 
 /**
+ * 预处理地址，清理特殊字符和格式
+ */
+function preprocessAddress(address: string): string {
+  if (!address) return '';
+  
+  // 移除多余的空白字符
+  let cleaned = address.trim().replace(/\s+/g, ' ');
+  
+  // 移除特殊字符（保留中文、英文、数字、常用标点）
+  cleaned = cleaned.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s\-|]/g, '');
+  
+  // 限制长度（高德地图API建议不超过100字符）
+  if (cleaned.length > 100) {
+    cleaned = cleaned.substring(0, 100);
+  }
+  
+  return cleaned;
+}
+
+/**
  * 使用指定策略进行地理编码
  */
 async function geocodeWithStrategy(amapKey: string, address: string, city?: string): Promise<GeocodingResponse> {
+  // 预处理地址
+  const cleanedAddress = preprocessAddress(address);
+  
   const params = new URLSearchParams({
     key: amapKey,
-    address: address,
+    address: cleanedAddress,
     output: 'JSON',
     ...(city && { city })
   });
@@ -415,22 +438,11 @@ async function geocodeWithStrategy(amapKey: string, address: string, city?: stri
   const data: GeocodingResponse = await response.json();
 
   if (data.status !== '1') {
-    throw new Error(`地理编码失败: ${data.info}`);
+    console.error(`高德地图API错误 - 地址: ${address}, 状态: ${data.status}, 信息: ${data.info}`);
+    throw new Error(`地理编码失败: ${data.info} (状态码: ${data.status})`);
   }
 
   return data;
-}
-
-/**
- * 预处理地址 - 清理和标准化地址
- */
-function preprocessAddress(address: string): string {
-  return address
-    .replace(/\s+/g, '') // 去除空格
-    .replace(/[，,]/g, '') // 去除逗号
-    .replace(/[（）()]/g, '') // 去除括号
-    .replace(/[、]/g, '') // 去除顿号
-    .trim();
 }
 
 /**
