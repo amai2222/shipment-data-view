@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface MapCoordinates {
   latitude: number;
