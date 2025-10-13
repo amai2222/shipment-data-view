@@ -429,9 +429,14 @@ export default function EnhancedLocations() {
   const handleBatchGeocoding = async () => {
     setIsGeocoding(true);
     try {
+      console.log('当前地点数据:', locations);
+      console.log('地点状态分布:', locations.map(loc => ({ id: loc.id, name: loc.name, status: loc.geocoding_status })));
+      
       const pendingLocations = locations.filter(loc => 
         loc.geocoding_status === 'pending' || loc.geocoding_status === 'failed'
       );
+      
+      console.log('待处理地点:', pendingLocations);
       
       if (pendingLocations.length === 0) {
         toast({

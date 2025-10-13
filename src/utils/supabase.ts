@@ -284,7 +284,23 @@ export class SupabaseStorage {
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data?.map(l => ({
-      id: l.id, name: l.name,
+      id: l.id, 
+      name: l.name,
+      address: l.address,
+      latitude: l.latitude,
+      longitude: l.longitude,
+      formatted_address: l.formatted_address,
+      province: l.province,
+      city: l.city,
+      district: l.district,
+      township: l.township,
+      street: l.street,
+      street_number: l.street_number,
+      adcode: l.adcode,
+      citycode: l.citycode,
+      geocoding_status: l.geocoding_status || 'pending',
+      geocoding_updated_at: l.geocoding_updated_at,
+      geocoding_error: l.geocoding_error,
       projectIds: l.location_projects?.map((lp: any) => lp.project_id) || [],
       createdAt: l.created_at,
     })) || [];
