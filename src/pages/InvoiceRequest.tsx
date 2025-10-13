@@ -435,19 +435,20 @@ export default function InvoiceRequest() {
   };
 
   const handleSaveInvoiceRequest = async () => {
-    if (!finalInvoiceData) return;
+    if (!finalInvoiceData || !finalInvoiceData.all_record_ids || finalInvoiceData.all_record_ids.length === 0) return;
 
     setIsSaving(true);
     try {
+      // ✅ 方案A：统一逻辑，只传运单ID数组（与付款申请一致）
       const { data, error } = await supabase.rpc('save_invoice_request', {
-        p_invoice_data: finalInvoiceData
+        p_record_ids: finalInvoiceData.all_record_ids
       });
 
       if (error) throw error;
 
       toast({
         title: "成功",
-        description: "开票申请已成功创建",
+        description: `开票申请已成功创建，共处理 ${finalInvoiceData.all_record_ids.length} 条运单`,
         variant: "default"
       });
 
