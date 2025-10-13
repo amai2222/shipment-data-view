@@ -10,6 +10,7 @@ export interface RouteInfo {
   endLocation: string;
   startCoords?: MapCoordinates;
   endCoords?: MapCoordinates;
+  waypoints?: MapCoordinates[];  // 途径点
   distance?: number;
   duration?: number;
 }
@@ -46,19 +47,44 @@ export class RouteMapService {
     }
   }
 
+  /**
+   * 获取多个地点的坐标
+   */
+  static async getMultipleLocationsCoordinates(addresses: string): Promise<Array<{name: string, coords: MapCoordinates | null}>> {
+    const locations = addresses.split('|').map(addr => addr.trim()).filter(addr => addr.length > 0);
+    const results = [];
+    
+    for (const location of locations) {
+      const coords = await this.getLocationCoordinates(location);
+      results.push({ name: location, coords });
+    }
+    
+    return results;
+  }
 
   /**
-   * 获取路线信息
+   * 获取路线信息（支持多地点）
    */
   static async getRouteInfo(startAddress: string, endAddress: string): Promise<RouteInfo> {
-    const startCoords = await this.getLocationCoordinates(startAddress);
-    const endCoords = await this.getLocationCoordinates(endAddress);
+    // 获取装货地点（可能有多个）
+    const loadingLocations = await this.getMultipleLocationsCoordinates(startAddress);
+    // 获取卸货地点（可能有多个）
+    const unloadingLocations = await this.getMultipleLocationsCoordinates(endAddress);
+
+    // 构建所有地点的坐标序列
+    const allLocations = [...loadingLocations, ...unloadingLocations];
+    const validLocations = allLocations.filter(loc => loc.coords !== null);
+
+    // 起点和终点
+    const startCoords = validLocations.length > 0 ? validLocations[0].coords : undefined;
+    const endCoords = validLocations.length > 0 ? validLocations[validLocations.length - 1].coords : undefined;
 
     return {
-      startLocation: startAddress,
-      endLocation: endAddress,
+      startLocation: loadingLocations.map(l => l.name).join(' | '),
+      endLocation: unloadingLocations.map(l => l.name).join(' | '),
       startCoords: startCoords || undefined,
-      endCoords: endCoords || undefined
+      endCoords: endCoords || undefined,
+      waypoints: validLocations.slice(1, -1).map(loc => loc.coords!).filter(Boolean) as MapCoordinates[]
     };
   }
 
@@ -133,7 +159,8 @@ export class RouteMapService {
             startCoords: [${startLng}, ${startLat}],
             endCoords: [${endLng}, ${endLat}],
             startLocation: '${routeInfo.startLocation}',
-            endLocation: '${routeInfo.endLocation}'
+            endLocation: '${routeInfo.endLocation}',
+            waypoints: ${JSON.stringify((routeInfo.waypoints || []).map(wp => [wp.longitude, wp.latitude]))}
           };
           
           // 动态加载高德地图API
@@ -168,7 +195,29 @@ export class RouteMapService {
                 })
               });
               
-              map.add([startMarker, endMarker]);
+              const allMarkers = [startMarker, endMarker];
+              
+              // 添加途径点标记（如果有）
+              if (mapConfig.waypoints && mapConfig.waypoints.length > 0) {
+                mapConfig.waypoints.forEach(function(waypoint, index) {
+                  const waypointMarker = new AMap.Marker({
+                    position: waypoint,
+                    title: '途径点 ' + (index + 1),
+                    icon: new AMap.Icon({
+                      size: new AMap.Size(28, 28),
+                      image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgiIGhlaWdodD0iMjgiIHZpZXdCb3g9IjAgMCAyOCAyOCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTQiIGN5PSIxNCIgcj0iMTAiIGZpbGw9IiNmOTc5MTYiLz4KPHRleHQgeD0iMTQiIHk9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1zaXplPSIxMiIgZm9udC13ZWlnaHQ9ImJvbGQiPicgKyAoaW5kZXggKyAxKSArICc8L3RleHQ+Cjwvc3ZnPg=='
+                    }),
+                    label: {
+                      content: (index + 1).toString(),
+                      offset: new AMap.Pixel(0, 0),
+                      direction: 'center'
+                    }
+                  });
+                  allMarkers.push(waypointMarker);
+                });
+              }
+              
+              map.add(allMarkers);
               
               // 先绘制直线和距离，立即显示
               const directPolyline = new AMap.Polyline({
@@ -227,7 +276,12 @@ export class RouteMapService {
                   policy: AMap.DrivingPolicy.LEAST_TIME  // 最少时间
                 });
                 
-                driving.search(mapConfig.startCoords, mapConfig.endCoords, function(status, result) {
+                // 构建搜索参数（支持途径点）
+                const searchOpts = {
+                  waypoints: mapConfig.waypoints || []
+                };
+                
+                driving.search(mapConfig.startCoords, mapConfig.endCoords, searchOpts, function(status, result) {
                   clearTimeout(timeoutId);
                   routeCompleted = true;
                   
