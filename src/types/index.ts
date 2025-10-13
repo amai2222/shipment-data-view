@@ -37,6 +37,22 @@ export interface Location {
   name: string;
   projectIds?: string[]; // 关联的项目ID数组
   createdAt: string;
+  // 地理编码相关字段
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  formatted_address?: string;
+  province?: string;
+  city?: string;
+  district?: string;
+  township?: string;
+  street?: string;
+  street_number?: string;
+  adcode?: string;
+  citycode?: string;
+  geocoding_status?: 'pending' | 'success' | 'failed' | 'retry';
+  geocoding_updated_at?: string;
+  geocoding_error?: string;
 }
 
 // 平台运单信息数据类型

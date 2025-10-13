@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.work-wechat-approval]
 verify_jwt = false
+
+[functions.amap-geocoding]
+verify_jwt = true
