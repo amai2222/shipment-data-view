@@ -99,19 +99,8 @@ export default function Partners() {
 
       if (error) throw error;
 
-      // 测试：直接查询partner_bank_details表
-      const { data: bankDetails, error: bankError } = await supabase
-        .from('partner_bank_details')
-        .select('*')
-        .limit(5);
-      
-      console.log('直接查询partner_bank_details结果:', bankDetails);
-      console.log('查询错误:', bankError);
 
       const formattedData: PartnerWithProjects[] = data.map(item => {
-        // 调试：打印每个合作方的银行详情
-        console.log(`合作方 ${item.name} 的银行详情:`, item.partner_bank_details);
-        
         // 处理partner_bank_details，可能是对象或数组
         const bankDetails = Array.isArray(item.partner_bank_details) 
           ? item.partner_bank_details[0] 
