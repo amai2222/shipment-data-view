@@ -77,7 +77,7 @@ export default function Partners() {
           .from('partners')
           .select(`
             id, name, tax_rate, created_at,
-            partner_bank_details!left ( full_name, tax_number, company_address, bank_account, bank_name, branch_name ),
+            partner_bank_details ( full_name, tax_number, company_address, bank_account, bank_name, branch_name ),
             project_partners (
               level, tax_rate,
               projects ( id, name, auto_code )
@@ -108,15 +108,24 @@ export default function Partners() {
       console.log('直接查询partner_bank_details结果:', bankDetails);
       console.log('查询错误:', bankError);
 
-      const formattedData: PartnerWithProjects[] = data.map(item => ({
+      const formattedData: PartnerWithProjects[] = data.map(item => {
+        // 调试：打印每个合作方的银行详情
+        console.log(`合作方 ${item.name} 的银行详情:`, item.partner_bank_details);
+        
+        // 处理partner_bank_details，可能是对象或数组
+        const bankDetails = Array.isArray(item.partner_bank_details) 
+          ? item.partner_bank_details[0] 
+          : item.partner_bank_details;
+        
+        return {
           id: item.id,
           name: item.name,
-          fullName: item.partner_bank_details?.[0]?.full_name || '',
-          bankAccount: item.partner_bank_details?.[0]?.bank_account || '',
-          bankName: item.partner_bank_details?.[0]?.bank_name || '',
-          branchName: item.partner_bank_details?.[0]?.branch_name || '',
-          taxNumber: item.partner_bank_details?.[0]?.tax_number || '',
-          companyAddress: item.partner_bank_details?.[0]?.company_address || '',
+          fullName: bankDetails?.full_name || '',
+          bankAccount: bankDetails?.bank_account || '',
+          bankName: bankDetails?.bank_name || '',
+          branchName: bankDetails?.branch_name || '',
+          taxNumber: bankDetails?.tax_number || '',
+          companyAddress: bankDetails?.company_address || '',
           taxRate: Number(item.tax_rate),
           createdAt: item.created_at,
         projects: (item.project_partners || []).map((pp: any) => ({
@@ -126,7 +135,8 @@ export default function Partners() {
           level: pp.level,
           taxRate: Number(pp.tax_rate)
         }))
-      }));
+        };
+      });
 
       setPartners(formattedData);
     } catch (error) {
