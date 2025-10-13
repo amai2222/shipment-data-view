@@ -112,10 +112,25 @@ export class RouteMapService {
             endLocation: '${routeInfo.endLocation}'
           };
           
-          // 动态加载高德地图API
-          const script = document.createElement('script');
-          script.src = 'https://webapi.amap.com/maps?v=2.0&key=YOUR_AMAP_KEY';
-          script.onload = function() {
+          // 通过Supabase Edge Function获取API密钥
+          fetch('/functions/v1/amap-geocoding', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + (window.supabase?.auth?.getSession?.()?.access_token || '')
+            },
+            body: JSON.stringify({
+              action: 'get_api_key',
+              data: {}
+            })
+          })
+          .then(response => response.json())
+          .then(result => {
+            if (result.apiKey) {
+              // 动态加载高德地图API
+              const script = document.createElement('script');
+              script.src = \`https://webapi.amap.com/maps?v=2.0&key=\${result.apiKey}\`;
+              script.onload = function() {
             try {
               // 初始化地图
               const map = new AMap.Map('route-map', {
@@ -174,10 +189,20 @@ export class RouteMapService {
           };
           
           script.onerror = function() {
-            mapContainer.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 20px;"><div style="font-size: 24px; margin-bottom: 10px;">🗺️</div><div>地图服务不可用</div><div style="font-size: 12px; margin-top: 5px;">运输路线: ' + mapConfig.startLocation + ' → ' + mapConfig.endLocation + '</div></div>';
+            console.error('高德地图API加载失败');
+            mapContainer.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 20px;"><div style="font-size: 24px; margin-bottom: 10px;">🗺️</div><div>地图加载失败</div><div style="font-size: 12px; margin-top: 5px;">请检查网络连接</div></div>';
           };
           
           document.head.appendChild(script);
+            } else {
+              console.error('无法获取API密钥');
+              mapContainer.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 20px;"><div style="font-size: 24px; margin-bottom: 10px;">🗺️</div><div>地图加载失败</div><div style="font-size: 12px; margin-top: 5px;">API密钥配置错误</div></div>';
+            }
+          })
+          .catch(error => {
+            console.error('获取API密钥失败:', error);
+            mapContainer.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 20px;"><div style="font-size: 24px; margin-bottom: 10px;">🗺️</div><div>地图加载失败</div><div style="font-size: 12px; margin-top: 5px;">请检查网络连接</div></div>';
+          });
         })();
       </script>
     `;

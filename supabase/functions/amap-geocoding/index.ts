@@ -142,6 +142,15 @@ serve(async (req) => {
       case 'batch_update_geocoding':
         return await handleBatchUpdateGeocoding(supabaseClient, data);
       
+      case 'get_api_key':
+        return new Response(
+          JSON.stringify({ apiKey: amapKey }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid action' }),
