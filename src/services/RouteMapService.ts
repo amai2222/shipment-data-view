@@ -219,9 +219,33 @@ export class RouteMapService {
               
               map.add(allMarkers);
               
-              // 先绘制直线和距离，立即显示
+              // 生成贝塞尔曲线路径（初始显示）
+              const createBezierPath = function(start, end) {
+                const midLng = (start[0] + end[0]) / 2;
+                const midLat = (start[1] + end[1]) / 2;
+                
+                // 计算控制点（在中点上方偏移，形成弧线）
+                const distance = Math.sqrt(Math.pow(end[0] - start[0], 2) + Math.pow(end[1] - start[1], 2));
+                const offset = distance * 0.2; // 偏移量为距离的20%
+                
+                const controlLat = midLat + offset;
+                
+                // 生成平滑曲线路径点
+                const path = [];
+                const steps = 50; // 曲线平滑度
+                for (let i = 0; i <= steps; i++) {
+                  const t = i / steps;
+                  const lng = (1 - t) * (1 - t) * start[0] + 2 * (1 - t) * t * midLng + t * t * end[0];
+                  const lat = (1 - t) * (1 - t) * start[1] + 2 * (1 - t) * t * controlLat + t * t * end[1];
+                  path.push([lng, lat]);
+                }
+                return path;
+              };
+              
+              const bezierPath = createBezierPath(mapConfig.startCoords, mapConfig.endCoords);
+              
               const directPolyline = new AMap.Polyline({
-                path: [mapConfig.startCoords, mapConfig.endCoords],
+                path: bezierPath,
                 strokeColor: '#2563eb',
                 strokeWeight: 4,
                 strokeOpacity: 0.6,
@@ -260,10 +284,11 @@ export class RouteMapService {
               let routeCompleted = false;
               const timeoutId = setTimeout(function() {
                 if (!routeCompleted) {
-                  console.log('驾车路线规划超时，使用直线显示');
+                  console.log('驾车路线规划超时，使用曲线显示');
                   directPolyline.setOptions({
                     strokeStyle: 'solid',
-                    strokeOpacity: 0.8
+                    strokeOpacity: 0.8,
+                    strokeWeight: 5
                   });
                 }
               }, 2000); // 2秒超时
@@ -311,8 +336,13 @@ export class RouteMapService {
                       const routeDistanceKm = (route.distance / 1000).toFixed(1);
                       distanceLabel.setText(routeDistanceKm + ' 公里');
                     } else {
-                      console.log('多点路线规划失败:', status, result);
-                      directPolyline.setOptions({ strokeStyle: 'solid', strokeOpacity: 0.8 });
+                      console.log('多点路线规划失败，使用曲线显示:', status, result);
+                      // 失败时将虚线改为实线曲线
+                      directPolyline.setOptions({ 
+                        strokeStyle: 'solid', 
+                        strokeOpacity: 0.8,
+                        strokeWeight: 5
+                      });
                     }
                   });
                 } else {
@@ -349,8 +379,13 @@ export class RouteMapService {
                       const routeDistanceKm = (route.distance / 1000).toFixed(1);
                       distanceLabel.setText(routeDistanceKm + ' 公里');
                     } else {
-                      console.log('两点路线规划失败:', status, result);
-                      directPolyline.setOptions({ strokeStyle: 'solid', strokeOpacity: 0.8 });
+                      console.log('两点路线规划失败，使用曲线显示:', status, result);
+                      // 失败时将虚线改为实线曲线
+                      directPolyline.setOptions({ 
+                        strokeStyle: 'solid', 
+                        strokeOpacity: 0.8,
+                        strokeWeight: 5
+                      });
                     }
                   });
                 }
