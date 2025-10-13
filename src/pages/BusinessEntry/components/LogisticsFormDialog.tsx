@@ -121,6 +121,20 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   }, [isOpen, editingRecord]);
 
+  // 当司机数据加载完成后，如果是编辑模式且司机信息为空，自动从司机数据中填充
+  useEffect(() => {
+    if (editingRecord && drivers.length > 0 && formData.driverId) {
+      const driver = drivers.find(d => d.id === formData.driverId);
+      if (driver && (!formData.licensePlate || !formData.driverPhone)) {
+        setFormData(prev => ({
+          ...prev,
+          licensePlate: prev.licensePlate || driver.license_plate || '',
+          driverPhone: prev.driverPhone || driver.phone || ''
+        }));
+      }
+    }
+  }, [editingRecord, drivers, formData.driverId]);
+
   useEffect(() => {
     if (formData.projectId) {
       loadProjectSpecificData(formData.projectId);
@@ -128,7 +142,10 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       setChains([]);
       setDrivers([]);
       setLocations([]);
-      setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationIds: [], unloadingLocationIds: [] }));
+      // 只在非编辑模式下清空表单数据
+      if (!editingRecord) {
+        setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationIds: [], unloadingLocationIds: [] }));
+      }
     }
   }, [formData.projectId]);
 
@@ -145,7 +162,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
 
   // 在编辑模式下，当地点数据加载完成后，直接设置地点ID
   useEffect(() => {
-    if (editingRecord && locations.length > 0) {
+    if (editingRecord && locations.length > 0 && formData.loadingLocationIds.length === 0) {
       const loadingLocationNames = parseLocationString(editingRecord.loading_location || '');
       const unloadingLocationNames = parseLocationString(editingRecord.unloading_location || '');
       
@@ -193,10 +210,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       if (locationsRes.error) throw locationsRes.error;
       if (chainsRes.error) throw chainsRes.error;
 
+      console.log('加载项目关联数据:', {
+        drivers: driversRes.data?.length,
+        locations: locationsRes.data?.length,
+        chains: chainsRes.data?.length,
+        currentDriverId: formData.driverId
+      });
+
       setDrivers(driversRes.data || []);
       setLocations(locationsRes.data || []);
       setChains(chainsRes.data || []);
     } catch (error) {
+      console.error('加载项目关联数据失败:', error);
       toast({ title: "错误", description: "加载项目关联数据失败", variant: "destructive" });
     }
   };
@@ -242,23 +267,71 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.projectId || !formData.driverId || formData.loadingLocationIds.length === 0 || formData.unloadingLocationIds.length === 0 || !formData.loadingDate) {
-      toast({ title: "验证失败", description: "项目、司机和地点等必填项不能为空。", variant: "destructive" });
+    
+    // 调试信息
+    console.log('表单数据验证:', {
+      projectId: formData.projectId,
+      driverId: formData.driverId,
+      loadingLocationIds: formData.loadingLocationIds,
+      unloadingLocationIds: formData.unloadingLocationIds,
+      loadingDate: formData.loadingDate,
+      licensePlate: formData.licensePlate,
+      driverPhone: formData.driverPhone,
+      isEditing: !!editingRecord,
+      editingRecord: editingRecord ? {
+        project_id: editingRecord.project_id,
+        driver_id: editingRecord.driver_id,
+        loading_location: editingRecord.loading_location,
+        unloading_location: editingRecord.unloading_location
+      } : null
+    });
+    
+    // 在编辑模式下，如果表单字段暂时为空但原始记录有相应信息，则使用原始值
+    const hasProject = formData.projectId || editingRecord?.project_id;
+    const hasDriver = formData.driverId || editingRecord?.driver_id;
+    const hasLoadingLocation = formData.loadingLocationIds.length > 0 || (editingRecord?.loading_location && editingRecord.loading_location.length > 0);
+    const hasUnloadingLocation = formData.unloadingLocationIds.length > 0 || (editingRecord?.unloading_location && editingRecord.unloading_location.length > 0);
+    const hasLoadingDate = formData.loadingDate || editingRecord?.loading_date;
+    
+    if (!hasProject || !hasDriver || !hasLoadingLocation || !hasUnloadingLocation || !hasLoadingDate) {
+      const missingFields = [];
+      if (!hasProject) missingFields.push('项目');
+      if (!hasDriver) missingFields.push('司机');
+      if (!hasLoadingLocation) missingFields.push('装货地点');
+      if (!hasUnloadingLocation) missingFields.push('卸货地点');
+      if (!hasLoadingDate) missingFields.push('装货日期');
+      
+      toast({ 
+        title: "验证失败", 
+        description: `以下必填项不能为空：${missingFields.join('、')}`, 
+        variant: "destructive" 
+      });
       return;
     }
     setLoading(true);
 
     try {
       // 将地点ID数组转换为地点名称字符串
-      const loadingLocationNames = formData.loadingLocationIds
+      // 在编辑模式下，如果地点ID为空，使用原始地点数据
+      let loadingLocationNames = formData.loadingLocationIds
         .map(id => locations.find(l => l.id === id)?.name)
         .filter(Boolean)
         .join('|');
       
-      const unloadingLocationNames = formData.unloadingLocationIds
+      let unloadingLocationNames = formData.unloadingLocationIds
         .map(id => locations.find(l => l.id === id)?.name)
         .filter(Boolean)
         .join('|');
+      
+      // 如果是编辑模式且地点名称为空，使用原始值
+      if (editingRecord) {
+        if (!loadingLocationNames && editingRecord.loading_location) {
+          loadingLocationNames = editingRecord.loading_location;
+        }
+        if (!unloadingLocationNames && editingRecord.unloading_location) {
+          unloadingLocationNames = editingRecord.unloading_location;
+        }
+      }
 
       // 处理平台字段：解析逗号分隔的平台名称和运单号
       const otherPlatformNames = formData.other_platform_names 
@@ -294,16 +367,20 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       };
 
       if (editingRecord) {
+        // 使用表单数据，如果为空则使用原始记录数据
+        const finalProjectId = formData.projectId || editingRecord.project_id;
+        const finalDriverId = formData.driverId || editingRecord.driver_id;
+        
         const { error } = await supabase.rpc('update_logistics_record_via_recalc', { 
           p_record_id: editingRecord.id, 
-          p_project_id: formData.projectId,
-          p_project_name: projects.find(p => p.id === formData.projectId)?.name || '',
-          p_chain_id: formData.chainId,
-          p_driver_id: formData.driverId,
-          p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
+          p_project_id: finalProjectId,
+          p_project_name: projects.find(p => p.id === finalProjectId)?.name || editingRecord.project_name || '',
+          p_chain_id: formData.chainId || editingRecord.chain_id,
+          p_driver_id: finalDriverId,
+          p_driver_name: drivers.find(d => d.id === finalDriverId)?.name || editingRecord.driver_name || '',
           p_loading_location: loadingLocationNames,
           p_unloading_location: unloadingLocationNames,
-          p_loading_date: formData.loadingDate?.toISOString(),
+          p_loading_date: formData.loadingDate?.toISOString() || editingRecord.loading_date,
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
           p_current_cost: parseFloat(formData.currentCost) || 0,
