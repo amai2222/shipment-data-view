@@ -119,6 +119,7 @@ export function AppSidebar() {
       '/projects': 'maintenance.projects',
       '/drivers': 'maintenance.drivers',
       '/locations': 'maintenance.locations',
+      '/locations-enhanced': 'maintenance.locations_enhanced',
       '/partners': 'maintenance.partners',
       '/business-entry': 'business.entry',
       '/scale-records': 'business.scale',
@@ -129,7 +130,7 @@ export function AppSidebar() {
       '/finance/reconciliation': 'finance.reconciliation',
       '/finance/payment-invoice': 'finance.payment_invoice',
       '/data-maintenance/waybill': 'data_maintenance.waybill',
-      '/data-maintenance/waybill-enhanced': 'data_maintenance.waybill',
+      '/data-maintenance/waybill-enhanced': 'data_maintenance.waybill_enhanced',
       '/settings/users': 'settings.users',
       '/settings/permissions': 'settings.permissions',
       '/settings/contract-permissions': 'settings.contract_permissions',
@@ -147,6 +148,8 @@ export function AppSidebar() {
       ...group,
       items: group.items.filter(item => {
         const menuKey = getMenuKey(item.url);
+        // 临时调试：显示所有菜单项
+        console.log('菜单项权限检查:', item.title, item.url, menuKey, hasMenuAccess(menuKey));
         return menuKey && hasMenuAccess(menuKey);
       })
     })).filter(group => {

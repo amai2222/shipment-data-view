@@ -101,6 +101,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
       { key: 'maintenance.projects', label: '项目管理', icon: 'Package' },
       { key: 'maintenance.drivers', label: '司机管理', icon: 'Truck' },
       { key: 'maintenance.locations', label: '地点管理', icon: 'MapPin' },
+      { key: 'maintenance.locations_enhanced', label: '地点管理（增强版）', icon: 'MapPin' },
       { key: 'maintenance.partners', label: '合作方管理', icon: 'Users' }
     ]
   },
@@ -133,7 +134,8 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     label: '数据维护',
     icon: 'Database',
     children: [
-      { key: 'data_maintenance.waybill', label: '运单维护', icon: 'Truck' }
+      { key: 'data_maintenance.waybill', label: '运单维护', icon: 'Truck' },
+      { key: 'data_maintenance.waybill_enhanced', label: '运单维护（增强版）', icon: 'Truck' }
     ],
     requiredRoles: ['admin', 'operator']
   },
@@ -276,7 +278,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       // 数据看板
       'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project',
       // 信息维护
-      'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
+      'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.locations_enhanced', 'maintenance.partners',
       // 业务管理
       'business', 'business.entry', 'business.scale', 'business.payment_request', 'business.invoice_request',
       // 合同管理
@@ -284,7 +286,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       // 财务管理
       'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests',
       // 数据维护
-      'data_maintenance', 'data_maintenance.waybill',
+      'data_maintenance', 'data_maintenance.waybill', 'data_maintenance.waybill_enhanced',
       // 设置
       'settings', 'settings.users', 'settings.permissions', 'settings.contract_permissions', 'settings.role_templates', 'settings.integrated', 'settings.audit_logs'
     ],
@@ -330,7 +332,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
   business: {
     menu_permissions: [
       'dashboard', 'dashboard.transport', 'dashboard.project',
-      'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
+      'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.locations_enhanced', 'maintenance.partners',
       'business', 'business.entry', 'business.scale',
       'contracts', 'contracts.list',
       'finance', 'finance.reconciliation'
@@ -361,7 +363,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       // 财务管理
       'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests',
       // 数据维护
-      'data_maintenance', 'data_maintenance.waybill',
+      'data_maintenance', 'data_maintenance.waybill', 'data_maintenance.waybill_enhanced',
       // 合同管理
       'contracts', 'contracts.list'
     ],
@@ -401,7 +403,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
   viewer: {
     menu_permissions: [
       'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project',
-      'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
+      'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.locations_enhanced', 'maintenance.partners',
       'contracts', 'contracts.list',
       'finance', 'finance.reconciliation'
     ],
