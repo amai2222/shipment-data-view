@@ -385,11 +385,11 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
                           try {
                             // 生成运输单据PDF预览
-                            const printHTML = generatePrintVersion(record);
+                            const printHTML = await generatePrintVersion(record);
                             const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
                             if (previewWindow) {
                               previewWindow.document.write(printHTML);

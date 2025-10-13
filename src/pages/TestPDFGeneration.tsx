@@ -35,9 +35,9 @@ const testRecord: LogisticsRecord = {
 };
 
 const TestPDFGeneration: React.FC = () => {
-  const handleTestPDF = () => {
+  const handleTestPDF = async () => {
     try {
-      const printHTML = generatePrintVersion(testRecord);
+      const printHTML = await generatePrintVersion(testRecord);
       const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
       if (previewWindow) {
         previewWindow.document.write(printHTML);

@@ -49,7 +49,7 @@ export const BatchPDFGenerator: React.FC<BatchPDFGeneratorProps> = ({
         setCurrentStep(`正在生成 ${record.auto_number} 的运输单据...`);
         
         // 生成PDF内容
-        const pdfContent = generatePrintVersion(record);
+        const pdfContent = await generatePrintVersion(record);
         files.push({
           name: `运输单据_${record.auto_number}.html`,
           content: pdfContent
