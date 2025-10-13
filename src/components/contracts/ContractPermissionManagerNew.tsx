@@ -79,8 +79,8 @@ export function ContractPermissionManager({
   // 筛选和搜索
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
-    permissionType: '',
-    targetType: '',
+    permissionType: 'all',
+    targetType: 'all',
     status: 'active'
   });
   
@@ -214,12 +214,12 @@ export function ContractPermissionManager({
       }
 
       // 权限类型筛选
-      if (filters.permissionType && permission.permission_type !== filters.permissionType) {
+      if (filters.permissionType && filters.permissionType !== 'all' && permission.permission_type !== filters.permissionType) {
         return false;
       }
 
       // 目标类型筛选
-      if (filters.targetType) {
+      if (filters.targetType && filters.targetType !== 'all') {
         if (filters.targetType === 'user' && !permission.user_id) return false;
         if (filters.targetType === 'role' && !permission.role_id) return false;
         if (filters.targetType === 'department' && !permission.department_id) return false;
@@ -633,7 +633,7 @@ export function ContractPermissionManager({
                 <SelectValue placeholder="权限类型" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部类型</SelectItem>
+                <SelectItem value="all">全部类型</SelectItem>
                 {permissionTypes.map(type => (
                   <SelectItem key={type.value} value={type.value}>
                     {type.label}
@@ -646,7 +646,7 @@ export function ContractPermissionManager({
                 <SelectValue placeholder="目标类型" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部</SelectItem>
+                <SelectItem value="all">全部</SelectItem>
                 <SelectItem value="user">用户</SelectItem>
                 <SelectItem value="role">角色</SelectItem>
                 <SelectItem value="department">部门</SelectItem>

@@ -627,14 +627,14 @@ export default function EnhancedLocations() {
                     <div>
                       <Label htmlFor="projects">关联项目</Label>
                       <Select
-                        value={formData.projectIds.length > 0 ? formData.projectIds[0] : ""}
-                        onValueChange={(value) => setFormData({ ...formData, projectIds: value ? [value] : [] })}
+                        value={formData.projectIds.length > 0 ? formData.projectIds[0] : "none"}
+                        onValueChange={(value) => setFormData({ ...formData, projectIds: value && value !== "none" ? [value] : [] })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="选择项目" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">无关联项目</SelectItem>
+                          <SelectItem value="none">无关联项目</SelectItem>
                           {projects.map((project) => (
                             <SelectItem key={project.id} value={project.id}>
                               {project.name}
