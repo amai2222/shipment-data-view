@@ -276,53 +276,84 @@ export class RouteMapService {
                   policy: AMap.DrivingPolicy.LEAST_TIME  // 最少时间
                 });
                 
-                // 构建搜索参数（支持途径点）
-                const searchOpts = {
-                  waypoints: mapConfig.waypoints || []
-                };
-                
-                driving.search(mapConfig.startCoords, mapConfig.endCoords, searchOpts, function(status, result) {
-                  clearTimeout(timeoutId);
-                  routeCompleted = true;
-                  
-                  if (status === 'complete' && result.routes && result.routes.length > 0) {
-                    console.log('驾车路线规划成功，更新为实际路线', result);
+                // 路线规划（支持途径点）
+                if (mapConfig.waypoints && mapConfig.waypoints.length > 0) {
+                  // 有途径点的情况
+                  driving.search(mapConfig.startCoords, mapConfig.endCoords, { waypoints: mapConfig.waypoints }, function(status, result) {
+                    clearTimeout(timeoutId);
+                    routeCompleted = true;
                     
-                    // 移除虚线，显示实际路线
-                    map.remove(directPolyline);
+                    if (status === 'complete' && result.routes && result.routes.length > 0) {
+                      console.log('多点路线规划成功', result);
+                      
+                      map.remove(directPolyline);
+                      
+                      const route = result.routes[0];
+                      const path = [];
+                      
+                      route.steps.forEach(function(step) {
+                        path.push(...step.path);
+                      });
+                      
+                      const polyline = new AMap.Polyline({
+                        path: path,
+                        strokeColor: '#2563eb',
+                        strokeWeight: 5,
+                        strokeOpacity: 0.8,
+                        strokeStyle: 'solid',
+                        lineJoin: 'round',
+                        lineCap: 'round',
+                        zIndex: 50
+                      });
+                      
+                      map.add(polyline);
+                      
+                      const routeDistanceKm = (route.distance / 1000).toFixed(1);
+                      distanceLabel.setText(routeDistanceKm + ' 公里');
+                    } else {
+                      console.log('多点路线规划失败:', status, result);
+                      directPolyline.setOptions({ strokeStyle: 'solid', strokeOpacity: 0.8 });
+                    }
+                  });
+                } else {
+                  // 没有途径点，只有起点和终点
+                  driving.search(mapConfig.startCoords, mapConfig.endCoords, function(status, result) {
+                    clearTimeout(timeoutId);
+                    routeCompleted = true;
                     
-                    const route = result.routes[0];
-                    const path = [];
-                    
-                    route.steps.forEach(function(step) {
-                      path.push(...step.path);
-                    });
-                    
-                    const polyline = new AMap.Polyline({
-                      path: path,
-                      strokeColor: '#2563eb',
-                      strokeWeight: 5,
-                      strokeOpacity: 0.8,
-                      strokeStyle: 'solid',
-                      lineJoin: 'round',
-                      lineCap: 'round',
-                      zIndex: 50
-                    });
-                    
-                    map.add(polyline);
-                    
-                    // 更新距离
-                    const routeDistanceKm = (route.distance / 1000).toFixed(1);
-                    distanceLabel.setText(routeDistanceKm + ' 公里');
-                  } else {
-                    console.log('驾车路线规划失败，保持直线显示');
-                    // 将虚线改为实线
-                    directPolyline.setOptions({
-                      strokeStyle: 'solid',
-                      strokeOpacity: 0.8
-                    });
-                  }
-                });
+                    if (status === 'complete' && result.routes && result.routes.length > 0) {
+                      console.log('两点路线规划成功', result);
+                      
+                      map.remove(directPolyline);
+                      
+                      const route = result.routes[0];
+                      const path = [];
+                      
+                      route.steps.forEach(function(step) {
+                        path.push(...step.path);
+                      });
+                      
+                      const polyline = new AMap.Polyline({
+                        path: path,
+                        strokeColor: '#2563eb',
+                        strokeWeight: 5,
+                        strokeOpacity: 0.8,
+                        strokeStyle: 'solid',
+                        lineJoin: 'round',
+                        lineCap: 'round',
+                        zIndex: 50
+                      });
+                      
+                      map.add(polyline);
+                      
+                      const routeDistanceKm = (route.distance / 1000).toFixed(1);
+                      distanceLabel.setText(routeDistanceKm + ' 公里');
+                    } else {
+                      console.log('两点路线规划失败:', status, result);
+                      directPolyline.setOptions({ strokeStyle: 'solid', strokeOpacity: 0.8 });
+                    }
+                  });
+                }
               });
               
             } catch (error) {
