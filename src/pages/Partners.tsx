@@ -77,7 +77,7 @@ export default function Partners() {
           .from('partners')
           .select(`
             id, name, tax_rate, created_at,
-            partner_bank_details ( full_name, tax_number, company_address, bank_account, bank_name, branch_name ),
+            partner_bank_details!left ( full_name, tax_number, company_address, bank_account, bank_name, branch_name ),
             project_partners (
               level, tax_rate,
               projects ( id, name, auto_code )
@@ -99,22 +99,16 @@ export default function Partners() {
 
       if (error) throw error;
 
-      // 调试：打印原始数据
-      console.log('原始合作方数据:', data);
-      if (data && data.length > 0) {
-        console.log('第一个合作方的partner_bank_details:', data[0].partner_bank_details);
-      }
+      // 测试：直接查询partner_bank_details表
+      const { data: bankDetails, error: bankError } = await supabase
+        .from('partner_bank_details')
+        .select('*')
+        .limit(5);
       
-      // 调试：检查用户权限
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('当前用户:', user?.id);
-      console.log('canViewSensitive:', canViewSensitive);
+      console.log('直接查询partner_bank_details结果:', bankDetails);
+      console.log('查询错误:', bankError);
 
-      const formattedData: PartnerWithProjects[] = data.map(item => {
-        // 调试：打印每个合作方的银行详情
-        console.log(`合作方 ${item.name} 的银行详情:`, item.partner_bank_details);
-        
-        return {
+      const formattedData: PartnerWithProjects[] = data.map(item => ({
           id: item.id,
           name: item.name,
           fullName: item.partner_bank_details?.[0]?.full_name || '',
@@ -132,8 +126,7 @@ export default function Partners() {
           level: pp.level,
           taxRate: Number(pp.tax_rate)
         }))
-        };
-      });
+      }));
 
       setPartners(formattedData);
     } catch (error) {
