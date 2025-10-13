@@ -113,23 +113,17 @@ export class RouteMapService {
           };
           
           // 通过Supabase Edge Function获取API密钥
-          fetch('/functions/v1/amap-geocoding', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + (window.supabase?.auth?.getSession?.()?.access_token || '')
-            },
-            body: JSON.stringify({
+          supabase.functions.invoke('amap-geocoding', {
+            body: {
               action: 'get_api_key',
               data: {}
-            })
+            }
           })
-          .then(response => response.json())
           .then(result => {
-            if (result.apiKey) {
+            if (result.data?.apiKey) {
               // 动态加载高德地图API
               const script = document.createElement('script');
-              script.src = \`https://webapi.amap.com/maps?v=2.0&key=\${result.apiKey}\`;
+              script.src = \`https://webapi.amap.com/maps?v=2.0&key=\${result.data.apiKey}\`;
               script.onload = function() {
             try {
               // 初始化地图
