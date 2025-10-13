@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText, Printer } from 'lucide-react';
 import { LogisticsRecord } from '@/pages/BusinessEntry/types';
+import { RouteMapService } from '@/services/RouteMapService';
 
 interface TransportDocumentGeneratorProps {
   record: LogisticsRecord;
@@ -54,7 +55,7 @@ const renderInfoItem = (item: { label: string; value: string }) => {
 };
 
 // 生成打印版本的HTML
-export const generatePrintVersion = (record: LogisticsRecord) => {
+export const generatePrintVersion = async (record: LogisticsRecord) => {
   // 数据验证
   if (!record) {
     throw new Error('运单记录不能为空');
@@ -95,6 +96,15 @@ export const generatePrintVersion = (record: LogisticsRecord) => {
   }
 
   const barcode = generateBarcode(record.auto_number || 'UNKNOWN');
+
+  // 获取路线信息
+  const routeInfo = await RouteMapService.getRouteInfo(
+    record.loading_location || '未知',
+    record.unloading_location || '未知'
+  );
+
+  // 检查是否有完整的地理编码数据
+  const hasMapData = RouteMapService.hasCompleteGeocodingData(routeInfo);
 
   return `
     <!DOCTYPE html>
@@ -191,6 +201,18 @@ export const generatePrintVersion = (record: LogisticsRecord) => {
           margin-top: 5px;
         }
         
+        .route-map-section {
+          margin: 30px 0;
+          padding: 20px;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          background: #f9fafb;
+        }
+        
+        .map-container {
+          margin-top: 15px;
+        }
+        
         .barcode-section {
           text-align: center;
           margin: 30px 0;
@@ -284,6 +306,15 @@ export const generatePrintVersion = (record: LogisticsRecord) => {
         </div>
       </div>
       
+      ${hasMapData ? `
+      <div class="route-map-section">
+        <div class="section-title">运输轨迹地图</div>
+        <div class="map-container">
+          ${RouteMapService.generateMapHTML(routeInfo)}
+        </div>
+      </div>
+      ` : ''}
+      
       <div class="barcode-section">
         <div class="barcode-title">运输单号条形码</div>
         <div class="barcode">${barcode}</div>
@@ -312,8 +343,8 @@ export const TransportDocumentGenerator: React.FC<TransportDocumentGeneratorProp
     setIsGenerating(true);
     
     try {
-      // 生成打印版本的HTML
-      const printHTML = generatePrintVersion(record);
+      // 生成打印版本的HTML（现在是异步的）
+      const printHTML = await generatePrintVersion(record);
       
       // 创建新窗口并写入HTML内容（预览模式，不自动打印）
       const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
