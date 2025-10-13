@@ -57,6 +57,7 @@ export default function EnhancedLocations() {
   const [editingLocation, setEditingLocation] = useState<LocationWithGeocoding | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [geocodingStatusFilter, setGeocodingStatusFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
   const [showGeocodingInfo, setShowGeocodingInfo] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -80,6 +81,15 @@ export default function EnhancedLocations() {
     projectIds: [] as string[],
   });
 
+  // 自动复制地点名称到详细地址
+  const handleNameChange = (name: string) => {
+    setFormData(prev => ({
+      ...prev,
+      name: name,
+      address: name // 自动复制地点名称到详细地址
+    }));
+  };
+
   // 筛选后的地点列表
   const filteredLocations = useMemo(() => {
     let filtered = locations;
@@ -100,15 +110,23 @@ export default function EnhancedLocations() {
       );
     }
 
+    // 地理编码状态筛选
+    if (geocodingStatusFilter !== "all") {
+      filtered = filtered.filter(location =>
+        location.geocoding_status === geocodingStatusFilter
+      );
+    }
+
     return filtered;
-  }, [locations, searchQuery, projectFilter]);
+  }, [locations, searchQuery, projectFilter, geocodingStatusFilter]);
 
   const clearFilters = () => {
     setSearchQuery("");
     setProjectFilter("all");
-  }
+    setGeocodingStatusFilter("all");
+  };
 
-  const activeFiltersCount = (searchQuery ? 1 : 0) + (projectFilter !== "all" ? 1 : 0);
+  const activeFiltersCount = (searchQuery ? 1 : 0) + (projectFilter !== "all" ? 1 : 0) + (geocodingStatusFilter !== "all" ? 1 : 0);
 
   // 批量选择相关函数
   const handleSelectAll = (checked: boolean) => {
@@ -240,6 +258,12 @@ export default function EnhancedLocations() {
     loadGeocodingStats();
   }, []);
 
+  // 刷新数据
+  const refreshData = async () => {
+    await loadData();
+    await loadGeocodingStats();
+  };
+
   const loadData = async () => {
     try {
       const [loadedLocations, loadedProjects] = await Promise.all([
@@ -256,7 +280,7 @@ export default function EnhancedLocations() {
         variant: "destructive",
       });
     }
-  }
+  };
 
   const loadGeocodingStats = async () => {
     try {
@@ -281,12 +305,12 @@ export default function EnhancedLocations() {
   const handleEdit = (location: LocationWithGeocoding) => {
     setFormData({
       name: location.name,
-      address: location.address || "",
+      address: location.address || location.formatted_address || location.name || "", // 优先使用address，然后是formatted_address，最后是name
       projectIds: location.projectIds || [],
     });
     setEditingLocation(location);
     setIsDialogOpen(true);
-  }
+  };
 
   // 提交表单
   const handleSubmit = async (e: React.FormEvent) => {
@@ -609,7 +633,7 @@ export default function EnhancedLocations() {
                       <Input
                         id="name"
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        onChange={(e) => handleNameChange(e.target.value)}
                         placeholder="请输入地点名称"
                         required
                       />
@@ -759,12 +783,30 @@ export default function EnhancedLocations() {
                 </SelectContent>
               </Select>
 
+              <Select value={geocodingStatusFilter} onValueChange={setGeocodingStatusFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="筛选编码状态" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">所有状态</SelectItem>
+                  <SelectItem value="pending">待编码</SelectItem>
+                  <SelectItem value="success">编码成功</SelectItem>
+                  <SelectItem value="failed">编码失败</SelectItem>
+                  <SelectItem value="retry">重试中</SelectItem>
+                </SelectContent>
+              </Select>
+
               {activeFiltersCount > 0 && (
                 <Button variant="outline" size="sm" onClick={clearFilters}>
                   <X className="h-4 w-4 mr-1" />
                   清除筛选 ({activeFiltersCount})
                 </Button>
               )}
+              
+              <Button variant="outline" size="sm" onClick={refreshData}>
+                <RefreshCw className="h-4 w-4 mr-1" />
+                刷新数据
+              </Button>
             </div>
           </div>
         </CardContent>
