@@ -170,37 +170,115 @@ export class RouteMapService {
               
               map.add([startMarker, endMarker]);
               
-              // 绘制直线连接
-              const polyline = new AMap.Polyline({
-                path: [mapConfig.startCoords, mapConfig.endCoords],
-                strokeColor: '#2563eb',  // 蓝色线条
-                strokeWeight: 4,
-                strokeOpacity: 0.8,
-                strokeStyle: 'solid',
-                lineJoin: 'round',
-                lineCap: 'round',
-                zIndex: 50
+              // 添加货车路线规划
+              AMap.plugin('AMap.TruckDriving', function() {
+                const truckDriving = new AMap.TruckDriving({
+                  map: map,
+                  hideMarkers: true,
+                  autoFitView: false,
+                  // 货车参数配置
+                  size: 2,  // 轻型货车
+                  width: 2.5,
+                  height: 3.0,
+                  load: 0.9,
+                  weight: 5.0,
+                  axis: 2,
+                  policy: 0  // 速度优先
+                });
+                
+                truckDriving.search(mapConfig.startCoords, mapConfig.endCoords, function(status, result) {
+                  if (status === 'complete' && result.routes && result.routes.length > 0) {
+                    console.log('货车路线规划成功', result);
+                    
+                    const route = result.routes[0];
+                    const path = [];
+                    
+                    // 获取路线所有坐标点
+                    route.steps.forEach(function(step) {
+                      path.push(...step.path);
+                    });
+                    
+                    // 绘制路线折线
+                    const polyline = new AMap.Polyline({
+                      path: path,
+                      strokeColor: '#2563eb',  // 蓝色线条
+                      strokeWeight: 5,
+                      strokeOpacity: 0.8,
+                      strokeStyle: 'solid',
+                      lineJoin: 'round',
+                      lineCap: 'round',
+                      zIndex: 50
+                    });
+                    
+                    map.add(polyline);
+                    
+                    // 计算距离
+                    const distanceKm = (route.distance / 1000).toFixed(1);
+                    
+                    // 在地图右上角显示距离信息，避免遮挡路线
+                    const distanceLabel = new AMap.Text({
+                      text: distanceKm + ' 公里',
+                      anchor: 'top-right',
+                      position: map.getBounds().getNorthEast(),
+                      offset: new AMap.Pixel(-20, 20),
+                      style: {
+                        'background-color': 'rgba(37, 99, 235, 0.9)',
+                        'border': 'none',
+                        'border-radius': '6px',
+                        'color': '#fff',
+                        'font-size': '14px',
+                        'font-weight': 'bold',
+                        'padding': '8px 16px',
+                        'box-shadow': '0 2px 8px rgba(0,0,0,0.15)'
+                      }
+                    });
+                    
+                    map.add(distanceLabel);
+                    
+                    // 调整地图视野
+                    map.setFitView([startMarker, endMarker], true, [80, 80, 80, 80]);
+                  } else {
+                    console.log('路线规划失败，绘制直线连接');
+                    
+                    // 如果路线规划失败，绘制直线
+                    const polyline = new AMap.Polyline({
+                      path: [mapConfig.startCoords, mapConfig.endCoords],
+                      strokeColor: '#2563eb',
+                      strokeWeight: 4,
+                      strokeOpacity: 0.8,
+                      strokeStyle: 'solid',
+                      zIndex: 50
+                    });
+                    
+                    map.add(polyline);
+                    
+                    // 计算直线距离
+                    const distance = AMap.GeometryUtil.distance(mapConfig.startCoords, mapConfig.endCoords);
+                    const distanceKm = (distance / 1000).toFixed(1);
+                    
+                    // 在右上角显示距离
+                    const distanceLabel = new AMap.Text({
+                      text: distanceKm + ' 公里',
+                      anchor: 'top-right',
+                      position: map.getBounds().getNorthEast(),
+                      offset: new AMap.Pixel(-20, 20),
+                      style: {
+                        'background-color': 'rgba(37, 99, 235, 0.9)',
+                        'border': 'none',
+                        'border-radius': '6px',
+                        'color': '#fff',
+                        'font-size': '14px',
+                        'font-weight': 'bold',
+                        'padding': '8px 16px',
+                        'box-shadow': '0 2px 8px rgba(0,0,0,0.15)'
+                      }
+                    });
+                    
+                    map.add(distanceLabel);
+                    map.setFitView([startMarker, endMarker], true, [80, 80, 80, 80]);
+                  }
+                });
               });
-              
-              map.add(polyline);
-              
-              // 计算直线距离
-              const distance = AMap.GeometryUtil.distance(mapConfig.startCoords, mapConfig.endCoords);
-              const distanceKm = (distance / 1000).toFixed(1);
-              
-              // 显示距离信息
-              const infoWindow = new AMap.InfoWindow({
-                content: '<div style="padding: 8px; font-size: 13px; font-weight: 500;">距离: ' + distanceKm + ' 公里</div>',
-                offset: new AMap.Pixel(0, -30)
-              });
-              
-              // 在线路中点显示距离
-              const midLng = (mapConfig.startCoords[0] + mapConfig.endCoords[0]) / 2;
-              const midLat = (mapConfig.startCoords[1] + mapConfig.endCoords[1]) / 2;
-              infoWindow.open(map, [midLng, midLat]);
-              
-              // 调整地图视野
-              map.setFitView([startMarker, endMarker], true, [60, 60, 60, 60]);
               
             } catch (error) {
               console.error('地图初始化失败:', error);
