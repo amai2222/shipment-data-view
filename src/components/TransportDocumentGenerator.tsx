@@ -106,6 +106,9 @@ export const generatePrintVersion = async (record: LogisticsRecord) => {
   // 检查是否有完整的地理编码数据
   const hasMapData = RouteMapService.hasCompleteGeocodingData(routeInfo);
 
+  // 获取高德地图API密钥
+  const amapApiKey = await RouteMapService.getAmapApiKey();
+
   return `
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -306,11 +309,11 @@ export const generatePrintVersion = async (record: LogisticsRecord) => {
         </div>
       </div>
       
-      ${hasMapData ? `
+      ${hasMapData && amapApiKey ? `
       <div class="route-map-section">
         <div class="section-title">运输轨迹地图</div>
         <div class="map-container">
-          ${RouteMapService.generateMapHTML(routeInfo)}
+          ${RouteMapService.generateMapHTML(routeInfo, amapApiKey)}
         </div>
       </div>
       ` : ''}
