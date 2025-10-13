@@ -170,26 +170,104 @@ export class RouteMapService {
               
               map.add([startMarker, endMarker]);
               
-              // 添加路线规划
-              AMap.plugin('AMap.Driving', function() {
-                const driving = new AMap.Driving({
+              // 添加货车路线规划
+              AMap.plugin('AMap.TruckDriving', function() {
+                const truckDriving = new AMap.TruckDriving({
                   map: map,
-                  showTraffic: false,
-                  hideMarkers: true
+                  hideMarkers: true,
+                  autoFitView: false,
+                  // 货车参数配置
+                  size: 2,  // 货车大小：1-微型，2-轻型，3-中型，4-重型
+                  width: 2.5,  // 车宽（米）
+                  height: 3.0, // 车高（米）
+                  load: 0.9,   // 核定载重（吨）
+                  weight: 5.0, // 总重（吨）
+                  axis: 2,     // 轴数
+                  policy: 0    // 0-速度优先，1-费用优先，2-距离优先，3-速度优先（不走高速）
                 });
                 
-                driving.search(mapConfig.startCoords, mapConfig.endCoords, function(status, result) {
+                truckDriving.search(mapConfig.startCoords, mapConfig.endCoords, function(status, result) {
                   if (status === 'complete') {
-                    console.log('路线规划成功');
-                    // 可以在这里添加路线信息显示
+                    console.log('路线规划成功', result);
+                    
+                    // 绘制路线
+                    if (result.routes && result.routes.length > 0) {
+                      const route = result.routes[0];
+                      const path = [];
+                      
+                      // 获取路线所有坐标点
+                      route.steps.forEach(function(step) {
+                        const segmentPath = step.path;
+                        path.push(...segmentPath);
+                      });
+                      
+                      // 绘制路线折线
+                      const polyline = new AMap.Polyline({
+                        path: path,
+                        strokeColor: '#2563eb',  // 蓝色线条
+                        strokeWeight: 6,         // 线条宽度
+                        strokeOpacity: 0.8,      // 透明度
+                        strokeStyle: 'solid',    // 实线
+                        lineJoin: 'round',       // 线条连接处样式
+                        lineCap: 'round',        // 线条端点样式
+                        zIndex: 50
+                      });
+                      
+                      map.add(polyline);
+                      
+                      // 添加货车路线信息显示
+                      const distance = (route.distance / 1000).toFixed(1); // 转换为公里
+                      const duration = Math.ceil(route.time / 60); // 转换为分钟
+                      const tolls = route.tolls ? '¥' + route.tolls : '暂无'; // 过路费
+                      const tollDistance = route.toll_distance ? (route.toll_distance / 1000).toFixed(1) + '公里' : '暂无'; // 收费路段
+                      
+                      let infoContent = '<div style="padding: 10px; font-size: 12px; min-width: 200px;">';
+                      infoContent += '<div style="font-weight: bold; margin-bottom: 8px; color: #2563eb;">🚚 货车路线信息</div>';
+                      infoContent += '<div style="margin: 4px 0;">📏 距离: ' + distance + ' 公里</div>';
+                      infoContent += '<div style="margin: 4px 0;">⏱️ 时长: ' + duration + ' 分钟</div>';
+                      infoContent += '<div style="margin: 4px 0;">💰 过路费: ' + tolls + '</div>';
+                      infoContent += '<div style="margin: 4px 0;">🛣️ 收费路段: ' + tollDistance + '</div>';
+                      
+                      // 如果有限行信息
+                      if (route.restriction) {
+                        infoContent += '<div style="margin-top: 8px; padding: 4px; background: #fef2f2; border-left: 3px solid #ef4444; font-size: 11px;">';
+                        infoContent += '⚠️ 限行提示: ' + route.restriction;
+                        infoContent += '</div>';
+                      }
+                      
+                      infoContent += '</div>';
+                      
+                      const infoWindow = new AMap.InfoWindow({
+                        content: infoContent,
+                        offset: new AMap.Pixel(0, -30)
+                      });
+                      
+                      // 在路线中点显示信息窗口
+                      const midIndex = Math.floor(path.length / 2);
+                      infoWindow.open(map, path[midIndex]);
+                    }
+                    
+                    // 调整地图视野以包含所有标记和路线
+                    map.setFitView([startMarker, endMarker], true, [60, 60, 60, 60]);
                   } else {
-                    console.log('路线规划失败:', result);
+                    console.log('路线规划失败，绘制直线连接:', result);
+                    
+                    // 如果路线规划失败，绘制直线连接
+                    const polyline = new AMap.Polyline({
+                      path: [mapConfig.startCoords, mapConfig.endCoords],
+                      strokeColor: '#10b981',  // 绿色虚线
+                      strokeWeight: 4,
+                      strokeOpacity: 0.6,
+                      strokeStyle: 'dashed',
+                      strokeDasharray: [10, 5],
+                      zIndex: 50
+                    });
+                    
+                    map.add(polyline);
+                    map.setFitView([startMarker, endMarker], true, [60, 60, 60, 60]);
                   }
                 });
               });
-              
-              // 调整地图视野以包含所有标记
-              map.setFitView([startMarker, endMarker]);
               
             } catch (error) {
               console.error('地图初始化失败:', error);
