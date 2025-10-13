@@ -7,8 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { Loader2, Banknote, TrendingUp, TrendingDown, DollarSign, FileText, AlertCircle, CheckCircle, Clock, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Loader2, Banknote, TrendingUp, DollarSign, FileText, AlertCircle, CheckCircle, Clock, ArrowUpRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 
 // --- 类型定义 ---
@@ -387,10 +387,11 @@ export default function FinancialOverview() {
           <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
             <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
               <CardTitle className="flex items-center gap-2">
-                <PieChart className="h-5 w-5 text-purple-600" />
+                <TrendingUp className="h-5 w-5 text-purple-600" />
                 财务状态分布
                 <Badge variant="secondary" className="ml-auto">状态分析</Badge>
-              </CardHeader>
+              </CardTitle>
+            </CardHeader>
             <CardContent className="h-96 p-6">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -441,7 +442,8 @@ export default function FinancialOverview() {
                 <TrendingUp className="h-5 w-5 text-indigo-600" />
                 项目应收贡献度
                 <Badge variant="secondary" className="ml-auto">项目分析</Badge>
-              </CardHeader>
+              </CardTitle>
+            </CardHeader>
             <CardContent className="h-96 p-6">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
