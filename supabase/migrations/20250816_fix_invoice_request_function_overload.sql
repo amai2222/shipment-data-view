@@ -2,7 +2,16 @@
 -- 问题：存在多个save_invoice_request函数签名，导致调用时无法确定使用哪个
 -- 解决：删除所有旧版本，只保留jsonb版本
 
--- 0. 确保invoice_requests和invoice_request_details表有必要的字段
+-- 0. 确保partner_bank_details表有所有扩展字段
+ALTER TABLE IF EXISTS public.partner_bank_details
+ADD COLUMN IF NOT EXISTS full_name text,
+ADD COLUMN IF NOT EXISTS tax_number text,
+ADD COLUMN IF NOT EXISTS company_address text,
+ADD COLUMN IF NOT EXISTS bank_name text,
+ADD COLUMN IF NOT EXISTS bank_account text,
+ADD COLUMN IF NOT EXISTS branch_name text;
+
+-- 确保invoice_requests和invoice_request_details表有必要的字段
 ALTER TABLE IF EXISTS public.invoice_requests 
 ADD COLUMN IF NOT EXISTS partner_id uuid,
 ADD COLUMN IF NOT EXISTS partner_name text,
@@ -113,17 +122,18 @@ BEGIN
           AND lpc.level = v_max_level  -- ⭐ 只处理最高级别
           AND lpc.invoice_status = 'Uninvoiced'
     LOOP
-        -- 获取合作方信息
+        -- 获取合作方信息（从partners和partner_bank_details表）
         SELECT 
             p.id,
             p.name,
-            p.full_name,
-            p.tax_number,
-            p.company_address,
-            p.bank_name,
-            p.bank_account
+            COALESCE(pbd.full_name, p.name) as full_name,
+            COALESCE(pbd.tax_number, '') as tax_number,
+            COALESCE(pbd.company_address, '') as company_address,
+            COALESCE(pbd.bank_name, '') as bank_name,
+            COALESCE(pbd.bank_account, '') as bank_account
         INTO v_partner_info
         FROM public.partners p
+        LEFT JOIN public.partner_bank_details pbd ON p.id = pbd.partner_id
         WHERE p.id = v_partner_id;
         
         -- 生成开票申请单号

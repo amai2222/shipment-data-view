@@ -103,6 +103,8 @@ export interface Partner {
   bankAccount?: string; // 银行账户
   bankName?: string; // 开户行名称
   branchName?: string; // 支行网点
+  taxNumber?: string; // 税号
+  companyAddress?: string; // 公司地址
   taxRate: number;  // 默认税点
   createdAt: string;
 }

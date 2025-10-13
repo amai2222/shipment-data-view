@@ -64,6 +64,8 @@ export default function Partners() {
     bankAccount: '',
     bankName: '',
     branchName: '',
+    taxNumber: '',
+    companyAddress: '',
     taxRate: 0
   });
 
@@ -74,8 +76,8 @@ export default function Partners() {
         ({ data, error } = await supabase
           .from('partners')
           .select(`
-            id, name, full_name, tax_rate, created_at,
-            partner_bank_details ( bank_account, bank_name, branch_name ),
+            id, name, tax_rate, created_at,
+            partner_bank_details ( full_name, tax_number, company_address, bank_account, bank_name, branch_name ),
             project_partners (
               level, tax_rate,
               projects ( id, name, auto_code )
@@ -100,10 +102,12 @@ export default function Partners() {
       const formattedData: PartnerWithProjects[] = data.map(item => ({
         id: item.id,
         name: item.name,
-        fullName: item.full_name || '',
+        fullName: item.partner_bank_details?.[0]?.full_name || '',
         bankAccount: item.partner_bank_details?.[0]?.bank_account || '',
         bankName: item.partner_bank_details?.[0]?.bank_name || '',
         branchName: item.partner_bank_details?.[0]?.branch_name || '',
+        taxNumber: item.partner_bank_details?.[0]?.tax_number || '',
+        companyAddress: item.partner_bank_details?.[0]?.company_address || '',
         taxRate: Number(item.tax_rate),
         createdAt: item.created_at,
         projects: (item.project_partners || []).map((pp: any) => ({
@@ -143,7 +147,6 @@ export default function Partners() {
       const partnerData = {
         user_id: user.id,
         name: formData.name.trim(),
-        full_name: formData.fullName.trim() || null,
         tax_rate: formData.taxRate
       };
 
@@ -153,9 +156,12 @@ export default function Partners() {
         const { error: pErr } = await supabase.from('partners').update(updateData).eq('id', editingPartner.id);
         if (pErr) throw pErr;
 
-        // 同步/创建银行信息（受更严格的RLS保护）
+        // 同步/创建扩展信息（受更严格的RLS保护）
         const bankPayload = {
           partner_id: editingPartner.id,
+          full_name: formData.fullName.trim() || null,
+          tax_number: formData.taxNumber.trim() || null,
+          company_address: formData.companyAddress.trim() || null,
           bank_account: formData.bankAccount.trim() || null,
           bank_name: formData.bankName.trim() || null,
           branch_name: formData.branchName.trim() || null,
@@ -174,10 +180,13 @@ export default function Partners() {
         if (insErr) throw insErr;
 
         if (inserted) {
-          const hasBank = !!(formData.bankAccount.trim() || formData.bankName.trim() || formData.branchName.trim());
-          if (hasBank) {
+          const hasExtendedInfo = !!(formData.fullName.trim() || formData.taxNumber.trim() || formData.companyAddress.trim() || formData.bankAccount.trim() || formData.bankName.trim() || formData.branchName.trim());
+          if (hasExtendedInfo) {
             const { error: bErr } = await supabase.from('partner_bank_details').insert({
               partner_id: inserted.id,
+              full_name: formData.fullName.trim() || null,
+              tax_number: formData.taxNumber.trim() || null,
+              company_address: formData.companyAddress.trim() || null,
               bank_account: formData.bankAccount.trim() || null,
               bank_name: formData.bankName.trim() || null,
               branch_name: formData.branchName.trim() || null,
@@ -209,6 +218,8 @@ export default function Partners() {
       bankAccount: partner.bankAccount || '',
       bankName: partner.bankName || '',
       branchName: partner.branchName || '',
+      taxNumber: partner.taxNumber || '',
+      companyAddress: partner.companyAddress || '',
       taxRate: partner.taxRate
     });
 
@@ -302,6 +313,8 @@ export default function Partners() {
       bankAccount: '',
       bankName: '',
       branchName: '',
+      taxNumber: '',
+      companyAddress: '',
       taxRate: 0
     });
   };
@@ -331,6 +344,14 @@ export default function Partners() {
                 <div>
                   <Label htmlFor="fullName">合作方全名</Label>
                   <Input id="fullName" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder="请输入合作方全名（选填）" />
+                </div>
+                <div>
+                  <Label htmlFor="taxNumber">税号</Label>
+                  <Input id="taxNumber" value={formData.taxNumber} onChange={(e) => setFormData({ ...formData, taxNumber: e.target.value })} placeholder="请输入税号（选填）" />
+                </div>
+                <div>
+                  <Label htmlFor="companyAddress">公司地址</Label>
+                  <Input id="companyAddress" value={formData.companyAddress} onChange={(e) => setFormData({ ...formData, companyAddress: e.target.value })} placeholder="请输入公司地址（选填）" />
                 </div>
                 <div>
                   <Label htmlFor="taxRate">默认税点 (0-1之间的小数) *</Label>
@@ -367,6 +388,8 @@ export default function Partners() {
               <TableRow>
                 <TableHead>合作方名称</TableHead>
                 <TableHead>合作方全名</TableHead>
+                <TableHead>税号</TableHead>
+                <TableHead>公司地址</TableHead>
                 {canViewSensitive && <TableHead>银行信息</TableHead>}
                 {canViewSensitive && <TableHead>默认税点</TableHead>}
                 <TableHead>关联项目</TableHead>
@@ -380,6 +403,12 @@ export default function Partners() {
                   <TableCell className="font-medium">{partner.name}</TableCell>
                   <TableCell className="text-sm">
                     {partner.fullName || <span className="text-muted-foreground">-</span>}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {partner.taxNumber || <span className="text-muted-foreground">-</span>}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {partner.companyAddress || <span className="text-muted-foreground">-</span>}
                   </TableCell>
                   {canViewSensitive && (
                     <TableCell className="text-sm">

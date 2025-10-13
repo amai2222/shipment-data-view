@@ -68,8 +68,8 @@ export default function MobilePartners() {
         ({ data, error } = await supabase
           .from('partners')
           .select(`
-            id, name, full_name, tax_rate, created_at,
-            partner_bank_details ( bank_account, bank_name, branch_name ),
+            id, name, tax_rate, created_at,
+            partner_bank_details ( full_name, tax_number, company_address, bank_account, bank_name, branch_name ),
             project_partners (
               level, tax_rate,
               projects ( id, name, auto_code )
@@ -94,10 +94,12 @@ export default function MobilePartners() {
       const formattedData: PartnerWithProjects[] = data.map((item: any) => ({
         id: item.id,
         name: item.name,
-        fullName: item.full_name || '',
+        fullName: item.partner_bank_details?.[0]?.full_name || '',
         bankAccount: item.partner_bank_details?.[0]?.bank_account || '',
         bankName: item.partner_bank_details?.[0]?.bank_name || '',
         branchName: item.partner_bank_details?.[0]?.branch_name || '',
+        taxNumber: item.partner_bank_details?.[0]?.tax_number || '',
+        companyAddress: item.partner_bank_details?.[0]?.company_address || '',
         taxRate: Number(item.tax_rate),
         createdAt: item.created_at,
         projects: (item.project_partners || []).map((pp: any) => ({
