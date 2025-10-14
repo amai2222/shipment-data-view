@@ -192,7 +192,7 @@ const App = () => (
             } />
             
             <Route path="/invoice-request-management" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
                 <AppLayout><InvoiceRequestManagement /></AppLayout>
               </ProtectedRoute>
             } />
