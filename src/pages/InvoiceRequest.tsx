@@ -76,14 +76,6 @@ interface LogisticsRecordWithPartners extends LogisticsRecord {
   chain_name?: string | null; 
 }
 
-interface InvoiceFilters { 
-  projectId: string; 
-  partnerId: string; 
-  startDate: string; 
-  endDate: string; 
-  invoiceStatus: string; 
-  driverNames: string[]; 
-}
 
 interface PaginationState { 
   currentPage: number; 
@@ -562,16 +554,6 @@ export default function InvoiceRequest() {
                     已选择 {selection.selectedIds.size} 条运单
                     {selection.mode === 'all_filtered' && ` (跨页选择)`}
                   </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={handleApplyForInvoiceClick}
-                    disabled={selection.selectedIds.size === 0 && selection.mode !== 'all_filtered'}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ListPlus className="mr-2 h-4 w-4" />}
-                    申请开票
-                  </Button>
                 </div>
               </div>
             </CardContent>

@@ -192,35 +192,7 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
     <div className="space-y-4">
       {/* 主筛选栏 - 紧凑布局 */}
       <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-          {/* 运单号搜索 */}
-          <div className="lg:col-span-3">
-            <Label htmlFor="waybill-search" className="text-sm font-medium text-blue-800 flex items-center gap-1 mb-2">
-              <Hash className="h-4 w-4" />
-              运单号搜索
-            </Label>
-            <div className="relative">
-              <Input
-                id="waybill-search"
-                placeholder="输入运单号，支持批量输入..."
-                value={waybillInput}
-                onChange={(e) => handleWaybillNumbersChange(e.target.value)}
-                onKeyDown={handleWaybillKeyDown}
-                className="h-10"
-              />
-              {filters.waybillNumbers && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1 h-8 w-8 p-0"
-                  onClick={() => handleWaybillNumbersChange('')}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 items-end">
           {/* 项目筛选 */}
           <div className="lg:col-span-2">
             <Label className="text-sm font-medium text-blue-800 flex items-center gap-1 mb-2">
@@ -275,16 +247,7 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
           </div>
 
           {/* 操作按钮组 */}
-          <div className="lg:col-span-3 flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => openBatchDialog('waybill')}
-              className="h-10 flex items-center gap-1"
-            >
-              <FileText className="h-4 w-4" />
-              批量
-            </Button>
-            
+          <div className="lg:col-span-4 flex gap-2">
             <Button
               variant="outline"
               onClick={() => setShowAdvanced(!showAdvanced)}
@@ -316,6 +279,31 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
       {showAdvanced && (
         <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {/* 运单号搜索 */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                <Hash className="h-4 w-4" />
+                运单号搜索
+              </Label>
+              <div className="flex gap-1">
+                <Input
+                  placeholder="输入运单号，支持批量输入..."
+                  value={waybillInput}
+                  onChange={(e) => handleWaybillNumbersChange(e.target.value)}
+                  onKeyDown={handleWaybillKeyDown}
+                  className="h-10 flex-1"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openBatchDialog('waybill')}
+                  className="h-10"
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
             {/* 司机信息筛选 */}
             <div className="space-y-2">
               <Label className="text-sm font-medium text-purple-800 flex items-center gap-1">
@@ -335,7 +323,7 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
                   onClick={() => openBatchDialog('driver')}
                   className="h-10"
                 >
-                  批量
+                  <Users className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -358,7 +346,7 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
                   onClick={() => openBatchDialog('license')}
                   className="h-10"
                 >
-                  批量
+                  <Hash className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -381,7 +369,7 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
                   onClick={() => openBatchDialog('phone')}
                   className="h-10"
                 >
-                  批量
+                  <Phone className="h-4 w-4" />
                 </Button>
               </div>
             </div>
