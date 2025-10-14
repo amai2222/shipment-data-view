@@ -72,7 +72,7 @@ export default function MobileInvoiceRequestManagement() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
-    status: '',
+    status: 'Pending',
     remarks: ''
   });
   const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
