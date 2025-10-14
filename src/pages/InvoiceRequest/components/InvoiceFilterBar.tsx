@@ -190,21 +190,23 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
 
   return (
     <div className="space-y-4">
-      {/* 基础搜索栏 */}
-      <div className="space-y-4">
-        {/* 运单号搜索 */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <Label htmlFor="waybill-search">运单号搜索</Label>
+      {/* 主筛选栏 - 紧凑布局 */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+          {/* 运单号搜索 */}
+          <div className="lg:col-span-3">
+            <Label htmlFor="waybill-search" className="text-sm font-medium text-blue-800 flex items-center gap-1 mb-2">
+              <Hash className="h-4 w-4" />
+              运单号搜索
+            </Label>
             <div className="relative">
-              <Hash className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 id="waybill-search"
                 placeholder="输入运单号，支持批量输入..."
                 value={waybillInput}
                 onChange={(e) => handleWaybillNumbersChange(e.target.value)}
                 onKeyDown={handleWaybillKeyDown}
-                className="pl-10"
+                className="h-10"
               />
               {filters.waybillNumbers && (
                 <Button
@@ -218,50 +220,15 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
               )}
             </div>
           </div>
-          
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => openBatchDialog('waybill')}
-              className="flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              批量运单号
-            </Button>
-            
-            <Button
-              variant="outline"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2"
-            >
-              {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              高级筛选
-              {activeFilterCount > 0 && (
-                <span className="ml-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-            
-            <Button onClick={onSearch} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
-              <Search className="mr-2 h-4 w-4" />
-              搜索
-            </Button>
-            
-            <Button variant="outline" onClick={onClear}>
-              <X className="mr-2 h-4 w-4" />
-              清空
-            </Button>
-          </div>
-        </div>
 
-        {/* 基本筛选条件 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* 项目筛选 */}
-          <div className="space-y-2">
-            <Label>项目筛选</Label>
+          <div className="lg:col-span-2">
+            <Label className="text-sm font-medium text-blue-800 flex items-center gap-1 mb-2">
+              <FileText className="h-4 w-4" />
+              项目筛选
+            </Label>
             <Select value={filters.projectId} onValueChange={(value) => handleInputChange('projectId', value)}>
-              <SelectTrigger>
+              <SelectTrigger className="h-10">
                 <SelectValue placeholder="选择项目" />
               </SelectTrigger>
               <SelectContent>
@@ -276,10 +243,13 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
           </div>
 
           {/* 开票状态筛选 */}
-          <div className="space-y-2">
-            <Label>开票状态</Label>
+          <div className="lg:col-span-2">
+            <Label className="text-sm font-medium text-blue-800 flex items-center gap-1 mb-2">
+              <Building2 className="h-4 w-4" />
+              开票状态
+            </Label>
             <Select value={filters.invoiceStatus} onValueChange={(value) => handleInputChange('invoiceStatus', value)}>
-              <SelectTrigger>
+              <SelectTrigger className="h-10">
                 <SelectValue placeholder="选择开票状态" />
               </SelectTrigger>
               <SelectContent>
@@ -292,8 +262,8 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
           </div>
 
           {/* 日期范围筛选 */}
-          <div className="space-y-2">
-            <Label>装货日期范围</Label>
+          <div className="lg:col-span-2">
+            <Label className="text-sm font-medium text-blue-800 mb-2">装货日期范围</Label>
             <DateRangePicker
               value={{
                 from: filters.startDate ? new Date(filters.startDate) : undefined,
@@ -303,95 +273,139 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
               placeholder="选择日期范围"
             />
           </div>
+
+          {/* 操作按钮组 */}
+          <div className="lg:col-span-3 flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => openBatchDialog('waybill')}
+              className="h-10 flex items-center gap-1"
+            >
+              <FileText className="h-4 w-4" />
+              批量
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="h-10 flex items-center gap-1"
+            >
+              {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              高级筛选
+              {activeFilterCount > 0 && (
+                <span className="ml-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+            
+            <Button onClick={onSearch} disabled={loading} className="h-10 bg-blue-600 hover:bg-blue-700">
+              <Search className="mr-1 h-4 w-4" />
+              搜索
+            </Button>
+            
+            <Button variant="outline" onClick={onClear} className="h-10">
+              <X className="mr-1 h-4 w-4" />
+              清空
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* 高级筛选面板 */}
       {showAdvanced && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 border rounded-lg bg-muted/20">
-          {/* 司机信息筛选 */}
-          <div className="space-y-2">
-            <Label>司机姓名</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Users className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {/* 司机信息筛选 */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                <Users className="h-4 w-4" />
+                司机姓名
+              </Label>
+              <div className="flex gap-1">
                 <Input
                   placeholder="司机姓名..."
                   value={filters.driverName}
                   onChange={(e) => handleInputChange('driverName', e.target.value)}
-                  className="pl-10"
+                  className="h-10 flex-1"
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openBatchDialog('driver')}
+                  className="h-10"
+                >
+                  批量
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openBatchDialog('driver')}
-              >
-                批量
-              </Button>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>车牌号</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Hash className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                <Hash className="h-4 w-4" />
+                车牌号
+              </Label>
+              <div className="flex gap-1">
                 <Input
                   placeholder="车牌号..."
                   value={filters.licensePlate}
                   onChange={(e) => handleInputChange('licensePlate', e.target.value)}
-                  className="pl-10"
+                  className="h-10 flex-1"
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openBatchDialog('license')}
+                  className="h-10"
+                >
+                  批量
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openBatchDialog('license')}
-              >
-                批量
-              </Button>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>司机电话</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                <Phone className="h-4 w-4" />
+                司机电话
+              </Label>
+              <div className="flex gap-1">
                 <Input
                   placeholder="司机电话..."
                   value={filters.driverPhone}
                   onChange={(e) => handleInputChange('driverPhone', e.target.value)}
-                  className="pl-10"
+                  className="h-10 flex-1"
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openBatchDialog('phone')}
+                  className="h-10"
+                >
+                  批量
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openBatchDialog('phone')}
-              >
-                批量
-              </Button>
             </div>
-          </div>
 
-          {/* 合作方筛选 */}
-          <div className="space-y-2">
-            <Label>合作方筛选</Label>
-            <Select value={filters.partnerId} onValueChange={(value) => handleInputChange('partnerId', value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="选择合作方" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部合作方</SelectItem>
-                {partners.map(partner => (
-                  <SelectItem key={partner.id} value={partner.id}>
-                    {partner.full_name || partner.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* 合作方筛选 */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                <Building2 className="h-4 w-4" />
+                合作方筛选
+              </Label>
+              <Select value={filters.partnerId} onValueChange={(value) => handleInputChange('partnerId', value)}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="选择合作方" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部合作方</SelectItem>
+                  {partners.map(partner => (
+                    <SelectItem key={partner.id} value={partner.id}>
+                      {partner.full_name || partner.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       )}
@@ -401,7 +415,6 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
         isOpen={batchDialog.isOpen}
         onClose={closeBatchDialog}
         onConfirm={handleBatchConfirm}
-        type={batchDialog.type || 'waybill'}
         title={
           batchDialog.type === 'driver' ? '批量输入司机姓名' :
           batchDialog.type === 'license' ? '批量输入车牌号' :
@@ -414,6 +427,13 @@ export function InvoiceFilterBar({ filters, onFiltersChange, onSearch, onClear, 
           batchDialog.type === 'phone' ? '每行一个司机电话' :
           '每行一个运单号'
         }
+        description={
+          batchDialog.type === 'driver' ? '输入多个司机姓名，每行一个' :
+          batchDialog.type === 'license' ? '输入多个车牌号，每行一个' :
+          batchDialog.type === 'phone' ? '输入多个司机电话，每行一个' :
+          '输入多个运单号，每行一个'
+        }
+        currentValue=""
       />
     </div>
   );
