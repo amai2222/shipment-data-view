@@ -23,8 +23,8 @@ interface InvoiceRequestFilterBarProps {
   setInvoiceStatusFilter: (value: string) => void;
   dateRange: DateRange | undefined;
   setDateRange: (range: DateRange | undefined) => void;
-  waybillNumberFilter: string;
-  setWaybillNumberFilter: (value: string) => void;
+  waybillFilter: string;
+  setWaybillFilter: (value: string) => void;
   driverFilter: string;
   setDriverFilter: (value: string) => void;
   licensePlateFilter: string;
@@ -33,8 +33,8 @@ interface InvoiceRequestFilterBarProps {
   setPhoneFilter: (value: string) => void;
   projects: Array<{ id: string; name: string }>;
   partners: Array<{ id: string; name: string }>;
-  onApplyFilters: () => void;
-  onClearFilters: () => void;
+  onSearch: () => void;
+  onReset: () => void;
 }
 
 export function InvoiceRequestFilterBar({
@@ -46,8 +46,8 @@ export function InvoiceRequestFilterBar({
   setInvoiceStatusFilter,
   dateRange,
   setDateRange,
-  waybillNumberFilter,
-  setWaybillNumberFilter,
+  waybillFilter,
+  setWaybillFilter,
   driverFilter,
   setDriverFilter,
   licensePlateFilter,
@@ -56,8 +56,8 @@ export function InvoiceRequestFilterBar({
   setPhoneFilter,
   projects,
   partners,
-  onApplyFilters,
-  onClearFilters
+  onSearch,
+  onReset
 }: InvoiceRequestFilterBarProps) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isBatchWaybillOpen, setIsBatchWaybillOpen] = useState(false);
@@ -65,27 +65,29 @@ export function InvoiceRequestFilterBar({
   const [isBatchLicenseOpen, setIsBatchLicenseOpen] = useState(false);
   const [isBatchPhoneOpen, setIsBatchPhoneOpen] = useState(false);
 
-  const invoiceStatusOptions = [
-    { value: '', label: '全部状态' },
-    { value: 'Uninvoiced', label: '未开票' },
-    { value: 'Processing', label: '开票中' },
-    { value: 'Invoiced', label: '已开票' }
-  ];
-
-  const hasActiveFilters = projectFilter || partnerFilter || invoiceStatusFilter || 
-    dateRange?.from || waybillNumberFilter || driverFilter || 
-    licensePlateFilter || phoneFilter;
+  const handleReset = () => {
+    setProjectFilter('');
+    setPartnerFilter('');
+    setInvoiceStatusFilter('');
+    setDateRange(undefined);
+    setWaybillFilter('');
+    setDriverFilter('');
+    setLicensePlateFilter('');
+    setPhoneFilter('');
+    onReset();
+  };
 
   return (
     <Card className="w-full">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2">
           <Filter className="h-5 w-5" />
           开票申请筛选
         </CardTitle>
       </CardHeader>
+      
       <CardContent className="space-y-4">
-        {/* 基本搜索 */}
+        {/* 基础筛选 */}
         <div className="grid grid-cols-10 gap-4 items-end">
           {/* 项目筛选 */}
           <div className="col-span-3">
@@ -113,11 +115,11 @@ export function InvoiceRequestFilterBar({
                 <SelectValue placeholder="选择状态" />
               </SelectTrigger>
               <SelectContent>
-                {invoiceStatusOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="">全部状态</SelectItem>
+                <SelectItem value="Pending">待处理</SelectItem>
+                <SelectItem value="Processing">处理中</SelectItem>
+                <SelectItem value="Approved">已确认</SelectItem>
+                <SelectItem value="Cancelled">已作废</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -164,155 +166,135 @@ export function InvoiceRequestFilterBar({
 
           {/* 操作按钮 */}
           <div className="col-span-2 flex gap-2">
-            <Button onClick={onApplyFilters} className="h-10">
-              应用筛选
+            <Button onClick={onSearch} className="h-10">
+              <Filter className="mr-2 h-4 w-4" />
+              搜索
             </Button>
-            {hasActiveFilters && (
-              <Button variant="outline" onClick={onClearFilters} className="h-10">
-                <X className="h-4 w-4" />
-              </Button>
-            )}
+            <Button variant="outline" onClick={handleReset} className="h-10">
+              <X className="mr-2 h-4 w-4" />
+              重置
+            </Button>
           </div>
         </div>
 
-        {/* 高级搜索 */}
-        <div className="space-y-3">
+        {/* 高级筛选切换 */}
+        <div className="flex items-center justify-between">
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-            className="w-full"
+            className="text-sm"
           >
             <Filter className="mr-2 h-4 w-4" />
-            {isAdvancedOpen ? '收起高级搜索' : '展开高级搜索'}
+            {isAdvancedOpen ? '收起高级筛选' : '展开高级筛选'}
           </Button>
+        </div>
 
-          {isAdvancedOpen && (
-            <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {/* 合作方筛选 */}
-                <div>
-                  <Label className="text-sm font-medium">合作方</Label>
-                  <Select value={partnerFilter} onValueChange={setPartnerFilter}>
-                    <SelectTrigger className="h-10">
-                      <SelectValue placeholder="选择合作方" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">全部合作方</SelectItem>
-                      {partners.map((partner) => (
-                        <SelectItem key={partner.id} value={partner.id}>
-                          {partner.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 运单号搜索 */}
-                <div>
-                  <Label className="text-sm font-medium">运单号</Label>
+        {/* 高级筛选面板 */}
+        {isAdvancedOpen && (
+          <div className="border-t pt-4 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              {/* 运单号搜索 */}
+              <div>
+                <Label className="text-sm font-medium">运单号</Label>
+                <div className="flex gap-2">
                   <Input
-                    value={waybillNumberFilter}
-                    onChange={(e) => setWaybillNumberFilter(e.target.value)}
                     placeholder="输入运单号"
+                    value={waybillFilter}
+                    onChange={(e) => setWaybillFilter(e.target.value)}
                     className="h-10"
                   />
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* 批量搜索 */}
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-gray-700">批量搜索</Label>
-                <div className="grid grid-cols-2 gap-3">
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => setIsBatchWaybillOpen(true)}
-                    className="h-10 justify-start"
+                    className="h-10 px-3"
                   >
-                    <FileText className="mr-2 h-4 w-4" />
-                    批量运单号
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsBatchDriverOpen(true)}
-                    className="h-10 justify-start"
-                  >
-                    <Users className="mr-2 h-4 w-4" />
-                    批量司机
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsBatchLicenseOpen(true)}
-                    className="h-10 justify-start"
-                  >
-                    <Hash className="mr-2 h-4 w-4" />
-                    批量车牌
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsBatchPhoneOpen(true)}
-                    className="h-10 justify-start"
-                  >
-                    <Phone className="mr-2 h-4 w-4" />
-                    批量电话
+                    <FileText className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
-              {/* 单个搜索 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">司机</Label>
+              {/* 司机搜索 */}
+              <div>
+                <Label className="text-sm font-medium">司机</Label>
+                <div className="flex gap-2">
                   <Input
+                    placeholder="输入司机姓名"
                     value={driverFilter}
                     onChange={(e) => setDriverFilter(e.target.value)}
-                    placeholder="输入司机姓名"
                     className="h-10"
                   />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsBatchDriverOpen(true)}
+                    className="h-10 px-3"
+                  >
+                    <Users className="h-4 w-4" />
+                  </Button>
                 </div>
-                <div>
-                  <Label className="text-sm font-medium">车牌号</Label>
+              </div>
+
+              {/* 车牌号搜索 */}
+              <div>
+                <Label className="text-sm font-medium">车牌号</Label>
+                <div className="flex gap-2">
                   <Input
+                    placeholder="输入车牌号"
                     value={licensePlateFilter}
                     onChange={(e) => setLicensePlateFilter(e.target.value)}
-                    placeholder="输入车牌号"
                     className="h-10"
                   />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsBatchLicenseOpen(true)}
+                    className="h-10 px-3"
+                  >
+                    <Hash className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* 电话搜索 */}
+              <div>
+                <Label className="text-sm font-medium">电话</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="输入电话号码"
+                    value={phoneFilter}
+                    onChange={(e) => setPhoneFilter(e.target.value)}
+                    className="h-10"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsBatchPhoneOpen(true)}
+                    className="h-10 px-3"
+                  >
+                    <Phone className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </div>
-          )}
-        </div>
 
-        {/* 活动筛选器显示 */}
-        {hasActiveFilters && (
-          <div className="flex flex-wrap gap-2">
-            <span className="text-sm text-gray-500">活动筛选器:</span>
-            {projectFilter && (
-              <Badge variant="secondary" className="gap-1">
-                项目: {projects.find(p => p.id === projectFilter)?.name}
-                <X className="h-3 w-3 cursor-pointer" onClick={() => setProjectFilter('')} />
-              </Badge>
-            )}
-            {partnerFilter && (
-              <Badge variant="secondary" className="gap-1">
-                合作方: {partners.find(p => p.id === partnerFilter)?.name}
-                <X className="h-3 w-3 cursor-pointer" onClick={() => setPartnerFilter('')} />
-              </Badge>
-            )}
-            {invoiceStatusFilter && (
-              <Badge variant="secondary" className="gap-1">
-                状态: {invoiceStatusOptions.find(s => s.value === invoiceStatusFilter)?.label}
-                <X className="h-3 w-3 cursor-pointer" onClick={() => setInvoiceStatusFilter('')} />
-              </Badge>
-            )}
-            {dateRange?.from && (
-              <Badge variant="secondary" className="gap-1">
-                日期: {format(dateRange.from, "MM-dd")} - {dateRange.to ? format(dateRange.to, "MM-dd") : "至今"}
-                <X className="h-3 w-3 cursor-pointer" onClick={() => setDateRange(undefined)} />
-              </Badge>
-            )}
+            {/* 合作方筛选 */}
+            <div>
+              <Label className="text-sm font-medium">合作方</Label>
+              <Select value={partnerFilter} onValueChange={setPartnerFilter}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="选择合作方" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">全部合作方</SelectItem>
+                  {partners.map((partner) => (
+                    <SelectItem key={partner.id} value={partner.id}>
+                      {partner.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
       </CardContent>
@@ -323,9 +305,9 @@ export function InvoiceRequestFilterBar({
         onClose={() => setIsBatchWaybillOpen(false)}
         title="批量运单号搜索"
         placeholder="请输入运单号，每行一个"
-        currentValue={waybillNumberFilter}
+        currentValue={waybillFilter}
         onApply={(value) => {
-          setWaybillNumberFilter(value);
+          setWaybillFilter(value);
           setIsBatchWaybillOpen(false);
         }}
         description="支持多个运单号同时搜索，每行输入一个运单号"
@@ -341,7 +323,7 @@ export function InvoiceRequestFilterBar({
           setDriverFilter(value);
           setIsBatchDriverOpen(false);
         }}
-        description="支持多个司机同时搜索，每行输入一个司机姓名"
+        description="支持多个司机姓名同时搜索，每行输入一个司机姓名"
       />
 
       <BatchInputDialog
