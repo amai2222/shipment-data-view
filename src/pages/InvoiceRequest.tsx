@@ -214,6 +214,12 @@ export default function InvoiceRequest() {
         p_invoice_status_array: statusArray,
         p_page_size: PAGE_SIZE,
         p_page_number: pagination.currentPage,
+        // 新增高级筛选参数
+        p_waybill_numbers: activeFilters.waybillNumbers || null,
+        p_driver_name: activeFilters.driverName || null,
+        p_license_plate: activeFilters.licensePlate || null,
+        p_driver_phone: activeFilters.driverPhone || null,
+        p_driver_receivable: activeFilters.driverReceivable || null,
       });
       if (error) throw error;
       setReportData(data);
@@ -359,16 +365,28 @@ export default function InvoiceRequest() {
       let allSelectedIds: string[] = [];
 
       if (isCrossPageSelection) {
-        // 获取所有筛选条件下的运单ID（包括已开票的）
-        const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_uninvoiced_record_ids', {
+        // 使用与主查询相同的逻辑获取所有筛选条件下的运单ID
+        const { data: allData, error: allError } = await supabase.rpc('get_invoice_request_data', {
           p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
           p_start_date: activeFilters.startDate || null,
           p_end_date: activeFilters.endDate || null,
           p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
+          p_invoice_status_array: null, // 获取所有状态
+          p_page_size: 1000,
+          p_page_number: 1,
+          // 新增高级筛选参数
+          p_waybill_numbers: activeFilters.waybillNumbers || null,
+          p_driver_name: activeFilters.driverName || null,
+          p_license_plate: activeFilters.licensePlate || null,
+          p_driver_phone: activeFilters.driverPhone || null,
+          p_driver_receivable: activeFilters.driverReceivable || null,
         });
 
-        if (idError) throw idError;
-        idsToProcess = allFilteredIds || [];
+        if (allError) throw allError;
+        
+        // 后端已经处理了高级筛选，直接使用结果
+        const allFilteredRecords = allData?.records || [];
+        idsToProcess = allFilteredRecords.map(record => record.id);
         allSelectedIds = idsToProcess; // 全选模式下，所有筛选的ID都是要处理的
       } else {
         allSelectedIds = Array.from(selection.selectedIds);
