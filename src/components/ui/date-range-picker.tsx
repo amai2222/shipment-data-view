@@ -55,6 +55,13 @@ export function DateRangePicker({
     }
   }, [open, parentDate]);
 
+  // 确保当父组件日期为空时，本地状态也保持为空
+  React.useEffect(() => {
+    if (!parentDate || (!parentDate.from && !parentDate.to)) {
+      setLocalDate(undefined);
+    }
+  }, [parentDate]);
+
   const handlePresetClick = (range: "7d" | "1m" | "3m" | "6m" | "1y") => {
     const today = new Date();
     let fromDate: Date;
@@ -111,14 +118,16 @@ export function DateRangePicker({
             disabled={disabled}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {parentDate?.from ? (
-              parentDate.to && formatInUTC(parentDate.from) !== formatInUTC(parentDate.to) ? (
+            {parentDate?.from && parentDate?.to ? (
+              formatInUTC(parentDate.from) !== formatInUTC(parentDate.to) ? (
                 <>
                   {formatInUTC(parentDate.from)} - {formatInUTC(parentDate.to)}
                 </>
               ) : (
                 formatInUTC(parentDate.from)
               )
+            ) : parentDate?.from ? (
+              formatInUTC(parentDate.from)
             ) : (
               <span>选择日期范围</span>
             )}
@@ -135,12 +144,12 @@ export function DateRangePicker({
           <Calendar
             initialFocus
             mode="range"
-            defaultMonth={localDate?.from}
+            defaultMonth={localDate?.from || new Date()}
             selected={localDate}
             onSelect={handleDateSelect}
             numberOfMonths={2}
             locale={zhCN}
-            // ★★★ 去掉“今天”的蓝点高亮 ★★★
+            // ★★★ 去掉"今天"的蓝点高亮 ★★★
             modifiers={{ today: [] }}
           />
         </PopoverContent>

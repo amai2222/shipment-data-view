@@ -598,7 +598,21 @@ export default function InvoiceRequest() {
     }
 
     try {
-      const recordIds = reportData.records.map(record => record.id);
+      let recordIds: string[] = [];
+      
+      if (selection.mode === 'all_filtered') {
+        // 全选模式：计算所有筛选结果中未开票的运单数量
+        recordIds = reportData.records.map(record => record.id);
+      } else {
+        // 单选模式：只计算已选择的运单
+        recordIds = Array.from(selection.selectedIds);
+      }
+
+      if (recordIds.length === 0) {
+        setProcessableCount(0);
+        return;
+      }
+
       const { data: statusData, error } = await supabase
         .from('logistics_records')
         .select('id, invoice_status')
@@ -616,7 +630,7 @@ export default function InvoiceRequest() {
       console.error('计算可处理运单数量失败:', error);
       setProcessableCount(0);
     }
-  }, [reportData?.records]);
+  }, [reportData?.records, selection.mode, selection.selectedIds]);
 
   // 当数据变化时重新计算可处理数量
   useEffect(() => {
@@ -635,7 +649,7 @@ export default function InvoiceRequest() {
         {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
           <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating || processableCount === 0} onClick={handleApplyForInvoiceClick}>
             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Receipt className="mr-2 h-4 w-4" />}
-            一键申请开票 ({processableCount > 0 ? processableCount : selectionCount})
+            一键申请开票 ({processableCount})
           </Button>
         )}
       </PageHeader>
