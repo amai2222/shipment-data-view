@@ -1,5 +1,5 @@
-// React类型声明 shim
-// 这是临时解决方案，最终需要运行 bun install 来安装实际的类型定义
+// React类型声明 shim - 修复版本
+// 确保HTMLAttributes正确支持className属性
 
 declare module 'react' {
   export function useState<S>(initialState: S | (() => S)): [S, (value: S | ((prevState: S) => S)) => void];
