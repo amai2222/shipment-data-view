@@ -12,6 +12,7 @@ interface PermissionButtonProps extends ButtonProps {
   fallback?: React.ReactNode;
   requireAll?: boolean; // 是否需要所有权限
   permissions?: string[]; // 多个权限
+  children?: React.ReactNode;
 }
 
 export function PermissionButton({

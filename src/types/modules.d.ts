@@ -1,6 +1,51 @@
 // 模块类型声明文件
 // 只声明缺失的模块，不重新声明React
 
+// 添加缺失的React类型
+declare module 'react' {
+  export function memo<P = {}>(component: (props: P) => any): any;
+  export type ComponentType<P = any> = any;
+  export type KeyboardEvent<T = Element> = any;
+  export type MouseEvent<T = Element> = any;
+  export type ChangeEvent<T = Element> = any;
+  
+  // 类组件支持
+  export abstract class Component<P = {}, S = {}> {
+    props: P;
+    state: S;
+    context: any;
+    refs: any;
+    
+    constructor(props: P, context?: any);
+    
+    setState<K extends keyof S>(
+      state: ((prevState: S, props: P) => Pick<S, K> | S | null) | (Pick<S, K> | S | null),
+      callback?: () => void
+    ): void;
+    
+    forceUpdate(callback?: () => void): void;
+    
+    render(): any;
+    
+    componentDidMount?(): void;
+    componentDidUpdate?(prevProps: P, prevState: S, snapshot?: any): void;
+    componentWillUnmount?(): void;
+    componentDidCatch?(error: Error, errorInfo: ErrorInfo): void;
+    getSnapshotBeforeUpdate?(prevProps: P, prevState: S): any;
+    shouldComponentUpdate?(nextProps: P, nextState: S): boolean;
+    componentWillMount?(): void;
+    componentWillReceiveProps?(nextProps: P, nextContext: any): void;
+    componentWillUpdate?(nextProps: P, nextState: S, nextContext: any): void;
+    UNSAFE_componentWillMount?(): void;
+    UNSAFE_componentWillReceiveProps?(nextProps: P, nextContext: any): void;
+    UNSAFE_componentWillUpdate?(nextProps: P, nextState: S, nextContext: any): void;
+  }
+  
+  export type ErrorInfo = {
+    componentStack: string;
+  };
+}
+
 declare module 'lucide-react' {
   export const CalendarIcon: any;
   export const Save: any;
@@ -110,6 +155,8 @@ declare module 'lucide-react' {
   export const Calendar: any;
   export const LucideIcon: any;
   export type LucideIcon = any;
+  export const Lock: any;
+  export const Unlock: any;
 }
 
 declare module 'date-fns' {
@@ -152,4 +199,11 @@ declare module 'xlsx' {
   
   export function read(data: any, options?: any): WorkBook;
   export function writeFile(workbook: WorkBook, filename: string, options?: any): void;
+  export function write(data: any, options?: any): any;
+}
+
+declare module 'react-window' {
+  export class FixedSizeList extends React.Component<any> {
+    constructor(props: any);
+  }
 }
