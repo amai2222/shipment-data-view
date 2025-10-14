@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Loader2, Search, Receipt, Save, ListPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -333,6 +334,14 @@ export default function InvoiceRequest() {
         return { ...prev, selectedIds: newSet }; 
       }); 
     } 
+  };
+
+  const handleSelectAllFiltered = () => {
+    setSelection(prev => ({
+      ...prev,
+      mode: 'all_filtered',
+      selectedIds: new Set()
+    }));
   };
 
   const handleApplyForInvoiceClick = async () => {
@@ -695,11 +704,32 @@ export default function InvoiceRequest() {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-12 sticky left-0 bg-background z-10">
-                            <Checkbox
-                              checked={allOnCurrentPageSelected}
-                              onCheckedChange={handleSelectAllOnPage}
-                              ref={(el) => el && (el.indeterminate = someOnCurrentPageSelected)}
-                            />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 hover:bg-blue-100 rounded-md"
+                                >
+                                  <Checkbox 
+                                    checked={allOnCurrentPageSelected}
+                                    ref={(el) => el && (el.indeterminate = someOnCurrentPageSelected)}
+                                    className="h-3.5 w-3.5"
+                                  />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                <DropdownMenuItem onSelect={() => handleSelectAllOnPage(true)}>
+                                  选择当前页 ({reportData?.records?.length || 0})
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleSelectAllOnPage(false)}>
+                                  取消选择当前页
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={handleSelectAllFiltered}>
+                                  选择所有 {totalRecords} 条记录
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableHead>
                           <TableHead className="min-w-[120px] sticky left-12 bg-background z-10 whitespace-nowrap font-medium">运单号</TableHead>
                           <TableHead className="min-w-[100px] whitespace-nowrap">项目</TableHead>
