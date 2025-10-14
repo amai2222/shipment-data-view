@@ -312,31 +312,130 @@ export default function MobileInvoiceRequestManagement() {
 
       if (error) throw error;
 
-      // 准备导出数据
-      const exportData = data?.map(request => ({
-        '申请单号': request.request_number,
-        '合作方': request.partner_name,
-        '开票金额': request.total_amount,
-        '运单数量': request.record_count,
-        '状态': getStatusText(request.status),
-        '创建时间': format(new Date(request.created_at), 'yyyy-MM-dd HH:mm'),
-        '创建人': request.profiles?.full_name || '未知',
-        '备注': request.remarks || ''
-      })) || [];
+      // 创建开票申请单格式的HTML表格
+      const createInvoiceRequestHTML = (requests: any[]) => {
+        const currentDate = format(new Date(), 'yyyy-MM-dd');
+        const totalAmount = requests.reduce((sum, req) => sum + (req.total_amount || 0), 0);
 
-      // 创建CSV内容
-      const headers = Object.keys(exportData[0] || {});
-      const csvContent = [
-        headers.join(','),
-        ...exportData.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
-      ].join('\n');
+        return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>开票申请单</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .company-name { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+        .title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+        .subtitle { font-size: 14px; margin-bottom: 20px; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .info-item { font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        th, td { border: 1px solid #000; padding: 8px; text-align: center; font-size: 12px; }
+        th { background-color: #f0f0f0; font-weight: bold; }
+        .remarks-section { margin-top: 20px; margin-bottom: 20px; }
+        .signature-section { margin-top: 40px; }
+        .signature-row { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .signature-item { width: 200px; text-align: center; }
+        .signature-line { border-bottom: 1px solid #000; height: 30px; margin-bottom: 5px; }
+        .disclaimer { margin-top: 30px; font-size: 12px; line-height: 1.5; }
+        .invoice-details { margin-top: 30px; }
+        .invoice-details table { width: 60%; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-name">中科智运 (云南) 供应链科技有限公司开票申请单</div>
+        <div class="subtitle">申请单编号: ${requests[0]?.request_number || 'N/A'}</div>
+    </div>
 
+    <table>
+        <thead>
+            <tr>
+                <th>申请日期</th>
+                <th>开票抬头</th>
+                <th>回款金额</th>
+                <th>数量/单位(方)</th>
+                <th>业务期限</th>
+                <th>实际运费</th>
+                <th>开票金额</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${requests.map((request, index) => `
+                <tr>
+                    <td>${format(new Date(request.created_at), 'yyyy年MM月dd日')}</td>
+                    <td>${request.partner_name}</td>
+                    <td></td>
+                    <td></td>
+                    <td>${format(new Date(request.created_at), 'yyyy年MM月')}</td>
+                    <td>${request.total_amount.toLocaleString()}</td>
+                    <td>${request.total_amount.toLocaleString()}</td>
+                </tr>
+            `).join('')}
+        </tbody>
+    </table>
+
+    <div class="remarks-section">
+        <div><strong>事项说明:</strong></div>
+        <div style="height: 50px; border: 1px solid #ccc; margin-top: 10px;"></div>
+    </div>
+
+    <div class="signature-section">
+        <div class="signature-row">
+            <div class="signature-item">
+                <div>信息员</div>
+                <div class="signature-line"></div>
+            </div>
+            <div class="signature-item">
+                <div>业务员</div>
+                <div class="signature-line"></div>
+            </div>
+            <div class="signature-item">
+                <div>财务部审核</div>
+                <div class="signature-line"></div>
+            </div>
+            <div class="signature-item">
+                <div>客户核对签字</div>
+                <div class="signature-line"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="disclaimer">
+        以上相关内容经本人(申请人)与客户充分沟通,并保证所提供相关资料的准确与完整,如因资料不符或约定不清等原因造成退票,其责任损失将由开票申请人负责。
+    </div>
+
+    <div class="invoice-details">
+        <table>
+            <tr>
+                <td><strong>发票号码:</strong></td>
+                <td style="border-bottom: 1px solid #000; width: 200px;"></td>
+                <td><strong>领票日期:</strong></td>
+                <td style="border-bottom: 1px solid #000; width: 200px;"></td>
+            </tr>
+            <tr>
+                <td><strong>领票人:</strong></td>
+                <td style="border-bottom: 1px solid #000; width: 200px;"></td>
+                <td><strong>发票开具情况:</strong></td>
+                <td style="border-bottom: 1px solid #000; width: 200px;"></td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>`;
+      };
+
+      // 创建HTML内容
+      const htmlContent = createInvoiceRequestHTML(data || []);
+      
       // 下载文件
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `开票申请单_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+      link.setAttribute('download', `开票申请单_${format(new Date(), 'yyyyMMdd_HHmmss')}.html`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -344,7 +443,7 @@ export default function MobileInvoiceRequestManagement() {
 
       toast({
         title: "导出成功",
-        description: `已导出 ${exportData.length} 条记录`,
+        description: `已导出 ${data?.length || 0} 条记录，格式类似开票申请单`,
       });
     } catch (error) {
       console.error('导出失败:', error);
