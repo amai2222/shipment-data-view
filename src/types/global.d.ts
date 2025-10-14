@@ -1,5 +1,5 @@
-// React类型声明 shim
-// 这是临时解决方案，最终需要运行 bun install 来安装实际的类型定义
+// 全局类型声明文件
+// 解决TypeScript编译错误
 
 declare module 'react' {
   export function useState<S>(initialState: S | (() => S)): [S, (value: S | ((prevState: S) => S)) => void];
@@ -38,16 +38,6 @@ declare module 'react' {
     export type ReactElement = any;
     export type ComponentProps<T> = any;
   }
-}
-
-declare module 'react-dom' {
-  export function createRoot(container: Element | DocumentFragment): any;
-}
-
-declare module 'react/jsx-runtime' {
-  export function jsx(type: any, props: any, key?: any): any;
-  export function jsxs(type: any, props: any, key?: any): any;
-  export const Fragment: any;
 }
 
 declare module 'lucide-react' {
@@ -98,6 +88,7 @@ declare module 'lucide-react' {
   export const Clock: any;
   export const FileUp: any;
   export const Filter: any;
+  export const PanelLeft: any;
 }
 
 declare module 'date-fns' {
@@ -108,3 +99,18 @@ declare module 'date-fns/locale' {
   export const zhCN: any;
 }
 
+declare module 'xlsx' {
+  export function read(data: any, options?: any): any;
+  export function write(data: any, options?: any): any;
+  export const utils: any;
+}
+
+declare module 'react-dom' {
+  export function createRoot(container: Element | DocumentFragment): any;
+}
+
+declare module 'react/jsx-runtime' {
+  export function jsx(type: any, props: any, key?: any): any;
+  export function jsxs(type: any, props: any, key?: any): any;
+  export const Fragment: any;
+}
