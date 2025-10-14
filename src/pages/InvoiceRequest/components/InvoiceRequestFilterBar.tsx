@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 import { 
   Filter, 
@@ -16,18 +17,22 @@ import {
   Users,
   Car,
   Phone,
-  Building
+  Building,
+  DollarSign
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface InvoiceFilters {
   projectId: string;
   invoiceStatus: string;
+  startDate: string;
+  endDate: string;
   waybillNumbers?: string;
   driverName?: string;
   licensePlate?: string;
   driverPhone?: string;
-  partnerName?: string;
+  driverReceivable?: string;
 }
 
 interface InvoiceRequestFilterBarProps {
@@ -37,7 +42,6 @@ interface InvoiceRequestFilterBarProps {
   onClear: () => void;
   loading: boolean;
   projects: Array<{ id: string; name: string }>;
-  partners?: Array<{ id: string; name: string }>;
 }
 
 export function InvoiceRequestFilterBar({
@@ -46,17 +50,31 @@ export function InvoiceRequestFilterBar({
   onSearch,
   onClear,
   loading,
-  projects,
-  partners = []
+  projects
 }: InvoiceRequestFilterBarProps) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isBatchWaybillOpen, setIsBatchWaybillOpen] = useState(false);
   const [isBatchDriverOpen, setIsBatchDriverOpen] = useState(false);
   const [isBatchLicenseOpen, setIsBatchLicenseOpen] = useState(false);
   const [isBatchPhoneOpen, setIsBatchPhoneOpen] = useState(false);
+  const [isBatchReceivableOpen, setIsBatchReceivableOpen] = useState(false);
 
   const handleReset = () => {
     onClear();
+  };
+
+  // 日期范围处理
+  const dateRangeValue = {
+    from: filters.startDate ? new Date(filters.startDate) : undefined,
+    to: filters.endDate ? new Date(filters.endDate) : undefined
+  };
+
+  const handleDateChange = (range: { from?: Date; to?: Date } | undefined) => {
+    onFiltersChange({
+      ...filters,
+      startDate: range?.from ? format(range.from, 'yyyy-MM-dd') : '',
+      endDate: range?.to ? format(range.to, 'yyyy-MM-dd') : ''
+    });
   };
 
 
@@ -71,7 +89,7 @@ export function InvoiceRequestFilterBar({
       
       <CardContent className="space-y-4">
         {/* 基础筛选条件 - 参考运单管理布局 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
           {/* 项目筛选 */}
           <div className="space-y-2">
             <Label htmlFor="project-filter" className="text-sm font-medium text-blue-800 flex items-center gap-1">
@@ -112,24 +130,36 @@ export function InvoiceRequestFilterBar({
             </Select>
           </div>
 
+          {/* 日期范围 */}
+          <div className="space-y-2 relative z-10">
+            <Label htmlFor="date-range-picker" className="text-sm font-medium text-blue-800 flex items-center gap-1">
+              <Calendar className="h-4 w-4" />
+              日期范围
+            </Label>
+            <div className="w-full">
+              <DateRangePicker 
+                date={dateRangeValue} 
+                setDate={handleDateChange} 
+                disabled={loading}
+                className="w-full"
+              />
+            </div>
+          </div>
 
           {/* 操作按钮 */}
           <div className="flex items-end gap-2">
             <Button variant="outline" onClick={handleReset} disabled={loading} className="h-10">
               清除
             </Button>
-            <Button onClick={onSearch} disabled={loading} className="h-10 bg-blue-600 hover:bg-blue-700">
-              <Search className="mr-1 h-4 w-4" />搜索
-            </Button>
           </div>
         </div>
 
-        {/* 高级搜索按钮 */}
-        <div className="flex items-end">
+        {/* 高级搜索按钮和搜索按钮 */}
+        <div className="flex items-end gap-2">
           <Button
             variant="outline"
             onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-            className="h-10 w-full"
+            className="h-10 flex-1"
           >
             {isAdvancedOpen ? (
               <>
@@ -142,6 +172,9 @@ export function InvoiceRequestFilterBar({
                 高级搜索
               </>
             )}
+          </Button>
+          <Button onClick={onSearch} disabled={loading} className="h-10 bg-blue-600 hover:bg-blue-700">
+            <Search className="mr-1 h-4 w-4" />搜索
           </Button>
         </div>
 
@@ -276,21 +309,37 @@ export function InvoiceRequestFilterBar({
                 </div>
               </div>
 
-              {/* 合作方搜索 */}
+              {/* 司机应收搜索 */}
               <div className="space-y-2">
-                <Label htmlFor="partner-name" className="text-sm font-medium text-purple-800 flex items-center gap-1">
-                  <Building className="h-4 w-4" />
-                  合作方
+                <Label htmlFor="driver-receivable" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                  <DollarSign className="h-4 w-4" />
+                  司机应收
                 </Label>
-                <Input 
-                  type="text" 
-                  id="partner-name" 
-                  placeholder="合作方名称..." 
-                  value={filters.partnerName || ''} 
-                  onChange={e => onFiltersChange({...filters, partnerName: e.target.value})} 
-                  disabled={loading}
-                  className="h-10"
-                />
+                <div className="flex gap-1">
+                  <div className="relative flex-1">
+                    <Input 
+                      type="text" 
+                      id="driver-receivable" 
+                      placeholder="输入司机应收金额，多个用逗号分隔..." 
+                      value={filters.driverReceivable || ''} 
+                      onChange={e => onFiltersChange({...filters, driverReceivable: e.target.value})}
+                      disabled={loading}
+                      className="h-10"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsBatchReceivableOpen(true)}
+                    className="h-10 px-2"
+                    title="批量输入"
+                  >
+                    <DollarSign className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="text-xs text-purple-600">
+                  💡 支持多个司机应收金额查询，用逗号分隔，按回车快速搜索
+                </div>
               </div>
             </div>
           </div>
@@ -335,6 +384,16 @@ export function InvoiceRequestFilterBar({
           placeholder="输入司机电话，每行一个"
           description="支持多个司机电话，每行输入一个电话"
           currentValue={filters.driverPhone || ''}
+        />
+
+        <BatchInputDialog
+          isOpen={isBatchReceivableOpen}
+          onClose={() => setIsBatchReceivableOpen(false)}
+          onApply={(value) => onFiltersChange({...filters, driverReceivable: value})}
+          title="批量输入司机应收金额"
+          placeholder="输入司机应收金额，每行一个"
+          description="支持多个司机应收金额，每行输入一个金额"
+          currentValue={filters.driverReceivable || ''}
         />
       </CardContent>
     </Card>

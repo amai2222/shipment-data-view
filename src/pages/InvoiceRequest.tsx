@@ -40,7 +40,10 @@ interface InvoiceFilters {
   driverPhone: string;
   projectId: string;
   partnerId: string;
+  startDate: string;
+  endDate: string;
   invoiceStatus: string;
+  driverReceivable: string;
 }
 
 interface LogisticsRecord { 
@@ -112,7 +115,10 @@ const INITIAL_INVOICE_FILTERS: InvoiceFilters = {
   driverPhone: "",
   projectId: "all", 
   partnerId: "all", 
+  startDate: "", 
+  endDate: "",
   invoiceStatus: "all",
+  driverReceivable: "",
 };
 
 const INVOICE_STATUS_OPTIONS = [ 
@@ -201,8 +207,8 @@ export default function InvoiceRequest() {
       }
       const { data, error } = await supabase.rpc('get_invoice_request_data', {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
-        p_start_date: null,
-        p_end_date: null,
+        p_start_date: activeFilters.startDate || null,
+        p_end_date: activeFilters.endDate || null,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
         p_invoice_status_array: statusArray,
         p_page_size: PAGE_SIZE,
@@ -347,8 +353,8 @@ export default function InvoiceRequest() {
         // 获取所有筛选条件下的运单ID（包括已开票的）
         const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_uninvoiced_record_ids', {
           p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
-          p_start_date: null,
-          p_end_date: null,
+          p_start_date: activeFilters.startDate || null,
+          p_end_date: activeFilters.endDate || null,
           p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
         });
 
