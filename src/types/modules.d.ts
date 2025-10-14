@@ -10,7 +10,7 @@ declare module 'react' {
   export type ChangeEvent<T = Element> = any;
   
   // 类组件支持
-  export abstract class Component<P = {}, S = {}> {
+  export class Component<P = {}, S = {}> {
     props: P;
     state: S;
     context: any;
@@ -120,6 +120,29 @@ declare module 'lucide-react' {
   export const WifiOff: any;
   export const Lock: any;
   export const Unlock: any;
+  export const Copy: any;
+  export const RotateCcw: any;
+  export const Phone: any;
+  export const Send: any;
+  export const Zap: any;
+  export const Info: any;
+  export const Edit: any;
+  export const Minus: any;
+  export const Play: any;
+  export const Pause: any;
+  export const ArrowLeft: any;
+  export const ArrowRight: any;
+  export const LogOut: any;
+  export const UserCheck: any;
+  export const Calendar: any;
+  export const Printer: any;
+  export const Building: any;
+  export const Bookmark: any;
+  export const DollarSign: any;
+  export const Tag: any;
+  export const TrendingUp: any;
+  export const Archive: any;
+  export const LucideIcon: any;
   export const Bell: any;
   export const MessageSquare: any;
   export const Menu: any;
@@ -205,5 +228,12 @@ declare module 'xlsx' {
 declare module 'react-window' {
   export class FixedSizeList extends React.Component<any> {
     constructor(props: any);
+  }
+}
+
+declare module 'react-day-picker' {
+  export interface DateRange {
+    from?: Date;
+    to?: Date;
   }
 }

@@ -1,5 +1,4 @@
 // 最终文件路径: src/pages/BusinessEntry/components/LogisticsFormDialog.tsx
-/// <reference path="../../../react-shim.d.ts" />
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
