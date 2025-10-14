@@ -81,6 +81,14 @@ declare module 'react' {
   export type FormEventHandler<T = Element> = (event: FormEvent<T>) => void;
   export type ChangeEventHandler<T = Element> = (event: ChangeEvent<T>) => void;
   export type TouchEventHandler<T = Element> = (event: TouchEvent<T>) => void;
+  export type MouseEventHandler<T = Element> = (event: MouseEvent<T>) => void;
+  export type KeyboardEventHandler<T = Element> = (event: KeyboardEvent<T>) => void;
+  export type FocusEventHandler<T = Element> = (event: FocusEvent<T>) => void;
+  export type DragEventHandler<T = Element> = (event: DragEvent<T>) => void;
+  export type ClipboardEventHandler<T = Element> = (event: ClipboardEvent<T>) => void;
+  export type AnimationEventHandler<T = Element> = (event: AnimationEvent<T>) => void;
+  export type TransitionEventHandler<T = Element> = (event: TransitionEvent<T>) => void;
+  export type SyntheticEventHandler<T = Element> = (event: SyntheticEvent<T>) => void;
   export type TouchEvent<T = Element> = Event & {
     currentTarget: EventTarget & T;
     touches: any[];
@@ -91,13 +99,93 @@ declare module 'react' {
   export type SetStateAction<S> = S | ((prevState: S) => S);
   export type ElementRef<T> = any;
   export type ComponentPropsWithoutRef<T> = any;
+  export type DetailedHTMLProps<E, T> = E & { ref?: Ref<T> };
+  export type Ref<T> = { current: T | null };
+  export type RefObject<T> = { current: T | null };
+  export type MutableRefObject<T> = { current: T };
   export interface HTMLAttributes<T> {
     className?: string;
     children?: ReactNode;
-    style?: any;
+    style?: CSSProperties;
     onClick?: (event: MouseEvent<T>) => void;
     onChange?: (event: ChangeEvent<T>) => void;
     onKeyDown?: (event: KeyboardEvent<T>) => void;
+    onMouseDown?: (event: MouseEvent<T>) => void;
+    onMouseUp?: (event: MouseEvent<T>) => void;
+    onMouseEnter?: (event: MouseEvent<T>) => void;
+    onMouseLeave?: (event: MouseEvent<T>) => void;
+    onMouseOver?: (event: MouseEvent<T>) => void;
+    onMouseOut?: (event: MouseEvent<T>) => void;
+    onFocus?: (event: FocusEvent<T>) => void;
+    onBlur?: (event: FocusEvent<T>) => void;
+    onTouchStart?: (event: TouchEvent<T>) => void;
+    onTouchEnd?: (event: TouchEvent<T>) => void;
+    onTouchMove?: (event: TouchEvent<T>) => void;
+    onTouchCancel?: (event: TouchEvent<T>) => void;
+    onDrag?: (event: DragEvent<T>) => void;
+    onDragStart?: (event: DragEvent<T>) => void;
+    onDragEnd?: (event: DragEvent<T>) => void;
+    onDragOver?: (event: DragEvent<T>) => void;
+    onDragEnter?: (event: DragEvent<T>) => void;
+    onDragLeave?: (event: DragEvent<T>) => void;
+    onDrop?: (event: DragEvent<T>) => void;
+    onScroll?: (event: SyntheticEvent<T>) => void;
+    onWheel?: (event: WheelEvent) => void;
+    onAnimationStart?: (event: AnimationEvent<T>) => void;
+    onAnimationEnd?: (event: AnimationEvent<T>) => void;
+    onAnimationIteration?: (event: AnimationEvent<T>) => void;
+    onTransitionEnd?: (event: TransitionEvent<T>) => void;
+    onCopy?: (event: ClipboardEvent<T>) => void;
+    onCut?: (event: ClipboardEvent<T>) => void;
+    onPaste?: (event: ClipboardEvent<T>) => void;
+    onLoad?: (event: SyntheticEvent<T>) => void;
+    onError?: (event: SyntheticEvent<T>) => void;
+    onAbort?: (event: SyntheticEvent<T>) => void;
+    onCanPlay?: (event: SyntheticEvent<T>) => void;
+    onCanPlayThrough?: (event: SyntheticEvent<T>) => void;
+    onDurationChange?: (event: SyntheticEvent<T>) => void;
+    onEmptied?: (event: SyntheticEvent<T>) => void;
+    onEncrypted?: (event: SyntheticEvent<T>) => void;
+    onEnded?: (event: SyntheticEvent<T>) => void;
+    onLoadedData?: (event: SyntheticEvent<T>) => void;
+    onLoadedMetadata?: (event: SyntheticEvent<T>) => void;
+    onLoadStart?: (event: SyntheticEvent<T>) => void;
+    onPause?: (event: SyntheticEvent<T>) => void;
+    onPlay?: (event: SyntheticEvent<T>) => void;
+    onPlaying?: (event: SyntheticEvent<T>) => void;
+    onProgress?: (event: SyntheticEvent<T>) => void;
+    onRateChange?: (event: SyntheticEvent<T>) => void;
+    onSeeked?: (event: SyntheticEvent<T>) => void;
+    onSeeking?: (event: SyntheticEvent<T>) => void;
+    onStalled?: (event: SyntheticEvent<T>) => void;
+    onSuspend?: (event: SyntheticEvent<T>) => void;
+    onTimeUpdate?: (event: SyntheticEvent<T>) => void;
+    onVolumeChange?: (event: SyntheticEvent<T>) => void;
+    onWaiting?: (event: SyntheticEvent<T>) => void;
+    onAuxClick?: (event: MouseEvent<T>) => void;
+    onContextMenu?: (event: MouseEvent<T>) => void;
+    onDoubleClick?: (event: MouseEvent<T>) => void;
+    onPointerDown?: (event: PointerEvent) => void;
+    onPointerMove?: (event: PointerEvent) => void;
+    onPointerUp?: (event: PointerEvent) => void;
+    onPointerCancel?: (event: PointerEvent) => void;
+    onPointerOver?: (event: PointerEvent) => void;
+    onPointerOut?: (event: PointerEvent) => void;
+    onPointerEnter?: (event: PointerEvent) => void;
+    onPointerLeave?: (event: PointerEvent) => void;
+    onGotPointerCapture?: (event: PointerEvent) => void;
+    onLostPointerCapture?: (event: PointerEvent) => void;
+    onPointerLockChange?: (event: Event) => void;
+    onPointerLockError?: (event: Event) => void;
+    onSelect?: (event: SyntheticEvent<T>) => void;
+    onSelectionChange?: (event: SyntheticEvent<T>) => void;
+    onToggle?: (event: SyntheticEvent<T>) => void;
+    onInvalid?: (event: FormEvent<T>) => void;
+    onReset?: (event: FormEvent<T>) => void;
+    onBeforeInput?: (event: FormEvent<T>) => void;
+    onCompositionEnd?: (event: CompositionEvent) => void;
+    onCompositionStart?: (event: CompositionEvent) => void;
+    onCompositionUpdate?: (event: CompositionEvent) => void;
     [key: string]: any;
   }
   
@@ -310,5 +398,66 @@ declare module 'xlsx' {
   
   export function read(data: any, options?: any): WorkBook;
   export function writeFile(workbook: WorkBook, filename: string, options?: any): void;
+}
+
+// 添加更多必要的类型定义
+declare global {
+  interface WheelEvent {
+    deltaX: number;
+    deltaY: number;
+    deltaZ: number;
+    deltaMode: number;
+  }
+  
+  interface PointerEvent {
+    pointerId: number;
+    width: number;
+    height: number;
+    pressure: number;
+    tangentialPressure: number;
+    tiltX: number;
+    tiltY: number;
+    twist: number;
+    pointerType: string;
+    isPrimary: boolean;
+  }
+  
+  interface CompositionEvent {
+    data: string;
+  }
+  
+  interface DataTransfer {
+    files: FileList;
+    items: DataTransferItemList;
+    types: string[];
+    dropEffect: string;
+    effectAllowed: string;
+  }
+  
+  interface FileList {
+    length: number;
+    item(index: number): File | null;
+    [index: number]: File;
+  }
+  
+  interface DataTransferItemList {
+    length: number;
+    item(index: number): DataTransferItem | null;
+    [index: number]: DataTransferItem;
+  }
+  
+  interface DataTransferItem {
+    kind: string;
+    type: string;
+    getAsFile(): File | null;
+    getAsString(callback: (data: string) => void): void;
+  }
+  
+  interface File {
+    name: string;
+    size: number;
+    type: string;
+    lastModified: number;
+  }
 }
 
