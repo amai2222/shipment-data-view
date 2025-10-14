@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { FileText, Search, Filter, Eye, Edit, RefreshCw, ChevronRight, X, CheckCircle, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { LogisticsFormDialog } from "../../BusinessEntry/components/LogisticsFormDialog";
+import { LogisticsFormDialog } from "@/pages/BusinessEntry/components/LogisticsFormDialog";
 import { LogisticsRecord } from "../../BusinessEntry/types";
 
 // 开票申请单类型定义
