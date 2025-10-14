@@ -91,7 +91,7 @@ export function InvoiceRequestFilterBar({
       
       <CardContent className="space-y-4">
         {/* 基础筛选条件 - 参考运单管理布局 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
           {/* 项目筛选 */}
           <div className="space-y-2">
             <Label htmlFor="project-filter" className="text-sm font-medium text-blue-800 flex items-center gap-1">
@@ -133,7 +133,7 @@ export function InvoiceRequestFilterBar({
           </div>
 
           {/* 装货日期范围 */}
-          <div className="space-y-2">
+          <div className="space-y-2 relative z-10">
             <Label htmlFor="date-range-picker" className="text-sm font-medium text-blue-800 flex items-center gap-1">
               <Calendar className="h-4 w-4" />
               装货日期范围

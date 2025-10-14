@@ -105,7 +105,7 @@ export function DateRangePicker({
   };
 
   return (
-    <div className={cn("w-full", className)}>
+    <div className={cn("w-full date-range-picker-container", className)}>
       <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
@@ -133,7 +133,13 @@ export function DateRangePicker({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 flex" align="start">
+        <PopoverContent 
+          className="w-auto p-0 flex date-range-picker-popover" 
+          align="start" 
+          side="bottom" 
+          sideOffset={4}
+          style={{ zIndex: 9999 }}
+        >
           <div className="flex flex-col space-y-2 border-r p-4">
             <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("7d")}>最近一周</Button>
             <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick("1m")}>最近一个月</Button>
@@ -147,7 +153,7 @@ export function DateRangePicker({
             defaultMonth={localDate?.from || new Date()}
             selected={localDate}
             onSelect={handleDateSelect}
-            numberOfMonths={2}
+            numberOfMonths={1}
             locale={zhCN}
             // ★★★ 去掉"今天"的蓝点高亮 ★★★
             modifiers={{ today: [] }}
