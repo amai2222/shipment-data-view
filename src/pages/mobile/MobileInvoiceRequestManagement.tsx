@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
-import { FileText, Search, Filter, Eye, Edit, Trash2, RefreshCw, ChevronRight, X } from "lucide-react";
+import { FileText, Search, Filter, Eye, Edit, Trash2, RefreshCw, ChevronRight, X, CheckCircle, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -269,10 +269,102 @@ export default function MobileInvoiceRequestManagement() {
     }
   };
 
+  // 确认开票
+  const approveInvoice = async (requestId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('invoice_requests')
+        .update({ 
+          status: 'Approved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      toast({
+        title: "确认成功",
+        description: "开票申请单已确认",
+      });
+      loadInvoiceRequests();
+    } catch (error) {
+      console.error('确认开票失败:', error);
+      toast({
+        title: "确认失败",
+        description: error.message || '无法确认开票',
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 导出开票申请单
+  const exportInvoiceRequests = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('invoice_requests')
+        .select(`
+          *,
+          profiles!created_by (
+            full_name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // 准备导出数据
+      const exportData = data?.map(request => ({
+        '申请单号': request.request_number,
+        '合作方': request.partner_name,
+        '开票金额': request.total_amount,
+        '运单数量': request.record_count,
+        '状态': getStatusText(request.status),
+        '创建时间': format(new Date(request.created_at), 'yyyy-MM-dd HH:mm'),
+        '创建人': request.profiles?.full_name || '未知',
+        '备注': request.remarks || ''
+      })) || [];
+
+      // 创建CSV内容
+      const headers = Object.keys(exportData[0] || {});
+      const csvContent = [
+        headers.join(','),
+        ...exportData.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
+      ].join('\n');
+
+      // 下载文件
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `开票申请单_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "导出成功",
+        description: `已导出 ${exportData.length} 条记录`,
+      });
+    } catch (error) {
+      console.error('导出失败:', error);
+      toast({
+        title: "导出失败",
+        description: error.message || '无法导出数据',
+        variant: "destructive",
+      });
+    }
+  };
+
   // 处理作废
   const handleVoidRequest = (request: InvoiceRequest) => {
     setSelectedRequest(request);
     setIsVoidDialogOpen(true);
+  };
+
+  // 处理确认开票
+  const handleApproveInvoice = (request: InvoiceRequest) => {
+    approveInvoice(request.id);
   };
 
   // 状态徽章颜色
@@ -327,10 +419,16 @@ export default function MobileInvoiceRequestManagement() {
         icon={FileText}
         iconColor="text-blue-600"
       >
-        <Button onClick={loadInvoiceRequests} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          刷新
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={exportInvoiceRequests} variant="outline" size="sm">
+            <FileDown className="h-4 w-4 mr-2" />
+            导出
+          </Button>
+          <Button onClick={loadInvoiceRequests} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            刷新
+          </Button>
+        </div>
       </PageHeader>
 
       {/* 筛选和搜索 */}
@@ -414,6 +512,19 @@ export default function MobileInvoiceRequestManagement() {
                   <div className="flex items-center gap-2">
                     {!request.is_voided && !request.is_merged && (
                       <>
+                        {request.status === 'Pending' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleApproveInvoice(request);
+                            }}
+                            title="确认开票"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -421,6 +532,7 @@ export default function MobileInvoiceRequestManagement() {
                             e.stopPropagation();
                             handleEditStatus(request);
                           }}
+                          title="编辑状态"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -431,6 +543,7 @@ export default function MobileInvoiceRequestManagement() {
                             e.stopPropagation();
                             handleVoidRequest(request);
                           }}
+                          title="作废申请单"
                         >
                           <X className="h-4 w-4" />
                         </Button>
