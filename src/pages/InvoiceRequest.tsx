@@ -171,6 +171,7 @@ export default function InvoiceRequest() {
   const [finalInvoiceData, setFinalInvoiceData] = useState<FinalInvoiceData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [processableCount, setProcessableCount] = useState<number>(0); // 可处理的运单数量
 
   // --- 数据获取 ---
   const fetchInitialOptions = useCallback(async () => {
@@ -354,8 +355,10 @@ export default function InvoiceRequest() {
     setIsGenerating(true);
     try {
       let idsToProcess: string[] = [];
+      let allSelectedIds: string[] = [];
 
       if (isCrossPageSelection) {
+        // 获取所有筛选条件下的运单ID（包括已开票的）
         const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_uninvoiced_record_ids', {
           p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
           p_start_date: activeFilters.startDate || null,
@@ -365,12 +368,74 @@ export default function InvoiceRequest() {
 
         if (idError) throw idError;
         idsToProcess = allFilteredIds || [];
+        allSelectedIds = idsToProcess; // 全选模式下，所有筛选的ID都是要处理的
       } else {
-        idsToProcess = Array.from(selection.selectedIds);
+        allSelectedIds = Array.from(selection.selectedIds);
+        idsToProcess = allSelectedIds;
       }
 
+      // ✅ 检查运单状态，筛选出可处理的运单
+      const { data: statusData, error: statusError } = await supabase
+        .from('logistics_records')
+        .select('id, auto_number, invoice_status')
+        .in('id', allSelectedIds);
+
+      if (statusError) throw statusError;
+
+      const statusMap = new Map(statusData?.map(record => [record.id, record]) || []);
+      
+      // 分类运单状态
+      const uninvoicedIds: string[] = [];
+      const processingIds: string[] = [];
+      const invoicedIds: string[] = [];
+      const processingNumbers: string[] = [];
+      const invoicedNumbers: string[] = [];
+
+      for (const id of allSelectedIds) {
+        const record = statusMap.get(id);
+        if (record) {
+          switch (record.invoice_status) {
+            case 'Uninvoiced':
+              uninvoicedIds.push(id);
+              break;
+            case 'Processing':
+              processingIds.push(id);
+              processingNumbers.push(record.auto_number);
+              break;
+            case 'Invoiced':
+              invoicedIds.push(id);
+              invoicedNumbers.push(record.auto_number);
+              break;
+          }
+        }
+      }
+
+      // 显示状态提示
+      if (processingIds.length > 0 || invoicedIds.length > 0) {
+        let message = "以下运单已开票或开票中，将自动略过：\n";
+        if (processingNumbers.length > 0) {
+          message += `开票中：${processingNumbers.join(', ')}\n`;
+        }
+        if (invoicedNumbers.length > 0) {
+          message += `已开票：${invoicedNumbers.join(', ')}\n`;
+        }
+        message += `\n将处理 ${uninvoicedIds.length} 条未开票运单。`;
+        
+        toast({ 
+          title: "状态检查", 
+          description: message,
+          duration: 5000
+        });
+      }
+
+      // 只处理未开票的运单
+      idsToProcess = uninvoicedIds;
+
       if (idsToProcess.length === 0) {
-        toast({ title: "无可处理运单", description: "在当前选择或筛选条件下，没有找到可申请开票的'未开票'运单。" });
+        toast({ 
+          title: "无可处理运单", 
+          description: "所选运单都已开票或开票中，没有可申请开票的运单。" 
+        });
         setIsGenerating(false);
         return;
       }
@@ -525,6 +590,39 @@ export default function InvoiceRequest() {
     return selection.selectedIds.size;
   }, [selection, reportData?.count]);
 
+  // 计算可处理的运单数量
+  const calculateProcessableCount = useCallback(async () => {
+    if (!reportData?.records || !Array.isArray(reportData.records)) {
+      setProcessableCount(0);
+      return;
+    }
+
+    try {
+      const recordIds = reportData.records.map(record => record.id);
+      const { data: statusData, error } = await supabase
+        .from('logistics_records')
+        .select('id, invoice_status')
+        .in('id', recordIds);
+
+      if (error) {
+        console.error('获取运单状态失败:', error);
+        setProcessableCount(0);
+        return;
+      }
+
+      const uninvoicedCount = statusData?.filter(record => record.invoice_status === 'Uninvoiced').length || 0;
+      setProcessableCount(uninvoicedCount);
+    } catch (error) {
+      console.error('计算可处理运单数量失败:', error);
+      setProcessableCount(0);
+    }
+  }, [reportData?.records]);
+
+  // 当数据变化时重新计算可处理数量
+  useEffect(() => {
+    calculateProcessableCount();
+  }, [calculateProcessableCount]);
+
   // --- 渲染 ---
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -535,9 +633,9 @@ export default function InvoiceRequest() {
         iconColor="text-green-600"
       >
         {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
-          <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForInvoiceClick}>
+          <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating || processableCount === 0} onClick={handleApplyForInvoiceClick}>
             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Receipt className="mr-2 h-4 w-4" />}
-            一键申请开票 ({selectionCount})
+            一键申请开票 ({processableCount > 0 ? processableCount : selectionCount})
           </Button>
         )}
       </PageHeader>
