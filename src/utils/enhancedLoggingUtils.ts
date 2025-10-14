@@ -62,6 +62,11 @@ export class EnhancedLogger {
     this.addLog('success', message, data);
   }
 
+  // 调试日志
+  debug(message: string, data?: any): void {
+    this.addLog('info', `[DEBUG] ${message}`, data);
+  }
+
   // 获取所有日志
   getLogs(): LogEntry[] {
     return [...this.logs];
