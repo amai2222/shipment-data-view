@@ -84,11 +84,13 @@ export default function InvoiceRequestManagement() {
   const loadInvoiceRequests = async () => {
     try {
       setLoading(true);
+      
+      // 使用手动JOIN查询，避免关系查询问题
       const { data, error } = await supabase
         .from('invoice_requests')
         .select(`
           *,
-          profiles!invoice_requests_created_by_fkey (
+          profiles!created_by (
             full_name
           )
         `)
@@ -96,7 +98,13 @@ export default function InvoiceRequestManagement() {
 
       if (error) throw error;
 
-      setInvoiceRequests(data || []);
+      // 处理数据，添加creator_name字段
+      const processedData = data?.map(request => ({
+        ...request,
+        creator_name: request.profiles?.full_name || '未知用户'
+      })) || [];
+
+      setInvoiceRequests(processedData);
     } catch (error) {
       console.error('加载开票申请单失败:', error);
       toast({
@@ -422,7 +430,7 @@ export default function InvoiceRequestManagement() {
                       {format(new Date(request.created_at), 'yyyy-MM-dd HH:mm')}
                     </TableCell>
                     <TableCell>
-                      {request.profiles?.full_name || '未知'}
+                      {request.creator_name || '未知'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
