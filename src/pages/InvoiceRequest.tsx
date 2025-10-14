@@ -20,6 +20,7 @@ import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/PageHeader";
+import { InvoiceFilterBar } from "./components/InvoiceFilterBar";
 
 // --- 类型定义 (与付款申请完全一致) ---
 interface PartnerCost { 
@@ -32,6 +33,19 @@ interface PartnerCost {
   bank_account?: string; 
   bank_name?: string; 
   branch_name?: string; 
+}
+
+// 开票申请筛选器类型
+interface InvoiceFilters {
+  waybillNumbers: string;
+  driverName: string;
+  licensePlate: string;
+  driverPhone: string;
+  projectId: string;
+  partnerId: string;
+  startDate: string;
+  endDate: string;
+  invoiceStatus: string;
 }
 
 interface LogisticsRecord { 
@@ -105,12 +119,15 @@ interface FinalInvoiceData {
 // --- 常量和初始状态 ---
 const PAGE_SIZE = 50;
 const INITIAL_INVOICE_FILTERS: InvoiceFilters = { 
+  waybillNumbers: "",
+  driverName: "",
+  licensePlate: "",
+  driverPhone: "",
   projectId: "all", 
   partnerId: "all", 
   startDate: "", 
-  endDate: "", 
-  invoiceStatus: 'Uninvoiced', 
-  driverNames: [] 
+  endDate: "",
+  invoiceStatus: "all",
 };
 
 const INVOICE_STATUS_OPTIONS = [ 
@@ -379,7 +396,7 @@ export default function InvoiceRequest() {
         if (costs.length === 0) continue;
 
         for (const cost of costs) {
-          if (cost.level < maxLevel && (!cost.invoice_status || cost.invoice_status === 'Uninvoiced')) {
+          if (cost.level === maxLevel && (!cost.invoice_status || cost.invoice_status === 'Uninvoiced')) {
             const key = cost.partner_id;
             if (!sheetMap.has(key)) {
               sheetMap.set(key, {
@@ -522,89 +539,14 @@ export default function InvoiceRequest() {
 
       <div className="space-y-6">
         {/* 筛选条件 */}
-        <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            筛选条件
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            <div className="space-y-2">
-              <Label>项目</Label>
-              <Select value={uiFilters.projectId} onValueChange={(value) => handleFilterChange('projectId', value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">所有项目</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>合作方</Label>
-              <Select value={uiFilters.partnerId} onValueChange={(value) => handleFilterChange('partnerId', value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">所有合作方</SelectItem>
-                  {allPartners.map((partner) => (
-                    <SelectItem key={partner.id} value={partner.id}>
-                      {partner.name} (级别{partner.level})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>开票状态</Label>
-              <Select value={uiFilters.invoiceStatus} onValueChange={(value) => handleFilterChange('invoiceStatus', value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {INVOICE_STATUS_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>日期范围</Label>
-              <DateRangePicker
-                date={{
-                  from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined,
-                  to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined,
-                }}
-                onChange={handleDateChange}
-                placeholder="选择日期范围"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button onClick={handleSearch} className="bg-blue-600 hover:bg-blue-700">
-              <Search className="mr-2 h-4 w-4" />
-              搜索
-            </Button>
-            <Button variant="outline" onClick={handleClear}>
-              清空筛选
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <InvoiceFilterBar 
+          filters={uiFilters} 
+          onFiltersChange={setUiFilters} 
+          onSearch={handleSearch} 
+          onClear={handleClear} 
+          loading={loading} 
+          projects={projects} 
+        />
 
       {/* 数据表格 */}
       {isStale ? (
@@ -806,6 +748,51 @@ export default function InvoiceRequest() {
                       <div>开票金额: {formatCurrency(sheet.total_invoiceable)}</div>
                     </div>
                   </CardHeader>
+                  
+                  {/* 运单明细 */}
+                  <CardContent>
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-sm text-muted-foreground">运单明细</h4>
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>运单号</TableHead>
+                              <TableHead>项目</TableHead>
+                              <TableHead>司机</TableHead>
+                              <TableHead>路线</TableHead>
+                              <TableHead>装货日期</TableHead>
+                              <TableHead>开票金额</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {sheet.records.map((record) => (
+                              <TableRow key={record.id}>
+                                <TableCell className="font-mono text-sm">
+                                  {record.auto_number}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {record.project_name}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {record.driver_name}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {record.loading_location} → {record.unloading_location}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {record.loading_date}
+                                </TableCell>
+                                <TableCell className="text-sm font-mono">
+                                  {formatCurrency(record.total_invoiceable_for_partner || 0)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  </CardContent>
                 </Card>
               ))}
               
