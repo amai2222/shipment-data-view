@@ -120,42 +120,72 @@ export default function InvoiceRequestManagement() {
   // 加载开票申请单详情
   const loadRequestDetails = async (requestId: string) => {
     try {
-      const { data, error } = await supabase
+      // 先获取开票申请单详情
+      const { data: detailsData, error: detailsError } = await supabase
         .from('invoice_request_details')
-        .select(`
-          *,
-          logistics_records (
-            auto_number,
-            projects (name),
-            drivers (name),
-            loading_address,
-            unloading_address
-          )
-        `)
+        .select('*')
         .eq('invoice_request_id', requestId);
 
-      if (error) throw error;
+      if (detailsError) throw detailsError;
 
-      const formattedDetails = data?.map(detail => ({
-        id: detail.id,
-        invoice_request_id: detail.invoice_request_id,
-        logistics_record_id: detail.logistics_record_id,
-        amount: detail.amount,
-        logistics_record: {
-          auto_number: detail.logistics_records?.auto_number || '',
-          project_name: detail.logistics_records?.projects?.name || '',
-          driver_name: detail.logistics_records?.drivers?.name || '',
-          loading_address: detail.logistics_records?.loading_address || '',
-          unloading_address: detail.logistics_records?.unloading_address || ''
-        }
-      })) || [];
+      if (!detailsData || detailsData.length === 0) {
+        setRequestDetails([]);
+        return;
+      }
+
+      // 获取所有相关的运单ID
+      const logisticsRecordIds = detailsData.map(detail => detail.logistics_record_id).filter(Boolean);
+      
+      if (logisticsRecordIds.length === 0) {
+        setRequestDetails([]);
+        return;
+      }
+
+      // 分别查询运单信息、项目信息、司机信息
+      const [logisticsResult, projectsResult, driversResult] = await Promise.all([
+        supabase
+          .from('logistics_records')
+          .select('id, auto_number, project_id, driver_id, loading_address, unloading_address')
+          .in('id', logisticsRecordIds),
+        supabase
+          .from('projects')
+          .select('id, name'),
+        supabase
+          .from('drivers')
+          .select('id, name')
+      ]);
+
+      if (logisticsResult.error) throw logisticsResult.error;
+
+      // 创建映射
+      const projectsMap = new Map(projectsResult.data?.map(p => [p.id, p.name]) || []);
+      const driversMap = new Map(driversResult.data?.map(d => [d.id, d.name]) || []);
+      const logisticsMap = new Map(logisticsResult.data?.map(l => [l.id, l]) || []);
+
+      // 组合数据
+      const formattedDetails = detailsData.map(detail => {
+        const logisticsRecord = logisticsMap.get(detail.logistics_record_id);
+        return {
+          id: detail.id,
+          invoice_request_id: detail.invoice_request_id,
+          logistics_record_id: detail.logistics_record_id,
+          amount: detail.amount,
+          logistics_record: {
+            auto_number: logisticsRecord?.auto_number || '',
+            project_name: logisticsRecord?.project_id ? projectsMap.get(logisticsRecord.project_id) || '' : '',
+            driver_name: logisticsRecord?.driver_id ? driversMap.get(logisticsRecord.driver_id) || '' : '',
+            loading_address: logisticsRecord?.loading_address || '',
+            unloading_address: logisticsRecord?.unloading_address || ''
+          }
+        };
+      });
 
       setRequestDetails(formattedDetails);
     } catch (error) {
       console.error('加载申请单详情失败:', error);
       toast({
         title: "加载失败",
-        description: "无法加载申请单详情",
+        description: `无法加载申请单详情: ${error.message || '未知错误'}`,
         variant: "destructive",
       });
     }
