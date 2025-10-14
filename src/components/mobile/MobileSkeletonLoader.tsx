@@ -34,9 +34,9 @@ export function MobileSkeletonLoader({
   return (
     <div className={cn('space-y-4', className)}>
       {Array.from({ length: count }).map((_, i) => (
-        <React.Fragment key={i}>
+        <div key={i}>
           {renderSkeleton()}
-        </React.Fragment>
+        </div>
       ))}
     </div>
   );

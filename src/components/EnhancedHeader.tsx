@@ -61,7 +61,7 @@ export function EnhancedHeader() {
         {/* 面包屑导航 */}
         <nav className="hidden md:flex items-center space-x-1 text-sm text-muted-foreground">
           {breadcrumbs.map((crumb, index) => (
-            <React.Fragment key={crumb.path}>
+            <div key={crumb.path}>
               {index > 0 && (
                 <ChevronRight className="h-4 w-4 mx-1 text-muted-foreground/50" />
               )}
@@ -76,7 +76,7 @@ export function EnhancedHeader() {
                 {crumb.icon && <crumb.icon className="h-3.5 w-3.5" />}
                 <span className="truncate max-w-32">{crumb.name}</span>
               </Link>
-            </React.Fragment>
+            </div>
           ))}
         </nav>
         
