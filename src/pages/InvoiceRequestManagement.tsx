@@ -17,6 +17,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { LogisticsFormDialog } from "@/pages/BusinessEntry/components/LogisticsFormDialog";
 import { LogisticsRecord } from "../BusinessEntry/types";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // 开票申请单类型定义
 interface InvoiceRequest {
@@ -68,6 +70,16 @@ export default function InvoiceRequestManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  
+  // 基于logistics_records的筛选条件
+  const [projectFilter, setProjectFilter] = useState('all');
+  const [partnerFilter, setPartnerFilter] = useState('all');
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('all');
+  const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({from: undefined, to: undefined});
+  
+  // 筛选选项数据
+  const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
+  const [partners, setPartners] = useState<{id: string, name: string}[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<InvoiceRequest | null>(null);
   const [requestDetails, setRequestDetails] = useState<InvoiceRequestDetail[]>([]);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -92,16 +104,72 @@ export default function InvoiceRequestManagement() {
     try {
       setLoading(true);
       
-      // 使用手动JOIN查询，避免关系查询问题
-      const { data, error } = await supabase
+      // 构建基于logistics_records的查询
+      let query = supabase
         .from('invoice_requests')
         .select(`
           *,
           profiles!created_by (
             full_name
           )
-        `)
-        .order('created_at', { ascending: false });
+        `);
+
+      // 如果有基于logistics_records的筛选条件，需要先找到符合条件的运单ID
+      if (projectFilter !== 'all' || invoiceStatusFilter !== 'all' || dateRange.from || dateRange.to) {
+        // 构建logistics_records查询
+        let logisticsQuery = supabase
+          .from('logistics_records')
+          .select('id');
+
+        if (projectFilter !== 'all') {
+          logisticsQuery = logisticsQuery.eq('project_id', projectFilter);
+        }
+
+        if (invoiceStatusFilter !== 'all') {
+          logisticsQuery = logisticsQuery.eq('invoice_status', invoiceStatusFilter);
+        }
+
+        if (dateRange.from) {
+          logisticsQuery = logisticsQuery.gte('loading_date', dateRange.from.toISOString().split('T')[0]);
+        }
+
+        if (dateRange.to) {
+          logisticsQuery = logisticsQuery.lte('loading_date', dateRange.to.toISOString().split('T')[0]);
+        }
+
+        // 执行logistics_records查询
+        const { data: logisticsData, error: logisticsError } = await logisticsQuery;
+        if (logisticsError) throw logisticsError;
+
+        const logisticsRecordIds = logisticsData?.map(record => record.id) || [];
+        
+        if (logisticsRecordIds.length === 0) {
+          // 如果没有符合条件的运单，返回空结果
+          setInvoiceRequests([]);
+          return;
+        }
+
+        // 根据运单ID筛选开票申请单
+        // 这里需要通过invoice_request_details表来关联
+        const { data: requestDetails, error: detailsError } = await supabase
+          .from('invoice_request_details')
+          .select('invoice_request_id')
+          .in('logistics_record_id', logisticsRecordIds);
+
+        if (detailsError) throw detailsError;
+
+        const requestIds = [...new Set(requestDetails?.map(detail => detail.invoice_request_id) || [])];
+        
+        if (requestIds.length === 0) {
+          setInvoiceRequests([]);
+          return;
+        }
+
+        query = query.in('id', requestIds);
+      }
+
+      // 执行invoice_requests查询
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -604,8 +672,34 @@ export default function InvoiceRequestManagement() {
     });
   }, [invoiceRequests, searchTerm, statusFilter]);
 
+  // 加载筛选选项数据
+  const loadFilterOptions = async () => {
+    try {
+      // 加载项目列表
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('id, name')
+        .order('name');
+      
+      if (projectsError) throw projectsError;
+      setProjects(projectsData || []);
+
+      // 加载合作方列表
+      const { data: partnersData, error: partnersError } = await supabase
+        .from('partners')
+        .select('id, name')
+        .order('name');
+      
+      if (partnersError) throw partnersError;
+      setPartners(partnersData || []);
+    } catch (error) {
+      console.error('加载筛选选项失败:', error);
+    }
+  };
+
   useEffect(() => {
     loadInvoiceRequests();
+    loadFilterOptions();
   }, []);
 
   return (
@@ -634,8 +728,9 @@ export default function InvoiceRequestManagement() {
           <CardTitle>筛选条件</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* 搜索框 */}
+            <div className="lg:col-span-2">
               <Label htmlFor="search">搜索</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -648,8 +743,10 @@ export default function InvoiceRequestManagement() {
                 />
               </div>
             </div>
-            <div className="sm:w-48">
-              <Label htmlFor="status">状态筛选</Label>
+            
+            {/* 申请单状态筛选 */}
+            <div>
+              <Label htmlFor="status">申请单状态</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="选择状态" />
@@ -665,6 +762,117 @@ export default function InvoiceRequestManagement() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* 项目筛选 */}
+            <div>
+              <Label htmlFor="project">项目筛选</Label>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择项目" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部项目</SelectItem>
+                  {projects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 合作方筛选 */}
+            <div>
+              <Label htmlFor="partner">合作方筛选</Label>
+              <Select value={partnerFilter} onValueChange={setPartnerFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择合作方" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部合作方</SelectItem>
+                  {partners.map(partner => (
+                    <SelectItem key={partner.id} value={partner.id}>
+                      {partner.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 运单开票状态筛选 */}
+            <div>
+              <Label htmlFor="invoiceStatus">运单开票状态</Label>
+              <Select value={invoiceStatusFilter} onValueChange={setInvoiceStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择开票状态" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部状态</SelectItem>
+                  <SelectItem value="Uninvoiced">未开票</SelectItem>
+                  <SelectItem value="Processing">开票中</SelectItem>
+                  <SelectItem value="Invoiced">已开票</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 日期范围筛选 */}
+            <div>
+              <Label htmlFor="dateRange">装货日期范围</Label>
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="flex-1">
+                      {dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "开始日期"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={dateRange.from}
+                      onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="flex-1">
+                      {dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "结束日期"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={dateRange.to}
+                      onSelect={(date) => setDateRange(prev => ({ ...prev, to: date }))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+          </div>
+          
+          {/* 筛选按钮 */}
+          <div className="flex gap-2 mt-4">
+            <Button onClick={loadInvoiceRequests} className="flex-1">
+              <Search className="h-4 w-4 mr-2" />
+              应用筛选
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setProjectFilter('all');
+                setPartnerFilter('all');
+                setInvoiceStatusFilter('all');
+                setDateRange({from: undefined, to: undefined});
+                setSearchTerm('');
+                setStatusFilter('all');
+                loadInvoiceRequests();
+              }}
+            >
+              清空筛选
+            </Button>
           </div>
         </CardContent>
       </Card>
