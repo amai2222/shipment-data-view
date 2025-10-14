@@ -20,7 +20,7 @@ import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/PageHeader";
-import { InvoiceFilterBar } from "@/pages/InvoiceRequest/components/InvoiceFilterBar";
+import { InvoiceFilterBar } from "./components/InvoiceRequestFilterBar";
 
 // --- 类型定义 (与付款申请完全一致) ---
 interface PartnerCost { 
