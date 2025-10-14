@@ -21,11 +21,12 @@ interface InvoiceRequest {
   request_number: string;
   partner_id: string;
   partner_name: string;
-  partner_full_name: string;
-  tax_number: string;
-  company_address: string;
-  bank_name: string;
-  bank_account: string;
+  invoicing_partner_id?: string;
+  invoicing_partner_full_name?: string;
+  invoicing_partner_tax_number?: string;
+  invoicing_partner_company_address?: string;
+  invoicing_partner_bank_name?: string;
+  invoicing_partner_bank_account?: string;
   total_amount: number;
   record_count: number;
   status: 'Pending' | 'Approved' | 'Rejected' | 'Completed' | 'Voided' | 'Merged';
@@ -99,7 +100,7 @@ export default function MobileInvoiceRequestManagement() {
       console.error('加载开票申请单失败:', error);
       toast({
         title: "加载失败",
-        description: "无法加载开票申请单列表",
+        description: `无法加载开票申请单列表: ${error.message || '未知错误'}`,
         variant: "destructive",
       });
     } finally {
@@ -298,7 +299,7 @@ export default function MobileInvoiceRequestManagement() {
       const matchesSearch = 
         request.request_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         request.partner_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.partner_full_name.toLowerCase().includes(searchTerm.toLowerCase());
+        (request.invoicing_partner_full_name || '').toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
       
@@ -379,8 +380,8 @@ export default function MobileInvoiceRequestManagement() {
                     <div className="font-medium text-lg">{request.request_number}</div>
                     <div className="text-sm text-muted-foreground">
                       {request.partner_name}
-                      {request.partner_full_name && (
-                        <span className="ml-2">({request.partner_full_name})</span>
+                      {request.invoicing_partner_full_name && (
+                        <span className="ml-2">({request.invoicing_partner_full_name})</span>
                       )}
                     </div>
                   </div>
@@ -470,9 +471,9 @@ export default function MobileInvoiceRequestManagement() {
                 <div>
                   <Label>合作方</Label>
                   <div>{selectedRequest.partner_name}</div>
-                  {selectedRequest.partner_full_name && (
+                  {selectedRequest.invoicing_partner_full_name && (
                     <div className="text-sm text-muted-foreground">
-                      {selectedRequest.partner_full_name}
+                      {selectedRequest.invoicing_partner_full_name}
                     </div>
                   )}
                 </div>
