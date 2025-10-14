@@ -10,9 +10,40 @@ declare module 'react' {
   export function createContext<T>(defaultValue: T): any;
   export function useContext<T>(context: any): T;
   export function lazy<T>(factory: () => Promise<{ default: T }>): T;
-  export function Component<P = {}, S = {}>(props: P, context?: any): any;
   export function Fragment(props: { children?: any }): any;
   export function forwardRef<T, P = {}>(render: (props: P, ref: React.Ref<T>) => React.ReactElement | null): any;
+  
+  // 类组件相关类型
+  export abstract class Component<P = {}, S = {}> {
+    props: P;
+    state: S;
+    context: any;
+    refs: any;
+    
+    constructor(props: P, context?: any);
+    
+    setState<K extends keyof S>(
+      state: ((prevState: S, props: P) => Pick<S, K> | S | null) | (Pick<S, K> | S | null),
+      callback?: () => void
+    ): void;
+    
+    forceUpdate(callback?: () => void): void;
+    
+    render(): ReactNode;
+    
+    componentDidMount?(): void;
+    componentDidUpdate?(prevProps: P, prevState: S, snapshot?: any): void;
+    componentWillUnmount?(): void;
+    componentDidCatch?(error: Error, errorInfo: ErrorInfo): void;
+    getSnapshotBeforeUpdate?(prevProps: P, prevState: S): any;
+    shouldComponentUpdate?(nextProps: P, nextState: S): boolean;
+    componentWillMount?(): void;
+    componentWillReceiveProps?(nextProps: P, nextContext: any): void;
+    componentWillUpdate?(nextProps: P, nextState: S, nextContext: any): void;
+    UNSAFE_componentWillMount?(): void;
+    UNSAFE_componentWillReceiveProps?(nextProps: P, nextContext: any): void;
+    UNSAFE_componentWillUpdate?(nextProps: P, nextState: S, nextContext: any): void;
+  }
   
   export type FC<P = {}> = (props: P) => any;
   export type ReactNode = any;
@@ -20,7 +51,9 @@ declare module 'react' {
     currentTarget: EventTarget & T;
     preventDefault(): void;
   };
-  export type ErrorInfo = any;
+  export type ErrorInfo = {
+    componentStack: string;
+  };
   export type Ref<T> = any;
   export type ReactElement = any;
   export type ComponentProps<T> = any;
@@ -32,7 +65,9 @@ declare module 'react' {
     };
     export type ReactNode = any;
     export type FC<P = {}> = (props: P) => any;
-    export type ErrorInfo = any;
+    export type ErrorInfo = {
+      componentStack: string;
+    };
     export const Fragment: any;
     export type Ref<T> = any;
     export type ReactElement = any;
