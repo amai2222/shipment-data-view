@@ -58,7 +58,7 @@ export function InvoiceRequestFilterBar({
           {/* 项目筛选 */}
           <div className="col-span-3">
             <Label className="text-sm font-medium">项目</Label>
-            <Select value={filters.project || 'all'} onValueChange={(value) => onFiltersChange({...filters, project: value === 'all' ? '' : value})}>
+            <Select value={filters.projectId || 'all'} onValueChange={(value) => onFiltersChange({...filters, projectId: value === 'all' ? '' : value})}>
               <SelectTrigger className="h-10">
                 <SelectValue placeholder="选择项目" />
               </SelectTrigger>
@@ -99,18 +99,17 @@ export function InvoiceRequestFilterBar({
                   variant="outline"
                   className={cn(
                     "h-10 w-full justify-start text-left font-normal",
-                    !filters.dateRange && "text-muted-foreground"
+                    !filters.startDate && !filters.endDate && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filters.dateRange?.from ? (
-                    filters.dateRange.to ? (
+                  {filters.startDate ? (
+                    filters.endDate ? (
                       <>
-                        {format(filters.dateRange.from, "yyyy-MM-dd")} -{" "}
-                        {format(filters.dateRange.to, "yyyy-MM-dd")}
+                        {filters.startDate} - {filters.endDate}
                       </>
                     ) : (
-                      format(filters.dateRange.from, "yyyy-MM-dd")
+                      filters.startDate
                     )
                   ) : (
                     <span>选择日期范围</span>
@@ -121,9 +120,16 @@ export function InvoiceRequestFilterBar({
                 <Calendar
                   initialFocus
                   mode="range"
-                  defaultMonth={filters.dateRange?.from}
-                  selected={filters.dateRange}
-                  onSelect={(range) => onFiltersChange({...filters, dateRange: range})}
+                  defaultMonth={filters.startDate ? new Date(filters.startDate) : undefined}
+                  selected={{
+                    from: filters.startDate ? new Date(filters.startDate) : undefined,
+                    to: filters.endDate ? new Date(filters.endDate) : undefined
+                  }}
+                  onSelect={(range) => onFiltersChange({
+                    ...filters, 
+                    startDate: range?.from ? format(range.from, 'yyyy-MM-dd') : '',
+                    endDate: range?.to ? format(range.to, 'yyyy-MM-dd') : ''
+                  })}
                   numberOfMonths={2}
                 />
               </PopoverContent>
@@ -165,8 +171,8 @@ export function InvoiceRequestFilterBar({
                 <div className="flex gap-2">
                   <Input
                     placeholder="输入运单号"
-                    value={filters.waybill || ''}
-                    onChange={(e) => onFiltersChange({...filters, waybill: e.target.value})}
+                    value={filters.waybillNumbers || ''}
+                    onChange={(e) => onFiltersChange({...filters, waybillNumbers: e.target.value})}
                     className="h-10"
                   />
                   <Button
@@ -186,8 +192,8 @@ export function InvoiceRequestFilterBar({
                 <div className="flex gap-2">
                   <Input
                     placeholder="输入司机姓名"
-                    value={filters.driver || ''}
-                    onChange={(e) => onFiltersChange({...filters, driver: e.target.value})}
+                    value={filters.driverName || ''}
+                    onChange={(e) => onFiltersChange({...filters, driverName: e.target.value})}
                     className="h-10"
                   />
                   <Button
@@ -228,8 +234,8 @@ export function InvoiceRequestFilterBar({
                 <div className="flex gap-2">
                   <Input
                     placeholder="输入电话号码"
-                    value={filters.phone || ''}
-                    onChange={(e) => onFiltersChange({...filters, phone: e.target.value})}
+                    value={filters.driverPhone || ''}
+                    onChange={(e) => onFiltersChange({...filters, driverPhone: e.target.value})}
                     className="h-10"
                   />
                   <Button
@@ -247,7 +253,7 @@ export function InvoiceRequestFilterBar({
             {/* 合作方筛选 */}
             <div>
               <Label className="text-sm font-medium">合作方</Label>
-              <Select value={filters.partner || 'all'} onValueChange={(value) => onFiltersChange({...filters, partner: value === 'all' ? '' : value})}>
+              <Select value={filters.partnerId || 'all'} onValueChange={(value) => onFiltersChange({...filters, partnerId: value === 'all' ? '' : value})}>
                 <SelectTrigger className="h-10">
                   <SelectValue placeholder="选择合作方" />
                 </SelectTrigger>
@@ -271,9 +277,9 @@ export function InvoiceRequestFilterBar({
         onClose={() => setIsBatchWaybillOpen(false)}
         title="批量运单号搜索"
         placeholder="请输入运单号，每行一个"
-        currentValue={filters.waybill || ''}
+        currentValue={filters.waybillNumbers || ''}
         onApply={(value) => {
-          onFiltersChange({...filters, waybill: value});
+          onFiltersChange({...filters, waybillNumbers: value});
           setIsBatchWaybillOpen(false);
         }}
         description="支持多个运单号同时搜索，每行输入一个运单号"
@@ -284,9 +290,9 @@ export function InvoiceRequestFilterBar({
         onClose={() => setIsBatchDriverOpen(false)}
         title="批量司机搜索"
         placeholder="请输入司机姓名，每行一个"
-        currentValue={filters.driver || ''}
+        currentValue={filters.driverName || ''}
         onApply={(value) => {
-          onFiltersChange({...filters, driver: value});
+          onFiltersChange({...filters, driverName: value});
           setIsBatchDriverOpen(false);
         }}
         description="支持多个司机姓名同时搜索，每行输入一个司机姓名"
@@ -310,9 +316,9 @@ export function InvoiceRequestFilterBar({
         onClose={() => setIsBatchPhoneOpen(false)}
         title="批量电话搜索"
         placeholder="请输入电话号码，每行一个"
-        currentValue={filters.phone || ''}
+        currentValue={filters.driverPhone || ''}
         onApply={(value) => {
-          onFiltersChange({...filters, phone: value});
+          onFiltersChange({...filters, driverPhone: value});
           setIsBatchPhoneOpen(false);
         }}
         description="支持多个电话号码同时搜索，每行输入一个电话号码"
