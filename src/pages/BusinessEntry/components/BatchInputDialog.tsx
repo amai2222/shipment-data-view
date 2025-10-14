@@ -9,7 +9,8 @@ import { Copy, Check, AlertCircle } from "lucide-react";
 interface BatchInputDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (values: string[]) => void;
+  onConfirm?: (values: string[]) => void;
+  onApply?: (value: string) => void;
   title: string;
   placeholder: string;
   description: string;
@@ -20,6 +21,7 @@ export function BatchInputDialog({
   isOpen,
   onClose,
   onConfirm,
+  onApply,
   title,
   placeholder,
   description,
@@ -58,7 +60,11 @@ export function BatchInputDialog({
 
   const handleConfirm = () => {
     const finalValues = parsedValues.join(',');
-    onConfirm(parsedValues);
+    if (onApply) {
+      onApply(finalValues);
+    } else if (onConfirm) {
+      onConfirm(parsedValues);
+    }
     onClose();
   };
 
