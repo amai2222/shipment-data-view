@@ -1,5 +1,5 @@
-// React类型声明 shim - 修复版本
-// 确保HTMLAttributes正确支持className属性
+// React类型声明 shim - 完整版本
+// 包含所有必要的React类型定义
 
 declare module 'react' {
   export function useState<S>(initialState: S | (() => S)): [S, (value: S | ((prevState: S) => S)) => void];
@@ -12,6 +12,7 @@ declare module 'react' {
   export function lazy<T>(factory: () => Promise<{ default: T }>): T;
   export function Fragment(props: { children?: any }): any;
   export function forwardRef<T, P = {}>(render: (props: P, ref: React.Ref<T>) => React.ReactElement | null): any;
+  export function memo<P = {}>(component: (props: P) => any): any;
   
   // 类组件相关类型
   export abstract class Component<P = {}, S = {}> {
@@ -51,17 +52,78 @@ declare module 'react' {
     currentTarget: EventTarget & T;
     preventDefault(): void;
   };
+  export type ChangeEvent<T = Element> = Event & {
+    currentTarget: EventTarget & T;
+    target: EventTarget & T;
+  };
+  export type MouseEvent<T = Element> = Event & {
+    currentTarget: EventTarget & T;
+    button: number;
+    clientX: number;
+    clientY: number;
+  };
+  export type KeyboardEvent<T = Element> = Event & {
+    currentTarget: EventTarget & T;
+    key: string;
+    code: string;
+    ctrlKey: boolean;
+    shiftKey: boolean;
+    altKey: boolean;
+    metaKey: boolean;
+  };
   export type ErrorInfo = {
     componentStack: string;
   };
   export type Ref<T> = any;
   export type ReactElement = any;
   export type ComponentProps<T> = any;
+  export type ComponentType<P = any> = FC<P> | typeof Component;
+  export type FormEventHandler<T = Element> = (event: FormEvent<T>) => void;
+  export type ChangeEventHandler<T = Element> = (event: ChangeEvent<T>) => void;
+  export type TouchEventHandler<T = Element> = (event: TouchEvent<T>) => void;
+  export type TouchEvent<T = Element> = Event & {
+    currentTarget: EventTarget & T;
+    touches: any[];
+    targetTouches: any[];
+    changedTouches: any[];
+  };
+  export type Dispatch<A> = (value: A) => void;
+  export type SetStateAction<S> = S | ((prevState: S) => S);
+  export type ElementRef<T> = any;
+  export type ComponentPropsWithoutRef<T> = any;
+  export interface HTMLAttributes<T> {
+    className?: string;
+    children?: ReactNode;
+    style?: any;
+    onClick?: (event: MouseEvent<T>) => void;
+    onChange?: (event: ChangeEvent<T>) => void;
+    onKeyDown?: (event: KeyboardEvent<T>) => void;
+    [key: string]: any;
+  }
   
   export namespace React {
     export type FormEvent<T = Element> = Event & {
       currentTarget: EventTarget & T;
       preventDefault(): void;
+    };
+    export type ChangeEvent<T = Element> = Event & {
+      currentTarget: EventTarget & T;
+      target: EventTarget & T;
+    };
+    export type MouseEvent<T = Element> = Event & {
+      currentTarget: EventTarget & T;
+      button: number;
+      clientX: number;
+      clientY: number;
+    };
+    export type KeyboardEvent<T = Element> = Event & {
+      currentTarget: EventTarget & T;
+      key: string;
+      code: string;
+      ctrlKey: boolean;
+      shiftKey: boolean;
+      altKey: boolean;
+      metaKey: boolean;
     };
     export type ReactNode = any;
     export type FC<P = {}> = (props: P) => any;
@@ -72,6 +134,20 @@ declare module 'react' {
     export type Ref<T> = any;
     export type ReactElement = any;
     export type ComponentProps<T> = any;
+    export type ComponentType<P = any> = FC<P> | typeof Component;
+    export type FormEventHandler<T = Element> = (event: FormEvent<T>) => void;
+    export type ChangeEventHandler<T = Element> = (event: ChangeEvent<T>) => void;
+    export type TouchEventHandler<T = Element> = (event: TouchEvent<T>) => void;
+    export type TouchEvent<T = Element> = Event & {
+      currentTarget: EventTarget & T;
+      touches: any[];
+      targetTouches: any[];
+      changedTouches: any[];
+    };
+    export type Dispatch<A> = (value: A) => void;
+    export type SetStateAction<S> = S | ((prevState: S) => S);
+    export type ElementRef<T> = any;
+    export type ComponentPropsWithoutRef<T> = any;
   }
 }
 
@@ -87,6 +163,7 @@ declare module 'react/jsx-runtime' {
 
 declare module 'lucide-react' {
   export const CalendarIcon: any;
+  export const Calendar: any;
   export const Save: any;
   export const X: any;
   export const Plus: any;
@@ -127,19 +204,111 @@ declare module 'lucide-react' {
   export const User: any;
   export const Mail: any;
   export const Building2: any;
+  export const Building: any;
   export const Smartphone: any;
   export const AlertTriangle: any;
   export const RefreshCw: any;
   export const Clock: any;
   export const FileUp: any;
   export const Filter: any;
+  export const Copy: any;
+  export const RotateCcw: any;
+  export const Phone: any;
+  export const Zap: any;
+  export const Info: any;
+  export const Edit: any;
+  export const Printer: any;
+  export const LogOut: any;
+  export const UserCheck: any;
+  export const Send: any;
+  export const Minus: any;
+  export const Play: any;
+  export const Pause: any;
+  export const ArrowLeft: any;
+  export const ArrowRight: any;
+  export const Archive: any;
+  export const TrendingUp: any;
+  export const DollarSign: any;
+  export const Tag: any;
+  export const Bookmark: any;
+  export const Crown: any;
+  export const Wifi: any;
+  export const WifiOff: any;
+  export const Lock: any;
+  export const Unlock: any;
+  export const Bell: any;
+  export const MessageSquare: any;
+  export const Menu: any;
+  export const ChevronLeft: any;
+  export const ChevronUp: any;
+  export const MoreHorizontal: any;
+  export const MoreVertical: any;
+  export const GitBranch: any;
+  export const Navigation: any;
+  export const Lightbulb: any;
+  export const Target: any;
+  export const CreditCard: any;
+  export const Scale: any;
+  export const Receipt: any;
+  export const FileSignature: any;
+  export const Inbox: any;
+  export const Share2: any;
+  export const ArrowDown: any;
+  export const Camera: any;
+  export const Image: any;
+  export const SortAsc: any;
+  export const SortDesc: any;
+  export const Wallet: any;
+  export const BarChartHorizontal: any;
+  export const CheckSquare: any;
+  export const Square: any;
+  export const UserX: any;
+  export const UserPlus: any;
+  export const BookTemplate: any;
+  export const UserCog: any;
+  export const Settings2: any;
+  export type LucideIcon = any;
 }
 
 declare module 'date-fns' {
   export function format(date: Date | number, formatStr: string, options?: { locale?: any }): string;
+  export function addDays(date: Date | number, amount: number): Date;
+  export function isAfter(date: Date | number, dateToCompare: Date | number): boolean;
+  export function isBefore(date: Date | number, dateToCompare: Date | number): boolean;
+  export function differenceInDays(dateLeft: Date | number, dateRight: Date | number): number;
+  export function startOfYear(date: Date | number): Date;
+  export function endOfYear(date: Date | number): Date;
+  export function startOfMonth(date: Date | number): Date;
+  export function endOfMonth(date: Date | number): Date;
+  export function subMonths(date: Date | number, amount: number): Date;
+  export function parseISO(dateString: string): Date;
+  export function startOfDay(date: Date | number): Date;
+  export function endOfDay(date: Date | number): Date;
 }
 
 declare module 'date-fns/locale' {
   export const zhCN: any;
+}
+
+declare module 'xlsx' {
+  export interface WorkSheet {
+    [key: string]: any;
+  }
+  
+  export interface WorkBook {
+    SheetNames: string[];
+    Sheets: { [key: string]: WorkSheet };
+  }
+  
+  export const utils: {
+    sheet_to_json: (sheet: WorkSheet, options?: any) => any[];
+    json_to_sheet: (data: any[]) => WorkSheet;
+    aoa_to_sheet: (data: any[][]) => WorkSheet;
+    book_new: () => WorkBook;
+    book_append_sheet: (workbook: WorkBook, worksheet: WorkSheet, name: string) => void;
+  };
+  
+  export function read(data: any, options?: any): WorkBook;
+  export function writeFile(workbook: WorkBook, filename: string, options?: any): void;
 }
 

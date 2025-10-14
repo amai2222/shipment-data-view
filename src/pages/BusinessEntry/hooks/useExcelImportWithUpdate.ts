@@ -192,10 +192,10 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
     setImportStep('processing');
     setImportLogs([]);
     
-    const addLog = (message: string) => setImportLogs(prev => [
-      ...prev, 
-      `[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] ${message}`
-    ]);
+    const addLog = (message: string) => {
+      const timestamp = new Date().toLocaleString('zh-CN', { hour12: false });
+      setImportLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+    };
 
     const recordsToImport = [
       // 新记录始终导入
