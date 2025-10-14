@@ -357,7 +357,8 @@ export default function InvoiceRequestManagement() {
   // 确认开票
   const approveInvoice = async (requestId: string) => {
     try {
-      const { data, error } = await supabase
+      // 1. 更新开票申请单状态
+      const { data: requestData, error: requestError } = await supabase
         .from('invoice_requests')
         .update({ 
           status: 'Approved',
@@ -365,11 +366,44 @@ export default function InvoiceRequestManagement() {
         })
         .eq('id', requestId);
 
-      if (error) throw error;
+      if (requestError) throw requestError;
+
+      // 2. 获取开票申请单详情，更新相关运单的开票状态
+      const { data: requestDetails, error: detailsError } = await supabase
+        .from('invoice_request_details')
+        .select('logistics_record_id')
+        .eq('invoice_request_id', requestId);
+
+      if (detailsError) throw detailsError;
+
+      if (requestDetails && requestDetails.length > 0) {
+        // 3. 更新运单记录的开票状态
+        const recordIds = requestDetails.map(detail => detail.logistics_record_id);
+        const { error: updateError } = await supabase
+          .from('logistics_records')
+          .update({ 
+            invoice_status: 'Invoiced',
+            invoice_completed_at: new Date().toISOString()
+          })
+          .in('id', recordIds);
+
+        if (updateError) throw updateError;
+
+        // 4. 更新 logistics_partner_costs 表的开票状态
+        const { error: costsError } = await supabase
+          .from('logistics_partner_costs')
+          .update({ 
+            invoice_status: 'Invoiced',
+            invoice_completed_at: new Date().toISOString()
+          })
+          .in('logistics_record_id', recordIds);
+
+        if (costsError) throw costsError;
+      }
 
       toast({
         title: "确认成功",
-        description: "开票申请单已确认",
+        description: "开票申请单已确认，相关运单状态已更新",
       });
       loadInvoiceRequests();
     } catch (error) {
@@ -419,6 +453,7 @@ export default function InvoiceRequestManagement() {
     
     setIsBatchProcessing(true);
     try {
+      // 1. 更新开票申请单状态
       const { error } = await supabase
         .from('invoice_requests')
         .update({ 
@@ -429,9 +464,42 @@ export default function InvoiceRequestManagement() {
 
       if (error) throw error;
 
+      // 2. 获取所有相关运单记录ID
+      const { data: requestDetails, error: detailsError } = await supabase
+        .from('invoice_request_details')
+        .select('logistics_record_id')
+        .in('invoice_request_id', Array.from(selectedRequests));
+
+      if (detailsError) throw detailsError;
+
+      if (requestDetails && requestDetails.length > 0) {
+        // 3. 更新运单记录的开票状态
+        const recordIds = requestDetails.map(detail => detail.logistics_record_id);
+        const { error: updateError } = await supabase
+          .from('logistics_records')
+          .update({ 
+            invoice_status: 'Invoiced',
+            invoice_completed_at: new Date().toISOString()
+          })
+          .in('id', recordIds);
+
+        if (updateError) throw updateError;
+
+        // 4. 更新 logistics_partner_costs 表的开票状态
+        const { error: costsError } = await supabase
+          .from('logistics_partner_costs')
+          .update({ 
+            invoice_status: 'Invoiced',
+            invoice_completed_at: new Date().toISOString()
+          })
+          .in('logistics_record_id', recordIds);
+
+        if (costsError) throw costsError;
+      }
+
       toast({
         title: "批量确认成功",
-        description: `已确认 ${selectedRequests.size} 个开票申请单`,
+        description: `已确认 ${selectedRequests.size} 个开票申请单，相关运单状态已更新`,
       });
       
       loadInvoiceRequests();
