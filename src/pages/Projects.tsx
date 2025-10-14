@@ -473,14 +473,7 @@ export default function Projects() {
                                 </select>
                               </div>
                             </div>
-                            <div className="flex space-x-2">
-                              <Button type="button" variant="outline" size="sm" onClick={() => addPartnerToChain(chainIndex)} disabled={isSubmitting}>
-                                <Plus className="h-4 w-4 mr-1" />添加合作方
-                              </Button>
-                              <Button type="button" variant="outline" size="sm" onClick={() => removeChain(chainIndex)} disabled={isSubmitting} aria-label="删除合作链路">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            <div className="flex space-x-2"><Button type="button" variant="outline" size="sm" onClick={() => addPartnerToChain(chainIndex)} disabled={isSubmitting}><Plus className="h-4 w-4 mr-1" />添加合作方</Button><Button type="button" variant="outline" size="sm" onClick={() => removeChain(chainIndex)} disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button></div>
                           </div>
                           {chain.partners.length > 0 ? (
                             <div className="space-y-2">
@@ -490,9 +483,7 @@ export default function Projects() {
                                   <div className="w-16"><input type="number" min="1" value={partner.level} onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'level', parseInt(e.target.value) || 1)} className="w-full p-1 border rounded text-sm" placeholder="级别" disabled={isSubmitting}/></div>
                                   <div className="w-24"><select value={partner.calculationMethod} onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'calculationMethod', e.target.value)} className="w-full p-1 border rounded text-sm" disabled={isSubmitting}><option value="tax">税点</option><option value="profit">利润</option></select></div>
                                   <div className="w-20"><input type="number" step="0.001" min="0" max={partner.calculationMethod === "tax" ? "0.999" : "999"} value={partner.calculationMethod === "tax" ? partner.taxRate : (partner.profitRate || 0)} onChange={(e) => { const value = parseFloat(e.target.value) || 0; const field = partner.calculationMethod === "tax" ? 'taxRate' : 'profitRate'; updatePartnerInChain(chainIndex, partnerIndex, field, value); }} className="w-full p-1 border rounded text-sm" placeholder={partner.calculationMethod === "tax" ? "税点" : "利润"} disabled={isSubmitting}/></div>
-                                  <Button type="button" variant="outline" size="sm" onClick={() => removePartnerFromChain(chainIndex, partnerIndex)} disabled={isSubmitting} aria-label="从合作链路中移除合作方">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  <Button type="button" variant="outline" size="sm" onClick={() => removePartnerFromChain(chainIndex, partnerIndex)} disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                               ))}
                             </div>

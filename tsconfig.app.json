@@ -30,5 +30,5 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["src", "src/types/modules.d.ts"]
+  "include": ["src"]
 }

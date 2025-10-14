@@ -14,7 +14,6 @@ ADD COLUMN IF NOT EXISTS branch_name text;
 -- 确保invoice_requests和invoice_request_details表有必要的字段
 ALTER TABLE IF EXISTS public.invoice_requests 
 ADD COLUMN IF NOT EXISTS partner_id uuid,
-ADD COLUMN IF NOT EXISTS invoicing_partner_id uuid,
 ADD COLUMN IF NOT EXISTS partner_name text,
 ADD COLUMN IF NOT EXISTS partner_full_name text,
 ADD COLUMN IF NOT EXISTS tax_number text,
@@ -22,11 +21,7 @@ ADD COLUMN IF NOT EXISTS company_address text,
 ADD COLUMN IF NOT EXISTS bank_name text,
 ADD COLUMN IF NOT EXISTS bank_account text,
 ADD COLUMN IF NOT EXISTS record_count integer,
-ADD COLUMN IF NOT EXISTS created_by uuid,
-ADD COLUMN IF NOT EXISTS is_voided boolean DEFAULT false,
-ADD COLUMN IF NOT EXISTS voided_at timestamptz,
-ADD COLUMN IF NOT EXISTS voided_by uuid,
-ADD COLUMN IF NOT EXISTS void_reason text;
+ADD COLUMN IF NOT EXISTS created_by uuid;
 
 ALTER TABLE IF EXISTS public.invoice_request_details
 ADD COLUMN IF NOT EXISTS invoice_request_id uuid,
@@ -159,7 +154,6 @@ BEGIN
         INSERT INTO public.invoice_requests (
             request_number,
             partner_id,
-            invoicing_partner_id,
             partner_name,
             partner_full_name,
             tax_number,
@@ -173,7 +167,6 @@ BEGIN
             created_at
         ) VALUES (
             v_request_number,
-            v_partner_id,
             v_partner_id,
             v_partner_info.name,
             v_partner_info.full_name,
@@ -257,90 +250,4 @@ COMMENT ON FUNCTION public.save_invoice_request(uuid[]) IS '
   4. 更新logistics_partner_costs的invoice_status
 注意：与process_payment_application逻辑统一，都只接受运单ID数组
 ';
-
--- 添加外键约束（如果不存在）
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.table_constraints 
-        WHERE constraint_name = 'fk_invoice_requests_voided_by' 
-        AND table_name = 'invoice_requests'
-        AND table_schema = 'public'
-    ) THEN
-        ALTER TABLE public.invoice_requests 
-        ADD CONSTRAINT fk_invoice_requests_voided_by 
-        FOREIGN KEY (voided_by) REFERENCES public.profiles(id);
-    END IF;
-END $$;
-
--- 创建作废开票申请单的函数
-CREATE OR REPLACE FUNCTION public.void_invoice_request(
-    p_request_id uuid,
-    p_void_reason text DEFAULT NULL
-)
-RETURNS json
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-    v_request record;
-    v_affected_count integer;
-BEGIN
-    -- 检查权限
-    IF NOT public.is_finance_or_admin_for_invoice() THEN
-        RAISE EXCEPTION '权限不足：只有财务人员或管理员可以作废开票申请单';
-    END IF;
-    
-    -- 获取申请单信息
-    SELECT * INTO v_request
-    FROM public.invoice_requests
-    WHERE id = p_request_id;
-    
-    IF NOT FOUND THEN
-        RAISE EXCEPTION '开票申请单不存在';
-    END IF;
-    
-    -- 检查是否已经作废
-    IF v_request.is_voided THEN
-        RAISE EXCEPTION '该申请单已经作废';
-    END IF;
-    
-    -- 作废申请单
-    UPDATE public.invoice_requests
-    SET 
-        is_voided = true,
-        voided_at = NOW(),
-        voided_by = auth.uid(),
-        void_reason = p_void_reason,
-        status = 'Voided'
-    WHERE id = p_request_id;
-    
-    -- 更新相关的logistics_partner_costs状态（回滚运单状态）
-    UPDATE public.logistics_partner_costs
-    SET 
-        invoice_status = 'Uninvoiced',
-        invoice_request_id = NULL,
-        invoice_applied_at = NULL
-    WHERE invoice_request_id = p_request_id;
-    
-    -- 删除开票申请明细
-    DELETE FROM public.invoice_request_details
-    WHERE invoice_request_id = p_request_id;
-    
-    GET DIAGNOSTICS v_affected_count = ROW_COUNT;
-    
-    RETURN json_build_object(
-        'success', true,
-        'message', '开票申请单已作废',
-        'affected_records', v_affected_count
-    );
-    
-EXCEPTION WHEN OTHERS THEN
-    RETURN json_build_object(
-        'success', false,
-        'message', '作废开票申请单失败: ' || SQLERRM
-    );
-END;
-$$;
 

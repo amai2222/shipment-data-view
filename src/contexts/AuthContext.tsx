@@ -57,54 +57,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(currentUser);
 
         if (currentUser) {
-          // 使用防抖来避免频繁请求
-          const timeoutId = setTimeout(async () => {
+          setTimeout(async () => {
             try {
-              // 添加重试机制
-              let retryCount = 0;
-              const maxRetries = 3;
-              
-              while (retryCount < maxRetries) {
-                try {
-                  const { data: profileData, error } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', currentUser.id)
-                    .maybeSingle();
+              const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .maybeSingle();
 
-                  if (error) {
-                    console.error(`获取用户配置文件失败 (尝试 ${retryCount + 1}/${maxRetries}):`, error);
-                    if (retryCount === maxRetries - 1) {
-                      setProfile(null);
-                      break;
-                    }
-                    retryCount++;
-                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // 指数退避
-                    continue;
-                  } else if (profileData) {
-                    const anyProfile = profileData as any;
-                    setProfile({
-                      id: anyProfile.id,
-                      email: anyProfile.email || '',
-                      username: anyProfile.username || anyProfile.email || '',
-                      full_name: anyProfile.full_name || '',
-                      role: (anyProfile.role as UserRole) ?? 'operator',
-                      is_active: anyProfile.is_active ?? true
-                    });
-                    break; // 成功获取，退出重试循环
-                  } else {
-                    setProfile(null);
-                    break;
-                  }
-                } catch (innerError) {
-                  console.error(`网络请求失败 (尝试 ${retryCount + 1}/${maxRetries}):`, innerError);
-                  if (retryCount === maxRetries - 1) {
-                    setProfile(null);
-                    break;
-                  }
-                  retryCount++;
-                  await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-                }
+              if (error) {
+                console.error('获取用户配置文件失败:', error);
+                setProfile(null);
+              } else if (profileData) {
+                const anyProfile = profileData as any;
+                setProfile({
+                  id: anyProfile.id,
+                  email: anyProfile.email || '',
+                  username: anyProfile.username || anyProfile.email || '',
+                  full_name: anyProfile.full_name || '',
+                  role: (anyProfile.role as UserRole) ?? 'operator',
+                  is_active: anyProfile.is_active ?? true
+                });
+              } else {
+                setProfile(null);
               }
             } catch (catchError) {
               console.error('处理用户配置文件时发生意外错误:', catchError);
@@ -112,10 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } finally {
               setLoading(false);
             }
-          }, 100); // 增加延迟到100ms
-          
-          // 返回清理函数
-          return () => clearTimeout(timeoutId);
+          }, 0);
         } else {
           setProfile(null);
           setLoading(false);
@@ -126,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []); // 空依赖数组，只在组件挂载时执行一次
+  }, []);
 
   // ★★★ 4. 修改 signIn 函数以处理重定向
   const signIn = async (usernameOrEmail: string, password: string) => {

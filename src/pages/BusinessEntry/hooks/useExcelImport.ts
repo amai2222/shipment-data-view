@@ -205,10 +205,10 @@ export function useExcelImport(onImportSuccess: () => void) {
     setImportStep('processing');
     setImportLogs([]);
     
-    const addLog = (message: string) => {
-      const timestamp = new Date().toLocaleString('zh-CN', { hour12: false });
-      setImportLogs(prev => [...prev, `[${timestamp}] ${message}`]);
-    };
+    const addLog = (message: string) => setImportLogs(prev => [
+      ...prev, 
+      `[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] ${message}`
+    ]);
     
     const finalRecordsToImport = [
       ...importPreview.new_records.map(item => item.record),

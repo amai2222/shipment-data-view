@@ -13,7 +13,7 @@ interface BatchInputDialogProps {
   title: string;
   placeholder: string;
   description: string;
-  currentValue: string | undefined;
+  currentValue: string;
 }
 
 export function BatchInputDialog({
@@ -37,7 +37,7 @@ export function BatchInputDialog({
   }, [isOpen, currentValue]);
 
   const parseValues = (value: string) => {
-    if (!value || !value.trim()) {
+    if (!value.trim()) {
       setParsedValues([]);
       return;
     }

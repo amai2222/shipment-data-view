@@ -125,8 +125,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     children: [
       { key: 'finance.reconciliation', label: '运费对账', icon: 'Calculator' },
       { key: 'finance.payment_invoice', label: '付款与开票', icon: 'DollarSign' },
-      { key: 'finance.payment_requests', label: '申请单管理', icon: 'ClipboardList' },
-      { key: 'finance.invoice_request_management', label: '开票申请单管理', icon: 'FileText' }
+      { key: 'finance.payment_requests', label: '申请单管理', icon: 'ClipboardList' }
     ]
   },
   {
@@ -285,7 +284,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       // 合同管理
       'contracts', 'contracts.list',
       // 财务管理
-      'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests', 'finance.invoice_request_management',
+      'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests',
       // 数据维护
       'data_maintenance', 'data_maintenance.waybill', 'data_maintenance.waybill_enhanced',
       // 设置
@@ -313,7 +312,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'maintenance', 'maintenance.partners',
       'business', 'business.payment_request', 'business.invoice_request',
       'contracts', 'contracts.list',
-      'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests', 'finance.invoice_request_management'
+      'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests'
     ],
     function_permissions: [
       'data', 'data.view', 'data.export',
@@ -362,7 +361,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       // 业务管理
       'business', 'business.entry', 'business.scale', 'business.invoice_request', 'business.payment_request',
       // 财务管理
-      'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests', 'finance.invoice_request_management',
+      'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests',
       // 数据维护
       'data_maintenance', 'data_maintenance.waybill', 'data_maintenance.waybill_enhanced',
       // 合同管理
