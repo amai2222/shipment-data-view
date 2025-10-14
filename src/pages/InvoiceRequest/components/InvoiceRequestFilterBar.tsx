@@ -15,49 +15,23 @@ import { DateRange } from 'react-day-picker';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 
 interface InvoiceRequestFilterBarProps {
-  projectFilter: string;
-  setProjectFilter: (value: string) => void;
-  partnerFilter: string;
-  setPartnerFilter: (value: string) => void;
-  invoiceStatusFilter: string;
-  setInvoiceStatusFilter: (value: string) => void;
-  dateRange: DateRange | undefined;
-  setDateRange: (range: DateRange | undefined) => void;
-  waybillFilter: string;
-  setWaybillFilter: (value: string) => void;
-  driverFilter: string;
-  setDriverFilter: (value: string) => void;
-  licensePlateFilter: string;
-  setLicensePlateFilter: (value: string) => void;
-  phoneFilter: string;
-  setPhoneFilter: (value: string) => void;
-  projects: Array<{ id: string; name: string }>;
-  partners: Array<{ id: string; name: string }>;
+  filters: any;
+  onFiltersChange: (filters: any) => void;
   onSearch: () => void;
-  onReset: () => void;
+  onClear: () => void;
+  loading: boolean;
+  projects: Array<{ id: string; name: string }>;
+  partners?: Array<{ id: string; name: string }>;
 }
 
 export function InvoiceRequestFilterBar({
-  projectFilter,
-  setProjectFilter,
-  partnerFilter,
-  setPartnerFilter,
-  invoiceStatusFilter,
-  setInvoiceStatusFilter,
-  dateRange,
-  setDateRange,
-  waybillFilter,
-  setWaybillFilter,
-  driverFilter,
-  setDriverFilter,
-  licensePlateFilter,
-  setLicensePlateFilter,
-  phoneFilter,
-  setPhoneFilter,
-  projects,
-  partners,
+  filters,
+  onFiltersChange,
   onSearch,
-  onReset
+  onClear,
+  loading,
+  projects,
+  partners = []
 }: InvoiceRequestFilterBarProps) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isBatchWaybillOpen, setIsBatchWaybillOpen] = useState(false);
@@ -66,15 +40,7 @@ export function InvoiceRequestFilterBar({
   const [isBatchPhoneOpen, setIsBatchPhoneOpen] = useState(false);
 
   const handleReset = () => {
-    setProjectFilter('');
-    setPartnerFilter('');
-    setInvoiceStatusFilter('');
-    setDateRange(undefined);
-    setWaybillFilter('');
-    setDriverFilter('');
-    setLicensePlateFilter('');
-    setPhoneFilter('');
-    onReset();
+    onClear();
   };
 
   return (
@@ -92,7 +58,7 @@ export function InvoiceRequestFilterBar({
           {/* 项目筛选 */}
           <div className="col-span-3">
             <Label className="text-sm font-medium">项目</Label>
-            <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <Select value={filters.project || ''} onValueChange={(value) => onFiltersChange({...filters, project: value})}>
               <SelectTrigger className="h-10">
                 <SelectValue placeholder="选择项目" />
               </SelectTrigger>

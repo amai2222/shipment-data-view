@@ -20,7 +20,7 @@ import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/PageHeader";
-import { InvoiceFilterBar } from "./components/InvoiceRequestFilterBar";
+import { InvoiceRequestFilterBar } from "@/pages/InvoiceRequest/components/InvoiceRequestFilterBar";
 
 // --- 类型定义 (与付款申请完全一致) ---
 interface PartnerCost { 
@@ -531,7 +531,7 @@ export default function InvoiceRequest() {
 
       <div className="space-y-6">
         {/* 筛选条件 */}
-        <InvoiceFilterBar 
+        <InvoiceRequestFilterBar 
           filters={uiFilters} 
           onFiltersChange={setUiFilters} 
           onSearch={handleSearch} 
