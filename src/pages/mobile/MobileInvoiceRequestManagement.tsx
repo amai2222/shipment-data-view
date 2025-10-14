@@ -567,6 +567,8 @@ export default function MobileInvoiceRequestManagement() {
       case 'Rejected': return 'destructive';
       case 'Completed': return 'outline';
       case 'Voided': return 'destructive';
+      case 'Cancelled': return 'destructive';
+      case 'Processing': return 'secondary';
       case 'Merged': return 'secondary';
       default: return 'secondary';
     }
@@ -580,6 +582,8 @@ export default function MobileInvoiceRequestManagement() {
       case 'Rejected': return '已拒绝';
       case 'Completed': return '已完成';
       case 'Voided': return '已作废';
+      case 'Cancelled': return '已取消';
+      case 'Processing': return '处理中';
       case 'Merged': return '已合并';
       default: return status;
     }
