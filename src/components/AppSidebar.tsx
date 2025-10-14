@@ -80,6 +80,7 @@ const menuItems = [
       { title: "运费对账", url: "/finance/reconciliation", icon: Calculator },
       { title: "付款与开票", url: "/finance/payment-invoice", icon: Banknote },
       { title: "申请单管理", url: "/payment-requests-list", icon: ClipboardList },
+      { title: "开票申请单管理", url: "/invoice-request-management", icon: FileText },
     ]
   },
   {
@@ -113,30 +114,48 @@ export function AppSidebar() {
   // 优化：使用useMemo缓存菜单URL到权限键的映射
   const getMenuKey = useMemo(() => {
     const urlToKeyMap: Record<string, string> = {
+      // 数据看板
       '/dashboard/transport': 'dashboard.transport',
       '/dashboard/financial': 'dashboard.financial',
       '/dashboard/project': 'dashboard.project',
+      
+      // 合同管理
+      '/contracts': 'contracts.list',
+      
+      // 信息维护
       '/projects': 'maintenance.projects',
       '/drivers': 'maintenance.drivers',
       '/locations': 'maintenance.locations',
       '/locations-enhanced': 'maintenance.locations_enhanced',
       '/partners': 'maintenance.partners',
+      
+      // 业务管理
       '/business-entry': 'business.entry',
       '/scale-records': 'business.scale',
       '/payment-request': 'business.payment_request',
       '/invoice-request': 'business.invoice_request',
-      '/payment-requests-list': 'finance.payment_requests',
-      '/contracts': 'contracts.list',
+      
+      // 财务管理
       '/finance/reconciliation': 'finance.reconciliation',
       '/finance/payment-invoice': 'finance.payment_invoice',
+      '/payment-requests-list': 'finance.payment_requests',
+      '/invoice-request-management': 'finance.invoice_request_management',
+      
+      // 数据维护
       '/data-maintenance/waybill': 'data_maintenance.waybill',
       '/data-maintenance/waybill-enhanced': 'data_maintenance.waybill_enhanced',
+      
+      // 设置
       '/settings/users': 'settings.users',
       '/settings/permissions': 'settings.permissions',
       '/settings/contract-permissions': 'settings.contract_permissions',
       '/settings/role-templates': 'settings.role_templates',
       '/settings/integrated': 'settings.integrated',
       '/settings/audit-logs': 'settings.audit_logs',
+      
+      // 调试页面（通常只有管理员可以访问）
+      '/debug-permissions': 'settings.permissions',
+      '/permission-test': 'settings.permissions',
     };
     
     return (url: string) => urlToKeyMap[url] || '';
