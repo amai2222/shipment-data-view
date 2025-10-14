@@ -58,12 +58,12 @@ export function InvoiceRequestFilterBar({
           {/* 项目筛选 */}
           <div className="col-span-3">
             <Label className="text-sm font-medium">项目</Label>
-            <Select value={filters.project || ''} onValueChange={(value) => onFiltersChange({...filters, project: value})}>
+            <Select value={filters.project || 'all'} onValueChange={(value) => onFiltersChange({...filters, project: value === 'all' ? '' : value})}>
               <SelectTrigger className="h-10">
                 <SelectValue placeholder="选择项目" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部项目</SelectItem>
+                <SelectItem value="all">全部项目</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
@@ -76,12 +76,12 @@ export function InvoiceRequestFilterBar({
           {/* 开票状态 */}
           <div className="col-span-2">
             <Label className="text-sm font-medium">开票状态</Label>
-            <Select value={filters.invoiceStatus || ''} onValueChange={(value) => onFiltersChange({...filters, invoiceStatus: value})}>
+            <Select value={filters.invoiceStatus || 'all'} onValueChange={(value) => onFiltersChange({...filters, invoiceStatus: value === 'all' ? '' : value})}>
               <SelectTrigger className="h-10">
                 <SelectValue placeholder="选择状态" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部状态</SelectItem>
+                <SelectItem value="all">全部状态</SelectItem>
                 <SelectItem value="Pending">待处理</SelectItem>
                 <SelectItem value="Processing">处理中</SelectItem>
                 <SelectItem value="Approved">已确认</SelectItem>
@@ -247,12 +247,12 @@ export function InvoiceRequestFilterBar({
             {/* 合作方筛选 */}
             <div>
               <Label className="text-sm font-medium">合作方</Label>
-              <Select value={filters.partner || ''} onValueChange={(value) => onFiltersChange({...filters, partner: value})}>
+              <Select value={filters.partner || 'all'} onValueChange={(value) => onFiltersChange({...filters, partner: value === 'all' ? '' : value})}>
                 <SelectTrigger className="h-10">
                   <SelectValue placeholder="选择合作方" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部合作方</SelectItem>
+                  <SelectItem value="all">全部合作方</SelectItem>
                   {partners.map((partner) => (
                     <SelectItem key={partner.id} value={partner.id}>
                       {partner.name}
