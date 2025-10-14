@@ -38,26 +38,42 @@ const MENU_PERMISSIONS = [
   {
     group: '信息维护',
     permissions: [
-      { key: 'info.projects', label: '项目管理' },
-      { key: 'info.drivers', label: '司机管理' },
-      { key: 'info.locations', label: '地点管理' },
-      { key: 'info.partners', label: '合作方管理' }
+      { key: 'maintenance.projects', label: '项目管理' },
+      { key: 'maintenance.drivers', label: '司机管理' },
+      { key: 'maintenance.locations', label: '地点管理' },
+      { key: 'maintenance.locations_enhanced', label: '地点管理（增强版）' },
+      { key: 'maintenance.partners', label: '合作方管理' }
     ]
   },
   {
-    group: '业务录入',
+    group: '业务管理',
     permissions: [
-      { key: 'business.entry', label: '运单录入' },
-      { key: 'business.scale_records', label: '磅单录入' },
-      { key: 'business.payment_request', label: '付款申请' },
-      { key: 'business.payment_list', label: '申请单管理' }
+      { key: 'business.entry', label: '运单管理' },
+      { key: 'business.scale', label: '磅单管理' },
+      { key: 'business.invoice_request', label: '开票申请' },
+      { key: 'business.payment_request', label: '付款申请' }
     ]
   },
   {
-    group: '财务对账',
+    group: '财务管理',
     permissions: [
       { key: 'finance.reconciliation', label: '运费对账' },
-      { key: 'finance.payment_invoice', label: '付款与开票' }
+      { key: 'finance.payment_invoice', label: '付款与开票' },
+      { key: 'finance.payment_requests', label: '申请单管理' },
+      { key: 'finance.invoice_request_management', label: '开票申请单管理' }
+    ]
+  },
+  {
+    group: '数据维护',
+    permissions: [
+      { key: 'data_maintenance.waybill', label: '运单维护' },
+      { key: 'data_maintenance.waybill_enhanced', label: '运单维护（增强版）' }
+    ]
+  },
+  {
+    group: '合同管理',
+    permissions: [
+      { key: 'contracts.list', label: '合同列表' }
     ]
   },
   {
