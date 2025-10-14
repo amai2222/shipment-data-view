@@ -82,10 +82,9 @@ export function InvoiceRequestFilterBar({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全部状态</SelectItem>
-                <SelectItem value="Pending">待处理</SelectItem>
-                <SelectItem value="Processing">处理中</SelectItem>
-                <SelectItem value="Approved">已确认</SelectItem>
-                <SelectItem value="Cancelled">已作废</SelectItem>
+                <SelectItem value="Uninvoiced">未开票</SelectItem>
+                <SelectItem value="Processing">开票中</SelectItem>
+                <SelectItem value="Invoiced">已开票</SelectItem>
               </SelectContent>
             </Select>
           </div>

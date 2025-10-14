@@ -125,8 +125,8 @@ const INITIAL_INVOICE_FILTERS: InvoiceFilters = {
 const INVOICE_STATUS_OPTIONS = [ 
   { value: 'all', label: '所有状态' }, 
   { value: 'Uninvoiced', label: '未开票' }, 
-  { value: 'Processing', label: '已申请开票' }, 
-  { value: 'Invoiced', label: '已完成开票' }, 
+  { value: 'Processing', label: '开票中' }, 
+  { value: 'Invoiced', label: '已开票' }, 
 ];
 
 // 日期格式化函数 - 将UTC日期转换为中国时区日期显示
@@ -191,7 +191,20 @@ export default function InvoiceRequest() {
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     try {
-      const statusArray = activeFilters.invoiceStatus === 'all' ? null : [activeFilters.invoiceStatus];
+      // 状态映射：前端中文状态 -> 后端英文状态
+      let statusArray: string[] | null = null;
+      if (activeFilters.invoiceStatus && activeFilters.invoiceStatus !== 'all') {
+        const statusMap: { [key: string]: string } = {
+          'Uninvoiced': 'Uninvoiced',
+          'Processing': 'Processing', 
+          'Invoiced': 'Invoiced',
+          '已开票': 'Invoiced',
+          '未开票': 'Uninvoiced',
+          '开票中': 'Processing'
+        };
+        const mappedStatus = statusMap[activeFilters.invoiceStatus] || activeFilters.invoiceStatus;
+        statusArray = [mappedStatus];
+      }
       const { data, error } = await supabase.rpc('get_invoice_request_data', {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
         p_start_date: activeFilters.startDate || null,
