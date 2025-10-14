@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
-import { FileText, Search, Filter, Eye, Edit, Trash2, RefreshCw, ChevronRight, X, CheckCircle, FileDown } from "lucide-react";
+import { FileText, Search, Filter, Eye, Edit, RefreshCw, ChevronRight, X, CheckCircle, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -144,7 +144,7 @@ export default function MobileInvoiceRequestManagement() {
       const [logisticsResult, projectsResult, driversResult] = await Promise.all([
         supabase
           .from('logistics_records')
-          .select('id, auto_number, project_id, driver_id, loading_address, unloading_address')
+          .select('id, auto_number, project_id, driver_id, loading_location, unloading_location')
           .in('id', logisticsRecordIds),
         supabase
           .from('projects')
@@ -173,8 +173,8 @@ export default function MobileInvoiceRequestManagement() {
             auto_number: logisticsRecord?.auto_number || '',
             project_name: logisticsRecord?.project_id ? projectsMap.get(logisticsRecord.project_id) || '' : '',
             driver_name: logisticsRecord?.driver_id ? driversMap.get(logisticsRecord.driver_id) || '' : '',
-            loading_address: logisticsRecord?.loading_address || '',
-            unloading_address: logisticsRecord?.unloading_address || ''
+            loading_location: logisticsRecord?.loading_location || '',
+            unloading_location: logisticsRecord?.unloading_location || ''
           }
         };
       });
@@ -221,35 +221,6 @@ export default function MobileInvoiceRequestManagement() {
     }
   };
 
-  // 删除申请单
-  const deleteRequest = async (requestId: string) => {
-    if (!confirm('确定要删除这个开票申请单吗？此操作不可撤销。')) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('invoice_requests')
-        .delete()
-        .eq('id', requestId);
-
-      if (error) throw error;
-
-      toast({
-        title: "删除成功",
-        description: "开票申请单已删除",
-      });
-
-      loadInvoiceRequests();
-    } catch (error) {
-      console.error('删除申请单失败:', error);
-      toast({
-        title: "删除失败",
-        description: "无法删除开票申请单",
-        variant: "destructive",
-      });
-    }
-  };
 
   // 查看详情
   const handleViewDetails = async (request: InvoiceRequest) => {
@@ -678,16 +649,6 @@ export default function MobileInvoiceRequestManagement() {
                         </Button>
                       </>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteRequest(request.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                     <ChevronRight className="h-4 w-4" />
                   </div>
                 </div>
@@ -744,7 +705,7 @@ export default function MobileInvoiceRequestManagement() {
               </div>
 
               {/* 银行信息 */}
-              {(selectedRequest.bank_name || selectedRequest.bank_account) && (
+              {(selectedRequest.bank_name || selectedRequest.bank_account || selectedRequest.tax_number) && (
                 <div>
                   <Label>银行信息</Label>
                   <div className="space-y-1">
@@ -753,6 +714,9 @@ export default function MobileInvoiceRequestManagement() {
                     )}
                     {selectedRequest.bank_account && (
                       <div>账号：{selectedRequest.bank_account}</div>
+                    )}
+                    {selectedRequest.tax_number && (
+                      <div>税号：{selectedRequest.tax_number}</div>
                     )}
                   </div>
                 </div>
@@ -771,7 +735,7 @@ export default function MobileInvoiceRequestManagement() {
                             {detail.logistics_record.project_name} | {detail.logistics_record.driver_name}
                           </div>
                           <div className="text-sm">
-                            {detail.logistics_record.loading_address} → {detail.logistics_record.unloading_address}
+                            {detail.logistics_record.loading_location} → {detail.logistics_record.unloading_location}
                           </div>
                           <div className="font-medium">¥{detail.amount.toLocaleString()}</div>
                         </div>
