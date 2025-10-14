@@ -20,6 +20,16 @@ export const logger = {
     if (isDevelopment) {
       console.info(...args);
     }
+  },
+  debug: (...args: any[]) => {
+    if (isDevelopment) {
+      console.debug(...args);
+    }
+  },
+  permission: (type: string, key: string, hasAccess: boolean) => {
+    if (isDevelopment) {
+      console.log(`[权限检查] ${type}: ${key} = ${hasAccess}`);
+    }
   }
 };
 

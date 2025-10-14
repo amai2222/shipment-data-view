@@ -21,7 +21,10 @@ export function useSimplePermissions() {
   // 获取用户角色
   const userRole = useMemo(() => {
     const role = profile?.role as UserRole || 'viewer';
-    logger.debug('当前用户角色:', role, '用户信息:', profile);
+    // 使用安全的debug调用
+    if (logger.debug) {
+      logger.debug('当前用户角色:', role, '用户信息:', profile);
+    }
     return role;
   }, [profile?.role]);
 
@@ -54,7 +57,9 @@ export function useSimplePermissions() {
           logger.warn('从数据库加载权限失败，使用默认权限:', error);
           setDbPermissions(null);
         } else {
-          logger.debug('从数据库加载权限成功:', data);
+          if (logger.debug) {
+            logger.debug('从数据库加载权限成功:', data);
+          }
           setDbPermissions(data);
         }
       } catch (error) {
@@ -72,7 +77,9 @@ export function useSimplePermissions() {
   const rolePermissions = useMemo(() => {
     try {
       if (dbPermissions) {
-        logger.debug(`使用数据库权限: ${userRole}`, dbPermissions);
+        if (logger.debug) {
+          logger.debug(`使用数据库权限: ${userRole}`, dbPermissions);
+        }
         return dbPermissions;
       } else {
         // 数据库加载失败时的回退策略
@@ -104,7 +111,9 @@ export function useSimplePermissions() {
       if (userRole === 'admin') return true;
       
       if (!rolePermissions || !rolePermissions.menu_permissions) {
-        logger.debug('菜单权限检查失败 - 角色权限未加载:', menuKey);
+        if (logger.debug) {
+          logger.debug('菜单权限检查失败 - 角色权限未加载:', menuKey);
+        }
         return false;
       }
       const hasAccess = rolePermissions.menu_permissions.includes(menuKey) || 
@@ -177,7 +186,9 @@ export function useSimplePermissions() {
   // 检查是否为管理员
   const isAdmin = useMemo(() => {
     const admin = userRole === 'admin';
-    logger.debug('用户是否为管理员:', admin);
+    if (logger.debug) {
+      logger.debug('用户是否为管理员:', admin);
+    }
     return admin;
   }, [userRole]);
 
