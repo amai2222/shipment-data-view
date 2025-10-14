@@ -132,11 +132,11 @@ export function InvoiceRequestFilterBar({
             </Select>
           </div>
 
-          {/* 日期范围 */}
+          {/* 装货日期范围 */}
           <div className="space-y-2 relative z-10">
             <Label htmlFor="date-range-picker" className="text-sm font-medium text-blue-800 flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              日期范围
+              装货日期范围
             </Label>
             <div className="w-full">
               <DateRangePicker 
