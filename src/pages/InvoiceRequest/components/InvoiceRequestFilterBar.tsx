@@ -1,22 +1,45 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { CalendarIcon, Filter, X, FileText, Users, Hash, Phone } from 'lucide-react';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
+import { 
+  Filter, 
+  Search, 
+  X, 
+  ChevronDown, 
+  ChevronUp, 
+  FileText, 
+  CheckCircle, 
+  Calendar as CalendarIcon,
+  Users,
+  Car,
+  Phone,
+  Building
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { DateRange } from 'react-day-picker';
-import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
+
+interface InvoiceFilters {
+  projectId: string;
+  startDate: string;
+  endDate: string;
+  invoiceStatus: string;
+  waybillNumbers?: string;
+  driverName?: string;
+  licensePlate?: string;
+  driverPhone?: string;
+  partnerName?: string;
+}
 
 interface InvoiceRequestFilterBarProps {
-  filters: any;
-  onFiltersChange: (filters: any) => void;
+  filters: InvoiceFilters;
+  onFiltersChange: (filters: InvoiceFilters) => void;
   onSearch: () => void;
   onClear: () => void;
   loading: boolean;
@@ -43,6 +66,20 @@ export function InvoiceRequestFilterBar({
     onClear();
   };
 
+  // 日期范围处理
+  const dateRangeValue = {
+    from: filters.startDate ? new Date(filters.startDate) : undefined,
+    to: filters.endDate ? new Date(filters.endDate) : undefined
+  };
+
+  const handleDateChange = (range: { from?: Date; to?: Date } | undefined) => {
+    onFiltersChange({
+      ...filters,
+      startDate: range?.from ? format(range.from, 'yyyy-MM-dd') : '',
+      endDate: range?.to ? format(range.to, 'yyyy-MM-dd') : ''
+    });
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="pb-4">
@@ -53,14 +90,17 @@ export function InvoiceRequestFilterBar({
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* 基础筛选 */}
-        <div className="grid grid-cols-10 gap-4 items-end">
+        {/* 基础筛选条件 - 参考运单管理布局 */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* 项目筛选 */}
-          <div className="col-span-3">
-            <Label className="text-sm font-medium">项目</Label>
+          <div className="space-y-2">
+            <Label htmlFor="project-filter" className="text-sm font-medium text-blue-800 flex items-center gap-1">
+              <FileText className="h-4 w-4" />
+              项目
+            </Label>
             <Select value={filters.projectId || 'all'} onValueChange={(value) => onFiltersChange({...filters, projectId: value === 'all' ? '' : value})}>
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="选择项目" />
+              <SelectTrigger id="project-filter" className="h-10">
+                <SelectValue placeholder="全部项目" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全部项目</SelectItem>
@@ -74,11 +114,14 @@ export function InvoiceRequestFilterBar({
           </div>
 
           {/* 开票状态 */}
-          <div className="col-span-2">
-            <Label className="text-sm font-medium">开票状态</Label>
+          <div className="space-y-2">
+            <Label htmlFor="status-filter" className="text-sm font-medium text-blue-800 flex items-center gap-1">
+              <CheckCircle className="h-4 w-4" />
+              开票状态
+            </Label>
             <Select value={filters.invoiceStatus || 'all'} onValueChange={(value) => onFiltersChange({...filters, invoiceStatus: value === 'all' ? '' : value})}>
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="选择状态" />
+              <SelectTrigger id="status-filter" className="h-10">
+                <SelectValue placeholder="全部状态" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全部状态</SelectItem>
@@ -90,116 +133,119 @@ export function InvoiceRequestFilterBar({
           </div>
 
           {/* 装货日期范围 */}
-          <div className="col-span-3">
-            <Label className="text-sm font-medium">装货日期范围</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "h-10 w-full justify-start text-left font-normal",
-                    !filters.startDate && !filters.endDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filters.startDate ? (
-                    filters.endDate ? (
-                      <>
-                        {filters.startDate} - {filters.endDate}
-                      </>
-                    ) : (
-                      filters.startDate
-                    )
-                  ) : (
-                    <span>选择日期范围</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={filters.startDate ? new Date(filters.startDate) : undefined}
-                  selected={{
-                    from: filters.startDate ? new Date(filters.startDate) : undefined,
-                    to: filters.endDate ? new Date(filters.endDate) : undefined
-                  }}
-                  onSelect={(range) => onFiltersChange({
-                    ...filters, 
-                    startDate: range?.from ? format(range.from, 'yyyy-MM-dd') : '',
-                    endDate: range?.to ? format(range.to, 'yyyy-MM-dd') : ''
-                  })}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-blue-800 flex items-center gap-1">
+              <Calendar className="h-4 w-4" />
+              装货日期范围
+            </Label>
+            <DateRangePicker 
+              date={dateRangeValue} 
+              setDate={handleDateChange} 
+              disabled={loading} 
+            />
           </div>
 
           {/* 操作按钮 */}
-          <div className="col-span-2 flex gap-2">
-            <Button onClick={onSearch} className="h-10">
-              <Filter className="mr-2 h-4 w-4" />
-              搜索
+          <div className="flex items-end gap-2">
+            <Button variant="outline" onClick={handleReset} disabled={loading} className="h-10">
+              清除
             </Button>
-            <Button variant="outline" onClick={handleReset} className="h-10">
-              <X className="mr-2 h-4 w-4" />
-              重置
+            <Button onClick={onSearch} disabled={loading} className="h-10 bg-blue-600 hover:bg-blue-700">
+              <Search className="mr-1 h-4 w-4" />搜索
             </Button>
           </div>
         </div>
 
-        {/* 高级筛选切换 */}
-        <div className="flex items-center justify-between">
+        {/* 高级搜索按钮 */}
+        <div className="flex items-end">
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-            className="text-sm"
+            className="h-10 w-full"
           >
-            <Filter className="mr-2 h-4 w-4" />
-            {isAdvancedOpen ? '收起高级筛选' : '展开高级筛选'}
+            {isAdvancedOpen ? (
+              <>
+                <ChevronUp className="mr-1 h-4 w-4" />
+                收起高级搜索
+              </>
+            ) : (
+              <>
+                <ChevronDown className="mr-1 h-4 w-4" />
+                高级搜索
+              </>
+            )}
           </Button>
         </div>
 
-        {/* 高级筛选面板 */}
+        {/* 高级筛选面板 - 参考运单管理布局 */}
         {isAdvancedOpen && (
-          <div className="border-t pt-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
               {/* 运单号搜索 */}
-              <div>
-                <Label className="text-sm font-medium">运单号</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="输入运单号"
-                    value={filters.waybillNumbers || ''}
-                    onChange={(e) => onFiltersChange({...filters, waybillNumbers: e.target.value})}
-                    className="h-10"
-                  />
+              <div className="space-y-2">
+                <Label htmlFor="waybill-numbers" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                  <FileText className="h-4 w-4" />
+                  运单编号
+                </Label>
+                <div className="flex gap-1">
+                  <div className="relative flex-1">
+                    <Input 
+                      type="text" 
+                      id="waybill-numbers" 
+                      placeholder="输入运单编号，多个用逗号分隔..." 
+                      value={filters.waybillNumbers || ''} 
+                      onChange={e => onFiltersChange({...filters, waybillNumbers: e.target.value})}
+                      disabled={loading}
+                      className="h-10 pr-8"
+                    />
+                    {(filters.waybillNumbers || '') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1 h-6 w-6 p-0 hover:bg-purple-100"
+                        onClick={() => onFiltersChange({...filters, waybillNumbers: ''})}
+                      >
+                        <X className="h-3 w-3 text-purple-600" />
+                      </Button>
+                    )}
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setIsBatchWaybillOpen(true)}
-                    className="h-10 px-3"
+                    className="h-10 px-2"
+                    title="批量输入"
                   >
                     <FileText className="h-4 w-4" />
                   </Button>
                 </div>
+                <div className="text-xs text-purple-600">
+                  💡 支持多个运单编号查询，用逗号分隔
+                </div>
               </div>
 
               {/* 司机搜索 */}
-              <div>
-                <Label className="text-sm font-medium">司机</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="输入司机姓名"
-                    value={filters.driverName || ''}
-                    onChange={(e) => onFiltersChange({...filters, driverName: e.target.value})}
-                    className="h-10"
+              <div className="space-y-2">
+                <Label htmlFor="driver-name" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                  <Users className="h-4 w-4" />
+                  司机
+                </Label>
+                <div className="flex gap-1">
+                  <Input 
+                    type="text" 
+                    id="driver-name" 
+                    placeholder="司机姓名..." 
+                    value={filters.driverName || ''} 
+                    onChange={e => onFiltersChange({...filters, driverName: e.target.value})} 
+                    disabled={loading}
+                    className="h-10 flex-1"
                   />
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setIsBatchDriverOpen(true)}
-                    className="h-10 px-3"
+                    className="h-10 px-2"
+                    title="批量输入"
                   >
                     <Users className="h-4 w-4" />
                   </Button>
@@ -207,121 +253,122 @@ export function InvoiceRequestFilterBar({
               </div>
 
               {/* 车牌号搜索 */}
-              <div>
-                <Label className="text-sm font-medium">车牌号</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="输入车牌号"
-                    value={filters.licensePlate || ''}
-                    onChange={(e) => onFiltersChange({...filters, licensePlate: e.target.value})}
-                    className="h-10"
+              <div className="space-y-2">
+                <Label htmlFor="license-plate" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                  <Car className="h-4 w-4" />
+                  车牌号
+                </Label>
+                <div className="flex gap-1">
+                  <Input 
+                    type="text" 
+                    id="license-plate" 
+                    placeholder="车牌号..." 
+                    value={filters.licensePlate || ''} 
+                    onChange={e => onFiltersChange({...filters, licensePlate: e.target.value})} 
+                    disabled={loading}
+                    className="h-10 flex-1"
                   />
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setIsBatchLicenseOpen(true)}
-                    className="h-10 px-3"
+                    className="h-10 px-2"
+                    title="批量输入"
                   >
-                    <Hash className="h-4 w-4" />
+                    <Car className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
-              {/* 电话搜索 */}
-              <div>
-                <Label className="text-sm font-medium">电话</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="输入电话号码"
-                    value={filters.driverPhone || ''}
-                    onChange={(e) => onFiltersChange({...filters, driverPhone: e.target.value})}
-                    className="h-10"
+              {/* 司机电话搜索 */}
+              <div className="space-y-2">
+                <Label htmlFor="driver-phone" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                  <Phone className="h-4 w-4" />
+                  司机电话
+                </Label>
+                <div className="flex gap-1">
+                  <Input 
+                    type="text" 
+                    id="driver-phone" 
+                    placeholder="司机电话..." 
+                    value={filters.driverPhone || ''} 
+                    onChange={e => onFiltersChange({...filters, driverPhone: e.target.value})} 
+                    disabled={loading}
+                    className="h-10 flex-1"
                   />
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setIsBatchPhoneOpen(true)}
-                    className="h-10 px-3"
+                    className="h-10 px-2"
+                    title="批量输入"
                   >
                     <Phone className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-            </div>
 
-            {/* 合作方筛选 */}
-            <div>
-              <Label className="text-sm font-medium">合作方</Label>
-              <Select value={filters.partnerId || 'all'} onValueChange={(value) => onFiltersChange({...filters, partnerId: value === 'all' ? '' : value})}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="选择合作方" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部合作方</SelectItem>
-                  {partners.map((partner) => (
-                    <SelectItem key={partner.id} value={partner.id}>
-                      {partner.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* 合作方搜索 */}
+              <div className="space-y-2">
+                <Label htmlFor="partner-name" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                  <Building className="h-4 w-4" />
+                  合作方
+                </Label>
+                <Input 
+                  type="text" 
+                  id="partner-name" 
+                  placeholder="合作方名称..." 
+                  value={filters.partnerName || ''} 
+                  onChange={e => onFiltersChange({...filters, partnerName: e.target.value})} 
+                  disabled={loading}
+                  className="h-10"
+                />
+              </div>
             </div>
           </div>
         )}
+
+        {/* 批量输入对话框 */}
+        <BatchInputDialog
+          isOpen={isBatchWaybillOpen}
+          onClose={() => setIsBatchWaybillOpen(false)}
+          onApply={(value) => onFiltersChange({...filters, waybillNumbers: value})}
+          title="批量输入运单编号"
+          placeholder="输入运单编号，每行一个"
+          description="支持多个运单编号，每行输入一个编号"
+          currentValue={filters.waybillNumbers || ''}
+        />
+
+        <BatchInputDialog
+          isOpen={isBatchDriverOpen}
+          onClose={() => setIsBatchDriverOpen(false)}
+          onApply={(value) => onFiltersChange({...filters, driverName: value})}
+          title="批量输入司机姓名"
+          placeholder="输入司机姓名，每行一个"
+          description="支持多个司机姓名，每行输入一个姓名"
+          currentValue={filters.driverName || ''}
+        />
+
+        <BatchInputDialog
+          isOpen={isBatchLicenseOpen}
+          onClose={() => setIsBatchLicenseOpen(false)}
+          onApply={(value) => onFiltersChange({...filters, licensePlate: value})}
+          title="批量输入车牌号"
+          placeholder="输入车牌号，每行一个"
+          description="支持多个车牌号，每行输入一个车牌号"
+          currentValue={filters.licensePlate || ''}
+        />
+
+        <BatchInputDialog
+          isOpen={isBatchPhoneOpen}
+          onClose={() => setIsBatchPhoneOpen(false)}
+          onApply={(value) => onFiltersChange({...filters, driverPhone: value})}
+          title="批量输入司机电话"
+          placeholder="输入司机电话，每行一个"
+          description="支持多个司机电话，每行输入一个电话"
+          currentValue={filters.driverPhone || ''}
+        />
       </CardContent>
-
-      {/* 批量输入对话框 */}
-      <BatchInputDialog
-        isOpen={isBatchWaybillOpen}
-        onClose={() => setIsBatchWaybillOpen(false)}
-        title="批量运单号搜索"
-        placeholder="请输入运单号，每行一个"
-        currentValue={filters.waybillNumbers || ''}
-        onApply={(value) => {
-          onFiltersChange({...filters, waybillNumbers: value});
-          setIsBatchWaybillOpen(false);
-        }}
-        description="支持多个运单号同时搜索，每行输入一个运单号"
-      />
-
-      <BatchInputDialog
-        isOpen={isBatchDriverOpen}
-        onClose={() => setIsBatchDriverOpen(false)}
-        title="批量司机搜索"
-        placeholder="请输入司机姓名，每行一个"
-        currentValue={filters.driverName || ''}
-        onApply={(value) => {
-          onFiltersChange({...filters, driverName: value});
-          setIsBatchDriverOpen(false);
-        }}
-        description="支持多个司机姓名同时搜索，每行输入一个司机姓名"
-      />
-
-      <BatchInputDialog
-        isOpen={isBatchLicenseOpen}
-        onClose={() => setIsBatchLicenseOpen(false)}
-        title="批量车牌搜索"
-        placeholder="请输入车牌号，每行一个"
-        currentValue={filters.licensePlate || ''}
-        onApply={(value) => {
-          onFiltersChange({...filters, licensePlate: value});
-          setIsBatchLicenseOpen(false);
-        }}
-        description="支持多个车牌号同时搜索，每行输入一个车牌号"
-      />
-
-      <BatchInputDialog
-        isOpen={isBatchPhoneOpen}
-        onClose={() => setIsBatchPhoneOpen(false)}
-        title="批量电话搜索"
-        placeholder="请输入电话号码，每行一个"
-        currentValue={filters.driverPhone || ''}
-        onApply={(value) => {
-          onFiltersChange({...filters, driverPhone: value});
-          setIsBatchPhoneOpen(false);
-        }}
-        description="支持多个电话号码同时搜索，每行输入一个电话号码"
-      />
     </Card>
   );
 }
