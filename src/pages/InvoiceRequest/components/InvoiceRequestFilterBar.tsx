@@ -134,15 +134,18 @@ export function InvoiceRequestFilterBar({
 
           {/* 装货日期范围 */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-blue-800 flex items-center gap-1">
+            <Label htmlFor="date-range-picker" className="text-sm font-medium text-blue-800 flex items-center gap-1">
               <Calendar className="h-4 w-4" />
               装货日期范围
             </Label>
-            <DateRangePicker 
-              date={dateRangeValue} 
-              setDate={handleDateChange} 
-              disabled={loading} 
-            />
+            <div className="w-full">
+              <DateRangePicker 
+                date={dateRangeValue} 
+                setDate={handleDateChange} 
+                disabled={loading}
+                className="w-full"
+              />
+            </div>
           </div>
 
           {/* 操作按钮 */}
