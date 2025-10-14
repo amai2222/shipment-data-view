@@ -151,7 +151,7 @@ export default function MobileInvoiceRequestManagement() {
       const [logisticsResult, projectsResult, driversResult] = await Promise.all([
         supabase
           .from('logistics_records')
-          .select('id, auto_number, project_id, driver_id, loading_location, unloading_location')
+          .select('id, auto_number, project_id, driver_id, loading_location, unloading_location, loading_date')
           .in('id', logisticsRecordIds),
         supabase
           .from('projects')
@@ -181,7 +181,8 @@ export default function MobileInvoiceRequestManagement() {
             project_name: logisticsRecord?.project_id ? projectsMap.get(logisticsRecord.project_id) || '' : '',
             driver_name: logisticsRecord?.driver_id ? driversMap.get(logisticsRecord.driver_id) || '' : '',
             loading_location: logisticsRecord?.loading_location || '',
-            unloading_location: logisticsRecord?.unloading_location || ''
+            unloading_location: logisticsRecord?.unloading_location || '',
+            loading_date: logisticsRecord?.loading_date || ''
           }
         };
       });
@@ -495,7 +496,7 @@ export default function MobileInvoiceRequestManagement() {
           external_tracking_numbers,
           other_platform_names,
           projects (id, name, auto_code),
-          drivers (id, name, license_plate, phone_number, id_card_number, bank_name, bank_account, bank_branch)
+          drivers (id, name, license_plate, phone, id_card_number, bank_name, bank_account, bank_branch)
         `)
         .eq('id', recordId)
         .single();
@@ -523,7 +524,7 @@ export default function MobileInvoiceRequestManagement() {
         payable_cost: data.total_price,
         driver_payable_cost: data.total_price,
         license_plate: data.drivers?.license_plate || '',
-        driver_phone: data.drivers?.phone_number || '',
+        driver_phone: data.drivers?.phone || '',
         transport_type: null,
         extra_cost: null,
         remarks: data.remarks,
