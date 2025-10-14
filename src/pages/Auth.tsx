@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,6 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const { user, signIn } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
 
   // 检测是否在企业微信环境中
   const isInWorkWechat = () => {
@@ -28,11 +27,7 @@ export default function Auth() {
   // 如果已经登录，重定向到目标页面
   if (user) {
     const from = location.state?.from?.pathname || '/';
-    // 使用useEffect来避免在渲染过程中直接导航
-    useEffect(() => {
-      navigate(from, { replace: true });
-    }, [navigate, from]);
-    return null; // 或者返回加载组件
+    return <Navigate to={from} replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

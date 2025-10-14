@@ -423,28 +423,24 @@ export default function EnhancedWaybillMaintenance() {
 
     setIsDeleting(true);
     try {
-      // 使用新的安全删除函数，触发器会自动处理相关数据
-      const { data, error } = await supabase.rpc('safe_delete_logistics_records_by_project_v2', {
-        p_project_name: selectedProject
-      });
+      const { error } = await supabase
+        .from('logistics_records')
+        .delete()
+        .eq('project_name', selectedProject);
 
       if (error) throw error;
 
-      if (data?.success) {
-        toast({ 
-          title: "删除成功", 
-          description: data.message || `已删除项目"${selectedProject}"的所有运单记录` 
-        });
-      } else {
-        throw new Error(data?.message || '删除失败');
-      }
+      toast({ 
+        title: "删除成功", 
+        description: `已删除项目"${selectedProject}"的所有运单记录` 
+      });
       
       loadWaybillCount();
     } catch (error: any) {
       console.error('删除运单失败:', error);
       toast({ 
         title: "删除失败", 
-        description: error.message || "删除运单记录时发生错误", 
+        description: "删除运单记录时发生错误", 
         variant: "destructive" 
       });
     } finally {

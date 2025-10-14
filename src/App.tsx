@@ -24,7 +24,6 @@ import Partners from "./pages/Partners";
 import BusinessEntry from "./pages/BusinessEntry";
 import PaymentRequest from "./pages/PaymentRequest";
 import InvoiceRequest from "./pages/InvoiceRequest";
-import InvoiceRequestManagement from "./pages/InvoiceRequestManagement";
 import FinancialOverview from "./pages/FinancialOverview";
 import FinanceReconciliation from "./pages/FinanceReconciliation";
 import PaymentInvoice from "./pages/PaymentInvoice";
@@ -71,7 +70,6 @@ import MobileFinancialOverview from "./pages/mobile/MobileFinancialOverview";
 import MobilePaymentRequestsList from "./pages/mobile/MobilePaymentRequestsList";
 import MobilePermissionManagement from "./pages/mobile/MobilePermissionManagement";
 import MobilePaymentRequestsManagement from "./pages/mobile/MobilePaymentRequestsManagement";
-import MobileInvoiceRequestManagement from "./pages/mobile/MobileInvoiceRequestManagement";
 import MobileContractManagement from "./pages/mobile/MobileContractManagement";
 import MobileProjectOverview from "./pages/mobile/MobileProjectOverview";
 import MobileProjectDetail from "./pages/mobile/MobileProjectDetail";
@@ -188,12 +186,6 @@ const App = () => (
             <Route path="/invoice-request" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'operator']}>
                 <AppLayout><InvoiceRequest /></AppLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/invoice-request-management" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
-                <AppLayout><InvoiceRequestManagement /></AppLayout>
               </ProtectedRoute>
             } />
             
@@ -384,12 +376,6 @@ const App = () => (
             <Route path="/m/payment-requests-management" element={
               <ProtectedRoute requiredRoles={['admin', 'finance']}>
                 <MobilePaymentRequestsManagement />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/m/invoice-request-management" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
-                <MobileInvoiceRequestManagement />
               </ProtectedRoute>
             } />
 

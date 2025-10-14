@@ -40,14 +40,5 @@ export function MobileRedirect({ children }: MobileRedirectProps) {
     }
   }, [isMobile, isTablet, location.pathname, location.search, navigate]);
 
-  // 添加一个防抖机制来避免频繁重定向
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      // 这里可以添加额外的重定向逻辑
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [location.pathname]);
-
   return <>{children}</>;
 }

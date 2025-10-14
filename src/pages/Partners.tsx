@@ -468,9 +468,7 @@ export default function Partners() {
                   <TableCell>{new Date(partner.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(partner)} aria-label="编辑合作方">
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleEdit(partner)}><Edit className="h-4 w-4" /></Button>
                       <DeleteConfirmButton 
                         partnerId={partner.id}
                         partnerName={partner.name}
