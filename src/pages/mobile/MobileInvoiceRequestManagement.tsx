@@ -14,6 +14,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { FileText, Search, Filter, Eye, Edit, RefreshCw, ChevronRight, X, CheckCircle, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { LogisticsFormDialog } from "../../BusinessEntry/components/LogisticsFormDialog";
+import { LogisticsRecord } from "../../BusinessEntry/types";
 
 // 开票申请单类型定义
 interface InvoiceRequest {
@@ -77,6 +79,11 @@ export default function MobileInvoiceRequestManagement() {
   const [voidForm, setVoidForm] = useState({
     reason: ''
   });
+  
+  // 运单详情查看状态
+  const [isLogisticsFormDialogOpen, setIsLogisticsFormDialogOpen] = useState(false);
+  const [selectedLogisticsRecordForView, setSelectedLogisticsRecordForView] = useState<LogisticsRecord | null>(null);
+  
   const { toast } = useToast();
 
   // 加载开票申请单列表
@@ -462,6 +469,91 @@ export default function MobileInvoiceRequestManagement() {
     setIsVoidDialogOpen(true);
   };
 
+  // 获取完整的运单数据
+  const fetchFullLogisticsRecord = async (recordId: string): Promise<LogisticsRecord | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('logistics_records')
+        .select(`
+          id,
+          auto_number,
+          project_id,
+          loading_location,
+          unloading_location,
+          loading_date,
+          unloading_date,
+          goods_name,
+          goods_weight,
+          unit_price,
+          total_price,
+          remarks,
+          status,
+          created_at,
+          updated_at,
+          created_by,
+          updated_by,
+          external_tracking_numbers,
+          other_platform_names,
+          projects (id, name, auto_code),
+          drivers (id, name, license_plate, phone_number, id_card_number, bank_name, bank_account, bank_branch)
+        `)
+        .eq('id', recordId)
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error('运单记录不存在');
+
+      const formattedRecord: LogisticsRecord = {
+        id: data.id,
+        auto_number: data.auto_number,
+        project_id: data.project_id,
+        project_name: data.projects?.name || '',
+        chain_id: null,
+        chain_name: null,
+        billing_type_id: 0,
+        driver_id: data.drivers?.id || '',
+        driver_name: data.drivers?.name || '',
+        loading_location: data.loading_location,
+        unloading_location: data.unloading_location,
+        loading_date: data.loading_date,
+        unloading_date: data.unloading_date,
+        loading_weight: data.goods_weight,
+        unloading_weight: data.goods_weight,
+        current_cost: data.unit_price,
+        payable_cost: data.total_price,
+        driver_payable_cost: data.total_price,
+        license_plate: data.drivers?.license_plate || '',
+        driver_phone: data.drivers?.phone_number || '',
+        transport_type: null,
+        extra_cost: null,
+        remarks: data.remarks,
+        loading_weighbridge_image_url: null,
+        unloading_weighbridge_image_url: null,
+        external_tracking_numbers: data.external_tracking_numbers || [],
+        other_platform_names: data.other_platform_names || [],
+        created_at: data.created_at,
+      };
+      return formattedRecord;
+    } catch (error: any) {
+      console.error('获取运单详情失败:', error);
+      toast({
+        title: "加载失败",
+        description: error.message || '无法加载运单详情',
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  // 处理查看运单详情
+  const handleViewLogisticsRecord = async (logisticsRecordId: string) => {
+    const record = await fetchFullLogisticsRecord(logisticsRecordId);
+    if (record) {
+      setSelectedLogisticsRecordForView(record);
+      setIsLogisticsFormDialogOpen(true);
+    }
+  };
+
   // 处理确认开票
   const handleApproveInvoice = (request: InvoiceRequest) => {
     approveInvoice(request.id);
@@ -727,7 +819,11 @@ export default function MobileInvoiceRequestManagement() {
                 <Label>运单明细</Label>
                 <div className="space-y-2 mt-2">
                   {requestDetails.map((detail) => (
-                    <Card key={detail.id}>
+                    <Card 
+                      key={detail.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleViewLogisticsRecord(detail.logistics_record_id)}
+                    >
                       <CardContent className="p-3">
                         <div className="space-y-1">
                           <div className="font-medium">{detail.logistics_record.auto_number}</div>
@@ -736,6 +832,9 @@ export default function MobileInvoiceRequestManagement() {
                           </div>
                           <div className="text-sm">
                             {detail.logistics_record.loading_location} → {detail.logistics_record.unloading_location}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            装货日期: {detail.logistics_record.loading_date ? format(new Date(detail.logistics_record.loading_date), 'yyyy-MM-dd') : '-'}
                           </div>
                           <div className="font-medium">¥{detail.amount.toLocaleString()}</div>
                         </div>
@@ -833,6 +932,24 @@ export default function MobileInvoiceRequestManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 运单详情对话框 */}
+      {selectedLogisticsRecordForView && (
+        <LogisticsFormDialog
+          isOpen={isLogisticsFormDialogOpen}
+          onClose={() => {
+            setIsLogisticsFormDialogOpen(false);
+            setSelectedLogisticsRecordForView(null);
+          }}
+          editingRecord={selectedLogisticsRecordForView}
+          projects={[]} // 查看模式下不需要项目列表
+          onSubmitSuccess={() => {
+            // 查看模式下不需要提交成功回调
+          }}
+          isViewMode={true}
+          isEditMode={false}
+        />
+      )}
 
     </div>
   );

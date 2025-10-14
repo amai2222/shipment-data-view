@@ -24,7 +24,15 @@ import { zhCN } from "date-fns/locale";
 interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 interface Location { id: string; name: string; }
 interface PartnerChain { id: string; chain_name: string; billing_type_id: number | null; is_default: boolean; }
-interface LogisticsFormDialogProps { isOpen: boolean; onClose: () => void; editingRecord?: LogisticsRecord | null; projects: Project[]; onSubmitSuccess: () => void; }
+interface LogisticsFormDialogProps { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  editingRecord?: LogisticsRecord | null; 
+  projects: Project[]; 
+  onSubmitSuccess: () => void;
+  isViewMode?: boolean;
+  isEditMode?: boolean;
+}
 
 // [修改] FormData 现在存储 ID，支持多地点
 interface FormData {
@@ -67,7 +75,7 @@ const INITIAL_FORM_DATA: FormData = {
   external_tracking_numbers: '', // 外部运单号
 };
 
-export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, onSubmitSuccess }: LogisticsFormDialogProps) {
+export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, onSubmitSuccess, isViewMode = false, isEditMode = true }: LogisticsFormDialogProps) {
   const { toast } = useToast();
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -496,20 +504,24 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{editingRecord ? '编辑运单' : '新增运单'}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>
+            {isViewMode ? '运单详情' : (editingRecord ? '编辑运单' : '新增运单')}
+          </DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* ... 项目和合作链路部分保持不变 ... */}
             <div>
               <Label>项目 *</Label>
-              <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}>
+              <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))} disabled={isViewMode}>
                 <SelectTrigger><SelectValue placeholder="选择项目" /></SelectTrigger>
                 <SelectContent>{projects.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
               </Select>
             </div>
             <div>
               <Label>合作链路</Label>
-              <Select value={formData.chainId} onValueChange={(value) => setFormData(prev => ({ ...prev, chainId: value }))} disabled={!formData.projectId}>
+              <Select value={formData.chainId} onValueChange={(value) => setFormData(prev => ({ ...prev, chainId: value }))} disabled={!formData.projectId || isViewMode}>
                 <SelectTrigger><SelectValue placeholder="选择合作链路" /></SelectTrigger>
                 <SelectContent>{chains.map((c) => (<SelectItem key={c.id} value={c.id}>{c.chain_name}{c.is_default ? ' (默认)' : ''}</SelectItem>))}</SelectContent>
               </Select>
@@ -519,7 +531,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
               <Label>装货日期 *</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.loadingDate && "text-muted-foreground")}>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.loadingDate && "text-muted-foreground")} disabled={isViewMode}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {formData.loadingDate ? format(formData.loadingDate, "yyyy年MM月dd日", { locale: zhCN }) : "选择日期"}
                   </Button>

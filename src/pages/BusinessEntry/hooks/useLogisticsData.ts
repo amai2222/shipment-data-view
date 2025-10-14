@@ -156,12 +156,20 @@ export function useLogisticsData() {
 
   const handleDelete = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase.from('logistics_records').delete().eq('id', id);
+      // 使用新的安全删除函数，触发器会自动处理相关数据
+      const { data, error } = await supabase.rpc('safe_delete_logistics_records_v2', {
+        p_record_ids: [id]
+      });
+      
       if (error) throw error;
       
-      toast({ title: "成功", description: "运单记录已删除" });
-      // 重新加载当前页数据
-      await loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize);
+      if (data?.success) {
+        toast({ title: "成功", description: data.message || "运单记录已删除" });
+        // 重新加载当前页数据
+        await loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize);
+      } else {
+        throw new Error(data?.message || '删除失败');
+      }
     } catch (error: any) {
       toast({ title: "删除失败", description: error.message, variant: "destructive" });
     }
