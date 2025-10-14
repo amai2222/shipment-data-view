@@ -4,9 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 import { 
   Filter, 
@@ -16,19 +13,15 @@ import {
   ChevronUp, 
   FileText, 
   CheckCircle, 
-  Calendar as CalendarIcon,
   Users,
   Car,
   Phone,
   Building
 } from 'lucide-react';
-import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface InvoiceFilters {
   projectId: string;
-  startDate: string;
-  endDate: string;
   invoiceStatus: string;
   waybillNumbers?: string;
   driverName?: string;
@@ -66,19 +59,6 @@ export function InvoiceRequestFilterBar({
     onClear();
   };
 
-  // 日期范围处理
-  const dateRangeValue = {
-    from: filters.startDate ? new Date(filters.startDate) : undefined,
-    to: filters.endDate ? new Date(filters.endDate) : undefined
-  };
-
-  const handleDateChange = (range: { from?: Date; to?: Date } | undefined) => {
-    onFiltersChange({
-      ...filters,
-      startDate: range?.from ? format(range.from, 'yyyy-MM-dd') : '',
-      endDate: range?.to ? format(range.to, 'yyyy-MM-dd') : ''
-    });
-  };
 
   return (
     <Card className="w-full">
@@ -91,7 +71,7 @@ export function InvoiceRequestFilterBar({
       
       <CardContent className="space-y-4">
         {/* 基础筛选条件 - 参考运单管理布局 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative">
           {/* 项目筛选 */}
           <div className="space-y-2">
             <Label htmlFor="project-filter" className="text-sm font-medium text-blue-800 flex items-center gap-1">
@@ -132,21 +112,6 @@ export function InvoiceRequestFilterBar({
             </Select>
           </div>
 
-          {/* 装货日期范围 */}
-          <div className="space-y-2 relative z-10">
-            <Label htmlFor="date-range-picker" className="text-sm font-medium text-blue-800 flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              装货日期范围
-            </Label>
-            <div className="w-full">
-              <DateRangePicker 
-                date={dateRangeValue} 
-                setDate={handleDateChange} 
-                disabled={loading}
-                className="w-full"
-              />
-            </div>
-          </div>
 
           {/* 操作按钮 */}
           <div className="flex items-end gap-2">
