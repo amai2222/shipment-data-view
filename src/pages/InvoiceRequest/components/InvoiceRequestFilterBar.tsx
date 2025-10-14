@@ -76,7 +76,7 @@ export function InvoiceRequestFilterBar({
           {/* 开票状态 */}
           <div className="col-span-2">
             <Label className="text-sm font-medium">开票状态</Label>
-            <Select value={invoiceStatusFilter} onValueChange={setInvoiceStatusFilter}>
+            <Select value={filters.invoiceStatus || ''} onValueChange={(value) => onFiltersChange({...filters, invoiceStatus: value})}>
               <SelectTrigger className="h-10">
                 <SelectValue placeholder="选择状态" />
               </SelectTrigger>
@@ -99,18 +99,18 @@ export function InvoiceRequestFilterBar({
                   variant="outline"
                   className={cn(
                     "h-10 w-full justify-start text-left font-normal",
-                    !dateRange && "text-muted-foreground"
+                    !filters.dateRange && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
+                  {filters.dateRange?.from ? (
+                    filters.dateRange.to ? (
                       <>
-                        {format(dateRange.from, "yyyy-MM-dd")} -{" "}
-                        {format(dateRange.to, "yyyy-MM-dd")}
+                        {format(filters.dateRange.from, "yyyy-MM-dd")} -{" "}
+                        {format(filters.dateRange.to, "yyyy-MM-dd")}
                       </>
                     ) : (
-                      format(dateRange.from, "yyyy-MM-dd")
+                      format(filters.dateRange.from, "yyyy-MM-dd")
                     )
                   ) : (
                     <span>选择日期范围</span>
@@ -121,9 +121,9 @@ export function InvoiceRequestFilterBar({
                 <Calendar
                   initialFocus
                   mode="range"
-                  defaultMonth={dateRange?.from}
-                  selected={dateRange}
-                  onSelect={setDateRange}
+                  defaultMonth={filters.dateRange?.from}
+                  selected={filters.dateRange}
+                  onSelect={(range) => onFiltersChange({...filters, dateRange: range})}
                   numberOfMonths={2}
                 />
               </PopoverContent>
@@ -165,8 +165,8 @@ export function InvoiceRequestFilterBar({
                 <div className="flex gap-2">
                   <Input
                     placeholder="输入运单号"
-                    value={waybillFilter}
-                    onChange={(e) => setWaybillFilter(e.target.value)}
+                    value={filters.waybill || ''}
+                    onChange={(e) => onFiltersChange({...filters, waybill: e.target.value})}
                     className="h-10"
                   />
                   <Button
@@ -186,8 +186,8 @@ export function InvoiceRequestFilterBar({
                 <div className="flex gap-2">
                   <Input
                     placeholder="输入司机姓名"
-                    value={driverFilter}
-                    onChange={(e) => setDriverFilter(e.target.value)}
+                    value={filters.driver || ''}
+                    onChange={(e) => onFiltersChange({...filters, driver: e.target.value})}
                     className="h-10"
                   />
                   <Button
@@ -207,8 +207,8 @@ export function InvoiceRequestFilterBar({
                 <div className="flex gap-2">
                   <Input
                     placeholder="输入车牌号"
-                    value={licensePlateFilter}
-                    onChange={(e) => setLicensePlateFilter(e.target.value)}
+                    value={filters.licensePlate || ''}
+                    onChange={(e) => onFiltersChange({...filters, licensePlate: e.target.value})}
                     className="h-10"
                   />
                   <Button
@@ -228,8 +228,8 @@ export function InvoiceRequestFilterBar({
                 <div className="flex gap-2">
                   <Input
                     placeholder="输入电话号码"
-                    value={phoneFilter}
-                    onChange={(e) => setPhoneFilter(e.target.value)}
+                    value={filters.phone || ''}
+                    onChange={(e) => onFiltersChange({...filters, phone: e.target.value})}
                     className="h-10"
                   />
                   <Button
@@ -247,7 +247,7 @@ export function InvoiceRequestFilterBar({
             {/* 合作方筛选 */}
             <div>
               <Label className="text-sm font-medium">合作方</Label>
-              <Select value={partnerFilter} onValueChange={setPartnerFilter}>
+              <Select value={filters.partner || ''} onValueChange={(value) => onFiltersChange({...filters, partner: value})}>
                 <SelectTrigger className="h-10">
                   <SelectValue placeholder="选择合作方" />
                 </SelectTrigger>
@@ -271,9 +271,9 @@ export function InvoiceRequestFilterBar({
         onClose={() => setIsBatchWaybillOpen(false)}
         title="批量运单号搜索"
         placeholder="请输入运单号，每行一个"
-        currentValue={waybillFilter}
+        currentValue={filters.waybill || ''}
         onApply={(value) => {
-          setWaybillFilter(value);
+          onFiltersChange({...filters, waybill: value});
           setIsBatchWaybillOpen(false);
         }}
         description="支持多个运单号同时搜索，每行输入一个运单号"
@@ -284,9 +284,9 @@ export function InvoiceRequestFilterBar({
         onClose={() => setIsBatchDriverOpen(false)}
         title="批量司机搜索"
         placeholder="请输入司机姓名，每行一个"
-        currentValue={driverFilter}
+        currentValue={filters.driver || ''}
         onApply={(value) => {
-          setDriverFilter(value);
+          onFiltersChange({...filters, driver: value});
           setIsBatchDriverOpen(false);
         }}
         description="支持多个司机姓名同时搜索，每行输入一个司机姓名"
@@ -297,9 +297,9 @@ export function InvoiceRequestFilterBar({
         onClose={() => setIsBatchLicenseOpen(false)}
         title="批量车牌搜索"
         placeholder="请输入车牌号，每行一个"
-        currentValue={licensePlateFilter}
+        currentValue={filters.licensePlate || ''}
         onApply={(value) => {
-          setLicensePlateFilter(value);
+          onFiltersChange({...filters, licensePlate: value});
           setIsBatchLicenseOpen(false);
         }}
         description="支持多个车牌号同时搜索，每行输入一个车牌号"
@@ -310,9 +310,9 @@ export function InvoiceRequestFilterBar({
         onClose={() => setIsBatchPhoneOpen(false)}
         title="批量电话搜索"
         placeholder="请输入电话号码，每行一个"
-        currentValue={phoneFilter}
+        currentValue={filters.phone || ''}
         onApply={(value) => {
-          setPhoneFilter(value);
+          onFiltersChange({...filters, phone: value});
           setIsBatchPhoneOpen(false);
         }}
         description="支持多个电话号码同时搜索，每行输入一个电话号码"
