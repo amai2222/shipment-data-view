@@ -25,109 +25,10 @@ const ROLES = [
   { value: 'viewer', label: '查看者', color: 'bg-gray-500' }
 ];
 
-// 菜单权限定义
-const MENU_PERMISSIONS = [
-  {
-    group: '数据看板',
-    permissions: [
-      { key: 'dashboard.transport', label: '运输看板' },
-      { key: 'dashboard.financial', label: '财务看板' },
-      { key: 'dashboard.project', label: '项目看板' }
-    ]
-  },
-  {
-    group: '信息维护',
-    permissions: [
-      { key: 'maintenance.projects', label: '项目管理' },
-      { key: 'maintenance.drivers', label: '司机管理' },
-      { key: 'maintenance.locations', label: '地点管理' },
-      { key: 'maintenance.locations_enhanced', label: '地点管理（增强版）' },
-      { key: 'maintenance.partners', label: '合作方管理' }
-    ]
-  },
-  {
-    group: '业务管理',
-    permissions: [
-      { key: 'business.entry', label: '运单管理' },
-      { key: 'business.scale', label: '磅单管理' },
-      { key: 'business.invoice_request', label: '开票申请' },
-      { key: 'business.payment_request', label: '付款申请' }
-    ]
-  },
-  {
-    group: '财务管理',
-    permissions: [
-      { key: 'finance.reconciliation', label: '运费对账' },
-      { key: 'finance.payment_invoice', label: '付款与开票' },
-      { key: 'finance.invoice_request_management', label: '开票申请单管理' },
-      { key: 'finance.payment_requests', label: '付款申请单管理' }
-    ]
-  },
-  {
-    group: '数据维护',
-    permissions: [
-      { key: 'data_maintenance.waybill', label: '运单维护' },
-      { key: 'data_maintenance.waybill_enhanced', label: '运单维护（增强版）' }
-    ]
-  },
-  {
-    group: '合同管理',
-    permissions: [
-      { key: 'contracts.list', label: '合同列表' }
-    ]
-  },
-  {
-    group: '设置',
-    permissions: [
-      { key: 'settings.users', label: '用户管理' },
-      { key: 'settings.permissions', label: '权限配置' },
-      { key: 'settings.contract_permissions', label: '合同权限' },
-      { key: 'settings.role_templates', label: '角色模板' },
-      { key: 'settings.permissions', label: '权限管理' }
-    ]
-  }
-];
+// 导入动态权限配置
+import { generateMenuPermissions, FUNCTION_PERMISSIONS } from '@/config/dynamicPermissions';
 
-// 功能权限定义
-const FUNCTION_PERMISSIONS = [
-  {
-    group: '数据操作',
-    permissions: [
-      { key: 'data.create', label: '新增数据' },
-      { key: 'data.edit', label: '编辑数据' },
-      { key: 'data.delete', label: '删除数据' },
-      { key: 'data.export', label: '导出数据' },
-      { key: 'data.import', label: '导入数据' }
-    ]
-  },
-  {
-    group: '磅单管理',
-    permissions: [
-      { key: 'scale_records.create', label: '新增磅单' },
-      { key: 'scale_records.edit', label: '编辑磅单' },
-      { key: 'scale_records.view', label: '查看磅单' },
-      { key: 'scale_records.delete', label: '删除磅单' }
-    ]
-  },
-  {
-    group: '财务操作',
-    permissions: [
-      { key: 'finance.view_cost', label: '查看成本信息' },
-      { key: 'finance.approve_payment', label: '审批付款' },
-      { key: 'finance.generate_invoice', label: '生成发票' },
-      { key: 'finance.reconcile', label: '财务对账' }
-    ]
-  },
-  {
-    group: '系统管理',
-    permissions: [
-      { key: 'system.manage_users', label: '管理用户' },
-      { key: 'system.manage_roles', label: '管理角色' },
-      { key: 'system.view_logs', label: '查看日志' },
-      { key: 'system.backup', label: '系统备份' }
-    ]
-  }
-];
+// 使用导入的功能权限配置
 
 interface User {
   id: string;
@@ -162,6 +63,9 @@ export default function PermissionManagement() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
+
+  // 使用动态生成的菜单权限配置
+  const menuPermissions = generateMenuPermissions();
 
   // 使用优化的权限管理 Hook
   const {
@@ -637,7 +541,7 @@ function PermissionEditor({
 
       {/* 菜单权限 */}
       <TabsContent value="menus" className="space-y-4">
-        {MENU_PERMISSIONS.map(group => (
+        {generateMenuPermissions().map(group => (
           <Card key={group.group}>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">{group.group}</CardTitle>
