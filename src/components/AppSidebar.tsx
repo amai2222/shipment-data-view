@@ -35,7 +35,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useSimplePermissions } from "@/hooks/useSimplePermissions";
 
 // 菜单配置
-const menuItems = [
+export const menuItems = [
   {
     title: "数据看板",
     icon: BarChart3,
