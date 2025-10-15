@@ -159,7 +159,7 @@ const menuGroups = [
         roles: ['admin', 'finance', 'operator']
       },
       {
-        name: '申请单管理',
+        name: '付款申请单管理',
         href: '/m/payment-requests-management',
         icon: Receipt,
         roles: ['admin', 'finance', 'operator']

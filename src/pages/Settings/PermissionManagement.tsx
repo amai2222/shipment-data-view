@@ -59,8 +59,8 @@ const MENU_PERMISSIONS = [
     permissions: [
       { key: 'finance.reconciliation', label: '运费对账' },
       { key: 'finance.payment_invoice', label: '付款与开票' },
-      { key: 'finance.payment_requests', label: '申请单管理' },
-      { key: 'finance.invoice_request_management', label: '开票申请单管理' }
+      { key: 'finance.invoice_request_management', label: '开票申请单管理' },
+      { key: 'finance.payment_requests', label: '付款申请单管理' }
     ]
   },
   {

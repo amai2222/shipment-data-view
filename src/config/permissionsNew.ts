@@ -106,8 +106,8 @@ export const MENU_PERMISSIONS_NEW: PermissionGroupNew[] = [
     children: [
       { key: 'finance.reconciliation', label: '运费对账', icon: 'Calculator' },
       { key: 'finance.payment_invoice', label: '付款与开票', icon: 'DollarSign' },
-      { key: 'finance.payment_requests', label: '申请单管理', icon: 'ClipboardList' },
-      { key: 'finance.invoice_request_management', label: '开票申请单管理', icon: 'FileText' }
+      { key: 'finance.invoice_request_management', label: '开票申请单管理', icon: 'FileText' },
+      { key: 'finance.payment_requests', label: '付款申请单管理', icon: 'ClipboardList' }
     ]
   },
   {
