@@ -334,11 +334,47 @@ export default function PartnerHierarchyManagement() {
             </div>
           ) : (
             <>
+              {/* 根节点 */}
               <div className="space-y-1">
                 {filtered.map((n: any) => (
                   <TreeNode key={n.id} node={n} level={0} onToggle={toggle} onDrop={handleDrop} canEdit={canEdit} />
                 ))}
               </div>
+
+              {/* 未分配的合作方（可拖拽） */}
+              {unassigned.length > 0 && (
+                <div className="mt-6 border-t-2 border-dashed pt-4">
+                  <div className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+                    <span className="text-orange-600">⚠️</span>
+                    未分配层级的合作方 ({unassigned.length})
+                    <span className="text-xs text-gray-500">- 拖拽到上方节点或下方绿色区域</span>
+                  </div>
+                  <div className="space-y-1 bg-orange-50 p-3 rounded">
+                    {unassigned.map((p: any) => (
+                      <div
+                        key={p.id}
+                        draggable={canEdit}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('id', p.id);
+                        }}
+                        className={`flex items-center gap-2 p-3 rounded border-l-4 border-orange-300 bg-white ${
+                          canEdit ? 'hover:bg-gray-50 cursor-move' : ''
+                        }`}
+                      >
+                        {canEdit && <span className="text-gray-400">≡</span>}
+                        <Badge variant="outline">未分配</Badge>
+                        <div className="flex-1">
+                          <div className="font-medium">{p.name}</div>
+                          {p.full_name && <div className="text-xs text-gray-600">{p.full_name}</div>}
+                        </div>
+                        {canEdit && (
+                          <div className="text-xs text-gray-400">← 拖我</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {canEdit && (
                 <div
@@ -368,6 +404,7 @@ export default function PartnerHierarchyManagement() {
                 >
                   <div className="text-4xl mb-2">🏠</div>
                   <div className="font-medium text-green-700">拖到这里设为根节点</div>
+                  <div className="text-xs text-gray-500 mt-1">将未分配或已有节点拖到这里，设置为独立的根节点</div>
                 </div>
               )}
             </>
