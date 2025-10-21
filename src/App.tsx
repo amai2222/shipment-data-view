@@ -21,6 +21,7 @@ import Drivers from "./pages/Drivers";
 import Locations from "./pages/Locations";
 import EnhancedLocations from "./pages/EnhancedLocations";
 import Partners from "./pages/Partners";
+import PartnerHierarchyManagement from "./pages/PartnerHierarchyManagement";
 import BusinessEntry from "./pages/BusinessEntry";
 import PaymentRequest from "./pages/PaymentRequest";
 import InvoiceRequest from "./pages/InvoiceRequest";
@@ -164,6 +165,12 @@ const App = () => (
             <Route path="/partners" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
                 <AppLayout><Partners /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/partners/hierarchy" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'operator']}>
+                <AppLayout><PartnerHierarchyManagement /></AppLayout>
               </ProtectedRoute>
             } />
             

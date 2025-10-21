@@ -14,6 +14,7 @@ const routeMap: Record<string, string> = {
   '/drivers': '司机管理',
   '/locations': '地点管理',
   '/partners': '合作方管理',
+  '/partners/hierarchy': '合作方层级管理',
   '/business-entry': '运单管理',
   '/scale-records': '磅单管理',
   '/payment-request': '付款申请',

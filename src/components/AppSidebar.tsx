@@ -16,7 +16,8 @@ import {
   Settings,
   Weight,
   Shield,
-  History
+  History,
+  TreePine
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -61,6 +62,7 @@ export const menuItems = [
       { title: "地点管理", url: "/locations", icon: MapPin },
       { title: "📍 地点管理（增强版）", url: "/locations-enhanced", icon: MapPin },
       { title: "合作方管理", url: "/partners", icon: Users },
+      { title: "🌳 合作方层级管理", url: "/partners/hierarchy", icon: TreePine },
     ]
   },
   {
@@ -128,6 +130,7 @@ export function AppSidebar() {
       '/locations': 'maintenance.locations',
       '/locations-enhanced': 'maintenance.locations_enhanced',
       '/partners': 'maintenance.partners',
+      '/partners/hierarchy': 'maintenance.partners',
       
       // 业务管理
       '/business-entry': 'business.entry',
