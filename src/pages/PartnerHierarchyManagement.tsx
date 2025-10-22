@@ -13,11 +13,12 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { Link } from 'react-router-dom';
 
 // 树节点组件
-const TreeNode = ({ node, level, onToggle, onDrop, onCancelRoot, canEdit }: any) => {
+const TreeNode = ({ node, level, onToggle, onDrop, onCancelRoot, onDetach, canEdit }: any) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isOver, setIsOver] = useState(false);
   const hasChildren = node.children && node.children.length > 0;
   const indent = level * 24;
+  const isChild = level > 0; // 是否为子节点
 
   return (
     <div>
@@ -66,23 +67,37 @@ const TreeNode = ({ node, level, onToggle, onDrop, onCancelRoot, canEdit }: any)
           </div>
         </div>
 
-        {/* 取消根节点按钮 */}
-        {canEdit && node.is_root && !hasChildren && (
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => onCancelRoot(node.id, node.name)}
-            className="text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-          >
-            取消根节点
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {/* 取消根节点按钮 */}
+          {canEdit && node.is_root && !hasChildren && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => onCancelRoot(node.id, node.name)}
+              className="text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+            >
+              取消根节点
+            </Button>
+          )}
+          
+          {/* 脱离上级按钮（只对子节点且没有下级的显示） */}
+          {canEdit && isChild && !hasChildren && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => onDetach(node.id, node.name, node.parent_name)}
+              className="text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+            >
+              脱离上级
+            </Button>
+          )}
+        </div>
       </div>
 
       {node.expanded && hasChildren && (
         <div className="mt-1">
           {node.children.map((child: any) => (
-            <TreeNode key={child.id} node={child} level={level + 1} onToggle={onToggle} onDrop={onDrop} onCancelRoot={onCancelRoot} canEdit={canEdit} />
+            <TreeNode key={child.id} node={child} level={level + 1} onToggle={onToggle} onDrop={onDrop} onCancelRoot={onCancelRoot} onDetach={onDetach} canEdit={canEdit} />
           ))}
         </div>
       )}
@@ -118,13 +133,10 @@ export default function PartnerHierarchyManagement() {
 
       setPartners(data || []);
       
-      // 未分配的（所有不是根节点的货主，包括有上下级关系的）
-      const unassignedList = (data || []).filter((p: any) => !p.is_root);
-      setUnassigned(unassignedList);
-      
       // 构建树
       const map = new Map();
       const roots: any[] = [];
+      const inTreeIds = new Set<string>(); // 记录在树中的所有节点ID
 
       (data || []).forEach((item: any) => {
         const count = (data || []).filter((p: any) => p.parent_partner_id === item.id).length;
@@ -145,6 +157,23 @@ export default function PartnerHierarchyManagement() {
           roots.push(node);
         }
       });
+
+      // 递归标记所有在树中的节点
+      const markTreeNodes = (nodes: any[]) => {
+        nodes.forEach(node => {
+          inTreeIds.add(node.id);
+          if (node.children && node.children.length > 0) {
+            markTreeNodes(node.children);
+          }
+        });
+      };
+      markTreeNodes(roots);
+
+      // 未分配的：不是根节点，且不在任何树中的节点
+      const unassignedList = (data || []).filter((p: any) => 
+        !p.is_root && !inTreeIds.has(p.id)
+      );
+      setUnassigned(unassignedList);
 
       setTree(roots);
 
@@ -228,6 +257,26 @@ export default function PartnerHierarchyManagement() {
     }
   };
 
+  const handleDetach = async (id: string, name: string, parentName: string) => {
+    if (!confirm(`确定将 "${name}" 从 "${parentName}" 下脱离？\n\n脱离后该货主将移到"未分配"列表，需要重新设置层级。`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('partners')
+        .update({ 
+          parent_partner_id: null,
+          is_root: false 
+        } as any)
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('已脱离上级');
+      load();
+    } catch (e: any) {
+      toast.error('失败: ' + e.message);
+    }
+  };
+
   const batchSetRoot = async () => {
     if (selected.size === 0) return;
     
@@ -303,9 +352,10 @@ export default function PartnerHierarchyManagement() {
             <div className="font-medium mb-2">💡 使用说明:</div>
             <ul className="space-y-1">
               <li>• <strong>拖拽</strong>货主节点到目标位置建立上下级关系</li>
+              <li>• 点击<strong>"取消根节点"</strong>或<strong>"脱离上级"</strong>可断开关系</li>
               <li>• 点击<strong>"设置根节点"</strong>按钮批量设置未分配的货主</li>
               <li>• 上级货主可以查看所有下级数据，不同链路完全隔离</li>
-              <li>• 🔵 <strong>只管理货主类型</strong>，合作商类型不参与层级关系</li>
+              <li>• 🔵 <strong>只管理货主类型</strong>，其他类型不参与层级关系</li>
             </ul>
           </div>
         </CardContent>
@@ -372,17 +422,17 @@ export default function PartnerHierarchyManagement() {
               {/* 根节点 */}
               <div className="space-y-1">
                 {filtered.map((n: any) => (
-                  <TreeNode key={n.id} node={n} level={0} onToggle={toggle} onDrop={handleDrop} onCancelRoot={handleCancelRoot} canEdit={canEdit} />
+                  <TreeNode key={n.id} node={n} level={0} onToggle={toggle} onDrop={handleDrop} onCancelRoot={handleCancelRoot} onDetach={handleDetach} canEdit={canEdit} />
                 ))}
               </div>
 
-              {/* 未设为根节点的货主（可拖拽） */}
+              {/* 未分配层级的货主（可拖拽） */}
               {unassigned.length > 0 && (
                 <div className="mt-6 border-t-2 border-dashed pt-4">
                   <div className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
                     <span className="text-orange-600">⚠️</span>
-                    未设为根节点的货主 ({unassigned.length})
-                    <span className="text-xs text-gray-500">- 包含有上下级关系的货主</span>
+                    未分配层级的货主 ({unassigned.length})
+                    <span className="text-xs text-gray-500">- 不在任何组织架构树中</span>
                   </div>
                   <div className="space-y-1 bg-orange-50 p-3 rounded">
                     {unassigned.map((p: any) => {
@@ -461,7 +511,7 @@ export default function PartnerHierarchyManagement() {
           </DialogHeader>
           
           <div className="text-sm text-gray-600 mb-4">
-            以下货主尚未设为根节点（包括有上下级关系的），请选择需要设为根节点的：
+            以下货主尚未分配到任何组织架构树中，请选择需要设为根节点的：
           </div>
 
           <div className="max-h-96 overflow-y-auto border rounded p-2 space-y-1">

@@ -47,12 +47,22 @@ BEGIN
     new_depth := public.calculate_hierarchy_depth(NEW.id);
     
     -- 判断是否为根节点
-    is_root_node := (NEW.parent_partner_id IS NULL);
+    -- 修改逻辑：只在 INSERT 时或者 is_root 为 NULL 时自动设置
+    -- 允许手动设置 is_root = false（取消根节点）
+    IF TG_OP = 'INSERT' OR OLD.is_root IS NULL OR NEW.is_root IS NULL THEN
+      is_root_node := (NEW.parent_partner_id IS NULL);
+      NEW.is_root := is_root_node;
+    ELSE
+      -- UPDATE 时保留用户设置的 is_root 值，除非改变了 parent_partner_id
+      IF OLD.parent_partner_id IS DISTINCT FROM NEW.parent_partner_id THEN
+        is_root_node := (NEW.parent_partner_id IS NULL);
+        NEW.is_root := is_root_node;
+      END IF;
+    END IF;
     
     -- 更新字段
     NEW.hierarchy_path := new_path;
     NEW.hierarchy_depth := new_depth;
-    NEW.is_root := is_root_node;
   ELSE
     -- 非货主类型（合作商、资方、本公司）不维护层级信息
     NEW.parent_partner_id := NULL;
