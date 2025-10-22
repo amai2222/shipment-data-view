@@ -1,5 +1,5 @@
-// 合作方层级管理页面  
-// 功能: 仅管理层级关系，支持拖拽调整上下级
+// 货主层级管理页面  
+// 功能: 仅管理货主类型合作方的层级关系，支持拖拽调整上下级
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { Link } from 'react-router-dom';
 
 // 树节点组件
-const TreeNode = ({ node, level, onToggle, onDrop, canEdit }: any) => {
+const TreeNode = ({ node, level, onToggle, onDrop, onCancelRoot, canEdit }: any) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isOver, setIsOver] = useState(false);
   const hasChildren = node.children && node.children.length > 0;
@@ -65,12 +65,24 @@ const TreeNode = ({ node, level, onToggle, onDrop, canEdit }: any) => {
             下级: {node.direct_children_count || 0}
           </div>
         </div>
+
+        {/* 取消根节点按钮 */}
+        {canEdit && node.is_root && !hasChildren && (
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => onCancelRoot(node.id, node.name)}
+            className="text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+          >
+            取消根节点
+          </Button>
+        )}
       </div>
 
       {node.expanded && hasChildren && (
         <div className="mt-1">
           {node.children.map((child: any) => (
-            <TreeNode key={child.id} node={child} level={level + 1} onToggle={onToggle} onDrop={onDrop} canEdit={canEdit} />
+            <TreeNode key={child.id} node={child} level={level + 1} onToggle={onToggle} onDrop={onDrop} onCancelRoot={onCancelRoot} canEdit={canEdit} />
           ))}
         </div>
       )}
@@ -95,17 +107,19 @@ export default function PartnerHierarchyManagement() {
   const load = async () => {
     setLoading(true);
     try {
+      // 只查询货主类型的合作方
       const { data, error } = await supabase
         .from('partners')
         .select('*')
+        .eq('partner_type', '货主')
         .order('name');
 
       if (error) throw error;
 
       setPartners(data || []);
       
-      // 未分配的（没有上级且不是根）
-      const unassignedList = (data || []).filter((p: any) => !p.parent_partner_id && !p.is_root);
+      // 未分配的（所有不是根节点的货主，包括有上下级关系的）
+      const unassignedList = (data || []).filter((p: any) => !p.is_root);
       setUnassigned(unassignedList);
       
       // 构建树
@@ -194,6 +208,26 @@ export default function PartnerHierarchyManagement() {
     }
   };
 
+  const handleCancelRoot = async (id: string, name: string) => {
+    if (!confirm(`确定取消 "${name}" 的根节点设置？\n\n取消后该货主将移到"未分配"列表。`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('partners')
+        .update({ 
+          parent_partner_id: null,
+          is_root: false 
+        } as any)
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('已取消根节点设置');
+      load();
+    } catch (e: any) {
+      toast.error('失败: ' + e.message);
+    }
+  };
+
   const batchSetRoot = async () => {
     if (selected.size === 0) return;
     
@@ -244,8 +278,8 @@ export default function PartnerHierarchyManagement() {
       {/* 头部 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold">🌳 合作方层级管理</h1>
-          <p className="text-sm text-gray-600 mt-1">拖拽调整组织架构，上级可查看下级数据</p>
+          <h1 className="text-2xl font-bold">🌳 货主层级管理</h1>
+          <p className="text-sm text-gray-600 mt-1">管理货主组织架构，上级可查看下级数据（不包括合作商）</p>
         </div>
         <div className="flex gap-2">
           {unassigned.length > 0 && canEdit && (
@@ -268,9 +302,10 @@ export default function PartnerHierarchyManagement() {
           <div className="text-sm">
             <div className="font-medium mb-2">💡 使用说明:</div>
             <ul className="space-y-1">
-              <li>• <strong>拖拽</strong>节点到目标位置建立上下级关系</li>
-              <li>• 点击<strong>"设置根节点"</strong>按钮批量设置未分配的合作方</li>
-              <li>• 上级可以查看所有下级数据，不同链路完全隔离</li>
+              <li>• <strong>拖拽</strong>货主节点到目标位置建立上下级关系</li>
+              <li>• 点击<strong>"设置根节点"</strong>按钮批量设置未分配的货主</li>
+              <li>• 上级货主可以查看所有下级数据，不同链路完全隔离</li>
+              <li>• 🔵 <strong>只管理货主类型</strong>，合作商类型不参与层级关系</li>
             </ul>
           </div>
         </CardContent>
@@ -281,11 +316,11 @@ export default function PartnerHierarchyManagement() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card><CardContent className="pt-6">
             <div className="text-2xl font-bold">{stats.total_partners}</div>
-            <div className="text-xs text-gray-600">总合作方</div>
+            <div className="text-xs text-gray-600">总货主数</div>
           </CardContent></Card>
           <Card><CardContent className="pt-6">
             <div className="text-2xl font-bold text-blue-600">{stats.root_partners}</div>
-            <div className="text-xs text-gray-600">根节点</div>
+            <div className="text-xs text-gray-600">根节点货主</div>
           </CardContent></Card>
           <Card><CardContent className="pt-6">
             <div className="text-2xl font-bold text-green-600">{stats.max_depth}</div>
@@ -304,7 +339,7 @@ export default function PartnerHierarchyManagement() {
           <div className="flex gap-4">
             <div className="flex-1">
               <Input
-                placeholder="🔍 搜索合作方..."
+                placeholder="🔍 搜索货主..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -337,41 +372,47 @@ export default function PartnerHierarchyManagement() {
               {/* 根节点 */}
               <div className="space-y-1">
                 {filtered.map((n: any) => (
-                  <TreeNode key={n.id} node={n} level={0} onToggle={toggle} onDrop={handleDrop} canEdit={canEdit} />
+                  <TreeNode key={n.id} node={n} level={0} onToggle={toggle} onDrop={handleDrop} onCancelRoot={handleCancelRoot} canEdit={canEdit} />
                 ))}
               </div>
 
-              {/* 未分配的合作方（可拖拽） */}
+              {/* 未设为根节点的货主（可拖拽） */}
               {unassigned.length > 0 && (
                 <div className="mt-6 border-t-2 border-dashed pt-4">
                   <div className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
                     <span className="text-orange-600">⚠️</span>
-                    未分配层级的合作方 ({unassigned.length})
-                    <span className="text-xs text-gray-500">- 拖拽到上方节点或下方绿色区域</span>
+                    未设为根节点的货主 ({unassigned.length})
+                    <span className="text-xs text-gray-500">- 包含有上下级关系的货主</span>
                   </div>
                   <div className="space-y-1 bg-orange-50 p-3 rounded">
-                    {unassigned.map((p: any) => (
-                      <div
-                        key={p.id}
-                        draggable={canEdit}
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('id', p.id);
-                        }}
-                        className={`flex items-center gap-2 p-3 rounded border-l-4 border-orange-300 bg-white ${
-                          canEdit ? 'hover:bg-gray-50 cursor-move' : ''
-                        }`}
-                      >
-                        {canEdit && <span className="text-gray-400">≡</span>}
-                        <Badge variant="outline">未分配</Badge>
-                        <div className="flex-1">
-                          <div className="font-medium">{p.name}</div>
-                          {p.full_name && <div className="text-xs text-gray-600">{p.full_name}</div>}
+                    {unassigned.map((p: any) => {
+                      const parentName = partners.find(x => x.id === p.parent_partner_id)?.name;
+                      return (
+                        <div
+                          key={p.id}
+                          draggable={canEdit}
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('id', p.id);
+                          }}
+                          className={`flex items-center gap-2 p-3 rounded border-l-4 border-orange-300 bg-white ${
+                            canEdit ? 'hover:bg-gray-50 cursor-move' : ''
+                          }`}
+                        >
+                          {canEdit && <span className="text-gray-400">≡</span>}
+                          <Badge variant="outline">{p.parent_partner_id ? '有上级' : '独立'}</Badge>
+                          <div className="flex-1">
+                            <div className="font-medium">{p.name}</div>
+                            <div className="text-xs text-gray-600">
+                              {parentName && `上级: ${parentName} | `}
+                              {p.full_name || '未设为根节点'}
+                            </div>
+                          </div>
+                          {canEdit && (
+                            <div className="text-xs text-gray-400">← 拖我</div>
+                          )}
                         </div>
-                        {canEdit && (
-                          <div className="text-xs text-gray-400">← 拖我</div>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -412,15 +453,15 @@ export default function PartnerHierarchyManagement() {
         </CardContent>
       </Card>
 
-      {/* 未分配对话框 */}
+      {/* 设置根节点对话框 */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>🏠 设置根节点 - 未分配的合作方</DialogTitle>
+            <DialogTitle>🏠 设置根节点 - 选择货主</DialogTitle>
           </DialogHeader>
           
           <div className="text-sm text-gray-600 mb-4">
-            以下合作方尚未设置层级，请选择需要设为根节点的：
+            以下货主尚未设为根节点（包括有上下级关系的），请选择需要设为根节点的：
           </div>
 
           <div className="max-h-96 overflow-y-auto border rounded p-2 space-y-1">
@@ -429,22 +470,30 @@ export default function PartnerHierarchyManagement() {
               <span>全选 ({selected.size} / {unassigned.length})</span>
             </div>
 
-            {unassigned.map((p: any) => (
-              <div
-                key={p.id}
-                onClick={() => toggleSel(p.id)}
-                className={`flex items-center gap-2 p-3 rounded cursor-pointer border ${
-                  selected.has(p.id) ? 'bg-blue-100 border-blue-300' : 'hover:bg-gray-50'
-                }`}
-              >
-                <input type="checkbox" checked={selected.has(p.id)} onChange={() => {}} />
-                <div className="flex-1">
-                  <div className="font-medium">{p.name}</div>
-                  {p.full_name && <div className="text-sm text-gray-600">{p.full_name}</div>}
+            {unassigned.map((p: any) => {
+              const parentName = partners.find(x => x.id === p.parent_partner_id)?.name;
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => toggleSel(p.id)}
+                  className={`flex items-center gap-2 p-3 rounded cursor-pointer border ${
+                    selected.has(p.id) ? 'bg-blue-100 border-blue-300' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <input type="checkbox" checked={selected.has(p.id)} onChange={() => {}} />
+                  <div className="flex-1">
+                    <div className="font-medium">{p.name}</div>
+                    <div className="text-sm text-gray-600">
+                      {parentName && `上级: ${parentName} | `}
+                      {p.full_name || '未设为根节点'}
+                    </div>
+                  </div>
+                  <Badge variant={p.parent_partner_id ? "secondary" : "outline"}>
+                    {p.parent_partner_id ? '有上级' : '独立'}
+                  </Badge>
                 </div>
-                <Badge variant="outline">未分配</Badge>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="flex justify-between pt-4 border-t">

@@ -106,6 +106,7 @@ export interface Partner {
   taxNumber?: string; // 税号
   companyAddress?: string; // 公司地址
   taxRate: number;  // 默认税点
+  partnerType?: '货主' | '合作商' | '资方' | '本公司'; // 合作方类型
   createdAt: string;
 }
 

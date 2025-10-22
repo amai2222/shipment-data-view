@@ -1420,6 +1420,7 @@ export type Database = {
           full_name: string | null
           id: string
           name: string
+          partner_type: '货主' | '合作商' | '资方' | '本公司'
           tax_number: string | null
           tax_rate: number
           user_id: string | null
@@ -1430,6 +1431,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           name: string
+          partner_type?: '货主' | '合作商' | '资方' | '本公司'
           tax_number?: string | null
           tax_rate: number
           user_id?: string | null
@@ -1440,6 +1442,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           name?: string
+          partner_type?: '货主' | '合作商' | '资方' | '本公司'
           tax_number?: string | null
           tax_rate?: number
           user_id?: string | null

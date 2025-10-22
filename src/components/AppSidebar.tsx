@@ -62,7 +62,7 @@ export const menuItems = [
       { title: "地点管理", url: "/locations", icon: MapPin },
       { title: "📍 地点管理（增强版）", url: "/locations-enhanced", icon: MapPin },
       { title: "合作方管理", url: "/partners", icon: Users },
-      { title: "🌳 合作方层级管理", url: "/partners/hierarchy", icon: TreePine },
+      { title: "🌳 货主层级管理", url: "/partners/hierarchy", icon: TreePine },
     ]
   },
   {
