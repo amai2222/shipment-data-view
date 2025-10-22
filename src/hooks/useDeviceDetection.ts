@@ -41,10 +41,11 @@ export function useDeviceDetection(): DeviceInfo {
       const isSmallScreen = screenWidth <= 768;
       const isMobile = isMobileDevice || isSmallScreen;
       
-      // 检测平板
-      const isTablet = /iPad|Android/i.test(userAgent) && screenWidth > 768 && screenWidth <= 1024;
+      // 检测平板 - 扩展范围，让更多设备使用移动端界面
+      // 768px - 1280px 的屏幕都视为平板
+      const isTablet = screenWidth > 768 && screenWidth <= 1280;
       
-      // 检测桌面
+      // 检测桌面 - 只有大于 1280px 的屏幕才使用桌面端
       const isDesktop = !isMobile && !isTablet;
       
       // 检测企业微信环境
@@ -89,7 +90,8 @@ export const getDeviceType = (): 'mobile' | 'tablet' | 'desktop' => {
   const isSmallScreen = screenWidth <= 768;
   
   if (isMobileDevice || isSmallScreen) return 'mobile';
-  if (/iPad|Android/i.test(userAgent) && screenWidth > 768 && screenWidth <= 1024) return 'tablet';
+  // 扩展平板范围到 1280px
+  if (screenWidth > 768 && screenWidth <= 1280) return 'tablet';
   return 'desktop';
 };
 
