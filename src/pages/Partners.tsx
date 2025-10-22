@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { supabase } from '@/integrations/supabase/client';
@@ -66,7 +67,8 @@ export default function Partners() {
     branchName: '',
     taxNumber: '',
     companyAddress: '',
-    taxRate: 0
+    taxRate: 0,
+    partnerType: '货主' as '货主' | '合作商' | '资方' | '本公司'
   });
 
   const fetchPartners = useCallback(async () => {
@@ -76,7 +78,7 @@ export default function Partners() {
         ({ data, error } = await supabase
           .from('partners')
           .select(`
-            id, name, tax_rate, created_at,
+            id, name, tax_rate, partner_type, created_at,
             partner_bank_details ( full_name, tax_number, company_address, bank_account, bank_name, branch_name ),
             project_partners (
               level, tax_rate,
@@ -88,7 +90,7 @@ export default function Partners() {
         ({ data, error } = await supabase
           .from('partners')
           .select(`
-            id, name, full_name, tax_rate, created_at,
+            id, name, full_name, tax_rate, partner_type, created_at,
             project_partners (
               level,
               projects ( id, name, auto_code )
@@ -116,6 +118,7 @@ export default function Partners() {
           taxNumber: bankDetails?.tax_number || '',
           companyAddress: bankDetails?.company_address || '',
           taxRate: Number(item.tax_rate),
+          partnerType: item.partner_type || '货主',
           createdAt: item.created_at,
         projects: (item.project_partners || []).map((pp: any) => ({
           projectId: pp.projects.id,
@@ -155,7 +158,8 @@ export default function Partners() {
       const partnerData = {
         user_id: user.id,
         name: formData.name.trim(),
-        tax_rate: formData.taxRate
+        tax_rate: formData.taxRate,
+        partner_type: formData.partnerType
       };
 
       if (editingPartner) {
@@ -228,7 +232,8 @@ export default function Partners() {
       branchName: partner.branchName || '',
       taxNumber: partner.taxNumber || '',
       companyAddress: partner.companyAddress || '',
-      taxRate: partner.taxRate
+      taxRate: partner.taxRate,
+      partnerType: partner.partnerType || '货主'
     });
 
     // 非财务/管理员用户可编辑但默认不展示，编辑时拉取自身可见的银行信息
@@ -323,7 +328,8 @@ export default function Partners() {
       branchName: '',
       taxNumber: '',
       companyAddress: '',
-      taxRate: 0
+      taxRate: 0,
+      partnerType: '货主'
     });
   };
 
@@ -348,6 +354,20 @@ export default function Partners() {
                 <div>
                   <Label htmlFor="name">合作方名称 *</Label>
                   <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="请输入合作方名称" />
+                </div>
+                <div>
+                  <Label htmlFor="partnerType">合作方类型 *</Label>
+                  <Select value={formData.partnerType} onValueChange={(value) => setFormData({ ...formData, partnerType: value as '货主' | '合作商' | '资方' | '本公司' })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择合作方类型" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="货主">货主（支持层级管理）</SelectItem>
+                      <SelectItem value="合作商">合作商</SelectItem>
+                      <SelectItem value="资方">资方</SelectItem>
+                      <SelectItem value="本公司">本公司</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="fullName">合作方全名</Label>

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Plus, 
   Search, 
@@ -48,7 +49,8 @@ export default function MobilePartners() {
     bankAccount: '',
     bankName: '',
     branchName: '',
-    taxRate: 0
+    taxRate: 0,
+    partnerType: '货主' as '货主' | '合作商' | '资方' | '本公司'
   });
 
   const { toast } = useToast();
@@ -68,7 +70,7 @@ export default function MobilePartners() {
         ({ data, error } = await supabase
           .from('partners')
           .select(`
-            id, name, tax_rate, created_at,
+            id, name, tax_rate, partner_type, created_at,
             partner_bank_details ( full_name, tax_number, company_address, bank_account, bank_name, branch_name ),
             project_partners (
               level, tax_rate,
@@ -80,7 +82,7 @@ export default function MobilePartners() {
         ({ data, error } = await supabase
           .from('partners')
           .select(`
-            id, name, full_name, tax_rate, created_at,
+            id, name, full_name, tax_rate, partner_type, created_at,
             project_partners (
               level,
               projects ( id, name, auto_code )
@@ -101,6 +103,7 @@ export default function MobilePartners() {
         taxNumber: item.partner_bank_details?.[0]?.tax_number || '',
         companyAddress: item.partner_bank_details?.[0]?.company_address || '',
         taxRate: Number(item.tax_rate),
+        partnerType: item.partner_type || '货主',
         createdAt: item.created_at,
         projects: (item.project_partners || []).map((pp: any) => ({
           projectId: pp.projects.id,
@@ -131,7 +134,8 @@ export default function MobilePartners() {
       bankAccount: '',
       bankName: '',
       branchName: '',
-      taxRate: 0
+      taxRate: 0,
+      partnerType: '货主'
     });
     setEditingPartner(null);
   };
@@ -143,7 +147,8 @@ export default function MobilePartners() {
       bankAccount: partner.bankAccount || '',
       bankName: partner.bankName || '',
       branchName: partner.branchName || '',
-      taxRate: partner.taxRate
+      taxRate: partner.taxRate,
+      partnerType: partner.partnerType || '货主'
     });
     setEditingPartner(partner);
     setShowAddDialog(true);
@@ -182,7 +187,8 @@ export default function MobilePartners() {
         user_id: user.id,
         name: formData.name.trim(),
         full_name: formData.fullName.trim() || null,
-        tax_rate: formData.taxRate
+        tax_rate: formData.taxRate,
+        partner_type: formData.partnerType
       };
 
       if (editingPartner) {
@@ -328,6 +334,24 @@ export default function MobilePartners() {
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="请输入合作方名称"
                     />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="partnerType">合作方类型 *</Label>
+                    <Select 
+                      value={formData.partnerType} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, partnerType: value as '货主' | '合作商' | '资方' | '本公司' }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择合作方类型" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="货主">货主（支持层级管理）</SelectItem>
+                        <SelectItem value="合作商">合作商</SelectItem>
+                        <SelectItem value="资方">资方</SelectItem>
+                        <SelectItem value="本公司">本公司</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div>
