@@ -216,9 +216,16 @@ export default function PartnerHierarchyManagement() {
     const target = partners.find(p => p.id === targetId);
     if (!drag || !target) return;
 
-    if (target.hierarchy_path?.includes(dragId)) {
-      toast.error('不能拖到子孙节点下');
-      return;
+    // 检查是否拖到子孙节点下（防止循环引用）
+    // hierarchy_path 格式：/uuid1/uuid2/uuid3
+    // 检查 target 的路径是否以 drag 的路径开头
+    if (drag.hierarchy_path && target.hierarchy_path) {
+      // target 是 drag 的子孙节点
+      if (target.hierarchy_path.startsWith(drag.hierarchy_path + '/') || 
+          target.hierarchy_path === drag.hierarchy_path) {
+        toast.error(`不能将 "${drag.name}" 拖到它的子孙节点 "${target.name}" 下`);
+        return;
+      }
     }
 
     if (!confirm(`将 "${drag.name}" 移到 "${target.name}" 下？`)) return;
@@ -476,12 +483,24 @@ export default function PartnerHierarchyManagement() {
                     if (!id) return;
                     
                     const p = partners.find(x => x.id === id);
-                    if (!p || !confirm(`将 "${p.name}" 设为根节点？`)) return;
+                    if (!p) return;
+                    
+                    // 如果有下级，不允许直接设为根节点
+                    const hasChildren = partners.some(x => x.parent_partner_id === id);
+                    if (hasChildren) {
+                      toast.error(`"${p.name}" 有下级货主，请先处理下级关系`);
+                      return;
+                    }
+                    
+                    if (!confirm(`将 "${p.name}" 设为根节点？\n\n如果该货主有上级，将断开上下级关系。`)) return;
                     
                     try {
                       const { error } = await supabase
                         .from('partners')
-                        .update({ parent_partner_id: null } as any)
+                        .update({ 
+                          parent_partner_id: null,
+                          is_root: true 
+                        } as any)
                         .eq('id', id);
                       
                       if (error) throw error;
@@ -495,7 +514,7 @@ export default function PartnerHierarchyManagement() {
                 >
                   <div className="text-4xl mb-2">🏠</div>
                   <div className="font-medium text-green-700">拖到这里设为根节点</div>
-                  <div className="text-xs text-gray-500 mt-1">将未分配或已有节点拖到这里，设置为独立的根节点</div>
+                  <div className="text-xs text-gray-500 mt-1">将任意节点（无下级）拖到这里，设置为独立的根节点</div>
                 </div>
               )}
             </>
