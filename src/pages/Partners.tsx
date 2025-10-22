@@ -9,11 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { supabase } from '@/integrations/supabase/client';
 import { Partner } from '@/types';
-import { Trash2, Edit, Plus, Download, Upload, Users } from 'lucide-react';
+import { Trash2, Edit, Plus, Download, Upload, Users, Eye, EyeOff } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PageHeader } from '@/components/PageHeader';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -59,6 +60,8 @@ export default function Partners() {
   const [partners, setPartners] = useState<PartnerWithProjects[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
+  const [activeTab, setActiveTab] = useState<'货主' | '合作商' | '资方' | '本公司'>('货主');
+  const [showDetails, setShowDetails] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     fullName: '',
@@ -408,57 +411,87 @@ export default function Partners() {
 
       <div className="space-y-6">
 
-      <Card>
-        <CardHeader><CardTitle>合作方列表</CardTitle></CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>合作方名称</TableHead>
-                <TableHead>合作方全名</TableHead>
-                <TableHead>税号</TableHead>
-                <TableHead>公司地址</TableHead>
-                {canViewSensitive && <TableHead>银行信息</TableHead>}
-                {canViewSensitive && <TableHead>默认税点</TableHead>}
-                <TableHead>关联项目</TableHead>
-                <TableHead>创建时间</TableHead>
-                <TableHead>操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {partners.map((partner) => (
-                 <TableRow key={partner.id}>
-                  <TableCell className="font-medium">{partner.name}</TableCell>
-                  <TableCell className="text-sm">
-                    {partner.fullName || <span className="text-muted-foreground">-</span>}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {partner.taxNumber || <span className="text-muted-foreground">-</span>}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {partner.companyAddress || <span className="text-muted-foreground">-</span>}
-                  </TableCell>
-                  {canViewSensitive && (
-                    <TableCell className="text-sm">
-                      <div className="space-y-1">
-                        {partner.bankAccount && (
-                          <div><span className="font-medium">账户:</span> {partner.bankAccount}</div>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as '货主' | '合作商' | '资方' | '本公司')} className="w-full">
+        <div className="flex items-center justify-between mb-4">
+          <TabsList className="grid w-auto grid-cols-4">
+            <TabsTrigger value="货主">货主</TabsTrigger>
+            <TabsTrigger value="合作商">合作商</TabsTrigger>
+            <TabsTrigger value="资方">资方</TabsTrigger>
+            <TabsTrigger value="本公司">本公司</TabsTrigger>
+          </TabsList>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowDetails(!showDetails)}
+            className="flex items-center gap-2"
+          >
+            {showDetails ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {showDetails ? '隐藏详细' : '显示详细'}
+          </Button>
+        </div>
+
+        {(['货主', '合作商', '资方', '本公司'] as const).map((type) => (
+          <TabsContent key={type} value={type}>
+            <Card>
+              <CardHeader>
+                <CardTitle>{type}列表 ({partners.filter(p => p.partnerType === type).length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>合作方名称</TableHead>
+                      {showDetails && <TableHead>合作方全名</TableHead>}
+                      {showDetails && <TableHead>税号</TableHead>}
+                      {showDetails && <TableHead>公司地址</TableHead>}
+                      {showDetails && canViewSensitive && <TableHead>银行信息</TableHead>}
+                      {canViewSensitive && <TableHead>默认税点</TableHead>}
+                      <TableHead>关联项目</TableHead>
+                      <TableHead>创建时间</TableHead>
+                      <TableHead>操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {partners.filter(p => p.partnerType === type).map((partner) => (
+                      <TableRow key={partner.id}>
+                        <TableCell className="font-medium">{partner.name}</TableCell>
+                        {showDetails && (
+                          <TableCell className="text-sm">
+                            {partner.fullName || <span className="text-muted-foreground">-</span>}
+                          </TableCell>
                         )}
-                        {partner.bankName && (
-                          <div><span className="font-medium">银行:</span> {partner.bankName}</div>
+                        {showDetails && (
+                          <TableCell className="text-sm">
+                            {partner.taxNumber || <span className="text-muted-foreground">-</span>}
+                          </TableCell>
                         )}
-                        {partner.branchName && (
-                          <div><span className="font-medium">网点:</span> {partner.branchName}</div>
+                        {showDetails && (
+                          <TableCell className="text-sm">
+                            {partner.companyAddress || <span className="text-muted-foreground">-</span>}
+                          </TableCell>
                         )}
-                        {!partner.bankAccount && !partner.bankName && !partner.branchName && (
-                          <span className="text-muted-foreground">-</span>
+                        {showDetails && canViewSensitive && (
+                          <TableCell className="text-sm">
+                            <div className="space-y-1">
+                              {partner.bankAccount && (
+                                <div><span className="font-medium">账户:</span> {partner.bankAccount}</div>
+                              )}
+                              {partner.bankName && (
+                                <div><span className="font-medium">银行:</span> {partner.bankName}</div>
+                              )}
+                              {partner.branchName && (
+                                <div><span className="font-medium">网点:</span> {partner.branchName}</div>
+                              )}
+                              {!partner.bankAccount && !partner.bankName && !partner.branchName && (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </div>
+                          </TableCell>
                         )}
-                      </div>
-                    </TableCell>
-                  )}
-                  {canViewSensitive && (
-                    <TableCell>{(partner.taxRate * 100).toFixed(2)}%</TableCell>
-                  )}
+                        {canViewSensitive && (
+                          <TableCell>{(partner.taxRate * 100).toFixed(2)}%</TableCell>
+                        )}
                   <TableCell>
                     <div className="max-w-xs space-y-1">
                       {partner.projects.length > 0 ? (
@@ -485,23 +518,33 @@ export default function Partners() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{new Date(partner.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(partner)}><Edit className="h-4 w-4" /></Button>
-                      <DeleteConfirmButton 
-                        partnerId={partner.id}
-                        partnerName={partner.name}
-                        onConfirm={handleDelete}
-                      />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                        <TableCell>{new Date(partner.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleEdit(partner)}><Edit className="h-4 w-4" /></Button>
+                            <DeleteConfirmButton 
+                              partnerId={partner.id}
+                              partnerName={partner.name}
+                              onConfirm={handleDelete}
+                            />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {partners.filter(p => p.partnerType === type).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={showDetails ? (canViewSensitive ? 9 : 7) : (canViewSensitive ? 5 : 4)} className="text-center py-8 text-muted-foreground">
+                          暂无{type}数据
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
       </div>
     </div>
   );

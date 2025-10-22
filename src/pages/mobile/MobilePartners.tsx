@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Plus, 
   Search, 
@@ -42,6 +43,8 @@ export default function MobilePartners() {
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSensitive, setShowSensitive] = useState(false);
+  const [activeTab, setActiveTab] = useState<'货主' | '合作商' | '资方' | '本公司'>('货主');
+  const [showDetails, setShowDetails] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -278,16 +281,27 @@ export default function MobilePartners() {
     }
   };
 
-  const filteredPartners = partners.filter(partner =>
-    partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    partner.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPartners = partners
+    .filter(partner => partner.partnerType === activeTab)
+    .filter(partner =>
+      partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      partner.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   return (
     <MobileLayout>
       <div className="space-y-4">
+        {/* 类型标签页 */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as '货主' | '合作商' | '资方' | '本公司')} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="货主" className="text-xs">货主</TabsTrigger>
+            <TabsTrigger value="合作商" className="text-xs">合作商</TabsTrigger>
+            <TabsTrigger value="资方" className="text-xs">资方</TabsTrigger>
+            <TabsTrigger value="本公司" className="text-xs">本公司</TabsTrigger>
+          </TabsList>
+        
         {/* 搜索和添加 */}
-        <div className="space-y-3">
+        <div className="space-y-3 mt-4">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -309,6 +323,16 @@ export default function MobilePartners() {
           </div>
 
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowDetails(!showDetails)}
+              className="flex items-center gap-2"
+            >
+              {showDetails ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showDetails ? '隐藏' : '详细'}
+            </Button>
+            
             <Dialog open={showAddDialog} onOpenChange={(open) => {
               setShowAddDialog(open);
               if (!open) resetForm();
@@ -466,7 +490,7 @@ export default function MobilePartners() {
                         <Building2 className="h-4 w-4 text-primary" />
                         {partner.name}
                       </CardTitle>
-                      {partner.fullName && (
+                      {showDetails && partner.fullName && (
                         <p className="text-sm text-muted-foreground mt-1">
                           {partner.fullName}
                         </p>
@@ -492,16 +516,32 @@ export default function MobilePartners() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {/* 基础信息（始终显示） */}
                   {canViewSensitive && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">默认税点</span>
+                      <Badge variant="secondary">
+                        {(partner.taxRate * 100).toFixed(2)}%
+                      </Badge>
+                    </div>
+                  )}
+
+                  {/* 详细信息（可展开） */}
+                  {showDetails && (
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">默认税点</span>
-                        <Badge variant="secondary">
-                          {(partner.taxRate * 100).toFixed(2)}%
-                        </Badge>
-                      </div>
-                      
-                      {showSensitive && (partner.bankAccount || partner.bankName || partner.branchName) && (
+                      {partner.taxNumber && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">税号：</span>
+                          <span className="font-mono">{partner.taxNumber}</span>
+                        </div>
+                      )}
+                      {partner.companyAddress && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">地址：</span>
+                          <span>{partner.companyAddress}</span>
+                        </div>
+                      )}
+                      {canViewSensitive && (partner.bankAccount || partner.bankName || partner.branchName) && (
                         <div className="text-sm space-y-1 pt-2 border-t border-border">
                           <span className="text-muted-foreground">银行信息</span>
                           {partner.bankAccount && (
@@ -576,6 +616,7 @@ export default function MobilePartners() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        </Tabs>
       </div>
     </MobileLayout>
   );
