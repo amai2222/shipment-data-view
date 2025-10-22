@@ -11,6 +11,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Link } from 'react-router-dom';
+import { PageHeader } from '@/components/PageHeader';
+import { Network, RefreshCw, Settings } from 'lucide-react';
 
 // 树节点组件
 const TreeNode = ({ node, level, onToggle, onDrop, onCancelRoot, onDetach, canEdit }: any) => {
@@ -331,26 +333,28 @@ export default function PartnerHierarchyManagement() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      {/* 头部 */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">🌳 货主层级管理</h1>
-          <p className="text-sm text-gray-600 mt-1">管理货主组织架构，上级可查看下级数据（不包括合作商）</p>
-        </div>
-        <div className="flex gap-2">
-          {unassigned.length > 0 && canEdit && (
-            <Button onClick={() => setShowDialog(true)} className="bg-orange-600 hover:bg-orange-700">
-              🏠 设置根节点 ({unassigned.length})
-            </Button>
-          )}
-          <Button variant="outline" asChild>
-            <Link to="/partners">📝 管理合作方信息</Link>
+      <PageHeader 
+        title="货主层级管理" 
+        description="管理货主组织架构，建立上下级关系"
+        icon={Network}
+        iconColor="text-blue-600"
+      >
+        {unassigned.length > 0 && canEdit && (
+          <Button onClick={() => setShowDialog(true)} className="bg-orange-600 hover:bg-orange-700">
+            设置根节点 ({unassigned.length})
           </Button>
-          <Button variant="outline" onClick={load}>
-            🔄 刷新
-          </Button>
-        </div>
-      </div>
+        )}
+        <Button variant="outline" asChild>
+          <Link to="/partners">
+            <Settings className="h-4 w-4 mr-2" />
+            管理合作方信息
+          </Link>
+        </Button>
+        <Button variant="outline" onClick={load}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          刷新
+        </Button>
+      </PageHeader>
 
       {/* 提示 */}
       <Card className="bg-blue-50 border-blue-200">
@@ -362,7 +366,7 @@ export default function PartnerHierarchyManagement() {
               <li>• 点击<strong>"取消根节点"</strong>或<strong>"脱离上级"</strong>可断开关系</li>
               <li>• 点击<strong>"设置根节点"</strong>按钮批量设置未分配的货主</li>
               <li>• 上级货主可以查看所有下级数据，不同链路完全隔离</li>
-              <li>• 🔵 <strong>只管理货主类型</strong>，其他类型不参与层级关系</li>
+              <li>• 只管理货主类型，其他类型不参与层级关系</li>
             </ul>
           </div>
         </CardContent>
@@ -410,7 +414,7 @@ export default function PartnerHierarchyManagement() {
       {/* 树 */}
       <Card>
         <CardHeader>
-          <CardTitle>🌳 组织架构树 ({partners.length})</CardTitle>
+          <CardTitle>组织架构树 ({partners.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -512,7 +516,7 @@ export default function PartnerHierarchyManagement() {
                   }}
                   className="mt-4 p-6 border-2 border-dashed border-green-300 rounded text-center hover:border-green-500 hover:bg-green-50 transition"
                 >
-                  <div className="text-4xl mb-2">🏠</div>
+                  <div className="text-4xl mb-2">↓</div>
                   <div className="font-medium text-green-700">拖到这里设为根节点</div>
                   <div className="text-xs text-gray-500 mt-1">将任意节点（无下级）拖到这里，设置为独立的根节点</div>
                 </div>
@@ -526,7 +530,7 @@ export default function PartnerHierarchyManagement() {
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>🏠 设置根节点 - 选择货主</DialogTitle>
+            <DialogTitle>设置根节点 - 选择货主</DialogTitle>
           </DialogHeader>
           
           <div className="text-sm text-gray-600 mb-4">
