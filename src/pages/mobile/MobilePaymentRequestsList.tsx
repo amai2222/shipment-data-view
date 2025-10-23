@@ -151,43 +151,66 @@ export default function MobilePaymentRequestsList() {
     try {
       setExportingId(req.id);
       
-      // 获取PDF数据
-      const { data: pdfData, error } = await supabase.rpc('get_payment_request_pdf_data' as any, {
+      // 使用Excel导出功能的数据结构 - 确保与Excel完全一致
+      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2' as any, {
         p_record_ids: req.logistics_record_ids
       });
 
       if (error) throw error;
 
-      // 生成PDF HTML内容 - 按照项目分组，每个项目一个表格
+      // 生成PDF HTML内容 - 使用与Excel导出完全相同的逻辑
       const generatePaymentRequestPDF = async (requestData: any): Promise<string> => {
         if (!requestData) {
           throw new Error('付款申请单数据不能为空');
         }
 
-        const { waybills, partner_totals, total_waybills } = requestData;
+        const records: any[] = Array.isArray((requestData as any)?.records) ? (requestData as any).records : [];
 
-        // 按项目分组运单数据
-        const waybillsByProject = (waybills || []).reduce((groups: { [key: string]: any[] }, waybill: any) => {
-          const projectName = waybill.project_name || '未知项目';
-          if (!groups[projectName]) {
-            groups[projectName] = [];
+        // 使用与Excel导出完全相同的分组逻辑
+        const sheetMap = new Map<string, any>();
+        for (const rec of records) {
+          const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
+          for (const cost of costs) {
+            const key = cost.partner_id;
+            if (!sheetMap.has(key)) {
+              sheetMap.set(key, {
+                paying_partner_id: key,
+                paying_partner_full_name: cost.full_name || cost.partner_name,
+                paying_partner_bank_account: cost.bank_account || '',
+                paying_partner_bank_name: cost.bank_name || '',
+                paying_partner_branch_name: cost.branch_name || '',
+                record_count: 0,
+                total_payable: 0,
+                project_name: rec.project_name,
+                records: [],
+              });
+            }
+            const sheet = sheetMap.get(key);
+            if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
+              sheet.record_count += 1;
+            }
+            sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
+            sheet.total_payable += Number(cost.payable_amount || 0);
           }
-          groups[projectName].push(waybill);
-          return groups;
-        }, {});
+        }
+        const sheetData = { sheets: Array.from(sheetMap.values()) };
 
-        // 获取收款人信息（从合作方汇总中获取）
-        const payeeInfo = partner_totals && partner_totals.length > 0 ? partner_totals[0] : null;
-
-        // 生成单个项目的表格 - 完全按照Excel导出逻辑
-        const generateProjectTable = (projectName: string, projectWaybills: any[]) => {
-          const projectTotal = projectWaybills.reduce((sum: number, waybill: any) => sum + (waybill.payable_cost || 0), 0);
+        // 生成单个合作方的表格 - 完全按照Excel导出逻辑
+        const generatePartnerTable = (sheet: any) => {
+          const sorted = (sheet.records || []).slice().sort((a: any, b: any) => 
+            String(a.record.auto_number || "").localeCompare(String(b.record.auto_number || ""))
+          );
+          
+          const payingPartnerName = sheet.paying_partner_full_name || sheet.paying_partner_name || "";
+          const bankAccount = sheet.paying_partner_bank_account || "";
+          const bankName = sheet.paying_partner_bank_name || "";
+          const branchName = sheet.paying_partner_branch_name || "";
           
           return `
-            <div class="project-section">
-              <!-- 项目信息头部 - 与Excel导出逻辑一致 -->
-              <div class="project-header">
-                <div class="project-title">项目名称：${projectName}</div>
+            <div class="partner-section">
+              <!-- 合作方信息头部 - 与Excel导出逻辑一致 -->
+              <div class="partner-header">
+                <div class="partner-title">项目名称：${sheet.project_name}</div>
                 <div class="request-id">申请编号：${req.request_id}</div>
               </div>
               
@@ -214,7 +237,7 @@ export default function MobilePaymentRequestsList() {
                 </thead>
                 <tbody>
                   <tr class="data-row">
-                    <td rowspan="${projectWaybills.length + 1}" class="shipper-cell">${projectName}</td>
+                    <td rowspan="${sorted.length + 1}" class="shipper-cell">${sheet.project_name}</td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -231,28 +254,35 @@ export default function MobilePaymentRequestsList() {
                     <td></td>
                     <td></td>
                   </tr>
-                  ${projectWaybills.map((waybill: any, index: number) => `
-                    <tr class="data-row">
-                      <td class="serial-number">${index + 1}</td>
-                      <td>${waybill.loading_date ? new Date(waybill.loading_date).toLocaleDateString('zh-CN') : ''}</td>
-                      <td>${waybill.unloading_date ? new Date(waybill.unloading_date).toLocaleDateString('zh-CN') : ''}</td>
-                      <td>${waybill.loading_location || ''}</td>
-                      <td>${waybill.unloading_location || ''}</td>
-                      <td>货物</td>
-                      <td>${waybill.driver_name || ''}</td>
-                      <td>${waybill.driver_phone || ''}</td>
-                      <td>${waybill.license_plate || ''}</td>
-                      <td>${waybill.loading_weight || ''}</td>
-                      <td class="amount-cell">${(waybill.payable_cost || 0).toFixed(2)}</td>
-                      <td>${payeeInfo ? payeeInfo.partner_name : ''}</td>
-                      <td>${payeeInfo ? '银行账号' : ''}</td>
-                      <td>${payeeInfo ? '开户行' : ''}</td>
-                      <td>${payeeInfo ? '支行网点' : ''}</td>
-                    </tr>
-                  `).join('')}
+                  ${sorted.map((item: any, index: number) => {
+                    const rec = item.record;
+                    let finalUnloadingDate = rec.unloading_date;
+                    if (!finalUnloadingDate) {
+                      finalUnloadingDate = rec.loading_date;
+                    }
+                    return `
+                      <tr class="data-row">
+                        <td class="serial-number">${index + 1}</td>
+                        <td>${rec.loading_date || ''}</td>
+                        <td>${finalUnloadingDate || ''}</td>
+                        <td>${rec.loading_location || ''}</td>
+                        <td>${rec.unloading_location || ''}</td>
+                        <td>${rec.cargo_type || '普货'}</td>
+                        <td>${rec.driver_name || ''}</td>
+                        <td>${rec.driver_phone || ''}</td>
+                        <td>${rec.license_plate || ''}</td>
+                        <td>${rec.loading_weight || ''}</td>
+                        <td class="amount-cell">${(item.payable_amount || 0).toFixed(2)}</td>
+                        <td>${payingPartnerName}</td>
+                        <td>${bankAccount}</td>
+                        <td>${bankName}</td>
+                        <td>${branchName}</td>
+                      </tr>
+                    `;
+                  }).join('')}
                   <tr class="total-row">
                     <td colspan="11" class="total-label">合计</td>
-                    <td class="total-amount">${projectTotal.toFixed(2)}</td>
+                    <td class="total-amount">${sheet.total_payable.toFixed(2)}</td>
                     <td colspan="4"></td>
                   </tr>
                 </tbody>
@@ -262,7 +292,7 @@ export default function MobilePaymentRequestsList() {
         };
 
         // 计算总金额
-        const totalAmount = (waybills || []).reduce((sum: number, waybill: any) => sum + (waybill.payable_cost || 0), 0);
+        const totalAmount = sheetData.sheets.reduce((sum: number, sheet: any) => sum + (sheet.total_payable || 0), 0);
 
         return `
           <!DOCTYPE html>
@@ -281,9 +311,9 @@ export default function MobilePaymentRequestsList() {
               .company-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
               .form-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; }
               .form-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; }
-              .project-section { margin-bottom: 40px; page-break-inside: avoid; }
-              .project-header { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 12px; font-weight: bold; }
-              .project-title { color: #333; }
+              .partner-section { margin-bottom: 40px; page-break-inside: avoid; }
+              .partner-header { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 12px; font-weight: bold; }
+              .partner-title { color: #333; }
               .request-id { color: #666; }
               .main-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
               .main-table th, .main-table td { border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 11px; }
@@ -321,8 +351,8 @@ export default function MobilePaymentRequestsList() {
               <div>申请编号: ${req.request_id}</div>
             </div>
 
-            ${Object.entries(waybillsByProject).map(([projectName, projectWaybills]) => 
-              generateProjectTable(projectName, projectWaybills as any[])
+            ${sheetData.sheets.map((sheet: any) => 
+              generatePartnerTable(sheet)
             ).join('')}
 
             <div class="remarks-section">
@@ -348,7 +378,7 @@ export default function MobilePaymentRequestsList() {
       };
 
       // 生成PDF内容
-      const printHTML = await generatePaymentRequestPDF(pdfData);
+      const printHTML = await generatePaymentRequestPDF(excelData);
       
       // 创建新窗口并写入HTML内容
       const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
