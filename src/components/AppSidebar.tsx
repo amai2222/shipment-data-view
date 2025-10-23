@@ -44,7 +44,6 @@ export const menuItems = [
       { title: "运输看板", url: "/dashboard/transport", icon: Truck },
       { title: "财务看板", url: "/dashboard/financial", icon: Banknote },
       { title: "项目看板", url: "/dashboard/project", icon: PieChart },
-      { title: "货主看板", url: "/dashboard/shipper", icon: TreePine, allRoles: true },
     ]
   },
   {
@@ -121,7 +120,6 @@ export function AppSidebar() {
       '/dashboard/transport': 'dashboard.transport',
       '/dashboard/financial': 'dashboard.financial',
       '/dashboard/project': 'dashboard.project',
-      '/dashboard/shipper': 'dashboard.shipper',
       
       // 合同管理
       '/contracts': 'contracts.list',

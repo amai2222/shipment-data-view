@@ -129,7 +129,6 @@ const mockPermissions = {
     { id: 'dashboard.transport', name: '运输仪表盘', description: '运输数据概览' },
     { id: 'dashboard.financial', name: '财务仪表盘', description: '财务数据概览' },
     { id: 'dashboard.project', name: '项目仪表盘', description: '项目数据概览' },
-    { id: 'dashboard.shipper', name: '货主看板', description: '货主数据和层级统计' },
     { id: 'dashboard.quantity', name: '数量仪表盘', description: '数量统计概览' },
     { id: 'maintenance', name: '维护管理', description: '系统维护管理' },
     { id: 'maintenance.projects', name: '项目管理', description: '项目维护管理' },

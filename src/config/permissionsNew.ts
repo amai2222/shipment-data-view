@@ -65,8 +65,7 @@ export const MENU_PERMISSIONS_NEW: PermissionGroupNew[] = [
     children: [
       { key: 'dashboard.transport', label: '运输看板', icon: 'Truck' },
       { key: 'dashboard.financial', label: '财务看板', icon: 'DollarSign' },
-      { key: 'dashboard.project', label: '项目看板', icon: 'PieChart' },
-      { key: 'dashboard.shipper', label: '货主看板', icon: 'TreePine' }
+      { key: 'dashboard.project', label: '项目看板', icon: 'PieChart' }
     ]
   },
   {

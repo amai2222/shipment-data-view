@@ -80,8 +80,6 @@ import MobileHomeNew from "./pages/mobile/MobileHomeNew";
 import MobileProjectRecords from "./pages/mobile/MobileProjectRecords";
 import MobileWaybillDetail from "./pages/mobile/MobileWaybillDetail";
 import MobileProjectDashboardDetail from "./pages/mobile/MobileProjectDashboardDetail";
-import ShipperDashboard from "./pages/ShipperDashboard";
-import MobileShipperDashboard from "./pages/mobile/MobileShipperDashboard";
 
 const queryClient = new QueryClient();
 
@@ -173,13 +171,6 @@ const App = () => (
             <Route path="/partners/hierarchy" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'operator']}>
                 <AppLayout><PartnerHierarchyManagement /></AppLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 货主看板 - 所有角色均可访问 */}
-            <Route path="/dashboard/shipper" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer', 'partner']}>
-                <AppLayout><ShipperDashboard /></AppLayout>
               </ProtectedRoute>
             } />
             
@@ -424,13 +415,6 @@ const App = () => (
             <Route path="/m/dashboard" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
                 <MobileDashboard />
-              </ProtectedRoute>
-            } />
-            
-            {/* 移动端货主看板 - 所有角色均可访问 */}
-            <Route path="/m/dashboard/shipper" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer', 'partner']}>
-                <MobileShipperDashboard />
               </ProtectedRoute>
             } />
             

@@ -80,8 +80,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     children: [
       { key: 'dashboard.transport', label: '运输看板', icon: 'Truck' },
       { key: 'dashboard.financial', label: '财务看板', icon: 'DollarSign' },
-      { key: 'dashboard.project', label: '项目看板', icon: 'PieChart' },
-      { key: 'dashboard.shipper', label: '货主看板', icon: 'TreePine' }
+      { key: 'dashboard.project', label: '项目看板', icon: 'PieChart' }
     ]
   },
   {
@@ -278,7 +277,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
   admin: {
     menu_permissions: [
       // 数据看板
-      'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project', 'dashboard.shipper',
+      'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project',
       // 信息维护
       'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.locations_enhanced', 'maintenance.partners',
       // 业务管理
@@ -310,7 +309,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
   },
   finance: {
     menu_permissions: [
-      'dashboard', 'dashboard.financial', 'dashboard.project', 'dashboard.shipper',
+      'dashboard', 'dashboard.financial', 'dashboard.project',
       'maintenance', 'maintenance.partners',
       'business', 'business.payment_request', 'business.invoice_request',
       'contracts', 'contracts.list',
@@ -333,7 +332,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
   },
   business: {
     menu_permissions: [
-      'dashboard', 'dashboard.transport', 'dashboard.project', 'dashboard.shipper',
+      'dashboard', 'dashboard.transport', 'dashboard.project',
       'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.locations_enhanced', 'maintenance.partners',
       'business', 'business.entry', 'business.scale',
       'contracts', 'contracts.list',
@@ -357,7 +356,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
   operator: {
     menu_permissions: [
       // 数据看板
-      'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.shipper',
+      'dashboard', 'dashboard.transport', 'dashboard.financial',
       // 信息维护
       'maintenance', 'maintenance.drivers', 'maintenance.locations', 'maintenance.partners',
       // 业务管理
@@ -390,7 +389,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
   },
   partner: {
     menu_permissions: [
-      'dashboard', 'dashboard.transport', 'dashboard.shipper'
+      'dashboard', 'dashboard.transport'
     ],
     function_permissions: [
       'data', 'data.view'
@@ -404,7 +403,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
   },
   viewer: {
     menu_permissions: [
-      'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project', 'dashboard.shipper',
+      'dashboard', 'dashboard.transport', 'dashboard.financial', 'dashboard.project',
       'maintenance', 'maintenance.projects', 'maintenance.drivers', 'maintenance.locations', 'maintenance.locations_enhanced', 'maintenance.partners',
       'contracts', 'contracts.list',
       'finance', 'finance.reconciliation'
