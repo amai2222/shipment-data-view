@@ -373,7 +373,7 @@ export default function PaymentRequestsList() {
                     `;
                   }).join('')}
                   <tr class="total-row">
-                    <td colspan="11" class="remarks-label">备注：</td>
+                    <td colspan="10" class="remarks-label">备注：</td>
                     <td class="total-amount">${(sheetData as { total_payable?: number }).total_payable?.toFixed(2) || '0.00'}</td>
                     <td colspan="4"></td>
                   </tr>

@@ -337,7 +337,7 @@ export default function MobilePaymentRequestsList() {
                     `;
                   }).join('')}
                   <tr class="total-row">
-                    <td colspan="11" class="remarks-label">备注：</td>
+                    <td colspan="10" class="remarks-label">备注：</td>
                     <td class="total-amount">${sheet.total_payable.toFixed(2)}</td>
                     <td colspan="4"></td>
                   </tr>
