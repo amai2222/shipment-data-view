@@ -107,7 +107,8 @@ export default function MobileShipperDashboard() {
   // 判断用户类型和权限
   const userRole = user?.role || 'viewer';
   const isPartnerRole = userRole === 'partner';
-  const currentShipperId = isPartnerRole ? user?.partnerId || null : selectedShipperId;
+  // 注意：系统中没有 user.partnerId 字段，需要从其他地方获取
+  const currentShipperId = isPartnerRole ? null : selectedShipperId; // 临时修改：合作方角色暂时无法访问
 
   // 加载可用货主列表（非合作方角色使用）
   const loadAvailableShippers = async () => {
@@ -135,11 +136,11 @@ export default function MobileShipperDashboard() {
   };
 
   const loadData = async () => {
-    // 合作方角色：必须有 partnerId
-    if (isPartnerRole && !user?.partnerId) {
+    // 合作方角色：暂时不支持（需要实现用户-合作方关联）
+    if (isPartnerRole) {
       toast({
-        title: '权限错误',
-        description: '您不是货主用户',
+        title: '功能暂未开放',
+        description: '合作方角色的货主看板功能正在开发中，请使用其他角色访问',
         variant: 'destructive'
       });
       setIsLoading(false);
@@ -229,22 +230,28 @@ export default function MobileShipperDashboard() {
     }
   }, [dateRange, currentShipperId]);
 
-  // 合作方角色但没有 partnerId
-  if (isPartnerRole && !user?.partnerId) {
+  // 合作方角色：暂时不支持
+  if (isPartnerRole) {
     return (
       <MobileLayout>
         <div className="flex items-center justify-center h-screen p-4">
           <Card className="w-full">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-red-500" />
-                权限不足
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+                功能开发中
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                您是合作方用户，但未关联货主信息，无法访问货主看板。
+                合作方角色的货主看板功能正在开发中，请使用其他角色访问。
               </p>
+              <div className="mt-4 p-3 bg-gray-50 rounded text-sm">
+                <p><strong>调试信息：</strong></p>
+                <p>用户角色: {user?.role}</p>
+                <p>用户ID: {user?.id}</p>
+                <p>状态: 功能开发中</p>
+              </div>
             </CardContent>
           </Card>
         </div>
