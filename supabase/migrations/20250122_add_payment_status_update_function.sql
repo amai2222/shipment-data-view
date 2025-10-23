@@ -41,8 +41,7 @@ BEGIN
         payment_completed_at = CASE 
             WHEN p_payment_status = 'Paid' THEN NOW()
             ELSE NULL
-        END,
-        updated_at = NOW()
+        END
     WHERE id = ANY(p_record_ids)
       AND payment_status != p_payment_status;
 

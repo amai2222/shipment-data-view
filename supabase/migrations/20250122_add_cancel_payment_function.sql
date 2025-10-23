@@ -35,10 +35,9 @@ BEGIN
 
     -- 更新 logistics_records 表的付款状态
     UPDATE public.logistics_records
-    SET 
+    SET
         payment_status = 'Unpaid',
-        payment_completed_at = NULL,
-        updated_at = NOW()
+        payment_completed_at = NULL
     WHERE id = ANY(p_record_ids)
       AND payment_status = 'Paid';  -- 只处理已付款的运单
 
@@ -49,8 +48,7 @@ BEGIN
     UPDATE public.logistics_partner_costs lpc
     SET 
         payment_status = 'Unpaid',
-        payment_completed_at = NULL,
-        updated_at = NOW()
+        payment_completed_at = NULL
     FROM public.logistics_records lr
     JOIN public.partners p ON lpc.partner_id = p.id
     WHERE lpc.logistics_record_id = lr.id
