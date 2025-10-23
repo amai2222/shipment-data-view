@@ -256,8 +256,16 @@ export default function PaymentRequestsList() {
             </thead>
           `);
           
+          // 获取合作方信息，与Excel导出逻辑一致
+          const parentTitle = sheet.paying_partner_full_name || sheet.paying_partner_name || "中科智运(云南)供应链科技有限公司";
+          
           return `
             <div class="partner-section">
+              <!-- 每个表格的独立文档标题 - 与Excel导出逻辑一致 -->
+              <div class="header">
+                <div class="company-title">${parentTitle}支付申请表</div>
+              </div>
+              
               <!-- 合作方信息头部 - 与Excel导出逻辑一致 -->
               <div class="partner-header">
                 <div class="partner-title">项目名称：${sheet.project_name}</div>
@@ -348,10 +356,10 @@ export default function PaymentRequestsList() {
                     <td class="signature-cell">信息专员签字</td>
                     <td class="signature-cell">信息部审核签字</td>
                     <td class="signature-cell">业务负责人签字</td>
+                    <td class="signature-cell">业务经理签字</td>
                     <td class="signature-cell">复核审批人签字</td>
-                    <td class="signature-cell">业务经理</td>
-                    <td class="signature-cell">业务总经理</td>
                     <td class="signature-cell">财务部审核签字</td>
+                    <td class="signature-cell">董事长签字</td>
                   </tr>
                   <tr>
                     <td class="signature-space"></td>
@@ -385,7 +393,8 @@ export default function PaymentRequestsList() {
               .company-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
               .form-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; }
               .form-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; }
-              .partner-section { margin-bottom: 40px; page-break-inside: avoid; }
+              .partner-section { margin-bottom: 40px; page-break-before: always; page-break-inside: avoid; }
+              .partner-section:first-child { page-break-before: auto; }
               .partner-header { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 12px; font-weight: bold; }
               .partner-title { color: #333; }
               .request-id { color: #666; }
@@ -431,14 +440,6 @@ export default function PaymentRequestsList() {
           <body>
             <button class="print-button" onclick="window.print()">🖨️ 打印申请表</button>
             
-            <div class="header">
-              <div class="company-title">中科智运(云南)供应链科技有限公司支付申请表</div>
-            </div>
-            
-            <div class="form-info">
-              <div>申请时间: ${new Date().toLocaleDateString('zh-CN')}</div>
-              <div>申请编号: ${req.request_id}</div>
-            </div>
 
             ${sheetData.sheets.map((sheet: any, index: number) => 
               generatePartnerTable(sheet, index)
