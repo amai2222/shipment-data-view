@@ -255,7 +255,7 @@ export default function MobilePaymentRequestsList() {
         const sheetData = { sheets: sortedSheets };
 
         // 生成单个合作方的表格 - 完全按照Excel导出逻辑
-        const generatePartnerTable = (sheet: any) => {
+        const generatePartnerTable = (sheet: any, index: number) => {
           const sorted = (sheet.records || []).slice().sort((a: any, b: any) => 
             String(a.record.auto_number || "").localeCompare(String(b.record.auto_number || ""))
           );
@@ -264,6 +264,8 @@ export default function MobilePaymentRequestsList() {
           const bankAccount = sheet.paying_partner_bank_account || "";
           const bankName = sheet.paying_partner_bank_name || "";
           const branchName = sheet.paying_partner_branch_name || "";
+          
+          console.log(`生成第 ${index + 1} 个表格，合作方: ${payingPartnerName}`);
           
           return `
             <div class="partner-section">
@@ -343,7 +345,7 @@ export default function MobilePaymentRequestsList() {
                     `;
                   }).join('')}
                   <tr class="total-row">
-                    <td colspan="11" class="total-label">合计</td>
+                    <td colspan="11" class="remarks-label">备注：</td>
                     <td class="total-amount">${sheet.total_payable.toFixed(2)}</td>
                     <td colspan="4"></td>
                   </tr>
@@ -361,24 +363,6 @@ export default function MobilePaymentRequestsList() {
                     <td class="signature-cell">业务经理</td>
                     <td class="signature-cell">业务总经理</td>
                     <td class="signature-cell">财务部审核签字</td>
-                  </tr>
-                  <tr>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
-                  </tr>
-                  <tr>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
-                    <td class="signature-space"></td>
                   </tr>
                   <tr>
                     <td class="signature-space"></td>
@@ -423,6 +407,10 @@ export default function MobilePaymentRequestsList() {
               .main-table th, .main-table td { border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 11px; }
               .main-table th { background: #f0f0f0; font-weight: bold; }
               .main-table .header-row th { background: #e0e0e0; font-weight: bold; }
+              .main-table .sub-header-row th { background: #e0e0e0; font-weight: bold; }
+              .main-table thead { display: table-header-group; }
+              .main-table thead tr { display: table-row; }
+              .main-table thead th { display: table-cell; }
               .main-table .data-row td { text-align: left; }
               .main-table .data-row td:first-child { text-align: center; }
               .main-table .data-row td:nth-child(11), .main-table .data-row td:nth-child(12), .main-table .data-row td:nth-child(13), .main-table .data-row td:nth-child(14), .main-table .data-row td:nth-child(15) { text-align: right; }
@@ -434,11 +422,12 @@ export default function MobilePaymentRequestsList() {
               .total-amount { text-align: right; font-weight: bold; }
               .remarks-section { margin: 15px 0; }
               .remarks-label { font-weight: bold; margin-bottom: 5px; }
-              .table-signature-section { margin-top: 20px; margin-bottom: 30px; }
-              .signature-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+              .table-signature-section { margin-top: 0; margin-bottom: 0; }
+              .signature-table { width: 100%; border-collapse: collapse; margin-top: 0; }
               .signature-table td { border: 1px solid #000; padding: 8px; text-align: center; font-size: 11px; }
               .signature-table .signature-cell { background: #f9f9f9; font-weight: bold; height: 30px; }
-              .signature-table .signature-space { height: 50px; background: white; }
+              .signature-table .signature-space { height: 80px; background: white; }
+              .remarks-label { text-align: left; font-weight: bold; }
               .print-button { position: fixed; top: 20px; right: 20px; z-index: 1000; background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 12px; }
               .print-button:hover { background: #1d4ed8; }
               @media print { .print-button { display: none; } }
@@ -456,8 +445,8 @@ export default function MobilePaymentRequestsList() {
               <div>申请编号: ${req.request_id}</div>
             </div>
 
-            ${sheetData.sheets.map((sheet: any) => 
-              generatePartnerTable(sheet)
+            ${sheetData.sheets.map((sheet: any, index: number) => 
+              generatePartnerTable(sheet, index)
             ).join('')}
 
             <div class="remarks-section">
