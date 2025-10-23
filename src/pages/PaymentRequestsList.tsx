@@ -143,36 +143,42 @@ export default function PaymentRequestsList() {
         // 获取收款人信息（从合作方汇总中获取）
         const payeeInfo = partner_totals && partner_totals.length > 0 ? partner_totals[0] : null;
 
-        // 生成单个项目的表格
+        // 生成单个项目的表格 - 完全按照Excel导出逻辑
         const generateProjectTable = (projectName: string, projectWaybills: any[]) => {
           const projectTotal = projectWaybills.reduce((sum: number, waybill: any) => sum + (waybill.payable_cost || 0), 0);
           
           return `
             <div class="project-section">
+              <!-- 项目信息头部 - 与Excel导出逻辑一致 -->
+              <div class="project-header">
+                <div class="project-title">项目名称：${projectName}</div>
+                <div class="request-id">申请编号：${req.request_id}</div>
+              </div>
+              
               <table class="main-table">
                 <thead>
                   <tr class="header-row">
-                    <th rowspan="2">货主单位</th>
-                    <th rowspan="2">序号</th>
-                    <th rowspan="2">实际出发时间</th>
-                    <th rowspan="2">实际到达时间</th>
-                    <th rowspan="2">起始地</th>
-                    <th rowspan="2">目的地</th>
-                    <th rowspan="2">货物</th>
-                    <th rowspan="2">司机</th>
-                    <th rowspan="2">司机电话</th>
-                    <th rowspan="2">车牌号</th>
-                    <th rowspan="2">吨位</th>
-                    <th rowspan="2">承运人运费</th>
-                    <th rowspan="2">收款人</th>
-                    <th rowspan="2">收款银行账号</th>
-                    <th rowspan="2">开户行名称</th>
-                    <th rowspan="2">支行网点</th>
+                    <th>货主单位</th>
+                    <th>序号</th>
+                    <th>实际出发时间</th>
+                    <th>实际到达时间</th>
+                    <th>起始地</th>
+                    <th>目的地</th>
+                    <th>货物</th>
+                    <th>司机</th>
+                    <th>司机电话</th>
+                    <th>车牌号</th>
+                    <th>吨位</th>
+                    <th>承运人运费</th>
+                    <th>收款人</th>
+                    <th>收款银行账号</th>
+                    <th>开户行名称</th>
+                    <th>支行网点</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr class="data-row">
-                    <td rowspan="${projectWaybills.length + 1}">${projectName}</td>
+                    <td rowspan="${projectWaybills.length + 1}" class="shipper-cell">${projectName}</td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -191,7 +197,7 @@ export default function PaymentRequestsList() {
                   </tr>
                   ${projectWaybills.map((waybill: any, index: number) => `
                     <tr class="data-row">
-                      <td>${index + 1}</td>
+                      <td class="serial-number">${index + 1}</td>
                       <td>${waybill.loading_date ? new Date(waybill.loading_date).toLocaleDateString('zh-CN') : ''}</td>
                       <td>${waybill.unloading_date ? new Date(waybill.unloading_date).toLocaleDateString('zh-CN') : ''}</td>
                       <td>${waybill.loading_location || ''}</td>
@@ -201,7 +207,7 @@ export default function PaymentRequestsList() {
                       <td>${waybill.driver_phone || ''}</td>
                       <td>${waybill.license_plate || ''}</td>
                       <td>${waybill.loading_weight || ''}</td>
-                      <td>${(waybill.payable_cost || 0).toFixed(2)}</td>
+                      <td class="amount-cell">${(waybill.payable_cost || 0).toFixed(2)}</td>
                       <td>${payeeInfo ? payeeInfo.partner_name : ''}</td>
                       <td>${payeeInfo ? '银行账号' : ''}</td>
                       <td>${payeeInfo ? '开户行' : ''}</td>
@@ -209,8 +215,8 @@ export default function PaymentRequestsList() {
                     </tr>
                   `).join('')}
                   <tr class="total-row">
-                    <td colspan="11">合计</td>
-                    <td>${projectTotal.toFixed(2)}</td>
+                    <td colspan="11" class="total-label">合计</td>
+                    <td class="total-amount">${projectTotal.toFixed(2)}</td>
                     <td colspan="4"></td>
                   </tr>
                 </tbody>
@@ -240,6 +246,9 @@ export default function PaymentRequestsList() {
               .form-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; }
               .form-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; }
               .project-section { margin-bottom: 40px; page-break-inside: avoid; }
+              .project-header { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 12px; font-weight: bold; }
+              .project-title { color: #333; }
+              .request-id { color: #666; }
               .main-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
               .main-table th, .main-table td { border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 11px; }
               .main-table th { background: #f0f0f0; font-weight: bold; }
@@ -248,6 +257,11 @@ export default function PaymentRequestsList() {
               .main-table .data-row td:first-child { text-align: center; }
               .main-table .data-row td:nth-child(11), .main-table .data-row td:nth-child(12), .main-table .data-row td:nth-child(13), .main-table .data-row td:nth-child(14), .main-table .data-row td:nth-child(15) { text-align: right; }
               .total-row { font-weight: bold; background: #f8f8f8; }
+              .shipper-cell { background: #f9f9f9; font-weight: bold; vertical-align: middle; }
+              .serial-number { text-align: center; }
+              .amount-cell { text-align: right; }
+              .total-label { text-align: center; font-weight: bold; }
+              .total-amount { text-align: right; font-weight: bold; }
               .remarks-section { margin: 15px 0; }
               .remarks-label { font-weight: bold; margin-bottom: 5px; }
               .signature-section { margin-top: 30px; }
