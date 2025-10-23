@@ -411,13 +411,11 @@ export default function Home() {
           if (!typeInfo || !data) return null;
           const filteredData = data.stats.filter(day => day.actualTransport > 0 || day.returns > 0);
 
-          const TypeIcon = typeInfo.icon;
-          
           return (
             <Card key={typeId} className="hover:shadow-lg transition-shadow duration-200">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2 flex-wrap">
-                  {TypeIcon && <TypeIcon className="h-5 w-5" />}
+                  {typeInfo.icon && <typeInfo.icon className="h-5 w-5" />}
                   <span>{selectedProjectName}</span>
                   <span className="font-bold">({typeInfo.name})</span>
                   <span>- 每日运输量</span>
@@ -466,7 +464,7 @@ export default function Home() {
                 ) : (
                   <div className="h-[500px] flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                     <div className="text-center">
-                      {TypeIcon && <TypeIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
+                      {typeInfo.icon && <typeInfo.icon className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
                       <p className="text-gray-500 text-lg font-medium">暂无{typeInfo.name}数据</p>
                       <p className="text-gray-400 text-sm mt-2">选择时间范围查看{typeInfo.name}运输量</p>
                     </div>
