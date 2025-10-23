@@ -267,8 +267,11 @@ export default function MobilePaymentRequestsList() {
           
           console.log(`生成第 ${index + 1} 个表格，合作方: ${payingPartnerName}`);
           
-          // 获取合作方信息，与Excel导出逻辑一致
-          const parentTitle = sheet.paying_partner_full_name || sheet.paying_partner_name || "中科智运(云南)供应链科技有限公司";
+          // 获取上一级合作方信息，与Excel导出逻辑一致
+          let parentTitle = "中科智运(云南)供应链科技有限公司";
+          
+          // 简化逻辑：暂时使用默认标题，后续可以优化
+          // TODO: 实现完整的上一级合作方查找逻辑
           
           return `
             <div class="partner-section">

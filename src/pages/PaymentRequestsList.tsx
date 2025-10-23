@@ -218,6 +218,27 @@ export default function PaymentRequestsList() {
         
         const sheetData = { sheets: sortedSheets };
 
+        // 获取项目合作方信息，实现与Excel导出相同的逻辑
+        const { data: projectsData } = await supabase.from('projects').select('id, name');
+        const { data: projectPartnersData } = await supabase.from('project_partners').select(`
+          project_id,
+          partner_id,
+          level,
+          partner_chains!inner(chain_name)
+        `);
+        const { data: partnersData } = await supabase.from('partners').select('id, name, full_name');
+        
+        const projectsByName = new Map((projectsData || []).map(p => [p.name, p.id]));
+        const partnersById = new Map((partnersData || []).map(p => [p.id, p]));
+        const projectPartnersByProjectId = (projectPartnersData || []).reduce((acc, pp) => {
+          if (!acc.has(pp.project_id)) acc.set(pp.project_id, []);
+          acc.get(pp.project_id).push({
+            ...pp,
+            chain_name: pp.partner_chains?.chain_name
+          });
+          return acc;
+        }, new Map());
+
         // 生成单个合作方的表格 - 完全按照Excel导出逻辑
         const generatePartnerTable = (sheet: any, index: number) => {
           const sorted = (sheet.records || []).slice().sort((a: any, b: any) => 
@@ -256,8 +277,30 @@ export default function PaymentRequestsList() {
             </thead>
           `);
           
-          // 获取合作方信息，与Excel导出逻辑一致
-          const parentTitle = sheet.paying_partner_full_name || sheet.paying_partner_name || "中科智运(云南)供应链科技有限公司";
+          // 获取上一级合作方信息，与Excel导出逻辑一致
+          let parentTitle = "中科智运(云南)供应链科技有限公司";
+          
+          // 获取当前合作方的级别，然后找到上一级合作方
+          const projectName = sheet.project_name;
+          const projectId = projectsByName.get(projectName);
+          const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
+          const partnersInChain = allPartnersInProject.filter((p) => !sheet.chain_name || p.chain_name === sheet.chain_name);
+          const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
+          const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === sheet.paying_partner_id);
+          
+          if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
+            if (currentPartnerInfo.level < maxLevelInChain - 1) {
+              const parentLevel = currentPartnerInfo.level + 1;
+              const parentInfo = partnersInChain.find((p) => p.level === parentLevel);
+              if (parentInfo) {
+                // 从已获取的数据中找到上一级合作方信息
+                const parentPartner = partnersById.get(parentInfo.partner_id);
+                if (parentPartner) {
+                  parentTitle = parentPartner.full_name || parentPartner.name || parentTitle;
+                }
+              }
+            }
+          }
           
           return `
             <div class="partner-section">
