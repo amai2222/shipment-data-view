@@ -177,7 +177,7 @@ export default function MobilePaymentRequestsList() {
       
       const filteredTotals = Array.from(totalsMap.values()).filter(
         pt => pt.level < maxLevel
-      );
+      ).sort((a, b) => (b.total_amount || 0) - (a.total_amount || 0));
       
       setPartnerTotals(filteredTotals);
 

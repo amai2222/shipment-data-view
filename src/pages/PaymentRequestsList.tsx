@@ -380,7 +380,9 @@ export default function PaymentRequestsList() {
             <div className="p-4 border rounded-lg bg-muted/50">
               <h4 className="mb-2 font-semibold text-foreground">金额汇总 (按合作方)</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
-                {partnerTotals.map(pt => (
+                {partnerTotals
+                  .sort((a, b) => (b.total_amount || 0) - (a.total_amount || 0))
+                  .map(pt => (
                   <div key={pt.partner_id} className="flex justify-between items-baseline">
                     <span className="text-sm text-muted-foreground">{pt.partner_name}:</span>
                     <span className="font-mono font-semibold text-primary">
@@ -407,7 +409,7 @@ export default function PaymentRequestsList() {
                     <TableHead>起运地 → 目的地</TableHead>
                     <TableHead>装车日期</TableHead>
                     <TableHead className="text-right">吨位</TableHead>
-                    <TableHead className="text-right">应付总额(元)</TableHead>
+                    <TableHead className="text-right">司机应收(元)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
