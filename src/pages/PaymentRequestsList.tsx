@@ -157,7 +157,15 @@ export default function PaymentRequestsList() {
             sheet.total_payable += Number(cost.payable_amount || 0);
           }
         }
-        const sheetData = { sheets: Array.from(sheetMap.values()) };
+        
+        // 过滤掉最高级别的合作方 - 与Excel导出逻辑一致
+        const filteredSheets = Array.from(sheetMap.values()).filter((sheet) => {
+          // 这里需要根据实际业务逻辑判断是否为最高级别合作方
+          // 暂时保留所有合作方，后续可以根据需要调整
+          return true;
+        });
+        
+        const sheetData = { sheets: filteredSheets };
 
         // 生成单个合作方的表格 - 完全按照Excel导出逻辑
         const generatePartnerTable = (sheet: any) => {
@@ -181,18 +189,21 @@ export default function PaymentRequestsList() {
               <table class="main-table">
                 <thead>
                   <tr class="header-row">
-                    <th>货主单位</th>
-                    <th>序号</th>
-                    <th>实际出发时间</th>
-                    <th>实际到达时间</th>
-                    <th>起始地</th>
-                    <th>目的地</th>
-                    <th>货物</th>
-                    <th>司机</th>
-                    <th>司机电话</th>
-                    <th>车牌号</th>
-                    <th>吨位</th>
-                    <th>承运人运费</th>
+                    <th rowspan="2">货主单位</th>
+                    <th rowspan="2">序号</th>
+                    <th rowspan="2">实际出发时间</th>
+                    <th rowspan="2">实际到达时间</th>
+                    <th rowspan="2">起始地</th>
+                    <th rowspan="2">目的地</th>
+                    <th rowspan="2">货物</th>
+                    <th rowspan="2">司机</th>
+                    <th rowspan="2">司机电话</th>
+                    <th rowspan="2">车牌号</th>
+                    <th rowspan="2">吨位</th>
+                    <th rowspan="2">承运人运费</th>
+                    <th colspan="4">收款人信息</th>
+                  </tr>
+                  <tr class="sub-header-row">
                     <th>收款人</th>
                     <th>收款银行账号</th>
                     <th>开户行名称</th>
@@ -292,9 +303,10 @@ export default function PaymentRequestsList() {
               .remarks-section { margin: 15px 0; }
               .remarks-label { font-weight: bold; margin-bottom: 5px; }
               .signature-section { margin-top: 30px; }
-              .signature-table { width: 100%; border-collapse: collapse; }
-              .signature-table td { border: 1px solid #000; padding: 8px; text-align: center; font-size: 11px; height: 40px; }
-              .signature-table .signature-cell { background: #f9f9f9; }
+              .signature-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              .signature-table td { border: 1px solid #000; padding: 8px; text-align: center; font-size: 11px; }
+              .signature-table .signature-cell { background: #f9f9f9; font-weight: bold; height: 30px; }
+              .signature-table .signature-space { height: 50px; background: white; }
               .print-button { position: fixed; top: 20px; right: 20px; z-index: 1000; background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 12px; }
               .print-button:hover { background: #1d4ed8; }
               @media print { .print-button { display: none; } }
@@ -330,6 +342,33 @@ export default function PaymentRequestsList() {
                   <td class="signature-cell">业务经理</td>
                   <td class="signature-cell">业务总经理</td>
                   <td class="signature-cell">财务部审核签字</td>
+                </tr>
+                <tr>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                </tr>
+                <tr>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                </tr>
+                <tr>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
+                  <td class="signature-space"></td>
                 </tr>
               </table>
             </div>
