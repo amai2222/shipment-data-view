@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, FileSpreadsheet, Receipt, Eye, AlertCircle, Send } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Receipt, Eye, AlertCircle, Send, FileText, Banknote } from 'lucide-react';
 import { MobilePaymentApproval } from '@/components/mobile/MobilePaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -131,6 +131,60 @@ export default function MobilePaymentRequestsList() {
         description: (error as any).message, 
         variant: 'destructive' 
       });
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const handleGeneratePDF = async (req: PaymentRequest) => {
+    try {
+      setExportingId(req.id);
+      
+      // 获取PDF数据
+      const { data: pdfData, error } = await supabase.rpc('generate_payment_request_pdf_data', {
+        p_record_ids: req.logistics_record_ids
+      });
+
+      if (error) throw error;
+
+      // 这里可以调用PDF生成库来生成PDF
+      // 由于没有安装PDF库，这里先显示一个提示
+      toast({ 
+        title: 'PDF生成功能', 
+        description: 'PDF生成功能正在开发中，数据已准备就绪。' 
+      });
+      
+      console.log('PDF数据:', pdfData);
+    } catch (error) {
+      console.error('生成PDF失败:', error);
+      toast({ title: '生成PDF失败', description: (error as any).message, variant: 'destructive' });
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const handlePayment = async (req: PaymentRequest) => {
+    try {
+      setExportingId(req.id);
+      
+      // 更新付款状态
+      const { data, error } = await supabase.rpc('update_payment_status_for_waybills', {
+        p_record_ids: req.logistics_record_ids,
+        p_payment_status: 'Paid'
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: '付款成功', 
+        description: `已更新 ${data?.updated_waybills || 0} 条运单的付款状态，同步了 ${data?.updated_partner_costs || 0} 条合作方成本记录。` 
+      });
+      
+      // 刷新数据
+      fetchPaymentRequests();
+    } catch (error) {
+      console.error('付款操作失败:', error);
+      toast({ title: '付款操作失败', description: (error as any).message, variant: 'destructive' });
     } finally {
       setExportingId(null);
     }
@@ -292,12 +346,11 @@ export default function MobilePaymentRequestsList() {
                     <span className="font-medium">{req.record_count ?? 0} 条</span>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
                       onClick={() => handleViewDetails(req)}
-                      className="flex-1"
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       查看详情
@@ -307,7 +360,6 @@ export default function MobilePaymentRequestsList() {
                       size="sm" 
                       onClick={() => handleExport(req)} 
                       disabled={exportingId === req.id}
-                      className="flex-1"
                     >
                       {exportingId === req.id ? (
                         <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -316,6 +368,26 @@ export default function MobilePaymentRequestsList() {
                       )}
                       导出
                     </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleGeneratePDF(req)} 
+                      disabled={exportingId === req.id}
+                    >
+                      <FileText className="h-4 w-4 mr-1" />
+                      生成PDF
+                    </Button>
+                    {req.status === 'Pending' && (
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => handlePayment(req)} 
+                        disabled={exportingId === req.id}
+                      >
+                        <Banknote className="h-4 w-4 mr-1" />
+                        付款
+                      </Button>
+                    )}
                   </div>
 
                   {req.status === 'Pending' && (
