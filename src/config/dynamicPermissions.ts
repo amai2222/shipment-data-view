@@ -10,6 +10,7 @@ const urlToPermissionKey: Record<string, string> = {
   '/dashboard/transport': 'dashboard.transport',
   '/dashboard/financial': 'dashboard.financial',
   '/dashboard/project': 'dashboard.project',
+  '/dashboard/shipper': 'dashboard.shipper',
   
   // 合同管理
   '/contracts': 'contracts.list',

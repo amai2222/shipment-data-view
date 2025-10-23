@@ -31,7 +31,8 @@ const MENU_PERMISSIONS = [
     permissions: [
       { key: 'dashboard.transport', label: '运输看板' },
       { key: 'dashboard.financial', label: '财务看板' },
-      { key: 'dashboard.project', label: '项目看板' }
+      { key: 'dashboard.project', label: '项目看板' },
+      { key: 'dashboard.shipper', label: '货主看板' }
     ]
   },
   {
