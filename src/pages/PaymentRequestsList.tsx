@@ -453,7 +453,7 @@ export default function PaymentRequestsList() {
       }
 
       if (idsToCancel.length === 0) {
-        toast({ title: "提示", description: "没有选择任何可作废的申请单（仅"待审批"和"已审批"状态可作废）。" });
+        toast({ title: "提示", description: "没有选择任何可作废的申请单（仅\"待审批\"和\"已审批\"状态可作废）。" });
         setIsCancelling(false);
         return;
       }
