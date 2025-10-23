@@ -451,9 +451,9 @@ export default function PaymentRequestsList() {
               .main-table { width: 100%; border-collapse: collapse; margin-bottom: 0; table-layout: auto; }
               .main-table th, .main-table td { border: 1px solid #000; padding: 2px 4px; text-align: center; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
               .main-table thead tr:last-child th { border-bottom: 1px solid #000; }
-              .main-table tbody tr:first-child td { border-top: 1px solid #000; }
-              .main-table tbody tr:first-child td:not(:first-child) { border-top: 1px solid #000; }
-              .main-table tbody tr:first-child td { border-top: 1px solid #000; }
+              .main-table tbody tr:first-child td { border-top: none; }
+              .main-table tbody tr:first-child td:not(:first-child) { border-top: none; }
+              .main-table tbody tr:first-child td { border-top: none; }
               .main-table th { background: #f0f0f0; font-weight: bold; display: table-cell; }
               .main-table .header-row th { background: #e0e0e0; font-weight: bold; display: table-cell; }
               .main-table .sub-header-row th { background: #e0e0e0; font-weight: bold; display: table-cell; }
@@ -478,7 +478,7 @@ export default function PaymentRequestsList() {
               .signature-table { width: 100%; border-collapse: collapse; margin-top: 0; margin-bottom: 0; }
               .signature-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 10px; }
               .signature-table { border-collapse: collapse; }
-              .signature-table tr:first-child td { border-top: 1px solid #000 !important; }
+              .signature-table tr:first-child td { border-top: none !important; }
               .signature-table .signature-cell { background: #f9f9f9; font-weight: bold; height: 30px; }
               .signature-table .signature-space { height: 80px; background: white; }
               .remarks-label { text-align: left; font-weight: bold; }
