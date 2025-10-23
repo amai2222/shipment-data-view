@@ -12,7 +12,7 @@ import {
   RadialBar,
   PolarAngleAxis
 } from 'recharts';
-import { TrendData } from '@/services/DashboardDataService';
+import type { TrendData } from '@/services/DashboardDataService';
 
 // 图表配置接口
 interface ChartConfig {
