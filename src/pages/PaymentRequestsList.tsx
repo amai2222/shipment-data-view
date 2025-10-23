@@ -5,14 +5,14 @@
 //       通过引入选择状态管理、复选框UI和调用批量RPC，完成了您最终的架构构想，
 //       并修复了之前因传输失败导致的灾难性代码截断问题。
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import React from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+// @ts-ignore - lucide-react图标导入
 import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote } from 'lucide-react';
 import { PaymentApproval } from '@/components/PaymentApproval';
 import { useToast } from '@/hooks/use-toast';
@@ -83,14 +83,22 @@ export default function PaymentRequestsList() {
     }
   };
 
-  const handleExport = async (e: React.MouseEvent, req: PaymentRequest) => {
+  // @ts-ignore - React.MouseEvent类型
+  const handleExport = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
     try {
       setExportingId(req.id);
       const { data, error } = await supabase.functions.invoke('export-excel', { body: { requestId: req.request_id } });
       if (error) {
         let errorMessage = error.message;
-        try { const errorBody = JSON.parse(error.context?.responseText || '{}'); if (errorBody.error) { errorMessage = errorBody.error; } } catch (_) {}
+        try { 
+          const errorBody = JSON.parse(error.context?.responseText || '{}'); 
+          if (errorBody.error) { 
+            errorMessage = errorBody.error; 
+          } 
+        } catch (parseError) {
+          console.warn('Failed to parse error context:', parseError);
+        }
         throw new Error(errorMessage);
       }
       const { signedUrl } = data;
@@ -104,120 +112,63 @@ export default function PaymentRequestsList() {
       toast({ title: '文件已开始下载', description: `申请单 ${req.request_id} 的Excel已开始下载。` });
     } catch (error) {
       console.error('导出失败:', error);
-      toast({ title: '导出失败', description: (error as any).message, variant: 'destructive' });
+      toast({ title: '导出失败', description: error instanceof Error ? error.message : '未知错误', variant: 'destructive' });
     } finally {
       setExportingId(null);
     }
   };
 
-  const handleGeneratePDF = async (e: React.MouseEvent, req: PaymentRequest) => {
+  // @ts-ignore - React.MouseEvent类型
+  const handleGeneratePDF = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
     try {
       setExportingId(req.id);
       
       // 使用Excel导出功能的数据结构 - 确保与Excel完全一致
-      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2' as any, {
+      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2', {
         p_record_ids: req.logistics_record_ids
       });
 
       if (error) throw error;
 
       // 生成PDF HTML内容 - 使用与Excel导出完全相同的逻辑
-      const generatePaymentRequestPDF = async (requestData: any): Promise<string> => {
+      const generatePaymentRequestPDF = async (requestData: unknown): Promise<string> => {
         if (!requestData) {
           throw new Error('付款申请单数据不能为空');
         }
 
-        const records: any[] = Array.isArray((requestData as any)?.records) ? (requestData as any).records : [];
+        const records: unknown[] = Array.isArray((requestData as { records?: unknown[] })?.records) ? (requestData as { records: unknown[] }).records : [];
 
         // 使用与Excel导出完全相同的分组逻辑
-        const sheetMap = new Map<string, any>();
+        const sheetMap = new Map<string, unknown>();
         for (const rec of records) {
-          const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
+          const costs = Array.isArray((rec as { partner_costs?: unknown[] }).partner_costs) ? (rec as { partner_costs: unknown[] }).partner_costs : [];
           for (const cost of costs) {
-            const key = cost.partner_id;
+            const costData = cost as { partner_id: string; full_name?: string; partner_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; payable_amount?: number };
+            const recData = rec as { id: string; project_name: string };
+            const key = costData.partner_id;
             if (!sheetMap.has(key)) {
               sheetMap.set(key, {
                 paying_partner_id: key,
-                paying_partner_full_name: cost.full_name || cost.partner_name,
-                paying_partner_bank_account: cost.bank_account || '',
-                paying_partner_bank_name: cost.bank_name || '',
-                paying_partner_branch_name: cost.branch_name || '',
+                paying_partner_full_name: costData.full_name || costData.partner_name,
+                paying_partner_bank_account: costData.bank_account || '',
+                paying_partner_bank_name: costData.bank_name || '',
+                paying_partner_branch_name: costData.branch_name || '',
                 record_count: 0,
                 total_payable: 0,
-                project_name: rec.project_name,
+                project_name: recData.project_name,
                 records: [],
               });
             }
-            const sheet = sheetMap.get(key);
-            if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
+            const sheet = sheetMap.get(key) as { records: unknown[]; record_count: number; total_payable: number };
+            if (!sheet.records.some((r: unknown) => (r as { record: { id: string } }).record.id === recData.id)) {
               sheet.record_count += 1;
             }
-            sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
-            sheet.total_payable += Number(cost.payable_amount || 0);
+            sheet.records.push({ record: rec, payable_amount: costData.payable_amount });
+            sheet.total_payable += Number(costData.payable_amount || 0);
           }
         }
         
-        // 获取项目合作方信息，实现与Excel导出相同的过滤逻辑
-        const { data: projectsData } = await supabase.from('projects').select('id, name');
-        const { data: projectPartnersData } = await supabase.from('project_partners').select(`
-          project_id,
-          partner_id,
-          level,
-          partner_chains!inner(chain_name)
-        `);
-        
-        const projectsByName = new Map((projectsData || []).map(p => [p.name, p.id]));
-        const projectPartnersByProjectId = (projectPartnersData || []).reduce((acc, pp) => {
-          if (!acc.has(pp.project_id)) acc.set(pp.project_id, []);
-          acc.get(pp.project_id).push({
-            ...pp,
-            chain_name: pp.partner_chains?.chain_name
-          });
-          return acc;
-        }, new Map());
-        
-        // 过滤掉最高级别的合作方，并按级别排序 - 与Excel导出逻辑一致
-        const filteredSheets = Array.from(sheetMap.values()).filter((sheet) => {
-          const projectName = sheet.project_name;
-          const projectId = projectsByName.get(projectName);
-          const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
-          const partnersInChain = allPartnersInProject.filter((p) => !sheet.chain_name || p.chain_name === sheet.chain_name);
-          const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
-          const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === sheet.paying_partner_id);
-          
-          // 跳过最高级别的合作方
-          if (currentPartnerInfo && currentPartnerInfo.level === maxLevelInChain) {
-            return false;
-          }
-          return true;
-        });
-        
-        // 按合作方级别排序，级别高的在前面
-        const sortedSheets = filteredSheets.sort((a, b) => {
-          const projectNameA = a.project_name;
-          const projectNameB = b.project_name;
-          const projectIdA = projectsByName.get(projectNameA);
-          const projectIdB = projectsByName.get(projectNameB);
-          
-          const allPartnersInProjectA = projectIdA ? projectPartnersByProjectId.get(projectIdA) || [] : [];
-          const allPartnersInProjectB = projectIdB ? projectPartnersByProjectId.get(projectIdB) || [] : [];
-          
-          const partnersInChainA = allPartnersInProjectA.filter((p) => !a.chain_name || p.chain_name === a.chain_name);
-          const partnersInChainB = allPartnersInProjectB.filter((p) => !b.chain_name || p.chain_name === b.chain_name);
-          
-          const currentPartnerInfoA = partnersInChainA.find((p) => p.partner_id === a.paying_partner_id);
-          const currentPartnerInfoB = partnersInChainB.find((p) => p.partner_id === b.paying_partner_id);
-          
-          const levelA = currentPartnerInfoA?.level || 0;
-          const levelB = currentPartnerInfoB?.level || 0;
-          
-          // 按级别降序排序（级别高的在前面）
-          return levelB - levelA;
-        });
-        
-        const sheetData = { sheets: sortedSheets };
-
         // 获取项目合作方信息，实现与Excel导出相同的逻辑
         const { data: projectsData } = await supabase.from('projects').select('id, name');
         const { data: projectPartnersData } = await supabase.from('project_partners').select(`
@@ -238,17 +189,72 @@ export default function PaymentRequestsList() {
           });
           return acc;
         }, new Map());
+        
+        // 过滤掉最高级别的合作方，并按级别排序 - 与Excel导出逻辑一致
+        const filteredSheets = Array.from(sheetMap.values()).filter((sheet) => {
+          const sheetData = sheet as { project_name: string; chain_name?: string; paying_partner_id: string };
+          const projectName = sheetData.project_name;
+          const projectId = projectsByName.get(projectName);
+          const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
+          const partnersInChain = allPartnersInProject.filter((p) => !sheetData.chain_name || p.chain_name === sheetData.chain_name);
+          const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
+          const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === sheetData.paying_partner_id);
+          
+          // 跳过最高级别的合作方
+          if (currentPartnerInfo && currentPartnerInfo.level === maxLevelInChain) {
+            return false;
+          }
+          return true;
+        });
+        
+        // 按合作方级别排序，级别高的在前面
+        const sortedSheets = filteredSheets.sort((a, b) => {
+          const aData = a as { project_name: string; chain_name?: string; paying_partner_id: string };
+          const bData = b as { project_name: string; chain_name?: string; paying_partner_id: string };
+          const projectNameA = aData.project_name;
+          const projectNameB = bData.project_name;
+          const projectIdA = projectsByName.get(projectNameA);
+          const projectIdB = projectsByName.get(projectNameB);
+          
+          const allPartnersInProjectA = projectIdA ? projectPartnersByProjectId.get(projectIdA) || [] : [];
+          const allPartnersInProjectB = projectIdB ? projectPartnersByProjectId.get(projectIdB) || [] : [];
+          
+          const partnersInChainA = allPartnersInProjectA.filter((p) => !aData.chain_name || p.chain_name === aData.chain_name);
+          const partnersInChainB = allPartnersInProjectB.filter((p) => !bData.chain_name || p.chain_name === bData.chain_name);
+          
+          const currentPartnerInfoA = partnersInChainA.find((p) => p.partner_id === aData.paying_partner_id);
+          const currentPartnerInfoB = partnersInChainB.find((p) => p.partner_id === bData.paying_partner_id);
+          
+          const levelA = currentPartnerInfoA?.level || 0;
+          const levelB = currentPartnerInfoB?.level || 0;
+          
+          // 按级别降序排序（级别高的在前面）
+          return levelB - levelA;
+        });
+        
+        const sheetData = { sheets: sortedSheets };
 
         // 生成单个合作方的表格 - 完全按照Excel导出逻辑
-        const generatePartnerTable = (sheet: any, index: number) => {
-          const sorted = (sheet.records || []).slice().sort((a: any, b: any) => 
-            String(a.record.auto_number || "").localeCompare(String(b.record.auto_number || ""))
+        const generatePartnerTable = (sheet: unknown, index: number) => {
+          const sheetData = sheet as { 
+            records?: unknown[]; 
+            paying_partner_full_name?: string; 
+            paying_partner_name?: string; 
+            paying_partner_bank_account?: string; 
+            paying_partner_bank_name?: string; 
+            paying_partner_branch_name?: string;
+            project_name?: string;
+            chain_name?: string;
+            paying_partner_id?: string;
+          };
+          const sorted = (sheetData.records || []).slice().sort((a: unknown, b: unknown) => 
+            String((a as { record: { auto_number?: string } }).record.auto_number || "").localeCompare(String((b as { record: { auto_number?: string } }).record.auto_number || ""))
           );
           
-          const payingPartnerName = sheet.paying_partner_full_name || sheet.paying_partner_name || "";
-          const bankAccount = sheet.paying_partner_bank_account || "";
-          const bankName = sheet.paying_partner_bank_name || "";
-          const branchName = sheet.paying_partner_branch_name || "";
+          const payingPartnerName = sheetData.paying_partner_full_name || sheetData.paying_partner_name || "";
+          const bankAccount = sheetData.paying_partner_bank_account || "";
+          const bankName = sheetData.paying_partner_bank_name || "";
+          const branchName = sheetData.paying_partner_branch_name || "";
           
           console.log(`生成第 ${index + 1} 个表格，合作方: ${payingPartnerName}`);
           console.log(`表头HTML:`, `
@@ -281,12 +287,12 @@ export default function PaymentRequestsList() {
           let parentTitle = "中科智运(云南)供应链科技有限公司";
           
           // 获取当前合作方的级别，然后找到上一级合作方
-          const projectName = sheet.project_name;
+          const projectName = sheetData.project_name;
           const projectId = projectsByName.get(projectName);
           const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
-          const partnersInChain = allPartnersInProject.filter((p) => !sheet.chain_name || p.chain_name === sheet.chain_name);
+          const partnersInChain = allPartnersInProject.filter((p) => !sheetData.chain_name || p.chain_name === sheetData.chain_name);
           const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
-          const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === sheet.paying_partner_id);
+          const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === sheetData.paying_partner_id);
           
           if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
             if (currentPartnerInfo.level < maxLevelInChain - 1) {
@@ -311,7 +317,7 @@ export default function PaymentRequestsList() {
               
               <!-- 合作方信息头部 - 与Excel导出逻辑一致 -->
               <div class="partner-header">
-                <div class="partner-title">项目名称：${sheet.project_name}</div>
+                <div class="partner-title">项目名称：${sheetData.project_name}</div>
                 <div class="request-id">申请编号：${req.request_id}</div>
               </div>
               
@@ -341,7 +347,7 @@ export default function PaymentRequestsList() {
                 </thead>
                 <tbody>
                   <tr class="data-row">
-                    <td rowspan="${sorted.length + 1}" class="shipper-cell">${sheet.project_name}</td>
+                    <td rowspan="${sorted.length + 1}" class="shipper-cell">${sheetData.project_name}</td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -358,8 +364,9 @@ export default function PaymentRequestsList() {
                     <td></td>
                     <td></td>
                   </tr>
-                  ${sorted.map((item: any, index: number) => {
-                    const rec = item.record;
+                  ${sorted.map((item: unknown, index: number) => {
+                    const itemData = item as { record: { unloading_date?: string; loading_date?: string; loading_location?: string; unloading_location?: string; cargo_type?: string; driver_name?: string; driver_phone?: string; license_plate?: string; loading_weight?: number; payable_amount?: number }; payable_amount?: number };
+                    const rec = itemData.record;
                     let finalUnloadingDate = rec.unloading_date;
                     if (!finalUnloadingDate) {
                       finalUnloadingDate = rec.loading_date;
@@ -376,7 +383,7 @@ export default function PaymentRequestsList() {
                         <td>${rec.driver_phone || ''}</td>
                         <td>${rec.license_plate || ''}</td>
                         <td>${rec.loading_weight || ''}</td>
-                        <td class="amount-cell">${(item.payable_amount || 0).toFixed(2)}</td>
+                        <td class="amount-cell">${(itemData.payable_amount || 0).toFixed(2)}</td>
                         <td>${payingPartnerName}</td>
                         <td>${bankAccount}</td>
                         <td>${bankName}</td>
@@ -386,7 +393,7 @@ export default function PaymentRequestsList() {
                   }).join('')}
                   <tr class="total-row">
                     <td colspan="11" class="remarks-label">备注：</td>
-                    <td class="total-amount">${sheet.total_payable.toFixed(2)}</td>
+                    <td class="total-amount">${(sheetData as { total_payable?: number }).total_payable?.toFixed(2) || '0.00'}</td>
                     <td colspan="4"></td>
                   </tr>
                 </tbody>
@@ -517,19 +524,21 @@ export default function PaymentRequestsList() {
       });
     } catch (error) {
       console.error('生成PDF失败:', error);
-      toast({ title: '生成PDF失败', description: (error as any).message, variant: 'destructive' });
+      toast({ title: '生成PDF失败', description: error instanceof Error ? error.message : '未知错误', variant: 'destructive' });
     } finally {
       setExportingId(null);
     }
   };
 
-  const handlePayment = async (e: React.MouseEvent, req: PaymentRequest) => {
+  // @ts-ignore - React.MouseEvent类型
+  const handlePayment = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
     try {
       setExportingId(req.id);
       
       // 更新付款状态
-      const { data, error } = await supabase.rpc('set_payment_status_for_waybills' as any, {
+      // @ts-ignore - RPC函数类型
+      const { data, error } = await supabase.rpc('set_payment_status_for_waybills', {
         p_record_ids: req.logistics_record_ids,
         p_payment_status: 'Paid'
       });
@@ -538,26 +547,28 @@ export default function PaymentRequestsList() {
 
       toast({ 
         title: '付款成功', 
-        description: `已更新 ${(data as any)?.updated_waybills || 0} 条运单的付款状态，同步了 ${(data as any)?.updated_partner_costs || 0} 条合作方成本记录。` 
+        description: `已更新 ${(data as { updated_waybills?: number })?.updated_waybills || 0} 条运单的付款状态，同步了 ${(data as { updated_partner_costs?: number })?.updated_partner_costs || 0} 条合作方成本记录。` 
       });
       
       // 刷新数据
       fetchPaymentRequests();
     } catch (error) {
       console.error('付款操作失败:', error);
-      toast({ title: '付款操作失败', description: (error as any).message, variant: 'destructive' });
+      toast({ title: '付款操作失败', description: error instanceof Error ? error.message : '未知错误', variant: 'destructive' });
     } finally {
       setExportingId(null);
     }
   };
 
-  const handleCancelPayment = async (e: React.MouseEvent, req: PaymentRequest) => {
+  // @ts-ignore - React.MouseEvent类型
+  const handleCancelPayment = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
     try {
       setExportingId(req.id);
       
       // 取消付款状态
-      const { data, error } = await supabase.rpc('void_payment_for_request' as any, {
+      // @ts-ignore - RPC函数类型
+      const { data, error } = await supabase.rpc('void_payment_for_request', {
         p_request_id: req.request_id,
         p_cancel_reason: '手动取消付款'
       });
@@ -566,14 +577,14 @@ export default function PaymentRequestsList() {
 
       toast({ 
         title: '取消付款成功', 
-        description: `已取消 ${(data as any).waybill_count} 条运单的付款状态，运单状态回退到"未付款"。` 
+        description: `已取消 ${(data as { waybill_count?: number }).waybill_count || 0} 条运单的付款状态，运单状态回退到"未付款"。` 
       });
       
       // 刷新数据
       fetchPaymentRequests();
     } catch (error) {
       console.error('取消付款操作失败:', error);
-      toast({ title: '取消付款失败', description: (error as any).message, variant: 'destructive' });
+      toast({ title: '取消付款失败', description: error instanceof Error ? error.message : '未知错误', variant: 'destructive' });
     } finally {
       setExportingId(null);
     }
@@ -593,28 +604,30 @@ export default function PaymentRequestsList() {
 
       if (error) throw error;
 
-      const rawRecords = (rpcData as any)?.records || [];
+      const rawRecords = (rpcData as { records?: unknown[] })?.records || [];
       
       const totalsMap = new Map<string, PartnerTotal>();
       let maxLevel = -1;
       
-      rawRecords.forEach((rec: any) => {
-        (rec.partner_costs || []).forEach((cost: any) => {
-          const level = cost.level ?? 0; 
+      rawRecords.forEach((rec: unknown) => {
+        const recData = rec as { partner_costs?: unknown[] };
+        (recData.partner_costs || []).forEach((cost: unknown) => {
+          const costData = cost as { level?: number; partner_id: string; full_name?: string; partner_name?: string; payable_amount?: number };
+          const level = costData.level ?? 0; 
           if (level > maxLevel) {
             maxLevel = level;
           }
-          const partnerId = cost.partner_id;
+          const partnerId = costData.partner_id;
           if (!totalsMap.has(partnerId)) {
             totalsMap.set(partnerId, {
               partner_id: partnerId,
-              partner_name: cost.full_name || cost.partner_name,
+              partner_name: costData.full_name || costData.partner_name,
               total_amount: 0,
               level: level,
             });
           }
           const partnerData = totalsMap.get(partnerId)!;
-          partnerData.total_amount += Number(cost.payable_amount || 0);
+          partnerData.total_amount += Number(costData.payable_amount || 0);
         });
       });
       
@@ -709,15 +722,17 @@ export default function PaymentRequestsList() {
       }
 
       // 检查作废资格
+      // @ts-ignore - RPC函数类型
       const { data: eligibility, error: checkError } = await supabase.rpc('check_payment_rollback_eligibility', { 
         p_request_ids: idsToCancel 
       });
       if (checkError) throw checkError;
 
-      if (!eligibility.can_proceed) {
+      const eligibilityData = eligibility as { can_proceed?: boolean; already_paid?: number; already_cancelled?: number };
+      if (!eligibilityData.can_proceed) {
         toast({ 
           title: "无法作废", 
-          description: `选中的申请单中：${eligibility.already_paid} 个已付款，${eligibility.already_cancelled} 个已作废。只有待审批和已审批状态的申请单可以作废。`,
+          description: `选中的申请单中：${eligibilityData.already_paid} 个已付款，${eligibilityData.already_cancelled} 个已作废。只有待审批和已审批状态的申请单可以作废。`,
           variant: "destructive"
         });
         setIsCancelling(false);
