@@ -122,7 +122,7 @@ export default function PaymentRequestsList() {
 
       if (error) throw error;
 
-      // 生成PDF HTML内容
+      // 生成PDF HTML内容 - 按照项目分组，每个项目一个表格
       const generatePaymentRequestPDF = async (requestData: any): Promise<string> => {
         if (!requestData) {
           throw new Error('付款申请单数据不能为空');
@@ -130,25 +130,97 @@ export default function PaymentRequestsList() {
 
         const { waybills, partner_totals, total_waybills } = requestData;
 
-        // 基础信息
-        const basicInfo = [
-          { label: '申请编号:', value: req.request_id },
-          { label: '申请时间:', value: new Date().toLocaleString('zh-CN') },
-          { label: '运单数量:', value: `${total_waybills || 0} 条` },
-          { label: '合作方数量:', value: `${partner_totals?.length || 0} 个` }
-        ];
+        // 按项目分组运单数据
+        const waybillsByProject = (waybills || []).reduce((groups: { [key: string]: any[] }, waybill: any) => {
+          const projectName = waybill.project_name || '未知项目';
+          if (!groups[projectName]) {
+            groups[projectName] = [];
+          }
+          groups[projectName].push(waybill);
+          return groups;
+        }, {});
 
-        // 合作方汇总信息
-        const partnerInfo = (partner_totals || []).map((partner: any) => ({
-          label: `${partner.partner_name} (${partner.level}级):`,
-          value: `¥${(partner.total_amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
-        }));
+        // 获取收款人信息（从合作方汇总中获取）
+        const payeeInfo = partner_totals && partner_totals.length > 0 ? partner_totals[0] : null;
 
-        // 运单明细信息
-        const waybillInfo = (waybills || []).map((waybill: any) => ({
-          label: `${waybill.auto_number}:`,
-          value: `${waybill.driver_name} | ${waybill.loading_location} → ${waybill.unloading_location} | ¥${(waybill.payable_cost || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
-        }));
+        // 生成单个项目的表格
+        const generateProjectTable = (projectName: string, projectWaybills: any[]) => {
+          const projectTotal = projectWaybills.reduce((sum: number, waybill: any) => sum + (waybill.payable_cost || 0), 0);
+          
+          return `
+            <div class="project-section">
+              <table class="main-table">
+                <thead>
+                  <tr class="header-row">
+                    <th rowspan="2">货主单位</th>
+                    <th rowspan="2">序号</th>
+                    <th rowspan="2">实际出发时间</th>
+                    <th rowspan="2">实际到达时间</th>
+                    <th rowspan="2">起始地</th>
+                    <th rowspan="2">目的地</th>
+                    <th rowspan="2">货物</th>
+                    <th rowspan="2">司机</th>
+                    <th rowspan="2">司机电话</th>
+                    <th rowspan="2">车牌号</th>
+                    <th rowspan="2">吨位</th>
+                    <th rowspan="2">承运人运费</th>
+                    <th rowspan="2">收款人</th>
+                    <th rowspan="2">收款银行账号</th>
+                    <th rowspan="2">开户行名称</th>
+                    <th rowspan="2">支行网点</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="data-row">
+                    <td rowspan="${projectWaybills.length + 1}">${projectName}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  ${projectWaybills.map((waybill: any, index: number) => `
+                    <tr class="data-row">
+                      <td>${index + 1}</td>
+                      <td>${waybill.loading_date ? new Date(waybill.loading_date).toLocaleDateString('zh-CN') : ''}</td>
+                      <td>${waybill.unloading_date ? new Date(waybill.unloading_date).toLocaleDateString('zh-CN') : ''}</td>
+                      <td>${waybill.loading_location || ''}</td>
+                      <td>${waybill.unloading_location || ''}</td>
+                      <td>货物</td>
+                      <td>${waybill.driver_name || ''}</td>
+                      <td>${waybill.driver_phone || ''}</td>
+                      <td>${waybill.license_plate || ''}</td>
+                      <td>${waybill.loading_weight || ''}</td>
+                      <td>${(waybill.payable_cost || 0).toFixed(2)}</td>
+                      <td>${payeeInfo ? payeeInfo.partner_name : ''}</td>
+                      <td>${payeeInfo ? '银行账号' : ''}</td>
+                      <td>${payeeInfo ? '开户行' : ''}</td>
+                      <td>${payeeInfo ? '支行网点' : ''}</td>
+                    </tr>
+                  `).join('')}
+                  <tr class="total-row">
+                    <td colspan="11">合计</td>
+                    <td>${projectTotal.toFixed(2)}</td>
+                    <td colspan="4"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          `;
+        };
+
+        // 计算总金额
+        const totalAmount = (waybills || []).reduce((sum: number, waybill: any) => sum + (waybill.payable_cost || 0), 0);
 
         return `
           <!DOCTYPE html>
@@ -156,90 +228,69 @@ export default function PaymentRequestsList() {
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>付款申请单 - ${req.request_id}</title>
+            <title>支付申请表 - ${req.request_id}</title>
             <style>
               @media print {
-                @page { size: A4; margin: 20mm; }
-                body { margin: 0; padding: 0; font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 12px; line-height: 1.4; color: #000; }
+                @page { size: A4; margin: 15mm; }
+                body { margin: 0; padding: 0; font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 12px; line-height: 1.2; color: #000; }
               }
-              body { font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 12px; line-height: 1.4; color: #000; margin: 0; padding: 20px; background: white; }
-              .company-logo { text-align: center; font-size: 28px; font-weight: bold; color: #2563eb; margin-bottom: 20px; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
-              .document-content { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-              .info-section { border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; background: #f9fafb; }
-              .section-title { font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 15px; text-align: center; border-bottom: 1px solid #d1d5db; padding-bottom: 8px; }
-              .info-item { display: flex; margin-bottom: 8px; align-items: flex-start; }
-              .info-label { font-weight: bold; color: #374151; min-width: 120px; margin-right: 8px; }
-              .info-value { color: #1f2937; flex: 1; word-break: break-all; }
-              .waybill-section { grid-column: 1 / -1; margin-top: 20px; }
-              .waybill-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-              .waybill-table th, .waybill-table td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
-              .waybill-table th { background: #f3f4f6; font-weight: bold; }
-              .barcode-section { text-align: center; margin: 30px 0; padding: 20px; border: 2px dashed #d1d5db; border-radius: 8px; background: #f9fafb; }
-              .barcode-title { font-size: 14px; font-weight: bold; color: #374151; margin-bottom: 10px; }
-              .barcode { font-family: 'Courier New', monospace; font-size: 10px; line-height: 1; color: #000; background: white; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; display: inline-block; letter-spacing: 1px; }
-              .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #6b7280; border-top: 1px solid #d1d5db; padding-top: 15px; }
-              .print-button { position: fixed; top: 20px; right: 20px; z-index: 1000; background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+              body { font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 12px; line-height: 1.2; color: #000; margin: 0; padding: 15px; background: white; }
+              .header { text-align: center; margin-bottom: 20px; }
+              .company-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+              .form-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; }
+              .form-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; }
+              .project-section { margin-bottom: 40px; page-break-inside: avoid; }
+              .main-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+              .main-table th, .main-table td { border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 11px; }
+              .main-table th { background: #f0f0f0; font-weight: bold; }
+              .main-table .header-row th { background: #e0e0e0; font-weight: bold; }
+              .main-table .data-row td { text-align: left; }
+              .main-table .data-row td:first-child { text-align: center; }
+              .main-table .data-row td:nth-child(11), .main-table .data-row td:nth-child(12), .main-table .data-row td:nth-child(13), .main-table .data-row td:nth-child(14), .main-table .data-row td:nth-child(15) { text-align: right; }
+              .total-row { font-weight: bold; background: #f8f8f8; }
+              .remarks-section { margin: 15px 0; }
+              .remarks-label { font-weight: bold; margin-bottom: 5px; }
+              .signature-section { margin-top: 30px; }
+              .signature-table { width: 100%; border-collapse: collapse; }
+              .signature-table td { border: 1px solid #000; padding: 8px; text-align: center; font-size: 11px; height: 40px; }
+              .signature-table .signature-cell { background: #f9f9f9; }
+              .print-button { position: fixed; top: 20px; right: 20px; z-index: 1000; background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 12px; }
               .print-button:hover { background: #1d4ed8; }
               @media print { .print-button { display: none; } }
             </style>
           </head>
           <body>
-            <button class="print-button" onclick="window.print()">🖨️ 打印付款申请单</button>
-            <div class="company-logo">中科智运付款申请单</div>
-            <div class="document-content">
-              <div class="info-section">
-                <div class="section-title">申请信息</div>
-                ${basicInfo.map(item => `
-                  <div class="info-item">
-                    <div class="info-label">${item.label}</div>
-                    <div class="info-value">${item.value}</div>
-                  </div>
-                `).join('')}
-              </div>
-              <div class="info-section">
-                <div class="section-title">合作方汇总</div>
-                ${partnerInfo.map(item => `
-                  <div class="info-item">
-                    <div class="info-label">${item.label}</div>
-                    <div class="info-value">${item.value}</div>
-                  </div>
-                `).join('')}
-              </div>
+            <button class="print-button" onclick="window.print()">🖨️ 打印申请表</button>
+            
+            <div class="header">
+              <div class="company-title">中科智运(云南)供应链科技有限公司支付申请表</div>
             </div>
-            <div class="waybill-section">
-              <div class="section-title">运单明细</div>
-              <table class="waybill-table">
-                <thead>
-                  <tr>
-                    <th>运单号</th>
-                    <th>司机</th>
-                    <th>路线</th>
-                    <th>装货日期</th>
-                    <th>司机应收</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${waybillInfo.map(item => `
-                    <tr>
-                      <td>${item.label.replace(':', '')}</td>
-                      <td>${item.value.split(' | ')[0]}</td>
-                      <td>${item.value.split(' | ')[1]}</td>
-                      <td>${item.value.split(' | ')[2] || ''}</td>
-                      <td>${item.value.split(' | ')[3] || ''}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
+            
+            <div class="form-info">
+              <div>申请时间: ${new Date().toLocaleDateString('zh-CN')}</div>
+              <div>申请编号: ${req.request_id}</div>
+            </div>
+
+            ${Object.entries(waybillsByProject).map(([projectName, projectWaybills]) => 
+              generateProjectTable(projectName, projectWaybills as any[])
+            ).join('')}
+
+            <div class="remarks-section">
+              <div class="remarks-label">备注:</div>
+            </div>
+
+            <div class="signature-section">
+              <table class="signature-table">
+                <tr>
+                  <td class="signature-cell">信息专员签字</td>
+                  <td class="signature-cell">信息部审核签字</td>
+                  <td class="signature-cell">业务负责人签字</td>
+                  <td class="signature-cell">复核审批人签字</td>
+                  <td class="signature-cell">业务经理</td>
+                  <td class="signature-cell">业务总经理</td>
+                  <td class="signature-cell">财务部审核签字</td>
+                </tr>
               </table>
-            </div>
-            <div class="barcode-section">
-              <div class="barcode-title">申请单号条形码</div>
-              <div class="barcode">${req.request_id}</div>
-              <div style="margin-top: 8px; font-size: 10px; color: #6b7280;">申请单号: ${req.request_id}</div>
-            </div>
-            <div class="footer">
-              <div class="footer-item">生成时间: ${new Date().toLocaleString('zh-CN')}</div>
-              <div class="footer-item">本申请单具有法律效力，请妥善保管</div>
-              <div class="footer-item">中科智运运输有限公司</div>
             </div>
           </body>
           </html>
