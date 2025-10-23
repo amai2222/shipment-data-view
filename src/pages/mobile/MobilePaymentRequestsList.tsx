@@ -182,10 +182,6 @@ export default function MobilePaymentRequestsList() {
       setPartnerTotals(filteredTotals);
 
       const detailedRecords = rawRecords.map((rec: any) => {
-        const totalPayable = (rec.partner_costs || []).reduce(
-          (sum: number, cost: any) => sum + Number(cost.payable_amount || 0),
-          0
-        );
         return {
           id: rec.id,
           auto_number: rec.auto_number,
@@ -195,7 +191,7 @@ export default function MobilePaymentRequestsList() {
           unloading_location: rec.unloading_location,
           loading_date: rec.loading_date,
           loading_weight: rec.loading_weight,
-          payable_amount: totalPayable,
+          payable_amount: rec.payable_cost || 0, // 使用运单的司机应收金额，而不是所有合作方应付金额的总和
         };
       });
       
