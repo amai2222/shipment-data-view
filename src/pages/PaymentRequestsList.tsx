@@ -430,6 +430,7 @@ export default function PaymentRequestsList() {
               .partner-title { color: #333; }
               .request-id { color: #666; }
               .main-table { width: 100%; border-collapse: collapse; margin-bottom: 0; table-layout: auto; }
+              .signature-table { width: 100%; table-layout: auto; }
               .main-table th { border: 1px solid #000; padding: 2px 4px; text-align: center; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
               .main-table td { border: 1px solid #000; padding: 2px 4px; text-align: center; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
               .main-table thead tr:last-child th { border-bottom: 1px solid #000; }
@@ -457,13 +458,13 @@ export default function PaymentRequestsList() {
               .remarks-section { margin: 15px 0; }
               .remarks-label { font-weight: bold; margin-bottom: 5px; }
               .table-signature-section { margin-top: 0; margin-bottom: 0; padding-top: 0; }
-              .signature-table { width: 100%; border-collapse: collapse; margin-top: 0; margin-bottom: 0; }
+              .signature-table { width: 100%; border-collapse: collapse; margin-top: 0; margin-bottom: 0; table-layout: auto; }
               .signature-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 10px; }
               .signature-table { border-collapse: collapse; }
               .signature-table tr:first-child td { border-top: none !important; }
               .signature-table .signature-cell { background: #f9f9f9; font-weight: bold; height: 30px; }
               .signature-table .signature-space { height: 80px; background: white; }
-              .remarks-label { text-align: left; font-weight: bold; }
+              .remarks-label { text-align: left !important; font-weight: bold; }
               .print-button { position: fixed; top: 20px; right: 20px; z-index: 1000; background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 12px; }
               .print-button:hover { background: #1d4ed8; }
               @media print { .print-button { display: none; } }
