@@ -23,7 +23,8 @@ import {
   Database,
   Calculator,
   DollarSign,
-  Banknote
+  Banknote,
+  TreePine
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,6 +53,12 @@ const menuGroups = [
         name: '项目看板',
         href: '/m/dashboard/project',
         icon: BarChart3,
+        roles: ['admin', 'finance', 'business', 'viewer']
+      },
+      {
+        name: '货主看板',
+        href: '/m/dashboard/shipper',
+        icon: TreePine,
         roles: ['admin', 'finance', 'business', 'viewer']
       },
       {
