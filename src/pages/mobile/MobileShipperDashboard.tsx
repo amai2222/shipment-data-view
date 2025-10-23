@@ -178,7 +178,7 @@ export default function MobileShipperDashboard() {
       );
 
       if (statsError) throw statsError;
-      setStats(statsData);
+      setStats(statsData as unknown as ShipperDashboardStats);
 
       // 加载下级货主
       const { data: subordinatesData, error: subordinatesError } = await supabase.rpc(
@@ -191,7 +191,7 @@ export default function MobileShipperDashboard() {
       );
 
       if (subordinatesError) throw subordinatesError;
-      setSubordinates(subordinatesData || []);
+      setSubordinates(subordinatesData as unknown as SubordinateShipper[] || []);
 
       // 加载趋势数据
       const { data: trendDataResult, error: trendError } = await supabase.rpc(
