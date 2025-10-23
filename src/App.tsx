@@ -176,9 +176,9 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* 货主看板 */}
+            {/* 货主看板 - 所有角色均可访问 */}
             <Route path="/dashboard/shipper" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer', 'partner']}>
                 <AppLayout><ShipperDashboard /></AppLayout>
               </ProtectedRoute>
             } />
@@ -427,9 +427,9 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* 移动端货主看板 */}
+            {/* 移动端货主看板 - 所有角色均可访问 */}
             <Route path="/m/dashboard/shipper" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer', 'partner']}>
                 <MobileShipperDashboard />
               </ProtectedRoute>
             } />

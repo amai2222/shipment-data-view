@@ -101,16 +101,54 @@ export default function MobileShipperDashboard() {
   const [trendData, setTrendData] = useState<TrendData[]>([]);
   const [dateRange, setDateRange] = useState<'7days' | '30days'>('7days');
   const [showDetails, setShowDetails] = useState(false);
+  const [availableShippers, setAvailableShippers] = useState<Array<{id: string, name: string}>>([]);
+  const [selectedShipperId, setSelectedShipperId] = useState<string | null>(null);
 
-  const currentShipperId = user?.partnerId || null;
+  // 判断用户类型和权限
+  const userRole = user?.role || 'viewer';
+  const isPartnerRole = userRole === 'partner';
+  const currentShipperId = isPartnerRole ? user?.partnerId || null : selectedShipperId;
+
+  // 加载可用货主列表（非合作方角色使用）
+  const loadAvailableShippers = async () => {
+    if (isPartnerRole) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('partners')
+        .select('id, name')
+        .eq('partner_type', '货主')
+        .eq('is_root', true)
+        .order('name');
+      
+      if (error) throw error;
+      
+      setAvailableShippers(data || []);
+      
+      // 默认选择第一个
+      if (!selectedShipperId && data && data.length > 0) {
+        setSelectedShipperId(data[0].id);
+      }
+    } catch (error: any) {
+      console.error('加载货主列表失败:', error);
+    }
+  };
 
   const loadData = async () => {
-    if (!currentShipperId) {
+    // 合作方角色：必须有 partnerId
+    if (isPartnerRole && !user?.partnerId) {
       toast({
         title: '权限错误',
         description: '您不是货主用户',
         variant: 'destructive'
       });
+      setIsLoading(false);
+      return;
+    }
+    
+    // 非合作方角色：必须选择一个货主
+    if (!isPartnerRole && !currentShipperId) {
+      setIsLoading(false);
       return;
     }
 
@@ -178,11 +216,21 @@ export default function MobileShipperDashboard() {
     }
   };
 
+  // 初始加载可用货主列表
   useEffect(() => {
-    loadData();
+    if (!isPartnerRole) {
+      loadAvailableShippers();
+    }
+  }, [isPartnerRole]);
+
+  useEffect(() => {
+    if (currentShipperId) {
+      loadData();
+    }
   }, [dateRange, currentShipperId]);
 
-  if (!currentShipperId) {
+  // 合作方角色但没有 partnerId
+  if (isPartnerRole && !user?.partnerId) {
     return (
       <MobileLayout>
         <div className="flex items-center justify-center h-screen p-4">
@@ -195,7 +243,30 @@ export default function MobileShipperDashboard() {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                您不是货主用户，无法访问货主看板。
+                您是合作方用户，但未关联货主信息，无法访问货主看板。
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </MobileLayout>
+    );
+  }
+
+  // 非合作方角色但没有可用货主
+  if (!isPartnerRole && availableShippers.length === 0 && !isLoading) {
+    return (
+      <MobileLayout>
+        <div className="flex items-center justify-center h-screen p-4">
+          <Card className="w-full">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+                暂无数据
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                系统中还没有货主数据，请先添加货主类型的合作方。
               </p>
             </CardContent>
           </Card>
@@ -229,6 +300,22 @@ export default function MobileShipperDashboard() {
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
+
+            {/* 货主选择（非合作方角色显示） */}
+            {!isPartnerRole && availableShippers.length > 0 && (
+              <Select value={selectedShipperId || ''} onValueChange={setSelectedShipperId}>
+                <SelectTrigger className="bg-white/20 border-white/30 text-white">
+                  <SelectValue placeholder="选择货主" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableShippers.map(shipper => (
+                    <SelectItem key={shipper.id} value={shipper.id}>
+                      {shipper.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             {/* 时间筛选 */}
             <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>

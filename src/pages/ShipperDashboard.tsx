@@ -149,14 +149,18 @@ export default function ShipperDashboard() {
   const [trendData, setTrendData] = useState<TrendData[]>([]);
   const [topRoutes, setTopRoutes] = useState<TopRoute[]>([]);
   const [projectDistribution, setProjectDistribution] = useState<ProjectDistribution[]>([]);
+  const [availableShippers, setAvailableShippers] = useState<Array<{id: string, name: string}>>([]);
   
   // 筛选器状态
   const [dateRange, setDateRange] = useState<'7days' | '30days' | 'thisMonth' | 'lastMonth'>('30days');
   const [shipperScope, setShipperScope] = useState<'all' | 'self' | 'direct'>('all');
   const [trendDays, setTrendDays] = useState<7 | 30>(7);
+  const [selectedShipperId, setSelectedShipperId] = useState<string | null>(null);
 
-  // 获取当前用户的货主ID（这里简化处理，实际应该从用户信息中获取）
-  const currentShipperId = user?.partnerId || null;
+  // 判断用户类型和权限
+  const userRole = user?.role || 'viewer';
+  const isPartnerRole = userRole === 'partner';
+  const currentShipperId = isPartnerRole ? user?.partnerId || null : selectedShipperId;
 
   // 计算日期范围
   const getDateRange = (range: string) => {
@@ -190,14 +194,47 @@ export default function ShipperDashboard() {
     };
   };
 
+  // 加载可用货主列表（非合作方角色使用）
+  const loadAvailableShippers = async () => {
+    if (isPartnerRole) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('partners')
+        .select('id, name')
+        .eq('partner_type', '货主')
+        .eq('is_root', true)
+        .order('name');
+      
+      if (error) throw error;
+      
+      setAvailableShippers(data || []);
+      
+      // 如果还没有选择货主，默认选择第一个
+      if (!selectedShipperId && data && data.length > 0) {
+        setSelectedShipperId(data[0].id);
+      }
+    } catch (error: any) {
+      console.error('加载货主列表失败:', error);
+    }
+  };
+
   // 加载数据
   const loadData = async () => {
-    if (!currentShipperId) {
+    // 合作方角色：必须有 partnerId
+    if (isPartnerRole && !user?.partnerId) {
       toast({
         title: '权限错误',
         description: '您不是货主用户，无法访问货主看板',
         variant: 'destructive'
       });
+      setIsLoading(false);
+      return;
+    }
+    
+    // 非合作方角色：必须选择一个货主
+    if (!isPartnerRole && !currentShipperId) {
+      setIsLoading(false);
       return;
     }
 
@@ -284,9 +321,18 @@ export default function ShipperDashboard() {
     }
   };
 
+  // 初始加载可用货主列表
+  useEffect(() => {
+    if (!isPartnerRole) {
+      loadAvailableShippers();
+    }
+  }, [isPartnerRole]);
+
   // 初始加载和筛选器变化时重新加载
   useEffect(() => {
-    loadData();
+    if (currentShipperId) {
+      loadData();
+    }
   }, [dateRange, shipperScope, trendDays, currentShipperId]);
 
   // 导出报表
@@ -297,7 +343,8 @@ export default function ShipperDashboard() {
     });
   };
 
-  if (!currentShipperId) {
+  // 合作方角色但没有 partnerId
+  if (isPartnerRole && !user?.partnerId) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Card className="w-[400px]">
@@ -309,7 +356,28 @@ export default function ShipperDashboard() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              您不是货主用户，无法访问货主看板。
+              您是合作方用户，但未关联货主信息，无法访问货主看板。
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 非合作方角色但没有可用货主
+  if (!isPartnerRole && availableShippers.length === 0 && !isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Card className="w-[400px]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              暂无数据
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              系统中还没有货主数据，请先在"合作方管理"中添加货主类型的合作方。
             </p>
           </CardContent>
         </Card>
@@ -325,6 +393,22 @@ export default function ShipperDashboard() {
         icon={Building2}
         actions={
           <div className="flex items-center gap-4">
+            {/* 货主选择（非合作方角色显示） */}
+            {!isPartnerRole && availableShippers.length > 0 && (
+              <Select value={selectedShipperId || ''} onValueChange={setSelectedShipperId}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="选择货主" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableShippers.map(shipper => (
+                    <SelectItem key={shipper.id} value={shipper.id}>
+                      {shipper.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
             {/* 时间范围筛选 */}
             <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>
               <SelectTrigger className="w-[140px]">

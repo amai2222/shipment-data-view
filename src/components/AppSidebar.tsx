@@ -44,7 +44,7 @@ export const menuItems = [
       { title: "运输看板", url: "/dashboard/transport", icon: Truck },
       { title: "财务看板", url: "/dashboard/financial", icon: Banknote },
       { title: "项目看板", url: "/dashboard/project", icon: PieChart },
-      { title: "货主看板", url: "/dashboard/shipper", icon: TreePine },
+      { title: "货主看板", url: "/dashboard/shipper", icon: TreePine, allRoles: true },
     ]
   },
   {

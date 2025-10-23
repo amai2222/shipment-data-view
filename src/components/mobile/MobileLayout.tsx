@@ -59,7 +59,7 @@ const menuGroups = [
         name: '货主看板',
         href: '/m/dashboard/shipper',
         icon: TreePine,
-        roles: ['admin', 'finance', 'business', 'viewer']
+        roles: ['admin', 'finance', 'business', 'operator', 'viewer', 'partner']
       },
       {
         name: '财务概览',
