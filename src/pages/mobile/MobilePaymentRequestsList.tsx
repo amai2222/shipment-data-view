@@ -289,24 +289,24 @@ export default function MobilePaymentRequestsList() {
               <table class="main-table">
                 <thead style="display: table-header-group !important;">
                   <tr class="header-row" style="display: table-row !important;">
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">序号</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">实际出发时间</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">实际到达时间</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">起始地</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">目的地</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">货物</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机电话</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">车牌号</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">吨位</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">承运人运费</th>
-                    <th colspan="4" style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">收款人信息</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">序号</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">实际出发时间</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">实际到达时间</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">起始地</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">目的地</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">货物</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机电话</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">车牌号</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">吨位</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">承运人运费</th>
+                    <th colspan="4" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">收款人信息</th>
                   </tr>
                   <tr class="sub-header-row" style="display: table-row !important;">
-                    <th style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">收款人</th>
-                    <th style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">收款银行账号</th>
-                    <th style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">开户行名称</th>
-                    <th style="display: table-cell !important; visibility: visible !important; background: #e0e0e0 !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">支行网点</th>
+                    <th style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">收款人</th>
+                    <th style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">收款银行账号</th>
+                    <th style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">开户行名称</th>
+                    <th style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">支行网点</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -386,7 +386,7 @@ export default function MobilePaymentRequestsList() {
                 @page { size: A4 landscape; margin: 5mm; }
                 body { margin: 0; padding: 0; font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 10px; line-height: 1.0; color: #000; }
               }
-              body { font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 12px; line-height: 1.2; color: #000; margin: 0; padding: 15px; background: white; }
+              body { font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 12px; line-height: 1.2; color: #000; margin: 20mm 0 0 0; padding: 15px; background: white; }
               .header { text-align: center; margin-bottom: 20px; }
               .company-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
               .form-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; }
@@ -403,9 +403,9 @@ export default function MobilePaymentRequestsList() {
               .main-table tbody tr:first-child td { border-top: none !important; }
               .main-table tbody tr:first-child td:not(:first-child) { border-top: none !important; }
               .main-table tbody tr:first-child td { border-top: 0 !important; }
-              .main-table th { background: #f0f0f0; font-weight: bold; display: table-cell; }
-              .main-table .header-row th { background: #e0e0e0; font-weight: bold; display: table-cell; }
-              .main-table .sub-header-row th { background: #e0e0e0; font-weight: bold; display: table-cell; }
+              .main-table th { background: transparent; font-weight: bold; display: table-cell; }
+              .main-table .header-row th { background: transparent; font-weight: bold; display: table-cell; }
+              .main-table .sub-header-row th { background: transparent; font-weight: bold; display: table-cell; }
               .main-table thead { display: table-header-group; }
               .main-table thead tr { display: table-row; }
               .main-table thead th { display: table-cell !important; visibility: visible !important; }
