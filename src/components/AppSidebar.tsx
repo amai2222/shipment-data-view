@@ -61,7 +61,7 @@ export const menuItems = [
       { title: "项目管理", url: "/projects", icon: Package },
       { title: "司机管理", url: "/drivers", icon: Truck },
       { title: "地点管理", url: "/locations", icon: MapPin },
-      { title: "地点管理（增强版）", url: "/locations-enhanced" },
+      { title: "📍 地点管理（增强版）", url: "/locations-enhanced", icon: MapPin },
       { title: "合作方管理", url: "/partners", icon: Users },
       { title: "货主层级管理", url: "/partners/hierarchy", icon: TreePine },
     ]
@@ -273,15 +273,13 @@ export function AppSidebar() {
                                     : "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-sm hover:border-blue-200/50 border-transparent text-gray-700 hover:text-blue-700"
                                 }`}
                               >
-                                {item.icon && (
-                                  <div className={`p-1 rounded transition-colors ${
-                                    isActive(item.url) ? 'bg-white/25' : 'bg-blue-100/80'
-                                  }`}>
-                                    <item.icon className={`h-3.5 w-3.5 ${
-                                      isActive(item.url) ? 'text-white' : 'text-blue-600'
-                                    }`} />
-                                  </div>
-                                )}
+                                <div className={`p-1 rounded transition-colors ${
+                                  isActive(item.url) ? 'bg-white/25' : 'bg-blue-100/80'
+                                }`}>
+                                  <item.icon className={`h-3.5 w-3.5 ${
+                                    isActive(item.url) ? 'text-white' : 'text-blue-600'
+                                  }`} />
+                                </div>
                                 <span>{item.title}</span>
                               </Link>
                             </SidebarMenuButton>

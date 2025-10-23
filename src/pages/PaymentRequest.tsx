@@ -215,7 +215,7 @@ export default function PaymentRequest() {
         }
       }
 
-      const sheets = Array.from(sheetMap.values()).sort((a, b) => b.record_count - a.record_count);
+      const sheets = Array.from(sheetMap.values());
       
       const finalRecordIds = new Set<string>();
       sheets.forEach(sheet => {
