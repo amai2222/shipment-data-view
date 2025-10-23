@@ -406,6 +406,8 @@ export default function MobilePaymentRequestsList() {
               .main-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
               .main-table th, .main-table td { border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 11px; }
               .main-table thead tr:last-child th { border-bottom: 1px solid #000; }
+              .main-table tbody tr:first-child td { border-top: none !important; }
+              .main-table tbody tr:first-child td:not(:first-child) { border-top: none !important; }
               .main-table th { background: #f0f0f0; font-weight: bold; display: table-cell; }
               .main-table .header-row th { background: #e0e0e0; font-weight: bold; display: table-cell; }
               .main-table .sub-header-row th { background: #e0e0e0; font-weight: bold; display: table-cell; }
@@ -414,7 +416,7 @@ export default function MobilePaymentRequestsList() {
               .main-table thead th { display: table-cell !important; visibility: visible !important; }
               .main-table thead { display: table-header-group !important; }
               .main-table thead tr { display: table-row !important; }
-              .main-table thead th { display: table-cell !important; visibility: visible !important; opacity: 1 !important; }
+              .main-table thead th { display: table-cell !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: 20px !important; }
               .main-table .data-row td { text-align: left; }
               .main-table .data-row td:first-child { text-align: center; }
               .main-table .data-row td:nth-child(11), .main-table .data-row td:nth-child(12), .main-table .data-row td:nth-child(13), .main-table .data-row td:nth-child(14), .main-table .data-row td:nth-child(15) { text-align: right; }
@@ -428,7 +430,9 @@ export default function MobilePaymentRequestsList() {
               .remarks-label { font-weight: bold; margin-bottom: 5px; }
               .table-signature-section { margin-top: 0; margin-bottom: 0; padding-top: 0; }
               .signature-table { width: 100%; border-collapse: collapse; margin-top: 0; margin-bottom: 0; }
-              .signature-table td { border: 1px solid #ccc; padding: 8px; text-align: center; font-size: 11px; }
+              .signature-table td { border: 1px solid #000 !important; padding: 8px; text-align: center; font-size: 11px; }
+              .signature-table { border-collapse: collapse; }
+              .signature-table tr:first-child td { border-top: none !important; }
               .signature-table .signature-cell { background: #f9f9f9; font-weight: bold; height: 30px; }
               .signature-table .signature-space { height: 80px; background: white; }
               .remarks-label { text-align: left; font-weight: bold; }
