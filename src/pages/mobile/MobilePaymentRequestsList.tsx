@@ -408,6 +408,7 @@ export default function MobilePaymentRequestsList() {
               .main-table thead tr:last-child th { border-bottom: 1px solid #000; }
               .main-table tbody tr:first-child td { border-top: none !important; }
               .main-table tbody tr:first-child td:not(:first-child) { border-top: none !important; }
+              .main-table tbody tr:first-child td { border-top: 0 !important; }
               .main-table th { background: #f0f0f0; font-weight: bold; display: table-cell; }
               .main-table .header-row th { background: #e0e0e0; font-weight: bold; display: table-cell; }
               .main-table .sub-header-row th { background: #e0e0e0; font-weight: bold; display: table-cell; }
