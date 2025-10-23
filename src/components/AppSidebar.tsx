@@ -273,13 +273,15 @@ export function AppSidebar() {
                                     : "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-sm hover:border-blue-200/50 border-transparent text-gray-700 hover:text-blue-700"
                                 }`}
                               >
-                                <div className={`p-1 rounded transition-colors ${
-                                  isActive(item.url) ? 'bg-white/25' : 'bg-blue-100/80'
-                                }`}>
-                                  <item.icon className={`h-3.5 w-3.5 ${
-                                    isActive(item.url) ? 'text-white' : 'text-blue-600'
-                                  }`} />
-                                </div>
+                                {item.icon && (
+                                  <div className={`p-1 rounded transition-colors ${
+                                    isActive(item.url) ? 'bg-white/25' : 'bg-blue-100/80'
+                                  }`}>
+                                    <item.icon className={`h-3.5 w-3.5 ${
+                                      isActive(item.url) ? 'text-white' : 'text-blue-600'
+                                    }`} />
+                                  </div>
+                                )}
                                 <span>{item.title}</span>
                               </Link>
                             </SidebarMenuButton>
