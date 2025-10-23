@@ -11,7 +11,7 @@ BEGIN;
 -- 第一步: 创建更新付款状态的函数
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.update_payment_status_for_waybills(
+CREATE OR REPLACE FUNCTION public.set_payment_status_for_waybills(
     p_record_ids UUID[],
     p_payment_status TEXT DEFAULT 'Paid',
     p_user_id UUID DEFAULT auth.uid()
@@ -81,13 +81,13 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.update_payment_status_for_waybills IS '更新运单付款状态并同步到合作方成本表（货主除外）';
+COMMENT ON FUNCTION public.set_payment_status_for_waybills IS '更新运单付款状态并同步到合作方成本表（货主除外）（重命名避免冲突）';
 
 -- ============================================================
 -- 第二步: 创建生成付款申请单PDF的函数
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.generate_payment_request_pdf_data(
+CREATE OR REPLACE FUNCTION public.get_payment_request_pdf_data(
     p_record_ids UUID[]
 )
 RETURNS JSONB
@@ -123,21 +123,29 @@ BEGIN
     FROM public.logistics_records lr
     WHERE lr.id = ANY(p_record_ids);
 
-    -- 获取合作方汇总数据
+    -- 获取合作方汇总数据（修复聚合函数嵌套问题）
+    WITH partner_totals AS (
+        SELECT 
+            lpc.partner_id,
+            p.name as partner_name,
+            lpc.level,
+            SUM(lpc.payable_amount) as total_amount
+        FROM public.logistics_partner_costs lpc
+        JOIN public.partners p ON lpc.partner_id = p.id
+        WHERE lpc.logistics_record_id = ANY(p_record_ids)
+          AND (p.partner_type IS NULL OR p.partner_type != '货主')  -- 货主除外，处理NULL值
+        GROUP BY lpc.partner_id, p.name, lpc.level
+        ORDER BY lpc.level
+    )
     SELECT jsonb_agg(
         jsonb_build_object(
-            'partner_id', lpc.partner_id,
-            'partner_name', p.name,
-            'level', lpc.level,
-            'total_amount', SUM(lpc.payable_amount)
+            'partner_id', partner_id,
+            'partner_name', partner_name,
+            'level', level,
+            'total_amount', total_amount
         )
     ) INTO v_partner_totals
-    FROM public.logistics_partner_costs lpc
-    JOIN public.partners p ON lpc.partner_id = p.id
-    WHERE lpc.logistics_record_id = ANY(p_record_ids)
-      AND (p.partner_type IS NULL OR p.partner_type != '货主')  -- 货主除外，处理NULL值
-    GROUP BY lpc.partner_id, p.name, lpc.level
-    ORDER BY lpc.level;
+    FROM partner_totals;
 
     -- 构建返回结果
     v_result := jsonb_build_object(
@@ -151,6 +159,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.generate_payment_request_pdf_data IS '生成付款申请单PDF所需的数据';
+COMMENT ON FUNCTION public.get_payment_request_pdf_data IS '获取付款申请单PDF所需的数据（重命名避免冲突）';
 
 COMMIT;

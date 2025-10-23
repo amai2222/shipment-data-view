@@ -1,0 +1,287 @@
+-- ==========================================
+-- 取消付款状态功能
+-- ==========================================
+-- 创建时间: 2025-01-22
+-- 功能: 为已付款的申请单提供取消付款功能
+-- ==========================================
+
+BEGIN;
+
+-- ============================================================
+-- 第一步: 创建取消付款状态函数
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.cancel_payment_status_for_waybills(
+    p_record_ids UUID[],
+    p_user_id UUID DEFAULT auth.uid()
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+    v_updated_count INTEGER := 0;
+    v_partner_updated_count INTEGER := 0;
+    v_result JSONB;
+BEGIN
+    -- 检查权限
+    IF NOT public.is_finance_or_admin() THEN
+        RAISE EXCEPTION '权限不足：只有财务或管理员可以取消付款状态';
+    END IF;
+
+    -- 记录操作日志
+    RAISE NOTICE '开始取消付款状态: 运单数量=%', array_length(p_record_ids, 1);
+
+    -- 更新 logistics_records 表的付款状态
+    UPDATE public.logistics_records
+    SET 
+        payment_status = 'Unpaid',
+        payment_completed_at = NULL,
+        updated_at = NOW()
+    WHERE id = ANY(p_record_ids)
+      AND payment_status = 'Paid';  -- 只处理已付款的运单
+
+    GET DIAGNOSTICS v_updated_count = ROW_COUNT;
+    RAISE NOTICE '已取消 % 条运单的付款状态', v_updated_count;
+
+    -- 更新 logistics_partner_costs 表中对应运单的合作方（货主除外）的付款状态
+    UPDATE public.logistics_partner_costs lpc
+    SET 
+        payment_status = 'Unpaid',
+        payment_completed_at = NULL,
+        updated_at = NOW()
+    FROM public.logistics_records lr
+    JOIN public.partners p ON lpc.partner_id = p.id
+    WHERE lpc.logistics_record_id = lr.id
+      AND lr.id = ANY(p_record_ids)
+      AND (p.partner_type IS NULL OR p.partner_type != '货主')  -- 货主除外，处理NULL值
+      AND lpc.payment_status = 'Paid';  -- 只处理已付款的合作方成本
+
+    GET DIAGNOSTICS v_partner_updated_count = ROW_COUNT;
+    RAISE NOTICE '已取消 % 条合作方成本记录的付款状态', v_partner_updated_count;
+
+    -- 构建返回结果
+    v_result := jsonb_build_object(
+        'success', true,
+        'message', '付款状态取消成功',
+        'updated_waybills', v_updated_count,
+        'updated_partner_costs', v_partner_updated_count,
+        'record_ids', p_record_ids
+    );
+
+    RETURN v_result;
+END;
+$$;
+
+COMMENT ON FUNCTION public.cancel_payment_status_for_waybills IS '取消运单付款状态（仅处理已付款的运单）';
+
+-- ============================================================
+-- 第二步: 创建取消付款申请单函数（重命名避免冲突）
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.void_payment_for_request(
+    p_request_id TEXT,
+    p_cancel_reason TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+    v_request record;
+    v_logistics_record_ids UUID[];
+    v_waybill_count INTEGER := 0;
+    v_partner_count INTEGER := 0;
+    v_result JSONB;
+BEGIN
+    -- 检查权限
+    IF NOT public.is_finance_or_admin() THEN
+        RAISE EXCEPTION '权限不足：只有财务或管理员可以取消付款';
+    END IF;
+
+    -- 获取申请单信息
+    SELECT * INTO v_request
+    FROM public.payment_requests
+    WHERE request_id = p_request_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION '付款申请单不存在: %', p_request_id;
+    END IF;
+
+    -- 检查状态
+    IF v_request.status != 'Paid' THEN
+        RAISE EXCEPTION '只有已付款的申请单可以取消付款，当前状态: %', v_request.status;
+    END IF;
+
+    -- 获取关联的运单ID
+    v_logistics_record_ids := v_request.logistics_record_ids;
+
+    -- 执行取消付款操作
+    IF v_logistics_record_ids IS NOT NULL AND array_length(v_logistics_record_ids, 1) > 0 THEN
+        SELECT (public.cancel_payment_status_for_waybills(v_logistics_record_ids)->>'updated_waybills')::INTEGER INTO v_waybill_count;
+    END IF;
+
+    -- 更新申请单状态
+    UPDATE public.payment_requests
+    SET 
+        status = 'Approved',  -- 申请单状态回退到已审批
+        updated_at = NOW(),
+        notes = COALESCE(notes, '') || ' [付款已取消: ' || COALESCE(p_cancel_reason, '手动取消') || ']'
+    WHERE request_id = p_request_id;
+
+    -- 更新付款申请明细状态（如果存在）
+    UPDATE public.partner_payment_items
+    SET 
+        payment_status = 'Unpaid',
+        payment_completed_at = NULL,
+        updated_at = NOW()
+    WHERE payment_request_id = v_request.id
+      AND payment_status = 'Paid';
+
+    GET DIAGNOSTICS v_partner_count = ROW_COUNT;
+
+    -- 构建返回结果
+    v_result := jsonb_build_object(
+        'success', true,
+        'message', '付款已取消，运单状态回退到未付款',
+        'request_id', p_request_id,
+        'waybill_count', v_waybill_count,
+        'partner_item_count', v_partner_count,
+        'cancel_reason', p_cancel_reason
+    );
+
+    RETURN v_result;
+END;
+$$;
+
+COMMENT ON FUNCTION public.void_payment_for_request IS '取消付款申请单的付款状态（重命名避免冲突）';
+
+-- ============================================================
+-- 第三步: 创建新的批量作废函数，自动剔除已付款申请单（重命名避免冲突）
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.void_payment_requests_by_ids(
+    p_request_ids TEXT[]
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+    v_request_id TEXT;
+    v_affected_count INTEGER := 0;
+    v_total_affected INTEGER := 0;
+    v_logistics_record_ids UUID[];
+    v_waybill_count INTEGER := 0;
+    v_paid_requests TEXT[] := '{}';
+    v_eligible_requests TEXT[] := '{}';
+    v_result JSONB;
+BEGIN
+    -- 检查权限
+    IF NOT public.is_finance_or_admin() THEN
+        RAISE EXCEPTION '权限不足：只有财务或管理员可以作废付款申请单';
+    END IF;
+
+    -- 记录操作开始
+    RAISE NOTICE '开始作废付款申请单: 申请单数量=%', array_length(p_request_ids, 1);
+
+    -- 遍历每个申请单ID，分类处理
+    FOREACH v_request_id IN ARRAY p_request_ids
+    LOOP
+        -- 获取该申请单信息
+        DECLARE
+            v_request record;
+        BEGIN
+            SELECT * INTO v_request
+            FROM public.payment_requests
+            WHERE request_id = v_request_id;
+
+            IF FOUND THEN
+                CASE v_request.status
+                    WHEN 'Paid' THEN
+                        -- 已付款的申请单，记录但不处理
+                        v_paid_requests := array_append(v_paid_requests, v_request_id);
+                        RAISE NOTICE '申请单 % 已付款，跳过作废', v_request_id;
+                    WHEN 'Pending', 'Approved' THEN
+                        -- 可作废的申请单
+                        v_eligible_requests := array_append(v_eligible_requests, v_request_id);
+                        
+                        -- 获取该申请单关联的运单ID
+                        SELECT logistics_record_ids INTO v_logistics_record_ids
+                        FROM public.payment_requests
+                        WHERE request_id = v_request_id;
+
+                        IF v_logistics_record_ids IS NOT NULL THEN
+                            -- 回滚运单状态
+                            PERFORM public.rollback_payment_status_for_waybills(v_logistics_record_ids);
+                            v_waybill_count := v_waybill_count + array_length(v_logistics_record_ids, 1);
+                        END IF;
+                        
+                        -- 更新申请单状态为已取消
+                        UPDATE public.payment_requests
+                        SET 
+                            status = 'Cancelled',
+                            updated_at = NOW(),
+                            notes = COALESCE(notes, '') || ' [已作废]'
+                        WHERE request_id = v_request_id;
+
+                        GET DIAGNOSTICS v_affected_count = ROW_COUNT;
+                        v_total_affected := v_total_affected + v_affected_count;
+                        
+                        RAISE NOTICE '已作废申请单: % (运单数: %)', v_request_id, array_length(v_logistics_record_ids, 1);
+                    ELSE
+                        RAISE NOTICE '申请单 % 状态为 %，跳过处理', v_request_id, v_request.status;
+                END CASE;
+            ELSE
+                RAISE NOTICE '申请单 % 不存在', v_request_id;
+            END IF;
+        END;
+    END LOOP;
+
+    RAISE NOTICE '作废完成: 可作废申请单数=%, 已付款申请单数=%, 运单数=%', 
+        array_length(v_eligible_requests, 1), array_length(v_paid_requests, 1), v_waybill_count;
+
+    -- 构建返回结果
+    v_result := jsonb_build_object(
+        'success', true,
+        'cancelled_requests', array_length(v_eligible_requests, 1),
+        'paid_requests_skipped', array_length(v_paid_requests, 1),
+        'waybill_count', v_waybill_count,
+        'eligible_request_ids', v_eligible_requests,
+        'paid_request_ids', v_paid_requests
+    );
+
+    RETURN v_result;
+END;
+$$;
+
+COMMENT ON FUNCTION public.void_payment_requests_by_ids IS '批量作废付款申请单，自动剔除已付款申请单（重命名避免冲突）';
+
+COMMIT;
+
+-- ============================================================
+-- 完成信息
+-- ============================================================
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '========================================';
+    RAISE NOTICE '取消付款功能创建完成';
+    RAISE NOTICE '========================================';
+    RAISE NOTICE '';
+    RAISE NOTICE '新增函数:';
+    RAISE NOTICE '  1. cancel_payment_status_for_waybills() - 取消运单付款状态';
+    RAISE NOTICE '  2. void_payment_for_request() - 取消付款申请单（重命名避免冲突）';
+    RAISE NOTICE '  3. void_payment_requests_by_ids() - 批量作废申请单（重命名避免冲突）';
+    RAISE NOTICE '';
+    RAISE NOTICE '功能特点:';
+    RAISE NOTICE '  - 只有已付款的申请单可以取消付款';
+    RAISE NOTICE '  - 取消付款后状态回退到"已审批"';
+    RAISE NOTICE '  - 批量作废自动剔除已付款申请单';
+    RAISE NOTICE '  - 提供详细的处理结果反馈';
+    RAISE NOTICE '';
+    RAISE NOTICE '========================================';
+END $$;

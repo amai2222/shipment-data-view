@@ -116,20 +116,155 @@ export default function PaymentRequestsList() {
       setExportingId(req.id);
       
       // 获取PDF数据
-      const { data: pdfData, error } = await supabase.rpc('generate_payment_request_pdf_data', {
+      const { data: pdfData, error } = await supabase.rpc('get_payment_request_pdf_data' as any, {
         p_record_ids: req.logistics_record_ids
       });
 
       if (error) throw error;
 
-      // 这里可以调用PDF生成库来生成PDF
-      // 由于没有安装PDF库，这里先显示一个提示
-      toast({ 
-        title: 'PDF生成功能', 
-        description: 'PDF生成功能正在开发中，数据已准备就绪。' 
-      });
+      // 生成PDF HTML内容
+      const generatePaymentRequestPDF = async (requestData: any): Promise<string> => {
+        if (!requestData) {
+          throw new Error('付款申请单数据不能为空');
+        }
+
+        const { waybills, partner_totals, total_waybills } = requestData;
+
+        // 基础信息
+        const basicInfo = [
+          { label: '申请编号:', value: req.request_id },
+          { label: '申请时间:', value: new Date().toLocaleString('zh-CN') },
+          { label: '运单数量:', value: `${total_waybills || 0} 条` },
+          { label: '合作方数量:', value: `${partner_totals?.length || 0} 个` }
+        ];
+
+        // 合作方汇总信息
+        const partnerInfo = (partner_totals || []).map((partner: any) => ({
+          label: `${partner.partner_name} (${partner.level}级):`,
+          value: `¥${(partner.total_amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+        }));
+
+        // 运单明细信息
+        const waybillInfo = (waybills || []).map((waybill: any) => ({
+          label: `${waybill.auto_number}:`,
+          value: `${waybill.driver_name} | ${waybill.loading_location} → ${waybill.unloading_location} | ¥${(waybill.payable_cost || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+        }));
+
+        return `
+          <!DOCTYPE html>
+          <html lang="zh-CN">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>付款申请单 - ${req.request_id}</title>
+            <style>
+              @media print {
+                @page { size: A4; margin: 20mm; }
+                body { margin: 0; padding: 0; font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 12px; line-height: 1.4; color: #000; }
+              }
+              body { font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 12px; line-height: 1.4; color: #000; margin: 0; padding: 20px; background: white; }
+              .company-logo { text-align: center; font-size: 28px; font-weight: bold; color: #2563eb; margin-bottom: 20px; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
+              .document-content { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+              .info-section { border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; background: #f9fafb; }
+              .section-title { font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 15px; text-align: center; border-bottom: 1px solid #d1d5db; padding-bottom: 8px; }
+              .info-item { display: flex; margin-bottom: 8px; align-items: flex-start; }
+              .info-label { font-weight: bold; color: #374151; min-width: 120px; margin-right: 8px; }
+              .info-value { color: #1f2937; flex: 1; word-break: break-all; }
+              .waybill-section { grid-column: 1 / -1; margin-top: 20px; }
+              .waybill-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+              .waybill-table th, .waybill-table td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+              .waybill-table th { background: #f3f4f6; font-weight: bold; }
+              .barcode-section { text-align: center; margin: 30px 0; padding: 20px; border: 2px dashed #d1d5db; border-radius: 8px; background: #f9fafb; }
+              .barcode-title { font-size: 14px; font-weight: bold; color: #374151; margin-bottom: 10px; }
+              .barcode { font-family: 'Courier New', monospace; font-size: 10px; line-height: 1; color: #000; background: white; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; display: inline-block; letter-spacing: 1px; }
+              .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #6b7280; border-top: 1px solid #d1d5db; padding-top: 15px; }
+              .print-button { position: fixed; top: 20px; right: 20px; z-index: 1000; background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+              .print-button:hover { background: #1d4ed8; }
+              @media print { .print-button { display: none; } }
+            </style>
+          </head>
+          <body>
+            <button class="print-button" onclick="window.print()">🖨️ 打印付款申请单</button>
+            <div class="company-logo">中科智运付款申请单</div>
+            <div class="document-content">
+              <div class="info-section">
+                <div class="section-title">申请信息</div>
+                ${basicInfo.map(item => `
+                  <div class="info-item">
+                    <div class="info-label">${item.label}</div>
+                    <div class="info-value">${item.value}</div>
+                  </div>
+                `).join('')}
+              </div>
+              <div class="info-section">
+                <div class="section-title">合作方汇总</div>
+                ${partnerInfo.map(item => `
+                  <div class="info-item">
+                    <div class="info-label">${item.label}</div>
+                    <div class="info-value">${item.value}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="waybill-section">
+              <div class="section-title">运单明细</div>
+              <table class="waybill-table">
+                <thead>
+                  <tr>
+                    <th>运单号</th>
+                    <th>司机</th>
+                    <th>路线</th>
+                    <th>装货日期</th>
+                    <th>司机应收</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${waybillInfo.map(item => `
+                    <tr>
+                      <td>${item.label.replace(':', '')}</td>
+                      <td>${item.value.split(' | ')[0]}</td>
+                      <td>${item.value.split(' | ')[1]}</td>
+                      <td>${item.value.split(' | ')[2] || ''}</td>
+                      <td>${item.value.split(' | ')[3] || ''}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+            <div class="barcode-section">
+              <div class="barcode-title">申请单号条形码</div>
+              <div class="barcode">${req.request_id}</div>
+              <div style="margin-top: 8px; font-size: 10px; color: #6b7280;">申请单号: ${req.request_id}</div>
+            </div>
+            <div class="footer">
+              <div class="footer-item">生成时间: ${new Date().toLocaleString('zh-CN')}</div>
+              <div class="footer-item">本申请单具有法律效力，请妥善保管</div>
+              <div class="footer-item">中科智运运输有限公司</div>
+            </div>
+          </body>
+          </html>
+        `;
+      };
+
+      // 生成PDF内容
+      const printHTML = await generatePaymentRequestPDF(pdfData);
       
-      console.log('PDF数据:', pdfData);
+      // 创建新窗口并写入HTML内容
+      const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
+      if (previewWindow) {
+        previewWindow.document.write(printHTML);
+        previewWindow.document.close();
+        
+        // 处理窗口关闭事件
+        previewWindow.onbeforeunload = () => {};
+      } else {
+        throw new Error('无法打开预览窗口，请检查浏览器弹窗设置');
+      }
+
+      toast({ 
+        title: 'PDF生成成功', 
+        description: `已生成付款申请单PDF，包含 ${req.logistics_record_ids.length} 条运单。` 
+      });
     } catch (error) {
       console.error('生成PDF失败:', error);
       toast({ title: '生成PDF失败', description: (error as any).message, variant: 'destructive' });
@@ -144,7 +279,7 @@ export default function PaymentRequestsList() {
       setExportingId(req.id);
       
       // 更新付款状态
-      const { data, error } = await supabase.rpc('update_payment_status_for_waybills', {
+      const { data, error } = await supabase.rpc('set_payment_status_for_waybills' as any, {
         p_record_ids: req.logistics_record_ids,
         p_payment_status: 'Paid'
       });
@@ -153,7 +288,7 @@ export default function PaymentRequestsList() {
 
       toast({ 
         title: '付款成功', 
-        description: `已更新 ${data?.updated_waybills || 0} 条运单的付款状态，同步了 ${data?.updated_partner_costs || 0} 条合作方成本记录。` 
+        description: `已更新 ${(data as any)?.updated_waybills || 0} 条运单的付款状态，同步了 ${(data as any)?.updated_partner_costs || 0} 条合作方成本记录。` 
       });
       
       // 刷新数据
@@ -161,6 +296,34 @@ export default function PaymentRequestsList() {
     } catch (error) {
       console.error('付款操作失败:', error);
       toast({ title: '付款操作失败', description: (error as any).message, variant: 'destructive' });
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const handleCancelPayment = async (e: React.MouseEvent, req: PaymentRequest) => {
+    e.stopPropagation();
+    try {
+      setExportingId(req.id);
+      
+      // 取消付款状态
+      const { data, error } = await supabase.rpc('void_payment_for_request' as any, {
+        p_request_id: req.request_id,
+        p_cancel_reason: '手动取消付款'
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: '取消付款成功', 
+        description: `已取消 ${(data as any).waybill_count} 条运单的付款状态，运单状态回退到"未付款"。` 
+      });
+      
+      // 刷新数据
+      fetchPaymentRequests();
+    } catch (error) {
+      console.error('取消付款操作失败:', error);
+      toast({ title: '取消付款失败', description: (error as any).message, variant: 'destructive' });
     } finally {
       setExportingId(null);
     }
@@ -290,15 +453,41 @@ export default function PaymentRequestsList() {
       }
 
       if (idsToCancel.length === 0) {
-        toast({ title: "提示", description: "没有选择任何可作废的申请单（仅“待审批”和“已审批”状态可作废）。" });
+        toast({ title: "提示", description: "没有选择任何可作废的申请单（仅"待审批"和"已审批"状态可作废）。" });
         setIsCancelling(false);
         return;
       }
 
-      const { data, error } = await supabase.rpc('cancel_payment_requests_by_ids' as any, { p_request_ids: idsToCancel });
+      // 检查作废资格
+      const { data: eligibility, error: checkError } = await supabase.rpc('check_payment_rollback_eligibility', { 
+        p_request_ids: idsToCancel 
+      });
+      if (checkError) throw checkError;
+
+      if (!eligibility.can_proceed) {
+        toast({ 
+          title: "无法作废", 
+          description: `选中的申请单中：${eligibility.already_paid} 个已付款，${eligibility.already_cancelled} 个已作废。只有待审批和已审批状态的申请单可以作废。`,
+          variant: "destructive"
+        });
+        setIsCancelling(false);
+        return;
+      }
+
+      // 执行作废操作
+      const { data, error } = await supabase.rpc('void_payment_requests_by_ids' as any, { p_request_ids: idsToCancel });
       if (error) throw error;
 
-      toast({ title: "操作成功", description: `已成功作废 ${idsToCancel.length} 张申请单，${data} 条关联运单的状态已回滚。` });
+      // 构建提示信息
+      let description = `已成功作废 ${(data as any).cancelled_requests} 张申请单，${(data as any).waybill_count} 条关联运单的状态已回滚。`;
+      if ((data as any).paid_requests_skipped > 0) {
+        description += `\n已自动剔除 ${(data as any).paid_requests_skipped} 个已付款的申请单（需要先取消付款才能作废）。`;
+      }
+
+      toast({ 
+        title: "操作成功", 
+        description: description
+      });
       setSelection({ mode: 'none', selectedIds: new Set() });
       fetchPaymentRequests();
     } catch (error) {
@@ -400,6 +589,12 @@ export default function PaymentRequestsList() {
                               <Button variant="destructive" size="sm" onClick={(e) => handlePayment(e, req)} disabled={exportingId === req.id}>
                                 <Banknote className="mr-2 h-4 w-4" />
                                 付款
+                              </Button>
+                            )}
+                            {req.status === 'Paid' && (
+                              <Button variant="outline" size="sm" onClick={(e) => handleCancelPayment(e, req)} disabled={exportingId === req.id}>
+                                <Banknote className="mr-2 h-4 w-4" />
+                                取消付款
                               </Button>
                             )}
                             {req.status === 'Pending' && (
