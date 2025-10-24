@@ -993,13 +993,13 @@ export default function MobilePaymentRequestsList() {
                       <Eye className="h-4 w-4 mr-1" />
                       查看详情
                     </Button>
-                    {/* 导出按钮 - 蓝色主题 */}
+                    {/* 导出按钮 - 取消颜色背景 */}
                     <Button 
-                      variant="default" 
+                      variant="outline" 
                       size="sm" 
                       onClick={() => handleExport(req)} 
                       disabled={exportingId === req.id}
-                      className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200"
+                      className="border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200"
                     >
                       {exportingId === req.id ? (
                         <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -1009,16 +1009,16 @@ export default function MobilePaymentRequestsList() {
                       导出
                     </Button>
 
-                    {/* 生成PDF按钮 - 灰色主题 */}
+                    {/* 查看申请单按钮 - 蓝色主题 */}
                     <Button 
-                      variant="outline" 
+                      variant="default" 
                       size="sm" 
                       onClick={() => handleGeneratePDF(req)} 
                       disabled={exportingId === req.id}
-                      className="border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200"
+                      className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200"
                     >
                       <FileTextIcon className="h-4 w-4 mr-1" />
-                      生成PDF
+                      查看申请单
                     </Button>
 
                     {/* 付款按钮 - 红色主题，只在已审批状态显示 */}
@@ -1035,14 +1035,14 @@ export default function MobilePaymentRequestsList() {
                       </Button>
                     )}
 
-                    {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
+                    {/* 审批按钮 - 蓝色主题，只在待审批状态显示 */}
                     {req.status === 'Pending' && (
                       <Button 
                         variant="default" 
                         size="sm" 
                         onClick={() => handleApproval(req)} 
                         disabled={exportingId === req.id}
-                        className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                        className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
                       >
                         <Send className="h-4 w-4 mr-1" />
                         审批

@@ -997,18 +997,6 @@ export default function PaymentRequestsList() {
 
       <div className="flex justify-between items-center">
         <div/>
-        {isAdmin && (
-          <ConfirmDialog
-          title={`确认作废 ${selectionCount} 张申请单`}
-          description="此操作将删除选中的申请单，并将所有关联运单的状态恢复为“未支付”。此操作不可逆，请谨慎操作。"
-          onConfirm={handleCancelRequests}
-        >
-          <Button variant="destructive" disabled={selectionCount === 0 || isCancelling}>
-            {isCancelling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-            一键作废 ({selectionCount})
-          </Button>
-          </ConfirmDialog>
-        )}
       </div>
 
       {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && isAllOnPageSelected && totalRequestsCount > requests.length && (
@@ -1217,6 +1205,18 @@ export default function PaymentRequestsList() {
                   {batchOperation === 'pay' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
                   批量付款
                 </Button>
+                {isAdmin && (
+                  <ConfirmDialog
+                    title={`确认作废 ${selectionCount} 张申请单`}
+                    description="此操作将删除选中的申请单，并将所有关联运单的状态恢复为未支付。此操作不可逆，请谨慎操作。"
+                    onConfirm={handleCancelRequests}
+                  >
+                    <Button variant="destructive" disabled={selectionCount === 0 || isCancelling} className="flex items-center gap-2">
+                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      一键作废 ({selectionCount})
+                    </Button>
+                  </ConfirmDialog>
+                )}
               </div>
             )}
           </div>
@@ -1256,28 +1256,28 @@ export default function PaymentRequestsList() {
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-3 flex-wrap">
-                            {/* 导出按钮 - 蓝色主题 */}
+                            {/* 导出按钮 - 取消颜色背景 */}
                             <Button 
-                              variant="default" 
+                              variant="outline" 
                               size="sm" 
                               onClick={(e) => handleExport(e, req)} 
                               disabled={exportingId === req.id}
-                              className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200"
+                              className="border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200"
                             >
                               {exportingId === req.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
                               导出
                             </Button>
 
-                            {/* 生成PDF按钮 - 灰色主题 */}
+                            {/* 查看申请单按钮 - 蓝色主题 */}
                             <Button 
-                              variant="outline" 
+                              variant="default" 
                               size="sm" 
                               onClick={(e) => handleGeneratePDF(e, req)} 
                               disabled={exportingId === req.id}
-                              className="border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200"
+                              className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200"
                             >
                               <FileText className="mr-2 h-4 w-4" />
-                              生成PDF
+                              查看申请单
                             </Button>
 
                             {/* 付款按钮 - 红色主题，只在已审批状态显示 */}
@@ -1322,22 +1322,22 @@ export default function PaymentRequestsList() {
                               </Button>
                             )}
 
-                            {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
+                            {/* 审批按钮 - 蓝色主题，只在待审批状态显示 */}
                             {req.status === 'Pending' && (
                               <Button 
                                 variant="default" 
                                 size="sm" 
                                 onClick={(e) => handleApproval(e, req)} 
                                 disabled={exportingId === req.id}
-                                className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                                className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
                               >
                                 <ClipboardList className="mr-2 h-4 w-4" />
                                 审批
                               </Button>
                             )}
 
-                            {/* 企业微信审批按钮 - 蓝色主题，只在待审批状态显示 */}
-                            {req.status === 'Pending' && (
+                            {/* 隐藏企业微信审批按钮 */}
+                            {/* {req.status === 'Pending' && (
                               <div onClick={(e) => e.stopPropagation()}>
                                 <PaymentApproval
                                   paymentRequestId={req.id}
@@ -1349,7 +1349,7 @@ export default function PaymentRequestsList() {
                                   }}
                                 />
                               </div>
-                            )}
+                            )} */}
                           </div>
                         </TableCell>
                       </TableRow>

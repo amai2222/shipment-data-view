@@ -172,8 +172,6 @@ export function AppSidebar() {
       ...group,
       items: group.items.filter(item => {
         const menuKey = getMenuKey(item.url);
-        // 临时调试：显示所有菜单项
-        console.log('菜单项权限检查:', item.title, item.url, menuKey, hasMenuAccess(menuKey));
         return menuKey && hasMenuAccess(menuKey);
       })
     })).filter(group => {
