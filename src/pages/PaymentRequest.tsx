@@ -10,7 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Search, FileSpreadsheet, Save, ListPlus, Banknote } from "lucide-react";
+import { Save, Plus, Banknote } from "lucide-react";
+
+// 占位符图标组件
+const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
+const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
+const FileSpreadsheet = ({ className }: { className?: string }) => <span className={className}>📊</span>;
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -66,6 +71,13 @@ export default function PaymentRequest() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDriverBatchOpen, setIsDriverBatchOpen] = useState(false);
+  
+  // 合作链路相关状态
+  const [chainDialogOpen, setChainDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<LogisticsRecordWithPartners | null>(null);
+  const [availableChains, setAvailableChains] = useState<any[]>([]);
+  const [selectedChain, setSelectedChain] = useState<string>('');
+  const [batchChainDialogOpen, setBatchChainDialogOpen] = useState(false);
 
   // --- 数据获取 (已更新) ---
   const fetchInitialOptions = useCallback(async () => {
@@ -132,6 +144,116 @@ export default function PaymentRequest() {
   const handleDateChange = (dateRange: DateRange | undefined) => { setUiFilters(prev => ({ ...prev, startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' })); };
   const handleRecordSelect = (recordId: string) => { setSelection(prev => { const newSet = new Set(prev.selectedIds); if (newSet.has(recordId)) { newSet.delete(recordId); } else { newSet.add(recordId); } if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); };
   const handleSelectAllOnPage = (isChecked: boolean) => { const pageIds = (reportData?.records || []).map((r: any) => r.id); if (isChecked) { setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) })); } else { setSelection(prev => { const newSet = new Set(prev.selectedIds); pageIds.forEach(id => newSet.delete(id)); if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); } };
+  
+  // 合作链路处理函数
+  const handleModifyChain = async (record: LogisticsRecordWithPartners) => {
+    setSelectedRecord(record);
+    setSelectedChain(record.chain_name || '');
+    
+    try {
+      // 使用后端函数获取项目的所有合作链路
+      // @ts-ignore - 新的RPC函数
+      const { data: result, error } = await supabase.rpc('get_project_available_chains', {
+        p_project_id: (record as any).project_id
+      });
+      
+      if (error) throw error;
+      
+      setAvailableChains((result as any).chains || []);
+      setChainDialogOpen(true);
+    } catch (error) {
+      toast({ title: "错误", description: "获取合作链路失败", variant: "destructive" });
+    }
+  };
+  
+  const handleBatchModifyChain = async () => {
+    const selectedRecords = Array.from(selection.selectedIds);
+    if (selectedRecords.length === 0) return;
+    
+    try {
+      // 使用后端函数验证权限和项目一致性
+      // @ts-ignore - 新的RPC函数
+      const { data: validation, error: validationError } = await supabase.rpc('validate_chain_modification_permission', {
+        p_record_ids: selectedRecords
+      });
+      
+      if (validationError) throw validationError;
+      
+      if (!(validation as any).can_modify) {
+        toast({ title: "错误", description: "批量修改合作链路需要所有记录都属于同一个项目", variant: "destructive" });
+        return;
+      }
+      
+      // 获取第一个记录的项目ID来获取合作链路
+      const firstRecord = reportData?.records?.find((r: any) => selectedRecords.includes(r.id));
+      if (!firstRecord) return;
+      
+      // 使用后端函数获取项目的所有合作链路
+      // @ts-ignore - 新的RPC函数
+      const { data: result, error } = await supabase.rpc('get_project_available_chains', {
+        p_project_id: (firstRecord as any).project_id
+      });
+      
+      if (error) throw error;
+      
+      setAvailableChains((result as any).chains || []);
+      setSelectedChain('');
+      setBatchChainDialogOpen(true);
+    } catch (error) {
+      toast({ title: "错误", description: "获取合作链路失败", variant: "destructive" });
+    }
+  };
+  
+  const handleSaveChain = async () => {
+    if (!selectedRecord || !selectedChain) return;
+    
+    try {
+      // 使用后端函数修改合作链路
+      // @ts-ignore - 新的RPC函数
+      const { data: result, error } = await supabase.rpc('modify_logistics_record_chain', {
+        p_record_id: selectedRecord.id,
+        p_chain_name: selectedChain
+      });
+      
+      if (error) throw error;
+      
+      toast({ 
+        title: "成功", 
+        description: (result as any).message || "合作链路已更新并重新计算成本" 
+      });
+      setChainDialogOpen(false);
+      fetchReportData(); // 刷新数据
+    } catch (error) {
+      toast({ title: "错误", description: "更新合作链路失败", variant: "destructive" });
+    }
+  };
+  
+  const handleBatchSaveChain = async () => {
+    if (!selectedChain) return;
+    
+    const selectedRecords = Array.from(selection.selectedIds);
+    if (selectedRecords.length === 0) return;
+    
+    try {
+      // 使用后端函数批量修改合作链路
+      // @ts-ignore - 新的RPC函数
+      const { data: result, error } = await supabase.rpc('batch_modify_logistics_records_chain', {
+        p_record_ids: selectedRecords,
+        p_chain_name: selectedChain
+      });
+      
+      if (error) throw error;
+      
+      toast({ 
+        title: "成功", 
+        description: (result as any).message || `已更新 ${selectedRecords.length} 条记录的合作链路并重新计算成本` 
+      });
+      setBatchChainDialogOpen(false);
+      fetchReportData(); // 刷新数据
+    } catch (error) {
+      toast({ title: "错误", description: "批量更新合作链路失败", variant: "destructive" });
+    }
+  };
   
   const handleApplyForPaymentClick = async () => {
     const isCrossPageSelection = selection.mode === 'all_filtered';
@@ -362,7 +484,7 @@ export default function PaymentRequest() {
                   disabled={uiFilters.driverNames.length > 1}
                 />
                 <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => setIsDriverBatchOpen(true)}>
-                  <ListPlus className="h-4 w-4" />
+                  <Plus className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -384,6 +506,22 @@ export default function PaymentRequest() {
       {selection.mode === 'all_filtered' && (
         <div className="flex items-center justify-center gap-4 p-2 text-sm font-medium text-center bg-secondary text-secondary-foreground rounded-md">
           <span>已选择全部 <b>{reportData?.count}</b> 条匹配的记录。</span>
+          <Button variant="link" className="p-0 h-auto" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
+        </div>
+      )}
+      
+      {selection.selectedIds.size > 0 && (
+        <div className="flex items-center justify-center gap-4 p-2 text-sm font-medium text-center bg-blue-50 text-blue-700 rounded-md">
+          <span>已选择 <b>{selection.selectedIds.size}</b> 条记录</span>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleBatchModifyChain}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            批量修改合作链路
+          </Button>
           <Button variant="link" className="p-0 h-auto" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
         </div>
       )}
@@ -409,6 +547,7 @@ export default function PaymentRequest() {
                       <TableHead className="whitespace-nowrap">日期</TableHead>
                       <TableHead className="whitespace-nowrap font-bold text-primary">司机应收</TableHead>
                       {Array.isArray(displayedPartners) && displayedPartners.map(p => <TableHead key={p.id} className="text-center whitespace-nowrap">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}
+                      <TableHead className="whitespace-nowrap">合作链路</TableHead>
                       <TableHead className="whitespace-nowrap">支付状态</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
@@ -423,6 +562,22 @@ export default function PaymentRequest() {
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell>
                               <TableCell className="font-mono cursor-pointer whitespace-nowrap font-bold text-primary" onClick={() => setViewingRecord(r)}>{formatCurrency(r.payable_cost)}</TableCell>
                               {Array.isArray(displayedPartners) && displayedPartners.map(p => { const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.id)); return <TableCell key={p.id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatCurrency(cost?.payable_amount)}</TableCell>; })}
+                              <TableCell className="whitespace-nowrap">
+                                <div className="flex items-center gap-1 sm:gap-2">
+                                  <span className="text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none">{r.chain_name || '默认链路'}</span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleModifyChain(r);
+                                    }}
+                                    className="h-5 sm:h-6 px-1 sm:px-2 text-xs shrink-0"
+                                  >
+                                    修改
+                                  </Button>
+                                </div>
+                              </TableCell>
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{getPaymentStatusBadge(r.payment_status)}</TableCell>
                           </TableRow>
                       ))}
@@ -430,6 +585,7 @@ export default function PaymentRequest() {
                         <TableCell colSpan={7} className="text-right font-bold whitespace-nowrap">合计</TableCell>
                         <TableCell className="font-mono font-bold text-primary text-center whitespace-nowrap"><div>{formatCurrency(reportData?.overview?.total_payable_cost)}</div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>
                         {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partner_payables) && reportData.partner_payables.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
+                        <TableCell className="whitespace-nowrap"></TableCell>
                         <TableCell className="whitespace-nowrap"></TableCell>
                       </TableRow>
                     </TableBody>
@@ -519,6 +675,84 @@ export default function PaymentRequest() {
             <Button onClick={handleConfirmAndSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               确认并生成申请
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* 单个记录合作链路修改对话框 */}
+      <Dialog open={chainDialogOpen} onOpenChange={setChainDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>修改合作链路</DialogTitle>
+            <DialogDescription>
+              为运单 {selectedRecord?.auto_number} 选择新的合作链路
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>当前合作链路</Label>
+              <p className="text-sm text-muted-foreground break-words">{selectedRecord?.chain_name || '未指定'}</p>
+            </div>
+            <div>
+              <Label>选择新的合作链路</Label>
+              <Select value={selectedChain} onValueChange={setSelectedChain}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="请选择合作链路" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableChains.map((chain) => (
+                    <SelectItem key={chain.chain_name} value={chain.chain_name}>
+                      {chain.chain_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setChainDialogOpen(false)} className="w-full sm:w-auto">
+              取消
+            </Button>
+            <Button onClick={handleSaveChain} disabled={!selectedChain} className="w-full sm:w-auto">
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* 批量修改合作链路对话框 */}
+      <Dialog open={batchChainDialogOpen} onOpenChange={setBatchChainDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>批量修改合作链路</DialogTitle>
+            <DialogDescription>
+              为选中的 {selection.selectedIds.size} 条记录选择新的合作链路
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>选择合作链路</Label>
+              <Select value={selectedChain} onValueChange={setSelectedChain}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="请选择合作链路" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableChains.map((chain) => (
+                    <SelectItem key={chain.chain_name} value={chain.chain_name}>
+                      {chain.chain_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setBatchChainDialogOpen(false)} className="w-full sm:w-auto">
+              取消
+            </Button>
+            <Button onClick={handleBatchSaveChain} disabled={!selectedChain} className="w-full sm:w-auto">
+              保存
             </Button>
           </DialogFooter>
         </DialogContent>
