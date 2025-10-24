@@ -15,6 +15,8 @@ const FileTextIcon = ({ className }: { className?: string }) => <span className=
 const Eye = ({ className }: { className?: string }) => <span className={className}>👁️</span>;
 const AlertCircle = ({ className }: { className?: string }) => <span className={className}>⚠️</span>;
 const Send = ({ className }: { className?: string }) => <span className={className}>📤</span>;
+const Users = ({ className }: { className?: string }) => <span className={className}>👥</span>;
+const RotateCcw = ({ className }: { className?: string }) => <span className={className}>🔄</span>;
 import { MobilePaymentApproval } from '@/components/mobile/MobilePaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -169,6 +171,26 @@ export default function MobilePaymentRequestsList() {
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setCurrentPage(1); // 重置到第一页
+  };
+
+  const handleRollbackApproval = async (requestId: string) => {
+    try {
+      setExportingId(requestId);
+      // @ts-ignore - 新的RPC函数
+      const { data, error } = await supabase.rpc('rollback_payment_request_approval', {
+        p_request_id: requestId
+      });
+
+      if (error) throw error;
+
+      toast({ title: "审批回滚成功", description: "申请单已回滚为待审批状态" });
+      fetchPaymentRequests();
+    } catch (error) {
+      console.error('审批回滚失败:', error);
+      toast({ title: "审批回滚失败", description: (error as any).message, variant: "destructive" });
+    } finally {
+      setExportingId(null);
+    }
   };
 
   const getStatusBadge = (status: PaymentRequest['status']) => {
@@ -797,24 +819,67 @@ export default function MobilePaymentRequestsList() {
 
                 {/* 运单号筛选 */}
                 <div className="space-y-2">
-                  <Label htmlFor="waybillNumber">运单号</Label>
-                  <Input
-                    id="waybillNumber"
-                    placeholder="输入运单号"
-                    value={filters.waybillNumber}
-                    onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
-                  />
+                  <Label htmlFor="waybillNumber" className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    运单号
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="waybillNumber"
+                      placeholder="输入运单编号,多个用逗号分隔..."
+                      value={filters.waybillNumber}
+                      onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          fetchPaymentRequests();
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchPaymentRequests}
+                      className="px-3"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    支持多个运单编号查询,用逗号分隔,按回车快速搜索
+                  </p>
                 </div>
 
                 {/* 司机筛选 */}
                 <div className="space-y-2">
-                  <Label htmlFor="driverName">司机</Label>
-                  <Input
-                    id="driverName"
-                    placeholder="输入司机姓名"
-                    value={filters.driverName}
-                    onChange={(e) => handleFilterChange('driverName', e.target.value)}
-                  />
+                  <Label htmlFor="driverName" className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    司机
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="driverName"
+                      placeholder="司机姓名..."
+                      value={filters.driverName}
+                      onChange={(e) => handleFilterChange('driverName', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          fetchPaymentRequests();
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchPaymentRequests}
+                      className="px-3"
+                    >
+                      <Users className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 {/* 装货日期筛选 */}
@@ -928,11 +993,13 @@ export default function MobilePaymentRequestsList() {
                       <Eye className="h-4 w-4 mr-1" />
                       查看详情
                     </Button>
+                    {/* 导出按钮 - 蓝色主题 */}
                     <Button 
                       variant="default" 
                       size="sm" 
                       onClick={() => handleExport(req)} 
                       disabled={exportingId === req.id}
+                      className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200"
                     >
                       {exportingId === req.id ? (
                         <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -941,46 +1008,72 @@ export default function MobilePaymentRequestsList() {
                       )}
                       导出
                     </Button>
+
+                    {/* 生成PDF按钮 - 灰色主题 */}
                     <Button 
                       variant="outline" 
                       size="sm" 
                       onClick={() => handleGeneratePDF(req)} 
                       disabled={exportingId === req.id}
+                      className="border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200"
                     >
                       <FileTextIcon className="h-4 w-4 mr-1" />
                       生成PDF
                     </Button>
-                    {req.status === 'Pending' && (
+
+                    {/* 付款按钮 - 红色主题，只在已审批状态显示 */}
+                    {req.status === 'Approved' && (
                       <Button 
-                        variant="destructive" 
+                        variant="default" 
                         size="sm" 
                         onClick={() => handlePayment(req)} 
                         disabled={exportingId === req.id}
+                        className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
                       >
                         <Banknote className="h-4 w-4 mr-1" />
                         付款
                       </Button>
                     )}
+
+                    {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
                     {req.status === 'Pending' && (
                       <Button 
-                        variant="secondary" 
+                        variant="default" 
                         size="sm" 
                         onClick={() => handleApproval(req)} 
                         disabled={exportingId === req.id}
+                        className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
                       >
                         <Send className="h-4 w-4 mr-1" />
                         审批
                       </Button>
                     )}
+
+                    {/* 取消付款按钮 - 橙色主题，只在已付款状态显示 */}
                     {req.status === 'Paid' && (
                       <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => handleCancelPayment(req)} 
                         disabled={exportingId === req.id}
+                        className="border-orange-300 text-orange-700 hover:bg-orange-50 shadow-sm transition-all duration-200"
                       >
                         <Banknote className="h-4 w-4 mr-1" />
                         取消付款
+                      </Button>
+                    )}
+
+                    {/* 取消审批按钮 - 灰色主题，只在已审批状态显示 */}
+                    {req.status === 'Approved' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleRollbackApproval(req.request_id)} 
+                        disabled={exportingId === req.id}
+                        className="border-gray-300 text-gray-600 hover:bg-gray-50 shadow-sm transition-all duration-200"
+                      >
+                        <RotateCcw className="h-4 w-4 mr-1" />
+                        取消审批
                       </Button>
                     )}
                   </div>
