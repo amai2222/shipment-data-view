@@ -611,6 +611,32 @@ export default function MobilePaymentRequestsList() {
   const formatCurrency = (value: number) => 
     (value || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' });
 
+  const handleApproval = async (req: PaymentRequest) => {
+    try {
+      setExportingId(req.id);
+      
+      // 更新申请状态为已审批
+      const { error } = await supabase
+        .from('payment_requests')
+        .update({ status: 'Approved' })
+        .eq('id', req.id);
+      
+      if (error) {
+        console.error('审批失败:', error);
+        toast({ title: "审批失败", description: error.message, variant: "destructive" });
+        return;
+      }
+      
+      toast({ title: "审批成功", description: "付款申请已审批通过" });
+      fetchPaymentRequests();
+    } catch (error) {
+      console.error('审批操作失败:', error);
+      toast({ title: "审批失败", description: "操作失败，请重试", variant: "destructive" });
+    } finally {
+      setExportingId(null);
+    }
+  };
+
   const handleApprovalClick = (req: PaymentRequest) => {
     setShowApprovalPage(req);
   };
@@ -730,6 +756,17 @@ export default function MobilePaymentRequestsList() {
                       >
                         <Banknote className="h-4 w-4 mr-1" />
                         付款
+                      </Button>
+                    )}
+                    {req.status === 'Pending' && (
+                      <Button 
+                        variant="secondary" 
+                        size="sm" 
+                        onClick={() => handleApproval(req)} 
+                        disabled={exportingId === req.id}
+                      >
+                        <Send className="h-4 w-4 mr-1" />
+                        审批
                       </Button>
                     )}
                     {req.status === 'Paid' && (

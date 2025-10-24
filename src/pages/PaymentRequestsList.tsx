@@ -573,6 +573,33 @@ export default function PaymentRequestsList() {
     }
   };
 
+  const handleApproval = async (e: any, req: PaymentRequest) => {
+    e.stopPropagation();
+    try {
+      setExportingId(req.id);
+      
+      // 更新申请状态为已审批
+      const { error } = await supabase
+        .from('payment_requests')
+        .update({ status: 'Approved' })
+        .eq('id', req.id);
+      
+      if (error) {
+        console.error('审批失败:', error);
+        toast({ title: "审批失败", description: error.message, variant: "destructive" });
+        return;
+      }
+      
+      toast({ title: "审批成功", description: "付款申请已审批通过" });
+      fetchPaymentRequests();
+    } catch (error) {
+      console.error('审批操作失败:', error);
+      toast({ title: "审批失败", description: "操作失败，请重试", variant: "destructive" });
+    } finally {
+      setExportingId(null);
+    }
+  };
+
   const handleViewDetails = useCallback(async (request: PaymentRequest) => {
     setSelectedRequest(request);
     setIsModalOpen(true);
@@ -843,6 +870,12 @@ export default function PaymentRequestsList() {
                               <Button variant="outline" size="sm" onClick={(e) => handleCancelPayment(e, req)} disabled={exportingId === req.id}>
                                 <Banknote className="mr-2 h-4 w-4" />
                                 取消付款
+                              </Button>
+                            )}
+                            {req.status === 'Pending' && (
+                              <Button variant="secondary" size="sm" onClick={(e) => handleApproval(e, req)} disabled={exportingId === req.id}>
+                                <ClipboardList className="mr-2 h-4 w-4" />
+                                审批
                               </Button>
                             )}
                             {req.status === 'Pending' && (
