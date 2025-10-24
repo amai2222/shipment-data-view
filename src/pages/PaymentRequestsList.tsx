@@ -14,6 +14,9 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 // @ts-ignore - lucide-react图标导入
 import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote } from 'lucide-react';
+
+// 简单的图标占位符组件
+const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
 import { PaymentApproval } from '@/components/PaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -22,6 +25,12 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PageHeader } from '@/components/PageHeader';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon, X } from 'lucide-react';
+import { zhCN } from 'date-fns/locale';
 
 // --- 类型定义 ---
 interface PaymentRequest {
@@ -51,27 +60,127 @@ export default function PaymentRequestsList() {
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [isCancelling, setIsCancelling] = useState(false);
   const [totalRequestsCount, setTotalRequestsCount] = useState(0);
+  
+  // 筛选器状态
+  const [filters, setFilters] = useState({
+    requestId: '',
+    waybillNumber: '',
+    driverName: '',
+    loadingDate: null as Date | null
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(0);
+  const [jumpToPage, setJumpToPage] = useState('');
 
   const fetchPaymentRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error, count } = await supabase
-        .from('payment_requests')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false });
+      // 使用后端筛选函数
+      // @ts-ignore - 新的RPC函数，TypeScript类型尚未更新
+      const { data, error } = await supabase.rpc('get_payment_requests_filtered', {
+        p_request_id: filters.requestId || null,
+        p_waybill_number: filters.waybillNumber || null,
+        p_driver_name: filters.driverName || null,
+        p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
+        p_limit: pageSize,
+        p_offset: (currentPage - 1) * pageSize
+      });
 
       if (error) throw error;
-      setRequests(((data as unknown) as PaymentRequest[]) || []);
-      setTotalRequestsCount(count || 0);
+      
+      // 处理返回的数据
+      const requestsData = (data as any[]) || [];
+      setRequests(requestsData.map(item => ({
+        id: item.id,
+        created_at: item.created_at,
+        request_id: item.request_id,
+        status: item.status,
+        notes: item.notes,
+        logistics_record_ids: item.logistics_record_ids,
+        record_count: item.record_count
+      })));
+      
+      // 设置总数和总页数
+      if (requestsData.length > 0) {
+        const totalCount = requestsData[0].total_count || 0;
+        setTotalRequestsCount(totalCount);
+        setTotalPages(Math.ceil(totalCount / pageSize));
+      } else {
+        setTotalRequestsCount(0);
+        setTotalPages(0);
+      }
     } catch (error) {
       console.error("加载付款申请列表失败:", error);
       toast({ title: "错误", description: `加载付款申请列表失败: ${(error as any).message}`, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, filters, currentPage, pageSize]);
 
   useEffect(() => { fetchPaymentRequests(); }, [fetchPaymentRequests]);
+
+  // 筛选器处理函数
+  const handleFilterChange = (key: string, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      requestId: '',
+      waybillNumber: '',
+      driverName: '',
+      loadingDate: null
+    });
+  };
+
+  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate;
+
+  // 分页处理函数
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // 重置到第一页
+  };
+
+  const handleJumpToPage = () => {
+    const page = parseInt(jumpToPage);
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setJumpToPage('');
+    } else {
+      toast({ title: "错误", description: `请输入1到${totalPages}之间的页码`, variant: "destructive" });
+    }
+  };
+
+  // 生成页码数组
+  const generatePageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      const start = Math.max(1, currentPage - 2);
+      const end = Math.min(totalPages, start + maxVisiblePages - 1);
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  };
 
   const getStatusBadge = (status: PaymentRequest['status']) => {
     switch (status) {
@@ -813,9 +922,113 @@ export default function PaymentRequestsList() {
         </div>
       )}
 
+      {/* 筛选器 */}
       <Card>
         <CardHeader>
+          <div className="flex items-center justify-between">
           <CardTitle>历史申请记录</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2"
+            >
+              <Search className="h-4 w-4" />
+              {showFilters ? '隐藏筛选' : '显示筛选'}
+              {hasActiveFilters && <Badge variant="secondary">已筛选</Badge>}
+            </Button>
+          </div>
+        </CardHeader>
+        {showFilters && (
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* 申请单号筛选 */}
+              <div className="space-y-2">
+                <Label htmlFor="requestId">申请单号</Label>
+                <Input
+                  id="requestId"
+                  placeholder="输入申请单号"
+                  value={filters.requestId}
+                  onChange={(e) => handleFilterChange('requestId', e.target.value)}
+                />
+              </div>
+
+              {/* 运单号筛选 */}
+              <div className="space-y-2">
+                <Label htmlFor="waybillNumber">运单号</Label>
+                <Input
+                  id="waybillNumber"
+                  placeholder="输入运单号"
+                  value={filters.waybillNumber}
+                  onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
+                />
+              </div>
+
+              {/* 司机筛选 */}
+              <div className="space-y-2">
+                <Label htmlFor="driverName">司机</Label>
+                <Input
+                  id="driverName"
+                  placeholder="输入司机姓名"
+                  value={filters.driverName}
+                  onChange={(e) => handleFilterChange('driverName', e.target.value)}
+                />
+              </div>
+
+              {/* 装货日期筛选 */}
+              <div className="space-y-2">
+                <Label htmlFor="loadingDate">装货日期</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="loadingDate"
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !filters.loadingDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {filters.loadingDate ? format(filters.loadingDate, "yyyy-MM-dd", { locale: zhCN }) : "选择日期"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={filters.loadingDate || undefined}
+                      onSelect={(date) => handleFilterChange('loadingDate', date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            {/* 筛选器操作按钮 */}
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                {hasActiveFilters && (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    <X className="h-4 w-4 mr-1" />
+                    清除筛选
+                  </Button>
+                )}
+                <span className="text-sm text-muted-foreground">
+                  {hasActiveFilters ? '已应用筛选条件' : '未设置筛选条件'}
+                </span>
+              </div>
+              <Button onClick={fetchPaymentRequests} size="sm">
+                <Search className="h-4 w-4 mr-1" />
+                搜索
+              </Button>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>申请单列表</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="min-h-[400px]">
@@ -978,6 +1191,127 @@ export default function PaymentRequestsList() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 分页组件 */}
+      {totalPages > 0 && (
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              {/* 左侧信息 */}
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  共 {totalRequestsCount} 条记录，第 {currentPage} / {totalPages} 页
+                </span>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="pageSize" className="text-sm">每页显示</Label>
+                  <select
+                    id="pageSize"
+                    value={pageSize}
+                    onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
+                    className="px-2 py-1 border rounded text-sm"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <span className="text-sm text-muted-foreground">条</span>
+                </div>
+              </div>
+
+              {/* 中间分页按钮 */}
+              <div className="flex items-center gap-1">
+                {/* 上一页 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                  className="h-8 w-8 p-0"
+                >
+                  ‹
+                </Button>
+
+                {/* 第一页 */}
+                {currentPage > 3 && (
+                  <>
+                    <Button
+                      variant={currentPage === 1 ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(1)}
+                      className="h-8 w-8 p-0"
+                    >
+                      1
+                    </Button>
+                    {currentPage > 4 && <span className="px-2 text-muted-foreground">...</span>}
+                  </>
+                )}
+
+                {/* 页码按钮 */}
+                {generatePageNumbers().map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handlePageChange(page)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {page}
+                  </Button>
+                ))}
+
+                {/* 最后一页 */}
+                {currentPage < totalPages - 2 && (
+                  <>
+                    {currentPage < totalPages - 3 && <span className="px-2 text-muted-foreground">...</span>}
+                    <Button
+                      variant={currentPage === totalPages ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(totalPages)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {totalPages}
+                    </Button>
+                  </>
+                )}
+
+                {/* 下一页 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                  className="h-8 w-8 p-0"
+                >
+                  ›
+                </Button>
+              </div>
+
+              {/* 右侧跳转 */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">跳转到</span>
+                <Input
+                  type="number"
+                  value={jumpToPage}
+                  onChange={(e) => setJumpToPage(e.target.value)}
+                  placeholder="页码"
+                  className="w-16 h-8 text-center"
+                  min="1"
+                  max={totalPages}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleJumpToPage}
+                  className="h-8 px-3"
+                >
+                  确定
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       </div>
     </div>
   );
