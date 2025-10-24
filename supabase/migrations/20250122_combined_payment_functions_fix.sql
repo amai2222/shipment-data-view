@@ -47,8 +47,12 @@
 
 -- 先删除现有函数（如果存在）
 DROP FUNCTION IF EXISTS public.cancel_payment_status_for_waybills(UUID[], UUID);
+DROP FUNCTION IF EXISTS public.cancel_payment_status_for_waybills(UUID[]);
 DROP FUNCTION IF EXISTS public.update_payment_status_for_waybills(UUID[], TEXT, UUID);
+DROP FUNCTION IF EXISTS public.update_payment_status_for_waybills(UUID[], TEXT);
+DROP FUNCTION IF EXISTS public.update_payment_status_for_waybills(UUID[]);
 DROP FUNCTION IF EXISTS public.generate_payment_request_pdf_data(UUID[]);
+DROP FUNCTION IF EXISTS public.generate_payment_request_pdf_data(TEXT[]);
 
 CREATE OR REPLACE FUNCTION public.cancel_payment_status_for_waybills(
         p_record_ids UUID[],
@@ -118,6 +122,8 @@ CREATE OR REPLACE FUNCTION public.cancel_payment_status_for_waybills(
 
 -- 先删除现有函数（如果存在）
 DROP FUNCTION IF EXISTS public.set_payment_status_for_waybills(UUID[], TEXT, UUID);
+DROP FUNCTION IF EXISTS public.set_payment_status_for_waybills(UUID[], TEXT);
+DROP FUNCTION IF EXISTS public.set_payment_status_for_waybills(UUID[]);
 
 CREATE OR REPLACE FUNCTION public.set_payment_status_for_waybills(
         p_record_ids UUID[],
@@ -196,6 +202,8 @@ CREATE OR REPLACE FUNCTION public.set_payment_status_for_waybills(
 
 -- 先删除现有函数（如果存在）
 DROP FUNCTION IF EXISTS public.rollback_payment_status_for_waybills(UUID[]);
+DROP FUNCTION IF EXISTS public.rollback_payment_status_for_waybills(UUID[], TEXT);
+DROP FUNCTION IF EXISTS public.rollback_payment_status_for_waybills(UUID[], TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION public.rollback_payment_status_for_waybills(
         p_record_ids UUID[]
@@ -254,6 +262,8 @@ CREATE OR REPLACE FUNCTION public.rollback_payment_status_for_waybills(
 
 -- 先删除现有函数（如果存在）
 DROP FUNCTION IF EXISTS public.cancel_payment_requests_by_ids(TEXT[]);
+DROP FUNCTION IF EXISTS public.cancel_payment_requests_by_ids(TEXT[], TEXT);
+DROP FUNCTION IF EXISTS public.cancel_payment_requests_by_ids(TEXT[], TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION public.cancel_payment_requests_by_ids(
         p_request_ids TEXT[]
@@ -314,6 +324,8 @@ CREATE OR REPLACE FUNCTION public.cancel_payment_requests_by_ids(
 
 -- 先删除现有函数（如果存在）
 DROP FUNCTION IF EXISTS public.void_payment_requests_by_ids(TEXT[]);
+DROP FUNCTION IF EXISTS public.void_payment_requests_by_ids(TEXT[], TEXT);
+DROP FUNCTION IF EXISTS public.void_payment_requests_by_ids(TEXT[], TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION public.void_payment_requests_by_ids(
         p_request_ids TEXT[]
@@ -418,6 +430,8 @@ CREATE OR REPLACE FUNCTION public.void_payment_requests_by_ids(
 
 -- 先删除现有函数（如果存在）
 DROP FUNCTION IF EXISTS public.check_payment_rollback_eligibility(TEXT[]);
+DROP FUNCTION IF EXISTS public.check_payment_rollback_eligibility(TEXT[], TEXT);
+DROP FUNCTION IF EXISTS public.check_payment_rollback_eligibility(TEXT[], TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION public.check_payment_rollback_eligibility(
         p_request_ids TEXT[]
@@ -472,6 +486,8 @@ CREATE OR REPLACE FUNCTION public.check_payment_rollback_eligibility(
 
 -- 先删除现有函数（如果存在）
 DROP FUNCTION IF EXISTS public.void_payment_request_with_rollback(TEXT);
+DROP FUNCTION IF EXISTS public.void_payment_request_with_rollback(TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.void_payment_request_with_rollback(TEXT, TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION public.void_payment_request_with_rollback(
         p_request_id TEXT
