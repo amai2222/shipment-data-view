@@ -738,11 +738,11 @@ export default function PaymentRequestsList() {
       });
       if (checkError) throw checkError;
 
-      const eligibilityData = eligibility as { can_proceed?: boolean; already_paid?: number; already_cancelled?: number };
-      if (!eligibilityData.can_proceed) {
+      const eligibilityData = eligibility as { eligible_count?: number; paid_count?: number; other_count?: number; total_count?: number };
+      if (eligibilityData.eligible_count === 0) {
         toast({ 
           title: "无法作废", 
-          description: `选中的申请单中：${eligibilityData.already_paid} 个已付款，${eligibilityData.already_cancelled} 个已作废。只有待审批和已审批状态的申请单可以作废。`,
+          description: `选中的申请单中：${eligibilityData.paid_count || 0} 个已付款，${eligibilityData.other_count || 0} 个已作废。只有待审批和已审批状态的申请单可以作废。`,
           variant: "destructive"
         });
         setIsCancelling(false);
