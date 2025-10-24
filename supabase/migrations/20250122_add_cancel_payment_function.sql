@@ -49,9 +49,10 @@ BEGIN
     SET 
         payment_status = 'Unpaid',
         payment_completed_at = NULL
-    FROM public.logistics_records lr
-    JOIN public.partners p ON lpc.partner_id = p.id
+    FROM public.logistics_records lr,
+         public.partners p
     WHERE lpc.logistics_record_id = lr.id
+      AND lpc.partner_id = p.id
       AND lr.id = ANY(p_record_ids)
       AND (p.partner_type IS NULL OR p.partner_type != '货主')  -- 货主除外，处理NULL值
       AND lpc.payment_status = 'Paid';  -- 只处理已付款的合作方成本

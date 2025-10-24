@@ -113,9 +113,10 @@ BEGIN
         payment_request_id = NULL,
         payment_applied_at = NULL,
         updated_at = NOW()
-    FROM public.logistics_records lr
-    JOIN public.partners p ON lpc.partner_id = p.id
+    FROM public.logistics_records lr,
+         public.partners p
     WHERE lpc.logistics_record_id = lr.id
+      AND lpc.partner_id = p.id
       AND lr.id = ANY(p_record_ids)
       AND (p.partner_type IS NULL OR p.partner_type != '货主')  -- 货主除外
       AND lpc.payment_status != 'Unpaid';
