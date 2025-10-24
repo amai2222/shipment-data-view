@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 // @ts-ignore - lucide-react图标导入
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw } from 'lucide-react';
 
 // 简单的图标占位符组件
 const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
@@ -61,12 +61,17 @@ export default function PaymentRequestsList() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [totalRequestsCount, setTotalRequestsCount] = useState(0);
   
+  // 批量操作状态
+  const [isBatchOperating, setIsBatchOperating] = useState(false);
+  const [batchOperation, setBatchOperation] = useState<'approve' | 'pay' | null>(null);
+  
   // 筛选器状态
   const [filters, setFilters] = useState({
     requestId: '',
     waybillNumber: '',
     driverName: '',
-    loadingDate: null as Date | null
+    loadingDate: null as Date | null,
+    status: ''
   });
   const [showFilters, setShowFilters] = useState(false);
   
@@ -86,6 +91,7 @@ export default function PaymentRequestsList() {
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
         p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
+        p_status: filters.status || null,
         p_limit: pageSize,
         p_offset: (currentPage - 1) * pageSize
       });
@@ -133,11 +139,107 @@ export default function PaymentRequestsList() {
       requestId: '',
       waybillNumber: '',
       driverName: '',
-      loadingDate: null
+      loadingDate: null,
+      status: ''
     });
   };
 
-  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate;
+  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status;
+
+  // 批量操作处理函数
+  const handleBatchApprove = async () => {
+    if (selection.selectedIds.size === 0) {
+      toast({ title: "提示", description: "请先选择要审批的申请单", variant: "destructive" });
+      return;
+    }
+
+    setIsBatchOperating(true);
+    setBatchOperation('approve');
+    
+    try {
+      const selectedRequestIds = Array.from(selection.selectedIds);
+      // @ts-ignore - 新的RPC函数
+      const { data, error } = await supabase.rpc('batch_approve_payment_requests', {
+        p_request_ids: selectedRequestIds
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      toast({ 
+        title: "批量审批完成", 
+        description: result.message,
+        variant: result.failed_count > 0 ? "destructive" : "default"
+      });
+
+      // 清除选择并刷新数据
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchPaymentRequests();
+    } catch (error) {
+      console.error('批量审批失败:', error);
+      toast({ title: "批量审批失败", description: (error as any).message, variant: "destructive" });
+    } finally {
+      setIsBatchOperating(false);
+      setBatchOperation(null);
+    }
+  };
+
+  const handleBatchPay = async () => {
+    if (selection.selectedIds.size === 0) {
+      toast({ title: "提示", description: "请先选择要付款的申请单", variant: "destructive" });
+      return;
+    }
+
+    setIsBatchOperating(true);
+    setBatchOperation('pay');
+    
+    try {
+      const selectedRequestIds = Array.from(selection.selectedIds);
+      // @ts-ignore - 新的RPC函数
+      const { data, error } = await supabase.rpc('batch_pay_payment_requests', {
+        p_request_ids: selectedRequestIds
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      toast({ 
+        title: "批量付款完成", 
+        description: result.message,
+        variant: result.failed_count > 0 ? "destructive" : "default"
+      });
+
+      // 清除选择并刷新数据
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchPaymentRequests();
+    } catch (error) {
+      console.error('批量付款失败:', error);
+      toast({ title: "批量付款失败", description: (error as any).message, variant: "destructive" });
+    } finally {
+      setIsBatchOperating(false);
+      setBatchOperation(null);
+    }
+  };
+
+  const handleRollbackApproval = async (requestId: string) => {
+    try {
+      setExportingId(requestId);
+      // @ts-ignore - 新的RPC函数
+      const { data, error } = await supabase.rpc('rollback_payment_request_approval', {
+        p_request_id: requestId
+      });
+
+      if (error) throw error;
+
+      toast({ title: "审批回滚成功", description: "申请单已回滚为待审批状态" });
+      fetchPaymentRequests();
+    } catch (error) {
+      console.error('审批回滚失败:', error);
+      toast({ title: "审批回滚失败", description: (error as any).message, variant: "destructive" });
+    } finally {
+      setExportingId(null);
+    }
+  };
 
   // 分页处理函数
   const handlePageChange = (page: number) => {
@@ -941,7 +1043,7 @@ export default function PaymentRequestsList() {
         </CardHeader>
         {showFilters && (
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* 申请单号筛选 */}
               <div className="space-y-2">
                 <Label htmlFor="requestId">申请单号</Label>
@@ -1002,6 +1104,23 @@ export default function PaymentRequestsList() {
                   </PopoverContent>
                 </Popover>
               </div>
+
+              {/* 状态筛选 */}
+              <div className="space-y-2">
+                <Label htmlFor="status">申请单状态</Label>
+                <select
+                  id="status"
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                >
+                  <option value="">全部状态</option>
+                  <option value="Pending">待审批</option>
+                  <option value="Approved">已审批</option>
+                  <option value="Paid">已付款</option>
+                  <option value="Rejected">已驳回</option>
+                </select>
+              </div>
             </div>
 
             {/* 筛选器操作按钮 */}
@@ -1028,7 +1147,36 @@ export default function PaymentRequestsList() {
 
       <Card>
         <CardHeader>
-          <CardTitle>申请单列表</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>申请单列表</CardTitle>
+            {isAdmin && selection.selectedIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  已选择 {selection.selectedIds.size} 个申请单
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBatchApprove}
+                  disabled={isBatchOperating}
+                  className="flex items-center gap-2"
+                >
+                  {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
+                  批量审批
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBatchPay}
+                  disabled={isBatchOperating}
+                  className="flex items-center gap-2"
+                >
+                  {batchOperation === 'pay' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                  批量付款
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="min-h-[400px]">
@@ -1083,6 +1231,12 @@ export default function PaymentRequestsList() {
                               <Button variant="outline" size="sm" onClick={(e) => handleCancelPayment(e, req)} disabled={exportingId === req.id}>
                                 <Banknote className="mr-2 h-4 w-4" />
                                 取消付款
+                              </Button>
+                            )}
+                            {req.status === 'Approved' && (
+                              <Button variant="outline" size="sm" onClick={() => handleRollbackApproval(req.request_id)} disabled={exportingId === req.id}>
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                回滚审批
                               </Button>
                             )}
                             {req.status === 'Pending' && (

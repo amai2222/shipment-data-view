@@ -77,7 +77,8 @@ export default function MobilePaymentRequestsList() {
     requestId: '',
     waybillNumber: '',
     driverName: '',
-    loadingDate: null as Date | null
+    loadingDate: null as Date | null,
+    status: ''
   });
   const [showFilters, setShowFilters] = useState(false);
   
@@ -97,6 +98,7 @@ export default function MobilePaymentRequestsList() {
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
         p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
+        p_status: filters.status || null,
         p_limit: pageSize,
         p_offset: (currentPage - 1) * pageSize
       });
@@ -150,11 +152,12 @@ export default function MobilePaymentRequestsList() {
       requestId: '',
       waybillNumber: '',
       driverName: '',
-      loadingDate: null
+      loadingDate: null,
+      status: ''
     });
   };
 
-  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate;
+  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status;
 
   // 分页处理函数
   const handlePageChange = (page: number) => {
@@ -840,6 +843,23 @@ export default function MobilePaymentRequestsList() {
                       />
                     </PopoverContent>
                   </Popover>
+                </div>
+
+                {/* 状态筛选 */}
+                <div className="space-y-2">
+                  <Label htmlFor="status">申请单状态</Label>
+                  <select
+                    id="status"
+                    value={filters.status}
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  >
+                    <option value="">全部状态</option>
+                    <option value="Pending">待审批</option>
+                    <option value="Approved">已审批</option>
+                    <option value="Paid">已付款</option>
+                    <option value="Rejected">已驳回</option>
+                  </select>
                 </div>
 
                 {/* 筛选器操作按钮 */}
