@@ -407,6 +407,18 @@ const App = () => (
               </ProtectedRoute>
             } />
 
+            <Route path="/m/partners/hierarchy" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+                <MobileLayout><PartnerHierarchyManagement /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/locations-enhanced" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+                <MobileLayout><EnhancedLocations /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
             <Route path="/m/scale-records" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
                 <MobileScaleRecords />
@@ -421,7 +433,7 @@ const App = () => (
 
             <Route path="/m/invoice-request-management" element={
               <ProtectedRoute requiredRoles={['admin', 'finance']}>
-                <MobileInvoiceRequestManagement />
+                <MobileLayout><InvoiceRequestManagement /></MobileLayout>
               </ProtectedRoute>
             } />
 
@@ -476,7 +488,19 @@ const App = () => (
 
             <Route path="/m/settings/permissions" element={
               <ProtectedRoute requiredRoles={['admin']}>
-                <MobilePermissionManagement />
+                <MobileLayout><PermissionConfig /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/data-maintenance/waybill" element={
+              <ProtectedRoute requiredRoles={['admin', 'operator']}>
+                <MobileLayout><WaybillMaintenance /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/data-maintenance/waybill-enhanced" element={
+              <ProtectedRoute requiredRoles={['admin', 'operator']}>
+                <MobileLayout><EnhancedWaybillMaintenance /></MobileLayout>
               </ProtectedRoute>
             } />
 

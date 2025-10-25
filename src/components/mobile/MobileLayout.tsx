@@ -105,10 +105,22 @@ const menuGroups = [
         roles: ['admin', 'finance', 'business', 'operator', 'viewer']
       },
       {
+        name: '地点管理（增强版）',
+        href: '/m/locations-enhanced',
+        icon: MapPin,
+        roles: ['admin', 'finance', 'business', 'operator', 'viewer']
+      },
+      {
         name: '合作伙伴',
         href: '/m/partners',
         icon: Truck,
         roles: ['admin', 'finance', 'business', 'viewer']
+      },
+      {
+        name: '货主层级管理',
+        href: '/m/partners/hierarchy',
+        icon: TreePine,
+        roles: ['admin', 'finance', 'business']
       }
     ]
   },
@@ -177,10 +189,34 @@ const menuGroups = [
         roles: ['admin', 'finance', 'operator']
       },
       {
+        name: '开票申请单管理',
+        href: '/m/invoice-request-management',
+        icon: FileText,
+        roles: ['admin', 'finance']
+      },
+      {
         name: '财务付款',
         href: '/m/payment-requests-management',
         icon: Receipt,
         roles: ['admin', 'finance', 'operator']
+      }
+    ]
+  },
+  {
+    title: '数据维护',
+    icon: Database,
+    items: [
+      {
+        name: '运单维护',
+        href: '/m/data-maintenance/waybill',
+        icon: Truck,
+        roles: ['admin', 'operator']
+      },
+      {
+        name: '运单维护（增强版）',
+        href: '/m/data-maintenance/waybill-enhanced',
+        icon: Truck,
+        roles: ['admin', 'operator']
       }
     ]
   }
@@ -191,6 +227,12 @@ const settingsNavigation = [
     name: '用户管理',
     href: '/m/settings/users',
     icon: Users,
+    roles: ['admin']
+  },
+  {
+    name: '权限配置',
+    href: '/m/settings/permissions',
+    icon: Shield,
     roles: ['admin']
   },
   {
