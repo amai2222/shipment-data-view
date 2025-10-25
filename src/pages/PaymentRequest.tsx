@@ -363,28 +363,48 @@ export default function PaymentRequest() {
     // 获取可用的合作链路
     setIsLoadingChains(true);
     try {
+      console.log('🔍 准备查询合作链路，使用的 project_id:', projectId);
+      console.log('🔍 运单信息:', {
+        auto_number: record.auto_number,
+        project_name: record.project_name,
+        chain_name: record.chain_name
+      });
+      
       const { data, error } = await supabase
         .from('partner_chains')
-        .select('id, chain_name, is_default')
-        .eq('project_id', projectId)  // ⭐ 使用查找到的 projectId，而不是 record.project_id
+        .select('id, chain_name, is_default, project_id')
+        .eq('project_id', projectId)
         .order('is_default', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ 查询合作链路错误:', error);
+        throw error;
+      }
       
-      console.log('✅ 查询到的合作链路:', data);
+      console.log('✅ 查询到的合作链路数量:', data?.length || 0);
+      console.log('✅ 合作链路详情:', data);
       
       if (!data || data.length === 0) {
+        // 检查该项目是否真的没有链路
+        const { data: allChains } = await supabase
+          .from('partner_chains')
+          .select('project_id, chain_name')
+          .limit(5);
+        
+        console.log('🔍 数据库中的部分合作链路（用于对比）:', allChains);
+        
         toast({ 
           title: "提示", 
-          description: "该项目暂无合作链路，请先在项目管理中配置", 
-          variant: "default" 
+          description: `项目"${record.project_name}"暂无合作链路配置。如需配置，请前往项目管理页面。`, 
+          variant: "default",
+          duration: 5000
         });
       }
       
       setAvailableChains(data || []);
     } catch (error) {
       console.error("获取合作链路失败:", error);
-      toast({ title: "错误", description: "获取合作链路失败", variant: "destructive" });
+      toast({ title: "错误", description: `获取合作链路失败: ${(error as any).message}`, variant: "destructive" });
     } finally {
       setIsLoadingChains(false);
     }
