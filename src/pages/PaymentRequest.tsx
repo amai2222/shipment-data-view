@@ -366,7 +366,7 @@ export default function PaymentRequest() {
       <div className="space-y-6">
         <Card className="border-muted/40">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-end">
             <div className="flex flex-col gap-1.5"><Label>项目</Label><Select value={uiFilters.projectId} onValueChange={(v) => handleFilterChange('projectId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{Array.isArray(projects) && projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
             <div className="flex flex-col gap-1.5"><Label>日期范围</Label><DateRangePicker date={dateRangeValue} setDate={handleDateChange} /></div>
             <div className="flex flex-col gap-1.5"><Label>合作方</Label><Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有合作方</SelectItem>{Array.isArray(allPartners) && allPartners.map(p => (<SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>))}</SelectContent></Select></div>
@@ -417,9 +417,9 @@ export default function PaymentRequest() {
       {isStale ? ( <StaleDataPrompt /> ) : (
         <>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div><CardTitle>运单财务明细</CardTitle><p className="text-sm text-muted-foreground">{showAllLevels ? '显示所有层级的合作方' : '仅显示最高级合作方'}</p></div>
-                <Button variant="outline" size="sm" onClick={() => setShowAllLevels(!showAllLevels)}>
+                <Button variant="outline" size="sm" onClick={() => setShowAllLevels(!showAllLevels)} className="w-full sm:w-auto whitespace-nowrap">
                   {showAllLevels ? '仅显示最高级' : '展示全部级别'}
                 </Button>
             </CardHeader>
