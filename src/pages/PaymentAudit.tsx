@@ -969,14 +969,6 @@ export default function PaymentAudit() {
         iconColor="text-green-600"
       />
 
-      {/* 筛选条件显示 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">
-            {hasActiveFilters ? '已应用筛选条件' : '设置筛选条件'}
-          </span>
-        </div>
-      </div>
 
       <div className="space-y-6">
 
@@ -1353,123 +1345,64 @@ export default function PaymentAudit() {
 
       {/* 分页组件 */}
       {totalPages > 0 && (
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              {/* 左侧信息 */}
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">
-                  共 {totalRequestsCount} 条记录，第 {currentPage} / {totalPages} 页
-                </span>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="pageSize" className="text-sm">每页显示</Label>
-                  <select
-                    id="pageSize"
-                    value={pageSize}
-                    onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
-                    className="px-2 py-1 border rounded text-sm"
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                  <span className="text-sm text-muted-foreground">条</span>
-                </div>
-              </div>
+        <div className="flex items-center justify-center gap-4 py-4">
+          {/* 每页显示 */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">每页显示</span>
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
+              className="px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-muted-foreground">条</span>
+          </div>
 
-              {/* 中间分页按钮 */}
-              <div className="flex items-center gap-1">
-                {/* 上一页 */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage <= 1}
-                  className="h-8 w-8 p-0"
-                >
-                  ‹
-                </Button>
+          {/* 上一页 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className="h-8 px-3"
+          >
+            上一页
+          </Button>
 
-                {/* 第一页 */}
-                {currentPage > 3 && (
-                  <>
-                    <Button
-                      variant={currentPage === 1 ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePageChange(1)}
-                      className="h-8 w-8 p-0"
-                    >
-                      1
-                    </Button>
-                    {currentPage > 4 && <span className="px-2 text-muted-foreground">...</span>}
-                  </>
-                )}
+          {/* 页码信息 */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">第</span>
+            <Input
+              type="number"
+              value={currentPage}
+              onChange={(e) => {
+                const page = parseInt(e.target.value);
+                if (page >= 1 && page <= totalPages) {
+                  handlePageChange(page);
+                }
+              }}
+              className="w-12 h-8 text-center"
+              min={1}
+              max={totalPages}
+            />
+            <span className="text-sm text-muted-foreground">页,共{totalPages}页</span>
+          </div>
 
-                {/* 页码按钮 */}
-                {generatePageNumbers().map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handlePageChange(page)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {page}
-                  </Button>
-                ))}
-
-                {/* 最后一页 */}
-                {currentPage < totalPages - 2 && (
-                  <>
-                    {currentPage < totalPages - 3 && <span className="px-2 text-muted-foreground">...</span>}
-                    <Button
-                      variant={currentPage === totalPages ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePageChange(totalPages)}
-                      className="h-8 w-8 p-0"
-                    >
-                      {totalPages}
-                    </Button>
-                  </>
-                )}
-
-                {/* 下一页 */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage >= totalPages}
-                  className="h-8 w-8 p-0"
-                >
-                  ›
-                </Button>
-              </div>
-
-              {/* 右侧跳转 */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">跳转到</span>
-                <Input
-                  type="number"
-                  value={jumpToPage}
-                  onChange={(e) => setJumpToPage(e.target.value)}
-                  placeholder="页码"
-                  className="w-16 h-8 text-center"
-                  min="1"
-                  max={totalPages}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleJumpToPage}
-                  className="h-8 px-3"
-                >
-                  确定
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          {/* 下一页 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className="h-8 px-3"
+          >
+            下一页
+          </Button>
+        </div>
       )}
       </div>
     </div>
