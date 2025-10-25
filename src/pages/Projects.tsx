@@ -63,6 +63,7 @@ export default function Projects() {
     id: string; dbId?: string; chainName: string; description?: string; billingTypeId?: number | null; isDefault?: boolean;
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
   }[]>([]);
+  const [originalChains, setOriginalChains] = useState<typeof selectedChains>([]);
   
   // 筛选和排序状态
   const [searchQuery, setSearchQuery] = useState("");
@@ -178,6 +179,7 @@ export default function Projects() {
   const resetForm = useCallback(() => {
     setFormData({ name: "", startDate: "", endDate: "", manager: "", loadingAddress: "", unloadingAddress: "", financeManager: "", plannedTotalTons: "", projectStatus: "进行中", cargoType: "货品", effectiveQuantityType: "min_value" });
     setSelectedChains([]);
+    setOriginalChains([]);
     setEditingProject(null);
   }, []);
 
@@ -211,7 +213,39 @@ export default function Projects() {
     }));
     
     setSelectedChains(chainsWithPartners);
+    setOriginalChains(JSON.parse(JSON.stringify(chainsWithPartners))); // 深拷贝保存原始数据
     setIsDialogOpen(true);
+  };
+
+  // 检测变更的链路
+  const detectChangedChains = () => {
+    return selectedChains.filter((chain) => {
+      const original = originalChains.find(o => o.dbId === chain.dbId);
+      if (!original) return true; // 新增的链路
+      
+      // 比较合作方配置
+      const currentPartners = JSON.stringify(
+        chain.partners.map(p => ({
+          partnerId: p.partnerId,
+          level: p.level,
+          taxRate: p.taxRate,
+          calculationMethod: p.calculationMethod,
+          profitRate: p.profitRate
+        })).sort((a, b) => a.level - b.level)
+      );
+      
+      const originalPartners = JSON.stringify(
+        original.partners.map(p => ({
+          partnerId: p.partnerId,
+          level: p.level,
+          taxRate: p.taxRate,
+          calculationMethod: p.calculationMethod,
+          profitRate: p.profitRate
+        })).sort((a, b) => a.level - b.level)
+      );
+      
+      return currentPartners !== originalPartners;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -253,30 +287,84 @@ export default function Projects() {
         effective_quantity_type: formData.effectiveQuantityType,
       };
 
-      const chainsPayload = selectedChains.map((chain, index) => ({
-        id: chain.dbId,
-        chain_name: chain.chainName || `链路${index + 1}`,
-        description: chain.description || '',
-        is_default: chain.isDefault !== undefined ? chain.isDefault : (index === 0),
-        billing_type_id: chain.billingTypeId ?? 1,
-        partners: chain.partners.map(p => ({
-          id: p.dbId,
-          partner_id: p.partnerId,
-          level: Number(p.level),
-          tax_rate: Number(p.taxRate) || 0,
-          calculation_method: p.calculationMethod || 'tax',
-          profit_rate: Number(p.profitRate) || 0
-        }))
-      }));
+      if (projectId) {
+        // ========================================
+        // 编辑模式：使用增量更新（只更新变更的链路）
+        // ========================================
+        const changedChains = detectChangedChains();
+        const deletedChainIds = originalChains
+          .filter(o => o.dbId && !selectedChains.find(c => c.dbId === o.dbId))
+          .map(o => o.dbId);
+        
+        const changedChainsPayload = changedChains.map((chain, index) => ({
+          id: chain.dbId,
+          chain_name: chain.chainName || `链路${index + 1}`,
+          description: chain.description || '',
+          is_default: chain.isDefault !== undefined ? chain.isDefault : false,
+          billing_type_id: chain.billingTypeId ?? 1,
+          partners: chain.partners.map(p => ({
+            id: p.dbId,
+            partner_id: p.partnerId,
+            level: Number(p.level),
+            tax_rate: Number(p.taxRate) || 0,
+            calculation_method: p.calculationMethod || 'tax',
+            profit_rate: Number(p.profitRate) || 0
+          }))
+        }));
+        
+        // 只在有变更时才调用更新函数
+        if (changedChains.length > 0 || deletedChainIds.length > 0) {
+          const { error } = await supabase.rpc('update_project_chains_incremental', {
+            p_project_id: projectId,
+            p_project_data: projectPayloadForDb,
+            p_changed_chains: changedChainsPayload,
+            p_deleted_chain_ids: deletedChainIds
+          });
+          
+          if (error) throw error;
+          toast({ 
+            title: "项目更新成功", 
+            description: `已更新 ${changedChains.length} 条链路，删除 ${deletedChainIds.length} 条链路` 
+          });
+        } else {
+          // 只更新项目基本信息，不动链路
+          const { error } = await supabase
+            .from('projects')
+            .update(projectPayloadForDb)
+            .eq('id', projectId);
+          
+          if (error) throw error;
+          toast({ title: "项目更新成功", description: "仅更新了项目基本信息" });
+        }
+      } else {
+        // ========================================
+        // 新建模式：使用原有逻辑（全量保存）
+        // ========================================
+        const chainsPayload = selectedChains.map((chain, index) => ({
+          id: chain.dbId,
+          chain_name: chain.chainName || `链路${index + 1}`,
+          description: chain.description || '',
+          is_default: chain.isDefault !== undefined ? chain.isDefault : (index === 0),
+          billing_type_id: chain.billingTypeId ?? 1,
+          partners: chain.partners.map(p => ({
+            id: p.dbId,
+            partner_id: p.partnerId,
+            level: Number(p.level),
+            tax_rate: Number(p.taxRate) || 0,
+            calculation_method: p.calculationMethod || 'tax',
+            profit_rate: Number(p.profitRate) || 0
+          }))
+        }));
 
-      const { error } = await supabase.rpc('save_project_with_chains_fixed', {
-        project_id_in: projectId,
-        project_data: projectPayloadForDb,
-        chains_data: chainsPayload
-      });
+        const { error } = await supabase.rpc('save_project_with_chains_fixed', {
+          project_id_in: null,
+          project_data: projectPayloadForDb,
+          chains_data: chainsPayload
+        });
 
-      if (error) throw error;
-      toast({ title: editingProject ? "项目更新成功" : "项目创建成功", description: `项目 "${formData.name}" 已成功保存。` });
+        if (error) throw error;
+        toast({ title: "项目创建成功", description: `项目 "${formData.name}" 已成功保存。` });
+      }
 
       // 优化：只刷新缓存，不重新加载
       await queryClient.invalidateQueries({ queryKey: ['projects-with-details'] });

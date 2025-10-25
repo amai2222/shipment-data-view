@@ -71,6 +71,7 @@ export default function PaymentRequest() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDriverBatchOpen, setIsDriverBatchOpen] = useState(false);
+  const [showAllLevels, setShowAllLevels] = useState(false); // 控制是否显示所有层级的合作方
   
 
   // --- 数据获取 (已更新) ---
@@ -305,13 +306,24 @@ export default function PaymentRequest() {
     }
     if (!reportData || !Array.isArray(reportData.records)) return [];
     const relevantPartnerIds = new Set<string>();
+    let maxLevel = 0;
     reportData.records.forEach((record: any) => {
       if (record && Array.isArray(record.partner_costs)) {
-        record.partner_costs.forEach((cost: any) => relevantPartnerIds.add(cost.partner_id));
+        record.partner_costs.forEach((cost: any) => {
+          relevantPartnerIds.add(cost.partner_id);
+          if (cost.level > maxLevel) {
+            maxLevel = cost.level;
+          }
+        });
       }
     });
-    return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
-  }, [reportData, allPartners, uiFilters.partnerId]);
+    const filteredPartners = allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
+    // 根据 showAllLevels 决定是否只显示最高级
+    if (!showAllLevels && maxLevel > 0) {
+      return filteredPartners.filter(p => p.level === maxLevel);
+    }
+    return filteredPartners;
+  }, [reportData, allPartners, uiFilters.partnerId, showAllLevels]);
 
   const isAllOnPageSelected = useMemo(() => {
     if (!reportData || !Array.isArray(reportData.records)) return false;
@@ -406,7 +418,10 @@ export default function PaymentRequest() {
         <>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-                <div><CardTitle>运单财务明细</CardTitle><p className="text-sm text-muted-foreground">各合作方应付金额按级别从左到右排列</p></div>
+                <div><CardTitle>运单财务明细</CardTitle><p className="text-sm text-muted-foreground">{showAllLevels ? '显示所有层级的合作方' : '仅显示最高级合作方'}</p></div>
+                <Button variant="outline" size="sm" onClick={() => setShowAllLevels(!showAllLevels)}>
+                  {showAllLevels ? '仅显示最高级' : '展示全部级别'}
+                </Button>
             </CardHeader>
             <CardContent>
               <div className="relative overflow-x-auto">
