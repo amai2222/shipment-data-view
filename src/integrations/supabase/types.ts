@@ -20,6 +20,7 @@ export type Database = {
           created_at: string | null
           type_code: string | null
           type_name: string | null
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           created_at?: string | null
           type_code?: string | null
           type_name?: string | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -34,6 +36,7 @@ export type Database = {
           created_at?: string | null
           type_code?: string | null
           type_name?: string | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -46,6 +49,7 @@ export type Database = {
           details: Json | null
           id: string
           ip_address: string | null
+          updated_at: string | null
           user_agent: string | null
           user_id: string
         }
@@ -56,6 +60,7 @@ export type Database = {
           details?: Json | null
           id?: string
           ip_address?: string | null
+          updated_at?: string | null
           user_agent?: string | null
           user_id: string
         }
@@ -66,6 +71,7 @@ export type Database = {
           details?: Json | null
           id?: string
           ip_address?: string | null
+          updated_at?: string | null
           user_agent?: string | null
           user_id?: string
         }
@@ -126,6 +132,7 @@ export type Database = {
           file_url: string
           id: string
           is_current: boolean
+          updated_at: string | null
           uploaded_at: string | null
           uploaded_by: string | null
           version_number: number
@@ -140,6 +147,7 @@ export type Database = {
           file_url: string
           id?: string
           is_current?: boolean
+          updated_at?: string | null
           uploaded_at?: string | null
           uploaded_by?: string | null
           version_number?: number
@@ -154,6 +162,7 @@ export type Database = {
           file_url?: string
           id?: string
           is_current?: boolean
+          updated_at?: string | null
           uploaded_at?: string | null
           uploaded_by?: string | null
           version_number?: number
@@ -306,6 +315,7 @@ export type Database = {
           reminder_date: string
           reminder_type: string
           sent_at: string | null
+          updated_at: string | null
         }
         Insert: {
           contract_id: string
@@ -316,6 +326,7 @@ export type Database = {
           reminder_date: string
           reminder_type: string
           sent_at?: string | null
+          updated_at?: string | null
         }
         Update: {
           contract_id?: string
@@ -326,6 +337,7 @@ export type Database = {
           reminder_date?: string
           reminder_type?: string
           sent_at?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -343,18 +355,21 @@ export type Database = {
           created_at: string | null
           id: string
           tag_id: string
+          updated_at: string | null
         }
         Insert: {
           contract_id: string
           created_at?: string | null
           id?: string
           tag_id: string
+          updated_at?: string | null
         }
         Update: {
           contract_id?: string
           created_at?: string | null
           id?: string
           tag_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -381,6 +396,7 @@ export type Database = {
           id: string
           is_system: boolean
           name: string
+          updated_at: string | null
         }
         Insert: {
           color?: string
@@ -389,6 +405,7 @@ export type Database = {
           id?: string
           is_system?: boolean
           name: string
+          updated_at?: string | null
         }
         Update: {
           color?: string
@@ -397,6 +414,7 @@ export type Database = {
           id?: string
           is_system?: boolean
           name?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -486,6 +504,7 @@ export type Database = {
           driver_id: string
           id: string
           project_id: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -493,6 +512,7 @@ export type Database = {
           driver_id: string
           id?: string
           project_id: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -500,6 +520,7 @@ export type Database = {
           driver_id?: string
           id?: string
           project_id?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -522,26 +543,44 @@ export type Database = {
       drivers: {
         Row: {
           created_at: string
+          driver_license_photos: Json | null
+          driving_license_photos: Json | null
           id: string
+          id_card_photos: Json | null
           license_plate: string
           name: string
           phone: string
+          qualification_certificate_photos: Json | null
+          transport_license_photos: Json | null
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
           created_at?: string
+          driver_license_photos?: Json | null
+          driving_license_photos?: Json | null
           id?: string
+          id_card_photos?: Json | null
           license_plate: string
           name: string
           phone: string
+          qualification_certificate_photos?: Json | null
+          transport_license_photos?: Json | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
           created_at?: string
+          driver_license_photos?: Json | null
+          driving_license_photos?: Json | null
           id?: string
+          id_card_photos?: Json | null
           license_plate?: string
           name?: string
           phone?: string
+          qualification_certificate_photos?: Json | null
+          transport_license_photos?: Json | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -553,6 +592,7 @@ export type Database = {
           is_active: boolean | null
           platform_code: string
           platform_name: string
+          updated_at: string | null
         }
         Insert: {
           created_at?: string
@@ -560,6 +600,7 @@ export type Database = {
           is_active?: boolean | null
           platform_code: string
           platform_name: string
+          updated_at?: string | null
         }
         Update: {
           created_at?: string
@@ -567,6 +608,7 @@ export type Database = {
           is_active?: boolean | null
           platform_code?: string
           platform_name?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -580,6 +622,7 @@ export type Database = {
           id: number
           original_definition: string | null
           schema_name: string | null
+          updated_at: string | null
         }
         Insert: {
           backup_reason?: string | null
@@ -590,6 +633,7 @@ export type Database = {
           id?: number
           original_definition?: string | null
           schema_name?: string | null
+          updated_at?: string | null
         }
         Update: {
           backup_reason?: string | null
@@ -600,6 +644,7 @@ export type Database = {
           id?: number
           original_definition?: string | null
           schema_name?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -614,6 +659,7 @@ export type Database = {
           id: string
           is_required: boolean | null
           template_id: string
+          updated_at: string | null
           validation_rules: Json | null
         }
         Insert: {
@@ -626,6 +672,7 @@ export type Database = {
           id?: string
           is_required?: boolean | null
           template_id: string
+          updated_at?: string | null
           validation_rules?: Json | null
         }
         Update: {
@@ -638,6 +685,7 @@ export type Database = {
           id?: string
           is_required?: boolean | null
           template_id?: string
+          updated_at?: string | null
           validation_rules?: Json | null
         }
         Relationships: [
@@ -659,6 +707,7 @@ export type Database = {
           is_case_sensitive: boolean | null
           mapping_type: string
           template_id: string
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
@@ -668,6 +717,7 @@ export type Database = {
           is_case_sensitive?: boolean | null
           mapping_type: string
           template_id: string
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
@@ -677,6 +727,7 @@ export type Database = {
           is_case_sensitive?: boolean | null
           mapping_type?: string
           template_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -783,7 +834,7 @@ export type Database = {
             columns: ["logistics_record_id"]
             isOneToOne: false
             referencedRelation: "logistics_records_status_summary"
-            referencedColumns: ["logistics_record_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_records_logistics_record_id_fkey"
@@ -799,10 +850,18 @@ export type Database = {
             referencedRelation: "partners"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoice_records_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners_hierarchy_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       invoice_request_details: {
         Row: {
+          amount: number | null
           auto_number: string | null
           created_at: string | null
           driver_name: string | null
@@ -814,8 +873,10 @@ export type Database = {
           logistics_record_id: string
           project_name: string | null
           unloading_location: string | null
+          updated_at: string | null
         }
         Insert: {
+          amount?: number | null
           auto_number?: string | null
           created_at?: string | null
           driver_name?: string | null
@@ -827,8 +888,10 @@ export type Database = {
           logistics_record_id: string
           project_name?: string | null
           unloading_location?: string | null
+          updated_at?: string | null
         }
         Update: {
+          amount?: number | null
           auto_number?: string | null
           created_at?: string | null
           driver_name?: string | null
@@ -840,8 +903,37 @@ export type Database = {
           logistics_record_id?: string
           project_name?: string | null
           unloading_location?: string | null
+          updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_invoice_request_details_record_id"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_invoice_request_details_record_id"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records_status_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_invoice_request_details_record_id"
+            columns: ["logistics_record_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_records_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_invoice_request_details_request_id"
+            columns: ["invoice_request_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_requests"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoice_request_details_invoice_request_id_fkey"
             columns: ["invoice_request_id"]
@@ -861,7 +953,7 @@ export type Database = {
             columns: ["logistics_record_id"]
             isOneToOne: false
             referencedRelation: "logistics_records_status_summary"
-            referencedColumns: ["logistics_record_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_request_details_logistics_record_id_fkey"
@@ -879,7 +971,11 @@ export type Database = {
           applied_at: string | null
           approved_at: string | null
           approved_by: string | null
+          bank_account: string | null
+          bank_name: string | null
+          company_address: string | null
           created_at: string | null
+          created_by: string | null
           id: string
           invoice_date: string | null
           invoice_number: string | null
@@ -889,13 +985,20 @@ export type Database = {
           invoicing_partner_full_name: string | null
           invoicing_partner_id: string
           invoicing_partner_tax_number: string | null
+          is_voided: boolean | null
+          partner_full_name: string | null
+          partner_id: string | null
           partner_name: string
           record_count: number
           remarks: string | null
           request_number: string
           status: string | null
+          tax_number: string | null
           total_amount: number
           updated_at: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           applicant_id?: string | null
@@ -903,7 +1006,11 @@ export type Database = {
           applied_at?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          company_address?: string | null
           created_at?: string | null
+          created_by?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
@@ -913,13 +1020,20 @@ export type Database = {
           invoicing_partner_full_name?: string | null
           invoicing_partner_id: string
           invoicing_partner_tax_number?: string | null
+          is_voided?: boolean | null
+          partner_full_name?: string | null
+          partner_id?: string | null
           partner_name: string
           record_count?: number
           remarks?: string | null
           request_number: string
           status?: string | null
+          tax_number?: string | null
           total_amount?: number
           updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           applicant_id?: string | null
@@ -927,7 +1041,11 @@ export type Database = {
           applied_at?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          company_address?: string | null
           created_at?: string | null
+          created_by?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
@@ -937,20 +1055,76 @@ export type Database = {
           invoicing_partner_full_name?: string | null
           invoicing_partner_id?: string
           invoicing_partner_tax_number?: string | null
+          is_voided?: boolean | null
+          partner_full_name?: string | null
+          partner_id?: string | null
           partner_name?: string
           record_count?: number
           remarks?: string | null
           request_number?: string
           status?: string | null
+          tax_number?: string | null
           total_amount?: number
           updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_invoice_requests_created_by"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_invoice_requests_invoicing_partner_id"
+            columns: ["invoicing_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_invoice_requests_invoicing_partner_id"
+            columns: ["invoicing_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners_hierarchy_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_invoice_requests_partner_id"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_invoice_requests_partner_id"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners_hierarchy_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_invoice_requests_voided_by"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoice_requests_partner_id_fkey"
             columns: ["invoicing_partner_id"]
             isOneToOne: false
             referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_requests_partner_id_fkey"
+            columns: ["invoicing_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners_hierarchy_view"
             referencedColumns: ["id"]
           },
         ]
@@ -961,6 +1135,7 @@ export type Database = {
           id: string
           location_id: string
           project_id: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -968,6 +1143,7 @@ export type Database = {
           id?: string
           location_id: string
           project_id: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -975,6 +1151,7 @@ export type Database = {
           id?: string
           location_id?: string
           project_id?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -996,21 +1173,75 @@ export type Database = {
       }
       locations: {
         Row: {
+          adcode: string | null
+          address: string | null
+          city: string | null
+          citycode: string | null
           created_at: string
+          district: string | null
+          formatted_address: string | null
+          geocoding_error: string | null
+          geocoding_status:
+            | Database["public"]["Enums"]["geocoding_status"]
+            | null
+          geocoding_updated_at: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           name: string
+          province: string | null
+          street: string | null
+          street_number: string | null
+          township: string | null
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
+          adcode?: string | null
+          address?: string | null
+          city?: string | null
+          citycode?: string | null
           created_at?: string
+          district?: string | null
+          formatted_address?: string | null
+          geocoding_error?: string | null
+          geocoding_status?:
+            | Database["public"]["Enums"]["geocoding_status"]
+            | null
+          geocoding_updated_at?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name: string
+          province?: string | null
+          street?: string | null
+          street_number?: string | null
+          township?: string | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
+          adcode?: string | null
+          address?: string | null
+          city?: string | null
+          citycode?: string | null
           created_at?: string
+          district?: string | null
+          formatted_address?: string | null
+          geocoding_error?: string | null
+          geocoding_status?:
+            | Database["public"]["Enums"]["geocoding_status"]
+            | null
+          geocoding_updated_at?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
+          province?: string | null
+          street?: string | null
+          street_number?: string | null
+          township?: string | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -1084,6 +1315,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_logistics_partner_costs_invoice_request_id"
+            columns: ["invoice_request_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_requests"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "logistics_partner_costs_logistics_record_id_fkey"
             columns: ["logistics_record_id"]
             isOneToOne: false
@@ -1095,7 +1333,7 @@ export type Database = {
             columns: ["logistics_record_id"]
             isOneToOne: false
             referencedRelation: "logistics_records_status_summary"
-            referencedColumns: ["logistics_record_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "logistics_partner_costs_logistics_record_id_fkey"
@@ -1111,6 +1349,13 @@ export type Database = {
             referencedRelation: "partners"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "logistics_partner_costs_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners_hierarchy_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       logistics_records: {
@@ -1124,11 +1369,14 @@ export type Database = {
           current_cost: number | null
           driver_id: string | null
           driver_name: string
-          driver_payable_cost: number | null
           driver_phone: string
           external_tracking_numbers: string[] | null
           extra_cost: number | null
           id: string
+          invoice_applied_at: string | null
+          invoice_completed_at: string | null
+          invoice_number: string | null
+          invoice_request_id: string | null
           invoice_status: string | null
           license_plate: string
           loading_date: string
@@ -1137,6 +1385,10 @@ export type Database = {
           loading_weight: number | null
           other_platform_names: string[] | null
           payable_cost: number | null
+          payment_applied_at: string | null
+          payment_completed_at: string | null
+          payment_reference: string | null
+          payment_request_id: string | null
           payment_status: string
           project_id: string | null
           project_name: string
@@ -1146,6 +1398,7 @@ export type Database = {
           unloading_location: string
           unloading_location_ids: string[] | null
           unloading_weight: number | null
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -1158,11 +1411,14 @@ export type Database = {
           current_cost?: number | null
           driver_id?: string | null
           driver_name: string
-          driver_payable_cost?: number | null
           driver_phone: string
           external_tracking_numbers?: string[] | null
           extra_cost?: number | null
           id?: string
+          invoice_applied_at?: string | null
+          invoice_completed_at?: string | null
+          invoice_number?: string | null
+          invoice_request_id?: string | null
           invoice_status?: string | null
           license_plate: string
           loading_date: string
@@ -1171,6 +1427,10 @@ export type Database = {
           loading_weight?: number | null
           other_platform_names?: string[] | null
           payable_cost?: number | null
+          payment_applied_at?: string | null
+          payment_completed_at?: string | null
+          payment_reference?: string | null
+          payment_request_id?: string | null
           payment_status?: string
           project_id?: string | null
           project_name: string
@@ -1180,6 +1440,7 @@ export type Database = {
           unloading_location: string
           unloading_location_ids?: string[] | null
           unloading_weight?: number | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -1192,11 +1453,14 @@ export type Database = {
           current_cost?: number | null
           driver_id?: string | null
           driver_name?: string
-          driver_payable_cost?: number | null
           driver_phone?: string
           external_tracking_numbers?: string[] | null
           extra_cost?: number | null
           id?: string
+          invoice_applied_at?: string | null
+          invoice_completed_at?: string | null
+          invoice_number?: string | null
+          invoice_request_id?: string | null
           invoice_status?: string | null
           license_plate?: string
           loading_date?: string
@@ -1205,6 +1469,10 @@ export type Database = {
           loading_weight?: number | null
           other_platform_names?: string[] | null
           payable_cost?: number | null
+          payment_applied_at?: string | null
+          payment_completed_at?: string | null
+          payment_reference?: string | null
+          payment_request_id?: string | null
           payment_status?: string
           project_id?: string | null
           project_name?: string
@@ -1214,6 +1482,7 @@ export type Database = {
           unloading_location?: string
           unloading_location_ids?: string[] | null
           unloading_weight?: number | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -1247,13 +1516,105 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          link: string | null
+          message: string
+          metadata: Json | null
+          read_at: string | null
+          related_id: string | null
+          title: string
+          type: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message: string
+          metadata?: Json | null
+          read_at?: string | null
+          related_id?: string | null
+          title: string
+          type: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message?: string
+          metadata?: Json | null
+          read_at?: string | null
+          related_id?: string | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      operation_logs: {
+        Row: {
+          id: string
+          operated_at: string
+          operated_by: string | null
+          operation_type: string
+          record_id: string | null
+          record_info: Json | null
+          table_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          operated_at?: string
+          operated_by?: string | null
+          operation_type: string
+          record_id?: string | null
+          record_info?: Json | null
+          table_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          operated_at?: string
+          operated_by?: string | null
+          operation_type?: string
+          record_id?: string | null
+          record_info?: Json | null
+          table_name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operation_logs_operated_by_fkey"
+            columns: ["operated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_bank_details: {
         Row: {
           bank_account: string | null
           bank_name: string | null
           branch_name: string | null
+          company_address: string | null
           created_at: string
+          full_name: string | null
           partner_id: string
+          tax_number: string | null
           updated_at: string
           user_id: string | null
         }
@@ -1261,8 +1622,11 @@ export type Database = {
           bank_account?: string | null
           bank_name?: string | null
           branch_name?: string | null
+          company_address?: string | null
           created_at?: string
+          full_name?: string | null
           partner_id: string
+          tax_number?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1270,8 +1634,11 @@ export type Database = {
           bank_account?: string | null
           bank_name?: string | null
           branch_name?: string | null
+          company_address?: string | null
           created_at?: string
+          full_name?: string | null
           partner_id?: string
+          tax_number?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1281,6 +1648,13 @@ export type Database = {
             columns: ["partner_id"]
             isOneToOne: true
             referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_bank_details_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: true
+            referencedRelation: "partners_hierarchy_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1294,6 +1668,7 @@ export type Database = {
           id: string
           is_default: boolean
           project_id: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -1304,6 +1679,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           project_id: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -1314,6 +1690,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           project_id?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1337,16 +1714,19 @@ export type Database = {
         Row: {
           logistics_record_id: string
           payment_request_id: string
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
           logistics_record_id: string
           payment_request_id: string
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
           logistics_record_id?: string
           payment_request_id?: string
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -1362,7 +1742,7 @@ export type Database = {
             columns: ["logistics_record_id"]
             isOneToOne: false
             referencedRelation: "logistics_records_status_summary"
-            referencedColumns: ["logistics_record_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "partner_payment_items_logistics_record_id_fkey"
@@ -1389,6 +1769,7 @@ export type Database = {
           status: string
           total_amount: number
           total_records: number
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -1399,6 +1780,7 @@ export type Database = {
           status?: string
           total_amount: number
           total_records: number
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -1409,45 +1791,70 @@ export type Database = {
           status?: string
           total_amount?: number
           total_records?: number
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []
       }
       partners: {
         Row: {
-          company_address: string | null
           created_at: string
           full_name: string | null
+          hierarchy_depth: number | null
+          hierarchy_path: string | null
           id: string
+          is_root: boolean | null
           name: string
-          partner_type: '货主' | '合作商' | '资方' | '本公司'
-          tax_number: string | null
+          parent_partner_id: string | null
+          partner_type: Database["public"]["Enums"]["partner_type_enum"] | null
           tax_rate: number
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
-          company_address?: string | null
           created_at?: string
           full_name?: string | null
+          hierarchy_depth?: number | null
+          hierarchy_path?: string | null
           id?: string
+          is_root?: boolean | null
           name: string
-          partner_type?: '货主' | '合作商' | '资方' | '本公司'
-          tax_number?: string | null
+          parent_partner_id?: string | null
+          partner_type?: Database["public"]["Enums"]["partner_type_enum"] | null
           tax_rate: number
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
-          company_address?: string | null
           created_at?: string
           full_name?: string | null
+          hierarchy_depth?: number | null
+          hierarchy_path?: string | null
           id?: string
+          is_root?: boolean | null
           name?: string
-          partner_type?: '货主' | '合作商' | '资方' | '本公司'
-          tax_number?: string | null
+          parent_partner_id?: string | null
+          partner_type?: Database["public"]["Enums"]["partner_type_enum"] | null
           tax_rate?: number
+          updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "partners_parent_partner_id_fkey"
+            columns: ["parent_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partners_parent_partner_id_fkey"
+            columns: ["parent_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners_hierarchy_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_records: {
         Row: {
@@ -1502,7 +1909,7 @@ export type Database = {
             columns: ["logistics_record_id"]
             isOneToOne: false
             referencedRelation: "logistics_records_status_summary"
-            referencedColumns: ["logistics_record_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "payment_records_logistics_record_id_fkey"
@@ -1518,6 +1925,13 @@ export type Database = {
             referencedRelation: "partners"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payment_records_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners_hierarchy_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payment_requests: {
@@ -1531,6 +1945,7 @@ export type Database = {
           record_count: number
           request_id: string
           status: string
+          updated_at: string | null
           user_id: string
           work_wechat_sp_no: string | null
         }
@@ -1544,6 +1959,7 @@ export type Database = {
           record_count: number
           request_id: string
           status?: string
+          updated_at?: string | null
           user_id: string
           work_wechat_sp_no?: string | null
         }
@@ -1557,6 +1973,7 @@ export type Database = {
           record_count?: number
           request_id?: string
           status?: string
+          updated_at?: string | null
           user_id?: string
           work_wechat_sp_no?: string | null
         }
@@ -1575,6 +1992,7 @@ export type Database = {
           reason: string | null
           target_project_id: string | null
           target_user_id: string | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -1589,6 +2007,7 @@ export type Database = {
           reason?: string | null
           target_project_id?: string | null
           target_user_id?: string | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -1603,6 +2022,7 @@ export type Database = {
           reason?: string | null
           target_project_id?: string | null
           target_user_id?: string | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1695,6 +2115,7 @@ export type Database = {
           profit_rate: number | null
           project_id: string
           tax_rate: number
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -1707,6 +2128,7 @@ export type Database = {
           profit_rate?: number | null
           project_id: string
           tax_rate?: number
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -1719,6 +2141,7 @@ export type Database = {
           profit_rate?: number | null
           project_id?: string
           tax_rate?: number
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1734,6 +2157,13 @@ export type Database = {
             columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_partners_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners_hierarchy_view"
             referencedColumns: ["id"]
           },
           {
@@ -1761,6 +2191,7 @@ export type Database = {
           project_status: string
           start_date: string
           unloading_address: string
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -1778,6 +2209,7 @@ export type Database = {
           project_status?: string
           start_date: string
           unloading_address: string
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -1795,6 +2227,7 @@ export type Database = {
           project_status?: string
           start_date?: string
           unloading_address?: string
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -2062,6 +2495,7 @@ export type Database = {
           assigned_by: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -2069,6 +2503,7 @@ export type Database = {
           assigned_by?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -2076,7 +2511,23 @@ export type Database = {
           assigned_by?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      v_p_policy_count: {
+        Row: {
+          count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          count?: number | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -2085,32 +2536,38 @@ export type Database = {
       logistics_records_status_summary: {
         Row: {
           auto_number: string | null
+          current_cost: number | null
           driver_name: string | null
-          invoice_processing_partners: number | null
-          invoiced_amount: number | null
-          invoiced_partners: number | null
+          extra_cost: number | null
+          id: string | null
+          invoice_applied_at: string | null
+          invoice_completed_at: string | null
+          invoice_number: string | null
+          invoice_processing_hours: number | null
+          invoice_request_id: string | null
+          invoice_status: string | null
+          invoice_status_text: string | null
           loading_date: string | null
-          logistics_record_id: string | null
-          overall_invoice_status: string | null
-          overall_payment_status: string | null
-          paid_amount: number | null
-          paid_partners: number | null
-          payment_processing_partners: number | null
+          loading_location: string | null
+          payable_cost: number | null
+          payment_applied_at: string | null
+          payment_completed_at: string | null
+          payment_processing_hours: number | null
+          payment_reference: string | null
+          payment_request_id: string | null
+          payment_status: string | null
+          payment_status_text: string | null
           project_name: string | null
-          total_partners: number | null
-          total_payable_amount: number | null
-          uninvoiced_amount: number | null
-          uninvoiced_partners: number | null
-          unpaid_amount: number | null
-          unpaid_partners: number | null
+          unloading_date: string | null
+          unloading_location: string | null
         }
         Relationships: []
       }
       logistics_records_view: {
         Row: {
-          any_text: string | null
           auto_number: string | null
           billing_type_id: number | null
+          cargo_type: string | null
           chain_id: string | null
           chain_name: string | null
           created_at: string | null
@@ -2118,15 +2575,18 @@ export type Database = {
           current_cost: number | null
           driver_id: string | null
           driver_name: string | null
-          driver_payable_cost: number | null
           driver_phone: string | null
+          external_tracking_numbers: string[] | null
           extra_cost: number | null
           id: string | null
+          invoice_status: string | null
           license_plate: string | null
           loading_date: string | null
           loading_location: string | null
           loading_weight: number | null
+          other_platform_names: string[] | null
           payable_cost: number | null
+          payment_status: string | null
           project_id: string | null
           project_name: string | null
           remarks: string | null
@@ -2163,6 +2623,42 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partners_hierarchy_view: {
+        Row: {
+          created_at: string | null
+          direct_children_count: number | null
+          full_name: string | null
+          hierarchy_depth: number | null
+          hierarchy_path: string | null
+          id: string | null
+          is_root: boolean | null
+          name: string | null
+          parent_depth: number | null
+          parent_name: string | null
+          parent_partner_id: string | null
+          partner_type: Database["public"]["Enums"]["partner_type_enum"] | null
+          tax_rate: number | null
+          total_subordinates_count: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partners_parent_partner_id_fkey"
+            columns: ["parent_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partners_parent_partner_id_fkey"
+            columns: ["parent_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners_hierarchy_view"
             referencedColumns: ["id"]
           },
         ]
@@ -2209,27 +2705,9 @@ export type Database = {
         }
         Returns: undefined
       }
-      add_logistics_record_with_costs_v2: {
-        Args:
-          | {
-              p_chain_id: string
-              p_chain_name: string
-              p_driver_id: string
-              p_driver_name: string
-              p_driver_phone: string
-              p_license_plate: string
-              p_loading_cost: number
-              p_loading_date: string
-              p_loading_location: string
-              p_loading_weight: number
-              p_project_id: string
-              p_project_name: string
-              p_transport_type: string
-              p_unloading_cost: number
-              p_unloading_location: string
-              p_user_id: string
-            }
-          | {
+      add_logistics_record_with_costs_v2:
+        | {
+            Args: {
               p_chain_id: string
               p_current_cost: number
               p_driver_id: string
@@ -2249,14 +2727,43 @@ export type Database = {
               p_unloading_location: string
               p_unloading_weight: number
             }
-        Returns: string
-      }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_chain_id: string
+              p_chain_name: string
+              p_driver_id: string
+              p_driver_name: string
+              p_driver_phone: string
+              p_license_plate: string
+              p_loading_cost: number
+              p_loading_date: string
+              p_loading_location: string
+              p_loading_weight: number
+              p_project_id: string
+              p_project_name: string
+              p_transport_type: string
+              p_unloading_cost: number
+              p_unloading_location: string
+              p_user_id: string
+            }
+            Returns: string
+          }
       apply_standard_rls_policies: {
         Args: { p_table_name: string; p_user_id_column: string }
         Returns: undefined
       }
       approve_invoice_request: {
         Args: { p_action: string; p_remarks?: string; p_request_id: string }
+        Returns: Json
+      }
+      batch_approve_payment_requests: {
+        Args: { p_request_ids: string[] }
+        Returns: Json
+      }
+      batch_associate_driver_projects: {
+        Args: { p_driver_ids: string[] }
         Returns: Json
       }
       batch_cancel_by_filter: {
@@ -2280,35 +2787,47 @@ export type Database = {
         Args: { p_records: Json }
         Returns: Json
       }
-      batch_import_logistics_records_with_update: {
-        Args:
-          | { p_records: Json; p_update_mode?: boolean }
-          | { p_records: Json; p_update_options?: Json }
-        Returns: Json
-      }
+      batch_import_logistics_records_with_update:
+        | { Args: { p_records: Json; p_update_mode?: boolean }; Returns: Json }
+        | { Args: { p_records: Json; p_update_options?: Json }; Returns: Json }
       "batch_import_logistics_records—buneng": {
         Args: { p_records: Json }
         Returns: Json
       }
-      batch_recalculate_by_filter: {
-        Args:
-          | {
+      batch_modify_logistics_records_chain: {
+        Args: { p_chain_name: string; p_record_ids: string[] }
+        Returns: Json
+      }
+      batch_pay_payment_requests: {
+        Args: { p_request_ids: string[] }
+        Returns: Json
+      }
+      batch_recalculate_by_filter:
+        | {
+            Args: {
               p_end_date: string
               p_partner_id: string
               p_project_id: string
               p_start_date: string
             }
-          | {
+            Returns: undefined
+          }
+        | {
+            Args: {
               p_end_date?: string
               p_partner_id?: string
               p_project_id?: string
               p_start_date?: string
             }
-        Returns: undefined
-      }
+            Returns: undefined
+          }
       batch_recalculate_partner_costs: {
         Args: { p_record_ids: string[] }
         Returns: undefined
+      }
+      batch_update_location_geocoding: {
+        Args: { p_locations: Json }
+        Returns: Json
       }
       batch_update_permissions: {
         Args: { p_permissions: Json }
@@ -2329,6 +2848,14 @@ export type Database = {
           p_unloading_quantity: number
         }
         Returns: number
+      }
+      calculate_hierarchy_depth: {
+        Args: { partner_id: string }
+        Returns: number
+      }
+      calculate_hierarchy_path: {
+        Args: { partner_id: string }
+        Returns: string
       }
       calculate_partner_costs: {
         Args: { p_base_amount: number; p_project_id: string }
@@ -2378,9 +2905,17 @@ export type Database = {
           tax_rate: number
         }[]
       }
+      can_view_partner: {
+        Args: { target_partner_id: string }
+        Returns: boolean
+      }
       cancel_payment_requests_by_ids: {
         Args: { p_request_ids: string[] }
         Returns: number
+      }
+      cancel_payment_status_for_waybills: {
+        Args: { p_record_ids: string[]; p_user_id?: string }
+        Returns: Json
       }
       check_enum_value: {
         Args: { enum_name: string; enum_value: string }
@@ -2391,10 +2926,30 @@ export type Database = {
           p_fingerprints: Database["public"]["CompositeTypes"]["waybill_fingerprint"][]
         }
         Returns: Database["public"]["CompositeTypes"]["waybill_fingerprint"][]
+        SetofOptions: {
+          from: "*"
+          to: "waybill_fingerprint"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
-      check_logistics_record_duplicate: {
-        Args:
-          | {
+      check_expiring_contracts: { Args: never; Returns: undefined }
+      check_logistics_record_duplicate:
+        | {
+            Args: {
+              p_chain_name: string
+              p_driver_name: string
+              p_license_plate: string
+              p_loading_date: string
+              p_loading_location: string
+              p_loading_weight: number
+              p_project_name: string
+              p_unloading_location: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
               p_chain_id: string
               p_driver_name: string
               p_exclude_id?: string
@@ -2405,17 +2960,10 @@ export type Database = {
               p_project_name: string
               p_unloading_location: string
             }
-          | {
-              p_chain_name: string
-              p_driver_name: string
-              p_license_plate: string
-              p_loading_date: string
-              p_loading_location: string
-              p_loading_weight: number
-              p_project_name: string
-              p_unloading_location: string
-            }
-          | {
+            Returns: boolean
+          }
+        | {
+            Args: {
               p_driver_name: string
               p_driver_phone: string
               p_exclude_id?: string
@@ -2425,11 +2973,24 @@ export type Database = {
               p_loading_weight: number
               p_unloading_location: string
             }
-        Returns: boolean
-      }
-      check_logistics_record_duplicate_v2: {
-        Args:
-          | {
+            Returns: boolean
+          }
+      check_logistics_record_duplicate_v2:
+        | {
+            Args: {
+              p_chain_name: string
+              p_driver_name: string
+              p_license_plate: string
+              p_loading_date: string
+              p_loading_location: string
+              p_loading_weight: number
+              p_project_name: string
+              p_unloading_location: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
               p_chain_id: string
               p_driver_name: string
               p_exclude_id?: string
@@ -2440,20 +3001,14 @@ export type Database = {
               p_project_name: string
               p_unloading_location: string
             }
-          | {
-              p_chain_name: string
-              p_driver_name: string
-              p_license_plate: string
-              p_loading_date: string
-              p_loading_location: string
-              p_loading_weight: number
-              p_project_name: string
-              p_unloading_location: string
-            }
-        Returns: boolean
+            Returns: boolean
+          }
+      check_payment_rollback_eligibility: {
+        Args: { p_request_ids: string[] }
+        Returns: Json
       }
       check_permission_inheritance: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           data_count: number
           function_count: number
@@ -2467,7 +3022,7 @@ export type Database = {
         }[]
       }
       cleanup_permissions: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           cleaned_count: number
           orphaned_count: number
@@ -2489,6 +3044,15 @@ export type Database = {
         }
         Returns: Json
       }
+      create_contract_expiry_notification: {
+        Args: {
+          p_contract_id: string
+          p_contract_number: string
+          p_days_until_expiry: number
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       create_contract_permission: {
         Args: {
           p_contract_id: string
@@ -2500,6 +3064,24 @@ export type Database = {
           p_user_id?: string
         }
         Returns: string
+      }
+      create_payment_request_notification: {
+        Args: {
+          p_amount: number
+          p_project_name: string
+          p_request_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      create_project_completion_notification: {
+        Args: {
+          p_project_id: string
+          p_project_name: string
+          p_total_tonnage: number
+          p_user_id: string
+        }
+        Returns: undefined
       }
       create_role_complete: {
         Args: {
@@ -2534,18 +3116,16 @@ export type Database = {
         }
         Returns: Json
       }
-      delete_invoice_request: {
-        Args: { p_request_id: string }
-        Returns: Json
+      delete_invoice_request: { Args: { p_request_id: string }; Returns: Json }
+      delete_notification: {
+        Args: { p_notification_id: string; p_user_id: string }
+        Returns: undefined
       }
       delete_records_by_project_name: {
         Args: { p_project_name: string }
         Returns: string
       }
-      delete_role_complete: {
-        Args: { role_key: string }
-        Returns: undefined
-      }
+      delete_role_complete: { Args: { role_key: string }; Returns: undefined }
       delete_waybills_by_project: {
         Args: { p_project_name: string }
         Returns: Json
@@ -2582,18 +3162,24 @@ export type Database = {
         Args: { p_report_date: string; p_selected_project_id: string }
         Returns: Json
       }
+      find_driver_projects: {
+        Args: { p_driver_ids: string[] }
+        Returns: {
+          driver_id: string
+          driver_name: string
+          license_plate: string
+          project_ids: string[]
+          project_names: string[]
+          record_count: number
+        }[]
+      }
       generate_auto_number: {
         Args: { loading_date_input: string }
         Returns: string
       }
-      generate_invoice_request_number: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      generate_project_code: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      generate_invoice_request_number: { Args: never; Returns: string }
+      generate_project_code: { Args: never; Returns: string }
+      get_all_ancestor_ids: { Args: { partner_id: string }; Returns: string[] }
       get_all_filtered_record_ids: {
         Args: {
           p_driver_name?: string
@@ -2616,12 +3202,20 @@ export type Database = {
         Args: { p_report_date: string }
         Returns: Json
       }
+      get_all_projects_overview_data_optimized: {
+        Args: { p_project_ids?: string[]; p_report_date: string }
+        Returns: Json
+      }
       get_all_projects_overview_data_v3: {
         Args: { p_project_ids?: string[]; p_report_date: string }
         Returns: Json
       }
+      get_all_projects_overview_data_with_driver_receivable: {
+        Args: { p_project_ids?: string[]; p_report_date: string }
+        Returns: Json
+      }
       get_all_roles: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           role_key: string
           role_label: string
@@ -2629,27 +3223,28 @@ export type Database = {
           user_count: number
         }[]
       }
+      get_all_subordinate_ids: {
+        Args: { partner_id: string }
+        Returns: string[]
+      }
       get_all_used_platforms: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           platform_name: string
           usage_count: number
         }[]
       }
       get_available_platforms: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           last_used: string
           platform_name: string
           usage_count: number
         }[]
       }
-      get_cached_permissions: {
-        Args: { p_cache_key: string }
-        Returns: Json
-      }
+      get_cached_permissions: { Args: { p_cache_key: string }; Returns: Json }
       get_contract_category_templates: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           category: Database["public"]["Enums"]["contract_category"]
           created_at: string
@@ -2663,7 +3258,7 @@ export type Database = {
         }[]
       }
       get_contract_owner_permissions: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           contract_category: Database["public"]["Enums"]["contract_category"]
           contract_id: string
@@ -2677,7 +3272,7 @@ export type Database = {
         }[]
       }
       get_contract_permission_stats: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           active_permissions: number
           department_permissions: number
@@ -2733,12 +3328,24 @@ export type Database = {
         Args: { p_project_id: string }
         Returns: {
           created_at: string
+          driver_license_photos: Json | null
+          driving_license_photos: Json | null
           id: string
+          id_card_photos: Json | null
           license_plate: string
           name: string
           phone: string
+          qualification_certificate_photos: Json | null
+          transport_license_photos: Json | null
+          updated_at: string | null
           user_id: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "drivers"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_distinct_locations_for_project: {
         Args: { p_project_id: string }
@@ -2755,23 +3362,34 @@ export type Database = {
       }
       get_drivers_paginated: {
         Args: {
-          p_page_number: number
-          p_page_size: number
-          p_search_text: string
+          p_page_number?: number
+          p_page_size?: number
+          p_search_text?: string
         }
         Returns: {
           created_at: string
+          driver_license_photos: Json
+          driving_license_photos: Json
           id: string
+          id_card_photos: Json
           license_plate: string
           name: string
           phone: string
           project_ids: string[]
+          qualification_certificate_photos: Json
           total_records: number
+          transport_license_photos: Json
         }[]
       }
       get_drivers_paginated_0827: {
         Args: { p_filter: string; p_page_number: number; p_page_size: number }
         Returns: Database["public"]["CompositeTypes"]["paginated_drivers_result"]
+        SetofOptions: {
+          from: "*"
+          to: "paginated_drivers_result"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       get_filtered_logistics_records_fixed: {
         Args: {
@@ -2839,9 +3457,16 @@ export type Database = {
           record_count: number
           request_id: string
           status: string
+          updated_at: string | null
           user_id: string
           work_wechat_sp_no: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "payment_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_filtered_payment_requests_0827: {
         Args: {
@@ -2861,9 +3486,16 @@ export type Database = {
           record_count: number
           request_id: string
           status: string
+          updated_at: string | null
           user_id: string
           work_wechat_sp_no: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "payment_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_filtered_uninvoiced_partner_cost_ids: {
         Args: {
@@ -2874,23 +3506,26 @@ export type Database = {
         }
         Returns: string[]
       }
-      get_filtered_uninvoiced_record_ids: {
-        Args:
-          | {
+      get_filtered_uninvoiced_record_ids:
+        | {
+            Args: {
               p_end_date?: string
               p_invoice_status_array?: string[]
               p_partner_id?: string
               p_project_id?: string
               p_start_date?: string
             }
-          | {
+            Returns: string[]
+          }
+        | {
+            Args: {
               p_end_date?: string
               p_partner_id?: string
               p_project_id?: string
               p_start_date?: string
             }
-        Returns: string[]
-      }
+            Returns: string[]
+          }
       get_filtered_unpaid_ids: {
         Args: {
           p_end_date?: string
@@ -2965,9 +3600,29 @@ export type Database = {
         }
         Returns: Json
       }
-      get_financial_overview: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
+      get_financial_overview: { Args: never; Returns: Json }
+      get_hierarchy_statistics: {
+        Args: never
+        Returns: {
+          avg_depth: number
+          leaf_partners: number
+          max_depth: number
+          partners_with_children: number
+          root_partners: number
+          total_partners: number
+        }[]
+      }
+      get_hierarchy_tree: {
+        Args: { root_id?: string }
+        Returns: {
+          children_count: number
+          hierarchy_depth: number
+          hierarchy_path: string
+          id: string
+          is_root: boolean
+          name: string
+          parent_id: string
+        }[]
       }
       get_import_templates: {
         Args: { p_platform_type?: string }
@@ -2983,7 +3638,28 @@ export type Database = {
           template_config: Json
         }[]
       }
+      get_invoice_data_by_record_ids: {
+        Args: { p_record_ids: string[] }
+        Returns: Json
+      }
       get_invoice_request_data: {
+        Args: {
+          p_driver_name?: string
+          p_driver_phone?: string
+          p_driver_receivable?: string
+          p_end_date?: string
+          p_invoice_status_array?: string[]
+          p_license_plate?: string
+          p_page_number?: number
+          p_page_size?: number
+          p_partner_id?: string
+          p_project_id?: string
+          p_start_date?: string
+          p_waybill_numbers?: string
+        }
+        Returns: Json
+      }
+      get_invoice_request_data_latest: {
         Args: {
           p_end_date?: string
           p_invoice_status_array?: string[]
@@ -2995,9 +3671,21 @@ export type Database = {
         }
         Returns: Json
       }
-      get_invoice_request_data_v2: {
-        Args:
-          | {
+      get_invoice_request_data_v2:
+        | {
+            Args: { p_record_ids: string[] }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.get_invoice_request_data_v2(p_record_ids => _text), public.get_invoice_request_data_v2(p_record_ids => _uuid). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
+        | {
+            Args: { p_record_ids: string[] }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.get_invoice_request_data_v2(p_record_ids => _text), public.get_invoice_request_data_v2(p_record_ids => _uuid). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
+        | {
+            Args: {
               p_end_date?: string
               p_invoice_status_array?: string[]
               p_page_number?: number
@@ -3006,9 +3694,17 @@ export type Database = {
               p_project_id?: string
               p_start_date?: string
             }
-          | { p_record_ids: string[] }
-          | { p_record_ids: string[] }
-        Returns: Json
+            Returns: Json
+          }
+      get_locations_for_geocoding: {
+        Args: { p_limit?: number }
+        Returns: {
+          address: string
+          geocoding_status: Database["public"]["Enums"]["geocoding_status"]
+          geocoding_updated_at: string
+          id: string
+          name: string
+        }[]
       }
       get_locations_for_project: {
         Args: { p_project_id: string }
@@ -3096,29 +3792,18 @@ export type Database = {
         }[]
       }
       get_logistics_summary_and_records: {
-        Args:
-          | {
-              p_driver_name?: string
-              p_driver_phone?: string
-              p_end_date?: string
-              p_license_plate?: string
-              p_page_number?: number
-              p_page_size?: number
-              p_project_name?: string
-              p_sort_direction?: string
-              p_sort_field?: string
-              p_start_date?: string
-            }
-          | {
-              p_driver_name?: string
-              p_driver_phone?: string
-              p_end_date?: string
-              p_license_plate?: string
-              p_page_number?: number
-              p_page_size?: number
-              p_project_name?: string
-              p_start_date?: string
-            }
+        Args: {
+          p_driver_name?: string
+          p_driver_phone?: string
+          p_end_date?: string
+          p_license_plate?: string
+          p_page_number?: number
+          p_page_size?: number
+          p_project_name?: string
+          p_sort_direction?: string
+          p_sort_field?: string
+          p_start_date?: string
+        }
         Returns: Json
       }
       get_logistics_summary_and_records_backup: {
@@ -3165,25 +3850,16 @@ export type Database = {
         }
         Returns: Json
       }
-      get_monthly_receivables: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      get_monthly_receivables: { Args: never; Returns: number }
       get_monthly_trends: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           month_start: string
           total_receivables: number
         }[]
       }
-      get_my_claim: {
-        Args: { claim: string }
-        Returns: string
-      }
-      get_my_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_my_claim: { Args: { claim: string }; Returns: string }
+      get_my_role: { Args: never; Returns: string }
       get_or_create_driver: {
         Args: {
           p_driver_name: string
@@ -3287,7 +3963,7 @@ export type Database = {
         }[]
       }
       get_partner_ranking: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           partner_name: string
           total_payable: number
@@ -3380,20 +4056,73 @@ export type Database = {
         }
         Returns: Json
       }
+      get_payment_request_pdf_data: {
+        Args: { p_record_ids: string[] }
+        Returns: Json
+      }
       get_payment_request_preview: {
         Args: { p_record_ids: string[] }
         Returns: Json
       }
-      get_pending_invoicing: {
-        Args: Record<PropertyKey, never>
-        Returns: number
+      get_payment_requests_filter_stats: {
+        Args: {
+          p_driver_name?: string
+          p_loading_date?: string
+          p_request_id?: string
+          p_waybill_number?: string
+        }
+        Returns: {
+          approved_requests: number
+          paid_requests: number
+          pending_requests: number
+          rejected_requests: number
+          total_amount: number
+          total_requests: number
+          total_waybills: number
+        }[]
       }
-      get_pending_payments: {
-        Args: Record<PropertyKey, never>
-        Returns: number
+      get_payment_requests_filtered: {
+        Args: {
+          p_driver_name?: string
+          p_limit?: number
+          p_loading_date?: string
+          p_offset?: number
+          p_request_id?: string
+          p_status?: string
+          p_waybill_number?: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          logistics_record_ids: string[]
+          notes: string
+          record_count: number
+          request_id: string
+          status: string
+          total_count: number
+        }[]
       }
+      get_payment_requests_filtered_export: {
+        Args: {
+          p_driver_name?: string
+          p_export_format?: string
+          p_loading_date?: string
+          p_request_id?: string
+          p_waybill_number?: string
+        }
+        Returns: string
+      }
+      get_payment_requests_suggestions: {
+        Args: { p_limit?: number; p_query: string; p_type: string }
+        Returns: {
+          count: number
+          value: string
+        }[]
+      }
+      get_pending_invoicing: { Args: never; Returns: number }
+      get_pending_payments: { Args: never; Returns: number }
       get_permission_stats: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           active_users: number
           total_role_templates: number
@@ -3403,7 +4132,7 @@ export type Database = {
         }[]
       }
       get_permission_sync_status: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           last_sync: string
           minutes_since_sync: number
@@ -3412,7 +4141,7 @@ export type Database = {
         }[]
       }
       get_platform_usage_statistics: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           most_used_platform: string
           most_used_platform_count: number
@@ -3421,8 +4150,21 @@ export type Database = {
           unique_platforms: number
         }[]
       }
+      get_project_available_chains:
+        | {
+            Args: { p_project_id: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.get_project_available_chains(p_project_id => text), public.get_project_available_chains(p_project_id => uuid). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
+        | {
+            Args: { p_project_id: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.get_project_available_chains(p_project_id => text), public.get_project_available_chains(p_project_id => uuid). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
       get_project_contribution: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           project_name: string
           total_receivables: number
@@ -3443,6 +4185,12 @@ export type Database = {
       get_project_dashboard_data_v2: {
         Args: { p_report_date: string; p_selected_project_id: string }
         Returns: Database["public"]["CompositeTypes"]["dashboard_data_type_v2"]
+        SetofOptions: {
+          from: "*"
+          to: "dashboard_data_type_v2"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       get_project_dashboard_data_v3: {
         Args: { p_report_date: string; p_selected_project_id: string }
@@ -3485,10 +4233,7 @@ export type Database = {
         Args: { p_project_id: string }
         Returns: Json
       }
-      get_project_quick_stats: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      get_project_quick_stats: { Args: never; Returns: Json }
       get_project_trend_by_range: {
         Args: { p_days: number; p_project_id: string }
         Returns: {
@@ -3498,13 +4243,99 @@ export type Database = {
           weight: number
         }[]
       }
-      get_projects_with_details: {
-        Args: Record<PropertyKey, never>
+      get_projects_overview_with_driver_receivable:
+        | {
+            Args: {
+              p_project_id?: string
+              p_project_ids?: string[]
+              p_report_date?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_project_id?: string
+              p_project_ids?: string[]
+              p_report_date?: string
+            }
+            Returns: Json
+          }
+      get_projects_with_details: { Args: never; Returns: Json }
+      get_projects_with_details_fixed: { Args: never; Returns: Json }
+      get_projects_with_details_optimized: { Args: never; Returns: Json }
+      get_shipper_dashboard_stats: {
+        Args: {
+          p_end_date?: string
+          p_include_self?: boolean
+          p_include_subordinates?: boolean
+          p_shipper_id: string
+          p_start_date?: string
+        }
         Returns: Json
       }
-      get_projects_with_details_optimized: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
+      get_shipper_project_distribution: {
+        Args: {
+          p_end_date?: string
+          p_shipper_id: string
+          p_start_date?: string
+        }
+        Returns: {
+          percentage: number
+          project_id: string
+          project_name: string
+          record_count: number
+          total_amount: number
+          total_weight: number
+        }[]
+      }
+      get_shipper_top_routes: {
+        Args: {
+          p_end_date?: string
+          p_limit?: number
+          p_shipper_id: string
+          p_start_date?: string
+        }
+        Returns: {
+          avg_amount: number
+          avg_weight: number
+          loading_location: string
+          record_count: number
+          total_amount: number
+          total_weight: number
+          unloading_location: string
+        }[]
+      }
+      get_shipper_trend_data: {
+        Args: { p_days?: number; p_shipper_id: string }
+        Returns: {
+          date: string
+          self_amount: number
+          self_count: number
+          subordinates_amount: number
+          subordinates_count: number
+          total_amount: number
+          total_count: number
+        }[]
+      }
+      get_subordinate_shippers_stats: {
+        Args: {
+          p_end_date?: string
+          p_shipper_id: string
+          p_start_date?: string
+        }
+        Returns: {
+          active_projects: number
+          hierarchy_depth: number
+          parent_id: string
+          parent_name: string
+          pending_invoices: number
+          pending_payments: number
+          record_count: number
+          shipper_id: string
+          shipper_name: string
+          total_amount: number
+          total_weight: number
+        }[]
       }
       get_template_field_mappings: {
         Args: { p_template_id: string }
@@ -3529,10 +4360,7 @@ export type Database = {
           mapping_type: string
         }[]
       }
-      get_today_stats: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      get_today_stats: { Args: never; Returns: Json }
       get_top_partner_daily_trend: {
         Args: { end_date: string; start_date: string }
         Returns: {
@@ -3542,10 +4370,7 @@ export type Database = {
           trip_count: number
         }[]
       }
-      get_total_receivables: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      get_total_receivables: { Args: never; Returns: number }
       get_transport_overview: {
         Args: { p_end_date: string; p_project_id: string; p_start_date: string }
         Returns: Json
@@ -3557,6 +4382,10 @@ export type Database = {
           start_date: string
         }
         Returns: Json
+      }
+      get_unread_notification_count: {
+        Args: { p_user_id: string }
+        Returns: number
       }
       get_user_by_username: {
         Args: { username_input: string }
@@ -3571,14 +4400,28 @@ export type Database = {
           source: string
         }[]
       }
-      get_user_id_by_email: {
-        Args: { p_email: string }
-        Returns: string
+      get_user_id_by_email: { Args: { p_email: string }; Returns: string }
+      get_user_notifications: {
+        Args: {
+          p_is_read?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_user_id: string
+        }
+        Returns: {
+          category: string
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string
+          message: string
+          read_at: string
+          related_id: string
+          title: string
+          type: string
+        }[]
       }
-      get_user_projects: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      get_user_projects: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3586,38 +4429,15 @@ export type Database = {
         }
         Returns: boolean
       }
-      import_logistics_data: {
-        Args: { p_records: Json }
-        Returns: Json
-      }
-      import_logistics_data_v2: {
-        Args: { p_records: Json }
-        Returns: Json
-      }
-      is_admin: {
-        Args: { _user_id?: string }
-        Returns: boolean
-      }
-      is_admin_for_invoice: {
-        Args: { _user_id?: string }
-        Returns: boolean
-      }
-      is_authenticated_user: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_finance_or_admin: {
-        Args: { _user_id?: string }
-        Returns: boolean
-      }
-      is_finance_or_admin_for_invoice: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_finance_or_admin_old: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      import_logistics_data: { Args: { p_records: Json }; Returns: Json }
+      import_logistics_data_v2: { Args: { p_records: Json }; Returns: Json }
+      is_admin: { Args: { _user_id?: string }; Returns: boolean }
+      is_admin_for_invoice: { Args: { _user_id?: string }; Returns: boolean }
+      is_authenticated_user: { Args: never; Returns: boolean }
+      is_finance_operator_or_admin: { Args: never; Returns: boolean }
+      is_finance_or_admin: { Args: { _user_id?: string }; Returns: boolean }
+      is_finance_or_admin_for_invoice: { Args: never; Returns: boolean }
+      is_finance_or_admin_old: { Args: never; Returns: boolean }
       log_permission_change: {
         Args: {
           p_action: string
@@ -3632,14 +4452,36 @@ export type Database = {
         }
         Returns: undefined
       }
+      log_user_info_change: {
+        Args: {
+          p_change_type: string
+          p_new_value: Json
+          p_old_value: Json
+          p_reason?: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       login_with_username_or_email: {
         Args: { identifier: string }
         Returns: {
           user_email: string
         }[]
       }
+      mark_all_notifications_as_read: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      mark_notification_as_read: {
+        Args: { p_notification_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      modify_logistics_record_chain: {
+        Args: { p_chain_name: string; p_record_id: string }
+        Returns: Json
+      }
       monitor_permission_realtime: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           message: string
           status: string
@@ -3654,10 +4496,11 @@ export type Database = {
         Args: { location_string: string }
         Returns: string[]
       }
-      preview_import_v2: {
-        Args: { p_records: Json }
+      preview_driver_project_association: {
+        Args: { p_driver_ids: string[] }
         Returns: Json
       }
+      preview_import_v2: { Args: { p_records: Json }; Returns: Json }
       preview_import_with_duplicates_check: {
         Args: { p_records: Json }
         Returns: Json
@@ -3707,6 +4550,26 @@ export type Database = {
         Args: { p_record_ids: string[] }
         Returns: undefined
       }
+      recalculate_costs_for_chain: {
+        Args: { p_chain_id: string; p_project_id: string }
+        Returns: number
+      }
+      recalculate_costs_for_chain_safe: {
+        Args: {
+          p_chain_id: string
+          p_only_unpaid?: boolean
+          p_project_id: string
+        }
+        Returns: Json
+      }
+      recalculate_costs_for_project: {
+        Args: { p_project_id: string }
+        Returns: Json
+      }
+      recalculate_costs_for_records_safe: {
+        Args: { p_record_ids: string[] }
+        Returns: Json
+      }
       remove_external_tracking_number: {
         Args: { p_logistics_record_id: string; p_tracking_number: string }
         Returns: boolean
@@ -3717,11 +4580,38 @@ export type Database = {
         }
         Returns: Json
       }
-      save_invoice_request: {
-        Args:
-          | { p_invoice_data: Json }
-          | { p_invoice_data: Json }
-          | { p_invoice_status?: string; p_record_ids: string[] }
+      rollback_payment_request_approval: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
+      rollback_payment_status_for_waybills: {
+        Args: { p_record_ids: string[] }
+        Returns: number
+      }
+      rollback_project_functions: { Args: never; Returns: undefined }
+      safe_cast_effective_quantity_type: {
+        Args: { input_text: string }
+        Returns: Database["public"]["Enums"]["effective_quantity_type"]
+      }
+      safe_delete_logistics_records_by_project_v2: {
+        Args: { p_project_name: string }
+        Returns: Json
+      }
+      safe_delete_logistics_records_v2: {
+        Args: { p_record_ids: string[] }
+        Returns: Json
+      }
+      safe_numeric_conversion: {
+        Args: { default_value?: number; input_text: string }
+        Returns: number
+      }
+      save_invoice_request: { Args: { p_record_ids: string[] }; Returns: Json }
+      save_invoice_request_1014: {
+        Args: { p_invoice_data: Json }
+        Returns: Json
+      }
+      save_invoice_request_no: {
+        Args: { p_invoice_status?: string; p_record_ids: string[] }
         Returns: Json
       }
       save_project_addresses_to_locations: {
@@ -3740,12 +4630,35 @@ export type Database = {
         Args: { chains_data: Json; project_data: Json; project_id_in: string }
         Returns: undefined
       }
+      save_project_with_chains_fixed: {
+        Args: { chains_data: Json; project_data: Json; project_id_in: string }
+        Returns: undefined
+      }
+      save_project_with_chains_safe: {
+        Args: { chains_data: Json; project_data: Json; project_id_in: string }
+        Returns: undefined
+      }
       schedule_permission_maintenance: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           maintenance_task: string
           next_run: string
           status: string
+        }[]
+      }
+      search_locations_with_geocoding: {
+        Args: { p_include_coordinates?: boolean; p_query?: string }
+        Returns: {
+          address: string
+          city: string
+          district: string
+          formatted_address: string
+          geocoding_status: Database["public"]["Enums"]["geocoding_status"]
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          province: string
         }[]
       }
       search_project_linked_items: {
@@ -3760,16 +4673,20 @@ export type Database = {
         Args: { p_cache_key: string; p_data: Json; p_expires_minutes?: number }
         Returns: undefined
       }
-      sync_user_permissions_with_role: {
-        Args: Record<PropertyKey, never> | { role_name: string }
-        Returns: undefined
-      }
-      test_platform_fields_import: {
-        Args: Record<PropertyKey, never>
+      set_payment_status_for_waybills: {
+        Args: {
+          p_payment_status: string
+          p_record_ids: string[]
+          p_user_id?: string
+        }
         Returns: Json
       }
+      sync_user_permissions_with_role:
+        | { Args: never; Returns: undefined }
+        | { Args: { role_name: string }; Returns: undefined }
+      test_platform_fields_import: { Args: never; Returns: Json }
       test_supabase_realtime: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           test_name: string
           test_result: string
@@ -3784,13 +4701,33 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_location_geocoding: {
+        Args: {
+          p_adcode?: string
+          p_address?: string
+          p_city?: string
+          p_citycode?: string
+          p_district?: string
+          p_error?: string
+          p_formatted_address?: string
+          p_latitude?: number
+          p_location_id: string
+          p_longitude?: number
+          p_province?: string
+          p_status?: Database["public"]["Enums"]["geocoding_status"]
+          p_street?: string
+          p_street_number?: string
+          p_township?: string
+        }
+        Returns: boolean
+      }
       update_logistics_record_platforms: {
         Args: { p_logistics_record_id: string; p_platform_names: string[] }
         Returns: boolean
       }
-      update_logistics_record_via_recalc: {
-        Args:
-          | {
+      update_logistics_record_via_recalc:
+        | {
+            Args: {
               p_chain_id: string
               p_current_cost: number
               p_driver_id: string
@@ -3810,7 +4747,10 @@ export type Database = {
               p_unloading_location: string
               p_unloading_weight: number
             }
-          | {
+            Returns: undefined
+          }
+        | {
+            Args: {
               p_chain_id: string
               p_current_cost: number
               p_driver_id: string
@@ -3830,8 +4770,8 @@ export type Database = {
               p_unloading_location: string
               p_unloading_weight: number
             }
-        Returns: undefined
-      }
+            Returns: undefined
+          }
       update_logistics_record_with_costs: {
         Args: {
           p_chain_id: string
@@ -3855,18 +4795,12 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_permission_performance_stats: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      update_permission_performance_stats: { Args: never; Returns: undefined }
       update_single_logistics_record: {
         Args: { p_record: Json; p_record_id: string }
         Returns: Json
       }
-      update_sync_status: {
-        Args: { p_table_name: string }
-        Returns: undefined
-      }
+      update_sync_status: { Args: { p_table_name: string }; Returns: undefined }
       upsert_logistics_record: {
         Args: {
           p_chain_id: string
@@ -3894,6 +4828,10 @@ export type Database = {
           status: string
         }[]
       }
+      validate_chain_modification_permission: {
+        Args: { p_record_ids: string[] }
+        Returns: Json
+      }
       validate_external_tracking_uniqueness: {
         Args: {
           p_exclude_logistics_record_id?: string
@@ -3917,6 +4855,22 @@ export type Database = {
           status: string
         }[]
       }
+      void_invoice_request: {
+        Args: { p_request_id: string; p_void_reason?: string }
+        Returns: Json
+      }
+      void_payment_for_request: {
+        Args: { p_cancel_reason?: string; p_request_id: string }
+        Returns: Json
+      }
+      void_payment_request_with_rollback: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
+      void_payment_requests_by_ids: {
+        Args: { p_request_ids: string[] }
+        Returns: Json
+      }
     }
     Enums: {
       app_role:
@@ -3928,6 +4882,8 @@ export type Database = {
         | "viewer"
       contract_category: "行政合同" | "内部合同" | "业务合同"
       effective_quantity_type: "min_value" | "loading" | "unloading"
+      geocoding_status: "pending" | "success" | "failed" | "retry"
+      partner_type_enum: "货主" | "合作商" | "资方" | "本公司"
     }
     CompositeTypes: {
       dashboard_data_type_v2: {
@@ -4153,6 +5109,8 @@ export const Constants = {
       ],
       contract_category: ["行政合同", "内部合同", "业务合同"],
       effective_quantity_type: ["min_value", "loading", "unloading"],
+      geocoding_status: ["pending", "success", "failed", "retry"],
+      partner_type_enum: ["货主", "合作商", "资方", "本公司"],
     },
   },
 } as const
