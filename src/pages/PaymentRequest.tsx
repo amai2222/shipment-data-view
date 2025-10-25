@@ -84,6 +84,12 @@ export default function PaymentRequest() {
   const [tempPartnerCosts, setTempPartnerCosts] = useState<PartnerCost[]>([]);
   const [selectedChainId, setSelectedChainId] = useState<string>('');
   
+  // 批量修改状态
+  const [isBatchModifying, setIsBatchModifying] = useState(false);
+  const [batchModifyType, setBatchModifyType] = useState<'cost' | 'chain' | null>(null);
+  const [batchNewAmount, setBatchNewAmount] = useState<string>('');
+  const [batchChainId, setBatchChainId] = useState<string>('');
+  const [batchChains, setBatchChains] = useState<PartnerChain[]>([]);
 
   // --- 数据获取 (已更新) ---
   const fetchInitialOptions = useCallback(async () => {
@@ -510,6 +516,137 @@ export default function PaymentRequest() {
     }
   };
 
+  // 批量修改应收
+  const handleBatchModifyCost = async () => {
+    const amount = parseFloat(batchNewAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ title: "错误", description: "请输入有效的金额", variant: "destructive" });
+      return;
+    }
+
+    const idsToModify = Array.from(selection.selectedIds);
+    if (idsToModify.length === 0) {
+      toast({ title: "提示", description: "请先选择要修改的运单" });
+      return;
+    }
+
+    setIsBatchModifying(true);
+    try {
+      const { data, error } = await supabase.rpc('batch_modify_partner_cost' as any, {
+        p_record_ids: idsToModify,
+        p_new_amount: amount
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      toast({
+        title: result.success ? "批量修改完成" : "修改失败",
+        description: result.message,
+        variant: result.success ? "default" : "destructive"
+      });
+
+      if (result.failed_records && result.failed_records.length > 0) {
+        console.log('失败的运单:', result.failed_records);
+      }
+
+      setBatchModifyType(null);
+      setBatchNewAmount('');
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchReportData();
+    } catch (error) {
+      console.error("批量修改应收失败:", error);
+      toast({ title: "错误", description: `批量修改失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setIsBatchModifying(false);
+    }
+  };
+
+  // 批量修改合作链路
+  const handleBatchModifyChain = async () => {
+    if (!batchChainId) {
+      toast({ title: "错误", description: "请选择合作链路", variant: "destructive" });
+      return;
+    }
+
+    const idsToModify = Array.from(selection.selectedIds);
+    if (idsToModify.length === 0) {
+      toast({ title: "提示", description: "请先选择要修改的运单" });
+      return;
+    }
+
+    const selectedChain = batchChains.find(c => c.id === batchChainId);
+    if (!selectedChain) {
+      toast({ title: "错误", description: "未找到选择的合作链路", variant: "destructive" });
+      return;
+    }
+
+    setIsBatchModifying(true);
+    try {
+      const { data, error } = await supabase.rpc('batch_modify_chain' as any, {
+        p_record_ids: idsToModify,
+        p_chain_name: selectedChain.chain_name
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      toast({
+        title: result.success ? "批量修改完成" : "修改失败",
+        description: result.message,
+        variant: result.success ? "default" : "destructive"
+      });
+
+      if (result.failed_records && result.failed_records.length > 0) {
+        console.log('失败的运单:', result.failed_records);
+      }
+
+      setBatchModifyType(null);
+      setBatchChainId('');
+      setBatchChains([]);
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchReportData();
+    } catch (error) {
+      console.error("批量修改链路失败:", error);
+      toast({ title: "错误", description: `批量修改失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setIsBatchModifying(false);
+    }
+  };
+
+  // 打开批量修改对话框
+  const handleOpenBatchModify = async (type: 'cost' | 'chain') => {
+    if (selection.selectedIds.size === 0) {
+      toast({ title: "提示", description: "请先选择要修改的运单" });
+      return;
+    }
+
+    setBatchModifyType(type);
+
+    if (type === 'chain') {
+      // 获取选中运单的项目（假设都是同一项目）
+      const selectedRecords = reportData?.records.filter((r: any) => selection.selectedIds.has(r.id));
+      if (selectedRecords && selectedRecords.length > 0) {
+        const firstRecord = selectedRecords[0];
+        let projectId = firstRecord.project_id;
+
+        if (!projectId && firstRecord.project_name) {
+          const project = projects.find(p => p.name === firstRecord.project_name);
+          if (project) projectId = project.id;
+        }
+
+        if (projectId) {
+          const { data } = await supabase
+            .from('partner_chains')
+            .select('id, chain_name, is_default')
+            .eq('project_id', projectId)
+            .order('is_default', { ascending: false });
+          setBatchChains(data || []);
+        }
+      }
+    }
+  };
+
   const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? { from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined } : undefined;
   const displayedPartners = useMemo(() => {
     if (uiFilters.partnerId !== "all") {
@@ -620,9 +757,21 @@ export default function PaymentRequest() {
       )}
       
       {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && (
-        <div className="flex items-center justify-center gap-4 p-3 text-sm font-medium text-center bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 text-blue-800 rounded-lg shadow-sm">
-          <span>已选择 <b className="text-blue-600">{selection.selectedIds.size}</b> 条记录</span>
-          <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700 font-semibold" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
+        <div className="flex items-center justify-between gap-4 p-3 text-sm font-medium text-center bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 text-blue-800 rounded-lg shadow-sm">
+          <div className="flex items-center gap-4">
+            <span>已选择 <b className="text-blue-600">{selection.selectedIds.size}</b> 条记录</span>
+            <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700 font-semibold" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => handleOpenBatchModify('cost')}>
+              <EditIcon className="mr-2 h-4 w-4" />
+              批量修改应收
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => handleOpenBatchModify('chain')}>
+              <LinkIcon className="mr-2 h-4 w-4" />
+              批量修改链路
+            </Button>
+          </div>
         </div>
       )}
 
@@ -978,6 +1127,138 @@ export default function PaymentRequest() {
               disabled={isSaving || !selectedChainId}
             >
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              确认修改
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量修改应收对话框 */}
+      <Dialog open={batchModifyType === 'cost'} onOpenChange={(open) => {
+        if (!open) {
+          setBatchModifyType(null);
+          setBatchNewAmount('');
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <EditIcon className="h-5 w-5 text-green-600" />
+              </div>
+              批量修改应收
+            </DialogTitle>
+            <DialogDescription>已选择 {selection.selectedIds.size} 条运单</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="batch-amount">新的最高级应付金额 (¥)</Label>
+              <Input
+                id="batch-amount"
+                type="number"
+                step="0.01"
+                placeholder="请输入金额"
+                value={batchNewAmount}
+                onChange={(e) => setBatchNewAmount(e.target.value)}
+                disabled={isBatchModifying}
+                className="font-mono"
+              />
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+              <p className="text-xs text-yellow-800">
+                <strong>注意：</strong>
+                <br />• 只会修改最高级合作方的应付金额
+                <br />• 只能修改"未支付"且"未开票"的运单
+                <br />• 已申请付款或已开票的运单将被跳过
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setBatchModifyType(null);
+                setBatchNewAmount('');
+              }}
+              disabled={isBatchModifying}
+            >
+              取消
+            </Button>
+            <Button onClick={handleBatchModifyCost} disabled={isBatchModifying || !batchNewAmount}>
+              {isBatchModifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              确认修改
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量修改合作链路对话框 */}
+      <Dialog open={batchModifyType === 'chain'} onOpenChange={(open) => {
+        if (!open) {
+          setBatchModifyType(null);
+          setBatchChainId('');
+          setBatchChains([]);
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <LinkIcon className="h-5 w-5 text-purple-600" />
+              </div>
+              批量修改合作链路
+            </DialogTitle>
+            <DialogDescription>已选择 {selection.selectedIds.size} 条运单</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="batch-chain">选择合作链路</Label>
+              <Select
+                value={batchChainId}
+                onValueChange={setBatchChainId}
+                disabled={isBatchModifying}
+              >
+                <SelectTrigger id="batch-chain">
+                  <SelectValue placeholder="请选择合作链路..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {batchChains.map((chain) => (
+                    <SelectItem key={chain.id} value={chain.id}>
+                      {chain.chain_name}
+                      {chain.is_default && (
+                        <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                          默认
+                        </span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <p className="text-xs text-blue-800">
+                <strong>提示：</strong>
+                <br />• 修改链路后将自动重新计算所有合作方成本
+                <br />• 只能修改"未支付"且"未开票"的运单
+                <br />• 已申请付款或已开票的运单将被跳过
+                <br />• 所选运单必须属于同一个项目
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setBatchModifyType(null);
+                setBatchChainId('');
+                setBatchChains([]);
+              }}
+              disabled={isBatchModifying}
+            >
+              取消
+            </Button>
+            <Button onClick={handleBatchModifyChain} disabled={isBatchModifying || !batchChainId}>
+              {isBatchModifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               确认修改
             </Button>
           </DialogFooter>
