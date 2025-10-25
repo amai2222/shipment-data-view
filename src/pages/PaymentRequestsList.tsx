@@ -1213,16 +1213,7 @@ export default function PaymentRequestsList() {
                 <span className="text-sm text-muted-foreground">
                   已选择 {selection.selectedIds.size} 个申请单
                 </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBatchApprove}
-                  disabled={isBatchOperating}
-                  className="flex items-center gap-2"
-                >
-                  {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
-                  批量审批
-                </Button>
+                {/* 批量审批按钮 - 已隐藏 */}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1340,19 +1331,7 @@ export default function PaymentRequestsList() {
                               </Button>
                             )}
 
-                            {/* 审批按钮 - 橙色主题，只在待审批状态显示 */}
-                            {req.status === 'Pending' && (
-                              <Button 
-                                variant="default" 
-                                size="sm" 
-                                onClick={(e) => handleApproval(e, req)} 
-                                disabled={exportingId === req.id}
-                                className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
-                              >
-                                <ClipboardList className="mr-2 h-4 w-4" />
-                                审批
-                              </Button>
-                            )}
+                            {/* 审批按钮 - 已隐藏 */}
 
                             {/* 隐藏企业微信审批按钮 */}
                             {/* {req.status === 'Pending' && (
