@@ -966,6 +966,25 @@ export default function PaymentAudit() {
         iconColor="text-green-600"
       />
 
+      {/* 筛选条件显示 */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {hasActiveFilters && (
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              <X className="h-4 w-4 mr-1" />
+              清除筛选
+            </Button>
+          )}
+          <span className="text-sm text-muted-foreground">
+            {hasActiveFilters ? '已应用筛选条件' : '未设置筛选条件'}
+          </span>
+        </div>
+        <Button onClick={fetchPaymentRequests} size="sm">
+          <Search className="h-4 w-4 mr-1" />
+          搜索
+        </Button>
+      </div>
+
       <div className="space-y-6">
 
       <div className="flex justify-between items-center">
@@ -989,7 +1008,7 @@ export default function PaymentAudit() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-          <CardTitle>历史申请记录</CardTitle>
+            <CardTitle>历史申请记录</CardTitle>
             <Button
               variant="outline"
               size="sm"
@@ -1004,93 +1023,69 @@ export default function PaymentAudit() {
         </CardHeader>
         {showFilters && (
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="flex flex-wrap gap-4 items-end">
               {/* 申请单号筛选 */}
-              <div className="space-y-2">
-                <Label htmlFor="requestId">申请单号</Label>
+              <div className="flex-1 min-w-[200px]">
+                <Label htmlFor="requestId" className="text-sm font-medium">申请单号</Label>
                 <Input
                   id="requestId"
                   placeholder="输入申请单号"
                   value={filters.requestId}
                   onChange={(e) => handleFilterChange('requestId', e.target.value)}
+                  className="mt-1"
                 />
               </div>
 
               {/* 运单号筛选 */}
-              <div className="space-y-2">
-                <Label htmlFor="waybillNumber" className="flex items-center gap-2">
+              <div className="flex-1 min-w-[200px]">
+                <Label htmlFor="waybillNumber" className="text-sm font-medium flex items-center gap-1">
                   <FileText className="h-4 w-4" />
                   运单号
                 </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="waybillNumber"
-                    placeholder="输入运单编号,多个用逗号分隔..."
-                    value={filters.waybillNumber}
-                    onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        fetchPaymentRequests();
-                      }
-                    }}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={fetchPaymentRequests}
-                    className="px-3"
-                  >
-                    <FileText className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  支持多个运单编号查询,用逗号分隔,按回车快速搜索
-                </p>
+                <Input
+                  id="waybillNumber"
+                  placeholder="输入运单编号,多个用逗号分隔..."
+                  value={filters.waybillNumber}
+                  onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      fetchPaymentRequests();
+                    }
+                  }}
+                  className="mt-1"
+                />
               </div>
 
               {/* 司机筛选 */}
-              <div className="space-y-2">
-                <Label htmlFor="driverName" className="flex items-center gap-2">
+              <div className="flex-1 min-w-[200px]">
+                <Label htmlFor="driverName" className="text-sm font-medium flex items-center gap-1">
                   <Users className="h-4 w-4" />
                   司机
                 </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="driverName"
-                    placeholder="司机姓名..."
-                    value={filters.driverName}
-                    onChange={(e) => handleFilterChange('driverName', e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        fetchPaymentRequests();
-                      }
-                    }}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={fetchPaymentRequests}
-                    className="px-3"
-                  >
-                    <Users className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Input
+                  id="driverName"
+                  placeholder="司机姓名..."
+                  value={filters.driverName}
+                  onChange={(e) => handleFilterChange('driverName', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      fetchPaymentRequests();
+                    }
+                  }}
+                  className="mt-1"
+                />
               </div>
 
               {/* 装货日期筛选 */}
-              <div className="space-y-2">
-                <Label htmlFor="loadingDate">装货日期</Label>
+              <div className="flex-1 min-w-[200px]">
+                <Label htmlFor="loadingDate" className="text-sm font-medium">装货日期</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       id="loadingDate"
                       variant="outline"
                       className={cn(
-                        "w-full justify-start text-left font-normal",
+                        "w-full justify-start text-left font-normal mt-1",
                         !filters.loadingDate && "text-muted-foreground"
                       )}
                     >
@@ -1110,13 +1105,13 @@ export default function PaymentAudit() {
               </div>
 
               {/* 状态筛选 */}
-              <div className="space-y-2">
-                <Label htmlFor="status">申请单状态</Label>
+              <div className="flex-1 min-w-[150px]">
+                <Label htmlFor="status" className="text-sm font-medium">申请单状态</Label>
                 <select
                   id="status"
                   value={filters.status}
                   onChange={(e) => handleFilterChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm mt-1"
                 >
                   <option value="">全部状态</option>
                   <option value="Pending">待审批</option>
@@ -1127,8 +1122,8 @@ export default function PaymentAudit() {
               </div>
 
               {/* 项目筛选 */}
-              <div className="space-y-2">
-                <Label htmlFor="projectId" className="flex items-center gap-2">
+              <div className="flex-1 min-w-[150px]">
+                <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
                   <Building className="h-4 w-4" />
                   项目
                 </Label>
@@ -1137,7 +1132,7 @@ export default function PaymentAudit() {
                   value={filters.projectId}
                   onChange={(e) => handleFilterChange('projectId', e.target.value)}
                   disabled={loadingProjects}
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50"
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50 mt-1"
                 >
                   <option value="">{loadingProjects ? "加载中..." : "全部项目"}</option>
                   {projects.map((project) => (
@@ -1147,25 +1142,6 @@ export default function PaymentAudit() {
                   ))}
                 </select>
               </div>
-            </div>
-
-            {/* 筛选器操作按钮 */}
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <div className="flex items-center gap-2">
-                {hasActiveFilters && (
-                  <Button variant="outline" size="sm" onClick={clearFilters}>
-                    <X className="h-4 w-4 mr-1" />
-                    清除筛选
-                  </Button>
-                )}
-                <span className="text-sm text-muted-foreground">
-                  {hasActiveFilters ? '已应用筛选条件' : '未设置筛选条件'}
-                </span>
-              </div>
-              <Button onClick={fetchPaymentRequests} size="sm">
-                <Search className="h-4 w-4 mr-1" />
-                搜索
-              </Button>
             </div>
           </CardContent>
         )}
