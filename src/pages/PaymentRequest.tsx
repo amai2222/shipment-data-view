@@ -82,6 +82,7 @@ export default function PaymentRequest() {
   const [availableChains, setAvailableChains] = useState<PartnerChain[]>([]);
   const [isLoadingChains, setIsLoadingChains] = useState(false);
   const [tempPartnerCosts, setTempPartnerCosts] = useState<PartnerCost[]>([]);
+  const [selectedChainId, setSelectedChainId] = useState<string>('');
   
 
   // --- 数据获取 (已更新) ---
@@ -360,6 +361,8 @@ export default function PaymentRequest() {
       currentChainName: record.chain_name || '默认链路'
     });
     
+    setSelectedChainId(''); // 清空之前的选择
+    
     // 获取可用的合作链路
     setIsLoadingChains(true);
     try {
@@ -497,6 +500,7 @@ export default function PaymentRequest() {
       });
       setEditChainData(null);
       setAvailableChains([]);
+      setSelectedChainId('');
       fetchReportData();
     } catch (error) {
       console.error("修改合作链路失败:", error);
@@ -889,7 +893,13 @@ export default function PaymentRequest() {
       </Dialog>
 
       {/* 修改合作链路对话框 */}
-      <Dialog open={!!editChainData} onOpenChange={(open) => !open && setEditChainData(null)}>
+      <Dialog open={!!editChainData} onOpenChange={(open) => {
+        if (!open) {
+          setEditChainData(null);
+          setAvailableChains([]);
+          setSelectedChainId('');
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader className="pb-4 border-b">
             <DialogTitle className="flex items-center gap-2 text-xl">
@@ -916,9 +926,8 @@ export default function PaymentRequest() {
                   </div>
                 ) : (
                   <Select
-                    onValueChange={(value) => {
-                      handleSaveChain(value);
-                    }}
+                    value={selectedChainId}
+                    onValueChange={setSelectedChainId}
                     disabled={isSaving}
                   >
                     <SelectTrigger id="new-chain">
@@ -952,10 +961,24 @@ export default function PaymentRequest() {
               onClick={() => {
                 setEditChainData(null);
                 setAvailableChains([]);
+                setSelectedChainId('');
               }} 
               disabled={isSaving}
             >
               取消
+            </Button>
+            <Button 
+              onClick={() => {
+                if (!selectedChainId) {
+                  toast({ title: "提示", description: "请先选择合作链路", variant: "default" });
+                  return;
+                }
+                handleSaveChain(selectedChainId);
+              }}
+              disabled={isSaving || !selectedChainId}
+            >
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              确认修改
             </Button>
           </DialogFooter>
         </DialogContent>
