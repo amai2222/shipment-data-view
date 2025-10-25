@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-// @ts-ignore - lucide-react图标导入
+// @ts-expect-error - lucide-react图标导入
 import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users } from 'lucide-react';
 
 // 简单的图标占位符组件
@@ -74,7 +74,7 @@ export default function PaymentAudit() {
     status: '',
     projectId: ''
   });
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
@@ -90,7 +90,7 @@ export default function PaymentAudit() {
     setLoading(true);
     try {
       // 使用后端筛选函数
-      // @ts-ignore - 新的RPC函数，TypeScript类型尚未更新
+      // @ts-expect-error - RPC函数参数类型尚未更新
       const { data, error } = await supabase.rpc('get_payment_requests_filtered', {
         p_request_id: filters.requestId || null,
         p_waybill_number: filters.waybillNumber || null,
@@ -105,7 +105,7 @@ export default function PaymentAudit() {
       if (error) throw error;
       
       // 处理返回的数据
-      const requestsData = (data as any[]) || [];
+      const requestsData = (data as PaymentRequest[]) || [];
       setRequests(requestsData.map(item => ({
         id: item.id,
         created_at: item.created_at,
@@ -118,7 +118,7 @@ export default function PaymentAudit() {
       
       // 设置总数和总页数
       if (requestsData.length > 0) {
-        const totalCount = requestsData[0].total_count || 0;
+        const totalCount = (requestsData[0] as any).total_count || 0;
         setTotalRequestsCount(totalCount);
         setTotalPages(Math.ceil(totalCount / pageSize));
       } else {
@@ -127,7 +127,7 @@ export default function PaymentAudit() {
       }
     } catch (error) {
       console.error("加载付款申请列表失败:", error);
-      toast({ title: "错误", description: `加载付款申请列表失败: ${(error as any).message}`, variant: "destructive" });
+      toast({ title: "错误", description: `加载付款申请列表失败: ${(error as Error).message}`, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -166,7 +166,7 @@ export default function PaymentAudit() {
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   // 筛选器处理函数
-  const handleFilterChange = (key: string, value: any) => {
+  const handleFilterChange = (key: string, value: string | Date | null) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     // 筛选条件变化时重置到第一页，但不自动搜索
     setCurrentPage(1);
@@ -200,14 +200,13 @@ export default function PaymentAudit() {
     
     try {
       const selectedRequestIds = Array.from(selection.selectedIds);
-      // @ts-ignore - 新的RPC函数
       const { data, error } = await supabase.rpc('batch_approve_payment_requests', {
         p_request_ids: selectedRequestIds
       });
 
       if (error) throw error;
 
-      const result = data as any;
+      const result = data as { message: string; failed_count: number };
       toast({ 
         title: "批量审批完成", 
         description: result.message,
@@ -219,7 +218,7 @@ export default function PaymentAudit() {
       fetchPaymentRequests();
     } catch (error) {
       console.error('批量审批失败:', error);
-      toast({ title: "批量审批失败", description: (error as any).message, variant: "destructive" });
+      toast({ title: "批量审批失败", description: (error as Error).message, variant: "destructive" });
     } finally {
       setIsBatchOperating(false);
       setBatchOperation(null);
@@ -239,7 +238,6 @@ export default function PaymentAudit() {
   const handleRollbackApproval = async (requestId: string) => {
     try {
       setExportingId(requestId);
-      // @ts-ignore - 新的RPC函数
       const { data, error } = await supabase.rpc('rollback_payment_request_approval', {
         p_request_id: requestId
       });
@@ -250,7 +248,7 @@ export default function PaymentAudit() {
       fetchPaymentRequests();
     } catch (error) {
       console.error('审批回滚失败:', error);
-      toast({ title: "审批回滚失败", description: (error as any).message, variant: "destructive" });
+      toast({ title: "审批回滚失败", description: (error as Error).message, variant: "destructive" });
     } finally {
       setExportingId(null);
     }
@@ -318,7 +316,7 @@ export default function PaymentAudit() {
 
   // 导出功能已移除
 
-  // @ts-ignore - React.MouseEvent类型
+  // @ts-expect-error - React.MouseEvent类型
   const handleGeneratePDF = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
     try {
@@ -674,7 +672,7 @@ export default function PaymentAudit() {
             <button class="print-button" onclick="window.print()">🖨️ 打印申请表</button>
             
 
-            ${sheetData.sheets.map((sheet: any, index: number) => 
+            ${sheetData.sheets.map((sheet: unknown, index: number) => 
               generatePartnerTable(sheet, index)
             ).join('')}
 
@@ -715,14 +713,13 @@ export default function PaymentAudit() {
 
   // 付款功能已移除
 
-  // @ts-ignore - React.MouseEvent类型
+  // @ts-expect-error - React.MouseEvent类型
   const handleCancelPayment = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
     try {
       setExportingId(req.id);
       
       // 取消付款状态
-      // @ts-ignore - RPC函数类型
       const { data, error } = await supabase.rpc('void_payment_for_request', {
         p_request_id: req.request_id,
         p_cancel_reason: '手动取消付款'
@@ -745,7 +742,7 @@ export default function PaymentAudit() {
     }
   };
 
-  const handleApproval = async (e: any, req: PaymentRequest) => {
+  const handleApproval = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
     try {
       setExportingId(req.id);
@@ -772,7 +769,7 @@ export default function PaymentAudit() {
     }
   };
 
-  const handleApprovalWithConfirm = (e: any, req: PaymentRequest) => {
+  const handleApprovalWithConfirm = (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     const confirmDialog = window.confirm(`确定要审批付款申请 ${req.request_id} 吗？`);
     if (confirmDialog) {
       handleApproval(e, req);
@@ -826,17 +823,28 @@ export default function PaymentAudit() {
       
       setPartnerTotals(filteredTotals);
 
-      const detailedRecords = rawRecords.map((rec: any) => {
+      const detailedRecords = rawRecords.map((rec: unknown) => {
+        const record = rec as {
+          id: string;
+          auto_number: string;
+          driver_name: string;
+          license_plate: string;
+          loading_location: string;
+          unloading_location: string;
+          loading_date: string;
+          loading_weight: number | null;
+          payable_cost: number | null;
+        };
         return {
-          id: rec.id,
-          auto_number: rec.auto_number,
-          driver_name: rec.driver_name,
-          license_plate: rec.license_plate,
-          loading_location: rec.loading_location,
-          unloading_location: rec.unloading_location,
-          loading_date: rec.loading_date,
-          loading_weight: rec.loading_weight,
-          payable_amount: rec.payable_cost || 0, // 使用运单的司机应收金额，而不是所有合作方应付金额的总和
+          id: record.id,
+          auto_number: record.auto_number,
+          driver_name: record.driver_name,
+          license_plate: record.license_plate,
+          loading_location: record.loading_location,
+          unloading_location: record.unloading_location,
+          loading_date: record.loading_date,
+          loading_weight: record.loading_weight,
+          payable_amount: record.payable_cost || 0, // 使用运单的司机应收金额，而不是所有合作方应付金额的总和
         };
       });
       
@@ -846,7 +854,7 @@ export default function PaymentAudit() {
       console.error('获取运单详情失败:', error);
       toast({
         title: '获取详情失败',
-        description: (error as any).message,
+        description: (error as Error).message,
         variant: 'destructive',
       });
       setIsModalOpen(false);
@@ -911,7 +919,6 @@ export default function PaymentAudit() {
       }
 
       // 检查作废资格
-      // @ts-ignore - RPC函数类型
       const { data: eligibility, error: checkError } = await supabase.rpc('check_payment_rollback_eligibility', { 
         p_request_ids: idsToCancel 
       });
@@ -929,13 +936,14 @@ export default function PaymentAudit() {
       }
 
       // 执行作废操作
-      const { data, error } = await supabase.rpc('void_payment_requests_by_ids' as any, { p_request_ids: idsToCancel });
+      const { data, error } = await supabase.rpc('void_payment_requests_by_ids', { p_request_ids: idsToCancel });
       if (error) throw error;
 
       // 构建提示信息
-      let description = `已成功作废 ${(data as any).cancelled_requests} 张申请单，${(data as any).waybill_count} 条关联运单的状态已回滚。`;
-      if ((data as any).paid_requests_skipped > 0) {
-        description += `\n已自动剔除 ${(data as any).paid_requests_skipped} 个已付款的申请单（需要先取消付款才能作废）。`;
+      const result = data as { cancelled_requests: number; waybill_count: number; paid_requests_skipped: number };
+      let description = `已成功作废 ${result.cancelled_requests} 张申请单，${result.waybill_count} 条关联运单的状态已回滚。`;
+      if (result.paid_requests_skipped > 0) {
+        description += `\n已自动剔除 ${result.paid_requests_skipped} 个已付款的申请单（需要先取消付款才能作废）。`;
       }
 
       toast({ 
@@ -946,7 +954,7 @@ export default function PaymentAudit() {
       fetchPaymentRequests();
     } catch (error) {
       console.error("批量作废申请失败:", error);
-      toast({ title: "错误", description: `操作失败: ${(error as any).message}`, variant: "destructive" });
+      toast({ title: "错误", description: `操作失败: ${(error as Error).message}`, variant: "destructive" });
     } finally {
       setIsCancelling(false);
     }
@@ -961,7 +969,7 @@ export default function PaymentAudit() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-2 p-4 md:p-6">
       <PageHeader
         title="付款审核"
         description="审核和管理付款申请单"
@@ -983,22 +991,13 @@ export default function PaymentAudit() {
                 </Button>
               </>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2"
-            >
-              <Search className="h-4 w-4" />
-              {showFilters ? '隐藏筛选' : '显示筛选'}
-              {hasActiveFilters && <Badge variant="secondary">已筛选</Badge>}
-            </Button>
+            {hasActiveFilters && <Badge variant="secondary">已筛选</Badge>}
           </div>
         }
       />
 
 
-      <div className="space-y-6">
+      <div className="space-y-2">
 
       <div className="flex justify-between items-center">
         <div/>
@@ -1019,13 +1018,12 @@ export default function PaymentAudit() {
 
       {/* 筛选器 */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div></div>
           </div>
         </CardHeader>
-        {showFilters && (
-          <CardContent>
+        <CardContent className="pt-0">
             <div className="flex flex-wrap gap-4 items-end">
               {/* 申请单号筛选 */}
               <div className="flex-1 min-w-[200px]">
@@ -1147,11 +1145,10 @@ export default function PaymentAudit() {
               </div>
             </div>
           </CardContent>
-        )}
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle>申请单列表</CardTitle>
             {isAdmin && selection.selectedIds.size > 0 && (
@@ -1184,7 +1181,7 @@ export default function PaymentAudit() {
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div className="min-h-[400px]">
             {loading ? (
               <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -1348,7 +1345,7 @@ export default function PaymentAudit() {
 
       {/* 分页组件 */}
       {totalPages > 0 && (
-        <div className="flex items-center justify-center gap-4 py-4">
+        <div className="flex items-center justify-center gap-4 py-2">
           {/* 每页显示 */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">每页显示</span>

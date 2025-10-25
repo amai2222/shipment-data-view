@@ -72,7 +72,7 @@ export default function PaymentRequestsList() {
     status: '',
     projectId: ''
   });
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   
   // 项目列表状态
   const [projects, setProjects] = useState<Array<{id: string, name: string}>>([]);
@@ -1013,7 +1013,7 @@ export default function PaymentRequestsList() {
   };
 
   return (
-    <div className="space-y-4 p-0">
+    <div className="space-y-2 p-4 md:p-6">
       <PageHeader 
         title="财务付款" 
         description="查看和管理所有已生成的付款申请批次"
@@ -1035,21 +1035,12 @@ export default function PaymentRequestsList() {
                 </Button>
               </>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2"
-            >
-              <Search className="h-4 w-4" />
-              {showFilters ? '隐藏筛选' : '显示筛选'}
-              {hasActiveFilters && <Badge variant="secondary">已筛选</Badge>}
-            </Button>
+            {hasActiveFilters && <Badge variant="secondary">已筛选</Badge>}
           </div>
         }
       />
 
-      <div className="space-y-4">
+      <div className="space-y-2">
 
       <div className="flex justify-between items-center">
         <div/>
@@ -1069,14 +1060,13 @@ export default function PaymentRequestsList() {
       )}
 
       {/* 筛选器 */}
-      <Card className="mb-0">
+      <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div></div>
           </div>
         </CardHeader>
-        {showFilters && (
-          <CardContent className="pt-0">
+        <CardContent className="pt-0">
             <div className="flex flex-wrap gap-4 items-end">
               {/* 申请单号筛选 */}
               <div className="flex-1 min-w-[200px]">
@@ -1201,10 +1191,9 @@ export default function PaymentRequestsList() {
               </div>
             </div>
           </CardContent>
-        )}
       </Card>
 
-      <Card className="mt-0">
+      <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle>申请单列表</CardTitle>
