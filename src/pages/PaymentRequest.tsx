@@ -814,7 +814,13 @@ export default function PaymentRequest() {
                   onChange={(e) => setUiFilters(prev => ({ ...prev, driverNames: e.target.value ? [e.target.value] : [] }))}
                   disabled={uiFilters.driverNames.length > 1}
                 />
-                <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => setIsDriverBatchOpen(true)}>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="h-9 w-9 flex-shrink-0" 
+                  onClick={() => setIsDriverBatchOpen(true)}
+                  aria-label="批量输入司机姓名"
+                >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>

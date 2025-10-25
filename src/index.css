@@ -5,6 +5,14 @@
 /* 移动端优化样式 */
 @import './styles/mobile.css';
 
+/* Safari兼容性样式 */
+* {
+  -webkit-user-select: auto;
+  -moz-user-select: auto;
+  -ms-user-select: auto;
+  user-select: auto;
+}
+
 /* 物流业务跟踪系统设计系统 - 现代化蓝色主题 */
 
 @layer base {
