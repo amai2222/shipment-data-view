@@ -366,10 +366,21 @@ export default function PaymentRequest() {
       const { data, error } = await supabase
         .from('partner_chains')
         .select('id, chain_name, is_default')
-        .eq('project_id', record.project_id)
+        .eq('project_id', projectId)  // ⭐ 使用查找到的 projectId，而不是 record.project_id
         .order('is_default', { ascending: false });
       
       if (error) throw error;
+      
+      console.log('✅ 查询到的合作链路:', data);
+      
+      if (!data || data.length === 0) {
+        toast({ 
+          title: "提示", 
+          description: "该项目暂无合作链路，请先在项目管理中配置", 
+          variant: "default" 
+        });
+      }
+      
       setAvailableChains(data || []);
     } catch (error) {
       console.error("获取合作链路失败:", error);
