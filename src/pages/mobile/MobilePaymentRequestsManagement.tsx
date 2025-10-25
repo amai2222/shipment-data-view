@@ -21,6 +21,7 @@ interface PaymentRequest {
   notes: string | null;
   logistics_record_ids: string[];
   record_count: number;
+  max_amount?: number; // 申请金额（最高金额）
   work_wechat_sp_no?: string | null;
 }
 

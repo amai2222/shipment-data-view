@@ -41,6 +41,7 @@ interface PaymentRequest {
   notes: string | null;
   logistics_record_ids: string[];
   record_count: number;
+  max_amount?: number; // 申请金额（最高金额）
 }
 
 interface LogisticsRecordDetail {

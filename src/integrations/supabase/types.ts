@@ -4087,6 +4087,7 @@ export type Database = {
           p_limit?: number
           p_loading_date?: string
           p_offset?: number
+          p_project_id?: string
           p_request_id?: string
           p_status?: string
           p_waybill_number?: string
@@ -4095,6 +4096,7 @@ export type Database = {
           created_at: string
           id: string
           logistics_record_ids: string[]
+          max_amount: number
           notes: string
           record_count: number
           request_id: string
@@ -4107,7 +4109,9 @@ export type Database = {
           p_driver_name?: string
           p_export_format?: string
           p_loading_date?: string
+          p_project_id?: string
           p_request_id?: string
+          p_status?: string
           p_waybill_number?: string
         }
         Returns: string

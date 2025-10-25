@@ -2,17 +2,12 @@
 -- 文件：更新申请单列表RPC函数添加申请金额.sql
 -- 描述：为 get_payment_requests_filtered 函数添加 max_amount 字段，显示该申请单中金额最高的运单金额
 
--- 删除现有函数
-DROP FUNCTION IF EXISTS get_payment_requests_filtered(
-  p_request_id text,
-  p_waybill_number text,
-  p_driver_name text,
-  p_loading_date text,
-  p_status text,
-  p_project_id text,
-  p_limit integer,
-  p_offset integer
-);
+-- 删除现有函数（删除所有重载版本）
+DROP FUNCTION IF EXISTS get_payment_requests_filtered(text, text, text, text, text, text, integer, integer);
+DROP FUNCTION IF EXISTS get_payment_requests_filtered(text, text, text, text, text, integer, integer);
+DROP FUNCTION IF EXISTS get_payment_requests_filtered(text, text, text, text, text, integer);
+DROP FUNCTION IF EXISTS get_payment_requests_filtered(text, text, text, text, text);
+DROP FUNCTION IF EXISTS get_payment_requests_filtered();
 
 -- 重新创建函数，添加申请金额字段
 CREATE OR REPLACE FUNCTION get_payment_requests_filtered(
