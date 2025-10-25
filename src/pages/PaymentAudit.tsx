@@ -135,14 +135,14 @@ export default function PaymentAudit() {
 
   useEffect(() => { fetchPaymentRequests(); }, [fetchPaymentRequests]);
 
-  // 筛选条件变化时自动搜索
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchPaymentRequests();
-    }, 500); // 500ms延迟，避免频繁请求
+  // 移除自动搜索，改为手动搜索
+  // useEffect(() => {
+  //   const timeoutId = setTimeout(() => {
+  //     fetchPaymentRequests();
+  //   }, 500); // 500ms延迟，避免频繁请求
 
-    return () => clearTimeout(timeoutId);
-  }, [filters, fetchPaymentRequests]);
+  //   return () => clearTimeout(timeoutId);
+  // }, [filters, fetchPaymentRequests]);
 
   // 获取项目列表
   const fetchProjects = useCallback(async () => {
@@ -168,7 +168,7 @@ export default function PaymentAudit() {
   // 筛选器处理函数
   const handleFilterChange = (key: string, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-    // 筛选条件变化时重置到第一页
+    // 筛选条件变化时重置到第一页，但不自动搜索
     setCurrentPage(1);
   };
 
@@ -181,6 +181,9 @@ export default function PaymentAudit() {
       status: '',
       projectId: ''
     });
+    setCurrentPage(1);
+    // 清除筛选后自动搜索
+    fetchPaymentRequests();
   };
 
   const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status || filters.projectId;
@@ -976,7 +979,7 @@ export default function PaymentAudit() {
             </Button>
           )}
           <span className="text-sm text-muted-foreground">
-            {hasActiveFilters ? '已应用筛选条件' : '未设置筛选条件'}
+            {hasActiveFilters ? '已应用筛选条件' : '设置筛选条件'}
           </span>
         </div>
         <Button onClick={fetchPaymentRequests} size="sm">
@@ -1008,7 +1011,7 @@ export default function PaymentAudit() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>历史申请记录</CardTitle>
+            <div></div>
             <Button
               variant="outline"
               size="sm"
@@ -1034,6 +1037,28 @@ export default function PaymentAudit() {
                   onChange={(e) => handleFilterChange('requestId', e.target.value)}
                   className="mt-1"
                 />
+              </div>
+
+              {/* 项目筛选 */}
+              <div className="flex-1 min-w-[150px]">
+                <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
+                  <Building className="h-4 w-4" />
+                  项目
+                </Label>
+                <select
+                  id="projectId"
+                  value={filters.projectId}
+                  onChange={(e) => handleFilterChange('projectId', e.target.value)}
+                  disabled={loadingProjects}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50 mt-1"
+                >
+                  <option value="">{loadingProjects ? "加载中..." : "全部项目"}</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* 运单号筛选 */}
@@ -1118,28 +1143,6 @@ export default function PaymentAudit() {
                   <option value="Approved">已审批</option>
                   <option value="Paid">已付款</option>
                   <option value="Rejected">已驳回</option>
-                </select>
-              </div>
-
-              {/* 项目筛选 */}
-              <div className="flex-1 min-w-[150px]">
-                <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
-                  <Building className="h-4 w-4" />
-                  项目
-                </Label>
-                <select
-                  id="projectId"
-                  value={filters.projectId}
-                  onChange={(e) => handleFilterChange('projectId', e.target.value)}
-                  disabled={loadingProjects}
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50 mt-1"
-                >
-                  <option value="">{loadingProjects ? "加载中..." : "全部项目"}</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
                 </select>
               </div>
             </div>
