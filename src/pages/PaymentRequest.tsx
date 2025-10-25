@@ -87,9 +87,16 @@ export default function PaymentRequest() {
   // 批量修改状态
   const [isBatchModifying, setIsBatchModifying] = useState(false);
   const [batchModifyType, setBatchModifyType] = useState<'cost' | 'chain' | null>(null);
-  const [batchNewAmount, setBatchNewAmount] = useState<string>('');
   const [batchChainId, setBatchChainId] = useState<string>('');
   const [batchChains, setBatchChains] = useState<PartnerChain[]>([]);
+  const [batchCostRecords, setBatchCostRecords] = useState<{
+    id: string;
+    auto_number: string;
+    loading_date: string;
+    driver_name: string;
+    original_amount: number;
+    new_amount: string;
+  }[]>([]);
 
   // --- 数据获取 (已更新) ---
   const fetchInitialOptions = useCallback(async () => {
@@ -518,40 +525,93 @@ export default function PaymentRequest() {
 
   // 批量修改应收
   const handleBatchModifyCost = async () => {
-    const amount = parseFloat(batchNewAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast({ title: "错误", description: "请输入有效的金额", variant: "destructive" });
-      return;
-    }
-
-    const idsToModify = Array.from(selection.selectedIds);
-    if (idsToModify.length === 0) {
-      toast({ title: "提示", description: "请先选择要修改的运单" });
+    // 验证每条记录都有输入金额
+    const invalidRecords = batchCostRecords.filter(r => !r.new_amount || parseFloat(r.new_amount) <= 0);
+    if (invalidRecords.length > 0) {
+      toast({ title: "错误", description: `请为所有运单输入有效金额`, variant: "destructive" });
       return;
     }
 
     setIsBatchModifying(true);
+    let successCount = 0;
+    let failedCount = 0;
+    const failedList: string[] = [];
+
     try {
-      const { data, error } = await supabase.rpc('batch_modify_partner_cost' as any, {
-        p_record_ids: idsToModify,
-        p_new_amount: amount
-      });
+      // 逐个修改运单
+      for (const record of batchCostRecords) {
+        try {
+          const newAmount = parseFloat(record.new_amount);
+          
+          // 检查运单状态
+          const { data: recordData, error: checkError } = await supabase
+            .from('logistics_records')
+            .select('payment_status, invoice_status')
+            .eq('id', record.id)
+            .single();
+          
+          if (checkError) throw checkError;
+          
+          if (recordData.payment_status !== 'Unpaid') {
+            failedCount++;
+            failedList.push(`${record.auto_number}(已申请或已付款)`);
+            continue;
+          }
+          
+          if (recordData.invoice_status && recordData.invoice_status !== 'Uninvoiced') {
+            failedCount++;
+            failedList.push(`${record.auto_number}(已开票)`);
+            continue;
+          }
+          
+          // 获取最高级合作方
+          const { data: costs } = await supabase
+            .from('logistics_partner_costs')
+            .select('partner_id, level')
+            .eq('logistics_record_id', record.id)
+            .order('level', { ascending: false })
+            .limit(1);
+          
+          if (!costs || costs.length === 0) {
+            failedCount++;
+            failedList.push(`${record.auto_number}(无合作方)`);
+            continue;
+          }
+          
+          const highestPartner = costs[0];
+          
+          // 更新最高级合作方的金额
+          const { error: updateError } = await supabase
+            .from('logistics_partner_costs')
+            .update({
+              payable_amount: newAmount,
+              updated_at: new Date().toISOString()
+            })
+            .eq('logistics_record_id', record.id)
+            .eq('partner_id', highestPartner.partner_id)
+            .eq('level', highestPartner.level);
+          
+          if (updateError) throw updateError;
+          
+          successCount++;
+        } catch (error) {
+          failedCount++;
+          failedList.push(`${record.auto_number}(错误: ${(error as any).message})`);
+        }
+      }
 
-      if (error) throw error;
-
-      const result = data as any;
       toast({
-        title: result.success ? "批量修改完成" : "修改失败",
-        description: result.message,
-        variant: result.success ? "default" : "destructive"
+        title: "批量修改完成",
+        description: `成功更新 ${successCount} 条运单，失败 ${failedCount} 条`,
+        variant: successCount > 0 ? "default" : "destructive"
       });
 
-      if (result.failed_records && result.failed_records.length > 0) {
-        console.log('失败的运单:', result.failed_records);
+      if (failedList.length > 0) {
+        console.log('失败的运单:', failedList);
       }
 
       setBatchModifyType(null);
-      setBatchNewAmount('');
+      setBatchCostRecords([]);
       setSelection({ mode: 'none', selectedIds: new Set() });
       fetchReportData();
     } catch (error) {
@@ -623,7 +683,32 @@ export default function PaymentRequest() {
 
     setBatchModifyType(type);
 
-    if (type === 'chain') {
+    if (type === 'cost') {
+      // 准备批量修改应收的运单数据
+      const selectedRecords = reportData?.records.filter((r: any) => selection.selectedIds.has(r.id)) || [];
+      
+      const recordsWithCost = await Promise.all(
+        selectedRecords.map(async (record: any) => {
+          // 获取最高级合作方的应付金额
+          const highestCost = record.partner_costs && record.partner_costs.length > 0
+            ? record.partner_costs.reduce((max: any, cost: any) => 
+                cost.level > max.level ? cost : max
+              )
+            : null;
+          
+          return {
+            id: record.id,
+            auto_number: record.auto_number,
+            loading_date: record.loading_date,
+            driver_name: record.driver_name,
+            original_amount: highestCost?.payable_amount || 0,
+            new_amount: (highestCost?.payable_amount || 0).toString()
+          };
+        })
+      );
+      
+      setBatchCostRecords(recordsWithCost);
+    } else if (type === 'chain') {
       // 获取选中运单的项目（假设都是同一项目）
       const selectedRecords = reportData?.records.filter((r: any) => selection.selectedIds.has(r.id));
       if (selectedRecords && selectedRecords.length > 0) {
@@ -1137,10 +1222,10 @@ export default function PaymentRequest() {
       <Dialog open={batchModifyType === 'cost'} onOpenChange={(open) => {
         if (!open) {
           setBatchModifyType(null);
-          setBatchNewAmount('');
+          setBatchCostRecords([]);
         }
       }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader className="pb-4 border-b">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <div className="p-2 bg-green-100 rounded-lg">
@@ -1148,28 +1233,58 @@ export default function PaymentRequest() {
               </div>
               批量修改应收
             </DialogTitle>
-            <DialogDescription>已选择 {selection.selectedIds.size} 条运单</DialogDescription>
+            <DialogDescription>已选择 {batchCostRecords.length} 条运单，请逐个输入新的应付金额</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="batch-amount">新的最高级应付金额 (¥)</Label>
-              <Input
-                id="batch-amount"
-                type="number"
-                step="0.01"
-                placeholder="请输入金额"
-                value={batchNewAmount}
-                onChange={(e) => setBatchNewAmount(e.target.value)}
-                disabled={isBatchModifying}
-                className="font-mono"
-              />
+          <div className="py-4 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-3">
+              {batchCostRecords.map((record, index) => (
+                <Card key={record.id} className="border-l-4 border-l-green-500">
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                      <div className="md:col-span-1">
+                        <Label className="text-xs text-muted-foreground">运单编号</Label>
+                        <p className="font-mono text-sm font-medium">{record.auto_number}</p>
+                      </div>
+                      <div className="md:col-span-1">
+                        <Label className="text-xs text-muted-foreground">装货日期</Label>
+                        <p className="text-sm">{new Date(record.loading_date).toLocaleDateString('zh-CN')}</p>
+                      </div>
+                      <div className="md:col-span-1">
+                        <Label className="text-xs text-muted-foreground">司机</Label>
+                        <p className="text-sm font-medium">{record.driver_name}</p>
+                      </div>
+                      <div className="md:col-span-1">
+                        <Label className="text-xs text-muted-foreground">原应付金额</Label>
+                        <p className="text-sm font-mono text-muted-foreground">¥{record.original_amount.toFixed(2)}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label htmlFor={`amount-${index}`} className="text-xs text-muted-foreground">新应付金额 (¥)</Label>
+                        <Input
+                          id={`amount-${index}`}
+                          type="number"
+                          step="0.01"
+                          value={record.new_amount}
+                          onChange={(e) => {
+                            const newRecords = [...batchCostRecords];
+                            newRecords[index].new_amount = e.target.value;
+                            setBatchCostRecords(newRecords);
+                          }}
+                          disabled={isBatchModifying}
+                          className="font-mono h-9"
+                          placeholder="输入新金额"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mt-4">
               <p className="text-xs text-yellow-800">
                 <strong>注意：</strong>
                 <br />• 只会修改最高级合作方的应付金额
                 <br />• 只能修改"未支付"且"未开票"的运单
-                <br />• 已申请付款或已开票的运单将被跳过
+                <br />• 已申请付款或已开票的运单将自动跳过
               </p>
             </div>
           </div>
@@ -1178,15 +1293,15 @@ export default function PaymentRequest() {
               variant="outline" 
               onClick={() => {
                 setBatchModifyType(null);
-                setBatchNewAmount('');
+                setBatchCostRecords([]);
               }}
               disabled={isBatchModifying}
             >
               取消
             </Button>
-            <Button onClick={handleBatchModifyCost} disabled={isBatchModifying || !batchNewAmount}>
+            <Button onClick={handleBatchModifyCost} disabled={isBatchModifying}>
               {isBatchModifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              确认修改
+              确认修改 ({batchCostRecords.length}条)
             </Button>
           </DialogFooter>
         </DialogContent>
