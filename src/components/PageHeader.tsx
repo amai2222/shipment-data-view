@@ -7,6 +7,7 @@ interface PageHeaderProps {
   icon: LucideIcon;
   iconColor?: string;
   children?: React.ReactNode;
+  actions?: React.ReactNode;
 }
 
 export function PageHeader({ 
@@ -14,7 +15,8 @@ export function PageHeader({
   description, 
   icon: Icon, 
   iconColor = "text-blue-600",
-  children 
+  children,
+  actions 
 }: PageHeaderProps) {
   return (
     <header className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 shadow-sm sticky top-4 z-10 mx-4">
@@ -26,11 +28,18 @@ export function PageHeader({
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{description}</p>
         </div>
-        {children && (
-          <div className="flex flex-wrap items-center gap-4">
-            {children}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-4">
+          {actions && (
+            <div className="flex items-center gap-2">
+              {actions}
+            </div>
+          )}
+          {children && (
+            <div className="flex flex-wrap items-center gap-4">
+              {children}
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

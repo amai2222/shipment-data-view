@@ -962,11 +962,39 @@ export default function PaymentAudit() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <PageHeader 
-        title="付款审核" 
+      <PageHeader
+        title="付款审核"
         description="审核和管理付款申请单"
         icon={ClipboardList}
         iconColor="text-green-600"
+        actions={
+          <div className="flex items-center gap-2">
+            {showFilters && (
+              <>
+                {hasActiveFilters && (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    <X className="h-4 w-4 mr-1" />
+                    清除筛选
+                  </Button>
+                )}
+                <Button onClick={fetchPaymentRequests} size="sm">
+                  <Search className="h-4 w-4 mr-1" />
+                  搜索
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2"
+            >
+              <Search className="h-4 w-4" />
+              {showFilters ? '隐藏筛选' : '显示筛选'}
+              {hasActiveFilters && <Badge variant="secondary">已筛选</Badge>}
+            </Button>
+          </div>
+        }
       />
 
 
@@ -993,32 +1021,7 @@ export default function PaymentAudit() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {showFilters && (
-                <>
-                  {hasActiveFilters && (
-                    <Button variant="outline" size="sm" onClick={clearFilters}>
-                      <X className="h-4 w-4 mr-1" />
-                      清除筛选
-                    </Button>
-                  )}
-                  <Button onClick={fetchPaymentRequests} size="sm">
-                    <Search className="h-4 w-4 mr-1" />
-                    搜索
-                  </Button>
-                </>
-              )}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2"
-            >
-              <Search className="h-4 w-4" />
-              {showFilters ? '隐藏筛选' : '显示筛选'}
-              {hasActiveFilters && <Badge variant="secondary">已筛选</Badge>}
-            </Button>
+            <div></div>
           </div>
         </CardHeader>
         {showFilters && (
