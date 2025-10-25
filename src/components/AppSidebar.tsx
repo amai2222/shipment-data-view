@@ -18,8 +18,8 @@ import {
   Shield,
   History,
   TreePine,
-  CheckCircle,
-  DollarSign
+  CheckCircle2,
+  CreditCard
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -80,10 +80,10 @@ export const menuItems = [
   },
   {
     title: "审核管理",
-    icon: CheckCircle,
+    icon: CheckCircle2,
     items: [
       { title: "开票审核", url: "/audit/invoice", icon: FileText },
-      { title: "付款审核", url: "/audit/payment", icon: DollarSign },
+      { title: "付款审核", url: "/audit/payment", icon: CreditCard },
     ]
   },
   {
