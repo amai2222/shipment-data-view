@@ -18,6 +18,7 @@ import { Trash2, Edit, Plus, Download, Upload, Users, Eye, EyeOff } from 'lucide
 import * as XLSX from 'xlsx';
 import { PageHeader } from '@/components/PageHeader';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useQueryClient } from '@tanstack/react-query';
 
 // 扩展 Partner 类型，使其可以直接包含项目列表
 interface PartnerWithProjects extends Partner {
@@ -57,6 +58,7 @@ const DeleteConfirmButton = ({ partnerId, partnerName, onConfirm }: { partnerId:
 export default function Partners() {
   const { isAdmin, isFinance } = usePermissions();
   const canViewSensitive = isAdmin || isFinance;
+  const queryClient = useQueryClient();
   const [partners, setPartners] = useState<PartnerWithProjects[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
@@ -215,6 +217,8 @@ export default function Partners() {
 
       closeDialog();
       fetchPartners(); // 重新加载数据
+      // 使项目管理页面的合作方缓存失效，确保新合作方立即显示
+      queryClient.invalidateQueries({ queryKey: ['partners-list'] });
     } catch (error: any) {
       console.error('保存合作方失败:', error);
       if (error.code === '23505') {
@@ -264,6 +268,8 @@ export default function Partners() {
       if (error) throw error;
       toast.success('合作方删除成功');
       fetchPartners(); // 重新加载数据
+      // 使项目管理页面的合作方缓存失效，确保删除的合作方立即消失
+      queryClient.invalidateQueries({ queryKey: ['partners-list'] });
     } catch (error) {
       console.error('删除合作方失败:', error);
       toast.error('删除合作方失败，可能该合作方仍被项目使用');

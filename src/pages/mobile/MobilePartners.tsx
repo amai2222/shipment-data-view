@@ -24,6 +24,7 @@ import { Partner } from "@/types";
 import { usePermissions } from "@/hooks/usePermissions";
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { MobileCard } from '@/components/mobile/MobileCard';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface PartnerWithProjects extends Partner {
   projects: {
@@ -36,6 +37,7 @@ interface PartnerWithProjects extends Partner {
 }
 
 export default function MobilePartners() {
+  const queryClient = useQueryClient();
   const [partners, setPartners] = useState<PartnerWithProjects[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -246,6 +248,8 @@ export default function MobilePartners() {
       }
       
       await loadData();
+      // 使项目管理页面的合作方缓存失效，确保新合作方立即显示
+      queryClient.invalidateQueries({ queryKey: ['partners-list'] });
       setShowAddDialog(false);
       resetForm();
     } catch (error: any) {
@@ -269,6 +273,8 @@ export default function MobilePartners() {
       
       toast({ title: "删除成功" });
       await loadData();
+      // 使项目管理页面的合作方缓存失效，确保删除的合作方立即消失
+      queryClient.invalidateQueries({ queryKey: ['partners-list'] });
     } catch (error) {
       console.error('Error deleting partner:', error);
       toast({ 
