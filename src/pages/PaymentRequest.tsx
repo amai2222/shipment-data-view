@@ -16,6 +16,8 @@ import { Save, Plus, Banknote } from "lucide-react";
 const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
 const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
 const FileSpreadsheet = ({ className }: { className?: string }) => <span className={className}>📊</span>;
+const EditIcon = ({ className }: { className?: string }) => <span className={className}>✏️</span>;
+const LinkIcon = ({ className }: { className?: string }) => <span className={className}>🔗</span>;
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -30,8 +32,8 @@ import { PageHeader } from "@/components/PageHeader";
 
 // --- 类型定义 (已更新) ---
 interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; full_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; }
-interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; cargo_type: string | null; loading_weight: number | null; unloading_weight: number | null; remarks: string | null; billing_type_id: number | null; }
-interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; }
+interface LogisticsRecord { id: string; auto_number: string; project_name: string; project_id?: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; invoice_status?: 'Uninvoiced' | 'Processing' | 'Invoiced' | null; cargo_type: string | null; loading_weight: number | null; unloading_weight: number | null; remarks: string | null; billing_type_id: number | null; }
+interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; chain_id?: string | null; }
 interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string; driverNames: string[]; }
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
@@ -47,6 +49,9 @@ interface PaymentPreviewSheet {
 }
 interface PaymentPreviewData { sheets: PaymentPreviewSheet[]; processed_record_ids: string[]; }
 interface FinalPaymentData { sheets: PaymentPreviewSheet[]; all_record_ids: string[]; }
+interface PartnerChain { id: string; chain_name: string; is_default: boolean; }
+interface EditPartnerCostData { recordId: string; recordNumber: string; partnerCosts: PartnerCost[]; }
+interface EditChainData { recordId: string; recordNumber: string; projectId: string; currentChainName: string; }
 
 // --- 常量和初始状态 (已更新) ---
 const PAGE_SIZE = 50;
@@ -72,6 +77,11 @@ export default function PaymentRequest() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDriverBatchOpen, setIsDriverBatchOpen] = useState(false);
   const [showAllLevels, setShowAllLevels] = useState(false); // 控制是否显示所有层级的合作方
+  const [editPartnerCostData, setEditPartnerCostData] = useState<EditPartnerCostData | null>(null);
+  const [editChainData, setEditChainData] = useState<EditChainData | null>(null);
+  const [availableChains, setAvailableChains] = useState<PartnerChain[]>([]);
+  const [isLoadingChains, setIsLoadingChains] = useState(false);
+  const [tempPartnerCosts, setTempPartnerCosts] = useState<PartnerCost[]>([]);
   
 
   // --- 数据获取 (已更新) ---
@@ -118,6 +128,24 @@ export default function PaymentRequest() {
   // --- 核心函数实现 (已更新) ---
   const formatCurrency = (value: number | null | undefined): string => { if (value == null) return '-'; return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value); };
   const simplifyRoute = (loading?: string, unloading?: string): string => { const start = (loading || '').substring(0, 2); const end = (unloading || '').substring(0, 2); return `${start}→${end}`; };
+  
+  // 检查运单是否可编辑（需要同时满足：未支付 且 未开票）
+  const isRecordEditable = (record: LogisticsRecordWithPartners): boolean => {
+    const isPaymentEditable = record.payment_status === 'Unpaid';
+    const isInvoiceEditable = !record.invoice_status || record.invoice_status === 'Uninvoiced';
+    return isPaymentEditable && isInvoiceEditable;
+  };
+  
+  // 获取不可编辑的原因
+  const getUneditableReason = (record: LogisticsRecordWithPartners): string => {
+    if (record.payment_status !== 'Unpaid') {
+      return record.payment_status === 'Processing' ? '已申请支付' : '已完成支付';
+    }
+    if (record.invoice_status && record.invoice_status !== 'Uninvoiced') {
+      return record.invoice_status === 'Processing' ? '开票中' : '已开票';
+    }
+    return '';
+  };
   
   const getBillingUnit = (billingTypeId: number | null | undefined): string => {
     switch (billingTypeId) {
@@ -298,6 +326,145 @@ export default function PaymentRequest() {
     }
   };
 
+  // 修改合作方运费
+  const handleEditPartnerCost = (record: LogisticsRecordWithPartners) => {
+    setEditPartnerCostData({
+      recordId: record.id,
+      recordNumber: record.auto_number,
+      partnerCosts: record.partner_costs || []
+    });
+    setTempPartnerCosts(JSON.parse(JSON.stringify(record.partner_costs || [])));
+  };
+
+  // 修改合作链路
+  const handleEditChain = async (record: LogisticsRecordWithPartners) => {
+    if (!record.project_id) {
+      toast({ title: "错误", description: "无法获取项目信息", variant: "destructive" });
+      return;
+    }
+    
+    setEditChainData({
+      recordId: record.id,
+      recordNumber: record.auto_number,
+      projectId: record.project_id,
+      currentChainName: record.chain_name || '默认链路'
+    });
+    
+    // 获取可用的合作链路
+    setIsLoadingChains(true);
+    try {
+      const { data, error } = await supabase
+        .from('partner_chains')
+        .select('id, chain_name, is_default')
+        .eq('project_id', record.project_id)
+        .order('is_default', { ascending: false });
+      
+      if (error) throw error;
+      setAvailableChains(data || []);
+    } catch (error) {
+      console.error("获取合作链路失败:", error);
+      toast({ title: "错误", description: "获取合作链路失败", variant: "destructive" });
+    } finally {
+      setIsLoadingChains(false);
+    }
+  };
+
+  // 保存合作方运费修改 - 只更新最高级合作方
+  const handleSavePartnerCost = async () => {
+    if (!editPartnerCostData) return;
+    
+    setIsSaving(true);
+    try {
+      // 验证运单支付状态和开票状态
+      const { data: recordData, error: checkError } = await supabase
+        .from('logistics_records')
+        .select('payment_status, invoice_status')
+        .eq('id', editPartnerCostData.recordId)
+        .single();
+      
+      if (checkError) throw checkError;
+      
+      // 检查支付状态
+      if (recordData.payment_status !== 'Unpaid') {
+        const statusText = recordData.payment_status === 'Processing' ? '已申请支付' : '已完成支付';
+        throw new Error(`只有未支付状态的运单才能修改运费。当前付款状态：${statusText}`);
+      }
+      
+      // 检查开票状态
+      if (recordData.invoice_status && recordData.invoice_status !== 'Uninvoiced') {
+        const statusText = recordData.invoice_status === 'Processing' ? '开票中' : '已开票';
+        throw new Error(`只有未开票状态的运单才能修改运费。当前开票状态：${statusText}`);
+      }
+      
+      // 找出最高级合作方
+      const maxLevel = Math.max(...tempPartnerCosts.map(c => c.level));
+      const highestLevelPartner = tempPartnerCosts.find(c => c.level === maxLevel);
+      
+      if (!highestLevelPartner) {
+        throw new Error("未找到最高级合作方");
+      }
+      
+      // 只更新最高级合作方的金额
+      const { error: updateError } = await supabase
+        .from('logistics_partner_costs')
+        .update({
+          payable_amount: highestLevelPartner.payable_amount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('logistics_record_id', editPartnerCostData.recordId)
+        .eq('partner_id', highestLevelPartner.partner_id)
+        .eq('level', maxLevel);
+      
+      if (updateError) throw updateError;
+      
+      toast({ 
+        title: "成功", 
+        description: `已更新最高级合作方"${highestLevelPartner.partner_name}"的运费` 
+      });
+      setEditPartnerCostData(null);
+      setTempPartnerCosts([]);
+      fetchReportData();
+    } catch (error) {
+      console.error("保存合作方运费失败:", error);
+      toast({ title: "错误", description: `保存失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 保存合作链路修改 - 删除旧记录并重新计算
+  const handleSaveChain = async (newChainId: string) => {
+    if (!editChainData) return;
+    
+    setIsSaving(true);
+    try {
+      const selectedChain = availableChains.find(c => c.id === newChainId);
+      if (!selectedChain) throw new Error("未找到选择的合作链路");
+      
+      // 调用修改合作链路的RPC函数（包含成本重算）
+      const { data, error } = await supabase.rpc('modify_logistics_record_chain_with_recalc' as any, {
+        p_record_id: editChainData.recordId,
+        p_chain_name: selectedChain.chain_name
+      });
+      
+      if (error) throw error;
+      
+      const result = data as any;
+      toast({ 
+        title: "成功", 
+        description: `合作链路已更新为"${selectedChain.chain_name}"，已重新计算${result?.recalculated_partners || 0}个合作方的成本` 
+      });
+      setEditChainData(null);
+      setAvailableChains([]);
+      fetchReportData();
+    } catch (error) {
+      console.error("修改合作链路失败:", error);
+      toast({ title: "错误", description: `修改失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? { from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined } : undefined;
   const displayedPartners = useMemo(() => {
     if (uiFilters.partnerId !== "all") {
@@ -364,8 +531,8 @@ export default function PaymentRequest() {
       </PageHeader>
 
       <div className="space-y-6">
-        <Card className="border-muted/40">
-        <CardContent className="p-4">
+        <Card className="border-muted/40 shadow-sm">
+        <CardContent className="p-4 bg-gradient-to-br from-background to-muted/5">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-end">
             <div className="flex flex-col gap-1.5"><Label>项目</Label><Select value={uiFilters.projectId} onValueChange={(v) => handleFilterChange('projectId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{Array.isArray(projects) && projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
             <div className="flex flex-col gap-1.5"><Label>日期范围</Label><DateRangePicker date={dateRangeValue} setDate={handleDateChange} /></div>
@@ -395,31 +562,31 @@ export default function PaymentRequest() {
       </Card>
 
       {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && isAllOnPageSelected && reportData?.count > (reportData?.records?.length || 0) && (
-        <div className="flex items-center justify-center gap-4 p-2 text-sm font-medium text-center bg-secondary text-secondary-foreground rounded-md">
-          <span>已选择当前页的所有 <b>{reportData?.records?.length}</b> 条记录。</span>
-          <Button variant="link" className="p-0 h-auto" onClick={() => setSelection({ mode: 'all_filtered', selectedIds: new Set() })}>选择全部 <b>{reportData?.count}</b> 条匹配的记录</Button>
+        <div className="flex items-center justify-center gap-4 p-3 text-sm font-medium text-center bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-blue-800 rounded-lg shadow-sm">
+          <span>已选择当前页的所有 <b className="text-blue-600">{reportData?.records?.length}</b> 条记录。</span>
+          <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700 font-semibold" onClick={() => setSelection({ mode: 'all_filtered', selectedIds: new Set() })}>选择全部 <b>{reportData?.count}</b> 条匹配的记录</Button>
         </div>
       )}
       {selection.mode === 'all_filtered' && (
-        <div className="flex items-center justify-center gap-4 p-2 text-sm font-medium text-center bg-secondary text-secondary-foreground rounded-md">
-          <span>已选择全部 <b>{reportData?.count}</b> 条匹配的记录。</span>
-          <Button variant="link" className="p-0 h-auto" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
+        <div className="flex items-center justify-center gap-4 p-3 text-sm font-medium text-center bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-800 rounded-lg shadow-sm">
+          <span>已选择全部 <b className="text-green-600">{reportData?.count}</b> 条匹配的记录。</span>
+          <Button variant="link" className="p-0 h-auto text-green-600 hover:text-green-700 font-semibold" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
         </div>
       )}
       
-      {selection.selectedIds.size > 0 && (
-        <div className="flex items-center justify-center gap-4 p-2 text-sm font-medium text-center bg-blue-50 text-blue-700 rounded-md">
-          <span>已选择 <b>{selection.selectedIds.size}</b> 条记录</span>
-          <Button variant="link" className="p-0 h-auto" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
+      {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && (
+        <div className="flex items-center justify-center gap-4 p-3 text-sm font-medium text-center bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 text-blue-800 rounded-lg shadow-sm">
+          <span>已选择 <b className="text-blue-600">{selection.selectedIds.size}</b> 条记录</span>
+          <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700 font-semibold" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
         </div>
       )}
 
       {isStale ? ( <StaleDataPrompt /> ) : (
         <>
-          <Card>
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div><CardTitle>运单财务明细</CardTitle><p className="text-sm text-muted-foreground">{showAllLevels ? '显示所有层级的合作方' : '仅显示最高级合作方'}</p></div>
-                <Button variant="outline" size="sm" onClick={() => setShowAllLevels(!showAllLevels)} className="w-full sm:w-auto whitespace-nowrap">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gradient-to-r from-background to-muted/10 border-b">
+                <div><CardTitle className="text-lg">运单财务明细</CardTitle><p className="text-sm text-muted-foreground">{showAllLevels ? '显示所有层级的合作方' : '仅显示最高级合作方'}</p></div>
+                <Button variant="outline" size="sm" onClick={() => setShowAllLevels(!showAllLevels)} className="w-full sm:w-auto whitespace-nowrap hover:bg-primary/10 transition-colors">
                   {showAllLevels ? '仅显示最高级' : '展示全部级别'}
                 </Button>
             </CardHeader>
@@ -440,6 +607,7 @@ export default function PaymentRequest() {
                       {Array.isArray(displayedPartners) && displayedPartners.map(p => <TableHead key={p.id} className="text-center whitespace-nowrap">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}
                       <TableHead className="whitespace-nowrap">合作链路</TableHead>
                       <TableHead className="whitespace-nowrap">支付状态</TableHead>
+                      <TableHead className="whitespace-nowrap text-center">操作</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
                       {Array.isArray(reportData?.records) && reportData.records.map((r: LogisticsRecordWithPartners) => (
@@ -457,12 +625,49 @@ export default function PaymentRequest() {
                                  <span className="text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none">{r.chain_name || '默认链路'}</span>
                                </TableCell>
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{getPaymentStatusBadge(r.payment_status)}</TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1">
+                                  {isRecordEditable(r) ? (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditPartnerCost(r);
+                                        }}
+                                        className="h-8 px-2 hover:bg-blue-50 hover:text-blue-600 transition-all hover:shadow-sm"
+                                        title="修改合作方运费"
+                                      >
+                                        <EditIcon className="h-3.5 w-3.5" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditChain(r);
+                                        }}
+                                        className="h-8 px-2 hover:bg-purple-50 hover:text-purple-600 transition-all hover:shadow-sm"
+                                        title="修改合作链路"
+                                      >
+                                        <LinkIcon className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground" title={`不可编辑：${getUneditableReason(r)}`}>
+                                      {getUneditableReason(r)}
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
                           </TableRow>
                       ))}
                       <TableRow className="bg-muted/30 font-semibold border-t-2">
                         <TableCell colSpan={7} className="text-right font-bold whitespace-nowrap">合计</TableCell>
                         <TableCell className="font-mono font-bold text-primary text-center whitespace-nowrap"><div>{formatCurrency(reportData?.overview?.total_payable_cost)}</div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>
                         {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partner_payables) && reportData.partner_payables.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
+                        <TableCell className="whitespace-nowrap"></TableCell>
                         <TableCell className="whitespace-nowrap"></TableCell>
                         <TableCell className="whitespace-nowrap"></TableCell>
                       </TableRow>
@@ -518,7 +723,7 @@ export default function PaymentRequest() {
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>付款申请预览</DialogTitle>
-            <DialogDescription>将为以下合作方生成付款申请，并更新 {paymentPreviewData?.processed_record_ids.length || 0} 条运单状态为“已申请支付”。</DialogDescription>
+            <DialogDescription>将为以下合作方生成付款申请，并更新 {paymentPreviewData?.processed_record_ids.length || 0} 条运单状态为"已申请支付"。</DialogDescription>
           </DialogHeader>
           {paymentPreviewData && (
             <div className="max-h-[60vh] overflow-y-auto p-1">
@@ -553,6 +758,163 @@ export default function PaymentRequest() {
             <Button onClick={handleConfirmAndSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               确认并生成申请
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 修改合作方运费对话框 */}
+      <Dialog open={!!editPartnerCostData} onOpenChange={(open) => !open && setEditPartnerCostData(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader className="pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <EditIcon className="h-5 w-5 text-blue-600" />
+              </div>
+              修改合作方运费
+            </DialogTitle>
+            <DialogDescription className="text-base">运单编号: <span className="font-mono font-semibold">{editPartnerCostData?.recordNumber}</span></DialogDescription>
+          </DialogHeader>
+          {editPartnerCostData && (() => {
+            const maxLevel = Math.max(...tempPartnerCosts.map(c => c.level));
+            const sortedCosts = [...tempPartnerCosts].sort((a, b) => b.level - a.level); // 从高到低排序
+            return (
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto py-2">
+                {sortedCosts.map((cost, index) => {
+                  const isHighest = cost.level === maxLevel;
+                  return (
+                    <Card key={cost.partner_id} className={`border-l-4 ${isHighest ? 'border-l-blue-500 bg-blue-50/50' : 'border-l-gray-300 bg-gray-50/30'}`}>
+                      <CardContent className="p-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">合作方名称</Label>
+                            <p className="font-medium">{cost.partner_name}</p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full mt-1 inline-block ${
+                              isHighest ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-600'
+                            }`}>
+                              {cost.level}级 {isHighest && '(最高级)'}
+                            </span>
+                          </div>
+                          <div>
+                            <Label htmlFor={`amount-${cost.partner_id}`}>应付金额 (¥)</Label>
+                            {isHighest ? (
+                              <Input
+                                id={`amount-${cost.partner_id}`}
+                                type="number"
+                                step="0.01"
+                                value={cost.payable_amount}
+                                onChange={(e) => {
+                                  const newCosts = [...tempPartnerCosts];
+                                  const targetIndex = newCosts.findIndex(c => c.partner_id === cost.partner_id);
+                                  newCosts[targetIndex].payable_amount = parseFloat(e.target.value) || 0;
+                                  setTempPartnerCosts(newCosts);
+                                }}
+                                className="font-mono border-blue-300 focus:border-blue-500"
+                              />
+                            ) : (
+                              <div className="h-9 px-3 py-2 border rounded-md bg-muted/50 font-mono text-muted-foreground flex items-center">
+                                ¥{cost.payable_amount.toFixed(2)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {!isHighest && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            💡 低层级合作方金额由系统自动计算，不可手动修改
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p className="text-xs text-blue-800">
+                    <strong>说明：</strong>只能修改最高级合作方的运费，其他层级的运费由系统根据利润率或税点自动计算。
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPartnerCostData(null)} disabled={isSaving}>
+              取消
+            </Button>
+            <Button onClick={handleSavePartnerCost} disabled={isSaving}>
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              保存修改
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 修改合作链路对话框 */}
+      <Dialog open={!!editChainData} onOpenChange={(open) => !open && setEditChainData(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <LinkIcon className="h-5 w-5 text-purple-600" />
+              </div>
+              修改合作链路
+            </DialogTitle>
+            <DialogDescription className="text-base">运单编号: <span className="font-mono font-semibold">{editChainData?.recordNumber}</span></DialogDescription>
+          </DialogHeader>
+          {editChainData && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">当前合作链路</Label>
+                <div className="p-3 bg-muted/50 rounded-md border">
+                  <p className="font-medium text-sm">{editChainData.currentChainName}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-chain">选择新的合作链路</Label>
+                {isLoadingChains ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : (
+                  <Select
+                    onValueChange={(value) => {
+                      handleSaveChain(value);
+                    }}
+                    disabled={isSaving}
+                  >
+                    <SelectTrigger id="new-chain">
+                      <SelectValue placeholder="请选择合作链路..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableChains.map((chain) => (
+                        <SelectItem key={chain.id} value={chain.id}>
+                          {chain.chain_name}
+                          {chain.is_default && (
+                            <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                              默认
+                            </span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <p className="text-xs text-blue-800">
+                  <strong>提示：</strong>修改合作链路后，系统将自动重新计算该运单的所有合作方成本。
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setEditChainData(null);
+                setAvailableChains([]);
+              }} 
+              disabled={isSaving}
+            >
+              取消
             </Button>
           </DialogFooter>
         </DialogContent>
