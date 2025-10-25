@@ -79,6 +79,14 @@ export const menuItems = [
     ]
   },
   {
+    title: "审核管理",
+    icon: CheckCircle,
+    items: [
+      { title: "开票审核", url: "/audit/invoice", icon: FileText },
+      { title: "付款审核", url: "/audit/payment", icon: DollarSign },
+    ]
+  },
+  {
     title: "财务管理",
     icon: Calculator,
     items: [
@@ -86,14 +94,6 @@ export const menuItems = [
       { title: "付款与开票", url: "/finance/payment-invoice", icon: Banknote },
       { title: "开票申请单管理", url: "/invoice-request-management", icon: FileText },
       { title: "付款申请单管理", url: "/payment-requests-list", icon: ClipboardList },
-    ]
-  },
-  {
-    title: "审核管理",
-    icon: CheckCircle,
-    items: [
-      { title: "开票审核", url: "/audit/invoice", icon: FileText },
-      { title: "付款审核", url: "/audit/payment", icon: DollarSign },
     ]
   },
   {

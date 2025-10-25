@@ -491,6 +491,19 @@ const App = () => (
                 <MobileAuditLogs />
               </ProtectedRoute>
             } />
+            
+            {/* 移动端审核管理路由 */}
+            <Route path="/m/audit/payment" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'operator']}>
+                <MobileLayout><PaymentAudit /></MobileLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/audit/invoice" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance', 'operator']}>
+                <MobileLayout><InvoiceAudit /></MobileLayout>
+              </ProtectedRoute>
+            } />
 
             <Route path="/m/contracts" element={
               <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>

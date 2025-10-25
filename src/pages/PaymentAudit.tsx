@@ -301,6 +301,7 @@ export default function PaymentAudit() {
       <PageHeader 
         title="付款审核" 
         description="审核和管理付款申请单"
+        icon={ClipboardList}
       />
 
       {/* 筛选器 */}

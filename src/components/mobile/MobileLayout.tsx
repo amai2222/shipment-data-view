@@ -24,7 +24,8 @@ import {
   Calculator,
   DollarSign,
   Banknote,
-  TreePine
+  TreePine,
+  CheckCircle
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -138,6 +139,24 @@ const menuGroups = [
         href: '/m/payment-request',
         icon: CreditCard,
         roles: ['admin', 'finance']
+      }
+    ]
+  },
+  {
+    title: '审核管理',
+    icon: CheckCircle,
+    items: [
+      {
+        name: '开票审核',
+        href: '/m/audit/invoice',
+        icon: FileText,
+        roles: ['admin', 'finance', 'operator']
+      },
+      {
+        name: '付款审核',
+        href: '/m/audit/payment',
+        icon: DollarSign,
+        roles: ['admin', 'finance', 'operator']
       }
     ]
   },

@@ -13,6 +13,7 @@ export default function InvoiceAudit() {
       <PageHeader 
         title="开票审核" 
         description="审核和管理开票申请单"
+        icon={FileText}
       />
 
       <Card>
