@@ -2794,10 +2794,6 @@ export type Database = {
         Args: { p_records: Json }
         Returns: Json
       }
-      batch_modify_logistics_records_chain: {
-        Args: { p_chain_name: string; p_record_ids: string[] }
-        Returns: Json
-      }
       batch_pay_payment_requests: {
         Args: { p_request_ids: string[] }
         Returns: Json
@@ -3003,6 +2999,17 @@ export type Database = {
             }
             Returns: boolean
           }
+      check_partner_name_consistency: {
+        Args: never
+        Returns: {
+          bank_details_full_name: string
+          is_consistent: boolean
+          issue_description: string
+          partner_id: string
+          partner_name: string
+          partners_full_name: string
+        }[]
+      }
       check_payment_rollback_eligibility: {
         Args: { p_request_ids: string[] }
         Returns: Json
@@ -3116,6 +3123,14 @@ export type Database = {
         }
         Returns: Json
       }
+      debug_payment_requests_data: {
+        Args: never
+        Returns: {
+          count: number
+          data_type: string
+          sample_data: string
+        }[]
+      }
       delete_invoice_request: { Args: { p_request_id: string }; Returns: Json }
       delete_notification: {
         Args: { p_notification_id: string; p_user_id: string }
@@ -3173,6 +3188,7 @@ export type Database = {
           record_count: number
         }[]
       }
+      fix_partner_name_consistency_simple: { Args: never; Returns: string }
       generate_auto_number: {
         Args: { loading_date_input: string }
         Returns: string
@@ -4154,10 +4170,6 @@ export type Database = {
           unique_platforms: number
         }[]
       }
-      get_project_available_chains: {
-        Args: { p_project_id: string }
-        Returns: Json
-      }
       get_project_contribution: {
         Args: never
         Returns: {
@@ -4471,10 +4483,6 @@ export type Database = {
         Args: { p_notification_id: string; p_user_id: string }
         Returns: undefined
       }
-      modify_logistics_record_chain: {
-        Args: { p_chain_name: string; p_record_id: string }
-        Returns: Json
-      }
       monitor_permission_realtime: {
         Args: never
         Returns: {
@@ -4676,9 +4684,29 @@ export type Database = {
         }
         Returns: Json
       }
+      sync_all_partner_names: { Args: never; Returns: Json }
+      sync_partner_names_manual: {
+        Args: { p_partner_id: string }
+        Returns: Json
+      }
       sync_user_permissions_with_role:
         | { Args: never; Returns: undefined }
         | { Args: { role_name: string }; Returns: undefined }
+      test_payment_requests_filter: {
+        Args: {
+          p_driver_name?: string
+          p_loading_date?: string
+          p_project_id?: string
+          p_request_id?: string
+          p_status?: string
+          p_waybill_number?: string
+        }
+        Returns: {
+          result_count: number
+          test_type: string
+          test_value: string
+        }[]
+      }
       test_platform_fields_import: { Args: never; Returns: Json }
       test_supabase_realtime: {
         Args: never
@@ -4822,10 +4850,6 @@ export type Database = {
           record_id: string
           status: string
         }[]
-      }
-      validate_chain_modification_permission: {
-        Args: { p_record_ids: string[] }
-        Returns: Json
       }
       validate_external_tracking_uniqueness: {
         Args: {
