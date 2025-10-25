@@ -689,7 +689,7 @@ export default function PaymentRequest() {
       
       const recordsWithCost = await Promise.all(
         selectedRecords.map(async (record: any) => {
-          // 获取最高级合作方的应付金额
+          // 获取最高级合作方的应收金额
           const highestCost = record.partner_costs && record.partner_costs.length > 0
             ? record.partner_costs.reduce((max: any, cost: any) => 
                 cost.level > max.level ? cost : max
@@ -1075,7 +1075,7 @@ export default function PaymentRequest() {
                             </span>
                           </div>
                           <div>
-                            <Label htmlFor={`amount-${cost.partner_id}`}>应付金额 (¥)</Label>
+                            <Label htmlFor={`amount-${cost.partner_id}`}>应收金额 (¥)</Label>
                             {isHighest ? (
                               <Input
                                 id={`amount-${cost.partner_id}`}
@@ -1233,7 +1233,7 @@ export default function PaymentRequest() {
               </div>
               批量修改应收
             </DialogTitle>
-            <DialogDescription>已选择 {batchCostRecords.length} 条运单，请逐个输入新的应付金额</DialogDescription>
+            <DialogDescription>已选择 {batchCostRecords.length} 条运单，请逐个输入新的应收金额</DialogDescription>
           </DialogHeader>
           <div className="py-4 max-h-[60vh] overflow-y-auto">
             <div className="space-y-3">
@@ -1254,11 +1254,11 @@ export default function PaymentRequest() {
                         <p className="text-sm font-medium">{record.driver_name}</p>
                       </div>
                       <div className="md:col-span-1">
-                        <Label className="text-xs text-muted-foreground">原应付金额</Label>
+                        <Label className="text-xs text-muted-foreground">原应收金额</Label>
                         <p className="text-sm font-mono text-muted-foreground">¥{record.original_amount.toFixed(2)}</p>
                       </div>
                       <div className="md:col-span-2">
-                        <Label htmlFor={`amount-${index}`} className="text-xs text-muted-foreground">新应付金额 (¥)</Label>
+                        <Label htmlFor={`amount-${index}`} className="text-xs text-muted-foreground">新应收金额 (¥)</Label>
                         <Input
                           id={`amount-${index}`}
                           type="number"
@@ -1282,7 +1282,7 @@ export default function PaymentRequest() {
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mt-4">
               <p className="text-xs text-yellow-800">
                 <strong>注意：</strong>
-                <br />• 只会修改最高级合作方的应付金额
+                <br />• 只会修改最高级合作方的应收金额
                 <br />• 只能修改"未支付"且"未开票"的运单
                 <br />• 已申请付款或已开票的运单将自动跳过
               </p>
