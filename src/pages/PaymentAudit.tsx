@@ -29,7 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, X } from 'lucide-react';
+import { CalendarIcon, X, Building } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
 
 // --- 类型定义 ---
@@ -71,7 +71,8 @@ export default function PaymentAudit() {
     waybillNumber: '',
     driverName: '',
     loadingDate: null as Date | null,
-    status: ''
+    status: '',
+    projectId: ''
   });
   const [showFilters, setShowFilters] = useState(false);
   
@@ -80,6 +81,10 @@ export default function PaymentAudit() {
   const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(0);
   const [jumpToPage, setJumpToPage] = useState('');
+  
+  // 项目列表状态
+  const [projects, setProjects] = useState<Array<{id: string, name: string}>>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
 
   const fetchPaymentRequests = useCallback(async () => {
     setLoading(true);
@@ -92,6 +97,7 @@ export default function PaymentAudit() {
         p_driver_name: filters.driverName || null,
         p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
         p_status: filters.status || null,
+        p_project_id: filters.projectId || null,
         p_limit: pageSize,
         p_offset: (currentPage - 1) * pageSize
       });
@@ -129,9 +135,41 @@ export default function PaymentAudit() {
 
   useEffect(() => { fetchPaymentRequests(); }, [fetchPaymentRequests]);
 
+  // 筛选条件变化时自动搜索
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchPaymentRequests();
+    }, 500); // 500ms延迟，避免频繁请求
+
+    return () => clearTimeout(timeoutId);
+  }, [filters, fetchPaymentRequests]);
+
+  // 获取项目列表
+  const fetchProjects = useCallback(async () => {
+    setLoadingProjects(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error) {
+      console.error('获取项目列表失败:', error);
+      toast({ title: "错误", description: "获取项目列表失败", variant: "destructive" });
+    } finally {
+      setLoadingProjects(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { fetchProjects(); }, [fetchProjects]);
+
   // 筛选器处理函数
   const handleFilterChange = (key: string, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+    // 筛选条件变化时重置到第一页
+    setCurrentPage(1);
   };
 
   const clearFilters = () => {
@@ -140,11 +178,12 @@ export default function PaymentAudit() {
       waybillNumber: '',
       driverName: '',
       loadingDate: null,
-      status: ''
+      status: '',
+      projectId: ''
     });
   };
 
-  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status;
+  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status || filters.projectId;
 
   // 批量操作处理函数
   const handleBatchApprove = async () => {
@@ -1084,6 +1123,28 @@ export default function PaymentAudit() {
                   <option value="Approved">已审批</option>
                   <option value="Paid">已付款</option>
                   <option value="Rejected">已驳回</option>
+                </select>
+              </div>
+
+              {/* 项目筛选 */}
+              <div className="space-y-2">
+                <Label htmlFor="projectId" className="flex items-center gap-2">
+                  <Building className="h-4 w-4" />
+                  项目
+                </Label>
+                <select
+                  id="projectId"
+                  value={filters.projectId}
+                  onChange={(e) => handleFilterChange('projectId', e.target.value)}
+                  disabled={loadingProjects}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50"
+                >
+                  <option value="">{loadingProjects ? "加载中..." : "全部项目"}</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
