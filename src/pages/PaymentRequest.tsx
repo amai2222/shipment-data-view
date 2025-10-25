@@ -338,7 +338,17 @@ export default function PaymentRequest() {
 
   // 修改合作链路
   const handleEditChain = async (record: LogisticsRecordWithPartners) => {
-    if (!record.project_id) {
+    // 如果没有 project_id，尝试通过 project_name 查找
+    let projectId = record.project_id;
+    
+    if (!projectId && record.project_name) {
+      const project = projects.find(p => p.name === record.project_name);
+      if (project) {
+        projectId = project.id;
+      }
+    }
+    
+    if (!projectId) {
       toast({ title: "错误", description: "无法获取项目信息", variant: "destructive" });
       return;
     }
@@ -346,7 +356,7 @@ export default function PaymentRequest() {
     setEditChainData({
       recordId: record.id,
       recordNumber: record.auto_number,
-      projectId: record.project_id,
+      projectId: projectId,
       currentChainName: record.chain_name || '默认链路'
     });
     
