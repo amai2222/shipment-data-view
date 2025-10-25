@@ -82,6 +82,8 @@ import MobileWaybillDetail from "./pages/mobile/MobileWaybillDetail";
 import MobileProjectDashboardDetail from "./pages/mobile/MobileProjectDashboardDetail";
 import ShipperDashboard from "./pages/ShipperDashboard";
 import MobileShipperDashboard from "./pages/mobile/MobileShipperDashboard";
+import PaymentAudit from "./pages/PaymentAudit";
+import InvoiceAudit from "./pages/InvoiceAudit";
 
 const queryClient = new QueryClient();
 
@@ -234,6 +236,19 @@ const App = () => (
             <Route path="/finance/payment-invoice/:requestId" element={
               <ProtectedRoute requiredRoles={['admin', 'finance']}>
                 <AppLayout><PaymentInvoiceDetail /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 审核管理路由 */}
+            <Route path="/audit/payment" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+                <AppLayout><PaymentAudit /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/audit/invoice" element={
+              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+                <AppLayout><InvoiceAudit /></AppLayout>
               </ProtectedRoute>
             } />
             

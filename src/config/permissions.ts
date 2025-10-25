@@ -131,6 +131,16 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     ]
   },
   {
+    group: '审核管理',
+    key: 'audit',
+    label: '审核管理',
+    icon: 'CheckCircle',
+    children: [
+      { key: 'audit.invoice', label: '开票审核', icon: 'FileText' },
+      { key: 'audit.payment', label: '付款审核', icon: 'DollarSign' }
+    ]
+  },
+  {
     group: '数据维护',
     key: 'data_maintenance',
     label: '数据维护',
