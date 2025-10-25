@@ -252,6 +252,7 @@ const App = () => (
               </ProtectedRoute>
             } />
             
+            
             <Route path="/settings/users" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <AppLayout><UserManagement /></AppLayout>

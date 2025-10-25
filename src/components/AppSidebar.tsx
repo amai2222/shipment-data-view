@@ -156,6 +156,10 @@ export function AppSidebar() {
       '/payment-requests-list': 'finance.payment_requests',
       '/invoice-request-management': 'finance.invoice_request_management',
       
+      // 审核管理
+      '/audit/invoice': 'audit.invoice',
+      '/audit/payment': 'audit.payment',
+      
       // 数据维护
       '/data-maintenance/waybill': 'data_maintenance.waybill',
       '/data-maintenance/waybill-enhanced': 'data_maintenance.waybill_enhanced',
@@ -182,6 +186,10 @@ export function AppSidebar() {
       ...group,
       items: group.items.filter(item => {
         const menuKey = getMenuKey(item.url);
+        // 对于审核管理菜单，检查主权限
+        if (group.title === "审核管理") {
+          return hasMenuAccess('audit');
+        }
         return menuKey && hasMenuAccess(menuKey);
       })
     })).filter(group => {
