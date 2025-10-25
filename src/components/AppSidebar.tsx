@@ -93,7 +93,7 @@ export const menuItems = [
       { title: "运费对账", url: "/finance/reconciliation", icon: Calculator },
       { title: "付款与开票", url: "/finance/payment-invoice", icon: Banknote },
       { title: "开票申请单管理", url: "/invoice-request-management", icon: FileText },
-      { title: "付款申请单管理", url: "/payment-requests-list", icon: ClipboardList },
+      { title: "财务付款", url: "/payment-requests-list", icon: ClipboardList },
     ]
   },
   {

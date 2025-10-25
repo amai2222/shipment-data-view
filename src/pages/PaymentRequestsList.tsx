@@ -29,7 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, X } from 'lucide-react';
+import { CalendarIcon, X, Search, Building } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
 
 // --- 类型定义 ---
@@ -71,15 +71,19 @@ export default function PaymentRequestsList() {
     waybillNumber: '',
     driverName: '',
     loadingDate: null as Date | null,
-    status: ''
+    status: '',
+    projectId: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+  
+  // 项目列表状态
+  const [projects, setProjects] = useState<Array<{id: string, name: string}>>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
   
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(0);
-  const [jumpToPage, setJumpToPage] = useState('');
 
   const fetchPaymentRequests = useCallback(async () => {
     setLoading(true);
@@ -92,6 +96,7 @@ export default function PaymentRequestsList() {
         p_driver_name: filters.driverName || null,
         p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
         p_status: filters.status || null,
+        p_project_id: filters.projectId || null,
         p_limit: pageSize,
         p_offset: (currentPage - 1) * pageSize
       });
@@ -129,9 +134,31 @@ export default function PaymentRequestsList() {
 
   useEffect(() => { fetchPaymentRequests(); }, [fetchPaymentRequests]);
 
+  // 获取项目列表
+  const fetchProjects = useCallback(async () => {
+    setLoadingProjects(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name')
+        .order('name');
+      
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error) {
+      console.error('获取项目列表失败:', error);
+      toast({ title: "错误", description: `获取项目列表失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setLoadingProjects(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { fetchProjects(); }, [fetchProjects]);
+
   // 筛选器处理函数
   const handleFilterChange = (key: string, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1); // 筛选条件变化时重置到第一页
   };
 
   const clearFilters = () => {
@@ -140,11 +167,14 @@ export default function PaymentRequestsList() {
       waybillNumber: '',
       driverName: '',
       loadingDate: null,
-      status: ''
+      status: '',
+      projectId: ''
     });
+    setCurrentPage(1);
+    fetchPaymentRequests(); // 清除筛选后自动搜索
   };
 
-  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status;
+  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status || filters.projectId;
 
   // 批量操作处理函数
   const handleBatchApprove = async () => {
@@ -987,10 +1017,38 @@ export default function PaymentRequestsList() {
   return (
     <div className="space-y-6 p-4 md:p-6">
       <PageHeader 
-        title="申请单管理" 
+        title="财务付款" 
         description="查看和管理所有已生成的付款申请批次"
         icon={ClipboardList}
         iconColor="text-green-600"
+        actions={
+          <div className="flex items-center gap-2">
+            {showFilters && (
+              <>
+                {hasActiveFilters && (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    <X className="h-4 w-4 mr-1" />
+                    清除筛选
+                  </Button>
+                )}
+                <Button onClick={fetchPaymentRequests} size="sm">
+                  <Search className="h-4 w-4 mr-1" />
+                  搜索
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2"
+            >
+              <Search className="h-4 w-4" />
+              {showFilters ? '隐藏筛选' : '显示筛选'}
+              {hasActiveFilters && <Badge variant="secondary">已筛选</Badge>}
+            </Button>
+          </div>
+        }
       />
 
       <div className="space-y-6">
@@ -1016,108 +1074,99 @@ export default function PaymentRequestsList() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-          <CardTitle>历史申请记录</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2"
-            >
-              <Search className="h-4 w-4" />
-              {showFilters ? '隐藏筛选' : '显示筛选'}
-              {hasActiveFilters && <Badge variant="secondary">已筛选</Badge>}
-            </Button>
+            <div></div>
           </div>
         </CardHeader>
         {showFilters && (
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="flex flex-wrap gap-4 items-end">
               {/* 申请单号筛选 */}
-              <div className="space-y-2">
-                <Label htmlFor="requestId">申请单号</Label>
+              <div className="flex-1 min-w-[200px]">
+                <Label htmlFor="requestId" className="text-sm font-medium">申请单号</Label>
                 <Input
                   id="requestId"
                   placeholder="输入申请单号"
                   value={filters.requestId}
                   onChange={(e) => handleFilterChange('requestId', e.target.value)}
+                  className="mt-1"
                 />
               </div>
 
+              {/* 项目筛选 */}
+              <div className="flex-1 min-w-[150px]">
+                <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
+                  <Building className="h-4 w-4" />
+                  项目
+                </Label>
+                <select
+                  id="projectId"
+                  value={filters.projectId}
+                  onChange={(e) => handleFilterChange('projectId', e.target.value)}
+                  disabled={loadingProjects}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50 mt-1"
+                >
+                  <option value="">{loadingProjects ? "加载中..." : "全部项目"}</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* 运单号筛选 */}
-              <div className="space-y-2">
-                <Label htmlFor="waybillNumber" className="flex items-center gap-2">
+              <div className="flex-1 min-w-[200px]">
+                <Label htmlFor="waybillNumber" className="text-sm font-medium flex items-center gap-1">
                   <FileText className="h-4 w-4" />
                   运单号
                 </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="waybillNumber"
-                    placeholder="输入运单编号,多个用逗号分隔..."
-                    value={filters.waybillNumber}
-                    onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        fetchPaymentRequests();
-                      }
-                    }}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={fetchPaymentRequests}
-                    className="px-3"
-                  >
-                    <FileText className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  支持多个运单编号查询,用逗号分隔,按回车快速搜索
-                </p>
+                <Input
+                  id="waybillNumber"
+                  placeholder="输入运单编号,多个用逗号分隔..."
+                  value={filters.waybillNumber}
+                  onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      fetchPaymentRequests();
+                    }
+                  }}
+                  className="mt-1"
+                />
               </div>
 
               {/* 司机筛选 */}
-              <div className="space-y-2">
-                <Label htmlFor="driverName" className="flex items-center gap-2">
+              <div className="flex-1 min-w-[150px]">
+                <Label htmlFor="driverName" className="text-sm font-medium flex items-center gap-1">
                   <Users className="h-4 w-4" />
                   司机
                 </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="driverName"
-                    placeholder="司机姓名..."
-                    value={filters.driverName}
-                    onChange={(e) => handleFilterChange('driverName', e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        fetchPaymentRequests();
-                      }
-                    }}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={fetchPaymentRequests}
-                    className="px-3"
-                  >
-                    <Users className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Input
+                  id="driverName"
+                  placeholder="司机姓名..."
+                  value={filters.driverName}
+                  onChange={(e) => handleFilterChange('driverName', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      fetchPaymentRequests();
+                    }
+                  }}
+                  className="mt-1"
+                />
               </div>
 
               {/* 装货日期筛选 */}
-              <div className="space-y-2">
-                <Label htmlFor="loadingDate">装货日期</Label>
+              <div className="flex-1 min-w-[150px]">
+                <Label htmlFor="loadingDate" className="text-sm font-medium flex items-center gap-1">
+                  <CalendarIcon className="h-4 w-4" />
+                  装货日期
+                </Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       id="loadingDate"
                       variant="outline"
                       className={cn(
-                        "w-full justify-start text-left font-normal",
+                        "w-full justify-start text-left font-normal mt-1",
                         !filters.loadingDate && "text-muted-foreground"
                       )}
                     >
@@ -1137,13 +1186,13 @@ export default function PaymentRequestsList() {
               </div>
 
               {/* 状态筛选 */}
-              <div className="space-y-2">
-                <Label htmlFor="status">申请单状态</Label>
+              <div className="flex-1 min-w-[150px]">
+                <Label htmlFor="status" className="text-sm font-medium">申请单状态</Label>
                 <select
                   id="status"
                   value={filters.status}
                   onChange={(e) => handleFilterChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm mt-1"
                 >
                   <option value="">全部状态</option>
                   <option value="Pending">待审批</option>
@@ -1152,25 +1201,6 @@ export default function PaymentRequestsList() {
                   <option value="Rejected">已驳回</option>
                 </select>
               </div>
-            </div>
-
-            {/* 筛选器操作按钮 */}
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <div className="flex items-center gap-2">
-                {hasActiveFilters && (
-                  <Button variant="outline" size="sm" onClick={clearFilters}>
-                    <X className="h-4 w-4 mr-1" />
-                    清除筛选
-                  </Button>
-                )}
-                <span className="text-sm text-muted-foreground">
-                  {hasActiveFilters ? '已应用筛选条件' : '未设置筛选条件'}
-                </span>
-              </div>
-              <Button onClick={fetchPaymentRequests} size="sm">
-                <Search className="h-4 w-4 mr-1" />
-                搜索
-              </Button>
             </div>
           </CardContent>
         )}
@@ -1440,123 +1470,64 @@ export default function PaymentRequestsList() {
 
       {/* 分页组件 */}
       {totalPages > 0 && (
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              {/* 左侧信息 */}
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">
-                  共 {totalRequestsCount} 条记录，第 {currentPage} / {totalPages} 页
-                </span>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="pageSize" className="text-sm">每页显示</Label>
-                  <select
-                    id="pageSize"
-                    value={pageSize}
-                    onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
-                    className="px-2 py-1 border rounded text-sm"
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                  <span className="text-sm text-muted-foreground">条</span>
-                </div>
-              </div>
+        <div className="flex items-center justify-center gap-4 py-4">
+          {/* 每页显示 */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">每页显示</span>
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
+              className="px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-muted-foreground">条</span>
+          </div>
 
-              {/* 中间分页按钮 */}
-              <div className="flex items-center gap-1">
-                {/* 上一页 */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage <= 1}
-                  className="h-8 w-8 p-0"
-                >
-                  ‹
-                </Button>
+          {/* 上一页 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className="h-8 px-3"
+          >
+            上一页
+          </Button>
 
-                {/* 第一页 */}
-                {currentPage > 3 && (
-                  <>
-                    <Button
-                      variant={currentPage === 1 ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePageChange(1)}
-                      className="h-8 w-8 p-0"
-                    >
-                      1
-                    </Button>
-                    {currentPage > 4 && <span className="px-2 text-muted-foreground">...</span>}
-                  </>
-                )}
+          {/* 页码信息 */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">第</span>
+            <Input
+              type="number"
+              value={currentPage}
+              onChange={(e) => {
+                const page = parseInt(e.target.value);
+                if (page >= 1 && page <= totalPages) {
+                  handlePageChange(page);
+                }
+              }}
+              className="w-12 h-8 text-center"
+              min={1}
+              max={totalPages}
+            />
+            <span className="text-sm text-muted-foreground">页,共{totalPages}页</span>
+          </div>
 
-                {/* 页码按钮 */}
-                {generatePageNumbers().map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handlePageChange(page)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {page}
-                  </Button>
-                ))}
-
-                {/* 最后一页 */}
-                {currentPage < totalPages - 2 && (
-                  <>
-                    {currentPage < totalPages - 3 && <span className="px-2 text-muted-foreground">...</span>}
-                    <Button
-                      variant={currentPage === totalPages ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePageChange(totalPages)}
-                      className="h-8 w-8 p-0"
-                    >
-                      {totalPages}
-                    </Button>
-                  </>
-                )}
-
-                {/* 下一页 */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage >= totalPages}
-                  className="h-8 w-8 p-0"
-                >
-                  ›
-                </Button>
-              </div>
-
-              {/* 右侧跳转 */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">跳转到</span>
-                <Input
-                  type="number"
-                  value={jumpToPage}
-                  onChange={(e) => setJumpToPage(e.target.value)}
-                  placeholder="页码"
-                  className="w-16 h-8 text-center"
-                  min="1"
-                  max={totalPages}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleJumpToPage}
-                  className="h-8 px-3"
-                >
-                  确定
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          {/* 下一页 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className="h-8 px-3"
+          >
+            下一页
+          </Button>
+        </div>
       )}
       </div>
     </div>

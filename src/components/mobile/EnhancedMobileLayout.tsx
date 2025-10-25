@@ -178,7 +178,7 @@ const menuGroups = [
         roles: ['admin', 'finance', 'operator']
       },
       {
-        name: '付款申请单管理',
+        name: '财务付款',
         href: '/m/payment-requests-management',
         icon: Receipt,
         roles: ['admin', 'finance', 'operator']
