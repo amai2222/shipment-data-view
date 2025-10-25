@@ -297,6 +297,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'contracts', 'contracts.list',
       // 财务管理
       'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests', 'finance.invoice_request_management',
+      // 审核管理
+      'audit', 'audit.invoice', 'audit.payment',
       // 数据维护
       'data_maintenance', 'data_maintenance.waybill', 'data_maintenance.waybill_enhanced',
       // 设置
@@ -324,7 +326,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'maintenance', 'maintenance.partners',
       'business', 'business.payment_request', 'business.invoice_request',
       'contracts', 'contracts.list',
-      'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests', 'finance.invoice_request_management'
+      'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests', 'finance.invoice_request_management',
+      'audit', 'audit.invoice', 'audit.payment'
     ],
     function_permissions: [
       'data', 'data.view', 'data.export',
@@ -374,6 +377,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'business', 'business.entry', 'business.scale', 'business.invoice_request', 'business.payment_request',
       // 财务管理
       'finance', 'finance.reconciliation', 'finance.payment_invoice', 'finance.payment_requests', 'finance.invoice_request_management',
+      // 审核管理
+      'audit', 'audit.invoice', 'audit.payment',
       // 数据维护
       'data_maintenance', 'data_maintenance.waybill', 'data_maintenance.waybill_enhanced',
       // 合同管理
