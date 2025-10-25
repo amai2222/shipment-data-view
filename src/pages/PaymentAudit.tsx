@@ -184,42 +184,15 @@ export default function PaymentAudit() {
     }
   };
 
-  const handleBatchPay = async () => {
-    if (selection.selectedIds.size === 0) {
-      toast({ title: "提示", description: "请先选择要付款的申请单", variant: "destructive" });
-      return;
-    }
-
-    setIsBatchOperating(true);
-    setBatchOperation('pay');
-    
-    try {
-      const selectedRequestIds = Array.from(selection.selectedIds);
-      // @ts-ignore - 新的RPC函数
-      const { data, error } = await supabase.rpc('batch_pay_payment_requests', {
-        p_request_ids: selectedRequestIds
-      });
-
-      if (error) throw error;
-
-      const result = data as any;
-      toast({ 
-        title: "批量付款完成", 
-        description: result.message,
-        variant: result.failed_count > 0 ? "destructive" : "default"
-      });
-
-      // 清除选择并刷新数据
-      setSelection({ mode: 'none', selectedIds: new Set() });
-      fetchPaymentRequests();
-    } catch (error) {
-      console.error('批量付款失败:', error);
-      toast({ title: "批量付款失败", description: (error as any).message, variant: "destructive" });
-    } finally {
-      setIsBatchOperating(false);
-      setBatchOperation(null);
+  const handleBatchApproveWithConfirm = () => {
+    const selectedCount = selection.selectedIds.size;
+    const confirmDialog = window.confirm(`确定要审批选中的 ${selectedCount} 个付款申请吗？`);
+    if (confirmDialog) {
+      handleBatchApprove();
     }
   };
+
+  // 批量付款功能已移除
 
   const handleRollbackApproval = async (requestId: string) => {
     try {
@@ -238,6 +211,13 @@ export default function PaymentAudit() {
       toast({ title: "审批回滚失败", description: (error as any).message, variant: "destructive" });
     } finally {
       setExportingId(null);
+    }
+  };
+
+  const handleRollbackApprovalWithConfirm = (requestId: string) => {
+    const confirmDialog = window.confirm(`确定要取消审批付款申请 ${requestId} 吗？此操作将把申请单状态回滚为待审批。`);
+    if (confirmDialog) {
+      handleRollbackApproval(requestId);
     }
   };
 
@@ -294,40 +274,7 @@ export default function PaymentAudit() {
     }
   };
 
-  // @ts-ignore - React.MouseEvent类型
-  const handleExport = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
-    e.stopPropagation();
-    try {
-      setExportingId(req.id);
-      const { data, error } = await supabase.functions.invoke('export-excel', { body: { requestId: req.request_id } });
-      if (error) {
-        let errorMessage = error.message;
-        try { 
-          const errorBody = JSON.parse(error.context?.responseText || '{}'); 
-          if (errorBody.error) { 
-            errorMessage = errorBody.error; 
-          } 
-        } catch (parseError) {
-          console.warn('Failed to parse error context:', parseError);
-        }
-        throw new Error(errorMessage);
-      }
-      const { signedUrl } = data;
-      if (!signedUrl) { throw new Error('云函数未返回有效的下载链接。'); }
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = signedUrl;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      toast({ title: '文件已开始下载', description: `申请单 ${req.request_id} 的Excel已开始下载。` });
-    } catch (error) {
-      console.error('导出失败:', error);
-      toast({ title: '导出失败', description: error instanceof Error ? error.message : '未知错误', variant: 'destructive' });
-    } finally {
-      setExportingId(null);
-    }
-  };
+  // 导出功能已移除
 
   // @ts-ignore - React.MouseEvent类型
   const handleGeneratePDF = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
@@ -724,35 +671,7 @@ export default function PaymentAudit() {
     }
   };
 
-  // @ts-ignore - React.MouseEvent类型
-  const handlePayment = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
-    e.stopPropagation();
-    try {
-      setExportingId(req.id);
-      
-      // 更新付款状态
-      // @ts-ignore - RPC函数类型
-      const { data, error } = await supabase.rpc('set_payment_status_for_waybills', {
-        p_record_ids: req.logistics_record_ids,
-        p_payment_status: 'Paid'
-      });
-
-      if (error) throw error;
-
-      toast({ 
-        title: '付款成功', 
-        description: `已更新 ${(data as { updated_waybills?: number })?.updated_waybills || 0} 条运单的付款状态，同步了 ${(data as { updated_partner_costs?: number })?.updated_partner_costs || 0} 条合作方成本记录。` 
-      });
-      
-      // 刷新数据
-      fetchPaymentRequests();
-    } catch (error) {
-      console.error('付款操作失败:', error);
-      toast({ title: '付款操作失败', description: error instanceof Error ? error.message : '未知错误', variant: 'destructive' });
-    } finally {
-      setExportingId(null);
-    }
-  };
+  // 付款功能已移除
 
   // @ts-ignore - React.MouseEvent类型
   const handleCancelPayment = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
@@ -808,6 +727,13 @@ export default function PaymentAudit() {
       toast({ title: "审批失败", description: "操作失败，请重试", variant: "destructive" });
     } finally {
       setExportingId(null);
+    }
+  };
+
+  const handleApprovalWithConfirm = (e: any, req: PaymentRequest) => {
+    const confirmDialog = window.confirm(`确定要审批付款申请 ${req.request_id} 吗？`);
+    if (confirmDialog) {
+      handleApproval(e, req);
     }
   };
 
@@ -981,6 +907,14 @@ export default function PaymentAudit() {
       toast({ title: "错误", description: `操作失败: ${(error as any).message}`, variant: "destructive" });
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleCancelRequestsWithConfirm = () => {
+    const selectedCount = selection.selectedIds.size;
+    const confirmDialog = window.confirm(`确定要作废选中的 ${selectedCount} 个付款申请吗？所有关联运单的状态将恢复为未支付。`);
+    if (confirmDialog) {
+      handleCancelRequests();
     }
   };
 
@@ -1186,36 +1120,25 @@ export default function PaymentAudit() {
                   已选择 {selection.selectedIds.size} 个申请单
                 </span>
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
-                  onClick={handleBatchApprove}
+                  onClick={handleBatchApproveWithConfirm}
                   disabled={isBatchOperating}
                   className="flex items-center gap-2"
                 >
                   {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
                   批量审批
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBatchPay}
-                  disabled={isBatchOperating}
-                  className="flex items-center gap-2"
-                >
-                  {batchOperation === 'pay' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
-                  批量付款
-                </Button>
                 {isAdmin && (
-                  <ConfirmDialog
-                    title={`确认作废 ${selectionCount} 张申请单`}
-                    description="此操作将删除选中的申请单，并将所有关联运单的状态恢复为未支付。此操作不可逆，请谨慎操作。"
-                    onConfirm={handleCancelRequests}
+                  <Button 
+                    variant="destructive" 
+                    disabled={selectionCount === 0 || isCancelling} 
+                    onClick={handleCancelRequestsWithConfirm}
+                    className="flex items-center gap-2"
                   >
-                    <Button variant="destructive" disabled={selectionCount === 0 || isCancelling} className="flex items-center gap-2">
-                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                      一键作废 ({selectionCount})
-                    </Button>
-                  </ConfirmDialog>
+                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    一键作废 ({selectionCount})
+                  </Button>
                 )}
               </div>
             )}
@@ -1256,18 +1179,6 @@ export default function PaymentAudit() {
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-3 flex-wrap">
-                            {/* 导出按钮 - 取消颜色背景 */}
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={(e) => handleExport(e, req)} 
-                              disabled={exportingId === req.id}
-                              className="border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200"
-                            >
-                              {exportingId === req.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-                              导出
-                            </Button>
-
                             {/* 查看申请单按钮 - 蓝色主题 */}
                             <Button 
                               variant="default" 
@@ -1280,40 +1191,12 @@ export default function PaymentAudit() {
                               查看申请单
                             </Button>
 
-                            {/* 付款按钮 - 红色主题，只在已审批状态显示 */}
-                            {req.status === 'Approved' && (
-                              <Button 
-                                variant="default" 
-                                size="sm" 
-                                onClick={(e) => handlePayment(e, req)} 
-                                disabled={exportingId === req.id}
-                                className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
-                              >
-                                <Banknote className="mr-2 h-4 w-4" />
-                                付款
-                              </Button>
-                            )}
-
-                            {/* 取消付款按钮 - 橙色主题，只在已付款状态显示 */}
-                            {req.status === 'Paid' && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={(e) => handleCancelPayment(e, req)} 
-                                disabled={exportingId === req.id}
-                                className="border-orange-300 text-orange-700 hover:bg-orange-50 shadow-sm transition-all duration-200"
-                              >
-                                <Banknote className="mr-2 h-4 w-4" />
-                                取消付款
-                              </Button>
-                            )}
-
                             {/* 取消审批按钮 - 灰色主题，只在已审批状态显示 */}
                             {req.status === 'Approved' && (
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                onClick={() => handleRollbackApproval(req.request_id)} 
+                                onClick={() => handleRollbackApprovalWithConfirm(req.request_id)} 
                                 disabled={exportingId === req.id}
                                 className="border-gray-300 text-gray-600 hover:bg-gray-50 shadow-sm transition-all duration-200"
                               >
@@ -1322,34 +1205,19 @@ export default function PaymentAudit() {
                               </Button>
                             )}
 
-                            {/* 审批按钮 - 蓝色主题，只在待审批状态显示 */}
+                            {/* 审批按钮 - 红色主题，只在待审批状态显示 */}
                             {req.status === 'Pending' && (
                               <Button 
-                                variant="default" 
+                                variant="destructive" 
                                 size="sm" 
-                                onClick={(e) => handleApproval(e, req)} 
+                                onClick={(e) => handleApprovalWithConfirm(e, req)} 
                                 disabled={exportingId === req.id}
-                                className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                                className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
                               >
                                 <ClipboardList className="mr-2 h-4 w-4" />
                                 审批
                               </Button>
                             )}
-
-                            {/* 隐藏企业微信审批按钮 */}
-                            {/* {req.status === 'Pending' && (
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <PaymentApproval
-                                  paymentRequestId={req.id}
-                                  amount={partnerTotals.reduce((sum, pt) => sum + pt.total_amount, 0)}
-                                  description={`付款申请单 ${req.request_id} - ${req.record_count} 条运单`}
-                                  onApprovalSubmitted={() => {
-                                    fetchPaymentRequests();
-                                    toast({ title: "提交成功", description: "企业微信审批已提交" });
-                                  }}
-                                />
-                              </div>
-                            )} */}
                           </div>
                         </TableCell>
                       </TableRow>
