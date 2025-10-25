@@ -1013,7 +1013,7 @@ export default function PaymentRequestsList() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-4 p-0">
       <PageHeader 
         title="财务付款" 
         description="查看和管理所有已生成的付款申请批次"
@@ -1049,7 +1049,7 @@ export default function PaymentRequestsList() {
         }
       />
 
-      <div className="space-y-6">
+      <div className="space-y-4">
 
       <div className="flex justify-between items-center">
         <div/>
@@ -1069,14 +1069,14 @@ export default function PaymentRequestsList() {
       )}
 
       {/* 筛选器 */}
-      <Card>
-        <CardHeader>
+      <Card className="mb-0">
+        <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div></div>
           </div>
         </CardHeader>
         {showFilters && (
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="flex flex-wrap gap-4 items-end">
               {/* 申请单号筛选 */}
               <div className="flex-1 min-w-[200px]">
@@ -1204,8 +1204,8 @@ export default function PaymentRequestsList() {
         )}
       </Card>
 
-      <Card>
-        <CardHeader>
+      <Card className="mt-0">
+        <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle>申请单列表</CardTitle>
             {isAdmin && selection.selectedIds.size > 0 && (
@@ -1240,7 +1240,7 @@ export default function PaymentRequestsList() {
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div className="min-h-[400px]">
             {loading ? (
               <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -1437,7 +1437,7 @@ export default function PaymentRequestsList() {
 
       {/* 分页组件 */}
       {totalPages > 0 && (
-        <div className="flex items-center justify-center gap-4 py-4">
+        <div className="flex items-center justify-center gap-4 py-2">
           {/* 每页显示 */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">每页显示</span>
