@@ -11,6 +11,22 @@
 
 -- 删除旧函数（如果存在）
 DROP FUNCTION IF EXISTS public.modify_logistics_record_chain_with_recalc(UUID, TEXT);
+DROP FUNCTION IF EXISTS public.is_finance_operator_or_admin();
+
+-- 创建权限检查函数（使用正确的英文枚举值）
+CREATE OR REPLACE FUNCTION public.is_finance_operator_or_admin()
+RETURNS BOOLEAN AS $$
+DECLARE
+    user_role TEXT;
+BEGIN
+    SELECT role::text INTO user_role
+    FROM public.profiles
+    WHERE id = auth.uid();
+    
+    -- 使用英文枚举值：admin, finance, operator
+    RETURN user_role IN ('admin', 'finance', 'operator');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 创建新的修改合作链路函数（包含成本重算）
 CREATE OR REPLACE FUNCTION public.modify_logistics_record_chain_with_recalc(
@@ -26,12 +42,11 @@ DECLARE
     v_old_chain_name TEXT;
     v_payment_status TEXT;
     v_invoice_status TEXT;
-    v_partner RECORD;
+    v_project_partners RECORD;
     v_base_amount NUMERIC;
     v_payable_amount NUMERIC;
     v_loading_weight NUMERIC;
     v_unloading_weight NUMERIC;
-    v_effective_weight NUMERIC;
     v_inserted_count INTEGER := 0;
 BEGIN
     -- 权限检查
@@ -46,13 +61,13 @@ BEGIN
     
     -- 获取运单信息（包括支付状态和开票状态）
     SELECT 
-        project_id, 
-        chain_name, 
-        payable_cost,
-        loading_weight,
-        unloading_weight,
-        payment_status,
-        invoice_status
+        lr.project_id, 
+        pc.chain_name,  -- 从 partner_chains 表获取链路名称
+        lr.current_cost + COALESCE(lr.extra_cost, 0),  -- 基础金额 = current_cost + extra_cost
+        lr.loading_weight,
+        lr.unloading_weight,
+        lr.payment_status,
+        lr.invoice_status
     INTO 
         v_project_id, 
         v_old_chain_name, 
@@ -61,8 +76,9 @@ BEGIN
         v_unloading_weight,
         v_payment_status,
         v_invoice_status
-    FROM public.logistics_records
-    WHERE id = p_record_id;
+    FROM public.logistics_records lr
+    LEFT JOIN public.partner_chains pc ON lr.chain_id = pc.id
+    WHERE lr.id = p_record_id;
     
     IF v_project_id IS NULL THEN
         RETURN json_build_object(
@@ -115,81 +131,64 @@ BEGIN
     DELETE FROM public.logistics_partner_costs
     WHERE logistics_record_id = p_record_id;
     
-    -- 第二步：更新运单的链路信息
+    -- 第二步：更新运单的链路信息（logistics_records 表只有 chain_id 列）
     UPDATE public.logistics_records
     SET 
         chain_id = v_chain_id,
-        chain_name = p_chain_name,
         updated_at = NOW()
     WHERE id = p_record_id;
     
     -- 第三步：根据新链路重新计算并插入合作方成本
-    -- 计算有效重量（卸货重量优先，否则使用装货重量）
-    v_effective_weight := COALESCE(v_unloading_weight, v_loading_weight, 0);
-    
-    -- 遍历新链路的所有合作方
-    FOR v_partner IN
+    -- 遍历新链路的所有合作方（从低层级到高层级）
+    FOR v_project_partners IN
         SELECT 
             pp.partner_id,
-            p.name as partner_name,
-            pb.full_name,
-            pb.bank_account,
-            pb.bank_name,
-            pb.branch_name,
             pp.level,
             pp.calculation_method,
             pp.tax_rate,
             pp.profit_rate
         FROM public.project_partners pp
-        LEFT JOIN public.partners p ON pp.partner_id = p.id
-        LEFT JOIN public.partner_bank_details pb ON pp.partner_id = pb.partner_id
         WHERE pp.project_id = v_project_id
         AND pp.chain_id = v_chain_id
-        ORDER BY pp.level DESC
+        ORDER BY pp.level ASC  -- 从低层级到高层级
     LOOP
         -- 根据计算方法计算应付金额
-        IF v_partner.calculation_method = '税点法' THEN
-            -- 税点法: 应付金额 = 基础金额 / (1 - 税点)
-            v_payable_amount := v_base_amount / (1 - COALESCE(v_partner.tax_rate, 0));
-        ELSIF v_partner.calculation_method = '利润法' THEN
-            -- 利润法: 应付金额 = 基础金额 + (利润率 × 有效重量)
-            v_payable_amount := v_base_amount + (COALESCE(v_partner.profit_rate, 0) * v_effective_weight);
+        IF v_project_partners.calculation_method = 'profit' THEN
+            -- 利润法
+            IF v_loading_weight IS NOT NULL AND v_loading_weight > 0 THEN
+                v_payable_amount := v_base_amount + (COALESCE(v_project_partners.profit_rate, 0) * v_loading_weight);
+            ELSE
+                v_payable_amount := v_base_amount + COALESCE(v_project_partners.profit_rate, 0);
+            END IF;
         ELSE
-            -- 默认使用基础金额
-            v_payable_amount := v_base_amount;
+            -- 税点法（默认）
+            IF v_project_partners.tax_rate IS NOT NULL AND v_project_partners.tax_rate != 1 THEN
+                v_payable_amount := v_base_amount / (1 - v_project_partners.tax_rate);
+            ELSE
+                v_payable_amount := v_base_amount;
+            END IF;
         END IF;
         
-        -- 插入新的成本记录
+        -- 插入新的成本记录（使用表的实际列）
         INSERT INTO public.logistics_partner_costs (
             logistics_record_id,
             partner_id,
-            partner_name,
-            full_name,
-            bank_account,
-            bank_name,
-            branch_name,
             level,
+            base_amount,
             payable_amount,
-            created_at,
-            updated_at
+            tax_rate,
+            user_id
         ) VALUES (
             p_record_id,
-            v_partner.partner_id,
-            v_partner.partner_name,
-            v_partner.full_name,
-            v_partner.bank_account,
-            v_partner.bank_name,
-            v_partner.branch_name,
-            v_partner.level,
+            v_project_partners.partner_id,
+            v_project_partners.level,
+            v_base_amount,
             v_payable_amount,
-            NOW(),
-            NOW()
+            v_project_partners.tax_rate,
+            auth.uid()
         );
         
         v_inserted_count := v_inserted_count + 1;
-        
-        -- 更新基础金额为当前层级的应付金额（用于下一层级计算）
-        v_base_amount := v_payable_amount;
     END LOOP;
     
     -- 返回成功结果
