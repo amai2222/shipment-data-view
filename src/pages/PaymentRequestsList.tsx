@@ -1284,17 +1284,7 @@ export default function PaymentRequestsList() {
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-3 flex-wrap">
-                            {/* 导出按钮 - 取消颜色背景 */}
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={(e) => handleExport(e, req)} 
-                              disabled={exportingId === req.id}
-                              className="border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200"
-                            >
-                              {exportingId === req.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-                              导出
-                            </Button>
+                            {/* 导出按钮 - 已隐藏 */}
 
                             {/* 查看申请单按钮 - 蓝色主题 */}
                             <Button 
@@ -1350,14 +1340,14 @@ export default function PaymentRequestsList() {
                               </Button>
                             )}
 
-                            {/* 审批按钮 - 蓝色主题，只在待审批状态显示 */}
+                            {/* 审批按钮 - 橙色主题，只在待审批状态显示 */}
                             {req.status === 'Pending' && (
                               <Button 
                                 variant="default" 
                                 size="sm" 
                                 onClick={(e) => handleApproval(e, req)} 
                                 disabled={exportingId === req.id}
-                                className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                                className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
                               >
                                 <ClipboardList className="mr-2 h-4 w-4" />
                                 审批
