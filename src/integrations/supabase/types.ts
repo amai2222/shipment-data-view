@@ -4150,19 +4150,10 @@ export type Database = {
           unique_platforms: number
         }[]
       }
-      get_project_available_chains:
-        | {
-            Args: { p_project_id: string }
-            Returns: {
-              error: true
-            } & "Could not choose the best candidate function between: public.get_project_available_chains(p_project_id => text), public.get_project_available_chains(p_project_id => uuid). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
-          }
-        | {
-            Args: { p_project_id: string }
-            Returns: {
-              error: true
-            } & "Could not choose the best candidate function between: public.get_project_available_chains(p_project_id => text), public.get_project_available_chains(p_project_id => uuid). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
-          }
+      get_project_available_chains: {
+        Args: { p_project_id: string }
+        Returns: Json
+      }
       get_project_contribution: {
         Args: never
         Returns: {
