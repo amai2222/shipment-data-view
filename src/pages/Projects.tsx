@@ -60,7 +60,7 @@ export default function Projects() {
   });
   
   const [selectedChains, setSelectedChains] = useState<{
-    id: string; dbId?: string; chainName: string; description?: string; billingTypeId?: number | null;
+    id: string; dbId?: string; chainName: string; description?: string; billingTypeId?: number | null; isDefault?: boolean;
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
   }[]>([]);
   
@@ -201,6 +201,7 @@ export default function Projects() {
       id: `chain-existing-${chain.id}`, dbId: chain.id, chainName: chain.chainName,
       description: chain.description,
       billingTypeId: Number((chain as any).billing_type_id) || 1,
+      isDefault: (chain as any).is_default || false,
       partners: (chain.partners || []).map((pp) => ({
         id: `partner-existing-${pp.id}`, dbId: pp.id, partnerId: pp.partnerId,
         level: pp.level, taxRate: pp.taxRate,
@@ -256,7 +257,7 @@ export default function Projects() {
         id: chain.dbId,
         chain_name: chain.chainName || `链路${index + 1}`,
         description: chain.description || '',
-        is_default: index === 0,
+        is_default: chain.isDefault !== undefined ? chain.isDefault : (index === 0),
         billing_type_id: chain.billingTypeId ?? 1,
         partners: chain.partners.map(p => ({
           id: p.dbId,
@@ -330,7 +331,7 @@ export default function Projects() {
   const addNewChain = () => {
     setSelectedChains(prev => [...prev, {
       id: `chain-new-${Date.now()}`, dbId: undefined,
-      chainName: `链路${prev.length + 1}`, description: '', billingTypeId: 1, partners: []
+      chainName: `链路${prev.length + 1}`, description: '', billingTypeId: 1, isDefault: prev.length === 0, partners: []
     }]);
   };
 
