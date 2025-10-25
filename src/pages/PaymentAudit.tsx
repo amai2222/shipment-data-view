@@ -972,20 +972,10 @@ export default function PaymentAudit() {
       {/* 筛选条件显示 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {hasActiveFilters && (
-            <Button variant="outline" size="sm" onClick={clearFilters}>
-              <X className="h-4 w-4 mr-1" />
-              清除筛选
-            </Button>
-          )}
           <span className="text-sm text-muted-foreground">
             {hasActiveFilters ? '已应用筛选条件' : '设置筛选条件'}
           </span>
         </div>
-        <Button onClick={fetchPaymentRequests} size="sm">
-          <Search className="h-4 w-4 mr-1" />
-          搜索
-        </Button>
       </div>
 
       <div className="space-y-6">
@@ -1011,7 +1001,22 @@ export default function PaymentAudit() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div></div>
+            <div className="flex items-center gap-2">
+              {showFilters && (
+                <>
+                  {hasActiveFilters && (
+                    <Button variant="outline" size="sm" onClick={clearFilters}>
+                      <X className="h-4 w-4 mr-1" />
+                      清除筛选
+                    </Button>
+                  )}
+                  <Button onClick={fetchPaymentRequests} size="sm">
+                    <Search className="h-4 w-4 mr-1" />
+                    搜索
+                  </Button>
+                </>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"
