@@ -41,6 +41,7 @@ interface PaymentRequest {
   notes: string | null;
   logistics_record_ids: string[];
   record_count: number;
+  max_amount?: number; // 申请金额（最高金额）
 }
 interface LogisticsRecordDetail { id: string; auto_number: string; driver_name: string; license_plate: string; loading_location: string; unloading_location: string; loading_date: string; loading_weight: number | null; payable_amount: number | null; }
 interface PartnerTotal { partner_id: string; partner_name: string; total_amount: number; level: number; }
@@ -1194,6 +1195,7 @@ export default function PaymentAudit() {
                     <TableHead>申请时间</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead className="text-right">运单数</TableHead>
+                    <TableHead className="text-right">申请金额</TableHead>
                     <TableHead className="text-center">操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1214,6 +1216,9 @@ export default function PaymentAudit() {
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{getStatusBadge(req.status)}</TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
+                        <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
+                          {req.max_amount ? `¥${req.max_amount.toLocaleString()}` : '-'}
+                        </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-3 flex-wrap">
                             {/* 查看申请单按钮 - 蓝色主题 */}
