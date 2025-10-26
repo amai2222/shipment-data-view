@@ -49,7 +49,7 @@ import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { BatchInputDialog } from "@/components/ui/BatchInputDialog";
+import { BatchInputDialog } from "@/pages/BusinessEntry/components/BatchInputDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
@@ -278,13 +278,14 @@ export default function PaymentRequest() {
   const openBatchDialog = (type: 'driver' | 'license' | 'phone' | 'waybill') => { setBatchDialog({ isOpen: true, type }); };
   const closeBatchDialog = () => { setBatchDialog({ isOpen: false, type: null }); };
   const handleBatchConfirm = (values: string[]) => {
+    // 运单管理版本的 BatchInputDialog onConfirm 回调传递的是 string[] 数组
+    // 我们直接使用即可，不需要再 join
     const value = values.join(',');
     const type = batchDialog.type;
     if (type === 'driver') handleFilterChange('driverName', value);
     else if (type === 'license') handleFilterChange('licensePlate', value);
     else if (type === 'phone') handleFilterChange('driverPhone', value);
     else if (type === 'waybill') handleFilterChange('waybillNumbers', value);
-    closeBatchDialog();
   };
   const getCurrentBatchValue = () => {
     const type = batchDialog.type;
