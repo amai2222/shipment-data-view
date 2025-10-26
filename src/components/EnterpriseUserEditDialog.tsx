@@ -26,7 +26,7 @@ import {
   CheckCircle,
   Eye,
   EyeOff
-} from '@/components/icons-placeholder';
+} from 'lucide-react';
 import { UserWithPermissions, UserRole } from '@/types';
 
 interface EnterpriseUserEditDialogProps {
@@ -73,7 +73,7 @@ export function EnterpriseUserEditDialog({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<UserEditForm | null>(null);
 
-  // 初始化表单数�?
+  // 初始化表单数据
   useEffect(() => {
     if (user && isOpen) {
       setFormData({
@@ -90,13 +90,13 @@ export function EnterpriseUserEditDialog({
     }
   }, [user, isOpen]);
 
-  // 检测表单变�?
+  // 检测表单变更
   const handleFormChange = (field: keyof UserEditForm, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
   };
 
-  // 显示确认对话�?
+  // 显示确认对话框
   const handleSave = () => {
     if (!hasChanges) {
       onClose();
@@ -106,8 +106,8 @@ export function EnterpriseUserEditDialog({
     // 验证密码
     if (formData.password && formData.password !== formData.confirmPassword) {
       toast({
-        title: "密码不匹�?,
-        description: "新密码和确认密码不一�?,
+        title: "密码不匹配",
+        description: "新密码和确认密码不一致",
         variant: "destructive"
       });
       return;
@@ -140,7 +140,7 @@ export function EnterpriseUserEditDialog({
 
       if (profileError) throw profileError;
 
-      // 如果修改了密�?
+      // 如果修改了密码
       if (pendingChanges.password) {
         const { error: passwordError } = await supabase.auth.admin.updateUserById(
           user.id,
@@ -150,7 +150,7 @@ export function EnterpriseUserEditDialog({
         if (passwordError) throw passwordError;
       }
 
-      // 如果修改了邮�?
+      // 如果修改了邮箱
       if (pendingChanges.email !== user.email) {
         const { error: emailError } = await supabase.auth.admin.updateUserById(
           user.id,
@@ -162,7 +162,7 @@ export function EnterpriseUserEditDialog({
 
       toast({
         title: "保存成功",
-        description: "用户信息已更�?,
+        description: "用户信息已更新",
       });
 
       // 更新本地用户数据
@@ -230,7 +230,7 @@ export function EnterpriseUserEditDialog({
                       id="full_name"
                       value={formData.full_name}
                       onChange={(e) => handleFormChange('full_name', e.target.value)}
-                      placeholder="请输入用户姓�?
+                      placeholder="请输入用户姓名"
                     />
                   </div>
                   <div className="space-y-2">
@@ -246,7 +246,7 @@ export function EnterpriseUserEditDialog({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">手机�?/Label>
+                  <Label htmlFor="phone">手机号</Label>
                   <Input
                     id="phone"
                     value={formData.phone}
@@ -258,12 +258,12 @@ export function EnterpriseUserEditDialog({
               </CardContent>
             </Card>
 
-            {/* 角色和状�?*/}
+            {/* 角色和状态 */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-4 w-4" />
-                  角色和状�?
+                  角色和状态
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -275,14 +275,14 @@ export function EnterpriseUserEditDialog({
                         <SelectValue placeholder="选择角色" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="admin">管理�?/SelectItem>
-                        <SelectItem value="operator">操作�?/SelectItem>
-                        <SelectItem value="viewer">查看�?/SelectItem>
+                        <SelectItem value="admin">管理员</SelectItem>
+                        <SelectItem value="operator">操作员</SelectItem>
+                        <SelectItem value="viewer">查看者</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="is_active">账户状�?/Label>
+                    <Label htmlFor="is_active">账户状态</Label>
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="is_active"
@@ -325,7 +325,7 @@ export function EnterpriseUserEditDialog({
                     <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <span className="text-sm text-green-700">
-                        已关联企业微信账�?
+                        已关联企业微信账号
                       </span>
                     </div>
                   )}
@@ -341,12 +341,12 @@ export function EnterpriseUserEditDialog({
                   密码修改
                 </CardTitle>
                 <CardDescription>
-                  留空表示不修改密�?
+                  留空表示不修改密码
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="password">新密�?/Label>
+                  <Label htmlFor="password">新密码</Label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -372,7 +372,7 @@ export function EnterpriseUserEditDialog({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">确认新密�?/Label>
+                  <Label htmlFor="confirmPassword">确认新密码</Label>
                   <div className="relative">
                     <Input
                       id="confirmPassword"
@@ -407,13 +407,13 @@ export function EnterpriseUserEditDialog({
             </Button>
             <Button onClick={handleSave} disabled={loading}>
               <Save className="h-4 w-4 mr-2" />
-              {loading ? '保存�?..' : '保存'}
+              {loading ? '保存中...' : '保存'}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* 确认对话�?*/}
+      {/* 确认对话框 */}
       <Dialog open={showConfirmDialog} onOpenChange={cancelConfirm}>
         <DialogContent>
           <DialogHeader>
@@ -422,31 +422,31 @@ export function EnterpriseUserEditDialog({
               确认修改用户信息
             </DialogTitle>
             <DialogDescription>
-              您即将修改用户信息，此操作将立即生效。请确认是否继续�?
+              您即将修改用户信息，此操作将立即生效。请确认是否继续？
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-medium mb-2">修改内容�?/h4>
+              <h4 className="font-medium mb-2">修改内容：</h4>
               <ul className="space-y-1 text-sm text-gray-600">
                 {pendingChanges?.full_name !== user.full_name && (
-                  <li>�?姓名: {user.full_name} �?{pendingChanges?.full_name}</li>
+                  <li>• 姓名: {user.full_name} → {pendingChanges?.full_name}</li>
                 )}
                 {pendingChanges?.email !== user.email && (
-                  <li>�?邮箱: {user.email} �?{pendingChanges?.email}</li>
+                  <li>• 邮箱: {user.email} → {pendingChanges?.email}</li>
                 )}
                 {pendingChanges?.role !== user.role && (
-                  <li>�?角色: {user.role} �?{pendingChanges?.role}</li>
+                  <li>• 角色: {user.role} → {pendingChanges?.role}</li>
                 )}
                 {pendingChanges?.is_active !== user.is_active && (
-                  <li>�?状�? {user.is_active ? '启用' : '禁用'} �?{pendingChanges?.is_active ? '启用' : '禁用'}</li>
+                  <li>• 状态: {user.is_active ? '启用' : '禁用'} → {pendingChanges?.is_active ? '启用' : '禁用'}</li>
                 )}
                 {pendingChanges?.password && (
-                  <li>�?密码: 已修�?/li>
+                  <li>• 密码: 已修改</li>
                 )}
                 {pendingChanges?.work_wechat_userid !== (user as any).work_wechat_userid && (
-                  <li>�?企业微信ID: {(user as any).work_wechat_userid || '未设�?} �?{pendingChanges?.work_wechat_userid || '未设�?}</li>
+                  <li>• 企业微信ID: {(user as any).work_wechat_userid || '未设置'} → {pendingChanges?.work_wechat_userid || '未设置'}</li>
                 )}
               </ul>
             </div>
@@ -457,7 +457,7 @@ export function EnterpriseUserEditDialog({
               取消
             </Button>
             <Button onClick={confirmSave} disabled={loading}>
-              {loading ? '保存�?..' : '确认保存'}
+              {loading ? '保存中...' : '确认保存'}
             </Button>
           </div>
         </DialogContent>

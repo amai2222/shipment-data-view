@@ -16,7 +16,7 @@ import {
   CheckCircle, 
   AlertCircle,
   Loader2
-} from '@/components/icons-placeholder';
+} from 'lucide-react';
 
 interface ChangePasswordDialogProps {
   isOpen: boolean;

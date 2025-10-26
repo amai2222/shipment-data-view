@@ -2,13 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-
-// 占位符图标组件
-const FileText = ({ className }: { className?: string }) => <span className={className}>📄</span>;
-const Download = ({ className }: { className?: string }) => <span className={className}>⬇️</span>;
-const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
-const CheckCircle = ({ className }: { className?: string }) => <span className={className}>✅</span>;
-const XCircle = ({ className }: { className?: string }) => <span className={className}>❌</span>;
+import { FileText, Download, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { LogisticsRecord } from '@/pages/BusinessEntry/types';
 import { generatePrintVersion } from '@/components/TransportDocumentGenerator';
 

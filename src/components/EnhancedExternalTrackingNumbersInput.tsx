@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Trash2, ExternalLink, Search, Settings, CheckCircle } from '@/components/icons-placeholder';
+import { Plus, Trash2, ExternalLink, Search, Settings, CheckCircle } from 'lucide-react';
 import { ExternalTrackingNumber, PlatformOption } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,10 +26,10 @@ const INITIAL_EXTERNAL_TRACKING: ExternalTrackingNumber = {
 };
 
 const STATUS_OPTIONS = [
-  { value: 'pending', label: '待处�? },
-  { value: 'in_transit', label: '运输�? },
-  { value: 'completed', label: '已完�? },
-  { value: 'cancelled', label: '已取�? }
+  { value: 'pending', label: '待处理' },
+  { value: 'in_transit', label: '运输中' },
+  { value: 'completed', label: '已完成' },
+  { value: 'cancelled', label: '已取消' }
 ];
 
 export function EnhancedExternalTrackingNumbersInput({
@@ -46,7 +46,7 @@ export function EnhancedExternalTrackingNumbersInput({
   const [customPlatformCode, setCustomPlatformCode] = useState('');
   const [customPlatformDescription, setCustomPlatformDescription] = useState('');
 
-  // 获取平台列表 - 使用静态数据替代不存在的数据库�?
+  // 获取平台列表 - 使用静态数据替代不存在的数据库表
   useEffect(() => {
     const defaultPlatforms: PlatformOption[] = [
       {
@@ -59,33 +59,33 @@ export function EnhancedExternalTrackingNumbersInput({
       },
       {
         platform_code: 'YTO',
-        primary_name: '圆通速�?,
-        aliases: ['圆�?, 'YTO Express'],
-        description: '圆通速递物流平�?,
+        primary_name: '圆通速递',
+        aliases: ['圆通', 'YTO Express'],
+        description: '圆通速递物流平台',
         is_custom: false,
         sort_order: 2
       },
       {
         platform_code: 'STO',
-        primary_name: '申通快�?,
-        aliases: ['申�?, 'STO Express'],
-        description: '申通快递物流平�?,
+        primary_name: '申通快递',
+        aliases: ['申通', 'STO Express'],
+        description: '申通快递物流平台',
         is_custom: false,
         sort_order: 3
       },
       {
         platform_code: 'ZTO',
-        primary_name: '中通快�?,
-        aliases: ['中�?, 'ZTO Express'],
-        description: '中通快递物流平�?,
+        primary_name: '中通快递',
+        aliases: ['中通', 'ZTO Express'],
+        description: '中通快递物流平台',
         is_custom: false,
         sort_order: 4
       },
       {
         platform_code: 'YUNDA',
-        primary_name: '韵达速�?,
+        primary_name: '韵达速递',
         aliases: ['韵达', 'Yunda Express'],
-        description: '韵达速递物流平�?,
+        description: '韵达速递物流平台',
         is_custom: false,
         sort_order: 5
       }
@@ -127,19 +127,19 @@ export function EnhancedExternalTrackingNumbersInput({
     });
   }, [platforms, searchTerm]);
 
-  // 添加外部运单�?
+  // 添加外部运单号
   const addExternalTracking = () => {
     const newTrackingNumbers = [...externalTrackingNumbers, { ...INITIAL_EXTERNAL_TRACKING }];
     onChange(newTrackingNumbers);
   };
 
-  // 删除外部运单�?
+  // 删除外部运单号
   const removeExternalTracking = (index: number) => {
     const newTrackingNumbers = externalTrackingNumbers.filter((_, i) => i !== index);
     onChange(newTrackingNumbers);
   };
 
-  // 更新外部运单�?
+  // 更新外部运单号
   const updateExternalTracking = (index: number, field: keyof ExternalTrackingNumber, value: string) => {
     const newTrackingNumbers = externalTrackingNumbers.map((tracking, i) => 
       i === index ? { ...tracking, [field]: value } : tracking
@@ -147,7 +147,7 @@ export function EnhancedExternalTrackingNumbersInput({
     onChange(newTrackingNumbers);
   };
 
-  // 添加自定义平�?
+  // 添加自定义平台
   const addCustomPlatform = async () => {
     if (!customPlatformName.trim()) {
       toast({
@@ -158,13 +158,13 @@ export function EnhancedExternalTrackingNumbersInput({
     }
 
     try {
-      // 由于add_custom_platform函数不存在，我们直接在本地添�?
-      // 在实际应用中，这里应该调用真正的API来保存到数据�?
-      console.log('添加自定义平�?', customPlatformName, customPlatformCode, customPlatformDescription);
+      // 由于add_custom_platform函数不存在，我们直接在本地添加
+      // 在实际应用中，这里应该调用真正的API来保存到数据库
+      console.log('添加自定义平台:', customPlatformName, customPlatformCode, customPlatformDescription);
 
       toast({
         title: "添加成功",
-        description: `自定义平�?"${customPlatformName}" 已添加`,
+        description: `自定义平台 "${customPlatformName}" 已添加`,
       });
 
       // 添加自定义平台到现有列表
@@ -184,7 +184,7 @@ export function EnhancedExternalTrackingNumbersInput({
       setCustomPlatformDescription('');
       setShowAddCustomDialog(false);
     } catch (error) {
-      console.error('添加自定义平台异�?', error);
+      console.error('添加自定义平台异常:', error);
       toast({
         title: "添加失败",
         description: "网络错误，请重试",
@@ -219,7 +219,7 @@ export function EnhancedExternalTrackingNumbersInput({
           <Input
             value={inputValue}
             onChange={(e) => handleInputChange(e.target.value)}
-            placeholder="搜索或输入平台名�?
+            placeholder="搜索或输入平台名称"
             disabled={disabled}
             className="flex-1"
           />
@@ -259,7 +259,7 @@ export function EnhancedExternalTrackingNumbersInput({
                         </Badge>
                         {platform.is_custom && (
                           <Badge variant="secondary" className="text-xs">
-                            自定�?
+                            自定义
                           </Badge>
                         )}
                       </div>
@@ -277,7 +277,7 @@ export function EnhancedExternalTrackingNumbersInput({
                   onClick={() => setShowAddCustomDialog(true)}
                   className="mt-2"
                 >
-                  添加自定义平�?
+                  添加自定义平台
                 </Button>
               </div>
             )}
@@ -304,7 +304,7 @@ export function EnhancedExternalTrackingNumbersInput({
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>添加自定义平�?/DialogTitle>
+                <DialogTitle>添加自定义平台</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
@@ -312,7 +312,7 @@ export function EnhancedExternalTrackingNumbersInput({
                   <Input
                     value={customPlatformName}
                     onChange={(e) => setCustomPlatformName(e.target.value)}
-                    placeholder="请输入平台名�?
+                    placeholder="请输入平台名称"
                   />
                 </div>
                 <div>
@@ -346,7 +346,7 @@ export function EnhancedExternalTrackingNumbersInput({
           {!disabled && (
             <Button type="button" onClick={addExternalTracking} size="sm" variant="outline">
               <Plus className="mr-2 h-4 w-4" />
-              添加运单�?
+              添加运单号
             </Button>
           )}
         </div>
@@ -355,7 +355,7 @@ export function EnhancedExternalTrackingNumbersInput({
       {externalTrackingNumbers.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
           <ExternalLink className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>暂无外部运单�?/p>
+          <p>暂无外部运单号</p>
           {!disabled && (
             <p className="text-sm">点击上方按钮添加其他平台的运单号</p>
           )}
@@ -373,7 +373,7 @@ export function EnhancedExternalTrackingNumbersInput({
                       tracking.status === 'in_transit' ? 'secondary' : 
                       tracking.status === 'cancelled' ? 'destructive' : 'outline'
                     }>
-                      {STATUS_OPTIONS.find(s => s.value === tracking.status)?.label || '待处�?}
+                      {STATUS_OPTIONS.find(s => s.value === tracking.status)?.label || '待处理'}
                     </Badge>
                   </div>
                   {!disabled && externalTrackingNumbers.length > 1 && (
@@ -402,19 +402,19 @@ export function EnhancedExternalTrackingNumbersInput({
                     <Input
                       value={tracking.tracking_number}
                       onChange={(e) => updateExternalTracking(index, 'tracking_number', e.target.value)}
-                      placeholder="请输入运单号�?
+                      placeholder="请输入运单号码"
                       disabled={disabled}
                     />
                   </div>
                   <div>
-                    <Label>状�?/Label>
+                    <Label>状态</Label>
                     <Select 
                       value={tracking.status} 
                       onValueChange={(value) => updateExternalTracking(index, 'status', value)}
                       disabled={disabled}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="选择状�? />
+                        <SelectValue placeholder="选择状态" />
                       </SelectTrigger>
                       <SelectContent>
                         {STATUS_OPTIONS.map((option) => (
@@ -432,7 +432,7 @@ export function EnhancedExternalTrackingNumbersInput({
                   <Input
                     value={tracking.remarks || ''}
                     onChange={(e) => updateExternalTracking(index, 'remarks', e.target.value)}
-                    placeholder="请输入备注信�?
+                    placeholder="请输入备注信息"
                     disabled={disabled}
                   />
                 </div>

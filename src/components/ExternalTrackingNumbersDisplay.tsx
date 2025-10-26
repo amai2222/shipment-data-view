@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, CheckCircle, Clock, Truck, XCircle, Copy } from '@/components/icons-placeholder';
+import { ExternalLink, CheckCircle, Clock, Truck, XCircle, Copy } from 'lucide-react';
 import { ExternalTrackingNumber } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -38,22 +38,22 @@ export function ExternalTrackingNumbersDisplay({
   const getStatusBadge = (status: ExternalTrackingNumber['status']) => {
     switch (status) {
       case 'completed':
-        return <Badge variant="default" className="bg-green-500">已完�?/Badge>;
+        return <Badge variant="default" className="bg-green-500">已完成</Badge>;
       case 'in_transit':
-        return <Badge variant="secondary" className="bg-blue-500">运输�?/Badge>;
+        return <Badge variant="secondary" className="bg-blue-500">运输中</Badge>;
       case 'cancelled':
-        return <Badge variant="destructive">已取�?/Badge>;
+        return <Badge variant="destructive">已取消</Badge>;
       default:
-        return <Badge variant="outline">待处�?/Badge>;
+        return <Badge variant="outline">待处理</Badge>;
     }
   };
 
-  // 复制运单号到剪贴�?
+  // 复制运单号到剪贴板
   const copyTrackingNumber = (trackingNumber: string) => {
     navigator.clipboard.writeText(trackingNumber).then(() => {
       toast({
         title: "复制成功",
-        description: `运单�?${trackingNumber} 已复制到剪贴板`,
+        description: `运单号 ${trackingNumber} 已复制到剪贴板`,
       });
     }).catch(() => {
       toast({
@@ -64,7 +64,7 @@ export function ExternalTrackingNumbersDisplay({
     });
   };
 
-  // 格式化创建时�?
+  // 格式化创建时间
   const formatCreatedAt = (createdAt?: string) => {
     if (!createdAt) return '未知时间';
     try {
@@ -84,7 +84,7 @@ export function ExternalTrackingNumbersDisplay({
         <CardTitle className="flex items-center gap-2">
           <ExternalLink className="h-5 w-5" />
           其他平台运单号码
-          <Badge variant="outline">{externalTrackingNumbers.length} �?/Badge>
+          <Badge variant="outline">{externalTrackingNumbers.length} 个</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -107,7 +107,7 @@ export function ExternalTrackingNumbersDisplay({
                         onClick={() => onUpdateStatus(index, 'in_transit')}
                       >
                         <Truck className="h-3 w-3 mr-1" />
-                        开始运�?
+                        开始运输
                       </Button>
                       <Button 
                         size="sm" 

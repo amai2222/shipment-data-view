@@ -6,7 +6,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, RefreshCw, Home } from '@/components/icons-placeholder';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -34,12 +34,12 @@ export class ErrorBoundary extends Component<Props, State> {
     // 记录错误日志
     console.error('React Error Boundary 捕获错误:', error, errorInfo);
     
-    // 调用自定义错误处理函�?
+    // 调用自定义错误处理函数
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
 
-    // 更新状�?
+    // 更新状态
     this.setState({ errorInfo });
   }
 
@@ -65,13 +65,13 @@ export class ErrorBoundary extends Component<Props, State> {
             <CardHeader>
               <div className="flex items-center space-x-2">
                 <AlertTriangle className="h-6 w-6 text-red-500" />
-                <CardTitle className="text-xl">出错�?/CardTitle>
+                <CardTitle className="text-xl">出错了</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <p className="text-muted-foreground">
-                  应用程序遇到了一个错误，请尝试刷新页面或返回首页�?
+                  应用程序遇到了一个错误，请尝试刷新页面或返回首页。
                 </p>
                 
                 {process.env.NODE_ENV === 'development' && this.state.error && (
@@ -114,7 +114,7 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 /**
- * 错误回退组件（移动端�?
+ * 错误回退组件（移动端）
  */
 export function MobileErrorFallback({ 
   error, 
@@ -126,9 +126,9 @@ export function MobileErrorFallback({
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
       <AlertTriangle className="h-16 w-16 text-red-500 mb-4" />
-      <h2 className="text-xl font-bold mb-2">出错�?/h2>
+      <h2 className="text-xl font-bold mb-2">出错了</h2>
       <p className="text-muted-foreground text-center mb-6">
-        应用程序遇到了一个错误，请尝试刷新页面�?
+        应用程序遇到了一个错误，请尝试刷新页面。
       </p>
       
       {process.env.NODE_ENV === 'development' && error && (
@@ -155,7 +155,7 @@ export function MobileErrorFallback({
 }
 
 /**
- * Hook：在函数组件中使用错误边�?
+ * Hook：在函数组件中使用错误边界
  */
 export function useErrorHandler() {
   const [error, setError] = React.useState<Error | null>(null);
