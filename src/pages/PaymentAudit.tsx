@@ -12,17 +12,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-// @ts-expect-error - lucide-react图标导入
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users } from 'lucide-react';
-
-// 图标占位符组件
-const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
-const ChevronDown = ({ className }: { className?: string }) => <span className={className}>▼</span>;
-const ChevronUp = ({ className }: { className?: string }) => <span className={className}>▲</span>;
-const Hash = ({ className }: { className?: string }) => <span className={className}>#</span>;
-const Phone = ({ className }: { className?: string }) => <span className={className}>📞</span>;
-const Building2 = ({ className }: { className?: string }) => <span className={className}>🏢</span>;
-
+import { 
+  Loader2, 
+  FileSpreadsheet, 
+  Trash2, 
+  ClipboardList, 
+  FileText, 
+  Banknote, 
+  RotateCcw, 
+  Users,
+  CalendarIcon,
+  X,
+  Building,
+  Plus,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Hash,
+  Phone,
+  Building2
+} from 'lucide-react';
 import { PaymentApproval } from '@/components/PaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -37,7 +46,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
-import { CalendarIcon, X, Building, Plus } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
 
 // --- 类型定义 ---
