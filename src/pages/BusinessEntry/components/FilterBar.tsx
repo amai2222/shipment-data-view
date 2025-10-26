@@ -8,7 +8,17 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { LogisticsFilters } from '../hooks/useLogisticsData';
 import { Project } from '../types';
 import { DateRange } from "react-day-picker";
-import { Search, X, ChevronDown, ChevronUp, Users, Hash, Phone, FileText, Building2 } from "lucide-react";
+import { X } from "lucide-react";
+
+// 图标占位符组件（兼容性处理）
+const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
+const ChevronDown = ({ className }: { className?: string }) => <span className={className}>▼</span>;
+const ChevronUp = ({ className }: { className?: string }) => <span className={className}>▲</span>;
+const Users = ({ className }: { className?: string }) => <span className={className}>👥</span>;
+const Hash = ({ className }: { className?: string }) => <span className={className}>#</span>;
+const Phone = ({ className }: { className?: string }) => <span className={className}>📞</span>;
+const FileText = ({ className }: { className?: string }) => <span className={className}>📄</span>;
+const Building2 = ({ className }: { className?: string }) => <span className={className}>🏢</span>;
 import { useState, useEffect } from "react";
 import { BatchInputDialog } from "./BatchInputDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +51,12 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
   const [partnerProjects, setPartnerProjects] = useState<Project[]>([]);
   const [loadingPartners, setLoadingPartners] = useState(false);
+  
+  // 动态平台选项状态
+  const [platformOptions, setPlatformOptions] = useState<{
+    platform_name: string;
+    usage_count: number;
+  }[]>([]);
 
   const handleInputChange = (field: keyof Omit<LogisticsFilters, 'startDate' | 'endDate'>, value: string) => {
     onFiltersChange({ ...filters, [field]: value });
@@ -91,6 +107,30 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     closeBatchDialog();
   };
 
+  // 加载动态平台选项（从数据库获取已使用的平台名称）
+  const loadPlatformOptions = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_all_used_platforms');
+      
+      if (error) {
+        console.error('加载平台选项失败:', error);
+        return;
+      }
+      
+      if (data) {
+        // 过滤掉固定平台列表中已有的平台，避免重复
+        const fixedPlatforms = ['本平台', '中科智运', '中工智云', '可乐公司', '盼盼集团'];
+        const dynamicPlatforms = (data as { platform_name: string; usage_count: number }[]).filter(
+          (p) => !fixedPlatforms.includes(p.platform_name)
+        );
+        setPlatformOptions(dynamicPlatforms);
+        console.log('✅ 加载动态平台选项:', dynamicPlatforms);
+      }
+    } catch (error) {
+      console.error('加载平台选项异常:', error);
+    }
+  };
+  
   // 加载合作商列表（获取所有项目的最高级别合作商）
   const loadPartners = async () => {
     setLoadingPartners(true);
@@ -231,6 +271,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
   // 初始化加载合作商
   useEffect(() => {
     loadPartners();
+    loadPlatformOptions(); // 加载动态平台选项
   }, []);
 
   const getCurrentValue = () => {
@@ -518,13 +559,36 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">所有平台</SelectItem>
+                  
+                  {/* 固定平台列表 */}
                   <SelectItem value="本平台">本平台</SelectItem>
                   <SelectItem value="中科智运">中科智运</SelectItem>
                   <SelectItem value="中工智云">中工智云</SelectItem>
                   <SelectItem value="可乐公司">可乐公司</SelectItem>
                   <SelectItem value="盼盼集团">盼盼集团</SelectItem>
+                  
+                  {/* 动态平台列表（从数据库获取） */}
+                  {platformOptions.length > 0 && (
+                    <>
+                      {/* 分隔线提示 */}
+                      <SelectItem value="---" disabled className="text-xs text-purple-400">
+                        ─── 其他平台 ───
+                      </SelectItem>
+                      {platformOptions.map((platform) => (
+                        <SelectItem 
+                          key={platform.platform_name} 
+                          value={platform.platform_name}
+                        >
+                          {platform.platform_name} ({platform.usage_count}条)
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
+              <div className="text-xs text-purple-600">
+                📊 固定平台: 5个 {platformOptions.length > 0 && `| 其他平台: ${platformOptions.length}个`}
+              </div>
             </div>
 
             {/* 磅单筛选 */}
