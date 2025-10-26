@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon, X, Building, Search } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
 
@@ -74,7 +75,8 @@ export default function PaymentAudit() {
     projectId: '',
     partnerName: '',
     licensePlate: '',
-    phoneNumber: ''
+    phoneNumber: '',
+    platformName: ''
   });
   const [showFilters, setShowFilters] = useState(true);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -88,6 +90,9 @@ export default function PaymentAudit() {
   // 项目列表状态
   const [projects, setProjects] = useState<Array<{id: string, name: string}>>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
+  
+  // 平台选项状态
+  const [platformOptions, setPlatformOptions] = useState<Array<{platform_name: string, usage_count: number}>>([]);
 
   const fetchPaymentRequests = useCallback(async () => {
     setLoading(true);
@@ -147,7 +152,7 @@ export default function PaymentAudit() {
   //   return () => clearTimeout(timeoutId);
   // }, [filters, fetchPaymentRequests]);
 
-  // 获取项目列表
+  // 获取项目列表和平台选项
   const fetchProjects = useCallback(async () => {
     setLoadingProjects(true);
     try {
@@ -158,6 +163,16 @@ export default function PaymentAudit() {
 
       if (error) throw error;
       setProjects(data || []);
+      
+      // 加载动态平台选项
+      const { data: platformsData } = await supabase.rpc('get_all_used_platforms');
+      if (platformsData) {
+        const fixedPlatforms = ['本平台', '中科智运', '中工智云', '可乐公司', '盼盼集团'];
+        const dynamicPlatforms = (platformsData as {platform_name: string; usage_count: number}[]).filter(
+          p => !fixedPlatforms.includes(p.platform_name)
+        );
+        setPlatformOptions(dynamicPlatforms);
+      }
     } catch (error) {
       console.error('获取项目列表失败:', error);
       toast({ title: "错误", description: "获取项目列表失败", variant: "destructive" });
@@ -185,14 +200,15 @@ export default function PaymentAudit() {
       projectId: '',
       partnerName: '',
       licensePlate: '',
-      phoneNumber: ''
+      phoneNumber: '',
+      platformName: ''
     });
     setCurrentPage(1);
     // 清除筛选后自动搜索
     fetchPaymentRequests();
   };
 
-  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status || filters.projectId || filters.partnerName || filters.licensePlate || filters.phoneNumber;
+  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status || filters.projectId || filters.partnerName || filters.licensePlate || filters.phoneNumber || filters.platformName;
 
   // 批量操作处理函数
   const handleBatchApprove = async () => {
@@ -1039,31 +1055,44 @@ export default function PaymentAudit() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* 常规查询 - 第一行 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="flex flex-wrap gap-3 items-end">
             {/* 申请单号 */}
-            <div className="space-y-2">
+            <div className="flex-1 min-w-[180px] space-y-2">
               <Label htmlFor="requestId" className="text-sm font-medium">申请单号</Label>
-              <Input
-                id="requestId"
-                placeholder="输入申请单号"
-                value={filters.requestId}
-                onChange={(e) => handleFilterChange('requestId', e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    fetchPaymentRequests();
-                  }
-                }}
-              />
+              <div className="relative">
+                <Input
+                  id="requestId"
+                  placeholder="输入申请单号"
+                  value={filters.requestId}
+                  onChange={(e) => handleFilterChange('requestId', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      fetchPaymentRequests();
+                    }
+                  }}
+                  className="pr-8"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                  onClick={() => {
+                    toast({ title: "提示", description: "批量输入功能开发中" });
+                  }}
+                >
+                  <span className="text-lg">+</span>
+                </Button>
+              </div>
             </div>
 
             {/* 申请单状态 */}
-            <div className="space-y-2">
+            <div className="flex-1 min-w-[140px] space-y-2">
               <Label htmlFor="status" className="text-sm font-medium">申请单状态</Label>
               <select
                 id="status"
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm h-10"
               >
                 <option value="">全部状态</option>
                 <option value="Pending">待审批</option>
@@ -1074,7 +1103,7 @@ export default function PaymentAudit() {
             </div>
 
             {/* 项目 */}
-            <div className="space-y-2">
+            <div className="flex-1 min-w-[140px] space-y-2">
               <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
                 <Building className="h-4 w-4" />
                 项目
@@ -1084,7 +1113,7 @@ export default function PaymentAudit() {
                 value={filters.projectId}
                 onChange={(e) => handleFilterChange('projectId', e.target.value)}
                 disabled={loadingProjects}
-                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50"
+                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50 h-10"
               >
                 <option value="">{loadingProjects ? "加载中..." : "全部项目"}</option>
                 {projects.map((project) => (
@@ -1096,7 +1125,7 @@ export default function PaymentAudit() {
             </div>
 
             {/* 日期范围 */}
-            <div className="space-y-2">
+            <div className="flex-1 min-w-[160px] space-y-2">
               <Label htmlFor="loadingDate" className="text-sm font-medium flex items-center gap-1">
                 <CalendarIcon className="h-4 w-4" />
                 日期范围
@@ -1107,7 +1136,7 @@ export default function PaymentAudit() {
                     id="loadingDate"
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "w-full justify-start text-left font-normal h-10",
                       !filters.loadingDate && "text-muted-foreground"
                     )}
                   >
@@ -1124,6 +1153,20 @@ export default function PaymentAudit() {
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+
+            {/* 操作按钮 */}
+            <div className="flex gap-2">
+              {hasActiveFilters && (
+                <Button variant="outline" size="default" onClick={clearFilters} className="h-10">
+                  <X className="h-4 w-4 mr-1" />
+                  清除
+                </Button>
+              )}
+              <Button onClick={fetchPaymentRequests} size="default" className="bg-blue-600 hover:bg-blue-700 h-10">
+                <Search className="h-4 w-4 mr-1" />
+                搜索
+              </Button>
             </div>
           </div>
 
@@ -1225,7 +1268,7 @@ export default function PaymentAudit() {
               </div>
 
               {/* 第三行 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 {/* 运单编号 */}
                 <div className="space-y-2">
                   <Label htmlFor="waybillNumber" className="text-sm font-medium flex items-center gap-1">
@@ -1245,40 +1288,42 @@ export default function PaymentAudit() {
                   />
                   <p className="text-xs text-muted-foreground">💡 支持按本平台和其他平台运单号查询</p>
                 </div>
-
-                {/* 合作方 */}
+                
+                {/* 平台名称 */}
                 <div className="space-y-2">
-                  <Label htmlFor="partnerName" className="text-sm font-medium flex items-center gap-1">
-                    <Building className="h-4 w-4" />
-                    合作方
-                  </Label>
-                  <select
-                    id="partnerName"
-                    value={filters.partnerName}
-                    onChange={(e) => handleFilterChange('partnerName', e.target.value)}
-                    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  <Label htmlFor="platformName" className="text-sm font-medium">🌐 平台名称</Label>
+                  <Select 
+                    value={filters.platformName || 'all'} 
+                    onValueChange={(v) => handleFilterChange('platformName', v === 'all' ? '' : v)}
                   >
-                    <option value="">所有合作方</option>
-                    {/* TODO: 加载合作方列表 */}
-                  </select>
+                    <SelectTrigger id="platformName" className="h-10">
+                      <SelectValue placeholder="选择平台" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">所有平台</SelectItem>
+                      <SelectItem value="本平台">本平台</SelectItem>
+                      <SelectItem value="中科智运">中科智运</SelectItem>
+                      <SelectItem value="中工智云">中工智云</SelectItem>
+                      <SelectItem value="可乐公司">可乐公司</SelectItem>
+                      <SelectItem value="盼盼集团">盼盼集团</SelectItem>
+                      {platformOptions.length > 0 && (
+                        <>
+                          <SelectItem value="---" disabled className="text-xs text-muted-foreground">
+                            ─── 其他平台 ───
+                          </SelectItem>
+                          {platformOptions.map((platform) => (
+                            <SelectItem key={platform.platform_name} value={platform.platform_name}>
+                              {platform.platform_name} ({platform.usage_count}条)
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
           )}
-
-          {/* 操作按钮 */}
-          <div className="flex items-center justify-end gap-2 pt-2">
-            {hasActiveFilters && (
-              <Button variant="outline" size="sm" onClick={clearFilters}>
-                <X className="h-4 w-4 mr-1" />
-                清除
-              </Button>
-            )}
-            <Button onClick={fetchPaymentRequests} size="sm" className="bg-blue-600 hover:bg-blue-700">
-              <Search className="h-4 w-4 mr-1" />
-              搜索
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
