@@ -141,7 +141,7 @@ const formatChineseDate = (dateString: string): string => {
     // 转换为中国时区 (UTC+8)
     const chinaDate = new Date(utcDate.getTime() + 8 * 60 * 60 * 1000);
     
-    return format(chinaDate, "yyyy-MM-dd");
+    return format(chinaDate, "yyyy/MM/dd");
   } catch (error) {
     console.error('日期格式化错误:', error);
     return dateString;
@@ -929,7 +929,7 @@ export default function InvoiceRequest() {
                                   {record.loading_location} → {record.unloading_location}
                                 </TableCell>
                                 <TableCell className="text-sm">
-                                  {record.loading_date}
+                                  {formatChineseDate(record.loading_date)}
                                 </TableCell>
                                 <TableCell className="text-sm font-mono">
                                   {formatCurrency(record.total_invoiceable_for_partner || 0)}
@@ -994,7 +994,7 @@ export default function InvoiceRequest() {
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground">装货日期</Label>
-                <p>{viewingRecord.loading_date}</p>
+                <p>{formatChineseDate(viewingRecord.loading_date)}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground">开票状态</Label>
