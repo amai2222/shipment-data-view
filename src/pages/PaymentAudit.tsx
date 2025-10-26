@@ -12,10 +12,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-// @ts-expect-error - lucide-react图标导入
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users } from 'lucide-react';
 
-// 简单的图标占位符组件
+// 所有图标使用占位符组件（避免lucide-react导入失败）
+const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
+const FileSpreadsheet = ({ className }: { className?: string }) => <span className={className}>📊</span>;
+const Trash2 = ({ className }: { className?: string }) => <span className={className}>🗑️</span>;
+const ClipboardList = ({ className }: { className?: string }) => <span className={className}>📋</span>;
+const FileText = ({ className }: { className?: string }) => <span className={className}>📄</span>;
+const Banknote = ({ className }: { className?: string }) => <span className={className}>💰</span>;
+const RotateCcw = ({ className }: { className?: string }) => <span className={className}>↶</span>;
+const Users = ({ className }: { className?: string }) => <span className={className}>👥</span>;
+const CalendarIcon = ({ className }: { className?: string }) => <span className={className}>📅</span>;
+const X = ({ className }: { className?: string }) => <span className={className}>✖️</span>;
+const Building = ({ className }: { className?: string }) => <span className={className}>🏢</span>;
+const Plus = ({ className }: { className?: string }) => <span className={className}>➕</span>;
 const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
 const ChevronDown = ({ className }: { className?: string }) => <span className={className}>▼</span>;
 const ChevronUp = ({ className }: { className?: string }) => <span className={className}>▲</span>;
@@ -37,8 +47,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
-import { CalendarIcon, X, Building, Plus } from 'lucide-react';
-import { zhCN } from 'date-fns/locale';
 
 // --- 类型定义 ---
 interface PaymentRequest {
