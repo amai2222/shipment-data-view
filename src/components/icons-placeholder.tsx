@@ -74,6 +74,7 @@ export const Trash2 = ({ className }: IconProps) => <span className={className}>
 export const Edit = ({ className }: IconProps) => <span className={className}>✏️</span>;
 export const Save = ({ className }: IconProps) => <span className={className}>💾</span>;
 export const Copy = ({ className }: IconProps) => <span className={className}>📋</span>;
+export const FileSpreadsheet = ({ className }: IconProps) => <span className={className}>📊</span>;
 
 // 链接和导航
 export const ExternalLink = ({ className }: IconProps) => <span className={className}>🔗</span>;

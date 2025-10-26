@@ -31,7 +31,7 @@ import {
   Hash,
   Phone,
   Building2
-} from 'lucide-react';
+} from '@/components/icons-placeholder';
 import { PaymentApproval } from '@/components/PaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';

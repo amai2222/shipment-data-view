@@ -12,16 +12,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-// @ts-ignore - lucide-react图标导入
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users, Plus } from 'lucide-react';
-
-// 图标占位符组件
-const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
-const ChevronDown = ({ className }: { className?: string }) => <span className={className}>▼</span>;
-const ChevronUp = ({ className }: { className?: string }) => <span className={className}>▲</span>;
-const Hash = ({ className }: { className?: string }) => <span className={className}>#</span>;
-const Phone = ({ className }: { className?: string }) => <span className={className}>📞</span>;
-const Building2 = ({ className }: { className?: string }) => <span className={className}>🏢</span>;
+import { 
+  Loader2, 
+  FileSpreadsheet, 
+  Trash2, 
+  ClipboardList, 
+  FileText, 
+  Banknote, 
+  RotateCcw, 
+  Users, 
+  Plus,
+  CalendarIcon,
+  X,
+  Building,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Hash,
+  Phone,
+  Building2
+} from '@/components/icons-placeholder';
 
 import { PaymentApproval } from '@/components/PaymentApproval';
 import { useToast } from '@/hooks/use-toast';
