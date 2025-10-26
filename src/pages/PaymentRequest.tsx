@@ -592,6 +592,64 @@ export default function PaymentRequest() {
   };
 
   /**
+   * 恢复为系统自动计算（清除手动修改标记）
+   * 功能：
+   * 1. 将 is_manually_modified 设为 false
+   * 2. 触发成本重算，恢复为系统自动计算的值
+   */
+  const handleResetToAutoCalculation = async () => {
+    if (!editPartnerCostData) return;
+    
+    setIsSaving(true);
+    try {
+      // 找出最高级合作方
+      const maxLevel = Math.max(...tempPartnerCosts.map(c => c.level));
+      const highestLevelPartner = tempPartnerCosts.find(c => c.level === maxLevel);
+      
+      if (!highestLevelPartner) {
+        throw new Error("未找到最高级合作方");
+      }
+      
+      // 清除手动修改标记
+      const { error: updateError } = await supabase
+        .from('logistics_partner_costs')
+        .update({
+          is_manually_modified: false,  // 清除手动修改标记
+          updated_at: new Date().toISOString()
+        })
+        .eq('logistics_record_id', editPartnerCostData.recordId)
+        .eq('partner_id', highestLevelPartner.partner_id)
+        .eq('level', maxLevel);
+      
+      if (updateError) throw updateError;
+      
+      // 调用重算函数，使用系统自动计算的值
+      const recordData = reportData?.records.find((r: any) => r.id === editPartnerCostData.recordId);
+      if (recordData && recordData.chain_id) {
+        const { error: recalcError } = await supabase.rpc('modify_logistics_record_chain_with_recalc' as any, {
+          p_record_id: editPartnerCostData.recordId,
+          p_chain_name: recordData.chain_name || '默认链路'
+        });
+        
+        if (recalcError) throw recalcError;
+      }
+      
+      toast({ 
+        title: "成功", 
+        description: `已恢复为系统自动计算，最高级合作方"${highestLevelPartner.partner_name}"的运费已重新计算` 
+      });
+      setEditPartnerCostData(null);
+      setTempPartnerCosts([]);
+      fetchReportData();
+    } catch (error) {
+      console.error("恢复默认计算失败:", error);
+      toast({ title: "错误", description: `操作失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  /**
    * 保存合作方运费修改
    * 限制：
    * 1. 只更新最高级合作方的运费
@@ -705,6 +763,111 @@ export default function PaymentRequest() {
   // ==========================================================================
   // 区域9: 批量编辑功能
   // ==========================================================================
+  
+  /**
+   * 批量恢复为系统自动计算
+   * 功能：
+   * 1. 批量清除选中运单的手动修改标记
+   * 2. 触发成本重算
+   * 3. 恢复为系统自动计算的值
+   */
+  const handleBatchResetToAuto = async () => {
+    if (batchCostRecords.length === 0) return;
+
+    setIsBatchModifying(true);
+    let successCount = 0;
+    let failedCount = 0;
+    const failedList: string[] = [];
+
+    try {
+      for (const record of batchCostRecords) {
+        try {
+          // 检查运单状态
+          const { data: recordData, error: checkError } = await supabase
+            .from('logistics_records')
+            .select('payment_status, invoice_status, chain_name, chain_id')
+            .eq('id', record.id)
+            .single();
+          
+          if (checkError) throw checkError;
+          
+          if (recordData.payment_status !== 'Unpaid') {
+            failedCount++;
+            failedList.push(`${record.auto_number}(已申请或已付款)`);
+            continue;
+          }
+          
+          if (recordData.invoice_status && recordData.invoice_status !== 'Uninvoiced') {
+            failedCount++;
+            failedList.push(`${record.auto_number}(已开票)`);
+            continue;
+          }
+          
+          // 获取最高级合作方
+          const { data: costs } = await supabase
+            .from('logistics_partner_costs')
+            .select('partner_id, level')
+            .eq('logistics_record_id', record.id)
+            .order('level', { ascending: false })
+            .limit(1);
+          
+          if (!costs || costs.length === 0) {
+            failedCount++;
+            failedList.push(`${record.auto_number}(无合作方)`);
+            continue;
+          }
+          
+          const highestPartner = costs[0];
+          
+          // 清除手动修改标记
+          const { error: updateError } = await supabase
+            .from('logistics_partner_costs')
+            .update({
+              is_manually_modified: false,  // 清除标记
+              updated_at: new Date().toISOString()
+            })
+            .eq('logistics_record_id', record.id)
+            .eq('partner_id', highestPartner.partner_id)
+            .eq('level', highestPartner.level);
+          
+          if (updateError) throw updateError;
+          
+          // 触发重算
+          if (recordData.chain_name) {
+            await supabase.rpc('modify_logistics_record_chain_with_recalc' as any, {
+              p_record_id: record.id,
+              p_chain_name: recordData.chain_name
+            });
+          }
+          
+          successCount++;
+        } catch (error) {
+          failedCount++;
+          failedList.push(`${record.auto_number}(错误: ${(error as any).message})`);
+        }
+      }
+
+      toast({
+        title: "批量恢复默认完成",
+        description: `成功恢复 ${successCount} 条运单为系统自动计算，失败 ${failedCount} 条`,
+        variant: successCount > 0 ? "default" : "destructive"
+      });
+
+      if (failedList.length > 0) {
+        console.log('失败的运单:', failedList);
+      }
+
+      setBatchModifyType(null);
+      setBatchCostRecords([]);
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchReportData();
+    } catch (error) {
+      console.error("批量恢复默认失败:", error);
+      toast({ title: "错误", description: `批量操作失败: ${(error as any).message}`, variant: "destructive" });
+    } finally {
+      setIsBatchModifying(false);
+    }
+  };
   
   /**
    * 批量修改应收
@@ -1575,6 +1738,16 @@ export default function PaymentRequest() {
               取消
             </Button>
             <ConfirmDialog
+              title="确认恢复默认"
+              description={`确定要将运单 ${editPartnerCostData?.recordNumber} 的应收金额恢复为系统自动计算吗？此操作将清除手动修改标记并重新计算。`}
+              onConfirm={handleResetToAutoCalculation}
+            >
+              <Button variant="secondary" disabled={isSaving}>
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "🔄"}
+                恢复默认
+              </Button>
+            </ConfirmDialog>
+            <ConfirmDialog
               title="确认修改应收"
               description={`确定要修改运单 ${editPartnerCostData?.recordNumber} 的应收金额吗？此操作将更新最高级合作方的费用。`}
               onConfirm={handleSavePartnerCost}
@@ -1764,6 +1937,16 @@ export default function PaymentRequest() {
             >
               取消
             </Button>
+            <ConfirmDialog
+              title="确认批量恢复默认"
+              description={`确定要将选中的 ${batchCostRecords.length} 条运单的应收金额恢复为系统自动计算吗？此操作将清除手动修改标记并重新计算。`}
+              onConfirm={handleBatchResetToAuto}
+            >
+              <Button variant="secondary" disabled={isBatchModifying}>
+                {isBatchModifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "🔄"}
+                批量恢复默认 ({batchCostRecords.length}条)
+              </Button>
+            </ConfirmDialog>
             <ConfirmDialog
               title="确认批量修改应收"
               description={`确定要批量修改 ${batchCostRecords.length} 条运单的应收金额吗？此操作将更新这些运单最高级合作方的费用。`}
