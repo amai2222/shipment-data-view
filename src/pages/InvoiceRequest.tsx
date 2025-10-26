@@ -15,6 +15,7 @@ import { Loader2, Search, Receipt, Save, ListPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useFilterState } from "@/hooks/useFilterState";
+import { format } from "date-fns";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/PageHeader";
