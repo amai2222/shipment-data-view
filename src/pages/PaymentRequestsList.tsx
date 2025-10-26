@@ -155,7 +155,10 @@ export default function PaymentRequestsList() {
     }
   }, [toast, filters, currentPage, pageSize]);
 
-  useEffect(() => { fetchPaymentRequests(); }, [fetchPaymentRequests]);
+  // 初始加载
+  useEffect(() => { 
+    fetchPaymentRequests(); 
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 获取项目列表
   const fetchProjects = useCallback(async () => {
@@ -246,6 +249,7 @@ export default function PaymentRequestsList() {
     else if (type === 'driver') handleFilterChange('driverName', value);
     else if (type === 'license') handleFilterChange('licensePlate', value);
     else if (type === 'phone') handleFilterChange('driverPhone', value);
+    closeBatchDialog(); // 关闭对话框
   };
 
   const getCurrentBatchValue = () => {

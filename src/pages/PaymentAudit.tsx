@@ -156,7 +156,10 @@ export default function PaymentAudit() {
     }
   }, [toast, filters, currentPage, pageSize]);
 
-  useEffect(() => { fetchPaymentRequests(); }, [fetchPaymentRequests]);
+  // 初始加载
+  useEffect(() => { 
+    fetchPaymentRequests(); 
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 移除自动搜索，改为手动搜索
   // useEffect(() => {
@@ -256,6 +259,7 @@ export default function PaymentAudit() {
     else if (type === 'driver') handleFilterChange('driverName', value);
     else if (type === 'license') handleFilterChange('licensePlate', value);
     else if (type === 'phone') handleFilterChange('driverPhone', value);
+    closeBatchDialog(); // 关闭对话框
   };
 
   const getCurrentBatchValue = () => {
