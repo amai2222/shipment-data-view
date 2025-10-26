@@ -15,8 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 // @ts-expect-error - lucide-react图标导入
 import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users } from 'lucide-react';
 
-// 简单的图标占位符组件
-const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
 import { PaymentApproval } from '@/components/PaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -29,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, X, Building } from 'lucide-react';
+import { CalendarIcon, X, Building, Search } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
 
 // --- 类型定义 ---
@@ -73,9 +71,13 @@ export default function PaymentAudit() {
     driverName: '',
     loadingDate: null as Date | null,
     status: '',
-    projectId: ''
+    projectId: '',
+    partnerName: '',
+    licensePlate: '',
+    phoneNumber: ''
   });
   const [showFilters, setShowFilters] = useState(true);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
@@ -180,14 +182,17 @@ export default function PaymentAudit() {
       driverName: '',
       loadingDate: null,
       status: '',
-      projectId: ''
+      projectId: '',
+      partnerName: '',
+      licensePlate: '',
+      phoneNumber: ''
     });
     setCurrentPage(1);
     // 清除筛选后自动搜索
     fetchPaymentRequests();
   };
 
-  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status || filters.projectId;
+  const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status || filters.projectId || filters.partnerName || filters.licensePlate || filters.phoneNumber;
 
   // 批量操作处理函数
   const handleBatchApprove = async () => {
@@ -1019,133 +1024,262 @@ export default function PaymentAudit() {
 
       {/* 筛选器 */}
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <div></div>
+            <CardTitle className="text-base">筛选条件</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className="text-sm"
+            >
+              {showAdvancedFilters ? '收起高级筛选 ▲' : '展开高级筛选 ▼'}
+            </Button>
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
-            <div className="flex flex-wrap gap-4 items-end">
-              {/* 申请单号筛选 */}
-              <div className="flex-1 min-w-[200px]">
-                <Label htmlFor="requestId" className="text-sm font-medium">申请单号</Label>
-                <Input
-                  id="requestId"
-                  placeholder="输入申请单号"
-                  value={filters.requestId}
-                  onChange={(e) => handleFilterChange('requestId', e.target.value)}
-                  className="mt-1"
-                />
-              </div>
+        <CardContent className="space-y-4">
+          {/* 常规查询 - 第一行 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* 申请单号 */}
+            <div className="space-y-2">
+              <Label htmlFor="requestId" className="text-sm font-medium">申请单号</Label>
+              <Input
+                id="requestId"
+                placeholder="输入申请单号"
+                value={filters.requestId}
+                onChange={(e) => handleFilterChange('requestId', e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    fetchPaymentRequests();
+                  }
+                }}
+              />
+            </div>
 
-              {/* 项目筛选 */}
-              <div className="flex-1 min-w-[150px]">
-                <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
-                  <Building className="h-4 w-4" />
-                  项目
-                </Label>
-                <select
-                  id="projectId"
-                  value={filters.projectId}
-                  onChange={(e) => handleFilterChange('projectId', e.target.value)}
-                  disabled={loadingProjects}
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50 mt-1"
-                >
-                  <option value="">{loadingProjects ? "加载中..." : "全部项目"}</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* 申请单状态 */}
+            <div className="space-y-2">
+              <Label htmlFor="status" className="text-sm font-medium">申请单状态</Label>
+              <select
+                id="status"
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+              >
+                <option value="">全部状态</option>
+                <option value="Pending">待审批</option>
+                <option value="Approved">已审批</option>
+                <option value="Paid">已付款</option>
+                <option value="Rejected">已驳回</option>
+              </select>
+            </div>
 
-              {/* 运单号筛选 */}
-              <div className="flex-1 min-w-[200px]">
-                <Label htmlFor="waybillNumber" className="text-sm font-medium flex items-center gap-1">
-                  <FileText className="h-4 w-4" />
-                  运单号
-                </Label>
-                <Input
-                  id="waybillNumber"
-                  placeholder="输入运单编号,多个用逗号分隔..."
-                  value={filters.waybillNumber}
-                  onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      fetchPaymentRequests();
-                    }
-                  }}
-                  className="mt-1"
-                />
-              </div>
+            {/* 项目 */}
+            <div className="space-y-2">
+              <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
+                <Building className="h-4 w-4" />
+                项目
+              </Label>
+              <select
+                id="projectId"
+                value={filters.projectId}
+                onChange={(e) => handleFilterChange('projectId', e.target.value)}
+                disabled={loadingProjects}
+                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50"
+              >
+                <option value="">{loadingProjects ? "加载中..." : "全部项目"}</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              {/* 司机筛选 */}
-              <div className="flex-1 min-w-[200px]">
-                <Label htmlFor="driverName" className="text-sm font-medium flex items-center gap-1">
-                  <Users className="h-4 w-4" />
-                  司机
-                </Label>
-                <Input
-                  id="driverName"
-                  placeholder="司机姓名..."
-                  value={filters.driverName}
-                  onChange={(e) => handleFilterChange('driverName', e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      fetchPaymentRequests();
-                    }
-                  }}
-                  className="mt-1"
-                />
-              </div>
+            {/* 日期范围 */}
+            <div className="space-y-2">
+              <Label htmlFor="loadingDate" className="text-sm font-medium flex items-center gap-1">
+                <CalendarIcon className="h-4 w-4" />
+                日期范围
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="loadingDate"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !filters.loadingDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.loadingDate ? format(filters.loadingDate, "yyyy-MM-dd", { locale: zhCN }) : "选择日期范围"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={filters.loadingDate || undefined}
+                    onSelect={(date) => handleFilterChange('loadingDate', date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
 
-              {/* 装货日期筛选 */}
-              <div className="flex-1 min-w-[200px]">
-                <Label htmlFor="loadingDate" className="text-sm font-medium">装货日期</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      id="loadingDate"
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal mt-1",
-                        !filters.loadingDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filters.loadingDate ? format(filters.loadingDate, "yyyy-MM-dd", { locale: zhCN }) : "选择日期"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={filters.loadingDate || undefined}
-                      onSelect={(date) => handleFilterChange('loadingDate', date)}
-                      initialFocus
+          {/* 高级筛选 */}
+          {showAdvancedFilters && (
+            <div className="space-y-4 pt-4 border-t">
+              {/* 第二行 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 司机 */}
+                <div className="space-y-2">
+                  <Label htmlFor="driverName" className="text-sm font-medium flex items-center gap-1">
+                    <Users className="h-4 w-4" />
+                    司机
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="driverName"
+                      placeholder="司机姓名，多个用逗号分隔..."
+                      value={filters.driverName}
+                      onChange={(e) => handleFilterChange('driverName', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          fetchPaymentRequests();
+                        }
+                      }}
+                      className="pr-8"
                     />
-                  </PopoverContent>
-                </Popover>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => {
+                        // TODO: 打开批量输入对话框
+                        toast({ title: "提示", description: "批量输入功能开发中" });
+                      }}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 车牌号 */}
+                <div className="space-y-2">
+                  <Label htmlFor="licensePlate" className="text-sm font-medium">🚗 车牌号</Label>
+                  <div className="relative">
+                    <Input
+                      id="licensePlate"
+                      placeholder="车牌号，多个用逗号分隔..."
+                      value={filters.licensePlate}
+                      onChange={(e) => handleFilterChange('licensePlate', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          fetchPaymentRequests();
+                        }
+                      }}
+                      className="pr-8"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => {
+                        toast({ title: "提示", description: "批量输入功能开发中" });
+                      }}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 电话 */}
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber" className="text-sm font-medium">📞 电话</Label>
+                  <div className="relative">
+                    <Input
+                      id="phoneNumber"
+                      placeholder="电话号码，多个用逗号分隔..."
+                      value={filters.phoneNumber}
+                      onChange={(e) => handleFilterChange('phoneNumber', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          fetchPaymentRequests();
+                        }
+                      }}
+                      className="pr-8"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => {
+                        toast({ title: "提示", description: "批量输入功能开发中" });
+                      }}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
+                </div>
               </div>
 
-              {/* 状态筛选 */}
-              <div className="flex-1 min-w-[150px]">
-                <Label htmlFor="status" className="text-sm font-medium">申请单状态</Label>
-                <select
-                  id="status"
-                  value={filters.status}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm mt-1"
-                >
-                  <option value="">全部状态</option>
-                  <option value="Pending">待审批</option>
-                  <option value="Approved">已审批</option>
-                  <option value="Paid">已付款</option>
-                  <option value="Rejected">已驳回</option>
-                </select>
+              {/* 第三行 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 运单编号 */}
+                <div className="space-y-2">
+                  <Label htmlFor="waybillNumber" className="text-sm font-medium flex items-center gap-1">
+                    <FileText className="h-4 w-4" />
+                    运单编号
+                  </Label>
+                  <Input
+                    id="waybillNumber"
+                    placeholder="输入运单编号，多个用逗号分隔..."
+                    value={filters.waybillNumber}
+                    onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        fetchPaymentRequests();
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">💡 支持按本平台和其他平台运单号查询</p>
+                </div>
+
+                {/* 合作方 */}
+                <div className="space-y-2">
+                  <Label htmlFor="partnerName" className="text-sm font-medium flex items-center gap-1">
+                    <Building className="h-4 w-4" />
+                    合作方
+                  </Label>
+                  <select
+                    id="partnerName"
+                    value={filters.partnerName}
+                    onChange={(e) => handleFilterChange('partnerName', e.target.value)}
+                    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  >
+                    <option value="">所有合作方</option>
+                    {/* TODO: 加载合作方列表 */}
+                  </select>
+                </div>
               </div>
             </div>
-          </CardContent>
+          )}
+
+          {/* 操作按钮 */}
+          <div className="flex items-center justify-end gap-2 pt-2">
+            {hasActiveFilters && (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                <X className="h-4 w-4 mr-1" />
+                清除
+              </Button>
+            )}
+            <Button onClick={fetchPaymentRequests} size="sm" className="bg-blue-600 hover:bg-blue-700">
+              <Search className="h-4 w-4 mr-1" />
+              搜索
+            </Button>
+          </div>
+        </CardContent>
       </Card>
 
       <Card>
