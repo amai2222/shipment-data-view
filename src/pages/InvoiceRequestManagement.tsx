@@ -12,9 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
-import { FileText, Search, Filter, Eye, Edit, Download, RefreshCw, X, CheckCircle, FileDown, CheckSquare, Square, Trash2, Ban } from "lucide-react";
+import { FileText, Search, Filter, Eye, Edit, Download, RefreshCw, X, CheckCircle, FileDown, CheckSquare, Square, Trash2, Ban, CalendarIcon, Building, Users } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
+import { zhCN } from 'date-fns/locale';
 import { LogisticsFormDialog } from "@/pages/BusinessEntry/components/LogisticsFormDialog";
 import { LogisticsRecord } from "../BusinessEntry/types";
 import { Calendar } from "@/components/ui/calendar";
@@ -70,18 +72,30 @@ interface InvoiceRequestDetail {
 export default function InvoiceRequestManagement() {
   const [invoiceRequests, setInvoiceRequests] = useState<InvoiceRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   
-  // 基于logistics_records的筛选条件
-  const [projectFilter, setProjectFilter] = useState('all');
-  const [partnerFilter, setPartnerFilter] = useState('all');
-  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('all');
-  const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({from: undefined, to: undefined});
+  // 筛选器状态（参考财务付款页面）
+  const [filters, setFilters] = useState({
+    requestNumber: '',       // 开票申请单编号
+    waybillNumber: '',       // 运单编号
+    driverName: '',          // 司机姓名
+    loadingDate: null as Date | null,  // 装货日期
+    status: '',              // 开票申请单状态
+    projectId: '',           // 项目ID
+    licensePlate: '',        // 车牌号
+    phoneNumber: '',         // 电话
+    platformName: ''         // 平台名称
+  });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  
+  // 批量输入对话框状态
+  const [batchInputDialog, setBatchInputDialog] = useState<{
+    isOpen: boolean;
+    type: 'requestNumber' | 'waybillNumber' | 'driverName' | 'licensePlate' | 'phoneNumber' | null;
+  }>({ isOpen: false, type: null });
   
   // 筛选选项数据
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
-  const [partners, setPartners] = useState<{id: string, name: string}[]>([]);
+  const [platformOptions, setPlatformOptions] = useState<Array<{platform_name: string, usage_count: number}>>([]);
   const [selectedRequest, setSelectedRequest] = useState<InvoiceRequest | null>(null);
   const [requestDetails, setRequestDetails] = useState<InvoiceRequestDetail[]>([]);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -106,6 +120,62 @@ export default function InvoiceRequestManagement() {
   
   const { toast } = useToast();
 
+  // 筛选器处理函数
+  const handleFilterChange = (key: string, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      requestNumber: '',
+      waybillNumber: '',
+      driverName: '',
+      loadingDate: null,
+      status: '',
+      projectId: '',
+      licensePlate: '',
+      phoneNumber: '',
+      platformName: ''
+    });
+  };
+
+  const hasActiveFilters = filters.requestNumber || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status || filters.projectId || filters.licensePlate || filters.phoneNumber || filters.platformName;
+
+  // 批量输入对话框处理函数
+  const openBatchInputDialog = (type: 'requestNumber' | 'waybillNumber' | 'driverName' | 'licensePlate' | 'phoneNumber') => {
+    setBatchInputDialog({ isOpen: true, type });
+  };
+  
+  const closeBatchInputDialog = () => {
+    setBatchInputDialog({ isOpen: false, type: null });
+  };
+  
+  const handleBatchInputConfirm = (value: string) => {
+    const type = batchInputDialog.type;
+    if (type) {
+      handleFilterChange(type, value);
+    }
+    closeBatchInputDialog();
+  };
+  
+  const getCurrentBatchValue = () => {
+    const type = batchInputDialog.type;
+    if (!type) return '';
+    return filters[type]?.toString() || '';
+  };
+  
+  const getBatchInputConfig = () => {
+    const type = batchInputDialog.type;
+    const configs = {
+      requestNumber: { title: '批量输入开票申请单号', placeholder: '每行一个申请单号，或用逗号/空格分隔', description: '支持多行输入或用逗号/空格分隔' },
+      waybillNumber: { title: '批量输入运单编号', placeholder: '每行一个运单编号，或用逗号/空格分隔', description: '支持多行输入或用逗号/空格分隔' },
+      driverName: { title: '批量输入司机姓名', placeholder: '每行一个司机姓名，或用逗号/空格分隔', description: '支持多行输入或用逗号/空格分隔' },
+      licensePlate: { title: '批量输入车牌号', placeholder: '每行一个车牌号，或用逗号/空格分隔', description: '支持多行输入或用逗号/空格分隔' },
+      phoneNumber: { title: '批量输入电话号码', placeholder: '每行一个电话号码，或用逗号/空格分隔', description: '支持多行输入或用逗号/空格分隔' }
+    };
+    return type ? configs[type] : configs.requestNumber;
+  };
+
   // 加载开票申请单列表
   const loadInvoiceRequests = async () => {
     try {
@@ -122,33 +192,76 @@ export default function InvoiceRequestManagement() {
         `);
 
       // 如果有基于logistics_records的筛选条件，需要先找到符合条件的运单ID
-      if (projectFilter !== 'all' || invoiceStatusFilter !== 'all' || dateRange.from || dateRange.to) {
+      if (filters.projectId || filters.loadingDate || filters.driverName || filters.licensePlate || filters.phoneNumber || filters.waybillNumber || filters.platformName) {
         // 构建logistics_records查询
         let logisticsQuery = supabase
           .from('logistics_records')
-          .select('id');
+          .select('id, auto_number, driver_name, license_plate, driver_phone, external_tracking_numbers, other_platform_names');
 
-        if (projectFilter !== 'all') {
-          logisticsQuery = logisticsQuery.eq('project_id', projectFilter);
+        // 项目筛选
+        if (filters.projectId) {
+          logisticsQuery = logisticsQuery.eq('project_id', filters.projectId);
         }
 
-        if (invoiceStatusFilter !== 'all') {
-          logisticsQuery = logisticsQuery.eq('invoice_status', invoiceStatusFilter);
-        }
-
-        if (dateRange.from) {
-          logisticsQuery = logisticsQuery.gte('loading_date', dateRange.from.toISOString().split('T')[0]);
-        }
-
-        if (dateRange.to) {
-          logisticsQuery = logisticsQuery.lte('loading_date', dateRange.to.toISOString().split('T')[0]);
+        // 装货日期筛选
+        if (filters.loadingDate) {
+          logisticsQuery = logisticsQuery.eq('loading_date', format(filters.loadingDate, 'yyyy-MM-dd'));
         }
 
         // 执行logistics_records查询
         const { data: logisticsData, error: logisticsError } = await logisticsQuery;
         if (logisticsError) throw logisticsError;
 
-        const logisticsRecordIds = logisticsData?.map(record => record.id) || [];
+        // 前端过滤批量查询字段（支持逗号和空格分隔）
+        let filteredLogisticsData = logisticsData || [];
+        
+        // 司机筛选（支持批量OR逻辑）
+        if (filters.driverName) {
+          const driverNames = filters.driverName.split(/[,\s]+/).map(s => s.trim()).filter(s => s);
+          filteredLogisticsData = filteredLogisticsData.filter(record =>
+            driverNames.some(name => record.driver_name?.toLowerCase().includes(name.toLowerCase()))
+          );
+        }
+        
+        // 车牌号筛选（支持批量OR逻辑）
+        if (filters.licensePlate) {
+          const plates = filters.licensePlate.split(/[,\s]+/).map(s => s.trim()).filter(s => s);
+          filteredLogisticsData = filteredLogisticsData.filter(record =>
+            plates.some(plate => record.license_plate?.toLowerCase().includes(plate.toLowerCase()))
+          );
+        }
+        
+        // 电话筛选（支持批量OR逻辑）
+        if (filters.phoneNumber) {
+          const phones = filters.phoneNumber.split(/[,\s]+/).map(s => s.trim()).filter(s => s);
+          filteredLogisticsData = filteredLogisticsData.filter(record =>
+            phones.some(phone => record.driver_phone?.toLowerCase().includes(phone.toLowerCase()))
+          );
+        }
+        
+        // 运单编号筛选（支持批量OR逻辑，查询本平台和其他平台运单号）
+        if (filters.waybillNumber) {
+          const waybillNums = filters.waybillNumber.split(/[,\s]+/).map(s => s.trim()).filter(s => s);
+          filteredLogisticsData = filteredLogisticsData.filter(record =>
+            waybillNums.some(num => 
+              record.auto_number?.toLowerCase().includes(num.toLowerCase()) ||
+              (record.external_tracking_numbers && record.external_tracking_numbers.some(ext => ext.toLowerCase().includes(num.toLowerCase())))
+            )
+          );
+        }
+        
+        // 平台名称筛选
+        if (filters.platformName) {
+          filteredLogisticsData = filteredLogisticsData.filter(record => {
+            if (filters.platformName === '本平台') {
+              return !record.other_platform_names || record.other_platform_names.length === 0;
+            } else {
+              return record.other_platform_names && record.other_platform_names.some(p => p.toLowerCase().includes(filters.platformName.toLowerCase()));
+            }
+          });
+        }
+
+        const logisticsRecordIds = filteredLogisticsData.map(record => record.id);
         
         if (logisticsRecordIds.length === 0) {
           // 如果没有符合条件的运单，返回空结果
@@ -173,6 +286,20 @@ export default function InvoiceRequestManagement() {
         }
 
         query = query.in('id', requestIds);
+      }
+      
+      // 开票申请单号筛选（支持批量OR逻辑）
+      if (filters.requestNumber) {
+        const requestNumbers = filters.requestNumber.split(/[,\s]+/).map(s => s.trim()).filter(s => s);
+        if (requestNumbers.length > 0) {
+          // 使用 OR 逻辑筛选
+          query = query.or(requestNumbers.map(num => `request_number.ilike.%${num}%`).join(','));
+        }
+      }
+      
+      // 开票状态筛选
+      if (filters.status) {
+        query = query.eq('status', filters.status);
       }
 
       // 执行invoice_requests查询
@@ -863,18 +990,8 @@ export default function InvoiceRequestManagement() {
   };
 
   // 过滤后的申请单列表
-  const filteredRequests = useMemo(() => {
-    return invoiceRequests.filter(request => {
-      const matchesSearch = 
-        request.request_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.partner_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.partner_full_name.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
-      
-      return matchesSearch && matchesStatus;
-    });
-  }, [invoiceRequests, searchTerm, statusFilter]);
+  // 筛选逻辑已在loadInvoiceRequests中处理，直接使用invoiceRequests
+  const filteredRequests = invoiceRequests;
 
   // 加载筛选选项数据
   const loadFilterOptions = async () => {
@@ -888,14 +1005,15 @@ export default function InvoiceRequestManagement() {
       if (projectsError) throw projectsError;
       setProjects(projectsData || []);
 
-      // 加载合作方列表
-      const { data: partnersData, error: partnersError } = await supabase
-        .from('partners')
-        .select('id, name')
-        .order('name');
-      
-      if (partnersError) throw partnersError;
-      setPartners(partnersData || []);
+      // 加载动态平台选项
+      const { data: platformsData } = await supabase.rpc('get_all_used_platforms');
+      if (platformsData) {
+        const fixedPlatforms = ['本平台', '中科智运', '中工智云', '可乐公司', '盼盼集团'];
+        const dynamicPlatforms = (platformsData as {platform_name: string; usage_count: number}[]).filter(
+          p => !fixedPlatforms.includes(p.platform_name)
+        );
+        setPlatformOptions(dynamicPlatforms);
+      }
     } catch (error) {
       console.error('加载筛选选项失败:', error);
     }
@@ -994,158 +1112,295 @@ export default function InvoiceRequestManagement() {
         </Card>
       )}
 
-      {/* 筛选和搜索 */}
+      {/* 筛选器（参考财务付款页面） */}
       <Card>
-        <CardHeader>
-          <CardTitle>筛选条件</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* 搜索框 */}
-            <div className="lg:col-span-2">
-              <Label htmlFor="search">搜索</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="搜索申请单号、合作方名称..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            
-            {/* 申请单状态筛选 */}
-            <div>
-              <Label htmlFor="status">申请单状态</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择状态" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部状态</SelectItem>
-                  <SelectItem value="Pending">待审核</SelectItem>
-                  <SelectItem value="Approved">已通过</SelectItem>
-                  <SelectItem value="Rejected">已拒绝</SelectItem>
-                  <SelectItem value="Completed">已完成</SelectItem>
-                  <SelectItem value="Voided">已作废</SelectItem>
-                  <SelectItem value="Merged">已合并</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 项目筛选 */}
-            <div>
-              <Label htmlFor="project">项目筛选</Label>
-              <Select value={projectFilter} onValueChange={setProjectFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择项目" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部项目</SelectItem>
-                  {projects.map(project => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 合作方筛选 */}
-            <div>
-              <Label htmlFor="partner">合作方筛选</Label>
-              <Select value={partnerFilter} onValueChange={setPartnerFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择合作方" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部合作方</SelectItem>
-                  {partners.map(partner => (
-                    <SelectItem key={partner.id} value={partner.id}>
-                      {partner.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 运单开票状态筛选 */}
-            <div>
-              <Label htmlFor="invoiceStatus">运单开票状态</Label>
-              <Select value={invoiceStatusFilter} onValueChange={setInvoiceStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择开票状态" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部状态</SelectItem>
-                  <SelectItem value="Uninvoiced">未开票</SelectItem>
-                  <SelectItem value="Processing">开票中</SelectItem>
-                  <SelectItem value="Invoiced">已开票</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 日期范围筛选 */}
-            <div>
-              <Label htmlFor="dateRange">装货日期范围</Label>
-              <div className="flex gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="flex-1">
-                      {dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "开始日期"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={dateRange.from}
-                      onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="flex-1">
-                      {dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "结束日期"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={dateRange.to}
-                      onSelect={(date) => setDateRange(prev => ({ ...prev, to: date }))}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-          </div>
-          
-          {/* 筛选按钮 */}
-          <div className="flex gap-2 mt-4">
-            <Button onClick={loadInvoiceRequests} className="flex-1">
-              <Search className="h-4 w-4 mr-2" />
-              应用筛选
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setProjectFilter('all');
-                setPartnerFilter('all');
-                setInvoiceStatusFilter('all');
-                setDateRange({from: undefined, to: undefined});
-                setSearchTerm('');
-                setStatusFilter('all');
-                loadInvoiceRequests();
-              }}
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">筛选条件</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className="text-sm"
             >
-              清空筛选
+              {showAdvancedFilters ? '收起高级筛选 ▲' : '展开高级筛选 ▼'}
             </Button>
           </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 常规查询 - 第一行 */}
+          <div className="flex flex-wrap gap-3 items-end">
+            {/* 开票申请单号 */}
+            <div className="flex-1 min-w-[180px] space-y-2">
+              <Label htmlFor="requestNumber" className="text-sm font-medium">开票申请单号</Label>
+              <div className="relative">
+                <Input
+                  id="requestNumber"
+                  placeholder="输入申请单号"
+                  value={filters.requestNumber}
+                  onChange={(e) => handleFilterChange('requestNumber', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      loadInvoiceRequests();
+                    }
+                  }}
+                  className="pr-8"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                  onClick={() => openBatchInputDialog('requestNumber')}
+                >
+                  <span className="text-lg">+</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* 开票状态 */}
+            <div className="flex-1 min-w-[140px] space-y-2">
+              <Label htmlFor="status" className="text-sm font-medium">开票状态</Label>
+              <select
+                id="status"
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm h-10"
+              >
+                <option value="">全部状态</option>
+                <option value="Pending">待审核</option>
+                <option value="Approved">已通过</option>
+                <option value="Rejected">已拒绝</option>
+                <option value="Completed">已完成</option>
+                <option value="Voided">已作废</option>
+                <option value="Merged">已合并</option>
+              </select>
+            </div>
+
+            {/* 项目 */}
+            <div className="flex-1 min-w-[140px] space-y-2">
+              <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
+                <Building className="h-4 w-4" />
+                项目
+              </Label>
+              <select
+                id="projectId"
+                value={filters.projectId}
+                onChange={(e) => handleFilterChange('projectId', e.target.value)}
+                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm h-10"
+              >
+                <option value="">全部项目</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 日期范围 */}
+            <div className="flex-1 min-w-[160px] space-y-2">
+              <Label htmlFor="loadingDate" className="text-sm font-medium flex items-center gap-1">
+                <CalendarIcon className="h-4 w-4" />
+                日期范围
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="loadingDate"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-10",
+                      !filters.loadingDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.loadingDate ? format(filters.loadingDate, "yyyy-MM-dd", { locale: zhCN }) : "选择日期范围"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={filters.loadingDate || undefined}
+                    onSelect={(date) => handleFilterChange('loadingDate', date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* 操作按钮 */}
+            <div className="flex gap-2">
+              {hasActiveFilters && (
+                <Button variant="outline" size="default" onClick={clearFilters} className="h-10">
+                  <X className="h-4 w-4 mr-1" />
+                  清除
+                </Button>
+              )}
+              <Button onClick={loadInvoiceRequests} size="default" className="bg-blue-600 hover:bg-blue-700 h-10">
+                <Search className="h-4 w-4 mr-1" />
+                搜索
+              </Button>
+            </div>
+          </div>
+
+          {/* 高级筛选 */}
+          {showAdvancedFilters && (
+            <div className="space-y-4 pt-4 border-t">
+              {/* 第一排：司机、车牌号、电话 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 司机 */}
+                <div className="space-y-2">
+                  <Label htmlFor="driverName" className="text-sm font-medium flex items-center gap-1">
+                    <Users className="h-4 w-4" />
+                    司机
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="driverName"
+                      placeholder="司机姓名，多个用逗号/空格分隔..."
+                      value={filters.driverName}
+                      onChange={(e) => handleFilterChange('driverName', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          loadInvoiceRequests();
+                        }
+                      }}
+                      className="pr-8"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => openBatchInputDialog('driverName')}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 车牌号 */}
+                <div className="space-y-2">
+                  <Label htmlFor="licensePlate" className="text-sm font-medium">🚗 车牌号</Label>
+                  <div className="relative">
+                    <Input
+                      id="licensePlate"
+                      placeholder="车牌号，多个用逗号/空格分隔..."
+                      value={filters.licensePlate}
+                      onChange={(e) => handleFilterChange('licensePlate', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          loadInvoiceRequests();
+                        }
+                      }}
+                      className="pr-8"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => openBatchInputDialog('licensePlate')}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 电话 */}
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber" className="text-sm font-medium">📞 电话</Label>
+                  <div className="relative">
+                    <Input
+                      id="phoneNumber"
+                      placeholder="电话号码，多个用逗号/空格分隔..."
+                      value={filters.phoneNumber}
+                      onChange={(e) => handleFilterChange('phoneNumber', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          loadInvoiceRequests();
+                        }
+                      }}
+                      className="pr-8"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => openBatchInputDialog('phoneNumber')}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 第二排：运单编号、平台名称 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 运单编号 */}
+                <div className="space-y-2">
+                  <Label htmlFor="waybillNumber" className="text-sm font-medium flex items-center gap-1">
+                    <FileText className="h-4 w-4" />
+                    运单编号
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="waybillNumber"
+                      placeholder="输入运单编号，多个用逗号/空格分隔..."
+                      value={filters.waybillNumber}
+                      onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          loadInvoiceRequests();
+                        }
+                      }}
+                      className="pr-8"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => openBatchInputDialog('waybillNumber')}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">💡 支持按本平台和其他平台运单号查询</p>
+                </div>
+                
+                {/* 平台名称 */}
+                <div className="space-y-2">
+                  <Label htmlFor="platformName" className="text-sm font-medium">🌐 平台名称</Label>
+                  <Select 
+                    value={filters.platformName || 'all'} 
+                    onValueChange={(v) => handleFilterChange('platformName', v === 'all' ? '' : v)}
+                  >
+                    <SelectTrigger id="platformName" className="h-10">
+                      <SelectValue placeholder="选择平台" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">所有平台</SelectItem>
+                      <SelectItem value="本平台">本平台</SelectItem>
+                      <SelectItem value="中科智运">中科智运</SelectItem>
+                      <SelectItem value="中工智云">中工智云</SelectItem>
+                      <SelectItem value="可乐公司">可乐公司</SelectItem>
+                      <SelectItem value="盼盼集团">盼盼集团</SelectItem>
+                      {platformOptions.length > 0 && (
+                        <>
+                          <SelectItem value="---" disabled className="text-xs text-muted-foreground">
+                            ─── 其他平台 ───
+                          </SelectItem>
+                          {platformOptions.map((platform) => (
+                            <SelectItem key={platform.platform_name} value={platform.platform_name}>
+                              {platform.platform_name} ({platform.usage_count}条)
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1510,6 +1765,17 @@ export default function InvoiceRequestManagement() {
           isEditMode={false}
         />
       )}
+
+      {/* 批量输入对话框 */}
+      <BatchInputDialog
+        isOpen={batchInputDialog.isOpen}
+        onClose={closeBatchInputDialog}
+        onApply={handleBatchInputConfirm}
+        title={getBatchInputConfig().title}
+        placeholder={getBatchInputConfig().placeholder}
+        description={getBatchInputConfig().description}
+        currentValue={getCurrentBatchValue()}
+      />
 
     </div>
   );
