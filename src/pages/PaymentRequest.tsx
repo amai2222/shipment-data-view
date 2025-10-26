@@ -33,6 +33,13 @@ const Search = ({ className }: { className?: string }) => <span className={class
 const FileSpreadsheet = ({ className }: { className?: string }) => <span className={className}>📊</span>;
 const EditIcon = ({ className }: { className?: string }) => <span className={className}>✏️</span>;
 const LinkIcon = ({ className }: { className?: string }) => <span className={className}>🔗</span>;
+const ChevronDown = ({ className }: { className?: string }) => <span className={className}>▼</span>;
+const ChevronUp = ({ className }: { className?: string }) => <span className={className}>▲</span>;
+const Hash = ({ className }: { className?: string }) => <span className={className}>#</span>;
+const Phone = ({ className }: { className?: string }) => <span className={className}>📞</span>;
+const FileText = ({ className }: { className?: string }) => <span className={className}>📄</span>;
+const Users = ({ className }: { className?: string }) => <span className={className}>👥</span>;
+const Building2 = ({ className }: { className?: string }) => <span className={className}>🏢</span>;
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -54,7 +61,20 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; full_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; }
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; project_id?: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; invoice_status?: 'Uninvoiced' | 'Processing' | 'Invoiced' | null; cargo_type: string | null; loading_weight: number | null; unloading_weight: number | null; remarks: string | null; billing_type_id: number | null; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; chain_id?: string | null; }
-interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; paymentStatus: string; driverNames: string[]; }
+interface FinanceFilters { 
+  // 常规筛选
+  projectId: string; 
+  startDate: string; 
+  endDate: string; 
+  paymentStatus: string; 
+  // 高级筛选
+  partnerId: string; 
+  driverName: string; 
+  licensePlate: string; 
+  driverPhone: string; 
+  waybillNumbers: string; 
+  otherPlatformName: string; 
+}
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
 interface PaymentPreviewSheet { 
@@ -77,7 +97,18 @@ interface EditChainData { recordId: string; recordNumber: string; projectId: str
 // 区域3: 常量定义和初始状态
 // ============================================================================
 const PAGE_SIZE = 50;
-const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "", paymentStatus: 'Unpaid', driverNames: [] };
+const INITIAL_FINANCE_FILTERS: FinanceFilters = { 
+  projectId: "all", 
+  startDate: "", 
+  endDate: "", 
+  paymentStatus: 'Unpaid',
+  partnerId: "all",
+  driverName: "",
+  licensePlate: "",
+  driverPhone: "",
+  waybillNumbers: "",
+  otherPlatformName: ""
+};
 const PAYMENT_STATUS_OPTIONS = [ { value: 'all', label: '所有状态' }, { value: 'Unpaid', label: '未支付' }, { value: 'Processing', label: '已申请支付' }, { value: 'Paid', label: '已完成支付' }, ];
 const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击"搜索"按钮以查看最新结果。</p> </div> );
 
@@ -98,13 +129,18 @@ export default function PaymentRequest() {
   const { toast } = useToast();
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_FINANCE_FILTERS);
   const [pagination, setPagination] = useState<PaginationState>({ currentPage: 1, totalPages: 1 });
+  const [showAdvanced, setShowAdvanced] = useState(false); // 控制高级筛选展开/收起
+  const [platformOptions, setPlatformOptions] = useState<{platform_name: string; usage_count: number}[]>([]); // 动态平台选项
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [paymentPreviewData, setPaymentPreviewData] = useState<PaymentPreviewData | null>(null);
   const [finalPaymentData, setFinalPaymentData] = useState<FinalPaymentData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDriverBatchOpen, setIsDriverBatchOpen] = useState(false);
+  const [batchDialog, setBatchDialog] = useState<{
+    isOpen: boolean;
+    type: 'driver' | 'license' | 'phone' | 'waybill' | null;
+  }>({ isOpen: false, type: null });
   const [showAllLevels, setShowAllLevels] = useState(false); // 控制是否显示所有层级的合作方
   const [editPartnerCostData, setEditPartnerCostData] = useState<EditPartnerCostData | null>(null);
   const [editChainData, setEditChainData] = useState<EditChainData | null>(null);
@@ -140,6 +176,16 @@ export default function PaymentRequest() {
       const { data: partnersData } = await supabase.from('project_partners').select(`partner_id, level, partners!inner(name)`);
       const uniquePartners = Array.from(new Map(partnersData?.map(p => [ p.partner_id, { id: p.partner_id, name: (p.partners as any).name, level: p.level } ]) || []).values()).sort((a, b) => a.level - b.level);
       setAllPartners(uniquePartners);
+      
+      // 加载动态平台选项
+      const { data: platformsData } = await supabase.rpc('get_all_used_platforms');
+      if (platformsData) {
+        const fixedPlatforms = ['本平台', '中科智运', '中工智云', '可乐公司', '盼盼集团'];
+        const dynamicPlatforms = (platformsData as {platform_name: string; usage_count: number}[]).filter(
+          p => !fixedPlatforms.includes(p.platform_name)
+        );
+        setPlatformOptions(dynamicPlatforms);
+      }
     } catch (error) {
       toast({ title: "错误", description: "加载筛选选项失败", variant: "destructive" });
     }
@@ -153,8 +199,13 @@ export default function PaymentRequest() {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
-        p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
         p_payment_status_array: statusArray,
+        p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
+        p_driver_name: activeFilters.driverName || null,
+        p_license_plate: activeFilters.licensePlate || null,
+        p_driver_phone: activeFilters.driverPhone || null,
+        p_waybill_numbers: activeFilters.waybillNumbers || null,
+        p_other_platform_name: activeFilters.otherPlatformName || null,
         p_page_size: PAGE_SIZE,
         p_page_number: pagination.currentPage,
       });
@@ -222,6 +273,35 @@ export default function PaymentRequest() {
 
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
   const handleDateChange = (dateRange: DateRange | undefined) => { setUiFilters(prev => ({ ...prev, startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' })); };
+  
+  // 批量输入对话框处理
+  const openBatchDialog = (type: 'driver' | 'license' | 'phone' | 'waybill') => { setBatchDialog({ isOpen: true, type }); };
+  const closeBatchDialog = () => { setBatchDialog({ isOpen: false, type: null }); };
+  const handleBatchConfirm = (values: string[]) => {
+    const value = values.join(',');
+    const type = batchDialog.type;
+    if (type === 'driver') handleFilterChange('driverName', value);
+    else if (type === 'license') handleFilterChange('licensePlate', value);
+    else if (type === 'phone') handleFilterChange('driverPhone', value);
+    else if (type === 'waybill') handleFilterChange('waybillNumbers', value);
+    closeBatchDialog();
+  };
+  const getCurrentBatchValue = () => {
+    const type = batchDialog.type;
+    if (type === 'driver') return uiFilters.driverName;
+    if (type === 'license') return uiFilters.licensePlate;
+    if (type === 'phone') return uiFilters.driverPhone;
+    if (type === 'waybill') return uiFilters.waybillNumbers;
+    return '';
+  };
+  const getBatchDialogConfig = () => {
+    const type = batchDialog.type;
+    if (type === 'driver') return { title: '批量输入司机姓名', placeholder: '请粘贴司机姓名，用换行或逗号分隔。', description: '支持批量输入多个司机姓名' };
+    if (type === 'license') return { title: '批量输入车牌号', placeholder: '请粘贴车牌号，用换行或逗号分隔。', description: '支持批量输入多个车牌号' };
+    if (type === 'phone') return { title: '批量输入电话号码', placeholder: '请粘贴电话号码，用换行或逗号分隔。', description: '支持批量输入多个电话号码' };
+    if (type === 'waybill') return { title: '批量输入运单编号', placeholder: '请粘贴运单编号，用换行或逗号分隔。', description: '支持批量输入多个运单编号' };
+    return { title: '', placeholder: '', description: '' };
+  };
   const handleRecordSelect = (recordId: string) => { setSelection(prev => { const newSet = new Set(prev.selectedIds); if (newSet.has(recordId)) { newSet.delete(recordId); } else { newSet.add(recordId); } if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); };
   const handleSelectAllOnPage = (isChecked: boolean) => { const pageIds = (reportData?.records || []).map((r: any) => r.id); if (isChecked) { setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) })); } else { setSelection(prev => { const newSet = new Set(prev.selectedIds); pageIds.forEach(id => newSet.delete(id)); if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); } };
   
@@ -257,6 +337,11 @@ export default function PaymentRequest() {
             p_start_date: activeFilters.startDate || null,
             p_end_date: activeFilters.endDate || null,
             p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
+            p_driver_name: activeFilters.driverName || null,
+            p_license_plate: activeFilters.licensePlate || null,
+            p_driver_phone: activeFilters.driverPhone || null,
+            p_waybill_numbers: activeFilters.waybillNumbers || null,
+            p_other_platform_name: activeFilters.otherPlatformName || null,
         });
         if (idError) throw idError;
         idsToProcess = (allFilteredIds as string[] | null) || [];
@@ -917,13 +1002,13 @@ export default function PaymentRequest() {
   return (
     <div className="space-y-6 p-4 md:p-6">
       <BatchInputDialog
-        isOpen={isDriverBatchOpen}
-        onClose={() => setIsDriverBatchOpen(false)}
-        onConfirm={(values) => setUiFilters(prev => ({ ...prev, driverNames: values }))}
-        title="批量输入司机姓名"
-        description="请粘贴司机姓名，用换行或逗号分隔。"
-        placeholder="例如:&#10;张三,&#10;李四&#10;王五"
-        initialValue={uiFilters.driverNames}
+        isOpen={batchDialog.isOpen}
+        onClose={closeBatchDialog}
+        onConfirm={handleBatchConfirm}
+        title={getBatchDialogConfig().title}
+        description={getBatchDialogConfig().description}
+        placeholder={getBatchDialogConfig().placeholder}
+        currentValue={getCurrentBatchValue()}
       />
       
       {/* ===== 页面头部 ===== */}
@@ -944,40 +1029,248 @@ export default function PaymentRequest() {
       <div className="space-y-6">
         {/* ===== 筛选器区域 ===== */}
         <Card className="border-muted/40 shadow-sm">
-        <CardContent className="p-4 bg-gradient-to-br from-background to-muted/5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-end">
-            <div className="flex flex-col gap-1.5"><Label>项目</Label><Select value={uiFilters.projectId} onValueChange={(v) => handleFilterChange('projectId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有项目</SelectItem>{Array.isArray(projects) && projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
-            <div className="flex flex-col gap-1.5"><Label>日期范围</Label><DateRangePicker date={dateRangeValue} setDate={handleDateChange} /></div>
-            <div className="flex flex-col gap-1.5"><Label>合作方</Label><Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}><SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">所有合作方</SelectItem>{Array.isArray(allPartners) && allPartners.map(p => (<SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>))}</SelectContent></Select></div>
-            <div className="flex flex-col gap-1.5">
-              <Label>司机</Label>
-              <div className="flex items-center gap-1">
-                <Input
-                  className="h-9 text-sm"
-                  placeholder={uiFilters.driverNames.length > 1 ? `已输入 ${uiFilters.driverNames.length} 个司机` : "输入单个司机"}
-                  value={uiFilters.driverNames.length === 1 ? uiFilters.driverNames[0] : ''}
-                  onChange={(e) => setUiFilters(prev => ({ ...prev, driverNames: e.target.value ? [e.target.value] : [] }))}
-                  disabled={uiFilters.driverNames.length > 1}
-                />
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  className="h-9 w-9 flex-shrink-0" 
-                  onClick={() => setIsDriverBatchOpen(true)}
-                  aria-label="批量输入司机姓名"
-                >
-                  <Plus className="h-4 w-4" />
+          <CardContent className="p-4">
+            {/* 常规筛选区域 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
+              <div className="flex flex-col gap-1.5">
+                <Label>项目</Label>
+                <Select value={uiFilters.projectId} onValueChange={(v) => handleFilterChange('projectId', v)}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue/>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">所有项目</SelectItem>
+                    {Array.isArray(projects) && projects.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex flex-col gap-1.5">
+                <Label>日期范围</Label>
+                <DateRangePicker date={dateRangeValue} setDate={handleDateChange} />
+              </div>
+              
+              <div className="flex flex-col gap-1.5">
+                <Label>支付状态</Label>
+                <Select value={uiFilters.paymentStatus} onValueChange={(v) => handleFilterChange('paymentStatus', v)}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="选择状态..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_STATUS_OPTIONS.map(option => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex gap-2 items-end">
+                <Button onClick={handleSearch} className="h-10 flex-1 bg-blue-600 hover:bg-blue-700">
+                  <Search className="mr-2 h-4 w-4"/>搜索
                 </Button>
+                <Button variant="outline" onClick={handleClear} className="h-10 flex-1">清除</Button>
               </div>
             </div>
-            <div className="flex flex-col gap-1.5"><Label>支付状态</Label><Select value={uiFilters.paymentStatus} onValueChange={(v) => handleFilterChange('paymentStatus', v)}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="选择状态..." /></SelectTrigger><SelectContent>{PAYMENT_STATUS_OPTIONS.map(option => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent></Select></div>
-            <div className="flex gap-2 pt-5">
-              <Button onClick={handleSearch} size="sm" className="h-9 px-3 text-sm"><Search className="mr-2 h-4 w-4"/>搜索</Button>
-              <Button variant="outline" size="sm" onClick={handleClear} className="h-9 px-3 text-sm">清除</Button>
+            
+            {/* 展开/收起高级筛选按钮 */}
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+              >
+                {showAdvanced ? (
+                  <>
+                    <ChevronUp className="mr-1 h-4 w-4" />
+                    收起高级筛选
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="mr-1 h-4 w-4" />
+                    展开高级筛选
+                  </>
+                )}
+              </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+            
+            {/* 高级筛选区域 */}
+            {showAdvanced && (
+              <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* 合作方筛选 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="partner" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                      <Users className="h-4 w-4" />
+                      合作方
+                    </Label>
+                    <Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}>
+                      <SelectTrigger id="partner" className="h-10">
+                        <SelectValue/>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">所有合作方</SelectItem>
+                        {Array.isArray(allPartners) && allPartners.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* 司机筛选 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="driver" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                      <Users className="h-4 w-4" />
+                      司机
+                    </Label>
+                    <div className="flex gap-1">
+                      <Input
+                        id="driver"
+                        type="text"
+                        placeholder="司机姓名，多个用逗号分隔..."
+                        value={uiFilters.driverName}
+                        onChange={e => handleFilterChange('driverName', e.target.value)}
+                        className="h-10 flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openBatchDialog('driver')}
+                        className="h-10 px-2"
+                        title="批量输入"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* 车牌号筛选 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="license" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                      <Hash className="h-4 w-4" />
+                      车牌号
+                    </Label>
+                    <div className="flex gap-1">
+                      <Input
+                        id="license"
+                        type="text"
+                        placeholder="车牌号，多个用逗号分隔..."
+                        value={uiFilters.licensePlate}
+                        onChange={e => handleFilterChange('licensePlate', e.target.value)}
+                        className="h-10 flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openBatchDialog('license')}
+                        className="h-10 px-2"
+                        title="批量输入"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* 电话筛选 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                      <Phone className="h-4 w-4" />
+                      电话
+                    </Label>
+                    <div className="flex gap-1">
+                      <Input
+                        id="phone"
+                        type="text"
+                        placeholder="电话号码，多个用逗号分隔..."
+                        value={uiFilters.driverPhone}
+                        onChange={e => handleFilterChange('driverPhone', e.target.value)}
+                        className="h-10 flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openBatchDialog('phone')}
+                        className="h-10 px-2"
+                        title="批量输入"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* 运单编号筛选 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="waybill" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                      <FileText className="h-4 w-4" />
+                      运单编号
+                    </Label>
+                    <div className="flex gap-1">
+                      <Input
+                        id="waybill"
+                        type="text"
+                        placeholder="运单编号，多个用逗号分隔..."
+                        value={uiFilters.waybillNumbers}
+                        onChange={e => handleFilterChange('waybillNumbers', e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
+                        className="h-10 flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openBatchDialog('waybill')}
+                        className="h-10 px-2"
+                        title="批量输入"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="text-xs text-purple-600">
+                      💡 支持搜索本平台和其他平台运单号
+                    </div>
+                  </div>
+                  
+                  {/* 其他平台名称筛选 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="platform" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                      <Building2 className="h-4 w-4" />
+                      其他平台名称
+                    </Label>
+                    <Select value={uiFilters.otherPlatformName || 'all'} onValueChange={(v) => handleFilterChange('otherPlatformName', v === 'all' ? '' : v)}>
+                      <SelectTrigger id="platform" className="h-10">
+                        <SelectValue placeholder="选择平台" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">所有平台</SelectItem>
+                        <SelectItem value="本平台">本平台</SelectItem>
+                        <SelectItem value="中科智运">中科智运</SelectItem>
+                        <SelectItem value="中工智云">中工智云</SelectItem>
+                        <SelectItem value="可乐公司">可乐公司</SelectItem>
+                        <SelectItem value="盼盼集团">盼盼集团</SelectItem>
+                        {platformOptions.length > 0 && (
+                          <>
+                            <SelectItem value="---" disabled className="text-xs text-purple-400">
+                              ─── 其他平台 ───
+                            </SelectItem>
+                            {platformOptions.map((platform) => (
+                              <SelectItem key={platform.platform_name} value={platform.platform_name}>
+                                {platform.platform_name} ({platform.usage_count}条)
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <div className="text-xs text-purple-600">
+                      📊 固定平台: 5个 {platformOptions.length > 0 && `| 其他: ${platformOptions.length}个`}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
       {/* ===== 选择提示区域 ===== */}
       {/* 提示1: 当前页全选提示 -> 可选择跨页全选 */}
