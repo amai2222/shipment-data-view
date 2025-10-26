@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { Fragment } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { UserMenu } from "./UserMenu";
-import { ChevronRight, Home } from "lucide-react";
+import { ChevronRight, Home } from "@/components/icons-placeholder";
 
 // 路由映射配置
 const routeMap: Record<string, string> = {
@@ -13,16 +13,16 @@ const routeMap: Record<string, string> = {
   '/projects': '项目管理',
   '/drivers': '司机管理',
   '/locations': '地点管理',
-  '/partners': '合作方管理',
+  '/partners': '合作方管�?,
   '/partners/hierarchy': '货主层级管理',
   '/business-entry': '运单管理',
   '/scale-records': '磅单管理',
   '/payment-request': '付款申请',
-  '/invoice-request': '开票申请',
-  '/payment-requests-list': '申请单管理',
+  '/invoice-request': '开票申�?,
+  '/payment-requests-list': '申请单管�?,
   '/contracts': '合同列表',
   '/finance/reconciliation': '运费对账',
-  '/finance/payment-invoice': '付款与开票',
+  '/finance/payment-invoice': '付款与开�?,
   '/data-maintenance/waybill': '运单维护',
   '/settings/users': '用户管理',
   '/settings/permissions': '权限配置',
@@ -31,7 +31,7 @@ const routeMap: Record<string, string> = {
   '/settings/audit-logs': '操作日志',
 };
 
-// 生成面包屑导航
+// 生成面包屑导�?
 const generateBreadcrumbs = (pathname: string) => {
   const segments = pathname.split('/').filter(Boolean);
   const breadcrumbs = [{ name: '首页', path: '/', icon: Home }];
@@ -59,10 +59,10 @@ export function EnhancedHeader() {
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <SidebarTrigger className="hover:bg-secondary/80 transition-colors duration-200" />
         
-        {/* 面包屑导航 */}
+        {/* 面包屑导�?*/}
         <nav className="hidden md:flex items-center space-x-1 text-sm text-muted-foreground">
           {breadcrumbs.map((crumb, index) => (
-            <React.Fragment key={crumb.path}>
+            <Fragment key={crumb.path}>
               {index > 0 && (
                 <ChevronRight className="h-4 w-4 mx-1 text-muted-foreground/50" />
               )}
@@ -77,22 +77,22 @@ export function EnhancedHeader() {
                 {crumb.icon && <crumb.icon className="h-3.5 w-3.5" />}
                 <span className="truncate max-w-32">{crumb.name}</span>
               </Link>
-            </React.Fragment>
+            </Fragment>
           ))}
         </nav>
         
-        {/* 移动端简化标题 */}
+        {/* 移动端简化标�?*/}
         <div className="md:hidden flex items-center text-sm text-muted-foreground">
           <span className="font-medium text-foreground">
             {breadcrumbs[breadcrumbs.length - 1]?.name || '中科物流业务跟踪系统'}
           </span>
         </div>
         
-        {/* 桌面端系统信息 */}
+        {/* 桌面端系统信�?*/}
         <div className="hidden lg:flex items-center text-xs text-muted-foreground ml-auto mr-4">
           <span className="font-medium">中科物流业务跟踪系统</span>
-          <span className="mx-2">•</span>
-          <span>桌面端管理界面</span>
+          <span className="mx-2">�?/span>
+          <span>桌面端管理界�?/span>
         </div>
       </div>
       

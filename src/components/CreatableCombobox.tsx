@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, ChevronsUpDown, PlusCircle } from "lucide-react";
+import { Check, ChevronsUpDown, PlusCircle } from "@/components/icons-placeholder";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";

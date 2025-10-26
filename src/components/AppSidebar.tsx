@@ -1,26 +1,26 @@
 import { useState, useMemo } from "react";
-import { 
-  BarChart3, 
-  Database, 
-  FileText, 
-  Calculator,
-  PieChart,
-  Banknote,
-  Truck,
-  Package,
-  MapPin,
-  Users,
-  Plus,
-  ChevronDown,
-  ClipboardList,
-  Settings,
-  Weight,
-  Shield,
-  History,
-  TreePine,
-  CheckCircle2,
-  CreditCard
-} from "lucide-react";
+
+// 占位符图标组件
+const BarChart3 = ({ className }: { className?: string }) => <span className={className}>📊</span>;
+const Database = ({ className }: { className?: string }) => <span className={className}>💾</span>;
+const FileText = ({ className }: { className?: string }) => <span className={className}>📄</span>;
+const Calculator = ({ className }: { className?: string }) => <span className={className}>🧮</span>;
+const PieChart = ({ className }: { className?: string }) => <span className={className}>📈</span>;
+const Banknote = ({ className }: { className?: string }) => <span className={className}>💰</span>;
+const Truck = ({ className }: { className?: string }) => <span className={className}>🚚</span>;
+const Package = ({ className }: { className?: string }) => <span className={className}>📦</span>;
+const MapPin = ({ className }: { className?: string }) => <span className={className}>📍</span>;
+const Users = ({ className }: { className?: string }) => <span className={className}>👥</span>;
+const Plus = ({ className }: { className?: string }) => <span className={className}>➕</span>;
+const ChevronDown = ({ className }: { className?: string }) => <span className={className}>▼</span>;
+const ClipboardList = ({ className }: { className?: string }) => <span className={className}>📋</span>;
+const Settings = ({ className }: { className?: string }) => <span className={className}>⚙️</span>;
+const Weight = ({ className }: { className?: string }) => <span className={className}>⚖️</span>;
+const Shield = ({ className }: { className?: string }) => <span className={className}>🛡️</span>;
+const History = ({ className }: { className?: string }) => <span className={className}>📜</span>;
+const TreePine = ({ className }: { className?: string }) => <span className={className}>🌲</span>;
+const CheckCircle2 = ({ className }: { className?: string }) => <span className={className}>✅</span>;
+const CreditCard = ({ className }: { className?: string }) => <span className={className}>💳</span>;
 import { Link, useLocation } from "react-router-dom";
 import {
   Sidebar,
