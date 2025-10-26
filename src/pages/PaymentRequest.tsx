@@ -637,6 +637,7 @@ export default function PaymentRequest() {
         .from('logistics_partner_costs')
         .update({
           payable_amount: highestLevelPartner.payable_amount,
+          is_manually_modified: true,  // 🆕 标记为用户手动修改
           updated_at: new Date().toISOString()
         })
         .eq('logistics_record_id', editPartnerCostData.recordId)
@@ -647,7 +648,7 @@ export default function PaymentRequest() {
       
       toast({ 
         title: "成功", 
-        description: `已更新最高级合作方"${highestLevelPartner.partner_name}"的运费` 
+        description: `已更新最高级合作方"${highestLevelPartner.partner_name}"的运费（后续链路修改时会保护此手动值）` 
       });
       setEditPartnerCostData(null);
       setTempPartnerCosts([]);
@@ -773,6 +774,7 @@ export default function PaymentRequest() {
             .from('logistics_partner_costs')
             .update({
               payable_amount: newAmount,
+              is_manually_modified: true,  // 🆕 标记为用户手动修改
               updated_at: new Date().toISOString()
             })
             .eq('logistics_record_id', record.id)
