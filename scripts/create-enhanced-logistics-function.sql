@@ -21,14 +21,34 @@ DECLARE
     v_offset integer;
     v_result jsonb;
     v_waybill_array text[];
+    v_driver_array text[];
+    v_license_array text[];
+    v_phone_array text[];
 BEGIN
     v_offset := (p_page_number - 1) * p_page_size;
     
-    -- 解析运单编号字符串为数组
+    -- 解析运单编号字符串为数组（支持批量搜索）
     IF p_waybill_numbers IS NOT NULL AND p_waybill_numbers != '' THEN
         v_waybill_array := string_to_array(p_waybill_numbers, ',');
-        -- 去除每个元素的前后空格
         v_waybill_array := array(SELECT trim(unnest(v_waybill_array)));
+    END IF;
+    
+    -- 解析司机名称字符串为数组（支持批量搜索）
+    IF p_driver_name IS NOT NULL AND p_driver_name != '' THEN
+        v_driver_array := string_to_array(p_driver_name, ',');
+        v_driver_array := array(SELECT trim(unnest(v_driver_array)));
+    END IF;
+    
+    -- 解析车牌号字符串为数组（支持批量搜索）
+    IF p_license_plate IS NOT NULL AND p_license_plate != '' THEN
+        v_license_array := string_to_array(p_license_plate, ',');
+        v_license_array := array(SELECT trim(unnest(v_license_array)));
+    END IF;
+    
+    -- 解析电话字符串为数组（支持批量搜索）
+    IF p_driver_phone IS NOT NULL AND p_driver_phone != '' THEN
+        v_phone_array := string_to_array(p_driver_phone, ',');
+        v_phone_array := array(SELECT trim(unnest(v_phone_array)));
     END IF;
 
     WITH filtered_records AS (
@@ -45,9 +65,24 @@ BEGIN
             (p_start_date IS NULL OR p_start_date = '' OR lr.loading_date >= p_start_date::date) AND
             (p_end_date IS NULL OR p_end_date = '' OR lr.loading_date <= p_end_date::date) AND
             (p_project_name IS NULL OR p_project_name = '' OR lr.project_name = p_project_name) AND
-            (p_driver_name IS NULL OR p_driver_name = '' OR lr.driver_name ILIKE '%' || p_driver_name || '%') AND
-            (p_license_plate IS NULL OR p_license_plate = '' OR lr.license_plate ILIKE '%' || p_license_plate || '%') AND
-            (p_driver_phone IS NULL OR p_driver_phone = '' OR lr.driver_phone ILIKE '%' || p_driver_phone || '%') AND
+            -- 司机筛选（支持批量，OR逻辑）
+            (p_driver_name IS NULL OR p_driver_name = '' OR 
+             EXISTS (
+                 SELECT 1 FROM unnest(v_driver_array) AS driver_name
+                 WHERE lr.driver_name ILIKE '%' || driver_name || '%'
+             )) AND
+            -- 车牌号筛选（支持批量，OR逻辑）
+            (p_license_plate IS NULL OR p_license_plate = '' OR 
+             EXISTS (
+                 SELECT 1 FROM unnest(v_license_array) AS plate
+                 WHERE lr.license_plate ILIKE '%' || plate || '%'
+             )) AND
+            -- 电话筛选（支持批量，OR逻辑）
+            (p_driver_phone IS NULL OR p_driver_phone = '' OR 
+             EXISTS (
+                 SELECT 1 FROM unnest(v_phone_array) AS phone
+                 WHERE lr.driver_phone ILIKE '%' || phone || '%'
+             )) AND
             -- 其他平台名称筛选：为空则查询本平台（other_platform_names为空或null），不为空则查询包含该平台名称的记录
             (p_other_platform_name IS NULL OR p_other_platform_name = '' OR 
              CASE 
