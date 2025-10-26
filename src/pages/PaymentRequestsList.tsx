@@ -30,6 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon, X, Search, Building } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
+import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 
 // --- 类型定义 ---
 interface PaymentRequest {
@@ -64,6 +65,12 @@ export default function PaymentRequestsList() {
   // 批量操作状态
   const [isBatchOperating, setIsBatchOperating] = useState(false);
   const [batchOperation, setBatchOperation] = useState<'approve' | 'pay' | null>(null);
+  
+  // 批量输入对话框状态
+  const [batchInputDialog, setBatchInputDialog] = useState<{
+    isOpen: boolean;
+    type: 'requestId' | 'waybillNumber' | 'driverName' | 'licensePlate' | 'phoneNumber' | null;
+  }>({ isOpen: false, type: null });
   
   // 筛选器状态
   const [filters, setFilters] = useState({
@@ -197,6 +204,41 @@ export default function PaymentRequestsList() {
   };
 
   const hasActiveFilters = filters.requestId || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status || filters.projectId || filters.partnerName || filters.licensePlate || filters.phoneNumber || filters.platformName;
+
+  // 批量输入对话框处理函数
+  const openBatchInputDialog = (type: 'requestId' | 'waybillNumber' | 'driverName' | 'licensePlate' | 'phoneNumber') => {
+    setBatchInputDialog({ isOpen: true, type });
+  };
+  
+  const closeBatchInputDialog = () => {
+    setBatchInputDialog({ isOpen: false, type: null });
+  };
+  
+  const handleBatchInputConfirm = (value: string) => {
+    const type = batchInputDialog.type;
+    if (type) {
+      handleFilterChange(type, value);
+    }
+    closeBatchInputDialog();
+  };
+  
+  const getCurrentBatchValue = () => {
+    const type = batchInputDialog.type;
+    if (!type) return '';
+    return filters[type]?.toString() || '';
+  };
+  
+  const getBatchInputConfig = () => {
+    const type = batchInputDialog.type;
+    const configs = {
+      requestId: { title: '批量输入申请单号', placeholder: '每行一个申请单号，或用逗号分隔', description: '支持多行输入或用逗号分隔' },
+      waybillNumber: { title: '批量输入运单编号', placeholder: '每行一个运单编号，或用逗号分隔', description: '支持多行输入或用逗号分隔' },
+      driverName: { title: '批量输入司机姓名', placeholder: '每行一个司机姓名，或用逗号分隔', description: '支持多行输入或用逗号分隔' },
+      licensePlate: { title: '批量输入车牌号', placeholder: '每行一个车牌号，或用逗号分隔', description: '支持多行输入或用逗号分隔' },
+      phoneNumber: { title: '批量输入电话号码', placeholder: '每行一个电话号码，或用逗号分隔', description: '支持多行输入或用逗号分隔' }
+    };
+    return type ? configs[type] : configs.requestId;
+  };
 
   // 批量操作处理函数
   const handleBatchApprove = async () => {
@@ -1121,9 +1163,7 @@ export default function PaymentRequestsList() {
                   variant="ghost"
                   size="sm"
                   className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
-                  onClick={() => {
-                    toast({ title: "提示", description: "批量输入功能开发中" });
-                  }}
+                  onClick={() => openBatchInputDialog('requestId')}
                 >
                   <span className="text-lg">+</span>
                 </Button>
@@ -1218,7 +1258,7 @@ export default function PaymentRequestsList() {
           {/* 高级筛选 */}
           {showAdvancedFilters && (
             <div className="space-y-4 pt-4 border-t">
-              {/* 第二行 */}
+              {/* 第一排：司机、车牌号、电话 */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* 司机 */}
                 <div className="space-y-2">
@@ -1243,10 +1283,7 @@ export default function PaymentRequestsList() {
                       variant="ghost"
                       size="sm"
                       className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
-                      onClick={() => {
-                        // TODO: 打开批量输入对话框
-                        toast({ title: "提示", description: "批量输入功能开发中" });
-                      }}
+                      onClick={() => openBatchInputDialog('driverName')}
                     >
                       <span className="text-lg">+</span>
                     </Button>
@@ -1273,9 +1310,7 @@ export default function PaymentRequestsList() {
                       variant="ghost"
                       size="sm"
                       className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
-                      onClick={() => {
-                        toast({ title: "提示", description: "批量输入功能开发中" });
-                      }}
+                      onClick={() => openBatchInputDialog('licensePlate')}
                     >
                       <span className="text-lg">+</span>
                     </Button>
@@ -1302,9 +1337,7 @@ export default function PaymentRequestsList() {
                       variant="ghost"
                       size="sm"
                       className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
-                      onClick={() => {
-                        toast({ title: "提示", description: "批量输入功能开发中" });
-                      }}
+                      onClick={() => openBatchInputDialog('phoneNumber')}
                     >
                       <span className="text-lg">+</span>
                     </Button>
@@ -1312,25 +1345,36 @@ export default function PaymentRequestsList() {
                 </div>
               </div>
 
-              {/* 第三行 */}
-              <div className="grid grid-cols-1 gap-4">
+              {/* 第二排：运单编号、平台名称 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* 运单编号 */}
                 <div className="space-y-2">
                   <Label htmlFor="waybillNumber" className="text-sm font-medium flex items-center gap-1">
                     <FileText className="h-4 w-4" />
                     运单编号
                   </Label>
-                  <Input
-                    id="waybillNumber"
-                    placeholder="输入运单编号，多个用逗号分隔..."
-                    value={filters.waybillNumber}
-                    onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        fetchPaymentRequests();
-                      }
-                    }}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="waybillNumber"
+                      placeholder="输入运单编号，多个用逗号分隔..."
+                      value={filters.waybillNumber}
+                      onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          fetchPaymentRequests();
+                        }
+                      }}
+                      className="pr-8"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => openBatchInputDialog('waybillNumber')}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
                   <p className="text-xs text-muted-foreground">💡 支持按本平台和其他平台运单号查询</p>
                 </div>
                 
@@ -1669,6 +1713,17 @@ export default function PaymentRequestsList() {
         </div>
       )}
       </div>
+      
+      {/* 批量输入对话框 */}
+      <BatchInputDialog
+        isOpen={batchInputDialog.isOpen}
+        onClose={closeBatchInputDialog}
+        onApply={handleBatchInputConfirm}
+        title={getBatchInputConfig().title}
+        placeholder={getBatchInputConfig().placeholder}
+        description={getBatchInputConfig().description}
+        currentValue={getCurrentBatchValue()}
+      />
     </div>
   );
 }
