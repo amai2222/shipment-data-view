@@ -296,41 +296,41 @@ export function PartnerSelector({
           )}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent className="w-[400px] p-0">
+      <SelectContent className="w-[550px] p-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="border-b">
-            <TabsList className="w-full justify-start rounded-none h-auto p-1 bg-transparent">
+            <TabsList className="w-full grid grid-cols-4 rounded-none h-auto p-1 bg-transparent">
               <TabsTrigger 
                 value="owner" 
-                className="flex items-center gap-2 data-[state=active]:bg-muted"
+                className="flex items-center gap-1.5 justify-center data-[state=active]:bg-muted text-xs"
               >
                 {getTypeIcon('owner')}
                 <span>货主</span>
-                <Badge variant="secondary" className="ml-1">{getTypeCount('owner')}</Badge>
+                <Badge variant="secondary" className="ml-0.5 text-xs px-1.5">{getTypeCount('owner')}</Badge>
               </TabsTrigger>
               <TabsTrigger 
                 value="partner"
-                className="flex items-center gap-2 data-[state=active]:bg-muted"
+                className="flex items-center gap-1.5 justify-center data-[state=active]:bg-muted text-xs"
               >
                 {getTypeIcon('partner')}
                 <span>合作商</span>
-                <Badge variant="secondary" className="ml-1">{getTypeCount('partner')}</Badge>
+                <Badge variant="secondary" className="ml-0.5 text-xs px-1.5">{getTypeCount('partner')}</Badge>
               </TabsTrigger>
               <TabsTrigger 
                 value="financier"
-                className="flex items-center gap-2 data-[state=active]:bg-muted"
+                className="flex items-center gap-1.5 justify-center data-[state=active]:bg-muted text-xs"
               >
                 {getTypeIcon('financier')}
                 <span>资方</span>
-                <Badge variant="secondary" className="ml-1">{getTypeCount('financier')}</Badge>
+                <Badge variant="secondary" className="ml-0.5 text-xs px-1.5">{getTypeCount('financier')}</Badge>
               </TabsTrigger>
               <TabsTrigger 
                 value="company"
-                className="flex items-center gap-2 data-[state=active]:bg-muted"
+                className="flex items-center gap-1.5 justify-center data-[state=active]:bg-muted text-xs"
               >
                 {getTypeIcon('company')}
                 <span>本公司</span>
-                <Badge variant="secondary" className="ml-1">{getTypeCount('company')}</Badge>
+                <Badge variant="secondary" className="ml-0.5 text-xs px-1.5">{getTypeCount('company')}</Badge>
               </TabsTrigger>
             </TabsList>
           </div>
