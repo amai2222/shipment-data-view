@@ -181,29 +181,49 @@ export function UserManagement({
   // 创建用户
   const handleCreateUser = async () => {
     try {
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: createUserForm.email,
-        password: createUserForm.password,
-        email_confirm: true
+      // 获取当前用户的 token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "创建失败",
+          description: "您未登录，请先登录",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // 调用 Edge Function 创建用户
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: createUserForm.email,
+          password: createUserForm.password,
+          full_name: createUserForm.full_name,
+          role: createUserForm.role
+        }
       });
 
-      if (authError) throw authError;
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authData.user.id,
-          full_name: createUserForm.full_name,
-          email: createUserForm.email,
-          role: createUserForm.role,
-          is_active: true
+      if (error) {
+        console.error('调用 Edge Function 失败:', error);
+        toast({
+          title: "创建失败",
+          description: error.message || "调用服务失败",
+          variant: "destructive"
         });
+        return;
+      }
 
-      if (profileError) throw profileError;
+      if (!data.success) {
+        toast({
+          title: "创建失败",
+          description: data.error || "创建用户失败",
+          variant: "destructive"
+        });
+        return;
+      }
 
       toast({
         title: "创建成功",
-        description: "用户已成功创建",
+        description: data.message || "用户已成功创建",
       });
 
       setShowCreateUserDialog(false);

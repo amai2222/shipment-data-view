@@ -88,51 +88,54 @@ export class UserManagementService {
   // 更新用户信息
   static async updateUser(userData: UserUpdateData): Promise<UserOperationResult> {
     try {
-      const updateData: any = {};
-      
-      if (userData.full_name !== undefined) updateData.full_name = userData.full_name;
-      if (userData.role !== undefined) updateData.role = userData.role;
-      if (userData.is_active !== undefined) updateData.is_active = userData.is_active;
-      if (userData.phone !== undefined) updateData.phone = userData.phone;
-      if (userData.work_wechat_userid !== undefined) updateData.work_wechat_userid = userData.work_wechat_userid;
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(updateData)
-        .eq('id', userData.id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('更新用户失败:', error);
-        return {
-          success: false,
-          message: `更新用户失败: ${error.message}`,
-          error: error.message
-        };
-      }
-
-      // 如果更新了密码
+      // 如果需要更新密码，调用密码更新 Edge Function
       if (userData.password) {
-        const { error: passwordError } = await supabase.auth.admin.updateUserById(
-          userData.id,
-          { password: userData.password }
-        );
+        const { data: passwordData, error: passwordError } = await supabase.functions.invoke('update-user-password', {
+          body: {
+            userId: userData.id,
+            newPassword: userData.password
+          }
+        });
 
-        if (passwordError) {
-          console.error('更新密码失败:', passwordError);
+        if (passwordError || !passwordData?.success) {
+          console.error('更新密码失败:', passwordError || passwordData?.error);
           return {
             success: false,
-            message: `更新密码失败: ${passwordError.message}`,
-            error: passwordError.message
+            message: passwordData?.error || passwordError?.message || '更新密码失败',
+            error: passwordData?.error || passwordError?.message
           };
         }
       }
 
+      // 调用用户信息更新 Edge Function
+      const updatePayload: any = {
+        userId: userData.id
+      };
+      
+      if (userData.email !== undefined) updatePayload.email = userData.email;
+      if (userData.full_name !== undefined) updatePayload.full_name = userData.full_name;
+      if (userData.role !== undefined) updatePayload.role = userData.role;
+      if (userData.is_active !== undefined) updatePayload.is_active = userData.is_active;
+      if (userData.phone !== undefined) updatePayload.phone = userData.phone;
+      if (userData.work_wechat_userid !== undefined) updatePayload.work_wechat_userid = userData.work_wechat_userid;
+
+      const { data, error } = await supabase.functions.invoke('update-user', {
+        body: updatePayload
+      });
+
+      if (error || !data?.success) {
+        console.error('更新用户信息失败:', error || data?.error);
+        return {
+          success: false,
+          message: data?.error || error?.message || '更新用户信息失败',
+          error: data?.error || error?.message
+        };
+      }
+
       return {
         success: true,
-        message: '用户信息更新成功',
-        data
+        message: data.message || '用户信息更新成功',
+        data: data.data
       };
     } catch (error: any) {
       console.error('更新用户异常:', error);
@@ -145,23 +148,29 @@ export class UserManagementService {
   }
 
   // 删除用户
-  static async deleteUser(userId: string): Promise<UserOperationResult> {
+  static async deleteUser(userId: string, hardDelete: boolean = false): Promise<UserOperationResult> {
     try {
-      // 先删除认证用户
-      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-      
-      if (authError) {
-        console.error('删除认证用户失败:', authError);
+      // 调用删除用户 Edge Function
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: {
+          userId,
+          hardDelete
+        }
+      });
+
+      if (error || !data?.success) {
+        console.error('删除用户失败:', error || data?.error);
         return {
           success: false,
-          message: `删除用户失败: ${authError.message}`,
-          error: authError.message
+          message: data?.error || error?.message || '删除用户失败',
+          error: data?.error || error?.message
         };
       }
 
       return {
         success: true,
-        message: '用户删除成功'
+        message: data.message || '用户删除成功',
+        data: data.data
       };
     } catch (error: any) {
       console.error('删除用户异常:', error);
@@ -236,19 +245,35 @@ export class UserManagementService {
   }
 
   // 批量删除用户
-  static async batchDeleteUsers(userIds: string[]): Promise<UserOperationResult> {
+  static async batchDeleteUsers(userIds: string[], hardDelete: boolean = false): Promise<UserOperationResult> {
     try {
-      // 批量删除认证用户
+      // 批量删除用户（调用 Edge Function）
+      const results = [];
       for (const userId of userIds) {
-        const { error } = await supabase.auth.admin.deleteUser(userId);
-        if (error) {
-          console.error(`删除用户 ${userId} 失败:`, error);
+        const { data, error } = await supabase.functions.invoke('delete-user', {
+          body: {
+            userId,
+            hardDelete
+          }
+        });
+        
+        if (error || !data?.success) {
+          console.error(`删除用户 ${userId} 失败:`, error || data?.error);
+          results.push({ userId, success: false, error: error?.message || data?.error });
+        } else {
+          results.push({ userId, success: true });
         }
       }
 
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.filter(r => !r.success).length;
+
       return {
-        success: true,
-        message: `已删除 ${userIds.length} 个用户`
+        success: failureCount === 0,
+        message: failureCount === 0 
+          ? `已${hardDelete ? '永久删除' : '停用'} ${successCount} 个用户`
+          : `${successCount} 个用户${hardDelete ? '删除' : '停用'}成功，${failureCount} 个失败`,
+        data: { results, successCount, failureCount }
       };
     } catch (error: any) {
       console.error('批量删除用户异常:', error);

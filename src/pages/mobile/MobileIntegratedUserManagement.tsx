@@ -189,12 +189,17 @@ export default function MobileIntegratedUserManagement() {
     if (!userToChangePassword || !newPassword.trim()) return;
 
     try {
-      const { error } = await supabase.auth.admin.updateUserById(
-        userToChangePassword.id,
-        { password: newPassword }
-      );
+      // 调用 Edge Function 修改密码
+      const { data, error } = await supabase.functions.invoke('update-user-password', {
+        body: {
+          userId: userToChangePassword.id,
+          newPassword: newPassword
+        }
+      });
 
-      if (error) throw error;
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || '修改密码失败');
+      }
 
       toast({
         title: "密码修改成功",

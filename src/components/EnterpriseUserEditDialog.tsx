@@ -140,24 +140,32 @@ export function EnterpriseUserEditDialog({
 
       if (profileError) throw profileError;
 
-      // 如果修改了密码
+      // 如果修改了密码，调用 Edge Function
       if (pendingChanges.password) {
-        const { error: passwordError } = await supabase.auth.admin.updateUserById(
-          user.id,
-          { password: pendingChanges.password }
-        );
+        const { data: passwordData, error: passwordError } = await supabase.functions.invoke('update-user-password', {
+          body: {
+            userId: user.id,
+            newPassword: pendingChanges.password
+          }
+        });
 
-        if (passwordError) throw passwordError;
+        if (passwordError || !passwordData?.success) {
+          throw new Error(passwordData?.error || passwordError?.message || '修改密码失败');
+        }
       }
 
-      // 如果修改了邮箱
+      // 如果修改了邮箱，调用 Edge Function
       if (pendingChanges.email !== user.email) {
-        const { error: emailError } = await supabase.auth.admin.updateUserById(
-          user.id,
-          { email: pendingChanges.email }
-        );
+        const { data: emailData, error: emailError } = await supabase.functions.invoke('update-user', {
+          body: {
+            userId: user.id,
+            email: pendingChanges.email
+          }
+        });
 
-        if (emailError) throw emailError;
+        if (emailError || !emailData?.success) {
+          throw new Error(emailData?.error || emailError?.message || '修改邮箱失败');
+        }
       }
 
       toast({

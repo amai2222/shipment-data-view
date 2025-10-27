@@ -89,12 +89,16 @@ export function ChangePasswordDialog({
     try {
       setLoading(true);
 
-      // 使用 Supabase Admin API 修改密码
-      const { error } = await supabase.auth.admin.updateUserById(userId, {
-        password: formData.newPassword
+      // 调用 Edge Function 修改密码
+      const { data, error } = await supabase.functions.invoke('update-user-password', {
+        body: {
+          userId: userId,
+          newPassword: formData.newPassword
+        }
       });
 
-      if (error) {
+      if (error || !data?.success) {
+        const errorMessage = data?.error || error?.message || '修改密码失败';
         throw error;
       }
 
