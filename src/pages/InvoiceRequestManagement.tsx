@@ -73,7 +73,7 @@ interface InvoiceRequest {
   invoicing_partner_bank_account?: string;
   total_amount: number;
   record_count: number;
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Completed' | 'Voided' | 'Merged';
+  status: 'Pending' | 'Processing' | 'Approved' | 'Completed' | 'Rejected' | 'Voided';
   created_by: string;
   created_at: string;
   updated_at?: string;
@@ -1381,13 +1381,12 @@ export default function InvoiceRequestManagement() {
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'Pending': return 'secondary';
+      case 'Processing': return 'default';
       case 'Approved': return 'default';
-      case 'Rejected': return 'destructive';
       case 'Completed': return 'outline';
+      case 'Rejected': return 'destructive';
       case 'Voided': return 'destructive';
       case 'Cancelled': return 'destructive';
-      case 'Processing': return 'secondary';
-      case 'Merged': return 'secondary';
       default: return 'secondary';
     }
   };
@@ -1396,13 +1395,12 @@ export default function InvoiceRequestManagement() {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'Pending': return '待审核';
+      case 'Processing': return '处理中';
       case 'Approved': return '已通过';
-      case 'Rejected': return '已拒绝';
       case 'Completed': return '已完成';
+      case 'Rejected': return '已拒绝';
       case 'Voided': return '已作废';
       case 'Cancelled': return '已取消';
-      case 'Processing': return '处理中';
-      case 'Merged': return '已合并';
       default: return status;
     }
   };
@@ -1523,11 +1521,11 @@ export default function InvoiceRequestManagement() {
               >
                 <option value="">全部状态</option>
                 <option value="Pending">待审核</option>
+                <option value="Processing">处理中</option>
                 <option value="Approved">已通过</option>
-                <option value="Rejected">已拒绝</option>
                 <option value="Completed">已完成</option>
+                <option value="Rejected">已拒绝</option>
                 <option value="Voided">已作废</option>
-                <option value="Merged">已合并</option>
               </select>
             </div>
 
@@ -1881,8 +1879,8 @@ export default function InvoiceRequestManagement() {
                             查看申请单
                           </Button>
 
-                          {/* 开票按钮 - 绿色主题，只在已通过状态显示，带二次确认 */}
-                          {request.status === 'Approved' && (
+                          {/* 开票按钮 - 绿色主题，在已通过和处理中状态显示，带二次确认 */}
+                          {(request.status === 'Approved' || request.status === 'Processing') && (
                             <ConfirmDialog
                               title="确认开票"
                               description={`确定要完成申请单 ${request.request_number} 的开票吗？开票后将更新所有关联运单的状态为已开票。`}
