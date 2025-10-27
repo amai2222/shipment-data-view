@@ -12,17 +12,49 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
+// @ts-expect-error - lucide-react 图标导入
 import { FileText, Search, Filter, Eye, Edit, Download, RefreshCw, X, CheckCircle, FileDown, CheckSquare, Square, Trash2, Ban, CalendarIcon, Building, Users } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 import { zhCN } from 'date-fns/locale';
 import { LogisticsFormDialog } from "@/pages/BusinessEntry/components/LogisticsFormDialog";
-import { LogisticsRecord } from "../BusinessEntry/types";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
+
+// 运单记录类型
+interface LogisticsRecord {
+  id: string;
+  auto_number: string;
+  project_id: string | null;
+  project_name: string;
+  chain_id: string | null;
+  chain_name: string | null;
+  billing_type_id: number;
+  driver_id: string;
+  driver_name: string;
+  loading_location: string;
+  unloading_location: string;
+  loading_date: string;
+  unloading_date: string | null;
+  loading_weight: number | null;
+  unloading_weight: number | null;
+  current_cost: number | null;
+  payable_cost: number | null;
+  driver_payable_cost: number | null;
+  license_plate: string;
+  driver_phone: string;
+  transport_type: string | null;
+  extra_cost: number | null;
+  remarks: string | null;
+  loading_weighbridge_image_url: string | null;
+  unloading_weighbridge_image_url: string | null;
+  external_tracking_numbers: string[];
+  other_platform_names: string[];
+  created_at: string;
+}
 
 // 开票申请单类型定义
 interface InvoiceRequest {
@@ -30,6 +62,7 @@ interface InvoiceRequest {
   request_number: string;
   partner_id: string;
   partner_name: string;
+  partner_full_name?: string;
   invoicing_partner_id?: string;
   invoicing_partner_full_name?: string;
   invoicing_partner_tax_number?: string;
@@ -52,6 +85,10 @@ interface InvoiceRequest {
   merged_at?: string;
   merged_by?: string;
   merge_reason?: string;
+  creator_name?: string;
+  bank_name?: string;
+  bank_account?: string;
+  tax_number?: string;
 }
 
 // 开票申请单详情类型
@@ -64,8 +101,9 @@ interface InvoiceRequestDetail {
     auto_number: string;
     project_name: string;
     driver_name: string;
-    loading_address: string;
-    unloading_address: string;
+    loading_location: string;
+    unloading_location: string;
+    loading_date: string;
   };
 }
 
@@ -121,7 +159,7 @@ export default function InvoiceRequestManagement() {
   const { toast } = useToast();
 
   // 筛选器处理函数
-  const handleFilterChange = (key: string, value: any) => {
+  const handleFilterChange = (key: string, value: string | Date | null) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
@@ -182,7 +220,7 @@ export default function InvoiceRequestManagement() {
       setLoading(true);
       
       // 使用后端筛选函数（更高效）
-      // @ts-ignore - 新的RPC函数
+      // @ts-expect-error - 新的RPC函数
       const { data, error } = await supabase.rpc('get_invoice_requests_filtered', {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
@@ -199,7 +237,7 @@ export default function InvoiceRequestManagement() {
 
       if (error) throw error;
 
-      setInvoiceRequests(data || []);
+      setInvoiceRequests((data as unknown as InvoiceRequest[]) || []);
     } catch (error) {
       console.error('加载开票申请单失败:', error);
       toast({
@@ -346,16 +384,17 @@ export default function InvoiceRequestManagement() {
 
       if (error) throw error;
 
-      if (data?.success) {
+      const result = data as { success: boolean; message: string } | null;
+      if (result?.success) {
         toast({
           title: "作废成功",
-          description: data.message,
+          description: result.message,
         });
         loadInvoiceRequests();
         setIsVoidDialogOpen(false);
         setVoidForm({ reason: '' });
       } else {
-        throw new Error(data?.message || '作废失败');
+        throw new Error(result?.message || '作废失败');
       }
     } catch (error) {
       console.error('作废申请单失败:', error);
@@ -622,14 +661,22 @@ export default function InvoiceRequestManagement() {
       }
 
       // 查询司机信息
-      let driverInfo: any = {};
+      interface DriverInfo {
+        id?: string;
+        name?: string;
+        license_plate?: string;
+        phone?: string;
+      }
+      let driverInfo: DriverInfo = {};
       if (logisticsData.driver_id) {
         const { data: driverData } = await supabase
           .from('drivers')
-          .select('id, name, license_plate, phone, id_card_number, bank_name, bank_account, bank_branch')
+          .select('id, name, license_plate, phone')
           .eq('id', logisticsData.driver_id)
           .single();
-        driverInfo = driverData || {};
+        if (driverData) {
+          driverInfo = driverData;
+        }
       }
 
       const formattedRecord: LogisticsRecord = {
@@ -646,11 +693,11 @@ export default function InvoiceRequestManagement() {
         unloading_location: logisticsData.unloading_location,
         loading_date: logisticsData.loading_date,
         unloading_date: logisticsData.unloading_date,
-        loading_weight: logisticsData.goods_weight,
-        unloading_weight: logisticsData.goods_weight,
-        current_cost: logisticsData.unit_price,
-        payable_cost: logisticsData.total_price,
-        driver_payable_cost: logisticsData.total_price,
+        loading_weight: logisticsData.loading_weight,
+        unloading_weight: logisticsData.unloading_weight,
+        current_cost: logisticsData.current_cost,
+        payable_cost: logisticsData.payable_cost,
+        driver_payable_cost: logisticsData.payable_cost,
         license_plate: driverInfo.license_plate || '',
         driver_phone: driverInfo.phone || '',
         transport_type: null,
@@ -663,11 +710,11 @@ export default function InvoiceRequestManagement() {
         created_at: logisticsData.created_at,
       };
       return formattedRecord;
-    } catch (error: any) {
+    } catch (error) {
       console.error('获取运单详情失败:', error);
       toast({
         title: "加载失败",
-        description: error.message || '无法加载运单详情',
+        description: error instanceof Error ? error.message : '无法加载运单详情',
         variant: "destructive",
       });
       return null;
@@ -704,7 +751,7 @@ export default function InvoiceRequestManagement() {
       if (error) throw error;
 
       // 创建开票申请单格式的HTML表格
-      const createInvoiceRequestHTML = (requests: any[]) => {
+      const createInvoiceRequestHTML = (requests: InvoiceRequest[]) => {
         const currentDate = format(new Date(), 'yyyy-MM-dd');
         const totalAmount = requests.reduce((sum, req) => sum + (req.total_amount || 0), 0);
 
@@ -819,7 +866,7 @@ export default function InvoiceRequestManagement() {
       };
 
       // 创建HTML内容
-      const htmlContent = createInvoiceRequestHTML(data || []);
+      const htmlContent = createInvoiceRequestHTML((data || []) as InvoiceRequest[]);
       
       // 下载文件
       const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
@@ -909,12 +956,13 @@ export default function InvoiceRequestManagement() {
   useEffect(() => {
     loadInvoiceRequests();
     loadFilterOptions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div className="space-y-6 p-4 md:p-6">
       <PageHeader 
-        title="开票申请单管理" 
+        title="财务开票" 
         description="管理和跟踪所有开票申请单的状态"
         icon={FileText}
         iconColor="text-blue-600"
@@ -1648,8 +1696,6 @@ export default function InvoiceRequestManagement() {
           onSubmitSuccess={() => {
             // 查看模式下不需要提交成功回调
           }}
-          isViewMode={true}
-          isEditMode={false}
         />
       )}
 

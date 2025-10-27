@@ -428,10 +428,10 @@ export default function InvoiceAudit() {
         return;
       }
 
-      // 分别查询运单信息
+      // 分别查询运单信息（logistics_records表中没有invoiceable_amount字段）
       const { data: logisticsData, error: logisticsError } = await supabase
         .from('logistics_records')
-        .select('id, auto_number, driver_name, license_plate, loading_location, unloading_location, loading_date, loading_weight, invoiceable_amount')
+        .select('id, auto_number, driver_name, license_plate, loading_location, unloading_location, loading_date, loading_weight')
         .in('id', logisticsRecordIds);
 
       if (logisticsError) throw logisticsError;
@@ -439,7 +439,7 @@ export default function InvoiceAudit() {
       // 创建运单映射
       const logisticsMap = new Map(logisticsData?.map(l => [l.id, l]) || []);
 
-      // 组合数据
+      // 组合数据（使用invoice_request_details表中的invoiceable_amount）
       const detailedRecords = detailsData.map((detail: any) => {
         const record = logisticsMap.get(detail.logistics_record_id);
         return {
@@ -451,7 +451,7 @@ export default function InvoiceAudit() {
           unloading_location: record?.unloading_location || '',
           loading_date: record?.loading_date || '',
           loading_weight: record?.loading_weight || null,
-          invoiceable_amount: record?.invoiceable_amount || 0,
+          invoiceable_amount: detail.invoiceable_amount || detail.amount || 0,
         };
       });
       

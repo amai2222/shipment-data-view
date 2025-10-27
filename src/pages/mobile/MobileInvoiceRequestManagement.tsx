@@ -779,7 +779,7 @@ export default function MobileInvoiceRequestManagement() {
   return (
     <div className="space-y-4 p-4">
       <PageHeader 
-        title="开票申请单管理" 
+        title="财务开票" 
         description="管理和跟踪所有开票申请单的状态"
         icon={FileText}
         iconColor="text-blue-600"

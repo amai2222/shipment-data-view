@@ -189,7 +189,7 @@ const menuGroups = [
         roles: ['admin', 'finance', 'operator']
       },
       {
-        name: '开票申请单管理',
+        name: '财务开票',
         href: '/m/invoice-request-management',
         icon: FileText,
         roles: ['admin', 'finance']
