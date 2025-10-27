@@ -408,39 +408,50 @@ export default function InvoiceAudit() {
     setPartnerTotals([]);
 
     try {
-      // 获取开票申请详情
-      const { data: detailsData, error } = await supabase
+      // 获取开票申请详情（分步查询，避免关系冲突）
+      const { data: detailsData, error: detailsError } = await supabase
         .from('invoice_request_details')
-        .select(`
-          *,
-          logistics_records:logistics_record_id (
-            id,
-            auto_number,
-            driver_name,
-            license_plate,
-            loading_location,
-            unloading_location,
-            loading_date,
-            loading_weight,
-            invoiceable_amount
-          )
-        `)
+        .select('*')
         .eq('invoice_request_id', request.id);
 
-      if (error) throw error;
+      if (detailsError) throw detailsError;
+      if (!detailsData || detailsData.length === 0) {
+        setModalRecords([]);
+        return;
+      }
 
-      const detailedRecords = (detailsData || []).map((detail: any) => {
-        const record = detail.logistics_records;
+      // 获取所有运单ID
+      const logisticsRecordIds = detailsData.map(detail => detail.logistics_record_id).filter(Boolean);
+      
+      if (logisticsRecordIds.length === 0) {
+        setModalRecords([]);
+        return;
+      }
+
+      // 分别查询运单信息
+      const { data: logisticsData, error: logisticsError } = await supabase
+        .from('logistics_records')
+        .select('id, auto_number, driver_name, license_plate, loading_location, unloading_location, loading_date, loading_weight, invoiceable_amount')
+        .in('id', logisticsRecordIds);
+
+      if (logisticsError) throw logisticsError;
+
+      // 创建运单映射
+      const logisticsMap = new Map(logisticsData?.map(l => [l.id, l]) || []);
+
+      // 组合数据
+      const detailedRecords = detailsData.map((detail: any) => {
+        const record = logisticsMap.get(detail.logistics_record_id);
         return {
-          id: record.id,
-          auto_number: record.auto_number,
-          driver_name: record.driver_name,
-          license_plate: record.license_plate,
-          loading_location: record.loading_location,
-          unloading_location: record.unloading_location,
-          loading_date: record.loading_date,
-          loading_weight: record.loading_weight,
-          invoiceable_amount: record.invoiceable_amount || 0,
+          id: record?.id || detail.logistics_record_id,
+          auto_number: record?.auto_number || '',
+          driver_name: record?.driver_name || '',
+          license_plate: record?.license_plate || '',
+          loading_location: record?.loading_location || '',
+          unloading_location: record?.unloading_location || '',
+          loading_date: record?.loading_date || '',
+          loading_weight: record?.loading_weight || null,
+          invoiceable_amount: record?.invoiceable_amount || 0,
         };
       });
       

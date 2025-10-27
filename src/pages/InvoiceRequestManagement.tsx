@@ -600,66 +600,67 @@ export default function InvoiceRequestManagement() {
   // 获取完整的运单数据
   const fetchFullLogisticsRecord = async (recordId: string): Promise<LogisticsRecord | null> => {
     try {
-      const { data, error } = await supabase
+      // 分别查询运单、项目和司机信息，避免关系冲突
+      const { data: logisticsData, error: logisticsError } = await supabase
         .from('logistics_records')
-        .select(`
-          id,
-          auto_number,
-          project_id,
-          loading_location,
-          unloading_location,
-          loading_date,
-          unloading_date,
-          goods_name,
-          goods_weight,
-          unit_price,
-          total_price,
-          remarks,
-          status,
-          created_at,
-          updated_at,
-          created_by,
-          updated_by,
-          external_tracking_numbers,
-          other_platform_names,
-          projects (id, name, auto_code),
-          drivers (id, name, license_plate, phone, id_card_number, bank_name, bank_account, bank_branch)
-        `)
+        .select('*')
         .eq('id', recordId)
         .single();
 
-      if (error) throw error;
-      if (!data) throw new Error('运单记录不存在');
+      if (logisticsError) throw logisticsError;
+      if (!logisticsData) throw new Error('运单记录不存在');
+
+      // 查询项目信息
+      let projectName = '';
+      if (logisticsData.project_id) {
+        const { data: projectData } = await supabase
+          .from('projects')
+          .select('id, name, auto_code')
+          .eq('id', logisticsData.project_id)
+          .single();
+        projectName = projectData?.name || '';
+      }
+
+      // 查询司机信息
+      let driverInfo: any = {};
+      if (logisticsData.driver_id) {
+        const { data: driverData } = await supabase
+          .from('drivers')
+          .select('id, name, license_plate, phone, id_card_number, bank_name, bank_account, bank_branch')
+          .eq('id', logisticsData.driver_id)
+          .single();
+        driverInfo = driverData || {};
+      }
 
       const formattedRecord: LogisticsRecord = {
-        id: data.id,
-        auto_number: data.auto_number,
-        project_id: data.project_id,
-        project_name: data.projects?.name || '',
+        id: logisticsData.id,
+        auto_number: logisticsData.auto_number,
+        project_id: logisticsData.project_id,
+        project_name: projectName,
         chain_id: null,
         chain_name: null,
         billing_type_id: 0,
-        driver_id: data.drivers?.id || '',
-        driver_name: data.drivers?.name || '',
-        loading_location: data.loading_location,
-        unloading_location: data.unloading_location,
-        loading_date: data.loading_date,
-        unloading_date: data.unloading_date,
-        loading_weight: data.goods_weight,
-        unloading_weight: data.goods_weight,
-        current_cost: data.unit_price,
-        payable_cost: data.total_price,
-        driver_payable_cost: data.total_price,
-        license_plate: data.drivers?.license_plate || '',
-        driver_phone: data.drivers?.phone || '',
+        driver_id: driverInfo.id || '',
+        driver_name: driverInfo.name || '',
+        loading_location: logisticsData.loading_location,
+        unloading_location: logisticsData.unloading_location,
+        loading_date: logisticsData.loading_date,
+        unloading_date: logisticsData.unloading_date,
+        loading_weight: logisticsData.goods_weight,
+        unloading_weight: logisticsData.goods_weight,
+        current_cost: logisticsData.unit_price,
+        payable_cost: logisticsData.total_price,
+        driver_payable_cost: logisticsData.total_price,
+        license_plate: driverInfo.license_plate || '',
+        driver_phone: driverInfo.phone || '',
         transport_type: null,
         extra_cost: null,
-        remarks: data.remarks,
+        remarks: logisticsData.remarks,
         loading_weighbridge_image_url: null,
         unloading_weighbridge_image_url: null,
-        external_tracking_numbers: data.external_tracking_numbers || [],
-        other_platform_names: data.other_platform_names || [],
-        created_at: data.created_at,
+        external_tracking_numbers: logisticsData.external_tracking_numbers || [],
+        other_platform_names: logisticsData.other_platform_names || [],
+        created_at: logisticsData.created_at,
       };
       return formattedRecord;
     } catch (error: any) {
