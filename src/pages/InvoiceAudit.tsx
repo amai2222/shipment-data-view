@@ -1,47 +1,1175 @@
 // 文件路径: src/pages/InvoiceAudit.tsx
-// 版本: 开票审核页面
-// 描述: 开票审核功能，暂时显示开发中
+// 描述: 开票审核页面 - 完全复制自PaymentAudit，将付款逻辑改为开票逻辑
 
-import React from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+// @ts-expect-error - lucide-react图标导入
+import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, RotateCcw, Users } from 'lucide-react';
+
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { cn } from '@/lib/utils';
+import { usePermissions } from '@/hooks/usePermissions';
 import { PageHeader } from '@/components/PageHeader';
-import { FileText, Construction } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CalendarIcon, X, Building, Search } from 'lucide-react';
+import { zhCN } from 'date-fns/locale';
+import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
+
+// --- 类型定义 ---
+interface InvoiceRequest {
+  id: string;
+  created_at: string;
+  request_number: string;
+  status: 'Pending' | 'Processing' | 'Invoiced' | 'Rejected';
+  remarks: string | null;
+  logistics_record_ids: string[];
+  record_count: number;
+  total_amount?: number; // 开票金额
+}
+interface LogisticsRecordDetail { id: string; auto_number: string; driver_name: string; license_plate: string; loading_location: string; unloading_location: string; loading_date: string; loading_weight: number | null; invoiceable_amount: number | null; }
+interface PartnerTotal { partner_id: string; partner_name: string; total_amount: number; level: number; }
+interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
 
 export default function InvoiceAudit() {
+  const [requests, setRequests] = useState<InvoiceRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const { toast } = useToast();
+  const { isAdmin } = usePermissions();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<InvoiceRequest | null>(null);
+  const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
+  const [modalContentLoading, setModalContentLoading] = useState(false);
+  const [partnerTotals, setPartnerTotals] = useState<PartnerTotal[]>([]);
+  const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [totalRequestsCount, setTotalRequestsCount] = useState(0);
+  
+  // 批量操作状态
+  const [isBatchOperating, setIsBatchOperating] = useState(false);
+  const [batchOperation, setBatchOperation] = useState<'approve' | 'invoice' | null>(null);
+  
+  // 批量输入对话框状态
+  const [batchInputDialog, setBatchInputDialog] = useState<{
+    isOpen: boolean;
+    type: 'requestNumber' | 'waybillNumber' | 'driverName' | 'licensePlate' | 'phoneNumber' | null;
+  }>({ isOpen: false, type: null });
+  
+  // 筛选器状态
+  const [filters, setFilters] = useState({
+    requestNumber: '',
+    waybillNumber: '',
+    driverName: '',
+    loadingDate: null as Date | null,
+    status: '',
+    projectId: '',
+    partnerName: '',
+    licensePlate: '',
+    phoneNumber: '',
+    platformName: ''
+  });
+  const [showFilters, setShowFilters] = useState(true);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(0);
+  const [jumpToPage, setJumpToPage] = useState('');
+  
+  // 项目列表状态
+  const [projects, setProjects] = useState<Array<{id: string, name: string}>>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  
+  // 平台选项状态
+  const [platformOptions, setPlatformOptions] = useState<Array<{platform_name: string, usage_count: number}>>([]);
+
+  const fetchInvoiceRequests = useCallback(async () => {
+    setLoading(true);
+    try {
+      // 使用后端筛选函数
+      // @ts-expect-error - RPC函数参数类型尚未更新
+      const { data, error } = await supabase.rpc('get_invoice_requests_filtered', {
+        p_request_number: filters.requestNumber || null,
+        p_waybill_number: filters.waybillNumber || null,
+        p_driver_name: filters.driverName || null,
+        p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
+        p_status: filters.status || null,
+        p_project_id: filters.projectId || null,
+        p_license_plate: filters.licensePlate || null,      // ✅ 添加车牌号筛选
+        p_phone_number: filters.phoneNumber || null,        // ✅ 添加电话筛选
+        p_platform_name: filters.platformName || null,      // ✅ 添加平台筛选
+        p_limit: pageSize,
+        p_offset: (currentPage - 1) * pageSize
+      });
+
+      if (error) throw error;
+      
+      // 处理返回的数据
+      const requestsData = (data as any[]) || [];
+      setRequests(requestsData.map(item => ({
+        id: item.id,
+        created_at: item.created_at,
+        request_number: item.request_number,
+        status: item.status,
+        remarks: item.remarks,
+        logistics_record_ids: [], // 需要从详情中获取
+        record_count: item.record_count || 0,
+        total_amount: item.total_amount
+      })));
+      
+      // 设置总数和总页数
+      if (requestsData.length > 0) {
+        const totalCount = (requestsData[0] as any).total_count || 0;
+        setTotalRequestsCount(totalCount);
+        setTotalPages(Math.ceil(totalCount / pageSize));
+      } else {
+        setTotalRequestsCount(0);
+        setTotalPages(0);
+      }
+    } catch (error) {
+      console.error("加载开票申请列表失败:", error);
+      toast({ title: "错误", description: `加载开票申请列表失败: ${(error as Error).message}`, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, filters, currentPage, pageSize]);
+
+  useEffect(() => { fetchInvoiceRequests(); }, [fetchInvoiceRequests]);
+
+  // 获取项目列表和平台选项
+  const fetchProjects = useCallback(async () => {
+    setLoadingProjects(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setProjects(data || []);
+      
+      // 加载动态平台选项
+      const { data: platformsData } = await supabase.rpc('get_all_used_platforms');
+      if (platformsData) {
+        const fixedPlatforms = ['本平台', '中科智运', '中工智云', '可乐公司', '盼盼集团'];
+        const dynamicPlatforms = (platformsData as {platform_name: string; usage_count: number}[]).filter(
+          p => !fixedPlatforms.includes(p.platform_name)
+        );
+        setPlatformOptions(dynamicPlatforms);
+      }
+    } catch (error) {
+      console.error('获取项目列表失败:', error);
+      toast({ title: "错误", description: "获取项目列表失败", variant: "destructive" });
+    } finally {
+      setLoadingProjects(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { fetchProjects(); }, [fetchProjects]);
+
+  // 筛选器处理函数
+  const handleFilterChange = (key: string, value: string | Date | null) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    // 筛选条件变化时重置到第一页，但不自动搜索
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      requestNumber: '',
+      waybillNumber: '',
+      driverName: '',
+      loadingDate: null,
+      status: '',
+      projectId: '',
+      partnerName: '',
+      licensePlate: '',
+      phoneNumber: '',
+      platformName: ''
+    });
+    setCurrentPage(1);
+    // 清除筛选后自动搜索
+    fetchInvoiceRequests();
+  };
+
+  const hasActiveFilters = filters.requestNumber || filters.waybillNumber || filters.driverName || filters.loadingDate || filters.status || filters.projectId || filters.partnerName || filters.licensePlate || filters.phoneNumber || filters.platformName;
+
+  // 批量输入对话框处理函数
+  const openBatchInputDialog = (type: 'requestNumber' | 'waybillNumber' | 'driverName' | 'licensePlate' | 'phoneNumber') => {
+    setBatchInputDialog({ isOpen: true, type });
+  };
+  
+  const closeBatchInputDialog = () => {
+    setBatchInputDialog({ isOpen: false, type: null });
+  };
+  
+  const handleBatchInputConfirm = (value: string) => {
+    const type = batchInputDialog.type;
+    if (type) {
+      handleFilterChange(type, value);
+    }
+    closeBatchInputDialog();
+  };
+  
+  const getCurrentBatchValue = () => {
+    const type = batchInputDialog.type;
+    if (!type) return '';
+    return filters[type]?.toString() || '';
+  };
+  
+  const getBatchInputConfig = () => {
+    const type = batchInputDialog.type;
+    const configs = {
+      requestNumber: { title: '批量输入开票单号', placeholder: '每行一个开票单号，或用逗号分隔', description: '支持多行输入或用逗号分隔' },
+      waybillNumber: { title: '批量输入运单编号', placeholder: '每行一个运单编号，或用逗号分隔', description: '支持多行输入或用逗号分隔' },
+      driverName: { title: '批量输入司机姓名', placeholder: '每行一个司机姓名，或用逗号分隔', description: '支持多行输入或用逗号分隔' },
+      licensePlate: { title: '批量输入车牌号', placeholder: '每行一个车牌号，或用逗号分隔', description: '支持多行输入或用逗号分隔' },
+      phoneNumber: { title: '批量输入电话号码', placeholder: '每行一个电话号码，或用逗号分隔', description: '支持多行输入或用逗号分隔' }
+    };
+    return type ? configs[type] : configs.requestNumber;
+  };
+
+  // 批量审批功能
+  const handleBatchApprove = async () => {
+    if (selection.selectedIds.size === 0) {
+      toast({ title: "提示", description: "请先选择要审批的开票申请", variant: "destructive" });
+      return;
+    }
+
+    setIsBatchOperating(true);
+    setBatchOperation('approve');
+    
+    try {
+      const selectedRequestNumbers = Array.from(selection.selectedIds).map(id => {
+        const req = requests.find(r => r.id === id);
+        return req?.request_number;
+      }).filter(Boolean);
+
+      // 批量更新状态为Processing（开票中）
+      const { error } = await supabase
+        .from('invoice_requests')
+        .update({ status: 'Processing' })
+        .in('request_number', selectedRequestNumbers);
+
+      if (error) throw error;
+
+      toast({ 
+        title: "批量审批完成", 
+        description: `已审批 ${selectedRequestNumbers.length} 个开票申请，状态已更新为"开票中"`,
+      });
+
+      // 清除选择并刷新数据
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchInvoiceRequests();
+    } catch (error) {
+      console.error('批量审批失败:', error);
+      toast({ title: "批量审批失败", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setIsBatchOperating(false);
+      setBatchOperation(null);
+    }
+  };
+
+  const handleBatchApproveWithConfirm = () => {
+    const selectedCount = selection.selectedIds.size;
+    const confirmDialog = window.confirm(`确定要审批选中的 ${selectedCount} 个开票申请吗？`);
+    if (confirmDialog) {
+      handleBatchApprove();
+    }
+  };
+
+  // 取消审批（回滚到待审批状态）
+  const handleRollbackApproval = async (requestNumber: string) => {
+    try {
+      setExportingId(requestNumber);
+      
+      // 回滚状态为Pending
+      const { error } = await supabase
+        .from('invoice_requests')
+        .update({ status: 'Pending' })
+        .eq('request_number', requestNumber);
+
+      if (error) throw error;
+
+      toast({ title: "审批回滚成功", description: "开票申请已回滚为待审批状态" });
+      fetchInvoiceRequests();
+    } catch (error) {
+      console.error('审批回滚失败:', error);
+      toast({ title: "审批回滚失败", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const handleRollbackApprovalWithConfirm = (requestNumber: string) => {
+    const confirmDialog = window.confirm(`确定要取消审批开票申请 ${requestNumber} 吗？此操作将把申请单状态回滚为待审批。`);
+    if (confirmDialog) {
+      handleRollbackApproval(requestNumber);
+    }
+  };
+
+  // 分页处理函数
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // 重置到第一页
+  };
+
+  const handleJumpToPage = () => {
+    const page = parseInt(jumpToPage);
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setJumpToPage('');
+    } else {
+      toast({ title: "错误", description: `请输入1到${totalPages}之间的页码`, variant: "destructive" });
+    }
+  };
+
+  const getStatusBadge = (status: InvoiceRequest['status']) => {
+    switch (status) {
+      case 'Pending': return <Badge variant="secondary">待审批</Badge>;
+      case 'Processing': return <Badge variant="default">开票中</Badge>;
+      case 'Invoiced': return <Badge variant="outline">已开票</Badge>;
+      case 'Rejected': return <Badge variant="destructive">已驳回</Badge>;
+      default: return <Badge>{status}</Badge>;
+    }
+  };
+
+  // 生成开票申请单PDF
+  // @ts-expect-error - React.MouseEvent类型
+  const handleGeneratePDF = async (e: React.MouseEvent<HTMLButtonElement>, req: InvoiceRequest) => {
+    e.stopPropagation();
+    toast({ 
+      title: '功能开发中', 
+      description: '开票申请单PDF生成功能正在开发中，敬请期待。',
+      variant: "default"
+    });
+  };
+
+  // 审批功能
+  const handleApproval = async (e: React.MouseEvent<HTMLButtonElement>, req: InvoiceRequest) => {
+    e.stopPropagation();
+    try {
+      setExportingId(req.id);
+      
+      // 更新申请状态为开票中
+      const { error } = await supabase
+        .from('invoice_requests')
+        .update({ status: 'Processing' })
+        .eq('id', req.id);
+      
+      if (error) {
+        console.error('审批失败:', error);
+        toast({ title: "审批失败", description: error.message, variant: "destructive" });
+        return;
+      }
+      
+      toast({ title: "审批成功", description: "开票申请已审批通过，状态已更新为开票中" });
+      fetchInvoiceRequests();
+    } catch (error) {
+      console.error('审批操作失败:', error);
+      toast({ title: "审批失败", description: "操作失败，请重试", variant: "destructive" });
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const handleApprovalWithConfirm = (e: React.MouseEvent<HTMLButtonElement>, req: InvoiceRequest) => {
+    const confirmDialog = window.confirm(`确定要审批开票申请 ${req.request_number} 吗？`);
+    if (confirmDialog) {
+      handleApproval(e, req);
+    }
+  };
+
+  // 查看详情
+  const handleViewDetails = useCallback(async (request: InvoiceRequest) => {
+    setSelectedRequest(request);
+    setIsModalOpen(true);
+    setModalContentLoading(true);
+    setModalRecords([]);
+    setPartnerTotals([]);
+
+    try {
+      // 获取开票申请详情
+      const { data: detailsData, error } = await supabase
+        .from('invoice_request_details')
+        .select(`
+          *,
+          logistics_records:logistics_record_id (
+            id,
+            auto_number,
+            driver_name,
+            license_plate,
+            loading_location,
+            unloading_location,
+            loading_date,
+            loading_weight,
+            invoiceable_amount
+          )
+        `)
+        .eq('invoice_request_id', request.id);
+
+      if (error) throw error;
+
+      const detailedRecords = (detailsData || []).map((detail: any) => {
+        const record = detail.logistics_records;
+        return {
+          id: record.id,
+          auto_number: record.auto_number,
+          driver_name: record.driver_name,
+          license_plate: record.license_plate,
+          loading_location: record.loading_location,
+          unloading_location: record.unloading_location,
+          loading_date: record.loading_date,
+          loading_weight: record.loading_weight,
+          invoiceable_amount: record.invoiceable_amount || 0,
+        };
+      });
+      
+      setModalRecords(detailedRecords);
+
+      // 计算合作方汇总（简化版，开票申请通常针对单一合作方）
+      if (detailedRecords.length > 0) {
+        const totalAmount = detailedRecords.reduce((sum, rec) => sum + (rec.invoiceable_amount || 0), 0);
+        setPartnerTotals([{
+          partner_id: (detailsData[0] as any).partner_id || '',
+          partner_name: (detailsData[0] as any).partner_name || '未知合作方',
+          total_amount: totalAmount,
+          level: 1
+        }]);
+      }
+
+    } catch (error) {
+      console.error('获取运单详情失败:', error);
+      toast({
+        title: '获取详情失败',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+      setIsModalOpen(false);
+    } finally {
+      setModalContentLoading(false);
+    }
+  }, [toast]);
+
+  // 选择相关函数
+  const handleRequestSelect = (requestId: string) => {
+    setSelection(prev => {
+      const newSet = new Set(prev.selectedIds);
+      if (newSet.has(requestId)) { newSet.delete(requestId); } else { newSet.add(requestId); }
+      if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; }
+      return { ...prev, selectedIds: newSet };
+    });
+  };
+
+  const handleSelectAllOnPage = (isChecked: boolean) => {
+    const pageIds = requests.map(r => r.id);
+    if (isChecked) {
+      setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) }));
+    } else {
+      setSelection(prev => {
+        const newSet = new Set(prev.selectedIds);
+        pageIds.forEach(id => newSet.delete(id));
+        if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; }
+        return { ...prev, selectedIds: newSet };
+      });
+    }
+  };
+
+  const selectionCount = useMemo(() => {
+    if (selection.mode === 'all_filtered') return totalRequestsCount;
+    return selection.selectedIds.size;
+  }, [selection, totalRequestsCount]);
+
+  const isAllOnPageSelected = useMemo(() => {
+    if (requests.length === 0) return false;
+    return requests.every(req => selection.selectedIds.has(req.id));
+  }, [requests, selection.selectedIds]);
+
+  // 批量作废功能
+  const handleCancelRequests = async () => {
+    setIsCancelling(true);
+    try {
+      let idsToCancel: string[] = [];
+      if (selection.mode === 'all_filtered') {
+        const { data: allRequests, error: fetchError } = await supabase
+          .from('invoice_requests')
+          .select('request_number')
+          .in('status', ['Pending', 'Processing']);
+        if (fetchError) throw fetchError;
+        idsToCancel = allRequests.map(r => r.request_number);
+      } else {
+        const selectedReqs = requests.filter(r => selection.selectedIds.has(r.id) && ['Pending', 'Processing'].includes(r.status));
+        idsToCancel = selectedReqs.map(r => r.request_number);
+      }
+
+      if (idsToCancel.length === 0) {
+        toast({ title: "提示", description: "没有选择任何可作废的申请单（仅\"待审批\"和\"开票中\"状态可作废）。" });
+        setIsCancelling(false);
+        return;
+      }
+
+      // 执行作废操作 - 更新状态为Rejected
+      const { error } = await supabase
+        .from('invoice_requests')
+        .update({ status: 'Rejected' })
+        .in('request_number', idsToCancel);
+
+      if (error) throw error;
+
+      toast({ 
+        title: "操作成功", 
+        description: `已成功作废 ${idsToCancel.length} 张开票申请单`
+      });
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchInvoiceRequests();
+    } catch (error) {
+      console.error("批量作废申请失败:", error);
+      toast({ title: "错误", description: `操作失败: ${(error as Error).message}`, variant: "destructive" });
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleCancelRequestsWithConfirm = () => {
+    const selectedCount = selection.selectedIds.size;
+    const confirmDialog = window.confirm(`确定要作废选中的 ${selectedCount} 个开票申请吗？`);
+    if (confirmDialog) {
+      handleCancelRequests();
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <PageHeader 
-        title="开票审核" 
+    <div className="space-y-2 p-4 md:p-6">
+      <PageHeader
+        title="开票审核"
         description="审核和管理开票申请单"
-        icon={FileText}
+        icon={Receipt}
+        iconColor="text-blue-600"
+        actions={
+          <div className="flex items-center gap-2">
+            {showFilters && (
+              <>
+                {hasActiveFilters && (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    <X className="h-4 w-4 mr-1" />
+                    清除筛选
+                  </Button>
+                )}
+                <Button onClick={fetchInvoiceRequests} size="sm">
+                  <Search className="h-4 w-4 mr-1" />
+                  搜索
+                </Button>
+              </>
+            )}
+            {hasActiveFilters && <Badge variant="secondary">已筛选</Badge>}
+          </div>
+        }
       />
 
+
+      <div className="space-y-2">
+
+      <div className="flex justify-between items-center">
+        <div/>
+      </div>
+
+      {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && isAllOnPageSelected && totalRequestsCount > requests.length && (
+        <div className="flex items-center justify-center gap-4 p-2 text-sm font-medium text-center bg-secondary text-secondary-foreground rounded-md">
+          <span>已选择当前页的所有 <b>{requests.length}</b> 条记录。</span>
+          <Button variant="link" className="p-0 h-auto" onClick={() => setSelection({ mode: 'all_filtered', selectedIds: new Set() })}>选择全部 <b>{totalRequestsCount}</b> 条记录</Button>
+        </div>
+      )}
+      {selection.mode === 'all_filtered' && (
+        <div className="flex items-center justify-center gap-4 p-2 text-sm font-medium text-center bg-secondary text-secondary-foreground rounded-md">
+          <span>已选择全部 <b>{totalRequestsCount}</b> 条匹配的记录。</span>
+          <Button variant="link" className="p-0 h-auto" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
+        </div>
+      )}
+
+      {/* 筛选器 */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            开票审核功能
-          </CardTitle>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">筛选条件</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className="text-sm"
+            >
+              {showAdvancedFilters ? '收起高级筛选 ▲' : '展开高级筛选 ▼'}
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Construction className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">功能开发中</h3>
-            <p className="text-muted-foreground mb-4">
-              开票审核功能正在开发中，敬请期待...
-            </p>
-            <div className="text-sm text-muted-foreground">
-              <p>预计功能包括：</p>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>开票申请单审核</li>
-                <li>开票状态管理</li>
-                <li>开票金额审核</li>
-                <li>开票流程跟踪</li>
-              </ul>
+        <CardContent className="space-y-4">
+          {/* 常规查询 - 第一行 */}
+          <div className="flex flex-wrap gap-3 items-end">
+            {/* 开票单号 */}
+            <div className="flex-1 min-w-[180px] space-y-2">
+              <Label htmlFor="requestNumber" className="text-sm font-medium">开票单号</Label>
+              <div className="relative">
+                <Input
+                  id="requestNumber"
+                  placeholder="输入开票单号"
+                  value={filters.requestNumber}
+                  onChange={(e) => handleFilterChange('requestNumber', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      fetchInvoiceRequests();
+                    }
+                  }}
+                  className="pr-8"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                  onClick={() => openBatchInputDialog('requestNumber')}
+                >
+                  <span className="text-lg">+</span>
+                </Button>
+              </div>
             </div>
+
+            {/* 申请单状态 */}
+            <div className="flex-1 min-w-[140px] space-y-2">
+              <Label htmlFor="status" className="text-sm font-medium">申请单状态</Label>
+              <select
+                id="status"
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm h-10"
+              >
+                <option value="">全部状态</option>
+                <option value="Pending">待审批</option>
+                <option value="Processing">开票中</option>
+                <option value="Invoiced">已开票</option>
+                <option value="Rejected">已驳回</option>
+              </select>
+            </div>
+
+            {/* 项目 */}
+            <div className="flex-1 min-w-[140px] space-y-2">
+              <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
+                <Building className="h-4 w-4" />
+                项目
+              </Label>
+              <select
+                id="projectId"
+                value={filters.projectId}
+                onChange={(e) => handleFilterChange('projectId', e.target.value)}
+                disabled={loadingProjects}
+                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50 h-10"
+              >
+                <option value="">{loadingProjects ? "加载中..." : "全部项目"}</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 日期范围 */}
+            <div className="flex-1 min-w-[160px] space-y-2">
+              <Label htmlFor="loadingDate" className="text-sm font-medium flex items-center gap-1">
+                <CalendarIcon className="h-4 w-4" />
+                日期范围
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="loadingDate"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-10",
+                      !filters.loadingDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.loadingDate ? format(filters.loadingDate, "yyyy-MM-dd", { locale: zhCN }) : "选择日期范围"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={filters.loadingDate || undefined}
+                    onSelect={(date) => handleFilterChange('loadingDate', date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* 操作按钮 */}
+            <div className="flex gap-2">
+              {hasActiveFilters && (
+                <Button variant="outline" size="default" onClick={clearFilters} className="h-10">
+                  <X className="h-4 w-4 mr-1" />
+                  清除
+                </Button>
+              )}
+              <Button onClick={fetchInvoiceRequests} size="default" className="bg-blue-600 hover:bg-blue-700 h-10">
+                <Search className="h-4 w-4 mr-1" />
+                搜索
+              </Button>
+            </div>
+          </div>
+
+          {/* 高级筛选 */}
+          {showAdvancedFilters && (
+            <div className="space-y-4 pt-4 border-t">
+              {/* 第一排：司机、车牌号、电话 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 司机 */}
+                <div className="space-y-2">
+                  <Label htmlFor="driverName" className="text-sm font-medium flex items-center gap-1">
+                    <Users className="h-4 w-4" />
+                    司机
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="driverName"
+                      placeholder="司机姓名，多个用逗号分隔..."
+                      value={filters.driverName}
+                      onChange={(e) => handleFilterChange('driverName', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          fetchInvoiceRequests();
+                        }
+                      }}
+                      className="pr-8"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => openBatchInputDialog('driverName')}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 车牌号 */}
+                <div className="space-y-2">
+                  <Label htmlFor="licensePlate" className="text-sm font-medium">🚗 车牌号</Label>
+                  <div className="relative">
+                    <Input
+                      id="licensePlate"
+                      placeholder="车牌号，多个用逗号分隔..."
+                      value={filters.licensePlate}
+                      onChange={(e) => handleFilterChange('licensePlate', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          fetchInvoiceRequests();
+                        }
+                      }}
+                      className="pr-8"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => openBatchInputDialog('licensePlate')}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 电话 */}
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber" className="text-sm font-medium">📞 电话</Label>
+                  <div className="relative">
+                    <Input
+                      id="phoneNumber"
+                      placeholder="电话号码，多个用逗号分隔..."
+                      value={filters.phoneNumber}
+                      onChange={(e) => handleFilterChange('phoneNumber', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          fetchInvoiceRequests();
+                        }
+                      }}
+                      className="pr-8"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => openBatchInputDialog('phoneNumber')}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 第二排：运单编号、平台名称 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 运单编号 */}
+                <div className="space-y-2">
+                  <Label htmlFor="waybillNumber" className="text-sm font-medium flex items-center gap-1">
+                    <FileText className="h-4 w-4" />
+                    运单编号
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="waybillNumber"
+                      placeholder="输入运单编号，多个用逗号分隔..."
+                      value={filters.waybillNumber}
+                      onChange={(e) => handleFilterChange('waybillNumber', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          fetchInvoiceRequests();
+                        }
+                      }}
+                      className="pr-8"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => openBatchInputDialog('waybillNumber')}
+                    >
+                      <span className="text-lg">+</span>
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">💡 支持按本平台和其他平台运单号查询</p>
+                </div>
+                
+                {/* 平台名称 */}
+                <div className="space-y-2">
+                  <Label htmlFor="platformName" className="text-sm font-medium">🌐 平台名称</Label>
+                  <Select 
+                    value={filters.platformName || 'all'} 
+                    onValueChange={(v) => handleFilterChange('platformName', v === 'all' ? '' : v)}
+                  >
+                    <SelectTrigger id="platformName" className="h-10">
+                      <SelectValue placeholder="选择平台" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">所有平台</SelectItem>
+                      <SelectItem value="本平台">本平台</SelectItem>
+                      <SelectItem value="中科智运">中科智运</SelectItem>
+                      <SelectItem value="中工智云">中工智云</SelectItem>
+                      <SelectItem value="可乐公司">可乐公司</SelectItem>
+                      <SelectItem value="盼盼集团">盼盼集团</SelectItem>
+                      {platformOptions.length > 0 && (
+                        <>
+                          <SelectItem value="---" disabled className="text-xs text-muted-foreground">
+                            ─── 其他平台 ───
+                          </SelectItem>
+                          {platformOptions.map((platform) => (
+                            <SelectItem key={platform.platform_name} value={platform.platform_name}>
+                              {platform.platform_name} ({platform.usage_count}条)
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle>申请单列表</CardTitle>
+            {isAdmin && selection.selectedIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  已选择 {selection.selectedIds.size} 个申请单
+                </span>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleBatchApproveWithConfirm}
+                  disabled={isBatchOperating}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                >
+                  {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
+                  批量审批
+                </Button>
+                {isAdmin && (
+                  <Button 
+                    variant="destructive" 
+                    disabled={selectionCount === 0 || isCancelling} 
+                    onClick={handleCancelRequestsWithConfirm}
+                    className="flex items-center gap-2"
+                  >
+                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    一键作废 ({selectionCount})
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="min-h-[400px]">
+            {loading ? (
+              <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
+            ) : (
+              <Table>
+                 <TableHeader>
+                   <TableRow>
+                     {isAdmin && <TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>}
+                    <TableHead>开票单号</TableHead>
+                    <TableHead>申请时间</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead className="text-right">运单数</TableHead>
+                    <TableHead className="text-right">开票金额</TableHead>
+                    <TableHead className="text-center">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {requests.length > 0 ? (
+                    requests.map((req) => (
+                      <TableRow 
+                        key={req.id} 
+                        data-state={selection.selectedIds.has(req.id) ? "selected" : undefined}
+                        className="hover:bg-muted/50"
+                      >
+                        {isAdmin && (
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(req.id)} onCheckedChange={() => handleRequestSelect(req.id)} />
+                          </TableCell>
+                        )}
+                        <TableCell className="font-mono cursor-pointer" onClick={() => handleViewDetails(req)}>{req.request_number}</TableCell>
+                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
+                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{getStatusBadge(req.status)}</TableCell>
+                        <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
+                        <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
+                          {req.total_amount ? `¥${req.total_amount.toLocaleString()}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-3 flex-wrap">
+                            {/* 查看申请单按钮 - 蓝色主题 */}
+                            <Button 
+                              variant="default" 
+                              size="sm" 
+                              onClick={(e) => handleGeneratePDF(e, req)} 
+                              disabled={exportingId === req.id}
+                              className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200"
+                            >
+                              <FileText className="mr-2 h-4 w-4" />
+                              查看申请单
+                            </Button>
+
+                            {/* 取消审批按钮 - 灰色主题，只在开票中状态显示 */}
+                            {req.status === 'Processing' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleRollbackApprovalWithConfirm(req.request_number)} 
+                                disabled={exportingId === req.id}
+                                className="border-gray-300 text-gray-600 hover:bg-gray-50 shadow-sm transition-all duration-200"
+                              >
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                取消审批
+                              </Button>
+                            )}
+
+                            {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
+                            {req.status === 'Pending' && (
+                              <Button 
+                                variant="default" 
+                                size="sm" 
+                                onClick={(e) => handleApprovalWithConfirm(e, req)} 
+                                disabled={exportingId === req.id}
+                                className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                              >
+                                <ClipboardList className="mr-2 h-4 w-4" />
+                                审批
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow><TableCell colSpan={isAdmin ? 7 : 6} className="h-24 text-center">暂无开票申请记录。</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </div>
         </CardContent>
       </Card>
+
+      {/* 详情对话框 */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-6xl">
+          <DialogHeader>
+            <DialogTitle>申请单详情: {selectedRequest?.request_number}</DialogTitle>
+            <DialogDescription>
+              此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
+            </DialogDescription>
+          </DialogHeader>
+          
+          {!modalContentLoading && partnerTotals.length > 0 && (
+            <div className="p-4 border rounded-lg bg-muted/50">
+              <h4 className="mb-2 font-semibold text-foreground">金额汇总 (按合作方)</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
+                {partnerTotals
+                  .sort((a, b) => (b.total_amount || 0) - (a.total_amount || 0))
+                  .map(pt => (
+                  <div key={pt.partner_id} className="flex justify-between items-baseline">
+                    <span className="text-sm text-muted-foreground">{pt.partner_name}:</span>
+                    <span className="font-mono font-semibold text-primary">
+                      {(pt.total_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="max-h-[50vh] overflow-y-auto">
+            {modalContentLoading ? (
+              <div className="flex justify-center items-center h-48">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>运单号</TableHead>
+                    <TableHead>司机</TableHead>
+                    <TableHead>车牌号</TableHead>
+                    <TableHead>起运地 → 目的地</TableHead>
+                    <TableHead>装车日期</TableHead>
+                    <TableHead className="text-right">吨位</TableHead>
+                    <TableHead className="text-right">开票金额(元)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {modalRecords.length > 0 ? (
+                    modalRecords.map((rec) => (
+                      <TableRow key={rec.id}>
+                        <TableCell className="font-mono">{rec.auto_number}</TableCell>
+                        <TableCell>{rec.driver_name}</TableCell>
+                        <TableCell>{rec.license_plate}</TableCell>
+                        <TableCell>{`${rec.loading_location} → ${rec.unloading_location}`}</TableCell>
+                        <TableCell>{format(new Date(rec.loading_date), 'yyyy-MM-dd')}</TableCell>
+                        <TableCell className="text-right">{rec.loading_weight ?? 'N/A'}</TableCell>
+                        <TableCell className="text-right font-mono text-primary">
+                          {(rec.invoiceable_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center">
+                        未能加载运单详情或此申请单无运单。
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 分页组件 */}
+      {totalPages > 0 && (
+        <div className="flex items-center justify-center gap-4 py-2">
+          {/* 每页显示 */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">每页显示</span>
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
+              className="px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-muted-foreground">条</span>
+          </div>
+
+          {/* 上一页 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className="h-8 px-3"
+          >
+            上一页
+          </Button>
+
+          {/* 页码信息 */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">第</span>
+            <Input
+              type="number"
+              value={currentPage}
+              onChange={(e) => {
+                const page = parseInt(e.target.value);
+                if (page >= 1 && page <= totalPages) {
+                  handlePageChange(page);
+                }
+              }}
+              className="w-12 h-8 text-center"
+              min={1}
+              max={totalPages}
+            />
+            <span className="text-sm text-muted-foreground">页,共{totalPages}页</span>
+          </div>
+
+          {/* 下一页 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className="h-8 px-3"
+          >
+            下一页
+          </Button>
+        </div>
+      )}
+      </div>
+      
+      {/* 批量输入对话框 */}
+      <BatchInputDialog
+        isOpen={batchInputDialog.isOpen}
+        onClose={closeBatchInputDialog}
+        onApply={handleBatchInputConfirm}
+        title={getBatchInputConfig().title}
+        placeholder={getBatchInputConfig().placeholder}
+        description={getBatchInputConfig().description}
+        currentValue={getCurrentBatchValue()}
+      />
     </div>
   );
 }
