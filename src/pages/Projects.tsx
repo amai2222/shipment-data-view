@@ -18,6 +18,7 @@ import { Project, Location, Partner, ProjectPartner, PartnerChain } from "@/type
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
+import { PartnerSelector } from "@/components/PartnerSelector";
 
 // 【核心类型】扩展 Project 类型，使其可以直接包含从后端一次性获取的嵌套数据
 interface ProjectWithDetails extends Project {
@@ -104,11 +105,20 @@ export default function Projects() {
     queryFn: async () => {
       const { data: partnersData, error: partnersError } = await supabase
         .from('partners')
-        .select('*')
+        .select('id, name, tax_rate, created_at, partner_type, parent_partner_id, hierarchy_path, hierarchy_depth, is_root')
         .order('name', { ascending: true });
 
       if (partnersError) throw partnersError;
-      return partnersData?.map(p => ({...p, taxRate: Number(p.tax_rate), createdAt: p.created_at})) || [];
+      return partnersData?.map(p => ({
+        ...p, 
+        taxRate: Number(p.tax_rate), 
+        createdAt: p.created_at,
+        partnerType: p.partner_type,
+        parentPartnerId: p.parent_partner_id,
+        hierarchyPath: p.hierarchy_path,
+        hierarchyDepth: p.hierarchy_depth,
+        isRoot: p.is_root
+      })) || [];
     },
     staleTime: 10 * 60 * 1000, // 10分钟缓存（合作方变化不频繁）
     cacheTime: 30 * 60 * 1000,
@@ -568,7 +578,16 @@ export default function Projects() {
                             <div className="space-y-2">
                                {chain.partners.map((partner, partnerIndex) => (
                                 <div key={partner.id} className="flex items-center space-x-2 p-2 bg-muted/30 rounded">
-                                  <div className="flex-1"><select value={partner.partnerId} onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'partnerId', e.target.value)} className="w-full p-1 border rounded text-sm" disabled={isSubmitting}><option value="">请选择合作方</option>{partners.map(p => (<option key={p.id} value={p.id}>{p.name} (默认税点: {(p.taxRate * 100).toFixed(2)}%)</option>))}</select></div>
+                                  <div className="flex-1">
+                                    <PartnerSelector
+                                      value={partner.partnerId}
+                                      onChange={(value) => updatePartnerInChain(chainIndex, partnerIndex, 'partnerId', value)}
+                                      partners={partners as any}
+                                      disabled={isSubmitting}
+                                      placeholder="请选择合作方"
+                                      className="w-full text-sm"
+                                    />
+                                  </div>
                                   <div className="w-16"><input type="number" min="1" value={partner.level} onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'level', parseInt(e.target.value) || 1)} className="w-full p-1 border rounded text-sm" placeholder="级别" disabled={isSubmitting}/></div>
                                   <div className="w-24"><select value={partner.calculationMethod} onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'calculationMethod', e.target.value)} className="w-full p-1 border rounded text-sm" disabled={isSubmitting}><option value="tax">税点</option><option value="profit">利润</option></select></div>
                                   <div className="w-20"><input type="number" step="0.001" min="0" max={partner.calculationMethod === "tax" ? "0.999" : "999"} value={partner.calculationMethod === "tax" ? partner.taxRate : (partner.profitRate || 0)} onChange={(e) => { const value = parseFloat(e.target.value) || 0; const field = partner.calculationMethod === "tax" ? 'taxRate' : 'profitRate'; updatePartnerInChain(chainIndex, partnerIndex, field, value); }} className="w-full p-1 border rounded text-sm" placeholder={partner.calculationMethod === "tax" ? "税点" : "利润"} disabled={isSubmitting}/></div>
