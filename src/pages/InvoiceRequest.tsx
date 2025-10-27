@@ -553,11 +553,39 @@ export default function InvoiceRequest() {
 
       if (error) throw error;
 
-      toast({
-        title: "成功",
-        description: `开票申请已成功创建，共处理 ${finalInvoiceData.all_record_ids.length} 条运单`,
-        variant: "default"
-      });
+      // 解析返回结果
+      const result = data as { 
+        success: boolean; 
+        message: string;
+        created_requests: Array<{
+          request_number: string;
+          partner_name: string;
+          total_amount: number;
+          record_count: number;
+        }>; 
+        total_requests: number;
+        processed_record_ids: string[];
+      };
+
+      // 根据创建的申请单数量显示不同的提示
+      if (result.total_requests > 1) {
+        const partnerList = result.created_requests
+          .map(req => `${req.partner_name}(${req.record_count}条)`)
+          .join('、');
+        
+        toast({
+          title: "成功 - 已自动切分",
+          description: `根据最高级合作方自动创建了 ${result.total_requests} 个开票申请单：${partnerList}，共处理 ${finalInvoiceData.all_record_ids.length} 条运单`,
+          variant: "default",
+          duration: 8000  // 信息较多，延长显示时间
+        });
+      } else {
+        toast({
+          title: "成功",
+          description: `开票申请已成功创建，共处理 ${finalInvoiceData.all_record_ids.length} 条运单`,
+          variant: "default"
+        });
+      }
 
       setIsPreviewModalOpen(false);
       setSelection({ mode: 'none', selectedIds: new Set() });
