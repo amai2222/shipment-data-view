@@ -28,6 +28,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { UserWithPermissions, UserRole } from '@/types';
+import { DynamicRoleService } from '@/services/DynamicRoleService';
 
 interface EnterpriseUserEditDialogProps {
   user: UserWithPermissions | null;
@@ -283,9 +284,14 @@ export function EnterpriseUserEditDialog({
                         <SelectValue placeholder="选择角色" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="admin">管理员</SelectItem>
-                        <SelectItem value="operator">操作员</SelectItem>
-                        <SelectItem value="viewer">查看者</SelectItem>
+                        {DynamicRoleService.generateRoleSelectOptions().map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center">
+                              <div className={`w-3 h-3 rounded-full ${option.color} mr-2`} />
+                              {option.label}
+                            </div>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

@@ -187,17 +187,20 @@ serve(async (req) => {
 
     console.log('认证用户创建成功，ID:', authData.user.id);
 
-    // 创建用户档案
+    // 创建用户档案（使用upsert避免ID冲突）
     const { data: profileData, error: createProfileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
+      .upsert({
         id: authData.user.id,
         email: requestData.email,
         full_name: requestData.full_name,
         role: requestData.role,
         phone: requestData.phone || null,
         work_wechat_userid: requestData.work_wechat_userid || null,
-        is_active: true
+        is_active: true,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'id'
       })
       .select()
       .single();
