@@ -1,16 +1,17 @@
-# 最终执行清单 - 批量查询支持空格分隔
+# 最终执行清单 - 批量查询支持空格分隔（4个SQL文件）
 
 ## 📋 需要执行的SQL文件
 
 ### ✅ 已完成
 1. ✅ `update_payment_requests_filter_with_all_params.sql` - 付款审核/财务付款
 
-### ⏳ 待执行（共3个文件）
+### ⏳ 待执行（共4个文件）
 
 | 优先级 | 文件名 | 包含函数 | 影响页面 |
 |-------|--------|---------|---------|
 | ⭐⭐⭐ | `20250126_update_payment_request_functions_support_space.sql` | 2个函数 | 付款申请 |
 | ⭐⭐⭐ | `20250126_update_logistics_functions_support_space.sql` | 2个函数 | 运单管理 |
+| ⭐⭐⭐ | `20250126_create_invoice_requests_filtered_function.sql` | 1个函数 | 开票申请单管理 |
 | ⭐⭐ | `20250126_update_invoice_functions_support_space_separator.sql` | 1个函数 | 开票申请 |
 
 ---
@@ -60,7 +61,25 @@ SELECT * FROM get_logistics_summary_and_records_enhanced(p_driver_name => '张�
 
 ---
 
-### 文件3：开票申请页面 ⭐⭐
+### 文件3：开票申请单管理页面 ⭐⭐⭐
+
+**文件**：`20250126_create_invoice_requests_filtered_function.sql`
+
+**包含函数**：
+- `get_invoice_requests_filtered` - 开票申请单筛选函数（新建）
+
+**为什么重要**：前端已更新使用此函数，必须执行
+
+**执行方法**：同上
+
+**验证**：
+```sql
+SELECT * FROM get_invoice_requests_filtered(p_driver_name => '张三 李四');
+```
+
+---
+
+### 文件4：开票申请页面 ⭐⭐
 
 **文件**：`20250126_update_invoice_functions_support_space_separator.sql`
 

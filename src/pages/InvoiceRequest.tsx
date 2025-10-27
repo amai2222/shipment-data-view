@@ -796,7 +796,12 @@ export default function InvoiceRequest() {
                               {formatChineseDate(r.loading_date)}
                             </TableCell>
                             <TableCell className="font-mono cursor-pointer whitespace-nowrap font-bold text-primary" onClick={() => setViewingRecord(r)}>
-                              {formatCurrency(r.payable_cost)}
+                              {formatCurrency(
+                                r.payable_cost || 
+                                (Array.isArray(r.partner_costs) && r.partner_costs.find((c: any) => c.level === 0)?.payable_amount) ||
+                                r.current_cost ||
+                                null
+                              )}
                             </TableCell>
                             {Array.isArray(displayedPartners) && displayedPartners.map(p => { 
                               const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.id)); 
@@ -1001,8 +1006,13 @@ export default function InvoiceRequest() {
                 <p>{getInvoiceStatusBadge(viewingRecord.invoice_status)}</p>
               </div>
               <div className="space-y-1">
-                <Label className="text-muted-foreground">应收金额</Label>
-                <p className="font-mono font-bold text-primary">{formatCurrency(viewingRecord.payable_cost)}</p>
+                <Label className="text-muted-foreground">应收金额（司机）</Label>
+                <p className="font-mono font-bold text-primary">{formatCurrency(
+                  viewingRecord.payable_cost || 
+                  (Array.isArray(viewingRecord.partner_costs) && viewingRecord.partner_costs.find((c: any) => c.level === 0)?.payable_amount) ||
+                  viewingRecord.current_cost ||
+                  null
+                )}</p>
               </div>
               
               {viewingRecord.loading_weight && (

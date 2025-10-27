@@ -176,144 +176,30 @@ export default function InvoiceRequestManagement() {
     return type ? configs[type] : configs.requestNumber;
   };
 
-  // 加载开票申请单列表
+  // 加载开票申请单列表（使用后端RPC函数）
   const loadInvoiceRequests = async () => {
     try {
       setLoading(true);
       
-      // 构建基于logistics_records的查询
-      let query = supabase
-        .from('invoice_requests')
-        .select(`
-          *,
-          profiles!created_by (
-            full_name
-          )
-        `);
-
-      // 如果有基于logistics_records的筛选条件，需要先找到符合条件的运单ID
-      if (filters.projectId || filters.loadingDate || filters.driverName || filters.licensePlate || filters.phoneNumber || filters.waybillNumber || filters.platformName) {
-        // 构建logistics_records查询
-        let logisticsQuery = supabase
-          .from('logistics_records')
-          .select('id, auto_number, driver_name, license_plate, driver_phone, external_tracking_numbers, other_platform_names');
-
-        // 项目筛选
-        if (filters.projectId) {
-          logisticsQuery = logisticsQuery.eq('project_id', filters.projectId);
-        }
-
-        // 装货日期筛选
-        if (filters.loadingDate) {
-          logisticsQuery = logisticsQuery.eq('loading_date', format(filters.loadingDate, 'yyyy-MM-dd'));
-        }
-
-        // 执行logistics_records查询
-        const { data: logisticsData, error: logisticsError } = await logisticsQuery;
-        if (logisticsError) throw logisticsError;
-
-        // 前端过滤批量查询字段（支持逗号和空格分隔）
-        let filteredLogisticsData = logisticsData || [];
-        
-        // 司机筛选（支持批量OR逻辑）
-        if (filters.driverName) {
-          const driverNames = filters.driverName.split(/[,\s]+/).map(s => s.trim()).filter(s => s);
-          filteredLogisticsData = filteredLogisticsData.filter(record =>
-            driverNames.some(name => record.driver_name?.toLowerCase().includes(name.toLowerCase()))
-          );
-        }
-        
-        // 车牌号筛选（支持批量OR逻辑）
-        if (filters.licensePlate) {
-          const plates = filters.licensePlate.split(/[,\s]+/).map(s => s.trim()).filter(s => s);
-          filteredLogisticsData = filteredLogisticsData.filter(record =>
-            plates.some(plate => record.license_plate?.toLowerCase().includes(plate.toLowerCase()))
-          );
-        }
-        
-        // 电话筛选（支持批量OR逻辑）
-        if (filters.phoneNumber) {
-          const phones = filters.phoneNumber.split(/[,\s]+/).map(s => s.trim()).filter(s => s);
-          filteredLogisticsData = filteredLogisticsData.filter(record =>
-            phones.some(phone => record.driver_phone?.toLowerCase().includes(phone.toLowerCase()))
-          );
-        }
-        
-        // 运单编号筛选（支持批量OR逻辑，查询本平台和其他平台运单号）
-        if (filters.waybillNumber) {
-          const waybillNums = filters.waybillNumber.split(/[,\s]+/).map(s => s.trim()).filter(s => s);
-          filteredLogisticsData = filteredLogisticsData.filter(record =>
-            waybillNums.some(num => 
-              record.auto_number?.toLowerCase().includes(num.toLowerCase()) ||
-              (record.external_tracking_numbers && record.external_tracking_numbers.some(ext => ext.toLowerCase().includes(num.toLowerCase())))
-            )
-          );
-        }
-        
-        // 平台名称筛选
-        if (filters.platformName) {
-          filteredLogisticsData = filteredLogisticsData.filter(record => {
-            if (filters.platformName === '本平台') {
-              return !record.other_platform_names || record.other_platform_names.length === 0;
-            } else {
-              return record.other_platform_names && record.other_platform_names.some(p => p.toLowerCase().includes(filters.platformName.toLowerCase()));
-            }
-          });
-        }
-
-        const logisticsRecordIds = filteredLogisticsData.map(record => record.id);
-        
-        if (logisticsRecordIds.length === 0) {
-          // 如果没有符合条件的运单，返回空结果
-          setInvoiceRequests([]);
-          return;
-        }
-
-        // 根据运单ID筛选开票申请单
-        // 这里需要通过invoice_request_details表来关联
-        const { data: requestDetails, error: detailsError } = await supabase
-          .from('invoice_request_details')
-          .select('invoice_request_id')
-          .in('logistics_record_id', logisticsRecordIds);
-
-        if (detailsError) throw detailsError;
-
-        const requestIds = [...new Set(requestDetails?.map(detail => detail.invoice_request_id) || [])];
-        
-        if (requestIds.length === 0) {
-          setInvoiceRequests([]);
-          return;
-        }
-
-        query = query.in('id', requestIds);
-      }
-      
-      // 开票申请单号筛选（支持批量OR逻辑）
-      if (filters.requestNumber) {
-        const requestNumbers = filters.requestNumber.split(/[,\s]+/).map(s => s.trim()).filter(s => s);
-        if (requestNumbers.length > 0) {
-          // 使用 OR 逻辑筛选
-          query = query.or(requestNumbers.map(num => `request_number.ilike.%${num}%`).join(','));
-        }
-      }
-      
-      // 开票状态筛选
-      if (filters.status) {
-        query = query.eq('status', filters.status);
-      }
-
-      // 执行invoice_requests查询
-      const { data, error } = await query.order('created_at', { ascending: false });
+      // 使用后端筛选函数（更高效）
+      // @ts-ignore - 新的RPC函数
+      const { data, error } = await supabase.rpc('get_invoice_requests_filtered', {
+        p_request_number: filters.requestNumber || null,
+        p_waybill_number: filters.waybillNumber || null,
+        p_driver_name: filters.driverName || null,
+        p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
+        p_status: filters.status || null,
+        p_project_id: filters.projectId || null,
+        p_license_plate: filters.licensePlate || null,
+        p_phone_number: filters.phoneNumber || null,
+        p_platform_name: filters.platformName || null,
+        p_limit: 100,
+        p_offset: 0
+      });
 
       if (error) throw error;
 
-      // 处理数据，添加creator_name字段
-      const processedData = data?.map(request => ({
-        ...request,
-        creator_name: request.profiles?.full_name || '未知用户'
-      })) || [];
-
-      setInvoiceRequests(processedData);
+      setInvoiceRequests(data || []);
     } catch (error) {
       console.error('加载开票申请单失败:', error);
       toast({

@@ -2,7 +2,7 @@
   批量查询支持空格分隔 - 执行指南
 ===============================================================================
 
-📊 共需执行 3 个SQL文件（已备份）
+📊 共需执行 4 个SQL文件（已备份）
 
 ===============================================================================
   待执行的SQL文件
@@ -16,7 +16,12 @@
     📁 20250126_update_logistics_functions_support_space.sql
     🎯 2个函数: get_logistics_summary_and_records_enhanced + get_all_filtered_record_ids
 
-📝 文件3: 开票申请页面（可选）
+⭐ 文件3: 开票申请单管理页面（必须执行）
+    📁 20250126_create_invoice_requests_filtered_function.sql
+    🎯 1个函数: get_invoice_requests_filtered（新建）
+    ⚠️ 前端已更新使用此函数，必须执行！
+
+📝 文件4: 开票申请页面（可选）
     📁 20250126_update_invoice_functions_support_space_separator.sql
     🎯 1个函数: get_invoice_request_data
 
@@ -39,6 +44,9 @@
 
 运单管理：
   SELECT * FROM get_logistics_summary_and_records_enhanced(p_driver_name => '张三 李四');
+
+开票申请单管理：
+  SELECT * FROM get_invoice_requests_filtered(p_driver_name => '张三 李四');
   
 开票申请：
   SELECT * FROM get_invoice_request_data(p_driver_name => '张三 李四');
