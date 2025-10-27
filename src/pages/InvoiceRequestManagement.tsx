@@ -165,6 +165,11 @@ export default function InvoiceRequestManagement() {
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   const [totalRequestsCount, setTotalRequestsCount] = useState(0);
   
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(0);
+  
   const { toast } = useToast();
 
   // 筛选器处理函数
@@ -240,14 +245,24 @@ export default function InvoiceRequestManagement() {
         p_license_plate: filters.licensePlate || null,
         p_phone_number: filters.phoneNumber || null,
         p_platform_name: filters.platformName || null,
-        p_limit: 100,
-        p_offset: 0
+        p_limit: pageSize,
+        p_offset: (currentPage - 1) * pageSize
       });
 
       if (error) throw error;
 
-      setInvoiceRequests((data as unknown as InvoiceRequest[]) || []);
-      setTotalRequestsCount((data as unknown as InvoiceRequest[])?.length || 0);
+      const requestsData = (data as unknown as InvoiceRequest[]) || [];
+      setInvoiceRequests(requestsData);
+      
+      // 设置总数和总页数
+      if (requestsData.length > 0) {
+        const totalCount = (requestsData[0] as unknown as { total_count: number }).total_count || 0;
+        setTotalRequestsCount(totalCount);
+        setTotalPages(Math.ceil(totalCount / pageSize));
+      } else {
+        setTotalRequestsCount(0);
+        setTotalPages(0);
+      }
     } catch (error) {
       console.error('加载开票申请单失败:', error);
       toast({
@@ -526,6 +541,18 @@ export default function InvoiceRequestManagement() {
     if (invoiceRequests.length === 0) return false;
     return invoiceRequests.every(req => selection.selectedIds.has(req.id));
   }, [invoiceRequests, selection.selectedIds]);
+
+  // 分页处理函数
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+  };
 
   // 批量操作函数
   // 批量开票
@@ -1412,8 +1439,11 @@ export default function InvoiceRequestManagement() {
 
   useEffect(() => {
     loadInvoiceRequests();
-    loadFilterOptions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize]);
+
+  useEffect(() => {
+    loadFilterOptions();
   }, []);
 
   return (
@@ -1884,6 +1914,68 @@ export default function InvoiceRequestManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* 分页组件 */}
+      {totalPages > 0 && (
+        <div className="flex items-center justify-center gap-4 py-2">
+          {/* 每页显示 */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">每页显示</span>
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
+              className="px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-muted-foreground">条</span>
+          </div>
+
+          {/* 上一页 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className="h-8 px-3"
+          >
+            上一页
+          </Button>
+
+          {/* 页码信息 */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">第</span>
+            <Input
+              type="number"
+              value={currentPage}
+              onChange={(e) => {
+                const page = parseInt(e.target.value);
+                if (page >= 1 && page <= totalPages) {
+                  handlePageChange(page);
+                }
+              }}
+              className="w-12 h-8 text-center"
+              min={1}
+              max={totalPages}
+            />
+            <span className="text-sm text-muted-foreground">页,共{totalPages}页</span>
+          </div>
+
+          {/* 下一页 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className="h-8 px-3"
+          >
+            下一页
+          </Button>
+        </div>
+      )}
 
       {/* 详情对话框 */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
