@@ -1,4 +1,4 @@
-// 开票申请单管理页面
+// 财务开票页面
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,6 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 // @ts-expect-error - lucide-react 图标导入
 import { FileText, Search, Filter, Eye, Edit, Download, RefreshCw, X, CheckCircle, FileDown, CheckSquare, Square, Trash2, Ban, CalendarIcon, Building, Users } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
@@ -154,10 +156,14 @@ export default function InvoiceRequestManagement() {
   const [isLogisticsFormDialogOpen, setIsLogisticsFormDialogOpen] = useState(false);
   const [selectedLogisticsRecordForView, setSelectedLogisticsRecordForView] = useState<LogisticsRecord | null>(null);
   
-  // 批量选择状态
-  const [batchSelectionMode, setBatchSelectionMode] = useState(false);
-  const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
+  // 批量选择状态（参考财务付款页面）
+  interface SelectionState { 
+    mode: 'none' | 'all_filtered'; 
+    selectedIds: Set<string>; 
+  }
+  const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+  const [totalRequestsCount, setTotalRequestsCount] = useState(0);
   
   const { toast } = useToast();
 
@@ -241,6 +247,7 @@ export default function InvoiceRequestManagement() {
       if (error) throw error;
 
       setInvoiceRequests((data as unknown as InvoiceRequest[]) || []);
+      setTotalRequestsCount((data as unknown as InvoiceRequest[])?.length || 0);
     } catch (error) {
       console.error('加载开票申请单失败:', error);
       toast({
@@ -478,38 +485,57 @@ export default function InvoiceRequestManagement() {
     setIsVoidDialogOpen(true);
   };
 
-  // 批量选择相关函数
-  const toggleBatchSelectionMode = () => {
-    setBatchSelectionMode(!batchSelectionMode);
-    setSelectedRequests(new Set());
+  // 选择相关函数（参考财务付款页面）
+  const handleRequestSelect = (requestId: string) => {
+    setSelection(prev => {
+      const newSet = new Set(prev.selectedIds);
+      if (newSet.has(requestId)) { 
+        newSet.delete(requestId); 
+      } else { 
+        newSet.add(requestId); 
+      }
+      if (prev.mode === 'all_filtered') { 
+        return { mode: 'none', selectedIds: newSet }; 
+      }
+      return { ...prev, selectedIds: newSet };
+    });
   };
 
-  const toggleRequestSelection = (requestId: string) => {
-    const newSelection = new Set(selectedRequests);
-    if (newSelection.has(requestId)) {
-      newSelection.delete(requestId);
+  const handleSelectAllOnPage = (isChecked: boolean) => {
+    const pageIds = invoiceRequests.map(r => r.id);
+    if (isChecked) {
+      setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) }));
     } else {
-      newSelection.add(requestId);
+      setSelection(prev => {
+        const newSet = new Set(prev.selectedIds);
+        pageIds.forEach(id => newSet.delete(id));
+        if (prev.mode === 'all_filtered') { 
+          return { mode: 'none', selectedIds: newSet }; 
+        }
+        return { ...prev, selectedIds: newSet };
+      });
     }
-    setSelectedRequests(newSelection);
   };
 
-  const selectAllRequests = () => {
-    const allIds = new Set(invoiceRequests.map(req => req.id));
-    setSelectedRequests(allIds);
-  };
+  const selectionCount = useMemo(() => {
+    if (selection.mode === 'all_filtered') return totalRequestsCount;
+    return selection.selectedIds.size;
+  }, [selection, totalRequestsCount]);
 
-  const clearSelection = () => {
-    setSelectedRequests(new Set());
-  };
+  const isAllOnPageSelected = useMemo(() => {
+    if (invoiceRequests.length === 0) return false;
+    return invoiceRequests.every(req => selection.selectedIds.has(req.id));
+  }, [invoiceRequests, selection.selectedIds]);
 
   // 批量操作函数
   // 批量开票
   const handleBatchInvoice = async () => {
-    if (selectedRequests.size === 0) return;
+    if (selection.selectedIds.size === 0) return;
     
     setIsBatchProcessing(true);
     try {
+      const selectedIds = Array.from(selection.selectedIds);
+      
       // 1. 更新开票申请单状态为已完成
       const { error } = await supabase
         .from('invoice_requests')
@@ -517,7 +543,7 @@ export default function InvoiceRequestManagement() {
           status: 'Completed',
           updated_at: new Date().toISOString()
         })
-        .in('id', Array.from(selectedRequests));
+        .in('id', selectedIds);
 
       if (error) throw error;
 
@@ -525,7 +551,7 @@ export default function InvoiceRequestManagement() {
       const { data: requestDetails, error: detailsError } = await supabase
         .from('invoice_request_details')
         .select('logistics_record_id')
-        .in('invoice_request_id', Array.from(selectedRequests));
+        .in('invoice_request_id', selectedIds);
 
       if (detailsError) throw detailsError;
 
@@ -556,11 +582,11 @@ export default function InvoiceRequestManagement() {
 
       toast({
         title: "批量开票成功",
-        description: `已完成 ${selectedRequests.size} 个开票申请单的开票，相关运单状态已更新为已开票`,
+        description: `已完成 ${selection.selectedIds.size} 个开票申请单的开票，相关运单状态已更新为已开票`,
       });
       
       loadInvoiceRequests();
-      setSelectedRequests(new Set());
+      setSelection({ mode: 'none', selectedIds: new Set() });
     } catch (error) {
       console.error('批量开票失败:', error);
       toast({
@@ -574,32 +600,37 @@ export default function InvoiceRequestManagement() {
   };
 
   const handleBatchVoid = async () => {
-    if (selectedRequests.size === 0) return;
+    if (selection.selectedIds.size === 0) return;
     
     setIsBatchProcessing(true);
     try {
+      const selectedIds = Array.from(selection.selectedIds);
+      
       const { error } = await supabase
         .from('invoice_requests')
         .update({ 
-          status: 'Cancelled',
+          status: 'Voided',
+          is_voided: true,
+          voided_at: new Date().toISOString(),
+          voided_by: (await supabase.auth.getUser()).data.user?.id,
           updated_at: new Date().toISOString()
         })
-        .in('id', Array.from(selectedRequests));
+        .in('id', selectedIds);
 
       if (error) throw error;
 
       toast({
         title: "批量作废成功",
-        description: `已作废 ${selectedRequests.size} 个开票申请单`,
+        description: `已作废 ${selection.selectedIds.size} 个开票申请单`,
       });
       
       loadInvoiceRequests();
-      setSelectedRequests(new Set());
+      setSelection({ mode: 'none', selectedIds: new Set() });
     } catch (error) {
       console.error('批量作废失败:', error);
       toast({
         title: "批量作废失败",
-        description: error.message || '无法批量作废开票申请单',
+        description: error instanceof Error ? error.message : '无法批量作废开票申请单',
         variant: "destructive",
       });
     } finally {
@@ -1402,67 +1433,9 @@ export default function InvoiceRequestManagement() {
             <RefreshCw className="h-4 w-4 mr-2" />
             刷新
           </Button>
-          <Button 
-            onClick={toggleBatchSelectionMode} 
-            variant={batchSelectionMode ? "default" : "outline"}
-            className={batchSelectionMode ? "bg-blue-600 hover:bg-blue-700" : ""}
-          >
-            {batchSelectionMode ? <CheckSquare className="mr-2 h-4 w-4" /> : <Square className="mr-2 h-4 w-4" />}
-            {batchSelectionMode ? "退出批量选择" : "批量选择"}
-          </Button>
         </div>
       </PageHeader>
 
-      {/* 批量操作栏 */}
-      {batchSelectionMode && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-blue-800">
-                  已选择 {selectedRequests.size} 个申请单
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={selectAllRequests}
-                    disabled={isBatchProcessing}
-                  >
-                    全选
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearSelection}
-                    disabled={isBatchProcessing}
-                  >
-                    清空选择
-                  </Button>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleBatchInvoice}
-                  disabled={selectedRequests.size === 0 || isBatchProcessing}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  批量开票
-                </Button>
-                <Button
-                  onClick={handleBatchVoid}
-                  disabled={selectedRequests.size === 0 || isBatchProcessing}
-                  variant="destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  一键作废
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* 筛选器（参考财务付款页面） */}
       <Card>
@@ -1759,10 +1732,48 @@ export default function InvoiceRequestManagement() {
 
       {/* 申请单列表 */}
       <Card>
-        <CardHeader>
-          <CardTitle>开票申请单列表 ({filteredRequests.length})</CardTitle>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle>开票申请单列表 ({filteredRequests.length})</CardTitle>
+            {selection.selectedIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  已选择 {selectionCount} 个申请单
+                </span>
+                <ConfirmDialog
+                  title={`确认批量开票 ${selectionCount} 个申请单`}
+                  description="此操作将完成选中申请单的开票，并将所有关联运单的状态更新为已开票。请确认操作。"
+                  onConfirm={handleBatchInvoice}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isBatchProcessing}
+                    className="bg-green-600 hover:bg-green-700 text-white border-0"
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    批量开票
+                  </Button>
+                </ConfirmDialog>
+                <ConfirmDialog
+                  title={`确认作废 ${selectionCount} 个申请单`}
+                  description="此操作将作废选中的申请单。此操作不可逆，请谨慎操作。"
+                  onConfirm={handleBatchVoid}
+                >
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    disabled={selectionCount === 0 || isBatchProcessing}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    一键作废 ({selectionCount})
+                  </Button>
+                </ConfirmDialog>
+              </div>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <RefreshCw className="h-6 w-6 animate-spin mr-2" />
@@ -1772,104 +1783,62 @@ export default function InvoiceRequestManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {batchSelectionMode && (
-                    <TableHead className="w-12">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (selectedRequests.size === filteredRequests.length) {
-                            clearSelection();
-                          } else {
-                            selectAllRequests();
-                          }
-                        }}
-                        className="p-0 h-6 w-6"
-                      >
-                        {selectedRequests.size === filteredRequests.length ? (
-                          <CheckSquare className="h-4 w-4" />
-                        ) : (
-                          <Square className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </TableHead>
-                  )}
+                  <TableHead className="w-12">
+                    <Checkbox 
+                      checked={isAllOnPageSelected} 
+                      onCheckedChange={handleSelectAllOnPage} 
+                    />
+                  </TableHead>
                   <TableHead>申请单号</TableHead>
                   <TableHead>合作方</TableHead>
-                  <TableHead>开票金额</TableHead>
-                  <TableHead>运单数量</TableHead>
+                  <TableHead className="text-right">开票金额</TableHead>
+                  <TableHead className="text-right">运单数量</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead>创建时间</TableHead>
-                  <TableHead>创建人</TableHead>
-                  <TableHead>操作</TableHead>
+                  <TableHead className="text-center">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRequests.map((request) => (
-                  <TableRow 
-                    key={request.id}
-                    className={cn(
-                      "cursor-pointer hover:bg-muted/50",
-                      batchSelectionMode && selectedRequests.has(request.id) && "bg-blue-50"
-                    )}
-                    onClick={() => {
-                      if (batchSelectionMode) {
-                        toggleRequestSelection(request.id);
-                      } else {
-                        handleViewDetails(request);
-                      }
-                    }}
-                  >
-                    {batchSelectionMode && (
-                      <TableCell className="w-12">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleRequestSelection(request.id);
-                          }}
-                          className="p-0 h-6 w-6"
-                        >
-                          {selectedRequests.has(request.id) ? (
-                            <CheckSquare className="h-4 w-4" />
-                          ) : (
-                            <Square className="h-4 w-4" />
-                          )}
-                        </Button>
+                {filteredRequests.length > 0 ? (
+                  filteredRequests.map((request) => (
+                    <TableRow 
+                      key={request.id}
+                      data-state={selection.selectedIds.has(request.id) ? "selected" : undefined}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleViewDetails(request)}
+                    >
+                      <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selection.selectedIds.has(request.id)}
+                          onCheckedChange={() => handleRequestSelect(request.id)}
+                        />
                       </TableCell>
-                    )}
-                    <TableCell className="font-medium">
-                      {request.request_number}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{request.partner_name}</div>
-                        {request.invoicing_partner_full_name && (
-                          <div className="text-sm text-muted-foreground">
-                            {request.invoicing_partner_full_name}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      ¥{request.total_amount.toLocaleString()}
-                    </TableCell>
-                    <TableCell>{request.record_count}条</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(request.status)}>
-                        {getStatusText(request.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(request.created_at), 'yyyy-MM-dd HH:mm')}
-                    </TableCell>
-                    <TableCell>
-                      {request.creator_name || '未知'}
-                    </TableCell>
-                    <TableCell>
-                      {!batchSelectionMode && (
+                      <TableCell className="font-medium">
+                        {request.request_number}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{request.partner_name}</div>
+                          {request.invoicing_partner_full_name && (
+                            <div className="text-sm text-muted-foreground">
+                              {request.invoicing_partner_full_name}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium text-right">
+                        ¥{request.total_amount.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right">{request.record_count}条</TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(request.status)}>
+                          {getStatusText(request.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(request.created_at), 'yyyy-MM-dd HH:mm')}
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center justify-center gap-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
                           {/* 查看申请单按钮 - 蓝色主题 */}
                           <Button 
@@ -1882,23 +1851,34 @@ export default function InvoiceRequestManagement() {
                             查看申请单
                           </Button>
 
-                          {/* 开票按钮 - 绿色主题，只在已通过状态显示 */}
+                          {/* 开票按钮 - 绿色主题，只在已通过状态显示，带二次确认 */}
                           {request.status === 'Approved' && (
-                            <Button 
-                              variant="default" 
-                              size="sm" 
-                              onClick={() => handleCompleteInvoice(request)} 
-                              className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm transition-all duration-200"
+                            <ConfirmDialog
+                              title="确认开票"
+                              description={`确定要完成申请单 ${request.request_number} 的开票吗？开票后将更新所有关联运单的状态为已开票。`}
+                              onConfirm={() => handleCompleteInvoice(request)}
                             >
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              开票
-                            </Button>
+                              <Button 
+                                variant="default" 
+                                size="sm" 
+                                className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm transition-all duration-200"
+                              >
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                开票
+                              </Button>
+                            </ConfirmDialog>
                           )}
                         </div>
-                      )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center">
+                      暂无开票申请记录。
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           )}
