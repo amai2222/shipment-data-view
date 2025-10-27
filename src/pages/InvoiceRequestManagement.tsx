@@ -89,6 +89,8 @@ interface InvoiceRequest {
   bank_name?: string;
   bank_account?: string;
   tax_number?: string;
+  invoice_number?: string;
+  invoice_date?: string;
 }
 
 // 开票申请单详情类型
@@ -104,6 +106,7 @@ interface InvoiceRequestDetail {
     loading_location: string;
     unloading_location: string;
     loading_date: string;
+    loading_weight?: number;
   };
 }
 
@@ -278,7 +281,7 @@ export default function InvoiceRequestManagement() {
       const [logisticsResult, projectsResult, driversResult] = await Promise.all([
         supabase
           .from('logistics_records')
-          .select('id, auto_number, project_id, driver_id, loading_location, unloading_location, loading_date')
+          .select('id, auto_number, project_id, driver_id, loading_location, unloading_location, loading_date, loading_weight')
           .in('id', logisticsRecordIds),
         supabase
           .from('projects')
@@ -309,7 +312,8 @@ export default function InvoiceRequestManagement() {
             driver_name: logisticsRecord?.driver_id ? driversMap.get(logisticsRecord.driver_id) || '' : '',
             loading_location: logisticsRecord?.loading_location || '',
             unloading_location: logisticsRecord?.unloading_location || '',
-            loading_date: logisticsRecord?.loading_date || ''
+            loading_date: logisticsRecord?.loading_date || '',
+            loading_weight: logisticsRecord?.loading_weight || 0
           }
         };
       });
@@ -735,6 +739,398 @@ export default function InvoiceRequestManagement() {
     approveInvoice(request.id);
   };
 
+  // 查看开票申请表（打印格式）
+  const viewInvoiceRequestForm = async (request: InvoiceRequest) => {
+    try {
+      // 先查询申请单详情
+      const { data: detailsData, error: detailsError } = await supabase
+        .from('invoice_request_details')
+        .select('*')
+        .eq('invoice_request_id', request.id);
+
+      if (detailsError) throw detailsError;
+
+      let details: InvoiceRequestDetail[] = [];
+      if (detailsData && detailsData.length > 0) {
+        // 获取所有运单ID
+        const logisticsRecordIds = detailsData.map(detail => detail.logistics_record_id).filter(Boolean);
+        
+        if (logisticsRecordIds.length > 0) {
+          // 分别查询运单信息、项目信息、司机信息
+          const [logisticsResult, projectsResult, driversResult] = await Promise.all([
+            supabase
+              .from('logistics_records')
+              .select('id, auto_number, project_id, driver_id, loading_location, unloading_location, loading_date, loading_weight')
+              .in('id', logisticsRecordIds),
+            supabase
+              .from('projects')
+              .select('id, name'),
+            supabase
+              .from('drivers')
+              .select('id, name')
+          ]);
+
+          if (logisticsResult.error) throw logisticsResult.error;
+
+          // 创建映射
+          const projectsMap = new Map(projectsResult.data?.map(p => [p.id, p.name]) || []);
+          const driversMap = new Map(driversResult.data?.map(d => [d.id, d.name]) || []);
+          const logisticsMap = new Map(logisticsResult.data?.map(l => [l.id, l]) || []);
+
+          // 组合数据
+          details = detailsData.map(detail => {
+            const logisticsRecord = logisticsMap.get(detail.logistics_record_id);
+            return {
+              id: detail.id,
+              invoice_request_id: detail.invoice_request_id,
+              logistics_record_id: detail.logistics_record_id,
+              amount: detail.amount,
+              logistics_record: {
+                auto_number: logisticsRecord?.auto_number || '',
+                project_name: logisticsRecord?.project_id ? projectsMap.get(logisticsRecord.project_id) || '' : '',
+                driver_name: logisticsRecord?.driver_id ? driversMap.get(logisticsRecord.driver_id) || '' : '',
+                loading_location: logisticsRecord?.loading_location || '',
+                unloading_location: logisticsRecord?.unloading_location || '',
+                loading_date: logisticsRecord?.loading_date || '',
+                loading_weight: logisticsRecord?.loading_weight || 0
+              }
+            };
+          });
+        }
+      }
+      
+      // 打开新窗口显示打印格式
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        toast({
+          title: "无法打开窗口",
+          description: "请允许弹出窗口以查看申请表",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 生成打印HTML
+      const htmlContent = generateInvoiceRequestFormHTML(request, details);
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+    } catch (error) {
+      console.error('生成申请表失败:', error);
+      toast({
+        title: "生成失败",
+        description: error instanceof Error ? error.message : '无法生成申请表',
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 生成开票申请表HTML
+  const generateInvoiceRequestFormHTML = (request: InvoiceRequest, details: InvoiceRequestDetail[]) => {
+    const totalWeight = details.reduce((sum, d) => sum + (d.logistics_record.loading_weight || 0), 0);
+    
+    // AI动态生成备注总结
+    const generateDynamicSummary = () => {
+      if (details.length === 0) return '无运单记录';
+      
+      // 提取关键信息
+      const projectNames = [...new Set(details.map(d => d.logistics_record.project_name).filter(Boolean))];
+      const driverNames = [...new Set(details.map(d => d.logistics_record.driver_name).filter(Boolean))];
+      const destinations = [...new Set(details.map(d => d.logistics_record.unloading_location).filter(Boolean))];
+      
+      // 提取日期范围
+      const dates = details
+        .map(d => d.logistics_record.loading_date)
+        .filter(Boolean)
+        .sort();
+      
+      let dateRange = '';
+      if (dates.length > 0) {
+        const startDate = new Date(dates[0]);
+        const endDate = new Date(dates[dates.length - 1]);
+        const startMonth = format(startDate, 'M月');
+        const endMonth = format(endDate, 'M月');
+        
+        if (startMonth === endMonth) {
+          dateRange = format(startDate, 'yyyy年M月');
+        } else {
+          dateRange = `${format(startDate, 'yyyy年M月')}-${endMonth}`;
+        }
+      }
+      
+      // 构建总结
+      let summary = '';
+      
+      // 司机信息（取第一个）
+      if (driverNames.length > 0) {
+        summary += driverNames[0];
+      }
+      
+      // 项目信息
+      if (projectNames.length > 0) {
+        summary += projectNames.length === 1 
+          ? projectNames[0] 
+          : `等${projectNames.length}个项目`;
+      }
+      
+      // 日期范围
+      if (dateRange) {
+        summary += dateRange;
+      }
+      
+      // 目的地（如果只有一个）
+      if (destinations.length === 1) {
+        summary += `配送至${destinations[0]}`;
+      } else if (destinations.length > 1) {
+        summary += `配送至${destinations[0]}等${destinations.length}个地点`;
+      }
+      
+      // 总重量
+      if (totalWeight > 0) {
+        summary += `，共计${totalWeight.toFixed(2)}吨`;
+      }
+      
+      return summary || '运输服务';
+    };
+    
+    const dynamicSummary = generateDynamicSummary();
+    
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>开票申请表 - ${request.request_number}</title>
+  <style>
+    @media print {
+      @page { margin: 1cm; }
+      body { margin: 0; }
+      .no-print { display: none; }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "SimSun", "Microsoft YaHei", Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.5;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .company-name {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      padding: 0 10px;
+    }
+    .info-item {
+      display: flex;
+      align-items: center;
+    }
+    .info-label {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #f0f0f0;
+      font-weight: bold;
+    }
+    .text-left { text-align: left; }
+    .text-right { text-align: right; }
+    .signatures {
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+    .signature-item {
+      text-align: center;
+    }
+    .signature-line {
+      border-bottom: 1px solid #000;
+      height: 50px;
+      margin-bottom: 5px;
+    }
+    .remarks {
+      margin: 20px 0;
+    }
+    .remarks-content {
+      border: 1px solid #000;
+      min-height: 80px;
+      padding: 10px;
+    }
+    .disclaimer {
+      margin-top: 20px;
+      font-size: 11px;
+      line-height: 1.8;
+    }
+    .invoice-info {
+      margin-top: 30px;
+      border: 1px solid #000;
+      padding: 15px;
+    }
+    .invoice-info-row {
+      display: flex;
+      margin-bottom: 10px;
+    }
+    .invoice-info-label {
+      width: 120px;
+      font-weight: bold;
+    }
+    .invoice-info-value {
+      flex: 1;
+      border-bottom: 1px solid #000;
+    }
+    .print-button {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .print-button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <button class="print-button no-print" onclick="window.print()">打印申请表</button>
+  
+  <div class="header">
+    <div class="company-name">中科智运（云南）供应链科技有限公司开票申请表</div>
+  </div>
+
+  <div class="info-row">
+    <div class="info-item">
+      <span class="info-label">货主单位：</span>
+      <span>${request.partner_full_name || request.partner_name}</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">申请时间：</span>
+      <span>${format(new Date(request.created_at), 'yyyy-MM-dd')}</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">申请编号：</span>
+      <span>${request.request_number}</span>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 40px;">序号</th>
+        <th style="width: 100px;">申请日期</th>
+        <th>开票抬头</th>
+        <th style="width: 80px;">货物</th>
+        <th style="width: 100px;">业务期限</th>
+        <th>目的地</th>
+        <th style="width: 60px;">运单数</th>
+        <th style="width: 120px;">开票金额</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>${format(new Date(request.created_at), 'yyyy-MM-dd')}</td>
+        <td class="text-left">${request.partner_full_name || request.partner_name}</td>
+        <td>食品</td>
+        <td>${format(new Date(request.created_at), 'yyyy年MM月')}</td>
+        <td class="text-left">${details.length > 0 ? details[0].logistics_record.unloading_location : '-'}</td>
+        <td>${request.record_count}</td>
+        <td class="text-right">¥${request.total_amount.toLocaleString()}</td>
+      </tr>
+      <tr>
+        <td colspan="7" class="text-left" style="padding-left: 20px;">
+          <strong>备注：${dynamicSummary}</strong>
+        </td>
+        <td class="text-right">
+          <strong>合计：</strong>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="7" class="text-right" style="padding-right: 20px;">
+          <strong>运单数：${request.record_count}</strong>
+        </td>
+        <td class="text-right">
+          <strong>¥${request.total_amount.toLocaleString()}</strong>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="remarks">
+    <div><strong>事项说明：</strong></div>
+    <div class="remarks-content">
+      ${request.remarks || ''}
+    </div>
+  </div>
+
+  <div class="signatures">
+    <div class="signature-item">
+      <div class="signature-line"></div>
+      <div>信息部专员签字：</div>
+    </div>
+    <div class="signature-item">
+      <div class="signature-line"></div>
+      <div>业务部审核签字：</div>
+    </div>
+    <div class="signature-item">
+      <div class="signature-line"></div>
+      <div>客户签字：</div>
+    </div>
+    <div class="signature-item">
+      <div class="signature-line"></div>
+      <div>财务部审核签字：</div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    以上相关内容经本人(申请人)与客户充分沟通，并保证所提供相关资料的准确与完整，如因资料不符或约定不清等原因造成退票，其责任损失将由开票申请人负责。
+  </div>
+
+  <div class="invoice-info">
+    <div class="invoice-info-row">
+      <div class="invoice-info-label">发票号码：</div>
+      <div class="invoice-info-value">${request.invoice_number || ''}</div>
+      <div class="invoice-info-label" style="margin-left: 40px;">领票日期：</div>
+      <div class="invoice-info-value"></div>
+    </div>
+    <div class="invoice-info-row">
+      <div class="invoice-info-label">领票人：</div>
+      <div class="invoice-info-value"></div>
+      <div class="invoice-info-label" style="margin-left: 40px;">发票开具情况：</div>
+      <div class="invoice-info-value"></div>
+    </div>
+  </div>
+
+  <script>
+    // 自动打印（可选）
+    // window.onload = function() { window.print(); };
+  </script>
+</body>
+</html>`;
+  };
+
   // 导出开票申请单
   const exportInvoiceRequests = async () => {
     try {
@@ -746,7 +1142,7 @@ export default function InvoiceRequestManagement() {
             full_name
           )
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false});
 
       if (error) throw error;
 
@@ -1454,6 +1850,15 @@ export default function InvoiceRequestManagement() {
                     <TableCell>
                       {!batchSelectionMode && (
                         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => viewInvoiceRequestForm(request)}
+                            title="查看申请单"
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
                           {!request.is_voided && !request.is_merged && (
                             <>
                               {request.status === 'Pending' && (
