@@ -504,16 +504,17 @@ export default function InvoiceRequestManagement() {
   };
 
   // 批量操作函数
-  const handleBatchApprove = async () => {
+  // 批量开票
+  const handleBatchInvoice = async () => {
     if (selectedRequests.size === 0) return;
     
     setIsBatchProcessing(true);
     try {
-      // 1. 更新开票申请单状态
+      // 1. 更新开票申请单状态为已完成
       const { error } = await supabase
         .from('invoice_requests')
         .update({ 
-          status: 'Approved',
+          status: 'Completed',
           updated_at: new Date().toISOString()
         })
         .in('id', Array.from(selectedRequests));
@@ -554,51 +555,17 @@ export default function InvoiceRequestManagement() {
       }
 
       toast({
-        title: "批量确认成功",
-        description: `已确认 ${selectedRequests.size} 个开票申请单，相关运单状态已更新`,
+        title: "批量开票成功",
+        description: `已完成 ${selectedRequests.size} 个开票申请单的开票，相关运单状态已更新为已开票`,
       });
       
       loadInvoiceRequests();
       setSelectedRequests(new Set());
     } catch (error) {
-      console.error('批量确认失败:', error);
+      console.error('批量开票失败:', error);
       toast({
-        title: "批量确认失败",
-        description: error.message || '无法批量确认开票申请单',
-        variant: "destructive",
-      });
-    } finally {
-      setIsBatchProcessing(false);
-    }
-  };
-
-  const handleBatchReject = async () => {
-    if (selectedRequests.size === 0) return;
-    
-    setIsBatchProcessing(true);
-    try {
-      const { error } = await supabase
-        .from('invoice_requests')
-        .update({ 
-          status: 'Rejected',
-          updated_at: new Date().toISOString()
-        })
-        .in('id', Array.from(selectedRequests));
-
-      if (error) throw error;
-
-      toast({
-        title: "批量拒绝成功",
-        description: `已拒绝 ${selectedRequests.size} 个开票申请单`,
-      });
-      
-      loadInvoiceRequests();
-      setSelectedRequests(new Set());
-    } catch (error) {
-      console.error('批量拒绝失败:', error);
-      toast({
-        title: "批量拒绝失败",
-        description: error.message || '无法批量拒绝开票申请单',
+        title: "批量开票失败",
+        description: error instanceof Error ? error.message : '无法批量开票',
         variant: "destructive",
       });
     } finally {
@@ -737,6 +704,69 @@ export default function InvoiceRequestManagement() {
   // 处理确认开票
   const handleApproveInvoice = (request: InvoiceRequest) => {
     approveInvoice(request.id);
+  };
+
+  // 完成开票（单个）
+  const handleCompleteInvoice = async (request: InvoiceRequest) => {
+    try {
+      // 更新开票申请单状态为已完成
+      const { error: requestError } = await supabase
+        .from('invoice_requests')
+        .update({ 
+          status: 'Completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', request.id);
+
+      if (requestError) throw requestError;
+
+      // 获取申请单详情，更新相关运单的开票状态
+      const { data: requestDetails, error: detailsError } = await supabase
+        .from('invoice_request_details')
+        .select('logistics_record_id')
+        .eq('invoice_request_id', request.id);
+
+      if (detailsError) throw detailsError;
+
+      if (requestDetails && requestDetails.length > 0) {
+        const recordIds = requestDetails.map(detail => detail.logistics_record_id);
+        
+        // 更新运单记录的开票状态
+        const { error: updateError } = await supabase
+          .from('logistics_records')
+          .update({ 
+            invoice_status: 'Invoiced',
+            invoice_completed_at: new Date().toISOString()
+          })
+          .in('id', recordIds);
+
+        if (updateError) throw updateError;
+
+        // 更新 logistics_partner_costs 表的开票状态
+        const { error: costsError } = await supabase
+          .from('logistics_partner_costs')
+          .update({ 
+            invoice_status: 'Invoiced',
+            invoice_completed_at: new Date().toISOString()
+          })
+          .in('logistics_record_id', recordIds);
+
+        if (costsError) throw costsError;
+      }
+
+      toast({
+        title: "开票成功",
+        description: "开票申请单已完成，相关运单状态已更新为已开票",
+      });
+      loadInvoiceRequests();
+    } catch (error) {
+      console.error('完成开票失败:', error);
+      toast({
+        title: "开票失败",
+        description: error instanceof Error ? error.message : '无法完成开票',
+        variant: "destructive",
+      });
+    }
   };
 
   // 查看开票申请表（打印格式）
@@ -1413,29 +1443,20 @@ export default function InvoiceRequestManagement() {
               </div>
               <div className="flex gap-2">
                 <Button
-                  onClick={handleBatchApprove}
+                  onClick={handleBatchInvoice}
                   disabled={selectedRequests.size === 0 || isBatchProcessing}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   <CheckCircle className="mr-2 h-4 w-4" />
-                  批量确认
-                </Button>
-                <Button
-                  onClick={handleBatchReject}
-                  disabled={selectedRequests.size === 0 || isBatchProcessing}
-                  variant="destructive"
-                >
-                  <Ban className="mr-2 h-4 w-4" />
-                  批量拒绝
+                  批量开票
                 </Button>
                 <Button
                   onClick={handleBatchVoid}
                   disabled={selectedRequests.size === 0 || isBatchProcessing}
-                  variant="outline"
-                  className="border-red-300 text-red-600 hover:bg-red-50"
+                  variant="destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  批量作废
+                  一键作废
                 </Button>
               </div>
             </div>
@@ -1849,45 +1870,29 @@ export default function InvoiceRequestManagement() {
                     </TableCell>
                     <TableCell>
                       {!batchSelectionMode && (
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => viewInvoiceRequestForm(request)}
-                            title="查看申请单"
-                            className="text-blue-600 hover:text-blue-700"
+                        <div className="flex items-center justify-center gap-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                          {/* 查看申请单按钮 - 蓝色主题 */}
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={() => viewInvoiceRequestForm(request)} 
+                            className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200"
                           >
-                            <FileText className="h-4 w-4" />
+                            <FileText className="mr-2 h-4 w-4" />
+                            查看申请单
                           </Button>
-                          {!request.is_voided && !request.is_merged && (
-                            <>
-                              {request.status === 'Pending' && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleApproveInvoice(request)}
-                                  title="确认开票"
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEditStatus(request)}
-                                title="编辑状态"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleVoidRequest(request)}
-                                title="作废申请单"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
+
+                          {/* 开票按钮 - 绿色主题，只在已通过状态显示 */}
+                          {request.status === 'Approved' && (
+                            <Button 
+                              variant="default" 
+                              size="sm" 
+                              onClick={() => handleCompleteInvoice(request)} 
+                              className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm transition-all duration-200"
+                            >
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              开票
+                            </Button>
                           )}
                         </div>
                       )}
