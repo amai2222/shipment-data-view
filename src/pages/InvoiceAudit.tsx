@@ -960,56 +960,112 @@ export default function InvoiceAudit() {
     return requests.every(req => selection.selectedIds.has(req.id));
   }, [requests, selection.selectedIds]);
 
-  // 批量作废功能
-  const handleCancelRequests = async () => {
+  // 一键回滚功能（保留申请单记录，只回滚运单状态）
+  const handleRollbackRequests = async () => {
     setIsCancelling(true);
     try {
-      let idsToCancel: string[] = [];
+      let idsToRollback: string[] = [];
       if (selection.mode === 'all_filtered') {
         const { data: allRequests, error: fetchError } = await supabase
           .from('invoice_requests')
-          .select('request_number')
+          .select('id')
           .in('status', ['Pending', 'Approved']);
         if (fetchError) throw fetchError;
-        idsToCancel = allRequests.map(r => r.request_number);
+        idsToRollback = allRequests.map(r => r.id);
       } else {
         const selectedReqs = requests.filter(r => selection.selectedIds.has(r.id) && ['Pending', 'Approved'].includes(r.status));
-        idsToCancel = selectedReqs.map(r => r.request_number);
+        idsToRollback = selectedReqs.map(r => r.id);
       }
 
-      if (idsToCancel.length === 0) {
-        toast({ title: "提示", description: "没有选择任何可作废的申请单（仅\"待审核\"和\"已审批\"状态可作废）。" });
+      if (idsToRollback.length === 0) {
+        toast({ title: "提示", description: "没有选择任何可回滚的申请单（仅\"待审核\"和\"已审批\"状态可回滚）。" });
         setIsCancelling(false);
         return;
       }
 
-      // 执行作废操作 - 更新状态为Rejected
-      const { error } = await supabase
-        .from('invoice_requests')
-        .update({ status: 'Rejected' })
-        .in('request_number', idsToCancel);
+      // 逐个调用 void_invoice_request（保留记录）
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const requestId of idsToRollback) {
+        try {
+          const { data, error } = await supabase.rpc('void_invoice_request', {
+            p_request_id: requestId,
+            p_void_reason: '批量回滚'
+          });
+          
+          if (error) throw error;
+          
+          if ((data as any)?.success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (err) {
+          console.error(`回滚申请单 ${requestId} 失败:`, err);
+          failCount++;
+        }
+      }
 
-      if (error) throw error;
-
-      toast({ 
-        title: "操作成功", 
-        description: `已成功作废 ${idsToCancel.length} 张开票申请单`
-      });
+      if (successCount > 0) {
+        toast({
+          title: "回滚完成",
+          description: `成功回滚 ${successCount} 个申请单的运单状态${failCount > 0 ? `，失败 ${failCount} 个` : ''}。申请单记录已保留，状态标记为已作废。`,
+        });
+      }
+      
       setSelection({ mode: 'none', selectedIds: new Set() });
       fetchInvoiceRequests();
     } catch (error) {
-      console.error("批量作废申请失败:", error);
+      console.error("批量回滚申请失败:", error);
       toast({ title: "错误", description: `操作失败: ${(error as Error).message}`, variant: "destructive" });
     } finally {
       setIsCancelling(false);
     }
   };
 
-  const handleCancelRequestsWithConfirm = () => {
-    const selectedCount = selection.selectedIds.size;
-    const confirmDialog = window.confirm(`确定要作废选中的 ${selectedCount} 个开票申请吗？`);
-    if (confirmDialog) {
-      handleCancelRequests();
+  // 一键作废功能（删除申请单记录和回滚运单状态）
+  const handleDeleteRequests = async () => {
+    setIsCancelling(true);
+    try {
+      let idsToDelete: string[] = [];
+      if (selection.mode === 'all_filtered') {
+        const { data: allRequests, error: fetchError } = await supabase
+          .from('invoice_requests')
+          .select('id')
+          .in('status', ['Pending', 'Approved']);
+        if (fetchError) throw fetchError;
+        idsToDelete = allRequests.map(r => r.id);
+      } else {
+        const selectedReqs = requests.filter(r => selection.selectedIds.has(r.id) && ['Pending', 'Approved'].includes(r.status));
+        idsToDelete = selectedReqs.map(r => r.id);
+      }
+
+      if (idsToDelete.length === 0) {
+        toast({ title: "提示", description: "没有选择任何可作废的申请单（仅\"待审核\"和\"已审批\"状态可作废）。" });
+        setIsCancelling(false);
+        return;
+      }
+
+      // 调用删除函数
+      const { data, error } = await supabase.rpc('void_and_delete_invoice_requests', { 
+        p_request_ids: idsToDelete 
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      toast({ 
+        title: "作废成功", 
+        description: `已删除 ${result.deleted_requests} 个开票申请单，${result.affected_logistics_records} 条运单状态已回滚为未开票。`
+      });
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchInvoiceRequests();
+    } catch (error) {
+      console.error("批量作废删除失败:", error);
+      toast({ title: "错误", description: `操作失败: ${(error as Error).message}`, variant: "destructive" });
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -1373,15 +1429,34 @@ export default function InvoiceAudit() {
                   批量审批
                 </Button>
                 {isAdmin && (
-                  <Button 
-                    variant="destructive" 
-                    disabled={selectionCount === 0 || isCancelling} 
-                    onClick={handleCancelRequestsWithConfirm}
-                    className="flex items-center gap-2"
-                  >
-                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                    一键作废 ({selectionCount})
-                  </Button>
+                  <>
+                    <Button 
+                      variant="outline" 
+                      disabled={selectionCount === 0 || isCancelling} 
+                      onClick={() => {
+                        if (window.confirm(`确定要回滚选中的 ${selectionCount} 个开票申请吗？\n\n此操作将：\n- 保留申请单记录（状态标记为已作废）\n- 回滚运单状态为未开票\n\n请确认操作。`)) {
+                          handleRollbackRequests();
+                        }
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                      一键回滚 ({selectionCount})
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      disabled={selectionCount === 0 || isCancelling} 
+                      onClick={() => {
+                        if (window.confirm(`确定要作废并删除选中的 ${selectionCount} 个开票申请吗？\n\n⚠️ 此操作将：\n- 永久删除申请单记录\n- 回滚运单状态为未开票\n\n此操作不可逆，请谨慎操作！`)) {
+                          handleDeleteRequests();
+                        }
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      一键作废 ({selectionCount})
+                    </Button>
+                  </>
                 )}
               </div>
             )}

@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 // @ts-expect-error - lucide-react 图标导入
-import { FileText, Search, Filter, Eye, Edit, Download, RefreshCw, X, CheckCircle, FileDown, CheckSquare, Square, Trash2, Ban, CalendarIcon, Building, Users } from "lucide-react";
+import { FileText, Search, Filter, Eye, Edit, Download, RefreshCw, X, CheckCircle, FileDown, CheckSquare, Square, Trash2, Ban, CalendarIcon, Building, Users, RotateCcw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 // ✅ 导入可复用组件
 import {
@@ -636,57 +636,72 @@ export default function InvoiceRequestManagement() {
     }
   };
 
+  // 一键回滚功能（回滚申请单状态到待审核）
+  const handleBatchRollback = async () => {
+    if (selection.selectedIds.size === 0) return;
+    
+    setIsBatchProcessing(true);
+    try {
+      const selectedIds = Array.from(selection.selectedIds);
+      
+      // 将申请单状态回滚到 Pending（待审核）
+      const { error } = await supabase
+        .from('invoice_requests')
+        .update({ status: 'Pending', updated_at: new Date().toISOString() })
+        .in('id', selectedIds)
+        .in('status', ['Approved', 'Completed']); // 只回滚已审批和已完成的
+
+      if (error) throw error;
+
+      toast({
+        title: "回滚完成",
+        description: `已将 ${selectedIds.length} 个开票申请单的状态回滚到"待审核"。`,
+      });
+      
+      loadInvoiceRequests();
+      setSelection({ mode: 'none', selectedIds: new Set() });
+    } catch (error) {
+      console.error('批量回滚失败:', error);
+      toast({
+        title: "回滚失败",
+        description: error instanceof Error ? error.message : '无法批量回滚开票申请单',
+        variant: "destructive",
+      });
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  // 一键作废功能（删除申请单记录和回滚运单状态）
   const handleBatchVoid = async () => {
     if (selection.selectedIds.size === 0) return;
     
     setIsBatchProcessing(true);
     try {
       const selectedIds = Array.from(selection.selectedIds);
-      let successCount = 0;
-      let failCount = 0;
       
-      // 逐个调用后端函数作废申请单并回滚运单状态
-      for (const requestId of selectedIds) {
-        try {
-          const { data, error } = await supabase.rpc('void_invoice_request', {
-            p_request_id: requestId,
-            p_void_reason: '批量作废'
-          });
-          
-          if (error) throw error;
-          
-          const result = data as { success: boolean; message: string } | null;
-          if (result?.success) {
-            successCount++;
-          } else {
-            failCount++;
-          }
-        } catch (err) {
-          console.error(`作废申请单 ${requestId} 失败:`, err);
-          failCount++;
-        }
-      }
-
-      if (successCount > 0) {
+      // 调用删除函数
+      const { data, error } = await supabase.rpc('void_and_delete_invoice_requests', {
+        p_request_ids: selectedIds
+      });
+      
+      if (error) throw error;
+      
+      const result = data as any;
+      if (result.success) {
         toast({
-          title: "批量作废完成",
-          description: `成功作废 ${successCount} 个申请单${failCount > 0 ? `，失败 ${failCount} 个` : ''}。运单状态已回滚为未开票。`,
-        });
-      } else {
-        toast({
-          title: "批量作废失败",
-          description: "所有申请单作废均失败",
-          variant: "destructive",
+          title: "作废成功",
+          description: `已永久删除 ${result.deleted_requests} 个开票申请单，${result.affected_logistics_records} 条运单状态已回滚为未开票。`,
         });
       }
       
       loadInvoiceRequests();
       setSelection({ mode: 'none', selectedIds: new Set() });
     } catch (error) {
-      console.error('批量作废失败:', error);
+      console.error('批量作废删除失败:', error);
       toast({
-        title: "批量作废失败",
-        description: error instanceof Error ? error.message : '无法批量作废开票申请单',
+        title: "作废失败",
+        description: error instanceof Error ? error.message : '无法批量作废删除开票申请单',
         variant: "destructive",
       });
     } finally {
@@ -1432,13 +1447,23 @@ export default function InvoiceRequestManagement() {
       onClick: handleBatchInvoice
     },
     {
+      key: 'rollback',
+      label: '一键回滚',
+      icon: <RotateCcw className="mr-2 h-4 w-4" />,
+      variant: 'outline',
+      needConfirm: true,
+      confirmTitle: `确认回滚 ${selectionCount} 个申请单`,
+      confirmDescription: '此操作将：\n- 将申请单状态回滚到"待审核"\n- 不影响运单状态\n\n请确认操作。',
+      onClick: handleBatchRollback
+    },
+    {
       key: 'void',
       label: '一键作废',
       icon: <Trash2 className="mr-2 h-4 w-4" />,
       variant: 'destructive',
       needConfirm: true,
-      confirmTitle: `确认作废 ${selectionCount} 个申请单`,
-      confirmDescription: '此操作将作废选中的申请单。此操作不可逆，请谨慎操作。',
+      confirmTitle: `确认作废并删除 ${selectionCount} 个申请单`,
+      confirmDescription: '⚠️ 此操作将：\n- 永久删除申请单记录\n- 回滚运单状态为未开票\n\n此操作不可逆，请谨慎操作！',
       onClick: handleBatchVoid
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
