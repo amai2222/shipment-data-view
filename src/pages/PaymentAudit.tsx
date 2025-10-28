@@ -17,7 +17,8 @@ import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, Ro
 // ✅ 导入可复用组件
 import {
   PaginationControl,
-  StatusBadge
+  StatusBadge,
+  PAYMENT_REQUEST_STATUS_CONFIG
 } from '@/components/common';
 
 import { PaymentApproval } from '@/components/PaymentApproval';
@@ -42,7 +43,7 @@ interface PaymentRequest {
   id: string;
   created_at: string;
   request_id: string;
-  status: 'Pending' | 'Approved' | 'Paid' | 'Rejected';
+  status: 'Pending' | 'Approved' | 'Paid' | 'Rejected' | 'Cancelled';
   notes: string | null;
   logistics_record_ids: string[];
   record_count: number;
@@ -1124,7 +1125,7 @@ export default function PaymentAudit() {
 
             {/* 申请单状态 */}
             <div className="flex-1 min-w-[140px] space-y-2">
-              <Label htmlFor="status" className="text-sm font-medium">申请单状态</Label>
+              <Label htmlFor="status" className="text-sm font-medium">付款申请单状态</Label>
               <select
                 id="status"
                 value={filters.status}
@@ -1136,6 +1137,7 @@ export default function PaymentAudit() {
                 <option value="Approved">已审批</option>
                 <option value="Paid">已付款</option>
                 <option value="Rejected">已驳回</option>
+                <option value="Cancelled">已作废</option>
               </select>
             </div>
 
@@ -1413,7 +1415,7 @@ export default function PaymentAudit() {
                      {isAdmin && <TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>}
                     <TableHead>申请编号</TableHead>
                     <TableHead>申请时间</TableHead>
-                    <TableHead>状态</TableHead>
+                    <TableHead>付款申请单状态</TableHead>
                     <TableHead className="text-right">运单数</TableHead>
                     <TableHead className="text-right">申请金额</TableHead>
                     <TableHead className="text-center">操作</TableHead>
@@ -1435,13 +1437,7 @@ export default function PaymentAudit() {
                         <TableCell className="font-mono cursor-pointer" onClick={() => handleViewDetails(req)}>{req.request_id}</TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
-                          <StatusBadge status={req.status} customConfig={{
-                            'Pending': { label: '待审批', variant: 'secondary' },
-                            'Approved': { label: '已审批', variant: 'default' },
-                            'Paid': { label: '已付款', variant: 'outline' },
-                            'Rejected': { label: '已驳回', variant: 'destructive' },
-                            'Cancelled': { label: '已作废', variant: 'destructive' }
-                          }} />
+                          <StatusBadge status={req.status} customConfig={PAYMENT_REQUEST_STATUS_CONFIG} />
                         </TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>

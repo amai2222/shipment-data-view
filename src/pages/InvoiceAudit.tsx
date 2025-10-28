@@ -14,6 +14,7 @@ import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, Rot
 import {
   PaginationControl,
   StatusBadge,
+  INVOICE_REQUEST_STATUS_CONFIG,
   BulkActionBar,
   RequestTableHeader,
   ActionButtons,
@@ -43,7 +44,7 @@ interface InvoiceRequest {
   id: string;
   created_at: string;
   request_number: string;
-  status: 'Pending' | 'Processing' | 'Invoiced' | 'Rejected';
+  status: 'Pending' | 'Approved' | 'Completed' | 'Rejected' | 'Voided';
   remarks: string | null;
   logistics_record_ids: string[];
   record_count: number;
@@ -269,17 +270,17 @@ export default function InvoiceAudit() {
         return req?.request_number;
       }).filter(Boolean);
 
-      // 批量更新状态为Processing（开票中）
+      // 批量更新状态为Approved（已审批）
       const { error } = await supabase
         .from('invoice_requests')
-        .update({ status: 'Processing' })
+        .update({ status: 'Approved' })
         .in('request_number', selectedRequestNumbers);
 
       if (error) throw error;
 
       toast({ 
         title: "批量审批完成", 
-        description: `已审批 ${selectedRequestNumbers.length} 个开票申请，状态已更新为"开票中"`,
+        description: `已审批 ${selectedRequestNumbers.length} 个开票申请，状态已更新为"已审批"`,
       });
 
       // 清除选择并刷新数据
@@ -804,10 +805,10 @@ export default function InvoiceAudit() {
     try {
       setExportingId(req.id);
       
-      // 更新申请状态为开票中
+      // 更新申请状态为已审批
       const { error } = await supabase
         .from('invoice_requests')
-        .update({ status: 'Processing' })
+        .update({ status: 'Approved' })
         .eq('id', req.id);
       
       if (error) {
@@ -816,7 +817,7 @@ export default function InvoiceAudit() {
         return;
       }
       
-      toast({ title: "审批成功", description: "开票申请已审批通过，状态已更新为开票中" });
+      toast({ title: "审批成功", description: "开票申请已审批通过，状态已更新为已审批" });
       fetchInvoiceRequests();
     } catch (error) {
       console.error('审批操作失败:', error);
@@ -958,16 +959,16 @@ export default function InvoiceAudit() {
         const { data: allRequests, error: fetchError } = await supabase
           .from('invoice_requests')
           .select('request_number')
-          .in('status', ['Pending', 'Processing']);
+          .in('status', ['Pending', 'Approved']);
         if (fetchError) throw fetchError;
         idsToCancel = allRequests.map(r => r.request_number);
       } else {
-        const selectedReqs = requests.filter(r => selection.selectedIds.has(r.id) && ['Pending', 'Processing'].includes(r.status));
+        const selectedReqs = requests.filter(r => selection.selectedIds.has(r.id) && ['Pending', 'Approved'].includes(r.status));
         idsToCancel = selectedReqs.map(r => r.request_number);
       }
 
       if (idsToCancel.length === 0) {
-        toast({ title: "提示", description: "没有选择任何可作废的申请单（仅\"待审批\"和\"开票中\"状态可作废）。" });
+        toast({ title: "提示", description: "没有选择任何可作废的申请单（仅\"待审核\"和\"已审批\"状态可作废）。" });
         setIsCancelling(false);
         return;
       }
@@ -1097,7 +1098,7 @@ export default function InvoiceAudit() {
 
             {/* 申请单状态 */}
             <div className="flex-1 min-w-[140px] space-y-2">
-              <Label htmlFor="status" className="text-sm font-medium">申请单状态</Label>
+              <Label htmlFor="status" className="text-sm font-medium">开票申请单状态</Label>
               <select
                 id="status"
                 value={filters.status}
@@ -1105,10 +1106,11 @@ export default function InvoiceAudit() {
                 className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm h-10"
               >
                 <option value="">全部状态</option>
-                <option value="Pending">待审批</option>
-                <option value="Processing">开票中</option>
-                <option value="Invoiced">已开票</option>
-                <option value="Rejected">已驳回</option>
+                <option value="Pending">待审核</option>
+                <option value="Approved">已审批</option>
+                <option value="Completed">已完成</option>
+                <option value="Rejected">已拒绝</option>
+                <option value="Voided">已作废</option>
               </select>
             </div>
 
@@ -1386,7 +1388,7 @@ export default function InvoiceAudit() {
                      {isAdmin && <TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>}
                     <TableHead>开票单号</TableHead>
                     <TableHead>申请时间</TableHead>
-                    <TableHead>状态</TableHead>
+                    <TableHead>开票申请单状态</TableHead>
                     <TableHead className="text-right">运单数</TableHead>
                     <TableHead className="text-right">开票金额</TableHead>
                     <TableHead className="text-center">操作</TableHead>
@@ -1408,12 +1410,7 @@ export default function InvoiceAudit() {
                         <TableCell className="font-mono cursor-pointer" onClick={() => handleViewDetails(req)}>{req.request_number}</TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
-                          <StatusBadge status={req.status} customConfig={{
-                            'Pending': { label: '待审批', variant: 'secondary' },
-                            'Processing': { label: '开票中', variant: 'default' },
-                            'Invoiced': { label: '已开票', variant: 'outline' },
-                            'Rejected': { label: '已驳回', variant: 'destructive' }
-                          }} />
+                          <StatusBadge status={req.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
                         </TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
@@ -1433,8 +1430,8 @@ export default function InvoiceAudit() {
                               查看申请单
                             </Button>
 
-                            {/* 取消审批按钮 - 灰色主题，只在开票中状态显示 */}
-                            {req.status === 'Processing' && (
+                            {/* 取消审批按钮 - 灰色主题，只在已审批状态显示 */}
+                            {req.status === 'Approved' && (
                               <Button 
                                 variant="outline" 
                                 size="sm" 

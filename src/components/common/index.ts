@@ -2,7 +2,14 @@
 // 方便其他页面导入
 
 export { PaginationControl } from './PaginationControl';
-export { StatusBadge, getStatusLabel, getStatusVariant, STATUS_CONFIG } from './StatusBadge';
+export { 
+  StatusBadge, 
+  getStatusLabel, 
+  getStatusVariant, 
+  STATUS_CONFIG,
+  PAYMENT_REQUEST_STATUS_CONFIG,
+  INVOICE_REQUEST_STATUS_CONFIG 
+} from './StatusBadge';
 export { BulkActionBar } from './BulkActionBar';
 export type { BulkAction } from './BulkActionBar';
 export { RequestTableHeader } from './RequestTableHeader';

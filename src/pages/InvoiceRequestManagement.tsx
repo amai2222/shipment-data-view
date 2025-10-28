@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   PaginationControl,
   StatusBadge,
+  INVOICE_REQUEST_STATUS_CONFIG,
   BulkActionBar,
   RequestTableHeader,
   ActionButtons,
@@ -83,7 +84,7 @@ interface InvoiceRequest {
   invoicing_partner_bank_account?: string;
   total_amount: number;
   record_count: number;
-  status: 'Pending' | 'Processing' | 'Approved' | 'Completed' | 'Rejected' | 'Voided';
+  status: 'Pending' | 'Approved' | 'Completed' | 'Rejected' | 'Voided';
   created_by: string;
   created_at: string;
   updated_at?: string;
@@ -642,24 +643,43 @@ export default function InvoiceRequestManagement() {
     setIsBatchProcessing(true);
     try {
       const selectedIds = Array.from(selection.selectedIds);
+      let successCount = 0;
+      let failCount = 0;
       
-      const { error } = await supabase
-        .from('invoice_requests')
-        .update({ 
-          status: 'Voided',
-          is_voided: true,
-          voided_at: new Date().toISOString(),
-          voided_by: (await supabase.auth.getUser()).data.user?.id,
-          updated_at: new Date().toISOString()
-        })
-        .in('id', selectedIds);
+      // 逐个调用后端函数作废申请单并回滚运单状态
+      for (const requestId of selectedIds) {
+        try {
+          const { data, error } = await supabase.rpc('void_invoice_request', {
+            p_request_id: requestId,
+            p_void_reason: '批量作废'
+          });
+          
+          if (error) throw error;
+          
+          const result = data as { success: boolean; message: string } | null;
+          if (result?.success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (err) {
+          console.error(`作废申请单 ${requestId} 失败:`, err);
+          failCount++;
+        }
+      }
 
-      if (error) throw error;
-
-      toast({
-        title: "批量作废成功",
-        description: `已作废 ${selection.selectedIds.size} 个开票申请单`,
-      });
+      if (successCount > 0) {
+        toast({
+          title: "批量作废完成",
+          description: `成功作废 ${successCount} 个申请单${failCount > 0 ? `，失败 ${failCount} 个` : ''}。运单状态已回滚为未开票。`,
+        });
+      } else {
+        toast({
+          title: "批量作废失败",
+          description: "所有申请单作废均失败",
+          variant: "destructive",
+        });
+      }
       
       loadInvoiceRequests();
       setSelection({ mode: 'none', selectedIds: new Set() });
@@ -1533,7 +1553,7 @@ export default function InvoiceRequestManagement() {
 
             {/* 开票状态 */}
             <div className="flex-1 min-w-[140px] space-y-2">
-              <Label htmlFor="status" className="text-sm font-medium">开票状态</Label>
+              <Label htmlFor="status" className="text-sm font-medium">开票申请单状态</Label>
               <select
                 id="status"
                 value={filters.status}
@@ -1542,8 +1562,7 @@ export default function InvoiceRequestManagement() {
               >
                 <option value="">全部状态</option>
                 <option value="Pending">待审核</option>
-                <option value="Processing">处理中</option>
-                <option value="Approved">已通过</option>
+                <option value="Approved">已审批</option>
                 <option value="Completed">已完成</option>
                 <option value="Rejected">已拒绝</option>
                 <option value="Voided">已作废</option>
@@ -1840,7 +1859,7 @@ export default function InvoiceRequestManagement() {
                       <TableCell className="text-right">{request.record_count}条</TableCell>
                       <TableCell>
                         {/* ✅ 使用StatusBadge组件 */}
-                        <StatusBadge status={request.status} />
+                        <StatusBadge status={request.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
                       </TableCell>
                       <TableCell>
                         {format(new Date(request.created_at), 'yyyy-MM-dd HH:mm')}
@@ -1856,7 +1875,7 @@ export default function InvoiceRequestManagement() {
                               className: 'bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200',
                               onClick: () => viewInvoiceRequestForm(request)
                             },
-                            ...(request.status === 'Approved' || request.status === 'Processing' ? [{
+                            ...(request.status === 'Approved' ? [{
                               label: '开票',
                               icon: <CheckCircle className="mr-2 h-4 w-4" />,
                               variant: 'default' as const,
@@ -1911,7 +1930,7 @@ export default function InvoiceRequestManagement() {
                 </div>
                 <div>
                   <Label>状态</Label>
-                  <StatusBadge status={selectedRequest.status} />
+                  <StatusBadge status={selectedRequest.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
                 </div>
                 <div>
                   <Label>合作方</Label>
