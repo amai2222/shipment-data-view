@@ -450,7 +450,7 @@ export default function PaymentRequest() {
       
       const finalRecordIds = new Set<string>();
       sheets.forEach(sheet => {
-        sheet.records.forEach((r: any) => finalRecordIds.add(r.record.id));
+        sheet.records.forEach((r: any) => finalRecordIds.add(r.id));
       });
       
       const previewData: PaymentPreviewData = { sheets, processed_record_ids: Array.from(finalRecordIds) };
