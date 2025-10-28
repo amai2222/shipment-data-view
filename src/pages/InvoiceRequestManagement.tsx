@@ -15,7 +15,17 @@ import { PageHeader } from "@/components/PageHeader";
 // @ts-expect-error - lucide-react 图标导入
 import { FileText, Search, Filter, Eye, Edit, Download, RefreshCw, X, CheckCircle, FileDown, CheckSquare, Square, Trash2, Ban, CalendarIcon, Building, Users } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
+// ✅ 导入可复用组件
+import {
+  PaginationControl,
+  StatusBadge,
+  BulkActionBar,
+  RequestTableHeader,
+  ActionButtons,
+  LoadingState,
+  type BulkAction,
+  type TableColumn
+} from '@/components/common';
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
@@ -1377,33 +1387,44 @@ export default function InvoiceRequestManagement() {
     }
   };
 
-  // 状态徽章颜色
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'Pending': return 'secondary';
-      case 'Processing': return 'default';
-      case 'Approved': return 'default';
-      case 'Completed': return 'outline';
-      case 'Rejected': return 'destructive';
-      case 'Voided': return 'destructive';
-      case 'Cancelled': return 'destructive';
-      default: return 'secondary';
-    }
-  };
+  // ✅ 已删除getStatusBadgeVariant和getStatusText函数（使用StatusBadge组件替代）
+  
+  // ✅ 表格列配置
+  const tableColumns: TableColumn[] = useMemo(() => [
+    { key: 'number', label: '申请单号' },
+    { key: 'partner', label: '合作方' },
+    { key: 'amount', label: '开票金额', align: 'right' },
+    { key: 'count', label: '运单数量', align: 'right' },
+    { key: 'status', label: '状态' },
+    { key: 'time', label: '创建时间' },
+    { key: 'actions', label: '操作', align: 'center' }
+  ], []);
 
-  // 状态文本
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'Pending': return '待审核';
-      case 'Processing': return '处理中';
-      case 'Approved': return '已通过';
-      case 'Completed': return '已完成';
-      case 'Rejected': return '已拒绝';
-      case 'Voided': return '已作废';
-      case 'Cancelled': return '已取消';
-      default: return status;
+  // ✅ 批量操作配置
+  const bulkActions: BulkAction[] = useMemo(() => [
+    {
+      key: 'invoice',
+      label: '批量开票',
+      icon: <CheckCircle className="mr-2 h-4 w-4" />,
+      variant: 'default',
+      className: 'bg-green-600 hover:bg-green-700 text-white border-0',
+      needConfirm: true,
+      confirmTitle: `确认批量开票 ${selectionCount} 个申请单`,
+      confirmDescription: '此操作将完成选中申请单的开票，并将所有关联运单的状态更新为已开票。请确认操作。',
+      onClick: handleBatchInvoice
+    },
+    {
+      key: 'void',
+      label: '一键作废',
+      icon: <Trash2 className="mr-2 h-4 w-4" />,
+      variant: 'destructive',
+      needConfirm: true,
+      confirmTitle: `确认作废 ${selectionCount} 个申请单`,
+      confirmDescription: '此操作将作废选中的申请单。此操作不可逆，请谨慎操作。',
+      onClick: handleBatchVoid
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [selectionCount]);
 
   // 过滤后的申请单列表
   // 筛选逻辑已在loadInvoiceRequests中处理，直接使用invoiceRequests
@@ -1763,69 +1784,28 @@ export default function InvoiceRequestManagement() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle>开票申请单列表 ({filteredRequests.length})</CardTitle>
-            {selection.selectedIds.size > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  已选择 {selectionCount} 个申请单
-                </span>
-                <ConfirmDialog
-                  title={`确认批量开票 ${selectionCount} 个申请单`}
-                  description="此操作将完成选中申请单的开票，并将所有关联运单的状态更新为已开票。请确认操作。"
-                  onConfirm={handleBatchInvoice}
-                >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isBatchProcessing}
-                    className="bg-green-600 hover:bg-green-700 text-white border-0"
-                  >
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    批量开票
-                  </Button>
-                </ConfirmDialog>
-                <ConfirmDialog
-                  title={`确认作废 ${selectionCount} 个申请单`}
-                  description="此操作将作废选中的申请单。此操作不可逆，请谨慎操作。"
-                  onConfirm={handleBatchVoid}
-                >
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    disabled={selectionCount === 0 || isBatchProcessing}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    一键作废 ({selectionCount})
-                  </Button>
-                </ConfirmDialog>
-              </div>
-            )}
+            
+            {/* ✅ 使用BulkActionBar组件 */}
+            <BulkActionBar
+              selectedCount={selectionCount}
+              isProcessing={isBatchProcessing}
+              actions={bulkActions}
+            />
           </div>
         </CardHeader>
         <CardContent className="pt-0">
+          {/* ✅ 使用LoadingState组件 */}
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-              加载中...
-            </div>
+            <LoadingState message="加载开票申请单中..." />
           ) : (
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox 
-                      checked={isAllOnPageSelected} 
-                      onCheckedChange={handleSelectAllOnPage} 
-                    />
-                  </TableHead>
-                  <TableHead>申请单号</TableHead>
-                  <TableHead>合作方</TableHead>
-                  <TableHead className="text-right">开票金额</TableHead>
-                  <TableHead className="text-right">运单数量</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead className="text-center">操作</TableHead>
-                </TableRow>
-              </TableHeader>
+              {/* ✅ 使用RequestTableHeader组件 */}
+              <RequestTableHeader
+                showCheckbox={true}
+                allSelected={isAllOnPageSelected}
+                onSelectAll={handleSelectAllOnPage}
+                columns={tableColumns}
+              />
               <TableBody>
                 {filteredRequests.length > 0 ? (
                   filteredRequests.map((request) => (
@@ -1859,44 +1839,35 @@ export default function InvoiceRequestManagement() {
                       </TableCell>
                       <TableCell className="text-right">{request.record_count}条</TableCell>
                       <TableCell>
-                        <Badge variant={getStatusBadgeVariant(request.status)}>
-                          {getStatusText(request.status)}
-                        </Badge>
+                        {/* ✅ 使用StatusBadge组件 */}
+                        <StatusBadge status={request.status} />
                       </TableCell>
                       <TableCell>
                         {format(new Date(request.created_at), 'yyyy-MM-dd HH:mm')}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                          {/* 查看申请单按钮 - 蓝色主题 */}
-                          <Button 
-                            variant="default" 
-                            size="sm" 
-                            onClick={() => viewInvoiceRequestForm(request)} 
-                            className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200"
-                          >
-                            <FileText className="mr-2 h-4 w-4" />
-                            查看申请单
-                          </Button>
-
-                          {/* 开票按钮 - 绿色主题，在已通过和处理中状态显示，带二次确认 */}
-                          {(request.status === 'Approved' || request.status === 'Processing') && (
-                            <ConfirmDialog
-                              title="确认开票"
-                              description={`确定要完成申请单 ${request.request_number} 的开票吗？开票后将更新所有关联运单的状态为已开票。`}
-                              onConfirm={() => handleCompleteInvoice(request)}
-                            >
-                              <Button 
-                                variant="default" 
-                                size="sm" 
-                                className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm transition-all duration-200"
-                              >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                开票
-                              </Button>
-                            </ConfirmDialog>
-                          )}
-                        </div>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {/* ✅ 使用ActionButtons组件 */}
+                        <ActionButtons
+                          actions={[
+                            {
+                              label: '查看申请单',
+                              icon: <FileText className="mr-2 h-4 w-4" />,
+                              variant: 'default',
+                              className: 'bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200',
+                              onClick: () => viewInvoiceRequestForm(request)
+                            },
+                            ...(request.status === 'Approved' || request.status === 'Processing' ? [{
+                              label: '开票',
+                              icon: <CheckCircle className="mr-2 h-4 w-4" />,
+                              variant: 'default' as const,
+                              className: 'bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm transition-all duration-200',
+                              needConfirm: true,
+                              confirmTitle: '确认开票',
+                              confirmDescription: `确定要完成申请单 ${request.request_number} 的开票吗？开票后将更新所有关联运单的状态为已开票。`,
+                              onClick: () => handleCompleteInvoice(request)
+                            }] : [])
+                          ]}
+                        />
                       </TableCell>
                     </TableRow>
                   ))
@@ -1913,67 +1884,15 @@ export default function InvoiceRequestManagement() {
         </CardContent>
       </Card>
 
-      {/* 分页组件 */}
-      {totalPages > 0 && (
-        <div className="flex items-center justify-center gap-4 py-2">
-          {/* 每页显示 */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">每页显示</span>
-            <select
-              value={pageSize}
-              onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
-              className="px-2 py-1 border border-gray-300 rounded text-sm bg-white"
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-muted-foreground">条</span>
-          </div>
-
-          {/* 上一页 */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-            className="h-8 px-3"
-          >
-            上一页
-          </Button>
-
-          {/* 页码信息 */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">第</span>
-            <Input
-              type="number"
-              value={currentPage}
-              onChange={(e) => {
-                const page = parseInt(e.target.value);
-                if (page >= 1 && page <= totalPages) {
-                  handlePageChange(page);
-                }
-              }}
-              className="w-12 h-8 text-center"
-              min={1}
-              max={totalPages}
-            />
-            <span className="text-sm text-muted-foreground">页,共{totalPages}页</span>
-          </div>
-
-          {/* 下一页 */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-            className="h-8 px-3"
-          >
-            下一页
-          </Button>
-        </div>
-      )}
+      {/* ✅ 使用PaginationControl组件 */}
+      <PaginationControl
+        currentPage={currentPage}
+        pageSize={pageSize}
+        totalPages={totalPages}
+        totalCount={totalRequestsCount}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
 
       {/* 详情对话框 */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
@@ -1992,9 +1911,7 @@ export default function InvoiceRequestManagement() {
                 </div>
                 <div>
                   <Label>状态</Label>
-                  <Badge variant={getStatusBadgeVariant(selectedRequest.status)}>
-                    {getStatusText(selectedRequest.status)}
-                  </Badge>
+                  <StatusBadge status={selectedRequest.status} />
                 </div>
                 <div>
                   <Label>合作方</Label>

@@ -10,6 +10,17 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 // @ts-expect-error - lucide-react图标导入
 import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, RotateCcw, Users } from 'lucide-react';
+// ✅ 导入可复用组件
+import {
+  PaginationControl,
+  StatusBadge,
+  BulkActionBar,
+  RequestTableHeader,
+  ActionButtons,
+  LoadingState,
+  type BulkAction,
+  type TableColumn
+} from '@/components/common';
 
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -343,15 +354,17 @@ export default function InvoiceAudit() {
     }
   };
 
-  const getStatusBadge = (status: InvoiceRequest['status']) => {
-    switch (status) {
-      case 'Pending': return <Badge variant="secondary">待审批</Badge>;
-      case 'Processing': return <Badge variant="default">开票中</Badge>;
-      case 'Invoiced': return <Badge variant="outline">已开票</Badge>;
-      case 'Rejected': return <Badge variant="destructive">已驳回</Badge>;
-      default: return <Badge>{status}</Badge>;
-    }
-  };
+  // ✅ 已删除getStatusBadge函数（使用StatusBadge组件替代）
+  
+  // ✅ 表格列配置
+  const tableColumns: TableColumn[] = useMemo(() => [
+    { key: 'number', label: '开票单号' },
+    { key: 'time', label: '申请时间' },
+    { key: 'status', label: '申请单状态' },
+    { key: 'count', label: '运单数', align: 'right' },
+    { key: 'amount', label: '申请金额', align: 'right' },
+    { key: 'actions', label: '操作', align: 'center' }
+  ], []);
 
   // 查看开票申请表（打印格式）
   // @ts-expect-error - React.MouseEvent类型
@@ -1394,7 +1407,14 @@ export default function InvoiceAudit() {
                         )}
                         <TableCell className="font-mono cursor-pointer" onClick={() => handleViewDetails(req)}>{req.request_number}</TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
-                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{getStatusBadge(req.status)}</TableCell>
+                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
+                          <StatusBadge status={req.status} customConfig={{
+                            'Pending': { label: '待审批', variant: 'secondary' },
+                            'Processing': { label: '开票中', variant: 'default' },
+                            'Invoiced': { label: '已开票', variant: 'outline' },
+                            'Rejected': { label: '已驳回', variant: 'destructive' }
+                          }} />
+                        </TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
                           {req.total_amount ? `¥${req.total_amount.toLocaleString()}` : '-'}
@@ -1529,67 +1549,15 @@ export default function InvoiceAudit() {
         </DialogContent>
       </Dialog>
 
-      {/* 分页组件 */}
-      {totalPages > 0 && (
-        <div className="flex items-center justify-center gap-4 py-2">
-          {/* 每页显示 */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">每页显示</span>
-            <select
-              value={pageSize}
-              onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
-              className="px-2 py-1 border border-gray-300 rounded text-sm bg-white"
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-muted-foreground">条</span>
-          </div>
-
-          {/* 上一页 */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-            className="h-8 px-3"
-          >
-            上一页
-          </Button>
-
-          {/* 页码信息 */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">第</span>
-            <Input
-              type="number"
-              value={currentPage}
-              onChange={(e) => {
-                const page = parseInt(e.target.value);
-                if (page >= 1 && page <= totalPages) {
-                  handlePageChange(page);
-                }
-              }}
-              className="w-12 h-8 text-center"
-              min={1}
-              max={totalPages}
-            />
-            <span className="text-sm text-muted-foreground">页,共{totalPages}页</span>
-          </div>
-
-          {/* 下一页 */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-            className="h-8 px-3"
-          >
-            下一页
-          </Button>
-        </div>
-      )}
+      {/* ✅ 使用PaginationControl组件 */}
+      <PaginationControl
+        currentPage={currentPage}
+        pageSize={pageSize}
+        totalPages={totalPages}
+        totalCount={totalRequestsCount}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
       </div>
       
       {/* 批量输入对话框 */}
