@@ -90,7 +90,7 @@ interface PaymentPreviewSheet {
 interface PaymentPreviewData { sheets: PaymentPreviewSheet[]; processed_record_ids: string[]; }
 interface FinalPaymentData { sheets: PaymentPreviewSheet[]; all_record_ids: string[]; }
 interface PartnerChain { id: string; chain_name: string; is_default: boolean; }
-interface EditPartnerCostData { recordId: string; recordNumber: string; partnerCosts: PartnerCost[]; }
+interface EditPartnerCostData { recordId: string; recordNumber: string; partnerCosts: PartnerCost[]; driverPayableCost: number; }
 interface EditChainData { recordId: string; recordNumber: string; projectId: string; currentChainName: string; }
 
 // ============================================================================
@@ -147,6 +147,7 @@ export default function PaymentRequest() {
   const [availableChains, setAvailableChains] = useState<PartnerChain[]>([]);
   const [isLoadingChains, setIsLoadingChains] = useState(false);
   const [tempPartnerCosts, setTempPartnerCosts] = useState<PartnerCost[]>([]);
+  const [tempDriverCost, setTempDriverCost] = useState<number>(0);  // 临时司机应收
   const [selectedChainId, setSelectedChainId] = useState<string>('');
   
   // 批量修改状态
@@ -506,9 +507,11 @@ export default function PaymentRequest() {
     setEditPartnerCostData({
       recordId: record.id,
       recordNumber: record.auto_number,
-      partnerCosts: record.partner_costs || []
+      partnerCosts: record.partner_costs || [],
+      driverPayableCost: record.payable_cost || 0
     });
     setTempPartnerCosts(JSON.parse(JSON.stringify(record.partner_costs || [])));
+    setTempDriverCost(record.payable_cost || 0);  // 设置临时司机应收
   };
 
   /**
@@ -661,6 +664,7 @@ export default function PaymentRequest() {
       });
       setEditPartnerCostData(null);
       setTempPartnerCosts([]);
+      setTempDriverCost(0);
       fetchReportData();
     } catch (error) {
       console.error("恢复默认计算失败:", error);
@@ -671,11 +675,11 @@ export default function PaymentRequest() {
   };
   
   /**
-   * 保存合作方运费修改
-   * 限制：
-   * 1. 只更新最高级合作方的运费
-   * 2. 只允许修改"未支付"且"未开票"的运单
-   * 3. 其他层级的运费由系统自动计算
+   * 保存合作方运费修改（支持修改所有层级的合作方和司机应收）
+   * 功能：
+   * 1. 保存所有层级合作方的运费
+   * 2. 保存司机应收
+   * 3. 设置 is_manually_modified 标记
    */
   const handleSavePartnerCost = async () => {
     if (!editPartnerCostData) return;
@@ -703,34 +707,40 @@ export default function PaymentRequest() {
         throw new Error(`只有未开票状态的运单才能修改运费。当前开票状态：${statusText}`);
       }
       
-      // 找出最高级合作方
-      const maxLevel = Math.max(...tempPartnerCosts.map(c => c.level));
-      const highestLevelPartner = tempPartnerCosts.find(c => c.level === maxLevel);
-      
-      if (!highestLevelPartner) {
-        throw new Error("未找到最高级合作方");
+      // 1. 更新所有层级合作方的金额
+      for (const cost of tempPartnerCosts) {
+        const { error: updateError } = await supabase
+          .from('logistics_partner_costs')
+          .update({
+            payable_amount: cost.payable_amount,
+            is_manually_modified: true,  // 标记为用户手动修改
+            updated_at: new Date().toISOString()
+          })
+          .eq('logistics_record_id', editPartnerCostData.recordId)
+          .eq('partner_id', cost.partner_id)
+          .eq('level', cost.level);
+        
+        if (updateError) throw updateError;
       }
       
-      // 只更新最高级合作方的金额
-      const { error: updateError } = await supabase
-        .from('logistics_partner_costs')
+      // 2. 更新司机应收金额
+      const { error: driverUpdateError } = await supabase
+        .from('logistics_records')
         .update({
-          payable_amount: highestLevelPartner.payable_amount,
-          is_manually_modified: true,  // 🆕 标记为用户手动修改
+          payable_cost: tempDriverCost,
           updated_at: new Date().toISOString()
         })
-        .eq('logistics_record_id', editPartnerCostData.recordId)
-        .eq('partner_id', highestLevelPartner.partner_id)
-        .eq('level', maxLevel);
+        .eq('id', editPartnerCostData.recordId);
       
-      if (updateError) throw updateError;
+      if (driverUpdateError) throw driverUpdateError;
       
       toast({ 
         title: "成功", 
-        description: `已更新最高级合作方"${highestLevelPartner.partner_name}"的运费（后续链路修改时会保护此手动值）` 
+        description: `已更新 ${tempPartnerCosts.length} 个合作方的运费和司机应收` 
       });
       setEditPartnerCostData(null);
       setTempPartnerCosts([]);
+      setTempDriverCost(0);
       fetchReportData();
     } catch (error) {
       console.error("保存合作方运费失败:", error);
@@ -1753,56 +1763,103 @@ export default function PaymentRequest() {
             const sortedCosts = [...tempPartnerCosts].sort((a, b) => b.level - a.level); // 从高到低排序
             return (
               <div className="space-y-4 max-h-[60vh] overflow-y-auto py-2">
+                {/* 司机应收 */}
+                <Card className="border-l-4 border-l-green-500 bg-green-50/50">
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs font-medium text-green-700">司机应收</Label>
+                        <p className="font-medium text-green-900">基础费用</p>
+                        <span className="text-xs px-2 py-0.5 rounded-full mt-1 inline-block bg-green-100 text-green-700">
+                          直接支付给司机
+                        </span>
+                      </div>
+                      <div>
+                        <Label htmlFor="driver-amount" className="text-xs font-medium text-green-700">应收金额 (¥)</Label>
+                        <Input
+                          id="driver-amount"
+                          type="text"
+                          inputMode="decimal"
+                          value={tempDriverCost}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
+                              setTempDriverCost(parseFloat(value) || 0);
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value;
+                            if (value && value !== '-' && !isNaN(parseFloat(value))) {
+                              setTempDriverCost(parseFloat(parseFloat(value).toFixed(2)));
+                            }
+                          }}
+                          className="font-mono border-green-300 focus:border-green-500 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          placeholder="输入司机应收金额"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {/* 所有层级合作方 */}
                 {sortedCosts.map((cost, index) => {
                   const isHighest = cost.level === maxLevel;
                   return (
-                    <Card key={cost.partner_id} className={`border-l-4 ${isHighest ? 'border-l-blue-500 bg-blue-50/50' : 'border-l-gray-300 bg-gray-50/30'}`}>
+                    <Card key={cost.partner_id} className={`border-l-4 ${isHighest ? 'border-l-blue-500 bg-blue-50/50' : 'border-l-purple-500 bg-purple-50/30'}`}>
                       <CardContent className="p-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <Label className="text-xs text-muted-foreground">合作方名称</Label>
                             <p className="font-medium">{cost.partner_name}</p>
                             <span className={`text-xs px-2 py-0.5 rounded-full mt-1 inline-block ${
-                              isHighest ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-600'
+                              isHighest ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
                             }`}>
                               {cost.level}级 {isHighest && '(最高级)'}
                             </span>
                           </div>
                           <div>
-                            <Label htmlFor={`amount-${cost.partner_id}`}>应收金额 (¥)</Label>
-                            {isHighest ? (
-                              <Input
-                                id={`amount-${cost.partner_id}`}
-                                type="number"
-                                step="0.01"
-                                value={cost.payable_amount}
-                                onChange={(e) => {
+                            <Label htmlFor={`amount-${cost.partner_id}`} className="text-xs font-medium">应收金额 (¥)</Label>
+                            <Input
+                              id={`amount-${cost.partner_id}`}
+                              type="text"
+                              inputMode="decimal"
+                              value={cost.payable_amount}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
                                   const newCosts = [...tempPartnerCosts];
                                   const targetIndex = newCosts.findIndex(c => c.partner_id === cost.partner_id);
-                                  newCosts[targetIndex].payable_amount = parseFloat(e.target.value) || 0;
+                                  newCosts[targetIndex].payable_amount = parseFloat(value) || 0;
                                   setTempPartnerCosts(newCosts);
-                                }}
-                                className="font-mono border-blue-300 focus:border-blue-500"
-                              />
-                            ) : (
-                              <div className="h-9 px-3 py-2 border rounded-md bg-muted/50 font-mono text-muted-foreground flex items-center">
-                                ¥{cost.payable_amount.toFixed(2)}
-                              </div>
-                            )}
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const value = e.target.value;
+                                if (value && value !== '-' && !isNaN(parseFloat(value))) {
+                                  const newCosts = [...tempPartnerCosts];
+                                  const targetIndex = newCosts.findIndex(c => c.partner_id === cost.partner_id);
+                                  newCosts[targetIndex].payable_amount = parseFloat(parseFloat(value).toFixed(2));
+                                  setTempPartnerCosts(newCosts);
+                                }
+                              }}
+                              className={`font-mono text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                isHighest ? 'border-blue-300 focus:border-blue-500' : 'border-purple-300 focus:border-purple-500'
+                              }`}
+                              placeholder="输入金额"
+                            />
                           </div>
                         </div>
-                        {!isHighest && (
-                          <p className="text-xs text-muted-foreground mt-2">
-                            💡 低层级合作方金额由系统自动计算，不可手动修改
-                          </p>
-                        )}
                       </CardContent>
                     </Card>
                   );
                 })}
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <p className="text-xs text-blue-800">
-                    <strong>说明：</strong>只能修改最高级合作方的运费，其他层级的运费由系统根据利润率或税点自动计算。
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                  <p className="text-xs text-yellow-800">
+                    <strong>说明：</strong>
+                    <br />• 🟢 绿色边框：司机应收金额
+                    <br />• 🔵 蓝色边框：最高级合作方应收（通常是直接客户）
+                    <br />• 🟣 紫色边框：低层级合作方应收（中间商）
+                    <br />• 所有金额都可以独立修改
                   </p>
                 </div>
               </div>
@@ -1824,7 +1881,7 @@ export default function PaymentRequest() {
             </ConfirmDialog>
             <ConfirmDialog
               title="确认修改应收"
-              description={`确定要修改运单 ${editPartnerCostData?.recordNumber} 的应收金额吗？此操作将更新最高级合作方的费用。`}
+              description={`确定要修改运单 ${editPartnerCostData?.recordNumber} 的应收金额吗？此操作将更新司机应收和所有合作方的费用。`}
               onConfirm={handleSavePartnerCost}
             >
               <Button disabled={isSaving}>
