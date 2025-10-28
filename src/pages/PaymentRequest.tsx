@@ -877,10 +877,17 @@ export default function PaymentRequest() {
    * 3. 显示成功和失败统计
    */
   const handleBatchModifyCost = async () => {
-    // 验证每条记录都有输入金额
-    const invalidRecords = batchCostRecords.filter(r => !r.new_amount || parseFloat(r.new_amount) <= 0);
+    // 验证每条记录都有输入金额（允许0，但不允许负数或空值）
+    const invalidRecords = batchCostRecords.filter(r => {
+      const value = r.new_amount?.toString().trim();
+      if (!value && value !== '0') return true; // 空值
+      const num = parseFloat(value);
+      if (isNaN(num)) return true; // 不是数字
+      if (num < 0) return true; // 负数
+      return false;
+    });
     if (invalidRecords.length > 0) {
-      toast({ title: "错误", description: `请为所有运单输入有效金额`, variant: "destructive" });
+      toast({ title: "错误", description: `请为所有运单输入有效金额（可以是0，但不能为负数）`, variant: "destructive" });
       return;
     }
 
@@ -1899,17 +1906,30 @@ export default function PaymentRequest() {
                         <Label htmlFor={`amount-${index}`} className="text-xs text-muted-foreground">新应收金额 (¥)</Label>
                         <Input
                           id={`amount-${index}`}
-                          type="number"
-                          step="0.01"
+                          type="text"
+                          inputMode="decimal"
                           value={record.new_amount}
                           onChange={(e) => {
-                            const newRecords = [...batchCostRecords];
-                            newRecords[index].new_amount = e.target.value;
-                            setBatchCostRecords(newRecords);
+                            // 只允许输入数字、小数点和负号（开头）
+                            const value = e.target.value;
+                            if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
+                              const newRecords = [...batchCostRecords];
+                              newRecords[index].new_amount = value;
+                              setBatchCostRecords(newRecords);
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // 失焦时格式化为两位小数（如果是有效数字）
+                            const value = e.target.value;
+                            if (value && value !== '-' && !isNaN(parseFloat(value))) {
+                              const newRecords = [...batchCostRecords];
+                              newRecords[index].new_amount = parseFloat(value).toFixed(2);
+                              setBatchCostRecords(newRecords);
+                            }
                           }}
                           disabled={isBatchModifying}
-                          className="font-mono h-9"
-                          placeholder="输入新金额"
+                          className="font-mono h-9 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          placeholder="输入金额（可以是0）"
                         />
                       </div>
                     </div>

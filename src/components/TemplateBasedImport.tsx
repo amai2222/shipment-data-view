@@ -41,6 +41,12 @@ interface ImportTemplate {
   description: string;
   platform_name: string;
   is_active: boolean;
+  header_row?: number;      // 表头所在行号
+  data_start_row?: number;  // 数据开始行号
+  template_config?: {       // 模板配置对象
+    header_row?: number;
+    data_start_row?: number;
+  };
 }
 
 interface FieldMapping {
@@ -95,10 +101,16 @@ export default function TemplateBasedImport() {
         .order('name');
 
       if (error) throw error;
-      setTemplates((data || []).map(t => ({
-        ...t,
-        platform_name: t.platform_type || 'unknown'
-      })));
+      setTemplates((data || []).map(t => {
+        const config = t.template_config || {};
+        return {
+          ...t,
+          platform_name: t.platform_type || 'unknown',
+          header_row: config.header_row || 1,
+          data_start_row: config.data_start_row || 2,
+          template_config: config
+        };
+      }));
     } catch (error: unknown) {
       console.error('加载模板失败:', error);
       toast({ title: "错误", description: "加载模板列表失败", variant: "destructive" });
@@ -170,6 +182,11 @@ export default function TemplateBasedImport() {
 
     setIsLoading(true);
     try {
+      // 获取当前模板配置
+      const currentTemplate = templates.find(t => t.id === selectedTemplate);
+      const headerRow = currentTemplate?.header_row || 1;      // 默认第1行
+      const dataStartRow = currentTemplate?.data_start_row || 2;  // 默认第2行
+      
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { 
         cellDates: true, 
@@ -180,16 +197,23 @@ export default function TemplateBasedImport() {
       
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      // 读取所有数据（从第1行开始）
+      const allData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
 
-      if (jsonData.length < 2) {
-        toast({ title: "错误", description: "Excel文件格式错误，至少需要表头和一行数据", variant: "destructive" });
+      if (allData.length < dataStartRow) {
+        toast({ 
+          title: "错误", 
+          description: `Excel文件数据不足，配置的数据开始行为第${dataStartRow}行，但文件只有${allData.length}行`, 
+          variant: "destructive" 
+        });
         return;
       }
 
-      // 获取表头
-      const headers = jsonData[0] as string[];
-      const rows = jsonData.slice(1) as string[][];
+      // 根据配置获取表头（注意：数组索引从0开始，所以要减1）
+      const headers = allData[headerRow - 1] as string[];
+      // 获取数据行（从配置的数据开始行读取）
+      const rows = allData.slice(dataStartRow - 1) as string[][];
 
       // 根据模板映射转换数据
       const mappedData = rows.map((row, index) => {
@@ -409,6 +433,11 @@ export default function TemplateBasedImport() {
                   平台: {templates.find(t => t.id === selectedTemplate)?.platform_name}
                   <br />
                   字段映射: {fieldMappings.length} 个字段
+                  <br />
+                  <span className="text-blue-600 font-medium">
+                    📌 Excel表头在第{templates.find(t => t.id === selectedTemplate)?.header_row || 1}行，
+                    数据从第{templates.find(t => t.id === selectedTemplate)?.data_start_row || 2}行开始读取
+                  </span>
                 </AlertDescription>
               </Alert>
             )}

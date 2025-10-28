@@ -45,6 +45,8 @@ interface ImportTemplate {
   description: string;
   platform_name: string;
   is_active: boolean;
+  header_row?: number;      // 表头所在行号
+  data_start_row?: number;  // 数据开始行号
   created_at: string;
   updated_at: string;
 }
@@ -115,7 +117,9 @@ export default function TemplateMappingManager() {
     name: '',
     description: '',
     platform_name: '',
-    is_active: true
+    is_active: true,
+    header_row: 1,      // 表头所在行号，默认第1行
+    data_start_row: 2   // 数据开始行号，默认第2行
   });
 
   const [fieldForm, setFieldForm] = useState({
@@ -144,15 +148,21 @@ export default function TemplateMappingManager() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTemplates((data || []).map(t => ({
-        id: t.id,
-        name: t.name,
-        description: t.description || '',
-        platform_name: t.platform_type || 'unknown',
-        is_active: t.is_active ?? true,
-        created_at: t.created_at || new Date().toISOString(),
-        updated_at: t.updated_at || new Date().toISOString()
-      })));
+      setTemplates((data || []).map(t => {
+        // 从template_config中读取配置
+        const config = t.template_config || {};
+        return {
+          id: t.id,
+          name: t.name,
+          description: t.description || '',
+          platform_name: t.platform_type || '',
+          is_active: t.is_active !== undefined ? t.is_active : true,
+          header_row: config.header_row || 1,
+          data_start_row: config.data_start_row || 2,
+          created_at: t.created_at || new Date().toISOString(),
+          updated_at: t.updated_at || new Date().toISOString()
+        };
+      }));
     } catch (error: any) {
       console.error('加载模板失败:', error);
       toast({ title: "错误", description: "加载模板列表失败", variant: "destructive" });
@@ -224,15 +234,25 @@ export default function TemplateMappingManager() {
 
     setIsLoading(true);
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      const templateData = {
+        ...(selectedTemplate?.id && { id: selectedTemplate.id }),
+        name: templateForm.name,
+        platform_type: templateForm.platform_name,
+        description: templateForm.description || null,
+        is_active: templateForm.is_active,
+        template_config: {
+          header_row: templateForm.header_row || 1,
+          data_start_row: templateForm.data_start_row || 2
+        },
+        created_by_user_id: userData.user?.id || null,
+        updated_at: new Date().toISOString()
+      };
+      
       const { data, error } = await supabase
         .from('import_templates')
-        .upsert({
-          ...(selectedTemplate?.id && { id: selectedTemplate.id }),
-          name: templateForm.name,
-          platform_type: templateForm.platform_name,
-          description: templateForm.description,
-          created_by_user_id: (await supabase.auth.getUser()).data.user?.id
-        })
+        .upsert(templateData)
         .select()
         .single();
 
@@ -360,7 +380,9 @@ export default function TemplateMappingManager() {
       name: '',
       description: '',
       platform_name: '',
-      is_active: true
+      is_active: true,
+      header_row: 1,
+      data_start_row: 2
     });
     setSelectedTemplate(null);
     setFieldMappings([]);
@@ -440,7 +462,9 @@ export default function TemplateMappingManager() {
       name: template.name,
       description: template.description || '',
       platform_name: template.platform_name,
-      is_active: template.is_active
+      is_active: template.is_active,
+      header_row: template.header_row || 1,
+      data_start_row: template.data_start_row || 2
     });
     setIsDialogOpen(true);
   };
@@ -502,6 +526,14 @@ export default function TemplateMappingManager() {
                   <p className="text-sm text-muted-foreground mb-2">
                     平台: {template.platform_name}
                   </p>
+                  <div className="flex gap-2 mb-2">
+                    <Badge variant="outline" className="text-xs">
+                      表头: 第{template.header_row || 1}行
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      数据: 第{template.data_start_row || 2}行
+                    </Badge>
+                  </div>
                   {template.description && (
                     <p className="text-sm text-muted-foreground">
                       {template.description}
@@ -674,6 +706,32 @@ export default function TemplateMappingManager() {
                 placeholder="输入模板描述"
                 rows={3}
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="header_row">表头行号</Label>
+                <Input
+                  id="header_row"
+                  type="number"
+                  min="1"
+                  value={templateForm.header_row}
+                  onChange={(e) => setTemplateForm(prev => ({ ...prev, header_row: parseInt(e.target.value) || 1 }))}
+                  placeholder="默认第1行"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Excel中字段名所在的行号</p>
+              </div>
+              <div>
+                <Label htmlFor="data_start_row">数据开始行号</Label>
+                <Input
+                  id="data_start_row"
+                  type="number"
+                  min="1"
+                  value={templateForm.data_start_row}
+                  onChange={(e) => setTemplateForm(prev => ({ ...prev, data_start_row: parseInt(e.target.value) || 2 }))}
+                  placeholder="默认第2行"
+                />
+                <p className="text-xs text-muted-foreground mt-1">实际数据从第几行开始</p>
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <Switch
