@@ -368,89 +368,48 @@ export default function PaymentRequest() {
       const v2 = (v2Data as any) || {};
       const records: LogisticsRecord[] = Array.isArray(v2.records) ? v2.records : [];
       
-      // ✅ 修复：按每个运单的最高级合作方（客户）分组
-      // 第1步：找出每个运单的最高级合作方
-      const recordsByTopPartner = new Map<string, any[]>();
-      
+      const sheetMap = new Map<string, any>();
+
+      // ✅ 修复：按每个运单单独判断最高级，只包含低层级合作方
       for (const rec of records) {
         const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
         if (costs.length === 0) continue;
 
-        // 找到该运单的最高级合作方（客户）
+        // 计算当前运单的最高层级
         const recMaxLevel = Math.max(...costs.map(c => c.level));
-        const topPartner = costs.find(c => c.level === recMaxLevel);
         
-        if (!topPartner) continue;
-        
-        // 按最高级合作方的ID分组运单
-        const key = topPartner.partner_id;
-        if (!recordsByTopPartner.has(key)) {
-          recordsByTopPartner.set(key, []);
-        }
-        recordsByTopPartner.get(key).push({
-          record: rec,
-          topPartner: topPartner,
-          recMaxLevel: recMaxLevel
-        });
-      }
-
-      // 第2步：为每个最高级合作方（客户）生成一个付款申请预览
-      const sheets: any[] = [];
-      
-      for (const [topPartnerId, recordsGroup] of recordsByTopPartner.entries()) {
-        const topPartner = recordsGroup[0].topPartner;
-        
-        // 收集该客户项目下所有低层级合作方的付款信息
-        const partnerPayments = new Map<string, any>();
-        
-        for (const { record: rec, recMaxLevel } of recordsGroup) {
-          const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
-          
-          // 只包含低于该运单最高级的合作方
-          for (const cost of costs) {
-            if (cost.level < recMaxLevel) {
-              const partnerId = cost.partner_id;
-              
-              if (!partnerPayments.has(partnerId)) {
-                partnerPayments.set(partnerId, {
-                  partner_id: partnerId,
-                  partner_name: cost.full_name || cost.partner_name,
-                  bank_account: cost.bank_account || '',
-                  bank_name: (cost as any).bank_name || '',
-                  branch_name: (cost as any).branch_name || '',
-                  level: cost.level,
-                  total_amount: 0,
-                  record_count: 0,
-                  record_ids: new Set()
-                });
-              }
-              
-              const payment = partnerPayments.get(partnerId);
-              if (!payment.record_ids.has(rec.id)) {
-                payment.record_count++;
-                payment.record_ids.add(rec.id);
-              }
-              payment.total_amount += Number(cost.payable_amount || 0);
+        for (const cost of costs) {
+          // 只为低于该运单最高级的合作方生成付款申请
+          if (cost.level < recMaxLevel) {
+            const key = cost.partner_id;
+            if (!sheetMap.has(key)) {
+              sheetMap.set(key, {
+                paying_partner_id: key,
+                paying_partner_full_name: cost.full_name || cost.partner_name,
+                paying_partner_bank_account: cost.bank_account || '',
+                paying_partner_bank_name: (cost as any).bank_name || '',
+                paying_partner_branch_name: (cost as any).branch_name || '',
+                record_count: 0,
+                total_payable: 0,
+                header_company_name: rec.project_name,
+                records: []
+              });
             }
+            const sheet = sheetMap.get(key);
+            if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
+                sheet.record_count += 1;
+            }
+            sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
+            sheet.total_payable += Number(cost.payable_amount || 0);
           }
         }
-        
-        // 为该客户生成一个付款申请单
-        sheets.push({
-          top_partner_id: topPartnerId,
-          top_partner_name: topPartner.full_name || topPartner.partner_name,
-          paying_partner_id: topPartnerId,
-          paying_partner_full_name: topPartner.full_name || topPartner.partner_name,
-          record_count: recordsGroup.length,
-          total_payable: Array.from(partnerPayments.values()).reduce((sum, p) => sum + p.total_amount, 0),
-          partner_payments: Array.from(partnerPayments.values()),
-          records: recordsGroup.map(r => r.record)
-        });
       }
+
+      const sheets = Array.from(sheetMap.values());
       
       const finalRecordIds = new Set<string>();
       sheets.forEach(sheet => {
-        sheet.records.forEach((r: any) => finalRecordIds.add(r.id));
+        sheet.records.forEach((r: any) => finalRecordIds.add(r.record.id));
       });
       
       const previewData: PaymentPreviewData = { sheets, processed_record_ids: Array.from(finalRecordIds) };
