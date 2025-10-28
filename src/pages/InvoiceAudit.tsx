@@ -555,7 +555,7 @@ export default function InvoiceAudit() {
     const dynamicSummary = generateDynamicSummary();
     
     // 处理合作方名称
-    const partnerName = (request as any).partner_full_name || (request as any).partner_name || '未知合作方';
+    const partnerName = (request as any).invoicing_partner_full_name || (request as any).partner_full_name || (request as any).partner_name || '未知合作方';
     const requestNumber = (request as any).request_number || request.id;
     const totalAmount = (request as any).total_amount || 0;
     const recordCount = (request as any).record_count || details.length;
@@ -594,11 +594,13 @@ export default function InvoiceAudit() {
       display: flex;
       justify-content: space-between;
       margin-bottom: 15px;
-      padding: 0 10px;
+      padding: 10px;
+      border: 1px solid #000;
     }
     .info-item {
       display: flex;
       align-items: center;
+      padding: 0 10px;
     }
     .info-label {
       font-weight: bold;
@@ -624,10 +626,16 @@ export default function InvoiceAudit() {
       margin-top: 30px;
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
+      gap: 0;
+      border: 1px solid #000;
     }
     .signature-item {
       text-align: center;
+      border-right: 1px solid #000;
+      padding: 10px;
+    }
+    .signature-item:last-child {
+      border-right: none;
     }
     .signature-line {
       border-bottom: 1px solid #000;
@@ -646,6 +654,8 @@ export default function InvoiceAudit() {
       margin-top: 20px;
       font-size: 11px;
       line-height: 1.8;
+      border: 1px solid #000;
+      padding: 10px;
     }
     .invoice-info {
       margin-top: 30px;
@@ -897,7 +907,7 @@ export default function InvoiceAudit() {
         const totalAmount = detailedRecords.reduce((sum, rec) => sum + (rec.invoiceable_amount || 0), 0);
         setPartnerTotals([{
           partner_id: (detailsData[0] as any).partner_id || '',
-          partner_name: (detailsData[0] as any).partner_name || '未知合作方',
+          partner_name: (detailsData[0] as any).invoicing_partner_full_name || (detailsData[0] as any).partner_full_name || (detailsData[0] as any).partner_name || '未知合作方',
           total_amount: totalAmount,
           level: 1
         }]);
