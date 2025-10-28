@@ -649,7 +649,7 @@ export default function PaymentRequest() {
         await supabase
           .from('logistics_records')
           .update({
-            driver_payable_cost: recalculatedCost.payable_amount,
+            payable_cost: recalculatedCost.payable_amount,  // 司机应收使用payable_cost字段
             updated_at: new Date().toISOString()
           })
           .eq('id', editPartnerCostData.recordId);
@@ -876,7 +876,7 @@ export default function PaymentRequest() {
             const { error: driverUpdateError } = await supabase
               .from('logistics_records')
               .update({
-                driver_payable_cost: recalculatedCost.payable_amount,
+                payable_cost: recalculatedCost.payable_amount,  // 司机应收使用payable_cost字段
                 updated_at: new Date().toISOString()
               })
               .eq('id', record.id);
@@ -1009,7 +1009,7 @@ export default function PaymentRequest() {
           const { error: updateDriverError } = await supabase
             .from('logistics_records')
             .update({
-              driver_payable_cost: newDriverAmount,
+              payable_cost: newDriverAmount,  // 司机应收使用payable_cost字段
               updated_at: new Date().toISOString()
             })
             .eq('id', record.id);
@@ -1133,8 +1133,8 @@ export default function PaymentRequest() {
               )
             : null;
           
-          // 获取司机应收金额
-          const driverPayableCost = record.driver_payable_cost || record.payable_cost || 0;
+          // 获取司机应收金额（使用payable_cost字段）
+          const driverPayableCost = record.payable_cost || 0;
           
           return {
             id: record.id,
