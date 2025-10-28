@@ -159,7 +159,7 @@ export default function MobileProjectDetail() {
       // 计算基础统计
       const totalRecords = records?.length || 0;
       const totalWeight = records?.reduce((sum, r) => sum + (r.loading_weight || 0), 0) || 0;
-      const totalAmount = records?.reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0) || 0;
+      const totalAmount = records?.reduce((sum, r) => sum + (r.payable_cost || 0), 0) || 0;
       const completionRate = project?.planned_total_tons ? 
         Math.min((totalWeight / project.planned_total_tons) * 100, 100) : 0;
       const activeDrivers = new Set(records?.map(r => r.driver_name)).size;
@@ -169,7 +169,7 @@ export default function MobileProjectDetail() {
       const todayStats = {
         records: todayRecords?.length || 0,
         weight: todayRecords?.reduce((sum, r) => sum + (r.loading_weight || 0), 0) || 0,
-        amount: todayRecords?.reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0) || 0,
+        amount: todayRecords?.reduce((sum, r) => sum + (r.payable_cost || 0), 0) || 0,
       };
 
       // 7天趋势数据
@@ -181,7 +181,7 @@ export default function MobileProjectDetail() {
           date: format(subDays(new Date(), i), 'MM/dd'),
           records: dayRecords.length,
           weight: dayRecords.reduce((sum, r) => sum + (r.loading_weight || 0), 0),
-          amount: dayRecords.reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0),
+          amount: dayRecords.reduce((sum, r) => sum + (r.payable_cost || 0), 0),
         });
       }
 
@@ -195,7 +195,7 @@ export default function MobileProjectDetail() {
         const stats = driverStats.get(name);
         stats.records++;
         stats.weight += record.loading_weight || 0;
-        stats.amount += record.driver_payable_cost || 0;
+        stats.amount += record.payable_cost || 0;
       });
 
       const topDrivers = Array.from(driverStats.entries())

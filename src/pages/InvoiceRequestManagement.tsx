@@ -55,8 +55,7 @@ interface LogisticsRecord {
   loading_weight: number | null;
   unloading_weight: number | null;
   current_cost: number | null;
-  payable_cost: number | null;
-  driver_payable_cost: number | null;
+  payable_cost: number | null;  // 司机应收金额
   license_plate: string;
   driver_phone: string;
   transport_type: string | null;
@@ -755,8 +754,7 @@ export default function InvoiceRequestManagement() {
         loading_weight: logisticsData.loading_weight,
         unloading_weight: logisticsData.unloading_weight,
         current_cost: logisticsData.current_cost,
-        payable_cost: logisticsData.payable_cost,
-        driver_payable_cost: logisticsData.payable_cost,
+        payable_cost: logisticsData.payable_cost,  // 司机应收金额
         license_plate: driverInfo.license_plate || '',
         driver_phone: driverInfo.phone || '',
         transport_type: null,

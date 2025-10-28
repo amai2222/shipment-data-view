@@ -24,8 +24,7 @@ export interface LogisticsRecord {
   loading_weight: number | null;
   unloading_weight: number | null;
   current_cost: number | null;
-  payable_cost: number | null;
-  driver_payable_cost: number | null;
+  payable_cost: number | null;  // 司机应收金额
   license_plate: string | null;
   driver_phone: string | null;
   transport_type: string | null;

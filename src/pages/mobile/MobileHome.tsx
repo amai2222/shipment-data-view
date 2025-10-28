@@ -87,7 +87,7 @@ export default function MobileHome() {
         // 只查询今日数据，减少数据量
         supabase
           .from('logistics_records')
-          .select('loading_weight, driver_payable_cost', { count: 'exact' })
+          .select('loading_weight, payable_cost', { count: 'exact' })
           .gte('loading_date', startOfToday)
           .lte('loading_date', endOfToday),
         // 使用更高效的计数查询
@@ -109,10 +109,10 @@ export default function MobileHome() {
       ]);
 
       // 计算今日数据
-      const todayData = (todayQuery as any).data as Array<{ loading_weight: number | null; driver_payable_cost: number | null }> | null;
+      const todayData = (todayQuery as any).data as Array<{ loading_weight: number | null; payable_cost: number | null }> | null;
       const todayCount = (todayQuery as any).count as number | null;
       const todayWeight = (todayData || []).reduce((sum, r) => sum + (r.loading_weight || 0), 0);
-      const todaysCost = (todayData || []).reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0);
+      const todaysCost = (todayData || []).reduce((sum, r) => sum + (r.payable_cost || 0), 0);
 
       // 获取其他统计数据
       const activeProjects = (activeProjectsCount as any).count || 0;

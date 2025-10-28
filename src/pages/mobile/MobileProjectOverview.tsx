@@ -110,22 +110,22 @@ export default function MobileProjectOverview() {
       // 获取物流记录统计
       const { data: todayRecords } = await supabase
         .from('logistics_records')
-        .select('loading_weight, driver_payable_cost', { count: 'exact' })
+        .select('loading_weight, payable_cost', { count: 'exact' })
         .gte('loading_date', startOfToday);
 
       const { data: weekRecords } = await supabase
         .from('logistics_records')
-        .select('loading_weight, driver_payable_cost')
+        .select('loading_weight, payable_cost')
         .gte('loading_date', startOfWeek);
 
       const { data: monthRecords } = await supabase
         .from('logistics_records')
-        .select('loading_weight, driver_payable_cost')
+        .select('loading_weight, payable_cost')
         .gte('loading_date', startOfThisMonth);
 
       const { data: lastMonthRecords } = await supabase
         .from('logistics_records')
-        .select('loading_weight, driver_payable_cost')
+        .select('loading_weight, payable_cost')
         .gte('loading_date', startOfLastMonth)
         .lt('loading_date', startOfThisMonth);
 
@@ -134,7 +134,7 @@ export default function MobileProjectOverview() {
       const completedProjects = projects?.filter(p => p.project_status === '已完成').length || 0;
 
       const totalWeight = monthRecords?.reduce((sum, record) => sum + (record.loading_weight || 0), 0) || 0;
-      const totalAmount = monthRecords?.reduce((sum, record) => sum + (record.driver_payable_cost || 0), 0) || 0;
+      const totalAmount = monthRecords?.reduce((sum, record) => sum + (record.payable_cost || 0), 0) || 0;
       const todayRecordsCount = todayRecords?.length || 0;
 
       const thisMonthWeight = monthRecords?.reduce((sum, record) => sum + (record.loading_weight || 0), 0) || 0;
@@ -178,7 +178,7 @@ export default function MobileProjectOverview() {
       // 第二步：批量获取所有项目的统计数据（一次查询）
       const { data: allRecords, error: recordsError } = await supabase
         .from('logistics_records')
-        .select('project_id, loading_weight, driver_payable_cost, loading_date, driver_name')
+        .select('project_id, loading_weight, payable_cost, loading_date, driver_name')
         .in('project_id', projectIds);
 
       if (recordsError) throw recordsError;
@@ -191,7 +191,7 @@ export default function MobileProjectOverview() {
         const todayRecords = projectRecords.filter(r => r.loading_date >= today);
         
         const totalWeight = projectRecords.reduce((sum, r) => sum + (r.loading_weight || 0), 0);
-        const totalAmount = projectRecords.reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0);
+        const totalAmount = projectRecords.reduce((sum, r) => sum + (r.payable_cost || 0), 0);
         const activeDrivers = new Set(projectRecords.map(r => r.driver_name)).size;
         const todayWeight = todayRecords.reduce((sum, r) => sum + (r.loading_weight || 0), 0);
 

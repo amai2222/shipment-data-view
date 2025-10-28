@@ -53,7 +53,7 @@ interface LogisticsRecord {
   unloading_location: string;
   loading_weight: number;
   unloading_weight?: number;
-  driver_payable_cost: number;
+  payable_cost: number;
   transport_type: string;
   remarks?: string;
   created_at: string;
@@ -170,7 +170,7 @@ export default function MobileProjectRecords() {
         case 'weight':
           return (b.loading_weight || 0) - (a.loading_weight || 0);
         case 'amount':
-          return (b.driver_payable_cost || 0) - (a.driver_payable_cost || 0);
+          return (b.payable_cost || 0) - (a.payable_cost || 0);
         default:
           return new Date(b.loading_date).getTime() - new Date(a.loading_date).getTime();
       }
@@ -363,7 +363,7 @@ export default function MobileProjectRecords() {
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-bold text-green-600">
-                              {formatAmount(record.driver_payable_cost)}
+                              {formatAmount(record.payable_cost)}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {formatWeight(record.loading_weight)}
@@ -459,7 +459,7 @@ export default function MobileProjectRecords() {
                   <div className="text-center">
                     <div className="text-2xl font-bold text-purple-600">
                       {formatAmount(
-                        filteredAndSortedRecords.reduce((sum, record) => sum + (record.driver_payable_cost || 0), 0)
+                        filteredAndSortedRecords.reduce((sum, record) => sum + (record.payable_cost || 0), 0)
                       )}
                     </div>
                     <div className="text-sm text-muted-foreground">总金额</div>

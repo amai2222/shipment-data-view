@@ -81,8 +81,7 @@ export interface LogisticsRecord {
   transport_type: "实际运输" | "退货";
   current_cost?: number;
   extra_cost?: number;
-  payable_cost?: number;
-  driver_payable_cost?: number;
+  payable_cost?: number;  // 司机应收金额
   remarks?: string;
   created_at: string;
   created_by_user_id: string;

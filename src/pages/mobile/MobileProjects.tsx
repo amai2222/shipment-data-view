@@ -91,7 +91,7 @@ export default function MobileProjects() {
       const projectIds = projectsData.map(p => p.id);
       const { data: allRecords, error: recordsError } = await supabase
         .from('logistics_records')
-        .select('project_id, loading_weight, driver_payable_cost')
+        .select('project_id, loading_weight, payable_cost')
         .in('project_id', projectIds);
 
       if (recordsError) throw recordsError;
@@ -102,7 +102,7 @@ export default function MobileProjects() {
       projectsData.forEach(project => {
         const records = (allRecords || []).filter(r => r.project_id === project.id);
         const totalWeight = records.reduce((sum, r) => sum + (r.loading_weight || 0), 0);
-        const totalCost = records.reduce((sum, r) => sum + (r.driver_payable_cost || 0), 0);
+        const totalCost = records.reduce((sum, r) => sum + (r.payable_cost || 0), 0);
         const completionRate = project.planned_total_tons ? 
           Math.min((totalWeight / project.planned_total_tons) * 100, 100) : 0;
 

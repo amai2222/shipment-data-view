@@ -299,7 +299,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               <SortableHeader field="loading_location" className="min-w-[140px] font-semibold text-slate-800 text-sm py-4">路线</SortableHeader>
               <SortableHeader field="loading_weight" className="min-w-[120px] font-semibold text-slate-800 text-sm py-4">数量</SortableHeader>
               <SortableHeader field="current_cost" className="min-w-[120px] font-semibold text-slate-800 text-sm py-4">运费/额外费</SortableHeader>
-              <SortableHeader field="driver_payable_cost" className="min-w-[100px] font-semibold text-slate-800 text-sm py-4">司机应收</SortableHeader>
+              <SortableHeader field="payable_cost" className="min-w-[100px] font-semibold text-slate-800 text-sm py-4">司机应收</SortableHeader>
               {/* 隐藏状态列 */}
               {/* <SortableHeader field="transport_type" className="w-[100px]">状态</SortableHeader> */}
               <TableHead className="min-w-[100px] text-center font-semibold text-slate-800 text-sm py-4">运输单据</TableHead>

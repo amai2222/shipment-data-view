@@ -21,7 +21,7 @@ const testRecord: LogisticsRecord = {
   unloading_weight: 25.3,
   current_cost: 1500.00,
   payable_cost: 1600.00,
-  driver_payable_cost: 1600.00,
+  payable_cost: 1600.00,
   license_plate: '京A12345',
   driver_phone: '13800138000',
   transport_type: '实际运输',

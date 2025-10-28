@@ -220,7 +220,7 @@ export default function MobileHomeNew() {
         // 今日运输记录
         supabase
           .from('logistics_records')
-          .select('loading_weight, driver_payable_cost')
+          .select('loading_weight, payable_cost')
           .gte('loading_date', startOfToday)
           .lte('loading_date', endOfToday),
         
@@ -243,14 +243,14 @@ export default function MobileHomeNew() {
         // 本周趋势数据
         supabase
           .from('logistics_records')
-          .select('loading_date, loading_weight, driver_payable_cost')
+          .select('loading_date, loading_weight, payable_cost')
           .gte('loading_date', startOfThisWeek)
       ]);
 
       // 计算今日统计
       const todayRecords = todayRecordsResult.data || [];
       const todayWeight = todayRecords.reduce((sum, record) => sum + (record.loading_weight || 0), 0);
-      const todayAmount = todayRecords.reduce((sum, record) => sum + (record.driver_payable_cost || 0), 0);
+      const todayAmount = todayRecords.reduce((sum, record) => sum + (record.payable_cost || 0), 0);
 
       // 计算项目统计
       const allProjects = projectsResult.data || [];
@@ -268,7 +268,7 @@ export default function MobileHomeNew() {
         if (weeklyData[date]) {
           weeklyData[date].records++;
           weeklyData[date].weight += record.loading_weight || 0;
-          weeklyData[date].amount += record.driver_payable_cost || 0;
+          weeklyData[date].amount += record.payable_cost || 0;
         }
       });
 

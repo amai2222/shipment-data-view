@@ -54,7 +54,7 @@ interface WaybillDetail {
   unloading_location: string;
   loading_weight: number;
   unloading_weight?: number;
-  driver_payable_cost: number;
+  payable_cost: number;
   current_cost?: number;
   extra_cost?: number;
   transport_type: string;
@@ -164,7 +164,7 @@ export default function MobileWaybillDetail() {
     if (navigator.share) {
       navigator.share({
         title: `运单详情 - ${waybill?.auto_number}`,
-        text: `司机：${waybill?.driver_name}\n重量：${formatWeight(waybill?.loading_weight)}\n金额：${formatAmount(waybill?.driver_payable_cost)}`,
+        text: `司机：${waybill?.driver_name}\n重量：${formatWeight(waybill?.loading_weight)}\n金额：${formatAmount(waybill?.payable_cost)}`,
         url: window.location.href,
       });
     } else {
@@ -266,7 +266,7 @@ export default function MobileWaybillDetail() {
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-green-600">
-                  {formatAmount(waybill.driver_payable_cost)}
+                  {formatAmount(waybill.payable_cost)}
                 </div>
                 <div className="text-sm text-muted-foreground">
                   {formatWeight(waybill.loading_weight)} • {billingConfig.name}
@@ -503,7 +503,7 @@ export default function MobileWaybillDetail() {
                   <span className="text-sm font-medium">司机应付费用</span>
                 </div>
                 <span className="text-lg font-bold text-orange-600">
-                  {formatAmount(waybill.driver_payable_cost)}
+                  {formatAmount(waybill.payable_cost)}
                 </span>
               </div>
 
