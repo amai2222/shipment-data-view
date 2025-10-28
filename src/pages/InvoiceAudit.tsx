@@ -1423,7 +1423,7 @@ export default function InvoiceAudit() {
                   size="sm"
                   onClick={handleBatchApproveWithConfirm}
                   disabled={isBatchOperating}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
                 >
                   {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
                   批量审批
@@ -1431,14 +1431,14 @@ export default function InvoiceAudit() {
                 {isAdmin && (
                   <>
                     <Button 
-                      variant="outline" 
+                      variant="default"
                       disabled={selectionCount === 0 || isCancelling} 
                       onClick={() => {
                         if (window.confirm('确定要回滚选中的 ' + selectionCount + ' 个开票申请吗？\n\n此操作将：\n- 保留申请单记录（状态标记为已作废）\n- 回滚运单状态为未开票\n\n请确认操作。')) {
                           handleRollbackRequests();
                         }
                       }}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                       一键回滚 ({selectionCount})

@@ -1029,7 +1029,7 @@ export default function MobilePaymentRequestsList() {
                         size="sm" 
                         onClick={() => handlePayment(req)} 
                         disabled={exportingId === req.id}
-                        className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                        className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
                       >
                         <Banknote className="h-4 w-4 mr-1" />
                         付款
@@ -1043,7 +1043,7 @@ export default function MobilePaymentRequestsList() {
                         size="sm" 
                         onClick={() => handleApproval(req)} 
                         disabled={exportingId === req.id}
-                        className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                        className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
                       >
                         <Send className="h-4 w-4 mr-1" />
                         审批

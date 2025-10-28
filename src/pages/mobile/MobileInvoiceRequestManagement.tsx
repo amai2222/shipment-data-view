@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
-import { FileText, Search, Filter, Eye, Edit, RefreshCw, ChevronRight, X, CheckCircle, FileDown, CheckSquare, Square, Trash2, Ban } from "lucide-react";
+import { FileText, Search, Filter, Eye, Edit, RefreshCw, ChevronRight, X, CheckCircle, FileDown, CheckSquare, Square, Trash2, Ban, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { LogisticsFormDialog } from "@/pages/BusinessEntry/components/LogisticsFormDialog";
@@ -603,28 +603,65 @@ export default function MobileInvoiceRequestManagement() {
     }
   };
 
+  // 一键回滚（回滚申请单状态到待审核）
+  const handleBatchRollback = async () => {
+    if (selectedRequests.size === 0) return;
+    
+    setIsBatchProcessing(true);
+    try {
+      const selectedIds = Array.from(selectedRequests);
+      
+      const { error } = await supabase
+        .from('invoice_requests')
+        .update({ status: 'Pending', updated_at: new Date().toISOString() })
+        .in('id', selectedIds)
+        .in('status', ['Approved', 'Completed']);
+
+      if (error) throw error;
+
+      toast({
+        title: "回滚完成",
+        description: `已将 ${selectedIds.length} 个开票申请单的状态回滚到"待审核"`,
+      });
+      
+      loadInvoiceRequests();
+      setSelectedRequests(new Set());
+      setBatchSelectionMode(false);
+    } catch (error) {
+      console.error('批量回滚失败:', error);
+      toast({
+        title: "回滚失败",
+        description: error.message || '无法批量回滚开票申请单',
+        variant: "destructive",
+      });
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  // 一键作废（删除申请单记录和回滚运单状态）
   const handleBatchVoid = async () => {
     if (selectedRequests.size === 0) return;
     
     setIsBatchProcessing(true);
     try {
-      const { error } = await supabase
-        .from('invoice_requests')
-        .update({ 
-          status: 'Cancelled',
-          updated_at: new Date().toISOString()
-        })
-        .in('id', Array.from(selectedRequests));
+      const selectedIds = Array.from(selectedRequests);
+      
+      const { data, error } = await supabase.rpc('void_and_delete_invoice_requests', {
+        p_request_ids: selectedIds
+      });
 
       if (error) throw error;
 
+      const result = data as any;
       toast({
-        title: "批量作废成功",
-        description: `已作废 ${selectedRequests.size} 个开票申请单`,
+        title: "作废成功",
+        description: `已永久删除 ${result.deleted_requests} 个开票申请单，${result.affected_logistics_records} 条运单状态已回滚为未开票`,
       });
       
       loadInvoiceRequests();
       setSelectedRequests(new Set());
+      setBatchSelectionMode(false);
     } catch (error) {
       console.error('批量作废失败:', error);
       toast({
@@ -853,14 +890,31 @@ export default function MobileInvoiceRequestManagement() {
                   批量拒绝
                 </Button>
                 <Button
-                  onClick={handleBatchVoid}
+                  onClick={() => {
+                    if (window.confirm('确定要回滚 ' + selectedRequests.size + ' 个申请单吗？\n\n此操作将申请单状态回滚到"待审核"，不影响运单状态。')) {
+                      handleBatchRollback();
+                    }
+                  }}
                   disabled={selectedRequests.size === 0 || isBatchProcessing}
-                  variant="outline"
-                  className="border-red-300 text-red-600 hover:bg-red-50"
+                  variant="default"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  一键回滚
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (window.confirm('确定要作废并删除 ' + selectedRequests.size + ' 个申请单吗？\n\n⚠️ 此操作将永久删除记录并回滚运单状态，不可逆！')) {
+                      handleBatchVoid();
+                    }
+                  }}
+                  disabled={selectedRequests.size === 0 || isBatchProcessing}
+                  variant="destructive"
                   size="sm"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  批量作废
+                  一键作废
                 </Button>
               </div>
             </div>

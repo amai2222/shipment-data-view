@@ -1457,11 +1457,11 @@ export default function PaymentRequestsList() {
                 </span>
                 {/* 批量审批按钮 - 已隐藏 */}
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   onClick={handleBatchPay}
                   disabled={isBatchOperating}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
                 >
                   {batchOperation === 'pay' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
                   批量付款
@@ -1473,7 +1473,7 @@ export default function PaymentRequestsList() {
                       description={`此操作将：\n- 将申请单状态回滚到"待审批"\n- 不影响运单状态\n\n请确认操作。`}
                       onConfirm={handleRollbackRequests}
                     >
-                      <Button variant="outline" disabled={selectionCount === 0 || isCancelling} className="flex items-center gap-2">
+                      <Button variant="default" disabled={selectionCount === 0 || isCancelling} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                         {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                         一键回滚 ({selectionCount})
                       </Button>
