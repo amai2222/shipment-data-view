@@ -1588,7 +1588,6 @@ export default function InvoiceRequestManagement() {
                 <option value="Pending">待审核</option>
                 <option value="Approved">已审批</option>
                 <option value="Completed">已完成</option>
-                <option value="Rejected">已拒绝</option>
                 <option value="Voided">已作废</option>
               </select>
             </div>
@@ -2055,7 +2054,6 @@ export default function InvoiceRequestManagement() {
                 <SelectContent>
                   <SelectItem value="Pending">待审核</SelectItem>
                   <SelectItem value="Approved">已通过</SelectItem>
-                  <SelectItem value="Rejected">已拒绝</SelectItem>
                   <SelectItem value="Completed">已完成</SelectItem>
                 </SelectContent>
               </Select>

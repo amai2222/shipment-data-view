@@ -924,7 +924,6 @@ export default function MobilePaymentRequestsList() {
                     <option value="Pending">待审批</option>
                     <option value="Approved">已审批</option>
                     <option value="Paid">已付款</option>
-                    <option value="Rejected">已驳回</option>
                   </select>
                 </div>
 

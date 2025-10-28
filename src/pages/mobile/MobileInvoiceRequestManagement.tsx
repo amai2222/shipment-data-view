@@ -949,10 +949,8 @@ export default function MobileInvoiceRequestManagement() {
                   <SelectItem value="all">全部状态</SelectItem>
                   <SelectItem value="Pending">待审核</SelectItem>
                   <SelectItem value="Approved">已通过</SelectItem>
-                  <SelectItem value="Rejected">已拒绝</SelectItem>
                   <SelectItem value="Completed">已完成</SelectItem>
                   <SelectItem value="Voided">已作废</SelectItem>
-                  <SelectItem value="Merged">已合并</SelectItem>
                 </SelectContent>
               </Select>
             </div>
