@@ -159,8 +159,10 @@ export default function PaymentRequest() {
     auto_number: string;
     loading_date: string;
     driver_name: string;
-    original_amount: number;
-    new_amount: string;
+    original_amount: number;           // 最高级合作方应收
+    new_amount: string;                // 最高级合作方新应收
+    original_driver_amount: number;    // 司机原应收
+    new_driver_amount: string;         // 司机新应收
   }[]>([]);
 
   // ==========================================================================
@@ -634,9 +636,28 @@ export default function PaymentRequest() {
         if (recalcError) throw recalcError;
       }
       
+      // 恢复司机应收为系统计算值（与最高级合作方一致）
+      const { data: recalculatedCost } = await supabase
+        .from('logistics_partner_costs')
+        .select('payable_amount')
+        .eq('logistics_record_id', editPartnerCostData.recordId)
+        .eq('partner_id', highestLevelPartner.partner_id)
+        .eq('level', maxLevel)
+        .single();
+      
+      if (recalculatedCost) {
+        await supabase
+          .from('logistics_records')
+          .update({
+            driver_payable_cost: recalculatedCost.payable_amount,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editPartnerCostData.recordId);
+      }
+      
       toast({ 
         title: "成功", 
-        description: `已恢复为系统自动计算，最高级合作方"${highestLevelPartner.partner_name}"的运费已重新计算` 
+        description: `已恢复为系统自动计算，最高级合作方"${highestLevelPartner.partner_name}"的运费和司机应收已重新计算` 
       });
       setEditPartnerCostData(null);
       setTempPartnerCosts([]);
@@ -819,7 +840,7 @@ export default function PaymentRequest() {
           
           const highestPartner = costs[0];
           
-          // 清除手动修改标记
+          // 1. 清除合作方手动修改标记
           const { error: updateError } = await supabase
             .from('logistics_partner_costs')
             .update({
@@ -832,12 +853,35 @@ export default function PaymentRequest() {
           
           if (updateError) throw updateError;
           
-          // 触发重算
+          // 2. 触发重算（会重新计算合作方应收）
           if (recordData.chain_name) {
             await supabase.rpc('modify_logistics_record_chain_with_recalc' as any, {
               p_record_id: record.id,
               p_chain_name: recordData.chain_name
             });
+          }
+          
+          // 3. 恢复司机应收为系统计算值
+          // 司机应收 = 最高级合作方应收（重新计算后的值）
+          // 需要重新读取计算后的合作方金额
+          const { data: recalculatedCost } = await supabase
+            .from('logistics_partner_costs')
+            .select('payable_amount')
+            .eq('logistics_record_id', record.id)
+            .eq('partner_id', highestPartner.partner_id)
+            .eq('level', highestPartner.level)
+            .single();
+          
+          if (recalculatedCost) {
+            const { error: driverUpdateError } = await supabase
+              .from('logistics_records')
+              .update({
+                driver_payable_cost: recalculatedCost.payable_amount,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', record.id);
+            
+            if (driverUpdateError) throw driverUpdateError;
           }
           
           successCount++;
@@ -849,7 +893,7 @@ export default function PaymentRequest() {
 
       toast({
         title: "批量恢复默认完成",
-        description: `成功恢复 ${successCount} 条运单为系统自动计算，失败 ${failedCount} 条`,
+        description: `成功恢复 ${successCount} 条运单为系统自动计算（含合作方和司机应收），失败 ${failedCount} 条`,
         variant: successCount > 0 ? "default" : "destructive"
       });
 
@@ -877,17 +921,24 @@ export default function PaymentRequest() {
    * 3. 显示成功和失败统计
    */
   const handleBatchModifyCost = async () => {
-    // 验证每条记录都有输入金额（允许0，但不允许负数或空值）
+    // 验证每条记录的合作方和司机金额都有效（允许0，但不允许负数或空值）
     const invalidRecords = batchCostRecords.filter(r => {
-      const value = r.new_amount?.toString().trim();
-      if (!value && value !== '0') return true; // 空值
-      const num = parseFloat(value);
-      if (isNaN(num)) return true; // 不是数字
-      if (num < 0) return true; // 负数
+      // 验证合作方金额
+      const partnerValue = r.new_amount?.toString().trim();
+      if (!partnerValue && partnerValue !== '0') return true;
+      const partnerNum = parseFloat(partnerValue);
+      if (isNaN(partnerNum) || partnerNum < 0) return true;
+      
+      // 验证司机金额
+      const driverValue = r.new_driver_amount?.toString().trim();
+      if (!driverValue && driverValue !== '0') return true;
+      const driverNum = parseFloat(driverValue);
+      if (isNaN(driverNum) || driverNum < 0) return true;
+      
       return false;
     });
     if (invalidRecords.length > 0) {
-      toast({ title: "错误", description: `请为所有运单输入有效金额（可以是0，但不能为负数）`, variant: "destructive" });
+      toast({ title: "错误", description: `请为所有运单输入有效的合作方和司机金额（可以是0，但不能为负数）`, variant: "destructive" });
       return;
     }
 
@@ -900,7 +951,8 @@ export default function PaymentRequest() {
       // 逐个修改运单
       for (const record of batchCostRecords) {
         try {
-          const newAmount = parseFloat(record.new_amount);
+          const newPartnerAmount = parseFloat(record.new_amount);
+          const newDriverAmount = parseFloat(record.new_driver_amount);
           
           // 检查运单状态
           const { data: recordData, error: checkError } = await supabase
@@ -939,19 +991,30 @@ export default function PaymentRequest() {
           
           const highestPartner = costs[0];
           
-          // 更新最高级合作方的金额
-          const { error: updateError } = await supabase
+          // 1. 更新最高级合作方的金额
+          const { error: updatePartnerError } = await supabase
             .from('logistics_partner_costs')
             .update({
-              payable_amount: newAmount,
-              is_manually_modified: true,  // 🆕 标记为用户手动修改
+              payable_amount: newPartnerAmount,
+              is_manually_modified: true,  // 标记为用户手动修改
               updated_at: new Date().toISOString()
             })
             .eq('logistics_record_id', record.id)
             .eq('partner_id', highestPartner.partner_id)
             .eq('level', highestPartner.level);
           
-          if (updateError) throw updateError;
+          if (updatePartnerError) throw updatePartnerError;
+          
+          // 2. 更新司机应收金额
+          const { error: updateDriverError } = await supabase
+            .from('logistics_records')
+            .update({
+              driver_payable_cost: newDriverAmount,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', record.id);
+          
+          if (updateDriverError) throw updateDriverError;
           
           successCount++;
         } catch (error) {
@@ -962,7 +1025,7 @@ export default function PaymentRequest() {
 
       toast({
         title: "批量修改完成",
-        description: `成功更新 ${successCount} 条运单，失败 ${failedCount} 条`,
+        description: `成功更新 ${successCount} 条运单（含合作方和司机应收），失败 ${failedCount} 条`,
         variant: successCount > 0 ? "default" : "destructive"
       });
 
@@ -1070,13 +1133,18 @@ export default function PaymentRequest() {
               )
             : null;
           
+          // 获取司机应收金额
+          const driverPayableCost = record.driver_payable_cost || record.payable_cost || 0;
+          
           return {
             id: record.id,
             auto_number: record.auto_number,
             loading_date: record.loading_date,
             driver_name: record.driver_name,
             original_amount: highestCost?.payable_amount || 0,
-            new_amount: (highestCost?.payable_amount || 0).toString()
+            new_amount: (highestCost?.payable_amount || 0).toString(),
+            original_driver_amount: driverPayableCost,
+            new_driver_amount: driverPayableCost.toString()
           };
         })
       );
@@ -1878,59 +1946,100 @@ export default function PaymentRequest() {
               </div>
               批量修改应收
             </DialogTitle>
-            <DialogDescription>已选择 {batchCostRecords.length} 条运单，请逐个输入新的应收金额</DialogDescription>
+            <DialogDescription>已选择 {batchCostRecords.length} 条运单，请逐个输入新的合作方应收和司机应收金额</DialogDescription>
           </DialogHeader>
           <div className="py-4 max-h-[60vh] overflow-y-auto">
             <div className="space-y-3">
               {batchCostRecords.map((record, index) => (
                 <Card key={record.id} className="border-l-4 border-l-green-500">
                   <CardContent className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-                      <div className="md:col-span-1">
-                        <Label className="text-xs text-muted-foreground">运单编号</Label>
-                        <p className="font-mono text-sm font-medium">{record.auto_number}</p>
+                    <div className="space-y-4">
+                      {/* 基本信息行 */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">运单编号</Label>
+                          <p className="font-mono text-sm font-medium">{record.auto_number}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">装货日期</Label>
+                          <p className="text-sm">{new Date(record.loading_date).toLocaleDateString('zh-CN')}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">司机</Label>
+                          <p className="text-sm font-medium">{record.driver_name}</p>
+                        </div>
                       </div>
-                      <div className="md:col-span-1">
-                        <Label className="text-xs text-muted-foreground">装货日期</Label>
-                        <p className="text-sm">{new Date(record.loading_date).toLocaleDateString('zh-CN')}</p>
+                      
+                      {/* 合作方应收金额 */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 p-3 rounded-md">
+                        <div>
+                          <Label className="text-xs font-medium text-blue-700">合作方原应收</Label>
+                          <p className="text-sm font-mono text-blue-900">¥{record.original_amount.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <Label htmlFor={`partner-amount-${index}`} className="text-xs font-medium text-blue-700">合作方新应收 (¥)</Label>
+                          <Input
+                            id={`partner-amount-${index}`}
+                            type="text"
+                            inputMode="decimal"
+                            value={record.new_amount}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
+                                const newRecords = [...batchCostRecords];
+                                newRecords[index].new_amount = value;
+                                setBatchCostRecords(newRecords);
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const value = e.target.value;
+                              if (value && value !== '-' && !isNaN(parseFloat(value))) {
+                                const newRecords = [...batchCostRecords];
+                                newRecords[index].new_amount = parseFloat(value).toFixed(2);
+                                setBatchCostRecords(newRecords);
+                              }
+                            }}
+                            disabled={isBatchModifying}
+                            className="font-mono h-9 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            placeholder="输入金额（可以是0）"
+                          />
+                        </div>
                       </div>
-                      <div className="md:col-span-1">
-                        <Label className="text-xs text-muted-foreground">司机</Label>
-                        <p className="text-sm font-medium">{record.driver_name}</p>
-                      </div>
-                      <div className="md:col-span-1">
-                        <Label className="text-xs text-muted-foreground">原应收金额</Label>
-                        <p className="text-sm font-mono text-muted-foreground">¥{record.original_amount.toFixed(2)}</p>
-                      </div>
-                      <div className="md:col-span-2">
-                        <Label htmlFor={`amount-${index}`} className="text-xs text-muted-foreground">新应收金额 (¥)</Label>
-                        <Input
-                          id={`amount-${index}`}
-                          type="text"
-                          inputMode="decimal"
-                          value={record.new_amount}
-                          onChange={(e) => {
-                            // 只允许输入数字、小数点和负号（开头）
-                            const value = e.target.value;
-                            if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
-                              const newRecords = [...batchCostRecords];
-                              newRecords[index].new_amount = value;
-                              setBatchCostRecords(newRecords);
-                            }
-                          }}
-                          onBlur={(e) => {
-                            // 失焦时格式化为两位小数（如果是有效数字）
-                            const value = e.target.value;
-                            if (value && value !== '-' && !isNaN(parseFloat(value))) {
-                              const newRecords = [...batchCostRecords];
-                              newRecords[index].new_amount = parseFloat(value).toFixed(2);
-                              setBatchCostRecords(newRecords);
-                            }
-                          }}
-                          disabled={isBatchModifying}
-                          className="font-mono h-9 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          placeholder="输入金额（可以是0）"
-                        />
+                      
+                      {/* 司机应收金额 */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-green-50 p-3 rounded-md">
+                        <div>
+                          <Label className="text-xs font-medium text-green-700">司机原应收</Label>
+                          <p className="text-sm font-mono text-green-900">¥{record.original_driver_amount.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <Label htmlFor={`driver-amount-${index}`} className="text-xs font-medium text-green-700">司机新应收 (¥)</Label>
+                          <Input
+                            id={`driver-amount-${index}`}
+                            type="text"
+                            inputMode="decimal"
+                            value={record.new_driver_amount}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
+                                const newRecords = [...batchCostRecords];
+                                newRecords[index].new_driver_amount = value;
+                                setBatchCostRecords(newRecords);
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const value = e.target.value;
+                              if (value && value !== '-' && !isNaN(parseFloat(value))) {
+                                const newRecords = [...batchCostRecords];
+                                newRecords[index].new_driver_amount = parseFloat(value).toFixed(2);
+                                setBatchCostRecords(newRecords);
+                              }
+                            }}
+                            disabled={isBatchModifying}
+                            className="font-mono h-9 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            placeholder="输入金额（可以是0）"
+                          />
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -1940,9 +2049,10 @@ export default function PaymentRequest() {
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mt-4">
               <p className="text-xs text-yellow-800">
                 <strong>注意：</strong>
-                <br />• 只会修改最高级合作方的应收金额
+                <br />• 同时修改最高级合作方应收和司机应收
                 <br />• 只能修改"未支付"且"未开票"的运单
                 <br />• 已申请付款或已开票的运单将自动跳过
+                <br />• 金额可以设置为0（表示无需支付）
               </p>
             </div>
           </div>
@@ -1959,7 +2069,7 @@ export default function PaymentRequest() {
             </Button>
             <ConfirmDialog
               title="确认批量恢复默认"
-              description={`确定要将选中的 ${batchCostRecords.length} 条运单的应收金额恢复为系统自动计算吗？此操作将清除手动修改标记并重新计算。`}
+              description={`确定要将选中的 ${batchCostRecords.length} 条运单的应收金额恢复为系统自动计算吗？此操作将清除手动修改标记，重新计算合作方应收，并将司机应收恢复为与合作方应收一致。`}
               onConfirm={handleBatchResetToAuto}
             >
               <Button variant="secondary" disabled={isBatchModifying}>
@@ -1969,7 +2079,7 @@ export default function PaymentRequest() {
             </ConfirmDialog>
             <ConfirmDialog
               title="确认批量修改应收"
-              description={`确定要批量修改 ${batchCostRecords.length} 条运单的应收金额吗？此操作将更新这些运单最高级合作方的费用。`}
+              description={`确定要批量修改 ${batchCostRecords.length} 条运单的应收金额吗？此操作将同时更新合作方应收和司机应收。`}
               onConfirm={handleBatchModifyCost}
             >
               <Button disabled={isBatchModifying}>
