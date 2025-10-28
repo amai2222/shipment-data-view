@@ -146,8 +146,8 @@ export default function PaymentRequest() {
   const [editChainData, setEditChainData] = useState<EditChainData | null>(null);
   const [availableChains, setAvailableChains] = useState<PartnerChain[]>([]);
   const [isLoadingChains, setIsLoadingChains] = useState(false);
-  const [tempPartnerCosts, setTempPartnerCosts] = useState<PartnerCost[]>([]);
-  const [tempDriverCost, setTempDriverCost] = useState<number>(0);  // 临时司机应收
+  const [tempPartnerCosts, setTempPartnerCosts] = useState<(PartnerCost & { payable_amount: number | string })[]>([]);
+  const [tempDriverCost, setTempDriverCost] = useState<number | string>(0);  // 临时司机应收（支持输入时的字符串状态）
   const [selectedChainId, setSelectedChainId] = useState<string>('');
   
   // 批量修改状态
@@ -709,10 +709,13 @@ export default function PaymentRequest() {
       
       // 1. 更新所有层级合作方的金额
       for (const cost of tempPartnerCosts) {
+        // 确保金额是数字类型
+        const amount = typeof cost.payable_amount === 'string' ? parseFloat(cost.payable_amount) : cost.payable_amount;
+        
         const { error: updateError } = await supabase
           .from('logistics_partner_costs')
           .update({
-            payable_amount: cost.payable_amount,
+            payable_amount: amount,
             is_manually_modified: true,  // 标记为用户手动修改
             updated_at: new Date().toISOString()
           })
@@ -724,10 +727,11 @@ export default function PaymentRequest() {
       }
       
       // 2. 更新司机应收金额
+      const driverAmount = typeof tempDriverCost === 'string' ? parseFloat(tempDriverCost) : tempDriverCost;
       const { error: driverUpdateError } = await supabase
         .from('logistics_records')
         .update({
-          payable_cost: tempDriverCost,
+          payable_cost: driverAmount,
           updated_at: new Date().toISOString()
         })
         .eq('id', editPartnerCostData.recordId);
@@ -1780,17 +1784,20 @@ export default function PaymentRequest() {
                           id="driver-amount"
                           type="text"
                           inputMode="decimal"
-                          value={tempDriverCost}
+                          value={tempDriverCost.toString()}
                           onChange={(e) => {
                             const value = e.target.value;
+                            // 允许输入空、负号、数字和小数点（不立即parseFloat）
                             if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
-                              setTempDriverCost(parseFloat(value) || 0);
+                              setTempDriverCost(value as any);  // 临时保存字符串
                             }
                           }}
                           onBlur={(e) => {
                             const value = e.target.value;
                             if (value && value !== '-' && !isNaN(parseFloat(value))) {
                               setTempDriverCost(parseFloat(parseFloat(value).toFixed(2)));
+                            } else if (value === '' || value === '-') {
+                              setTempDriverCost(0);
                             }
                           }}
                           className="font-mono border-green-300 focus:border-green-500 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -1823,22 +1830,26 @@ export default function PaymentRequest() {
                               id={`amount-${cost.partner_id}`}
                               type="text"
                               inputMode="decimal"
-                              value={cost.payable_amount}
+                              value={typeof cost.payable_amount === 'number' ? cost.payable_amount.toString() : cost.payable_amount}
                               onChange={(e) => {
                                 const value = e.target.value;
+                                // 允许输入空、负号、数字和小数点（不立即parseFloat）
                                 if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
                                   const newCosts = [...tempPartnerCosts];
                                   const targetIndex = newCosts.findIndex(c => c.partner_id === cost.partner_id);
-                                  newCosts[targetIndex].payable_amount = parseFloat(value) || 0;
+                                  newCosts[targetIndex].payable_amount = value as any;  // 临时保存字符串
                                   setTempPartnerCosts(newCosts);
                                 }
                               }}
                               onBlur={(e) => {
                                 const value = e.target.value;
+                                const newCosts = [...tempPartnerCosts];
+                                const targetIndex = newCosts.findIndex(c => c.partner_id === cost.partner_id);
                                 if (value && value !== '-' && !isNaN(parseFloat(value))) {
-                                  const newCosts = [...tempPartnerCosts];
-                                  const targetIndex = newCosts.findIndex(c => c.partner_id === cost.partner_id);
                                   newCosts[targetIndex].payable_amount = parseFloat(parseFloat(value).toFixed(2));
+                                  setTempPartnerCosts(newCosts);
+                                } else {
+                                  newCosts[targetIndex].payable_amount = 0;
                                   setTempPartnerCosts(newCosts);
                                 }
                               }}
