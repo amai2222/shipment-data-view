@@ -1453,7 +1453,7 @@ export default function InvoiceRequestManagement() {
       variant: 'outline',
       needConfirm: true,
       confirmTitle: `确认回滚 ${selectionCount} 个申请单`,
-      confirmDescription: '此操作将：\n- 将申请单状态回滚到"待审核"\n- 不影响运单状态\n\n请确认操作。',
+      confirmDescription: `此操作将：\n- 将申请单状态回滚到"待审核"\n- 不影响运单状态\n\n请确认操作。`,
       onClick: handleBatchRollback
     },
     {

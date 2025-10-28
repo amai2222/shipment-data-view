@@ -1434,7 +1434,7 @@ export default function InvoiceAudit() {
                       variant="outline" 
                       disabled={selectionCount === 0 || isCancelling} 
                       onClick={() => {
-                        if (window.confirm(`确定要回滚选中的 ${selectionCount} 个开票申请吗？\n\n此操作将：\n- 保留申请单记录（状态标记为已作废）\n- 回滚运单状态为未开票\n\n请确认操作。`)) {
+                        if (window.confirm('确定要回滚选中的 ' + selectionCount + ' 个开票申请吗？\n\n此操作将：\n- 保留申请单记录（状态标记为已作废）\n- 回滚运单状态为未开票\n\n请确认操作。')) {
                           handleRollbackRequests();
                         }
                       }}
@@ -1447,7 +1447,7 @@ export default function InvoiceAudit() {
                       variant="destructive" 
                       disabled={selectionCount === 0 || isCancelling} 
                       onClick={() => {
-                        if (window.confirm(`确定要作废并删除选中的 ${selectionCount} 个开票申请吗？\n\n⚠️ 此操作将：\n- 永久删除申请单记录\n- 回滚运单状态为未开票\n\n此操作不可逆，请谨慎操作！`)) {
+                        if (window.confirm('确定要作废并删除选中的 ' + selectionCount + ' 个开票申请吗？\n\n⚠️ 此操作将：\n- 永久删除申请单记录\n- 回滚运单状态为未开票\n\n此操作不可逆，请谨慎操作！')) {
                           handleDeleteRequests();
                         }
                       }}

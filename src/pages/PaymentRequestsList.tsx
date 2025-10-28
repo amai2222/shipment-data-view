@@ -1470,7 +1470,7 @@ export default function PaymentRequestsList() {
                   <>
                     <ConfirmDialog
                       title={`确认回滚 ${selectionCount} 张申请单`}
-                      description="此操作将：\n- 将申请单状态回滚到"待审批"\n- 不影响运单状态\n\n请确认操作。"
+                      description={`此操作将：\n- 将申请单状态回滚到"待审批"\n- 不影响运单状态\n\n请确认操作。`}
                       onConfirm={handleRollbackRequests}
                     >
                       <Button variant="outline" disabled={selectionCount === 0 || isCancelling} className="flex items-center gap-2">
