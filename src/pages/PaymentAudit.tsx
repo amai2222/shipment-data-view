@@ -399,12 +399,25 @@ export default function PaymentAudit() {
 
         const records: unknown[] = Array.isArray((requestData as { records?: unknown[] })?.records) ? (requestData as { records: unknown[] }).records : [];
 
-        // 使用与Excel导出完全相同的分组逻辑
+        // ✅ 修复：按每个运单单独判断最高级，只包含低层级合作方
         const sheetMap = new Map<string, unknown>();
         for (const rec of records) {
           const costs = Array.isArray((rec as { partner_costs?: unknown[] }).partner_costs) ? (rec as { partner_costs: unknown[] }).partner_costs : [];
+          
+          // 计算该运单的最高层级
+          const recMaxLevel = costs.length > 0 
+            ? Math.max(...costs.map(c => (c as { level: number }).level)) 
+            : 0;
+          
+          // 只包含低于该运单最高级的合作方
           for (const cost of costs) {
-            const costData = cost as { partner_id: string; full_name?: string; partner_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; payable_amount?: number };
+            const costData = cost as { partner_id: string; level: number; full_name?: string; partner_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; payable_amount?: number };
+            
+            // ✅ 关键修复：跳过最高级合作方
+            if (costData.level >= recMaxLevel) {
+              continue;  // 跳过该运单的最高级合作方
+            }
+            
             const recData = rec as { id: string; project_name: string };
             const key = costData.partner_id;
             if (!sheetMap.has(key)) {
@@ -450,22 +463,8 @@ export default function PaymentAudit() {
           return acc;
         }, new Map());
         
-        // 过滤掉最高级别的合作方，并按级别排序 - 与Excel导出逻辑一致
-        const filteredSheets = Array.from(sheetMap.values()).filter((sheet) => {
-          const sheetData = sheet as { project_name: string; chain_name?: string; paying_partner_id: string };
-          const projectName = sheetData.project_name;
-          const projectId = projectsByName.get(projectName);
-          const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
-          const partnersInChain = allPartnersInProject.filter((p) => !sheetData.chain_name || p.chain_name === sheetData.chain_name);
-          const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
-          const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === sheetData.paying_partner_id);
-          
-          // 跳过最高级别的合作方
-          if (currentPartnerInfo && currentPartnerInfo.level === maxLevelInChain) {
-            return false;
-          }
-          return true;
-        });
+        // ✅ 已在上面的循环中过滤掉最高级，这里只需要获取所有sheet
+        const filteredSheets = Array.from(sheetMap.values());
         
         // 按合作方级别排序，级别高的在前面
         const sortedSheets = filteredSheets.sort((a, b) => {
