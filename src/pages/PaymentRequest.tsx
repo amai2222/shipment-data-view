@@ -368,23 +368,19 @@ export default function PaymentRequest() {
       const v2 = (v2Data as any) || {};
       const records: LogisticsRecord[] = Array.isArray(v2.records) ? v2.records : [];
       
-      let maxLevel = 0;
-      for (const rec of records) {
-        for (const cost of rec.partner_costs || []) {
-          if (cost.level > maxLevel) {
-            maxLevel = cost.level;
-          }
-        }
-      }
-
       const sheetMap = new Map<string, any>();
 
+      // ✅ 修复：按每个运单单独判断最高级，而不是全局maxLevel
       for (const rec of records) {
         const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
         if (costs.length === 0) continue;
 
+        // 计算当前运单的最高层级
+        const recMaxLevel = Math.max(...costs.map(c => c.level));
+        
         for (const cost of costs) {
-          if (cost.level < maxLevel) {
+          // 只为低于该运单最高级的合作方生成付款申请
+          if (cost.level < recMaxLevel) {
             const key = cost.partner_id;
             if (!sheetMap.has(key)) {
               sheetMap.set(key, {

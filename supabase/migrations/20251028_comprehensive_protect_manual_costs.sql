@@ -39,6 +39,8 @@ DECLARE
     v_inserted_count INTEGER := 0;
     v_protected_count INTEGER := 0;
     v_manually_modified_costs JSONB;
+    v_manual_value NUMERIC;  -- ✅ 移到外部声明
+    v_is_manual BOOLEAN;     -- ✅ 移到外部声明
 BEGIN
     -- 权限检查
     v_can_access := public.is_finance_operator_or_admin();
@@ -164,26 +166,24 @@ BEGIN
         END IF;
         
         -- ✅ 关键修复：检查该合作方是否有手动修改的值
-        DECLARE
-            v_manual_value NUMERIC := NULL;
-            v_is_manual BOOLEAN := false;
-        BEGIN
-            IF v_manually_modified_costs IS NOT NULL THEN
-                SELECT (elem->>'payable_amount')::NUMERIC
-                INTO v_manual_value
-                FROM jsonb_array_elements(v_manually_modified_costs) AS elem
-                WHERE (elem->>'partner_id')::UUID = v_project_partners.partner_id
-                AND (elem->>'level')::INTEGER = v_project_partners.level
-                LIMIT 1;
-                
-                IF v_manual_value IS NOT NULL THEN
-                    v_payable_amount := v_manual_value;
-                    v_is_manual := true;
-                    v_protected_count := v_protected_count + 1;
-                    RAISE NOTICE '✅ 保护手动值：合作方(level=%) 恢复为 ¥%', v_project_partners.level, v_manual_value;
-                END IF;
+        v_manual_value := NULL;
+        v_is_manual := false;
+        
+        IF v_manually_modified_costs IS NOT NULL THEN
+            SELECT (elem->>'payable_amount')::NUMERIC
+            INTO v_manual_value
+            FROM jsonb_array_elements(v_manually_modified_costs) AS elem
+            WHERE (elem->>'partner_id')::UUID = v_project_partners.partner_id
+            AND (elem->>'level')::INTEGER = v_project_partners.level
+            LIMIT 1;
+            
+            IF v_manual_value IS NOT NULL THEN
+                v_payable_amount := v_manual_value;
+                v_is_manual := true;
+                v_protected_count := v_protected_count + 1;
+                RAISE NOTICE '✅ 保护手动值：合作方(level=%) 恢复为 ¥%', v_project_partners.level, v_manual_value;
             END IF;
-        END;
+        END IF;
         
         -- 插入成本记录
         INSERT INTO public.logistics_partner_costs (
@@ -253,7 +253,9 @@ DECLARE
     v_loading_weight NUMERIC;
     v_unloading_weight NUMERIC;
     v_has_paid_status BOOLEAN;
-    v_manually_modified_costs JSONB;
+    v_manually_modified_costs JSONB := NULL;  -- 每个运单的手动修改值
+    v_manual_value NUMERIC;  -- ✅ 移到外部声明
+    v_is_manual BOOLEAN;     -- ✅ 移到外部声明
 BEGIN
     -- 遍历所有使用该链路的运单
     FOR v_record_id IN 
@@ -263,6 +265,7 @@ BEGIN
           AND chain_id = p_chain_id
     LOOP
         v_total_count := v_total_count + 1;
+        v_manually_modified_costs := NULL;  -- 重置为NULL，准备保存当前运单的手动值
         
         -- 检查是否有已付款的成本记录
         SELECT EXISTS (
@@ -332,25 +335,23 @@ BEGIN
             END IF;
             
             -- ✅ 检查是否有手动修改的值
-            DECLARE
-                v_manual_value NUMERIC := NULL;
-                v_is_manual BOOLEAN := false;
-            BEGIN
-                IF v_manually_modified_costs IS NOT NULL THEN
-                    SELECT (elem->>'payable_amount')::NUMERIC
-                    INTO v_manual_value
-                    FROM jsonb_array_elements(v_manually_modified_costs) AS elem
-                    WHERE (elem->>'partner_id')::UUID = v_project_partners.partner_id
-                    AND (elem->>'level')::INTEGER = v_project_partners.level
-                    LIMIT 1;
-                    
-                    IF v_manual_value IS NOT NULL THEN
-                        v_payable_amount := v_manual_value;
-                        v_is_manual := true;
-                        v_protected_count := v_protected_count + 1;
-                    END IF;
+            v_manual_value := NULL;
+            v_is_manual := false;
+            
+            IF v_manually_modified_costs IS NOT NULL THEN
+                SELECT (elem->>'payable_amount')::NUMERIC
+                INTO v_manual_value
+                FROM jsonb_array_elements(v_manually_modified_costs) AS elem
+                WHERE (elem->>'partner_id')::UUID = v_project_partners.partner_id
+                AND (elem->>'level')::INTEGER = v_project_partners.level
+                LIMIT 1;
+                
+                IF v_manual_value IS NOT NULL THEN
+                    v_payable_amount := v_manual_value;
+                    v_is_manual := true;
+                    v_protected_count := v_protected_count + 1;
                 END IF;
-            END;
+            END IF;
             
             -- 插入成本记录
             INSERT INTO logistics_partner_costs (
