@@ -25,7 +25,9 @@ DECLARE
     v_updated_records INTEGER := 0;
     v_rec_id UUID;
     v_rec_max_level INTEGER;
-    v_temp_count INTEGER;  -- 临时变量，用于GET DIAGNOSTICS
+    v_temp_count INTEGER;
+    v_notes_parts TEXT[] := '{}';  -- ✅ 移到外部声明
+    v_partner_info RECORD;         -- ✅ 移到外部声明
 BEGIN
     -- 验证权限
     IF NOT public.is_finance_operator_or_admin() THEN
@@ -37,42 +39,59 @@ BEGIN
                        LPAD(FLOOR(RANDOM() * 10000)::TEXT, 4, '0');
     
     -- 生成备注：收集所有需要付款的供应商信息
-    DECLARE
-        v_notes_parts TEXT[] := '{}';
-        v_partner_info RECORD;
-    BEGIN
-        -- 按供应商分组统计
-        FOR v_partner_info IN
-            WITH record_max_levels AS (
-                SELECT logistics_record_id, MAX(level) as max_level
-                FROM public.logistics_partner_costs
-                WHERE logistics_record_id = ANY(p_record_ids)
-                GROUP BY logistics_record_id
-            )
+    -- 按供应商分组统计
+    FOR v_partner_info IN
+        WITH record_max_levels AS (
             SELECT 
-                p.name,
-                p.full_name,
-                COUNT(DISTINCT lpc.logistics_record_id) as record_count,
-                SUM(lpc.payable_amount) as total_amount
-            FROM public.logistics_partner_costs lpc
-            INNER JOIN record_max_levels rml ON lpc.logistics_record_id = rml.logistics_record_id
-            INNER JOIN public.partners p ON lpc.partner_id = p.id
-            WHERE lpc.logistics_record_id = ANY(p_record_ids)
-              AND lpc.level < rml.max_level
-              AND lpc.payment_status = 'Unpaid'
-            GROUP BY p.id, p.name, p.full_name
-            ORDER BY total_amount DESC
-        LOOP
-            v_notes_parts := array_append(
-                v_notes_parts,
-                format('%s申请付款共%s条运单金额¥%s',
-                    COALESCE(v_partner_info.full_name, v_partner_info.name),
-                    v_partner_info.record_count,
-                    ROUND(v_partner_info.total_amount, 2)
-                )
-            );
-        END LOOP;
-    END;
+                logistics_record_id, 
+                MAX(level) as max_level,
+                COUNT(*) as cost_count
+            FROM public.logistics_partner_costs
+            WHERE logistics_record_id = ANY(p_record_ids)
+            GROUP BY logistics_record_id
+        ),
+        record_payment_status AS (
+            SELECT id, payment_status
+            FROM public.logistics_records
+            WHERE id = ANY(p_record_ids)
+        )
+        SELECT 
+            p.name,
+            p.full_name,
+            COUNT(DISTINCT lpc.logistics_record_id) as record_count,
+            SUM(lpc.payable_amount) as total_amount
+        FROM public.logistics_partner_costs lpc
+        INNER JOIN record_max_levels rml ON lpc.logistics_record_id = rml.logistics_record_id
+        INNER JOIN record_payment_status rps ON lpc.logistics_record_id = rps.id
+        INNER JOIN public.partners p ON lpc.partner_id = p.id
+        WHERE lpc.logistics_record_id = ANY(p_record_ids)
+          AND rps.payment_status = 'Unpaid'  -- ✅ 只处理未支付运单
+          AND (
+              rml.cost_count = 1  -- ✅ 只有1个合作方，包含
+              OR 
+              lpc.level < rml.max_level  -- ✅ 多个合作方，只包含低层级
+          )
+          AND lpc.payment_status = 'Unpaid'
+        GROUP BY p.id, p.name, p.full_name
+        ORDER BY total_amount DESC
+    LOOP
+        v_notes_parts := array_append(
+            v_notes_parts,
+            format('%s申请付款共%s条运单金额¥%s',
+                COALESCE(v_partner_info.full_name, v_partner_info.name),
+                v_partner_info.record_count,
+                ROUND(v_partner_info.total_amount, 2)
+            )
+        );
+    END LOOP;
+    
+    -- 检查是否有需要付款的供应商
+    IF array_length(v_notes_parts, 1) = 0 OR array_length(v_notes_parts, 1) IS NULL THEN
+        RETURN json_build_object(
+            'success', false,
+            'message', '按规则排除最高级合作方后，没有需要申请付款的运单'
+        );
+    END IF;
     
     -- 创建1个付款申请单（包含所有运单）
     INSERT INTO public.payment_requests (
@@ -112,23 +131,53 @@ BEGIN
     -- 更新合作方成本状态（只更新低层级的，不更新最高级）
     FOR v_rec_id IN SELECT unnest(p_record_ids)
     LOOP
-        -- 计算该运单的最高层级
-        SELECT MAX(level) INTO v_rec_max_level
-        FROM public.logistics_partner_costs
-        WHERE logistics_record_id = v_rec_id;
-        
-        -- 更新该运单所有低于最高级的合作方成本状态
-        UPDATE public.logistics_partner_costs
-        SET 
-            payment_status = 'Processing',
-            payment_request_id = v_request_id,
-            payment_applied_at = NOW()
-        WHERE logistics_record_id = v_rec_id
-          AND level < v_rec_max_level  -- ✅ 只更新低层级（供应商）
-          AND payment_status = 'Unpaid';
-        
-        GET DIAGNOSTICS v_temp_count = ROW_COUNT;
-        v_updated_partner_costs := v_updated_partner_costs + v_temp_count;
+        <<inner_block>>
+        DECLARE
+            v_cost_count INTEGER;
+            v_rec_payment_status TEXT;
+        BEGIN
+            -- ✅ 检查运单支付状态
+            SELECT payment_status INTO v_rec_payment_status
+            FROM public.logistics_records
+            WHERE id = v_rec_id;
+            
+            -- 只处理未支付状态的运单
+            IF v_rec_payment_status != 'Unpaid' THEN
+                CONTINUE;
+            END IF;
+            
+            -- 计算该运单的合作方数量和最高层级
+            SELECT COUNT(*), MAX(level) 
+            INTO v_cost_count, v_rec_max_level
+            FROM public.logistics_partner_costs
+            WHERE logistics_record_id = v_rec_id;
+            
+            -- ✅ 规则1：如果只有1个合作方，也要更新
+            -- ✅ 规则2：如果有多个合作方，只更新低层级
+            IF v_cost_count = 1 THEN
+                -- 只有1个合作方，更新它
+                UPDATE public.logistics_partner_costs
+                SET 
+                    payment_status = 'Processing',
+                    payment_request_id = v_request_id,
+                    payment_applied_at = NOW()
+                WHERE logistics_record_id = v_rec_id
+                  AND payment_status = 'Unpaid';
+            ELSE
+                -- 多个合作方，只更新低层级
+                UPDATE public.logistics_partner_costs
+                SET 
+                    payment_status = 'Processing',
+                    payment_request_id = v_request_id,
+                    payment_applied_at = NOW()
+                WHERE logistics_record_id = v_rec_id
+                  AND level < v_rec_max_level
+                  AND payment_status = 'Unpaid';
+            END IF;
+            
+            GET DIAGNOSTICS v_temp_count = ROW_COUNT;
+            v_updated_partner_costs := v_updated_partner_costs + v_temp_count;
+        END inner_block;
     END LOOP;
     
     -- 更新运单状态为Processing

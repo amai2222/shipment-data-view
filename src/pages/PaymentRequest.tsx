@@ -372,6 +372,11 @@ export default function PaymentRequest() {
 
       // ✅ 修复：按每个运单单独判断最高级，只包含低层级合作方
       for (const rec of records) {
+        // ✅ 只处理未支付状态的运单
+        if (rec.payment_status !== 'Unpaid') {
+          continue;
+        }
+        
         const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
         if (costs.length === 0) continue;
 
@@ -379,8 +384,11 @@ export default function PaymentRequest() {
         const recMaxLevel = Math.max(...costs.map(c => c.level));
         
         for (const cost of costs) {
-          // 只为低于该运单最高级的合作方生成付款申请
-          if (cost.level < recMaxLevel) {
+          // ✅ 规则1：如果只有1个合作方，也要生成付款申请
+          // ✅ 规则2：如果有多个合作方，只为低层级生成
+          const shouldInclude = costs.length === 1 || cost.level < recMaxLevel;
+          
+          if (shouldInclude) {
             const key = cost.partner_id;
             if (!sheetMap.has(key)) {
               sheetMap.set(key, {
