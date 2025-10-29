@@ -8,6 +8,10 @@
 
 BEGIN;
 
+-- 先删除所有版本的 get_payment_request_data 函数
+DROP FUNCTION IF EXISTS public.get_payment_request_data(uuid, date, date, text[], uuid, text, text, text, text, text, integer, integer);
+DROP FUNCTION IF EXISTS public.get_payment_request_data(uuid, date, date, text[], integer, integer);
+
 CREATE OR REPLACE FUNCTION public.get_payment_request_data(
     -- 常规筛选参数
     p_project_id uuid DEFAULT NULL::uuid, 
@@ -122,7 +126,7 @@ BEGIN
     paginated_records AS (
         SELECT id
         FROM filtered_records
-        ORDER BY auto_number ASC  -- ✅ 改为运单编号升序
+        ORDER BY loading_date ASC, auto_number ASC  -- ✅ 默认：装货日期升序、运单编号升序
         LIMIT p_page_size
         OFFSET v_offset
     ),
@@ -156,7 +160,7 @@ BEGIN
             ) t
         ),
         'records', (
-            SELECT COALESCE(jsonb_agg(t ORDER BY t.auto_number ASC), '[]'::jsonb) FROM (  -- ✅ 改为运单编号升序
+            SELECT COALESCE(jsonb_agg(t ORDER BY t.loading_date ASC, t.auto_number ASC), '[]'::jsonb) FROM (  -- ✅ 装货日期升序、运单编号升序
                 SELECT
                     v.id, v.auto_number, v.project_name, v.driver_name, v.loading_location, v.unloading_location,
                     to_char(v.loading_date, 'YYYY-MM-DD') AS loading_date,

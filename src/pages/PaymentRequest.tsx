@@ -165,6 +165,10 @@ export default function PaymentRequest() {
     original_driver_amount: number;    // 司机原应收
     new_driver_amount: string;         // 司机新应收
   }[]>([]);
+  
+  // 排序状态
+  const [sortField, setSortField] = useState<string>('loading_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // ==========================================================================
   // 区域5: 数据获取函数
@@ -240,6 +244,58 @@ export default function PaymentRequest() {
   const formatCurrency = (value: number | null | undefined): string => { if (value == null) return '-'; return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value); };
   const simplifyRoute = (loading?: string, unloading?: string): string => { const start = (loading || '').substring(0, 2); const end = (unloading || '').substring(0, 2); return `${start}→${end}`; };
   
+  // 排序处理函数
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+  
+  // 排序后的数据
+  const sortedRecords = useMemo(() => {
+    if (!reportData?.records || !Array.isArray(reportData.records)) return [];
+    
+    const records = [...reportData.records];
+    records.sort((a, b) => {
+      let aVal, bVal;
+      
+      switch (sortField) {
+        case 'loading_date':
+          aVal = new Date(a.loading_date).getTime();
+          bVal = new Date(b.loading_date).getTime();
+          break;
+        case 'auto_number':
+          aVal = a.auto_number;
+          bVal = b.auto_number;
+          break;
+        case 'driver_name':
+          aVal = a.driver_name || '';
+          bVal = b.driver_name || '';
+          break;
+        case 'payable_cost':
+          aVal = a.payable_cost || 0;
+          bVal = b.payable_cost || 0;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      
+      // 次级排序：按运单编号
+      if (sortField !== 'auto_number') {
+        return a.auto_number < b.auto_number ? -1 : 1;
+      }
+      return 0;
+    });
+    
+    return records;
+  }, [reportData?.records, sortField, sortDirection]);
+  
   // 检查运单是否可编辑（需要同时满足：未支付 且 未开票）
   const isRecordEditable = (record: LogisticsRecordWithPartners): boolean => {
     const isPaymentEditable = record.payment_status === 'Unpaid';
@@ -307,7 +363,7 @@ export default function PaymentRequest() {
     return { title: '', placeholder: '', description: '' };
   };
   const handleRecordSelect = (recordId: string) => { setSelection(prev => { const newSet = new Set(prev.selectedIds); if (newSet.has(recordId)) { newSet.delete(recordId); } else { newSet.add(recordId); } if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); };
-  const handleSelectAllOnPage = (isChecked: boolean) => { const pageIds = (reportData?.records || []).map((r: any) => r.id); if (isChecked) { setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) })); } else { setSelection(prev => { const newSet = new Set(prev.selectedIds); pageIds.forEach(id => newSet.delete(id)); if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); } };
+  const handleSelectAllOnPage = (isChecked: boolean) => { const pageIds = (sortedRecords || []).map((r: any) => r.id); if (isChecked) { setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) })); } else { setSelection(prev => { const newSet = new Set(prev.selectedIds); pageIds.forEach(id => newSet.delete(id)); if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); } };
   
   // ==========================================================================
   // 区域7: 付款申请核心功能
@@ -1230,11 +1286,10 @@ export default function PaymentRequest() {
    * 判断当前页是否全选
    */
   const isAllOnPageSelected = useMemo(() => {
-    if (!reportData || !Array.isArray(reportData.records)) return false;
-    const pageIds = reportData.records.map((r: any) => r.id);
-    if (pageIds.length === 0) return false;
+    if (!sortedRecords || sortedRecords.length === 0) return false;
+    const pageIds = sortedRecords.map((r: any) => r.id);
     return pageIds.every(id => selection.selectedIds.has(id));
-  }, [reportData?.records, selection.selectedIds]);
+  }, [sortedRecords, selection.selectedIds]);
 
   /**
    * 选择数量统计
@@ -1596,20 +1651,40 @@ export default function PaymentRequest() {
                   <Table>
                     <TableHeader><TableRow>
                       <TableHead className="w-12 whitespace-nowrap"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>
-                      <TableHead className="whitespace-nowrap">运单编号</TableHead>
+                      <TableHead className="whitespace-nowrap cursor-pointer hover:bg-muted/50" onClick={() => handleSort('auto_number')}>
+                        <div className="flex items-center gap-1">
+                          运单编号
+                          {sortField === 'auto_number' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                        </div>
+                      </TableHead>
                       <TableHead className="whitespace-nowrap">项目</TableHead>
-                      <TableHead className="whitespace-nowrap">司机</TableHead>
+                      <TableHead className="whitespace-nowrap cursor-pointer hover:bg-muted/50" onClick={() => handleSort('driver_name')}>
+                        <div className="flex items-center gap-1">
+                          司机
+                          {sortField === 'driver_name' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                        </div>
+                      </TableHead>
                       <TableHead className="whitespace-nowrap">路线</TableHead>
                       <TableHead className="whitespace-nowrap">装/卸数量</TableHead>
-                      <TableHead className="whitespace-nowrap">日期</TableHead>
-                      <TableHead className="whitespace-nowrap font-bold text-primary">司机应收</TableHead>
+                      <TableHead className="whitespace-nowrap cursor-pointer hover:bg-muted/50" onClick={() => handleSort('loading_date')}>
+                        <div className="flex items-center gap-1">
+                          日期
+                          {sortField === 'loading_date' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                        </div>
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap font-bold text-primary cursor-pointer hover:bg-muted/50" onClick={() => handleSort('payable_cost')}>
+                        <div className="flex items-center gap-1">
+                          司机应收
+                          {sortField === 'payable_cost' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                        </div>
+                      </TableHead>
                       {Array.isArray(displayedPartners) && displayedPartners.map(p => <TableHead key={p.id} className="text-center whitespace-nowrap">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}
                       <TableHead className="whitespace-nowrap">合作链路</TableHead>
                       <TableHead className="whitespace-nowrap">支付状态</TableHead>
                       <TableHead className="whitespace-nowrap text-center">操作</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
-                      {Array.isArray(reportData?.records) && reportData.records.map((r: LogisticsRecordWithPartners) => (
+                      {Array.isArray(sortedRecords) && sortedRecords.map((r: LogisticsRecordWithPartners) => (
                           <TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"}>
                               <TableCell className="whitespace-nowrap"><Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)} /></TableCell>
                               <TableCell className="font-mono cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.auto_number}</TableCell>
@@ -1665,7 +1740,7 @@ export default function PaymentRequest() {
                       <TableRow className="bg-muted/30 font-semibold border-t-2">
                         <TableCell colSpan={7} className="text-right font-bold whitespace-nowrap">合计</TableCell>
                         <TableCell className="font-mono font-bold text-primary text-center whitespace-nowrap"><div>{formatCurrency(reportData?.overview?.total_payable_cost)}</div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>
-                        {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partner_payables) && reportData.partner_payables.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
+                        {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partners) && reportData.partners.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
                         <TableCell className="whitespace-nowrap"></TableCell>
                         <TableCell className="whitespace-nowrap"></TableCell>
                         <TableCell className="whitespace-nowrap"></TableCell>

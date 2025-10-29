@@ -163,7 +163,11 @@ export default function InvoiceRequest() {
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecordWithPartners | null>(null);
-  const { toast } = useToast();
+  const { toast} = useToast();
+  
+  // 排序状态
+  const [sortField, setSortField] = useState<string>('loading_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_INVOICE_FILTERS);
   const [pagination, setPagination] = useState<PaginationState>({ currentPage: 1, totalPages: 1 });
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
@@ -278,6 +282,58 @@ export default function InvoiceRequest() {
     return `${start}→${end}`; 
   };
 
+  // 排序处理函数
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+  
+  // 排序后的数据
+  const sortedRecords = useMemo(() => {
+    if (!reportData?.records || !Array.isArray(reportData.records)) return [];
+    
+    const records = [...reportData.records];
+    records.sort((a, b) => {
+      let aVal, bVal;
+      
+      switch (sortField) {
+        case 'loading_date':
+          aVal = new Date(a.loading_date).getTime();
+          bVal = new Date(b.loading_date).getTime();
+          break;
+        case 'auto_number':
+          aVal = a.auto_number;
+          bVal = b.auto_number;
+          break;
+        case 'driver_name':
+          aVal = a.driver_name || '';
+          bVal = b.driver_name || '';
+          break;
+        case 'payable_cost':
+          aVal = a.payable_cost || 0;
+          bVal = b.payable_cost || 0;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      
+      // 次级排序：按运单编号
+      if (sortField !== 'auto_number') {
+        return a.auto_number < b.auto_number ? -1 : 1;
+      }
+      return 0;
+    });
+    
+    return records;
+  }, [reportData?.records, sortField, sortDirection]);
+
   const getBillingUnit = (billingTypeId: number | null | undefined): string => {
     switch (billingTypeId) {
       case 1: return '吨';
@@ -328,7 +384,7 @@ export default function InvoiceRequest() {
   };
 
   const handleSelectAllOnPage = (isChecked: boolean) => { 
-    const pageIds = (reportData?.records || []).map((r: LogisticsRecord) => r.id); 
+    const pageIds = (sortedRecords || []).map((r: LogisticsRecord) => r.id); 
     if (isChecked) { 
       setSelection(prev => ({ 
         ...prev, 
@@ -778,13 +834,33 @@ export default function InvoiceRequest() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableHead>
-                          <TableHead className="min-w-[120px] sticky left-12 bg-background z-10 whitespace-nowrap font-medium">运单号</TableHead>
+                          <TableHead className="min-w-[120px] sticky left-12 bg-background z-10 whitespace-nowrap font-medium cursor-pointer hover:bg-muted/50" onClick={() => handleSort('auto_number')}>
+                            <div className="flex items-center gap-1">
+                              运单号
+                              {sortField === 'auto_number' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                            </div>
+                          </TableHead>
                           <TableHead className="min-w-[100px] whitespace-nowrap">项目</TableHead>
-                          <TableHead className="min-w-[80px] whitespace-nowrap">司机</TableHead>
+                          <TableHead className="min-w-[80px] whitespace-nowrap cursor-pointer hover:bg-muted/50" onClick={() => handleSort('driver_name')}>
+                            <div className="flex items-center gap-1">
+                              司机
+                              {sortField === 'driver_name' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                            </div>
+                          </TableHead>
                           <TableHead className="min-w-[140px] whitespace-nowrap">路线</TableHead>
                           <TableHead className="min-w-[100px] whitespace-nowrap hidden sm:table-cell">装/卸数量</TableHead>
-                          <TableHead className="min-w-[120px] whitespace-nowrap hidden md:table-cell">装货日期</TableHead>
-                          <TableHead className="min-w-[100px] whitespace-nowrap font-bold text-primary">司机应收</TableHead>
+                          <TableHead className="min-w-[120px] whitespace-nowrap hidden md:table-cell cursor-pointer hover:bg-muted/50" onClick={() => handleSort('loading_date')}>
+                            <div className="flex items-center gap-1">
+                              装货日期
+                              {sortField === 'loading_date' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                            </div>
+                          </TableHead>
+                          <TableHead className="min-w-[100px] whitespace-nowrap font-bold text-primary cursor-pointer hover:bg-muted/50" onClick={() => handleSort('payable_cost')}>
+                            <div className="flex items-center gap-1">
+                              司机应收
+                              {sortField === 'payable_cost' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                            </div>
+                          </TableHead>
                           {Array.isArray(displayedPartners) && displayedPartners.map(p => (
                             <TableHead key={p.id} className="min-w-[100px] text-center whitespace-nowrap">
                               <div className="text-xs font-medium">{p.name}</div>
@@ -795,7 +871,7 @@ export default function InvoiceRequest() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {Array.isArray(reportData?.records) && reportData.records.map((r: LogisticsRecordWithPartners) => (
+                        {Array.isArray(sortedRecords) && sortedRecords.map((r: LogisticsRecordWithPartners) => (
                           <TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"}>
                             <TableCell className="sticky left-0 bg-background z-10 whitespace-nowrap">
                               <Checkbox 
@@ -851,7 +927,7 @@ export default function InvoiceRequest() {
                             <div className="text-xs text-muted-foreground font-normal">(司机应收)</div>
                           </TableCell>
                           {Array.isArray(displayedPartners) && displayedPartners.map(p => { 
-                            const total = (Array.isArray(reportData?.partner_invoiceables) && reportData.partner_invoiceables.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; 
+                            const total = (Array.isArray(reportData?.partners) && reportData.partners.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; 
                             return (
                               <TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap">
                                 <div>{formatCurrency(total)}</div>
