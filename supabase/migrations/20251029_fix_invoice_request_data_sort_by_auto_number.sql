@@ -145,12 +145,15 @@ BEGIN
                     'partner_costs', COALESCE((
                         SELECT json_agg(
                             json_build_object(
+                                'id', lpc.id,  -- ✅ 必需！前端需要这个字段
                                 'partner_id', lpc.partner_id,
                                 'partner_name', p.name,
                                 'level', lpc.level,
                                 'payable_amount', lpc.payable_amount,
                                 'invoice_status', lpc.invoice_status,
                                 'full_name', p.full_name,
+                                'tax_number', pbd.tax_number,
+                                'company_address', pbd.company_address,
                                 'bank_account', pbd.bank_account,
                                 'bank_name', pbd.bank_name
                             ) ORDER BY lpc.level
@@ -177,7 +180,97 @@ $function$;
 
 COMMENT ON FUNCTION public.get_invoice_request_data IS '
 获取开票申请数据
-- 排序方式：运单编号升序（auto_number ASC）
+- 排序方式：装货日期升序、运单编号升序（loading_date ASC, auto_number ASC）
+- partner_costs包含id字段（必需！）
+';
+
+-- ============================================================
+-- 创建 get_invoice_data_by_record_ids 函数（前端一键申请开票需要）
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.get_invoice_data_by_record_ids(p_record_ids uuid[])
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+    result_json jsonb;
+BEGIN
+    SELECT jsonb_build_object(
+        'records', COALESCE((
+            SELECT json_agg(
+                json_build_object(
+                    'id', fr.id,
+                    'auto_number', fr.auto_number,
+                    'project_name', fr.project_name,
+                    'driver_name', fr.driver_name,
+                    'loading_location', fr.loading_location,  -- ✅ 添加
+                    'unloading_location', fr.unloading_location,  -- ✅ 添加
+                    'loading_date', fr.loading_date,  -- ✅ 添加
+                    'unloading_date', fr.unloading_date,  -- ✅ 添加
+                    'loading_weight', fr.loading_weight,
+                    'unloading_weight', fr.unloading_weight,
+                    'billing_type_id', fr.billing_type_id,
+                    'cargo_type', fr.cargo_type,
+                    'license_plate', fr.license_plate,
+                    'driver_phone', fr.driver_phone,
+                    'invoice_status', fr.invoice_status,
+                    'payable_cost', fr.payable_cost,
+                    'partner_costs', COALESCE((
+                        SELECT json_agg(
+                            json_build_object(
+                                'id', lpc.id,  -- ✅ 必需！
+                                'partner_id', lpc.partner_id,
+                                'partner_name', p.name,
+                                'level', lpc.level,
+                                'payable_amount', lpc.payable_amount,
+                                'invoice_status', lpc.invoice_status,
+                                'full_name', p.full_name,
+                                'tax_number', pbd.tax_number,
+                                'company_address', pbd.company_address,
+                                'bank_account', pbd.bank_account,
+                                'bank_name', pbd.bank_name
+                            ) ORDER BY lpc.level
+                        )
+                        FROM logistics_partner_costs lpc
+                        JOIN partners p ON lpc.partner_id = p.id
+                        LEFT JOIN partner_bank_details pbd ON p.id = pbd.partner_id
+                        WHERE lpc.logistics_record_id = fr.id
+                    ), '[]'::json)
+                )
+            )
+            FROM (
+                SELECT 
+                    lr.id,
+                    lr.auto_number,
+                    lr.project_name,
+                    lr.driver_name,
+                    lr.loading_location,  -- ✅ 添加
+                    lr.unloading_location,  -- ✅ 添加
+                    lr.loading_date,  -- ✅ 添加
+                    lr.unloading_date,  -- ✅ 添加
+                    lr.loading_weight,
+                    lr.unloading_weight,
+                    lr.invoice_status,
+                    lr.payable_cost,
+                    lr.billing_type_id,
+                    lr.cargo_type,
+                    d.license_plate,
+                    d.phone as driver_phone
+                FROM logistics_records lr
+                JOIN drivers d ON lr.driver_id = d.id
+                WHERE lr.id = ANY(p_record_ids)
+            ) fr
+        ), '[]'::json)
+    ) INTO result_json;
+
+    RETURN result_json;
+END;
+$function$;
+
+COMMENT ON FUNCTION public.get_invoice_data_by_record_ids IS '
+获取指定运单的开票数据（用于一键申请开票功能）
+- partner_costs 必须包含 id 字段，否则前端无法生成 allPartnerCostIds
 ';
 
 COMMIT;

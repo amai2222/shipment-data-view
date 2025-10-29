@@ -79,9 +79,15 @@ BEGIN
         -- 创建开票申请记录
         INSERT INTO invoice_requests (
             request_number,
+            invoicing_partner_id,  -- ✅ 必需字段
             partner_id,
             partner_name,
             partner_full_name,
+            invoicing_partner_full_name,
+            invoicing_partner_tax_number,
+            invoicing_partner_company_address,
+            invoicing_partner_bank_name,
+            invoicing_partner_bank_account,
             tax_number,
             company_address,
             bank_name,
@@ -89,12 +95,18 @@ BEGIN
             total_amount,
             record_count,
             created_by,
-            remarks  -- ✅ 添加备注字段
+            remarks
         ) VALUES (
             v_request_number,
             (v_sheet->>'invoicing_partner_id')::uuid,
+            (v_sheet->>'invoicing_partner_id')::uuid,
             v_sheet->>'invoicing_partner_full_name',
             v_sheet->>'invoicing_partner_full_name',
+            v_sheet->>'invoicing_partner_full_name',
+            v_sheet->>'invoicing_partner_tax_number',
+            v_sheet->>'invoicing_partner_company_address',
+            v_sheet->>'invoicing_partner_bank_name',
+            v_sheet->>'invoicing_partner_bank_account',
             v_sheet->>'invoicing_partner_tax_number',
             v_sheet->>'invoicing_partner_company_address',
             v_sheet->>'invoicing_partner_bank_name',
@@ -102,7 +114,7 @@ BEGIN
             (v_sheet->>'total_invoiceable')::decimal,
             (v_sheet->>'record_count')::integer,
             auth.uid(),
-            v_remarks  -- ✅ 保存备注
+            v_remarks
         ) RETURNING id INTO v_request_id;
 
         -- 获取该合作方的所有合作方成本记录
@@ -131,6 +143,14 @@ BEGIN
                 invoice_request_id = v_request_id,
                 invoice_applied_at = NOW()
             WHERE id = v_partner_cost_id;
+            
+            -- ✅ 同步更新运单的开票状态
+            UPDATE logistics_records
+            SET 
+                invoice_status = 'Processing',
+                invoice_request_id = v_request_id,  -- ✅ uuid类型，直接赋值
+                invoice_applied_at = NOW()
+            WHERE id = (v_partner_cost->>'logistics_record_id')::uuid;
         END LOOP;
         
         -- 记录创建的申请

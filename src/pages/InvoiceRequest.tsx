@@ -629,6 +629,17 @@ export default function InvoiceRequest() {
         }
       });
 
+      // ✅ 调试日志：查看传给后端的数据
+      console.log('传给后端的sheets数量:', finalInvoiceData.sheets.length);
+      console.log('传给后端的sheets:', finalInvoiceData.sheets.map((s: any) => ({
+        partner: s.invoicing_partner_full_name,
+        count: s.record_count,
+        amount: s.total_invoiceable,
+        has_partner_costs: Array.isArray(s.partner_costs) && s.partner_costs.length > 0,
+        partner_costs_count: s.partner_costs?.length || 0
+      })));
+      console.log('传给后端的all_partner_cost_ids数量:', allPartnerCostIds.length);
+
       const { data, error } = await supabase.rpc('save_invoice_request', {
         p_invoice_data: {
           sheets: finalInvoiceData.sheets,
