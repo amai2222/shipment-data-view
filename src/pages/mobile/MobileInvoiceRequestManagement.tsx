@@ -16,6 +16,9 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { LogisticsFormDialog } from "@/pages/BusinessEntry/components/LogisticsFormDialog";
 import { LogisticsRecord } from "../../BusinessEntry/types";
+import { MobilePullToRefresh } from "@/components/mobile/MobilePullToRefresh";
+import { MobileSkeletonLoader } from "@/components/mobile/MobileSkeletonLoader";
+import { triggerHaptic } from "@/utils/mobile";
 
 // 开票申请单类型定义
 interface InvoiceRequest {
@@ -23,6 +26,7 @@ interface InvoiceRequest {
   request_number: string;
   partner_id: string;
   partner_name: string;
+  partner_full_name?: string;  // ✅ 添加
   invoicing_partner_id?: string;
   invoicing_partner_full_name?: string;
   invoicing_partner_tax_number?: string;
@@ -35,7 +39,8 @@ interface InvoiceRequest {
   created_by: string;
   created_at: string;
   updated_at?: string;
-  remarks?: string;
+  remarks?: string;  // ✅ 备注字段
+  invoice_number?: string;  // ✅ 添加发票号
   is_voided?: boolean;
   voided_at?: string;
   voided_by?: string;
@@ -872,39 +877,48 @@ export default function MobileInvoiceRequestManagement() {
               </div>
               <div className="grid grid-cols-1 gap-2">
                 <Button
-                  onClick={handleBatchApprove}
+                  onClick={() => {
+                    triggerHaptic('medium');
+                    handleBatchApprove();
+                  }}
                   disabled={selectedRequests.size === 0 || isBatchProcessing}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="min-h-[44px] bg-green-600 hover:bg-green-700 text-white shadow-sm"
                   size="sm"
                 >
-                  <CheckCircle className="mr-2 h-4 w-4" />
+                  <CheckCircle className="mr-2 h-5 w-5" />
                   批量确认
                 </Button>
                 <Button
-                  onClick={handleBatchReject}
+                  onClick={() => {
+                    triggerHaptic('medium');
+                    handleBatchReject();
+                  }}
                   disabled={selectedRequests.size === 0 || isBatchProcessing}
                   variant="destructive"
                   size="sm"
+                  className="min-h-[44px] shadow-sm"
                 >
-                  <Ban className="mr-2 h-4 w-4" />
+                  <Ban className="mr-2 h-5 w-5" />
                   批量拒绝
                 </Button>
                 <Button
                   onClick={() => {
+                    triggerHaptic('warning');
                     if (window.confirm('确定要回滚 ' + selectedRequests.size + ' 个申请单吗？\n\n此操作将申请单状态回滚到"待审核"，不影响运单状态。')) {
                       handleBatchRollback();
                     }
                   }}
                   disabled={selectedRequests.size === 0 || isBatchProcessing}
                   variant="default"
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
                   size="sm"
                 >
-                  <RotateCcw className="mr-2 h-4 w-4" />
+                  <RotateCcw className="mr-2 h-5 w-5" />
                   一键回滚
                 </Button>
                 <Button
                   onClick={() => {
+                    triggerHaptic('error');
                     if (window.confirm('确定要作废并删除 ' + selectedRequests.size + ' 个申请单吗？\n\n⚠️ 此操作将永久删除记录并回滚运单状态，不可逆！')) {
                       handleBatchVoid();
                     }
@@ -912,8 +926,9 @@ export default function MobileInvoiceRequestManagement() {
                   disabled={selectedRequests.size === 0 || isBatchProcessing}
                   variant="destructive"
                   size="sm"
+                  className="min-h-[44px] shadow-sm"
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <Trash2 className="mr-2 h-5 w-5" />
                   一键作废
                 </Button>
               </div>
@@ -960,21 +975,31 @@ export default function MobileInvoiceRequestManagement() {
 
 
       {/* 申请单列表 */}
-      <div className="space-y-3">
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-            加载中...
-          </div>
-        ) : (
-          filteredRequests.map((request) => (
+      <MobilePullToRefresh onRefresh={loadInvoiceRequests}>
+        <div className="space-y-3">
+          {loading ? (
+            <div className="space-y-3">
+              <MobileSkeletonLoader count={3} />
+            </div>
+          ) : filteredRequests.length === 0 ? (
+            <Card className="rounded-lg shadow-sm">
+              <CardContent className="text-center py-12">
+                <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground/40" />
+                <p className="text-lg font-medium text-muted-foreground mb-2">暂无开票申请</p>
+                <p className="text-sm text-muted-foreground">当前筛选条件下没有找到申请单</p>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredRequests.map((request) => (
             <Card 
               key={request.id} 
               className={cn(
-                "cursor-pointer",
-                batchSelectionMode && selectedRequests.has(request.id) && "bg-blue-50 border-blue-200"
+                "cursor-pointer transition-all duration-200 hover:shadow-md active:scale-[0.98]",
+                "rounded-lg shadow-sm border-border/50",
+                batchSelectionMode && selectedRequests.has(request.id) && "bg-blue-50 border-blue-300 shadow-md"
               )}
               onClick={() => {
+                triggerHaptic('light');
                 if (batchSelectionMode) {
                   toggleRequestSelection(request.id);
                 } else {
@@ -982,7 +1007,7 @@ export default function MobileInvoiceRequestManagement() {
                 }
               }}
             >
-              <CardContent className="p-4">
+              <CardContent className="p-4 sm:p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
@@ -1028,7 +1053,14 @@ export default function MobileInvoiceRequestManagement() {
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                {/* ✅ 添加备注显示 */}
+                {request.remarks && (
+                  <div className="mt-2 p-2 bg-muted/50 rounded text-xs text-muted-foreground truncate">
+                    💬 {request.remarks}
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between text-sm text-muted-foreground mt-2">
                   <span>{format(new Date(request.created_at), 'MM-dd HH:mm')}</span>
                   {!batchSelectionMode && (
                     <div className="flex items-center gap-2">
@@ -1078,8 +1110,9 @@ export default function MobileInvoiceRequestManagement() {
               </CardContent>
             </Card>
           ))
-        )}
-      </div>
+          )}
+        </div>
+      </MobilePullToRefresh>
 
       {/* 详情对话框 */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>

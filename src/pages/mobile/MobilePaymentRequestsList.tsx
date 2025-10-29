@@ -22,6 +22,9 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { MobileCard } from '@/components/mobile/MobileCard';
+import { MobilePullToRefresh } from '@/components/mobile/MobilePullToRefresh';
+import { MobileSkeletonLoader } from '@/components/mobile/MobileSkeletonLoader';
+import { triggerHaptic } from '@/utils/mobile';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
@@ -951,17 +954,26 @@ export default function MobilePaymentRequestsList() {
         </MobileCard>
 
         {/* 申请单列表 */}
-        {requests.length === 0 ? (
-          <MobileCard>
-            <CardContent className="text-center py-8">
-              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">暂无付款申请记录</p>
-            </CardContent>
-          </MobileCard>
-        ) : (
+        <MobilePullToRefresh onRefresh={fetchPaymentRequests}>
+          {loading ? (
+            <div className="space-y-3">
+              <MobileSkeletonLoader count={3} />
+            </div>
+          ) : requests.length === 0 ? (
+            <MobileCard className="rounded-lg shadow-sm">
+              <CardContent className="text-center py-12">
+                <Banknote className="h-16 w-16 mx-auto mb-4 text-muted-foreground/40" />
+                <p className="text-lg font-medium text-muted-foreground mb-2">暂无付款申请</p>
+                <p className="text-sm text-muted-foreground">当前筛选条件下没有找到申请单</p>
+              </CardContent>
+            </MobileCard>
+          ) : (
           <div className="space-y-3">
             {requests.map((req) => (
-              <MobileCard key={req.id}>
+              <MobileCard 
+                key={req.id}
+                className="transition-all duration-200 hover:shadow-md active:scale-[0.98] rounded-lg shadow-sm"
+              >
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
                     <div className="flex-1 min-w-0">
@@ -983,14 +995,25 @@ export default function MobilePaymentRequestsList() {
                     <span className="text-muted-foreground">运单数量</span>
                     <span className="font-medium">{req.record_count ?? 0} 条</span>
                   </div>
+                  
+                  {/* ✅ 添加备注显示 */}
+                  {req.notes && (
+                    <div className="p-2 bg-muted/50 rounded text-xs text-muted-foreground line-clamp-2">
+                      💬 {req.notes}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => handleViewDetails(req)}
+                      onClick={() => {
+                        triggerHaptic('light');
+                        handleViewDetails(req);
+                      }}
+                      className="min-h-[44px]"
                     >
-                      <Eye className="h-4 w-4 mr-1" />
+                      <Eye className="h-5 w-5 mr-1" />
                       查看详情
                     </Button>
                     {/* 导出按钮 - 取消颜色背景 */}
@@ -999,7 +1022,7 @@ export default function MobilePaymentRequestsList() {
                       size="sm" 
                       onClick={() => handleExport(req)} 
                       disabled={exportingId === req.id}
-                      className="border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200"
+                      className="min-h-[44px] border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200"
                     >
                       {exportingId === req.id ? (
                         <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -1095,7 +1118,8 @@ export default function MobilePaymentRequestsList() {
               </MobileCard>
             ))}
           </div>
-        )}
+          )}
+        </MobilePullToRefresh>
 
         {/* 详情对话框 */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -1192,14 +1216,17 @@ export default function MobilePaymentRequestsList() {
                   <span className="text-sm text-muted-foreground">条</span>
                 </div>
 
-                {/* 分页按钮 */}
+                {/* 分页按钮 - 优化触摸区域 */}
                 <div className="flex items-center justify-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePageChange(currentPage - 1)}
+                    onClick={() => {
+                      triggerHaptic('light');
+                      handlePageChange(currentPage - 1);
+                    }}
                     disabled={currentPage <= 1}
-                    className="h-8 w-8 p-0"
+                    className="min-h-[44px] min-w-[44px] p-0 text-lg"
                   >
                     ‹
                   </Button>
@@ -1209,8 +1236,11 @@ export default function MobilePaymentRequestsList() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      className="h-8 w-8 p-0"
+                      onClick={() => {
+                        triggerHaptic('light');
+                        handlePageChange(currentPage - 1);
+                      }}
+                      className="min-h-[44px] min-w-[44px] p-0"
                     >
                       {currentPage - 1}
                     </Button>
@@ -1219,7 +1249,7 @@ export default function MobilePaymentRequestsList() {
                   <Button
                     variant="default"
                     size="sm"
-                    className="h-8 w-8 p-0"
+                    className="min-h-[44px] min-w-[44px] p-0 font-bold"
                   >
                     {currentPage}
                   </Button>
@@ -1228,8 +1258,11 @@ export default function MobilePaymentRequestsList() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      className="h-8 w-8 p-0"
+                      onClick={() => {
+                        triggerHaptic('light');
+                        handlePageChange(currentPage + 1);
+                      }}
+                      className="min-h-[44px] min-w-[44px] p-0"
                     >
                       {currentPage + 1}
                     </Button>
@@ -1238,9 +1271,12 @@ export default function MobilePaymentRequestsList() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePageChange(currentPage + 1)}
+                    onClick={() => {
+                      triggerHaptic('light');
+                      handlePageChange(currentPage + 1);
+                    }}
                     disabled={currentPage >= totalPages}
-                    className="h-8 w-8 p-0"
+                    className="min-h-[44px] min-w-[44px] p-0 text-lg"
                   >
                     ›
                   </Button>
