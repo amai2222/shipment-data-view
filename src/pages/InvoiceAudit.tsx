@@ -49,6 +49,12 @@ interface InvoiceRequest {
   logistics_record_ids: string[];
   record_count: number;
   total_amount?: number; // 开票金额
+  partner_name?: string;  // ✅ 添加
+  partner_full_name?: string;  // ✅ 添加
+  invoicing_partner_full_name?: string;  // ✅ 添加
+  invoicing_partner_tax_number?: string;  // ✅ 添加
+  tax_number?: string;  // ✅ 添加
+  invoice_number?: string;  // ✅ 添加
 }
 interface LogisticsRecordDetail { id: string; auto_number: string; driver_name: string; license_plate: string; loading_location: string; unloading_location: string; loading_date: string; loading_weight: number | null; invoiceable_amount: number | null; }
 interface PartnerTotal { partner_id: string; partner_name: string; total_amount: number; level: number; }
@@ -139,7 +145,13 @@ export default function InvoiceAudit() {
         remarks: item.remarks,
         logistics_record_ids: [], // 需要从详情中获取
         record_count: item.record_count || 0,
-        total_amount: item.total_amount
+        total_amount: item.total_amount,
+        partner_name: (item as any).partner_name,  // ✅ 添加
+        partner_full_name: (item as any).partner_full_name,  // ✅ 添加
+        invoicing_partner_full_name: (item as any).invoicing_partner_full_name,  // ✅ 添加
+        invoicing_partner_tax_number: (item as any).invoicing_partner_tax_number,  // ✅ 添加
+        tax_number: (item as any).tax_number,  // ✅ 添加
+        invoice_number: (item as any).invoice_number  // ✅ 添加
       })));
       
       // 设置总数和总页数

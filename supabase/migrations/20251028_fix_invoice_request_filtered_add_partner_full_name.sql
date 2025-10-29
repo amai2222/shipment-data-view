@@ -26,8 +26,11 @@ RETURNS TABLE (
     request_number TEXT,
     partner_id UUID,
     partner_name TEXT,
-    partner_full_name TEXT,                    -- ✅ 添加此字段
+    partner_full_name TEXT,
     invoicing_partner_full_name TEXT,
+    invoicing_partner_tax_number TEXT,  -- ✅ 添加税号
+    tax_number TEXT,  -- ✅ 添加税号（备用）
+    invoice_number TEXT,  -- ✅ 添加发票号
     total_amount NUMERIC,
     record_count INTEGER,
     status TEXT,
@@ -167,6 +170,9 @@ BEGIN
                 ir.partner_name,
                 ir.partner_full_name,
                 ir.invoicing_partner_full_name,
+                ir.invoicing_partner_tax_number,  -- ✅ 添加税号
+                ir.tax_number,  -- ✅ 添加税号（备用）
+                ir.invoice_number,  -- ✅ 添加发票号
                 ir.total_amount,
                 ir.record_count,
                 ir.status,
@@ -190,6 +196,9 @@ BEGIN
             fr.partner_name,
             fr.partner_full_name,
             fr.invoicing_partner_full_name,
+            fr.invoicing_partner_tax_number,  -- ✅ 添加税号
+            fr.tax_number,  -- ✅ 添加税号（备用）
+            fr.invoice_number,  -- ✅ 添加发票号
             fr.total_amount,
             fr.record_count,
             fr.status,
