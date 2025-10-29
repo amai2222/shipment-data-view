@@ -26,20 +26,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Save, Plus, Banknote, ChevronUp, ChevronDown } from "lucide-react";
-
-// 占位符图标组件
-const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
-const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
-const FileSpreadsheet = ({ className }: { className?: string }) => <span className={className}>📊</span>;
-const EditIcon = ({ className }: { className?: string }) => <span className={className}>✏️</span>;
-const LinkIcon = ({ className }: { className?: string }) => <span className={className}>🔗</span>;
-const ChevronDown = ({ className }: { className?: string }) => <span className={className}>▼</span>;
-const ChevronUp = ({ className }: { className?: string }) => <span className={className}>▲</span>;
-const Hash = ({ className }: { className?: string }) => <span className={className}>#</span>;
-const Phone = ({ className }: { className?: string }) => <span className={className}>📞</span>;
-const FileText = ({ className }: { className?: string }) => <span className={className}>📄</span>;
-const Users = ({ className }: { className?: string }) => <span className={className}>👥</span>;
-const Building2 = ({ className }: { className?: string }) => <span className={className}>🏢</span>;
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -52,6 +38,18 @@ import { Input } from "@/components/ui/input";
 import { BatchInputDialog } from "@/pages/BusinessEntry/components/BatchInputDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+
+// 占位符图标组件
+const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
+const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
+const FileSpreadsheet = ({ className }: { className?: string }) => <span className={className}>📊</span>;
+const EditIcon = ({ className }: { className?: string }) => <span className={className}>✏️</span>;
+const LinkIcon = ({ className }: { className?: string }) => <span className={className}>🔗</span>;
+const Hash = ({ className }: { className?: string }) => <span className={className}>#</span>;
+const Phone = ({ className }: { className?: string }) => <span className={className}>📞</span>;
+const FileText = ({ className }: { className?: string }) => <span className={className}>📄</span>;
+const Users = ({ className }: { className?: string }) => <span className={className}>👥</span>;
+const Building2 = ({ className }: { className?: string }) => <span className={className}>🏢</span>;
 
 // ============================================================================
 // 区域2: TypeScript类型定义
