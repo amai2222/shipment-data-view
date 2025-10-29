@@ -549,28 +549,16 @@ export default function InvoiceRequest() {
               sheetMap.set(key, {
                 invoicing_partner_id: key,
                 invoicing_partner_full_name: cost.full_name || cost.partner_name,
-                invoicing_partner_tax_number: cost.tax_number || '',
-                invoicing_partner_company_address: cost.company_address || '',
                 invoicing_partner_bank_account: cost.bank_account || '',
                 invoicing_partner_bank_name: cost.bank_name || '',
                 invoicing_partner_branch_name: cost.branch_name || '',
                 record_count: 0,
                 total_invoiceable: 0,
-                records: [],
-                partner_costs: []  // ✅ 添加 partner_costs 数组
+                records: []
               });
             }
 
             const sheet = sheetMap.get(key);
-            
-            // ✅ 添加 partner_cost 信息到 sheet
-            sheet.partner_costs.push({
-              id: cost.id,
-              logistics_record_id: rec.id,
-              partner_id: cost.partner_id,
-              payable_amount: cost.payable_amount,
-              invoice_status: cost.invoice_status
-            });
             
             // 检查是否已经添加了这个运单
             const existingRecord = sheet.records.find((r: any) => r.id === rec.id);
@@ -615,24 +603,9 @@ export default function InvoiceRequest() {
 
     setIsSaving(true);
     try {
-      // ✅ 准备传递给后端的数据结构
-      // 需要将 sheets 中的 partner_cost IDs 提取出来
-      const allPartnerCostIds: string[] = [];
-      finalInvoiceData.sheets.forEach((sheet: any) => {
-        if (Array.isArray(sheet.partner_costs)) {
-          sheet.partner_costs.forEach((cost: any) => {
-            if (cost.id) {
-              allPartnerCostIds.push(cost.id);
-            }
-          });
-        }
-      });
-
+      // ✅ 方案A：统一逻辑，只传运单ID数组（与付款申请一致）
       const { data, error } = await supabase.rpc('save_invoice_request', {
-        p_invoice_data: {
-          sheets: finalInvoiceData.sheets,
-          all_partner_cost_ids: allPartnerCostIds
-        }
+        p_record_ids: finalInvoiceData.all_record_ids
       });
 
       if (error) throw error;
@@ -648,7 +621,7 @@ export default function InvoiceRequest() {
           record_count: number;
         }>; 
         total_requests: number;
-        total_partner_costs: number;
+        processed_record_ids: string[];
       };
 
       // 根据创建的申请单数量显示不同的提示
