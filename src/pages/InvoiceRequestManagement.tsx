@@ -244,7 +244,6 @@ export default function InvoiceRequestManagement() {
       setLoading(true);
       
       // 使用后端筛选函数（更高效）
-      // @ts-expect-error - 新的RPC函数
       const { data, error } = await supabase.rpc('get_invoice_requests_filtered', {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
@@ -873,7 +872,24 @@ export default function InvoiceRequestManagement() {
   // 查看开票申请表（打印格式）
   const viewInvoiceRequestForm = async (request: InvoiceRequest) => {
     try {
-      // 先查询申请单详情
+      // ✅ 先查询最高级合作方的税号信息
+      let partnerTaxNumber = '';
+      let partnerFullName = '';
+      
+      if (request.invoicing_partner_id) {
+        const { data: partnerBankData } = await supabase
+          .from('partner_bank_details')
+          .select('tax_number, full_name')
+          .eq('partner_id', request.invoicing_partner_id)
+          .single();
+        
+        if (partnerBankData) {
+          partnerTaxNumber = partnerBankData.tax_number || '';
+          partnerFullName = partnerBankData.full_name || '';
+        }
+      }
+      
+      // 查询申请单详情
       const { data: detailsData, error: detailsError } = await supabase
         .from('invoice_request_details')
         .select('*')
@@ -941,8 +957,16 @@ export default function InvoiceRequestManagement() {
         return;
       }
 
+      // ✅ 将查询到的税号和全称传递给生成函数
+      const enrichedRequest = {
+        ...request,
+        invoicing_partner_tax_number: partnerTaxNumber || request.invoicing_partner_tax_number,
+        tax_number: partnerTaxNumber || request.tax_number,
+        invoicing_partner_full_name: partnerFullName || request.invoicing_partner_full_name || request.partner_full_name
+      };
+
       // 生成打印HTML
-      const htmlContent = generateInvoiceRequestFormHTML(request, details);
+      const htmlContent = generateInvoiceRequestFormHTML(enrichedRequest, details);
       printWindow.document.write(htmlContent);
       printWindow.document.close();
     } catch (error) {
@@ -1025,12 +1049,28 @@ export default function InvoiceRequestManagement() {
     
     const dynamicSummary = generateDynamicSummary();
     
+    // ✅ 处理合作方名称和信息（与开票审核页面一致）
+    const partnerName = request.invoicing_partner_full_name || request.partner_full_name || request.partner_name || '未知合作方';
+    const requestNumber = request.request_number || request.id;
+    const totalAmount = request.total_amount || 0;
+    const recordCount = request.record_count || details.length;
+    const createdAt = request.created_at || new Date().toISOString();
+    const invoiceNumber = request.invoice_number || '';
+    
+    // 获取公司抬头和税号
+    const companyName = request.invoicing_partner_full_name || request.partner_full_name || partnerName;
+    const taxNumber = request.invoicing_partner_tax_number || request.tax_number || '';
+    
+    // 动态获取货物类型（从运单中提取）
+    const cargoTypes = [...new Set(details.map(d => (d.logistics_record as any).cargo_type).filter(Boolean))];
+    const cargoType = cargoTypes.length === 1 ? cargoTypes[0] : (cargoTypes.length > 1 ? `${cargoTypes[0]}等` : '食品');
+    
     return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>开票申请表 - ${request.request_number}</title>
+  <title>开票申请表 - ${requestNumber}</title>
   <style>
     @media print {
       @page { margin: 1cm; }
@@ -1056,12 +1096,14 @@ export default function InvoiceRequestManagement() {
     .info-row {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 15px;
-      padding: 0 10px;
+      margin-bottom: 0;
+      padding: 10px;
+      border: 1px solid #000;
     }
     .info-item {
       display: flex;
       align-items: center;
+      padding: 0 10px;
     }
     .info-label {
       font-weight: bold;
@@ -1070,12 +1112,15 @@ export default function InvoiceRequestManagement() {
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 20px;
+      margin-bottom: 0;
     }
     th, td {
       border: 1px solid #000;
       padding: 8px;
       text-align: center;
+    }
+    table.main-table {
+      border-bottom: none;
     }
     th {
       background-color: #f0f0f0;
@@ -1083,49 +1128,59 @@ export default function InvoiceRequestManagement() {
     }
     .text-left { text-align: left; }
     .text-right { text-align: right; }
-    .signatures {
-      margin-top: 30px;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
+    .signatures-table {
+      margin-top: 0;
+      width: 100%;
+      border-collapse: collapse;
     }
-    .signature-item {
+    .signatures-table th {
+      border: 1px solid #000;
+      padding: 8px;
       text-align: center;
+      font-weight: bold;
+      background-color: #f0f0f0;
     }
-    .signature-line {
-      border-bottom: 1px solid #000;
-      height: 50px;
-      margin-bottom: 5px;
+    .signatures-table td {
+      border: 1px solid #000;
+      padding: 0;
+      height: 80px;
+      background-color: #fff;
     }
     .remarks {
-      margin: 20px 0;
+      margin: 0;
     }
     .remarks-content {
-      border: 1px solid #000;
-      min-height: 80px;
-      padding: 10px;
+      border: none;
+      min-height: 60px;
+      padding: 0;
+      margin-top: 5px;
     }
     .disclaimer {
-      margin-top: 20px;
+      margin-top: 0;
       font-size: 11px;
       line-height: 1.8;
-    }
-    .invoice-info {
-      margin-top: 30px;
       border: 1px solid #000;
-      padding: 15px;
+      border-top: none;
+      border-bottom: none;
+      padding: 10px;
     }
-    .invoice-info-row {
-      display: flex;
-      margin-bottom: 10px;
+    .invoice-info-table {
+      margin-top: 0;
+      width: 100%;
+      border-collapse: collapse;
     }
-    .invoice-info-label {
-      width: 120px;
+    .invoice-info-table td {
+      border: 1px solid #000;
+      padding: 8px;
+      text-align: left;
+    }
+    .invoice-info-table .label-cell {
       font-weight: bold;
+      width: 120px;
+      background-color: #f0f0f0;
     }
-    .invoice-info-value {
-      flex: 1;
-      border-bottom: 1px solid #000;
+    .invoice-info-table .value-cell {
+      width: 200px;
     }
     .print-button {
       position: fixed;
@@ -1154,19 +1209,19 @@ export default function InvoiceRequestManagement() {
   <div class="info-row">
     <div class="info-item">
       <span class="info-label">货主单位：</span>
-      <span>${request.partner_full_name || request.partner_name}</span>
+      <span>${partnerName}</span>
     </div>
     <div class="info-item">
       <span class="info-label">申请时间：</span>
-      <span>${format(new Date(request.created_at), 'yyyy-MM-dd')}</span>
+      <span>${format(new Date(createdAt), 'yyyy-MM-dd')}</span>
     </div>
     <div class="info-item">
       <span class="info-label">申请编号：</span>
-      <span>${request.request_number}</span>
+      <span>${requestNumber}</span>
     </div>
   </div>
 
-  <table>
+  <table class="main-table">
     <thead>
       <tr>
         <th style="width: 40px;">序号</th>
@@ -1182,13 +1237,13 @@ export default function InvoiceRequestManagement() {
     <tbody>
       <tr>
         <td>1</td>
-        <td>${format(new Date(request.created_at), 'yyyy-MM-dd')}</td>
-        <td class="text-left">${request.partner_full_name || request.partner_name}</td>
-        <td>食品</td>
-        <td>${format(new Date(request.created_at), 'yyyy年MM月')}</td>
+        <td>${format(new Date(createdAt), 'yyyy-MM-dd')}</td>
+        <td class="text-left">${partnerName}</td>
+        <td>${cargoType}</td>
+        <td>${format(new Date(createdAt), 'yyyy年MM月')}</td>
         <td class="text-left">${details.length > 0 ? details[0].logistics_record.unloading_location : '-'}</td>
-        <td>${request.record_count}</td>
-        <td class="text-right">¥${request.total_amount.toLocaleString()}</td>
+        <td>${recordCount}</td>
+        <td class="text-right">¥${totalAmount.toLocaleString()}</td>
       </tr>
       <tr>
         <td colspan="7" class="text-left" style="padding-left: 20px;">
@@ -1209,50 +1264,63 @@ export default function InvoiceRequestManagement() {
     </tbody>
   </table>
 
-  <div class="remarks">
+  <table style="margin-top: 0; border-top: none;">
+    <tbody>
+      <tr>
+        <td style="width: 15%; font-weight: bold; border-top: none;">公司抬头：</td>
+        <td style="width: 35%; text-align: left; border-top: none; font-weight: bold;">${companyName}</td>
+        <td style="width: 15%; font-weight: bold; border-top: none;">税号：</td>
+        <td style="width: 35%; text-align: left; border-top: none; font-weight: bold;">${taxNumber || '请联系合作方补充税号信息'}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="remarks" style="margin-top: 0; border: 1px solid #000; border-top: none; padding: 10px;">
     <div><strong>事项说明：</strong></div>
-    <div class="remarks-content">
-      ${request.remarks || ''}
+    <div class="remarks-content" style="border: none; min-height: 60px;">
+      ${(request as any).remarks || dynamicSummary}
     </div>
   </div>
 
-  <div class="signatures">
-    <div class="signature-item">
-      <div class="signature-line"></div>
-      <div>信息部专员签字：</div>
-    </div>
-    <div class="signature-item">
-      <div class="signature-line"></div>
-      <div>业务部审核签字：</div>
-    </div>
-    <div class="signature-item">
-      <div class="signature-line"></div>
-      <div>客户签字：</div>
-    </div>
-    <div class="signature-item">
-      <div class="signature-line"></div>
-      <div>财务部审核签字：</div>
-    </div>
-  </div>
+  <table class="signatures-table" style="border-top: none;">
+    <thead>
+      <tr>
+        <th style="width: 25%; border-top: none;">信息部专员签字</th>
+        <th style="width: 25%; border-top: none;">业务部审核签字</th>
+        <th style="width: 25%; border-top: none;">复核审批人签字</th>
+        <th style="width: 25%; border-top: none;">财务部审核签字</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
 
   <div class="disclaimer">
     以上相关内容经本人(申请人)与客户充分沟通，并保证所提供相关资料的准确与完整，如因资料不符或约定不清等原因造成退票，其责任损失将由开票申请人负责。
   </div>
 
-  <div class="invoice-info">
-    <div class="invoice-info-row">
-      <div class="invoice-info-label">发票号码：</div>
-      <div class="invoice-info-value">${request.invoice_number || ''}</div>
-      <div class="invoice-info-label" style="margin-left: 40px;">领票日期：</div>
-      <div class="invoice-info-value"></div>
-    </div>
-    <div class="invoice-info-row">
-      <div class="invoice-info-label">领票人：</div>
-      <div class="invoice-info-value"></div>
-      <div class="invoice-info-label" style="margin-left: 40px;">发票开具情况：</div>
-      <div class="invoice-info-value"></div>
-    </div>
-  </div>
+  <table class="invoice-info-table">
+    <tbody>
+      <tr>
+        <td class="label-cell">发票号码：</td>
+        <td class="value-cell">${invoiceNumber}</td>
+        <td class="label-cell">领票日期：</td>
+        <td class="value-cell"></td>
+      </tr>
+      <tr>
+        <td class="label-cell">领票人：</td>
+        <td class="value-cell"></td>
+        <td class="label-cell">发票开具情况：</td>
+        <td class="value-cell"></td>
+      </tr>
+    </tbody>
+  </table>
 
   <script>
     // 自动打印（可选）
