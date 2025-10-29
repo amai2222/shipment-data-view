@@ -60,14 +60,15 @@ BEGIN
             d.license_plate,
             d.phone as driver_phone,
             p.name as partner_name,
-            p.tax_number,
-            p.company_address,
-            p.bank_name,
-            p.bank_account,
+            pbd.tax_number,
+            pbd.company_address,
+            pbd.bank_name,
+            pbd.bank_account,
             pc.chain_name
         FROM logistics_partner_costs lpc
         JOIN logistics_records lr ON lpc.logistics_record_id = lr.id
         JOIN partners p ON lpc.partner_id = p.id
+        LEFT JOIN partner_bank_details pbd ON p.id = pbd.partner_id
         JOIN drivers d ON lr.driver_id = d.id
         LEFT JOIN partner_chains pc ON lr.chain_id = pc.id
         WHERE
