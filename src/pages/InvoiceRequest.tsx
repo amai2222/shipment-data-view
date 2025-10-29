@@ -526,6 +526,13 @@ export default function InvoiceRequest() {
       const v2 = (v2Data as { records?: LogisticsRecord[] }) || {};
       const records: LogisticsRecord[] = Array.isArray(v2.records) ? v2.records : [];
       
+      // ✅ 调试：查看每个运单的最高级别
+      console.log('运单级别分析:');
+      records.forEach(rec => {
+        const recMaxLevel = Math.max(...(rec.partner_costs || []).map((c: any) => c.level));
+        console.log(`${rec.auto_number}: maxLevel=${recMaxLevel}, costs=${rec.partner_costs?.length || 0}`);
+      });
+
       // 按合作方分组（参考付款申请逻辑）
       let maxLevel = 0;
       for (const rec of records) {
@@ -535,6 +542,8 @@ export default function InvoiceRequest() {
           }
         }
       }
+      
+      console.log('全局maxLevel:', maxLevel);
 
       const sheetMap = new Map<string, any>();
 
