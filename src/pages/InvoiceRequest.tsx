@@ -543,6 +543,7 @@ export default function InvoiceRequest() {
         if (costs.length === 0) continue;
 
         for (const cost of costs) {
+          // ✅ 包含所有最高级合作方，即使金额为0（支持手动修改为0的情况）
           if (cost.level === maxLevel && (!cost.invoice_status || cost.invoice_status === 'Uninvoiced')) {
             const key = cost.partner_id;
             if (!sheetMap.has(key)) {
@@ -575,10 +576,10 @@ export default function InvoiceRequest() {
             // 检查是否已经添加了这个运单
             const existingRecord = sheet.records.find((r: any) => r.id === rec.id);
             if (!existingRecord) {
-              // 计算该运单对当前合作方的开票金额
+              // 计算该运单对当前合作方的开票金额（允许0金额）
               const totalInvoiceableForPartner = costs
                 .filter(c => c.partner_id === key && (!c.invoice_status || c.invoice_status === 'Uninvoiced'))
-                .reduce((sum, c) => sum + c.payable_amount, 0);
+                .reduce((sum, c) => sum + (c.payable_amount || 0), 0);  // ✅ 允许0金额
 
               sheet.records.push({
                 ...rec,
@@ -695,17 +696,16 @@ export default function InvoiceRequest() {
     }
     if (!reportData || !Array.isArray(reportData.records)) return [];
     
-    // 与付款申请页面相同的逻辑：获取相关合作方和最高级别
+    // 获取相关合作方和最高级别（包括0金额的记录，因为可能是手动修改）
     const relevantPartnerIds = new Set<string>();
     let maxLevel = 0;
     reportData.records.forEach((record: any) => {
       if (record && Array.isArray(record.partner_costs)) {
         record.partner_costs.forEach((cost: any) => {
-          if (cost.payable_amount && cost.payable_amount > 0) {
-            relevantPartnerIds.add(cost.partner_id);
-            if (cost.level > maxLevel) {
-              maxLevel = cost.level;
-            }
+          // ✅ 移除金额检查，允许显示0金额的合作方（支持手动修改为0的情况）
+          relevantPartnerIds.add(cost.partner_id);
+          if (cost.level > maxLevel) {
+            maxLevel = cost.level;
           }
         });
       }
