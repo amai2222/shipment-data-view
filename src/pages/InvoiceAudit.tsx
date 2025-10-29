@@ -642,9 +642,7 @@ export default function InvoiceAudit() {
       justify-content: space-between;
       margin-bottom: 0;
       padding: 10px;
-      border: 1px solid #000;
-      border-bottom: none;
-      border-top: none;
+      border: 1px solid #000;  /* ✅ 全边框 */
     }
     .info-item {
       display: flex;
@@ -814,9 +812,9 @@ export default function InvoiceAudit() {
     <tbody>
       <tr>
         <td style="width: 15%; font-weight: bold; border-top: none;">公司抬头：</td>
-        <td style="width: 35%; text-align: left; border-top: none;">${companyName}</td>
+        <td style="width: 35%; text-align: left; border-top: none; font-weight: bold;">${companyName}</td>
         <td style="width: 15%; font-weight: bold; border-top: none;">税号：</td>
-        <td style="width: 35%; text-align: left; border-top: none;">${taxNumber || '请联系合作方补充税号信息'}</td>
+        <td style="width: 35%; text-align: left; border-top: none; font-weight: bold;">${taxNumber || '请联系合作方补充税号信息'}</td>
       </tr>
     </tbody>
   </table>
