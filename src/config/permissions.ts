@@ -70,11 +70,11 @@ export const ROLES: Record<UserRole, RoleDefinition> = {
   }
 };
 
-// 菜单权限配置
+// 菜单权限配置 - 与 AppSidebar.tsx 保持一致，只使用子菜单Key
 export const MENU_PERMISSIONS: MenuPermission[] = [
   {
     group: '数据看板',
-    key: 'dashboard',
+    key: 'dashboard_group',  // 父级key改为不会冲突的名称
     label: '数据看板',
     icon: 'BarChart3',
     children: [
@@ -86,7 +86,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
   },
   {
     group: '合同管理',
-    key: 'contracts',
+    key: 'contracts_group',  // 父级key改为不会冲突的名称
     label: '合同管理',
     icon: 'FileText',
     children: [
@@ -95,7 +95,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
   },
   {
     group: '信息维护',
-    key: 'maintenance',
+    key: 'maintenance_group',  // 父级key改为不会冲突的名称
     label: '信息维护',
     icon: 'Database',
     children: [
@@ -108,7 +108,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
   },
   {
     group: '业务管理',
-    key: 'business',
+    key: 'business_group',  // 父级key改为不会冲突的名称
     label: '业务管理',
     icon: 'FileText',
     children: [
@@ -119,20 +119,31 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
     ]
   },
   {
+    group: '审核管理',
+    key: 'audit_group',  // 添加审核管理组
+    label: '审核管理',
+    icon: 'CheckCircle',
+    children: [
+      { key: 'audit', label: '审核管理（总）', icon: 'CheckCircle' },
+      { key: 'audit.invoice', label: '开票审核', icon: 'FileText' },
+      { key: 'audit.payment', label: '付款审核', icon: 'DollarSign' }
+    ]
+  },
+  {
     group: '财务管理',
-    key: 'finance',
+    key: 'finance_group',  // 父级key改为不会冲突的名称
     label: '财务管理',
     icon: 'Calculator',
     children: [
       { key: 'finance.reconciliation', label: '运费对账', icon: 'Calculator' },
       { key: 'finance.payment_invoice', label: '付款与开票', icon: 'DollarSign' },
-      { key: 'finance.invoice_request_management', label: '开票申请单管理', icon: 'FileText' },
+      { key: 'finance.invoice_request_management', label: '财务开票', icon: 'FileText' },
       { key: 'finance.payment_requests', label: '付款申请单管理', icon: 'ClipboardList' }
     ]
   },
   {
     group: '审核管理',
-    key: 'audit',
+    key: 'audit_group',  // 父级key改为不会冲突的名称
     label: '审核管理',
     icon: 'CheckCircle',
     children: [
@@ -142,7 +153,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
   },
   {
     group: '数据维护',
-    key: 'data_maintenance',
+    key: 'data_maintenance_group',  // 父级key改为不会冲突的名称
     label: '数据维护',
     icon: 'Database',
     children: [
@@ -153,7 +164,7 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
   },
   {
     group: '设置',
-    key: 'settings',
+    key: 'settings_group',  // 父级key改为不会冲突的名称
     label: '设置',
     icon: 'Settings',
     children: [
