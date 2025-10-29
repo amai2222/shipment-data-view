@@ -1430,6 +1430,7 @@ export default function InvoiceRequestManagement() {
     { key: 'count', label: '运单数量', align: 'right' },
     { key: 'status', label: '状态' },
     { key: 'time', label: '创建时间' },
+    { key: 'remarks', label: '备注' },
     { key: 'actions', label: '操作', align: 'center' }
   ], []);
 
@@ -1886,6 +1887,9 @@ export default function InvoiceRequestManagement() {
                       </TableCell>
                       <TableCell>
                         {format(new Date(request.created_at), 'yyyy-MM-dd HH:mm')}
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground" title={request.remarks || ''}>
+                        {request.remarks || '-'}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         {/* ✅ 使用ActionButtons组件 */}

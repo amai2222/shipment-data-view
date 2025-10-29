@@ -38,9 +38,10 @@ DECLARE
 BEGIN
     v_offset := (p_page_number - 1) * p_page_size;
 
-    WITH filtered_partner_costs AS (
-        SELECT 
-            lpc.*,
+    -- 先获取符合条件的运单（按运单分组，不是按合作方成本）
+    WITH filtered_records AS (
+        SELECT DISTINCT
+            lr.id,
             lr.auto_number,
             lr.project_id,
             lr.project_name,
@@ -57,26 +58,18 @@ BEGIN
             lr.remarks,
             lr.current_cost,
             lr.extra_cost,
+            lr.payable_cost,
+            lr.invoice_status,
             d.license_plate,
             d.phone as driver_phone,
-            p.name as partner_name,
-            pbd.tax_number,
-            pbd.company_address,
-            pbd.bank_name,
-            pbd.bank_account,
             pc.chain_name
-        FROM logistics_partner_costs lpc
-        JOIN logistics_records lr ON lpc.logistics_record_id = lr.id
-        JOIN partners p ON lpc.partner_id = p.id
-        LEFT JOIN partner_bank_details pbd ON p.id = pbd.partner_id
+        FROM logistics_records lr
         JOIN drivers d ON lr.driver_id = d.id
         LEFT JOIN partner_chains pc ON lr.chain_id = pc.id
         WHERE
             (p_project_id IS NULL OR lr.project_id = p_project_id) AND
             (p_start_date IS NULL OR lr.loading_date >= p_start_date) AND
             (p_end_date IS NULL OR lr.loading_date <= p_end_date) AND
-            (p_partner_id IS NULL OR lpc.partner_id = p_partner_id) AND
-            (p_invoice_status_array IS NULL OR array_length(p_invoice_status_array, 1) IS NULL OR lpc.invoice_status = ANY(p_invoice_status_array)) AND
             (p_waybill_numbers IS NULL OR lr.auto_number ILIKE '%' || p_waybill_numbers || '%') AND
             (p_driver_name IS NULL OR lr.driver_name ILIKE '%' || p_driver_name || '%') AND
             (p_license_plate IS NULL OR d.license_plate ILIKE '%' || p_license_plate || '%') AND
@@ -89,13 +82,22 @@ BEGIN
                 (p_driver_receivable = '>0' AND lr.payable_cost > 0) OR
                 (p_driver_receivable = '=0' AND (lr.payable_cost IS NULL OR lr.payable_cost = 0)) OR
                 (p_driver_receivable = '<0' AND lr.payable_cost < 0)
-            )
+            ) AND
+            -- 按开票状态筛选（检查运单的开票状态）
+            (p_invoice_status_array IS NULL OR 
+             array_length(p_invoice_status_array, 1) IS NULL OR 
+             lr.invoice_status = ANY(p_invoice_status_array)) AND
+            -- 按合作方筛选（检查运单是否有该合作方）
+            (p_partner_id IS NULL OR EXISTS (
+                SELECT 1 FROM logistics_partner_costs lpc
+                WHERE lpc.logistics_record_id = lr.id AND lpc.partner_id = p_partner_id
+            ))
     ),
     total_count AS (
-        SELECT count(*) as count FROM filtered_partner_costs
+        SELECT count(*) as count FROM filtered_records
     ),
     total_invoiceable_cost AS (
-        SELECT COALESCE(SUM(current_cost + extra_cost), 0) AS total FROM filtered_partner_costs WHERE level = 0
+        SELECT COALESCE(SUM(payable_cost), 0) AS total FROM filtered_records
     )
     SELECT json_build_object(
         'overview', json_build_object(
@@ -108,8 +110,9 @@ BEGIN
                     p.name AS partner_name, 
                     COUNT(DISTINCT lpc.logistics_record_id) AS records_count,
                     SUM(lpc.payable_amount) AS total_payable
-                FROM filtered_partner_costs lpc
+                FROM logistics_partner_costs lpc
                 JOIN partners p ON lpc.partner_id = p.id
+                JOIN filtered_records fr ON lpc.logistics_record_id = fr.id
                 WHERE lpc.invoice_status = 'Uninvoiced'
                 GROUP BY lpc.partner_id, p.name
             ) t
@@ -117,45 +120,53 @@ BEGIN
         'records', COALESCE((
             SELECT json_agg(
                 json_build_object(
-                    'id', fpc.id,
-                    'logistics_record_id', fpc.logistics_record_id,
-                    'auto_number', fpc.auto_number,
-                    'project_name', fpc.project_name,
-                    'driver_id', fpc.driver_id,
-                    'driver_name', fpc.driver_name,
-                    'loading_location', fpc.loading_location,
-                    'unloading_location', fpc.unloading_location,
-                    'loading_date', fpc.loading_date,
-                    'unloading_date', fpc.unloading_date,
-                    'license_plate', fpc.license_plate,
-                    'driver_phone', fpc.driver_phone,
-                    'partner_id', fpc.partner_id,
-                    'partner_name', fpc.partner_name,
-                    'level', fpc.level,
-                    'base_amount', fpc.base_amount,
-                    'payable_amount', fpc.payable_amount,
-                    'tax_rate', fpc.tax_rate,
-                    'invoice_status', fpc.invoice_status,
-                    'payment_status', fpc.payment_status,
-                    'current_cost', fpc.current_cost,
-                    'extra_cost', fpc.extra_cost,
-                    'cargo_type', fpc.cargo_type,
-                    'loading_weight', fpc.loading_weight,
-                    'unloading_weight', fpc.unloading_weight,
-                    'billing_type_id', fpc.billing_type_id,
-                    'remarks', fpc.remarks,
-                    'chain_name', fpc.chain_name,
-                    'tax_number', fpc.tax_number,
-                    'company_address', fpc.company_address,
-                    'bank_name', fpc.bank_name,
-                    'bank_account', fpc.bank_account
+                    'id', fr.id,
+                    'auto_number', fr.auto_number,
+                    'project_id', fr.project_id,
+                    'project_name', fr.project_name,
+                    'driver_id', fr.driver_id,
+                    'driver_name', fr.driver_name,
+                    'loading_location', fr.loading_location,
+                    'unloading_location', fr.unloading_location,
+                    'loading_date', fr.loading_date,
+                    'unloading_date', fr.unloading_date,
+                    'loading_weight', fr.loading_weight,
+                    'unloading_weight', fr.unloading_weight,
+                    'cargo_type', fr.cargo_type,
+                    'billing_type_id', fr.billing_type_id,
+                    'remarks', fr.remarks,
+                    'current_cost', fr.current_cost,
+                    'extra_cost', fr.extra_cost,
+                    'payable_cost', fr.payable_cost,
+                    'invoice_status', fr.invoice_status,
+                    'license_plate', fr.license_plate,
+                    'driver_phone', fr.driver_phone,
+                    'chain_name', fr.chain_name,
+                    'partner_costs', COALESCE((
+                        SELECT json_agg(
+                            json_build_object(
+                                'partner_id', lpc.partner_id,
+                                'partner_name', p.name,
+                                'level', lpc.level,
+                                'payable_amount', lpc.payable_amount,
+                                'invoice_status', lpc.invoice_status,
+                                'full_name', p.full_name,
+                                'bank_account', pbd.bank_account,
+                                'bank_name', pbd.bank_name
+                            ) ORDER BY lpc.level
+                        )
+                        FROM logistics_partner_costs lpc
+                        JOIN partners p ON lpc.partner_id = p.id
+                        LEFT JOIN partner_bank_details pbd ON p.id = pbd.partner_id
+                        WHERE lpc.logistics_record_id = fr.id
+                    ), '[]'::json)
                 )
             )
             FROM (
-                SELECT * FROM filtered_partner_costs
-                ORDER BY loading_date ASC, auto_number ASC, level ASC  -- ✅ 装货日期升序、运单编号升序
+                SELECT * FROM filtered_records
+                ORDER BY loading_date ASC, auto_number ASC  -- ✅ 装货日期升序、运单编号升序
                 LIMIT p_page_size OFFSET v_offset
-            ) fpc
+            ) fr
         ), '[]'::json),
         'count', (SELECT count FROM total_count)
     ) INTO result_json;

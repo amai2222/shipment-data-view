@@ -1507,6 +1507,7 @@ export default function PaymentRequestsList() {
                     <TableHead>付款申请单状态</TableHead>
                     <TableHead className="text-right">运单数</TableHead>
                     <TableHead className="text-right">申请金额</TableHead>
+                    <TableHead className="max-w-[200px]">备注</TableHead>
                     <TableHead className="text-center">操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1531,6 +1532,9 @@ export default function PaymentRequestsList() {
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
                           {req.max_amount ? `¥${req.max_amount.toLocaleString()}` : '-'}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] cursor-pointer truncate text-sm text-muted-foreground" onClick={() => handleViewDetails(req)} title={req.notes || ''}>
+                          {req.notes || '-'}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-3 flex-wrap">

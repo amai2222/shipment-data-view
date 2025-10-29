@@ -1475,6 +1475,7 @@ export default function InvoiceAudit() {
                     <TableHead>开票申请单状态</TableHead>
                     <TableHead className="text-right">运单数</TableHead>
                     <TableHead className="text-right">开票金额</TableHead>
+                    <TableHead className="max-w-[200px]">备注</TableHead>
                     <TableHead className="text-center">操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1499,6 +1500,9 @@ export default function InvoiceAudit() {
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
                           {req.total_amount ? `¥${req.total_amount.toLocaleString()}` : '-'}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] cursor-pointer truncate text-sm text-muted-foreground" onClick={() => handleViewDetails(req)} title={(req as any).remarks || ''}>
+                          {(req as any).remarks || '-'}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-3 flex-wrap">
