@@ -168,6 +168,7 @@ export default function InvoiceRequest() {
   // 排序状态
   const [sortField, setSortField] = useState<string>('loading_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [showAllLevels, setShowAllLevels] = useState(false); // 控制是否显示所有层级的合作方
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_INVOICE_FILTERS);
   const [pagination, setPagination] = useState<PaginationState>({ currentPage: 1, totalPages: 1 });
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
@@ -667,21 +668,30 @@ export default function InvoiceRequest() {
     }
     if (!reportData || !Array.isArray(reportData.records)) return [];
     
-    // 使用与付款申请页面相同的逻辑：直接从records中的partner_costs获取
+    // 与付款申请页面相同的逻辑：获取相关合作方和最高级别
     const relevantPartnerIds = new Set<string>();
+    let maxLevel = 0;
     reportData.records.forEach((record: any) => {
       if (record && Array.isArray(record.partner_costs)) {
         record.partner_costs.forEach((cost: any) => {
-          // 只有当payable_amount大于0时才添加到相关合作方列表
           if (cost.payable_amount && cost.payable_amount > 0) {
             relevantPartnerIds.add(cost.partner_id);
+            if (cost.level > maxLevel) {
+              maxLevel = cost.level;
+            }
           }
         });
       }
     });
     
-    return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
-  }, [reportData, allPartners, uiFilters.partnerId]);
+    const filteredPartners = allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
+    
+    // 根据 showAllLevels 决定是否只显示最高级
+    if (!showAllLevels && maxLevel > 0) {
+      return filteredPartners.filter(p => p.level === maxLevel);
+    }
+    return filteredPartners;
+  }, [reportData, allPartners, uiFilters.partnerId, showAllLevels]);
 
   const currentPageRecords = reportData?.records || [];
   const totalRecords = reportData?.count || 0;
@@ -789,11 +799,21 @@ export default function InvoiceRequest() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Receipt className="h-5 w-5" />
-                运单记录 ({totalRecords} 条记录)
-              </CardTitle>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gradient-to-r from-background to-muted/10 border-b">
+              <div>
+                <CardTitle className="text-lg">运单开票明细</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {totalRecords} 条记录 • {showAllLevels ? '显示所有层级的合作方' : '仅显示最高级合作方'}
+                </p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowAllLevels(!showAllLevels)} 
+                className="w-full sm:w-auto whitespace-nowrap hover:bg-primary/10 transition-colors"
+              >
+                {showAllLevels ? '仅显示最高级' : '展示全部级别'}
+              </Button>
             </CardHeader>
             <CardContent>
               {loading ? (
