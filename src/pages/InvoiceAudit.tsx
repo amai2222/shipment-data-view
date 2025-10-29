@@ -617,6 +617,7 @@ export default function InvoiceAudit() {
       padding: 10px;
       border: 1px solid #000;
       border-bottom: none;
+      border-top: none;
     }
     .info-item {
       display: flex;
@@ -778,7 +779,7 @@ export default function InvoiceAudit() {
     </tbody>
   </table>
 
-  <table style="margin-top: 0;">
+  <table style="margin-top: 0; border-top: none;">
     <tbody>
       <tr>
         <td style="width: 15%; font-weight: bold;">公司抬头：</td>
@@ -789,20 +790,20 @@ export default function InvoiceAudit() {
     </tbody>
   </table>
 
-  <div class="remarks" style="margin-top: 0; border: 1px solid #000; padding: 10px;">
+  <div class="remarks" style="margin-top: 0; border: 1px solid #000; border-top: none; padding: 10px;">
     <div><strong>事项说明：</strong></div>
     <div class="remarks-content" style="border: none; min-height: 60px;">
       ${(request as any).remarks || dynamicSummary}
     </div>
   </div>
 
-  <table class="signatures-table">
+  <table class="signatures-table" style="border-top: none;">
     <thead>
       <tr>
-        <th style="width: 25%;">信息部专员签字</th>
-        <th style="width: 25%;">业务部审核签字</th>
-        <th style="width: 25%;">复核审批人签字</th>
-        <th style="width: 25%;">财务部审核签字</th>
+        <th style="width: 25%; border-top: none;">信息部专员签字</th>
+        <th style="width: 25%; border-top: none;">业务部审核签字</th>
+        <th style="width: 25%; border-top: none;">复核审批人签字</th>
+        <th style="width: 25%; border-top: none;">财务部审核签字</th>
       </tr>
     </thead>
     <tbody>
