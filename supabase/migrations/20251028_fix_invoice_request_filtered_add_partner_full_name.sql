@@ -7,6 +7,23 @@
 
 BEGIN;
 
+-- 先删除所有版本的 get_invoice_requests_filtered 函数
+DO $$
+DECLARE
+    v_func_oid oid;
+BEGIN
+    FOR v_func_oid IN 
+        SELECT p.oid
+        FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'public'
+          AND p.proname = 'get_invoice_requests_filtered'
+    LOOP
+        EXECUTE 'DROP FUNCTION IF EXISTS ' || v_func_oid::regprocedure || ' CASCADE';
+        RAISE NOTICE '删除函数: %', v_func_oid::regprocedure;
+    END LOOP;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.get_invoice_requests_filtered(
     p_request_number TEXT DEFAULT NULL,       -- 开票申请单号
     p_waybill_number TEXT DEFAULT NULL,       -- 运单编号（支持批量）
@@ -24,13 +41,14 @@ RETURNS TABLE (
     id UUID,
     created_at TIMESTAMP WITH TIME ZONE,
     request_number TEXT,
+    invoicing_partner_id UUID,  -- ✅ 添加（关键！用于查询税号）
     partner_id UUID,
     partner_name TEXT,
     partner_full_name TEXT,
     invoicing_partner_full_name TEXT,
-    invoicing_partner_tax_number TEXT,  -- ✅ 添加税号
-    tax_number TEXT,  -- ✅ 添加税号（备用）
-    invoice_number TEXT,  -- ✅ 添加发票号
+    invoicing_partner_tax_number TEXT,
+    tax_number TEXT,
+    invoice_number TEXT,
     total_amount NUMERIC,
     record_count INTEGER,
     status TEXT,
@@ -166,13 +184,14 @@ BEGIN
                 ir.id,
                 ir.created_at,
                 ir.request_number,
+                ir.invoicing_partner_id,  -- ✅ 添加（关键！）
                 ir.partner_id,
                 ir.partner_name,
                 ir.partner_full_name,
                 ir.invoicing_partner_full_name,
-                ir.invoicing_partner_tax_number,  -- ✅ 添加税号
-                ir.tax_number,  -- ✅ 添加税号（备用）
-                ir.invoice_number,  -- ✅ 添加发票号
+                ir.invoicing_partner_tax_number,
+                ir.tax_number,
+                ir.invoice_number,
                 ir.total_amount,
                 ir.record_count,
                 ir.status,
@@ -192,13 +211,14 @@ BEGIN
             fr.id,
             fr.created_at,
             fr.request_number,
+            fr.invoicing_partner_id,  -- ✅ 添加（关键！）
             fr.partner_id,
             fr.partner_name,
             fr.partner_full_name,
             fr.invoicing_partner_full_name,
-            fr.invoicing_partner_tax_number,  -- ✅ 添加税号
-            fr.tax_number,  -- ✅ 添加税号（备用）
-            fr.invoice_number,  -- ✅ 添加发票号
+            fr.invoicing_partner_tax_number,
+            fr.tax_number,
+            fr.invoice_number,
             fr.total_amount,
             fr.record_count,
             fr.status,

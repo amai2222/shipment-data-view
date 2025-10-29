@@ -49,12 +49,13 @@ interface InvoiceRequest {
   logistics_record_ids: string[];
   record_count: number;
   total_amount?: number; // 开票金额
-  partner_name?: string;  // ✅ 添加
-  partner_full_name?: string;  // ✅ 添加
-  invoicing_partner_full_name?: string;  // ✅ 添加
-  invoicing_partner_tax_number?: string;  // ✅ 添加
-  tax_number?: string;  // ✅ 添加
-  invoice_number?: string;  // ✅ 添加
+  invoicing_partner_id?: string;  // ✅ 添加（关键！）
+  partner_name?: string;
+  partner_full_name?: string;
+  invoicing_partner_full_name?: string;
+  invoicing_partner_tax_number?: string;
+  tax_number?: string;
+  invoice_number?: string;
 }
 interface LogisticsRecordDetail { id: string; auto_number: string; driver_name: string; license_plate: string; loading_location: string; unloading_location: string; loading_date: string; loading_weight: number | null; invoiceable_amount: number | null; }
 interface PartnerTotal { partner_id: string; partner_name: string; total_amount: number; level: number; }
@@ -143,15 +144,16 @@ export default function InvoiceAudit() {
         request_number: item.request_number,
         status: item.status,
         remarks: item.remarks,
-        logistics_record_ids: [], // 需要从详情中获取
+        logistics_record_ids: [],
         record_count: item.record_count || 0,
         total_amount: item.total_amount,
-        partner_name: (item as any).partner_name,  // ✅ 添加
-        partner_full_name: (item as any).partner_full_name,  // ✅ 添加
-        invoicing_partner_full_name: (item as any).invoicing_partner_full_name,  // ✅ 添加
-        invoicing_partner_tax_number: (item as any).invoicing_partner_tax_number,  // ✅ 添加
-        tax_number: (item as any).tax_number,  // ✅ 添加
-        invoice_number: (item as any).invoice_number  // ✅ 添加
+        invoicing_partner_id: (item as any).invoicing_partner_id,  // ✅ 关键字段
+        partner_name: (item as any).partner_name,
+        partner_full_name: (item as any).partner_full_name,
+        invoicing_partner_full_name: (item as any).invoicing_partner_full_name,
+        invoicing_partner_tax_number: (item as any).invoicing_partner_tax_number,
+        tax_number: (item as any).tax_number,
+        invoice_number: (item as any).invoice_number
       })));
       
       // 设置总数和总页数
@@ -385,7 +387,24 @@ export default function InvoiceAudit() {
     e.stopPropagation();
     
     try {
-      // 先查询申请单详情
+      // ✅ 先查询最高级合作方的税号信息
+      let partnerTaxNumber = '';
+      let partnerFullName = '';
+      
+      if ((req as any).invoicing_partner_id) {
+        const { data: partnerBankData } = await supabase
+          .from('partner_bank_details')
+          .select('tax_number, full_name')
+          .eq('partner_id', (req as any).invoicing_partner_id)
+          .single();
+        
+        if (partnerBankData) {
+          partnerTaxNumber = partnerBankData.tax_number || '';
+          partnerFullName = partnerBankData.full_name || '';
+        }
+      }
+      
+      // 查询申请单详情
       const { data: detailsData, error: detailsError } = await supabase
         .from('invoice_request_details')
         .select('*')
@@ -460,7 +479,7 @@ export default function InvoiceAudit() {
       // 打开新窗口显示打印格式
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
-    toast({ 
+        toast({
           title: "无法打开窗口",
           description: "请允许弹出窗口以查看申请表",
           variant: "destructive",
@@ -468,8 +487,16 @@ export default function InvoiceAudit() {
         return;
       }
 
+      // ✅ 将查询到的税号和全称传递给生成函数
+      const enrichedRequest = {
+        ...req,
+        invoicing_partner_tax_number: partnerTaxNumber || (req as any).invoicing_partner_tax_number,
+        tax_number: partnerTaxNumber || (req as any).tax_number,
+        invoicing_partner_full_name: partnerFullName || (req as any).invoicing_partner_full_name || (req as any).partner_full_name
+      };
+
       // 生成打印HTML
-      const htmlContent = generateInvoiceRequestFormHTML(req, details);
+      const htmlContent = generateInvoiceRequestFormHTML(enrichedRequest, details);
       printWindow.document.write(htmlContent);
       printWindow.document.close();
     } catch (error) {
@@ -638,6 +665,9 @@ export default function InvoiceAudit() {
       padding: 8px;
       text-align: center;
     }
+    table.main-table {
+      border-bottom: none;
+    }
     th {
       background-color: #f0f0f0;
       font-weight: bold;
@@ -677,25 +707,26 @@ export default function InvoiceAudit() {
       line-height: 1.8;
       border: 1px solid #000;
       border-top: none;
+      border-bottom: none;
       padding: 10px;
     }
-    .invoice-info {
+    .invoice-info-table {
       margin-top: 0;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .invoice-info-table td {
       border: 1px solid #000;
-      border-top: none;
-      padding: 15px;
+      padding: 8px;
+      text-align: left;
     }
-    .invoice-info-row {
-      display: flex;
-      margin-bottom: 10px;
-    }
-    .invoice-info-label {
-      width: 120px;
+    .invoice-info-table .label-cell {
       font-weight: bold;
+      width: 120px;
+      background-color: #f0f0f0;
     }
-    .invoice-info-value {
-      flex: 1;
-      border-bottom: 1px solid #000;
+    .invoice-info-table .value-cell {
+      width: 200px;
     }
     .print-button {
       position: fixed;
@@ -736,7 +767,7 @@ export default function InvoiceAudit() {
     </div>
   </div>
 
-  <table>
+  <table class="main-table">
     <thead>
       <tr>
         <th style="width: 40px;">序号</th>
@@ -782,10 +813,10 @@ export default function InvoiceAudit() {
   <table style="margin-top: 0; border-top: none;">
     <tbody>
       <tr>
-        <td style="width: 15%; font-weight: bold;">公司抬头：</td>
-        <td style="width: 35%; text-align: left;">${companyName}</td>
-        <td style="width: 15%; font-weight: bold;">税号：</td>
-        <td style="width: 35%; text-align: left;">${taxNumber}</td>
+        <td style="width: 15%; font-weight: bold; border-top: none;">公司抬头：</td>
+        <td style="width: 35%; text-align: left; border-top: none;">${companyName}</td>
+        <td style="width: 15%; font-weight: bold; border-top: none;">税号：</td>
+        <td style="width: 35%; text-align: left; border-top: none;">${taxNumber || '请联系合作方补充税号信息'}</td>
       </tr>
     </tbody>
   </table>
@@ -820,20 +851,22 @@ export default function InvoiceAudit() {
     以上相关内容经本人(申请人)与客户充分沟通，并保证所提供相关资料的准确与完整，如因资料不符或约定不清等原因造成退票，其责任损失将由开票申请人负责。
   </div>
 
-  <div class="invoice-info">
-    <div class="invoice-info-row">
-      <div class="invoice-info-label">发票号码：</div>
-      <div class="invoice-info-value">${invoiceNumber}</div>
-      <div class="invoice-info-label" style="margin-left: 40px;">领票日期：</div>
-      <div class="invoice-info-value"></div>
-    </div>
-    <div class="invoice-info-row">
-      <div class="invoice-info-label">领票人：</div>
-      <div class="invoice-info-value"></div>
-      <div class="invoice-info-label" style="margin-left: 40px;">发票开具情况：</div>
-      <div class="invoice-info-value"></div>
-    </div>
-  </div>
+  <table class="invoice-info-table">
+    <tbody>
+      <tr>
+        <td class="label-cell">发票号码：</td>
+        <td class="value-cell">${invoiceNumber}</td>
+        <td class="label-cell">领票日期：</td>
+        <td class="value-cell"></td>
+      </tr>
+      <tr>
+        <td class="label-cell">领票人：</td>
+        <td class="value-cell"></td>
+        <td class="label-cell">发票开具情况：</td>
+        <td class="value-cell"></td>
+      </tr>
+    </tbody>
+  </table>
 
   <script>
     // 自动打印（可选）
