@@ -554,13 +554,21 @@ export default function InvoiceAudit() {
     
     const dynamicSummary = generateDynamicSummary();
     
-    // 处理合作方名称
+    // 处理合作方名称和信息
     const partnerName = (request as any).invoicing_partner_full_name || (request as any).partner_full_name || (request as any).partner_name || '未知合作方';
     const requestNumber = (request as any).request_number || request.id;
     const totalAmount = (request as any).total_amount || 0;
     const recordCount = (request as any).record_count || details.length;
     const createdAt = (request as any).created_at || new Date().toISOString();
     const invoiceNumber = (request as any).invoice_number || '';
+    
+    // 获取公司抬头和税号
+    const companyName = (request as any).invoicing_partner_full_name || (request as any).partner_full_name || partnerName;
+    const taxNumber = (request as any).invoicing_partner_tax_number || (request as any).tax_number || '';
+    
+    // 动态获取货物类型（从运单中提取）
+    const cargoTypes = [...new Set(details.map(d => (d.logistics_record as any).cargo_type).filter(Boolean))];
+    const cargoType = cargoTypes.length === 1 ? cargoTypes[0] : (cargoTypes.length > 1 ? `${cargoTypes[0]}等` : '食品');
     
     return `
 <!DOCTYPE html>
@@ -593,9 +601,10 @@ export default function InvoiceAudit() {
     .info-row {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 15px;
+      margin-bottom: 0;
       padding: 10px;
       border: 1px solid #000;
+      border-bottom: none;
     }
     .info-item {
       display: flex;
@@ -609,7 +618,7 @@ export default function InvoiceAudit() {
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 20px;
+      margin-bottom: 0;
     }
     th, td {
       border: 1px solid #000;
@@ -622,44 +631,45 @@ export default function InvoiceAudit() {
     }
     .text-left { text-align: left; }
     .text-right { text-align: right; }
-    .signatures {
-      margin-top: 30px;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0;
+    .signatures-table {
+      margin-top: 0;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .signatures-table th {
       border: 1px solid #000;
-    }
-    .signature-item {
+      padding: 8px;
       text-align: center;
-      border-right: 1px solid #000;
-      padding: 10px;
+      font-weight: bold;
+      background-color: #f0f0f0;
     }
-    .signature-item:last-child {
-      border-right: none;
-    }
-    .signature-line {
-      border-bottom: 1px solid #000;
-      height: 50px;
-      margin-bottom: 5px;
+    .signatures-table td {
+      border: 1px solid #000;
+      padding: 0;
+      height: 80px;
+      background-color: #fff;
     }
     .remarks {
-      margin: 20px 0;
+      margin: 0;
     }
     .remarks-content {
-      border: 1px solid #000;
-      min-height: 80px;
-      padding: 10px;
+      border: none;
+      min-height: 60px;
+      padding: 0;
+      margin-top: 5px;
     }
     .disclaimer {
-      margin-top: 20px;
+      margin-top: 0;
       font-size: 11px;
       line-height: 1.8;
       border: 1px solid #000;
+      border-top: none;
       padding: 10px;
     }
     .invoice-info {
-      margin-top: 30px;
+      margin-top: 0;
       border: 1px solid #000;
+      border-top: none;
       padding: 15px;
     }
     .invoice-info-row {
@@ -731,7 +741,7 @@ export default function InvoiceAudit() {
         <td>1</td>
         <td>${format(new Date(createdAt), 'yyyy-MM-dd')}</td>
         <td class="text-left">${partnerName}</td>
-        <td>食品</td>
+        <td>${cargoType}</td>
         <td>${format(new Date(createdAt), 'yyyy年MM月')}</td>
         <td class="text-left">${details.length > 0 ? details[0].logistics_record.unloading_location : '-'}</td>
         <td>${recordCount}</td>
@@ -756,31 +766,42 @@ export default function InvoiceAudit() {
     </tbody>
   </table>
 
-  <div class="remarks">
+  <table style="margin-top: 0;">
+    <tbody>
+      <tr>
+        <td style="width: 15%; font-weight: bold;">公司抬头：</td>
+        <td style="width: 35%; text-align: left;">${companyName}</td>
+        <td style="width: 15%; font-weight: bold;">税号：</td>
+        <td style="width: 35%; text-align: left;">${taxNumber}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="remarks" style="margin-top: 0; border: 1px solid #000; padding: 10px;">
     <div><strong>事项说明：</strong></div>
-    <div class="remarks-content">
-      ${(request as any).remarks || ''}
+    <div class="remarks-content" style="border: none; min-height: 60px;">
+      ${(request as any).remarks || dynamicSummary}
     </div>
   </div>
 
-  <div class="signatures">
-    <div class="signature-item">
-      <div class="signature-line"></div>
-      <div>信息部专员签字：</div>
-    </div>
-    <div class="signature-item">
-      <div class="signature-line"></div>
-      <div>业务部审核签字：</div>
-    </div>
-    <div class="signature-item">
-      <div class="signature-line"></div>
-      <div>客户签字：</div>
-    </div>
-    <div class="signature-item">
-      <div class="signature-line"></div>
-      <div>财务部审核签字：</div>
-    </div>
-  </div>
+  <table class="signatures-table">
+    <thead>
+      <tr>
+        <th style="width: 25%;">信息部专员签字</th>
+        <th style="width: 25%;">业务部审核签字</th>
+        <th style="width: 25%;">复核审批人签字</th>
+        <th style="width: 25%;">财务部审核签字</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
 
   <div class="disclaimer">
     以上相关内容经本人(申请人)与客户充分沟通，并保证所提供相关资料的准确与完整，如因资料不符或约定不清等原因造成退票，其责任损失将由开票申请人负责。
