@@ -1278,10 +1278,32 @@ export default function PaymentRequest() {
         iconColor="text-green-600"
       >
         {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
-          <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
-            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-            一键申请付款 ({selectionCount})
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="default" 
+              size="default"
+              disabled={selection.selectedIds.size === 0}
+              onClick={() => handleOpenBatchModify('cost')}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              <EditIcon className="mr-2 h-4 w-4" />
+              批量修改应收
+            </Button>
+            <Button 
+              variant="default"
+              size="default"
+              disabled={selection.selectedIds.size === 0}
+              onClick={() => handleOpenBatchModify('chain')}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              <LinkIcon className="mr-2 h-4 w-4" />
+              批量修改链路
+            </Button>
+            <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
+              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+              一键申请付款 ({selectionCount})
+            </Button>
+          </div>
         )}
       </PageHeader>
 
@@ -1553,16 +1575,6 @@ export default function PaymentRequest() {
           <div className="flex items-center gap-4">
             <span>已选择 <b className="text-blue-600">{selection.selectedIds.size}</b> 条记录</span>
             <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700 font-semibold" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => handleOpenBatchModify('cost')}>
-              <EditIcon className="mr-2 h-4 w-4" />
-              批量修改应收
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => handleOpenBatchModify('chain')}>
-              <LinkIcon className="mr-2 h-4 w-4" />
-              批量修改链路
-            </Button>
           </div>
         </div>
       )}
