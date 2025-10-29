@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Save, Plus, Banknote } from "lucide-react";
+import { Save, Plus, Banknote, ChevronUp, ChevronDown } from "lucide-react";
 
 // 占位符图标组件
 const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
