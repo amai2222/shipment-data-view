@@ -48,42 +48,47 @@ interface OptimizedPermissionConfigDialogProps {
   onSave: (userId: string, permissions: Record<string, string[]>) => void;
 }
 
-// 权限配置项 - 使用数据库中的实际权限ID
+// 权限配置项 - 与 AppSidebar.tsx 保持一致
 const PERMISSION_CATEGORIES = {
   menu: [
-    { id: 'dashboard', name: '仪表盘', description: '查看系统仪表盘' },
-    { id: 'dashboard.transport', name: '运输仪表盘', description: '运输数据概览' },
-    { id: 'dashboard.financial', name: '财务仪表盘', description: '财务数据概览' },
-    { id: 'dashboard.project', name: '项目仪表盘', description: '项目数据概览' },
+    // 数据看板
+    { id: 'dashboard.transport', name: '运输看板', description: '运输数据看板' },
+    { id: 'dashboard.financial', name: '财务看板', description: '财务数据看板' },
+    { id: 'dashboard.project', name: '项目看板', description: '项目数据看板' },
     { id: 'dashboard.shipper', name: '货主看板', description: '货主数据和层级统计' },
-    { id: 'dashboard.quantity', name: '数量仪表盘', description: '数量统计概览' },
-    { id: 'maintenance', name: '维护管理', description: '系统维护管理' },
-    { id: 'maintenance.projects', name: '项目管理', description: '项目维护管理' },
+    
+    // 合同管理
+    { id: 'contracts.list', name: '合同列表', description: '合同列表查看' },
+    
+    // 信息维护
+    { id: 'maintenance.projects', name: '项目管理', description: '项目信息维护' },
     { id: 'maintenance.drivers', name: '司机管理', description: '司机信息维护' },
     { id: 'maintenance.locations', name: '地点管理', description: '地点信息维护' },
+    { id: 'maintenance.locations_enhanced', name: '地点管理（增强版）', description: '地点信息维护增强版' },
     { id: 'maintenance.partners', name: '合作方管理', description: '合作方信息维护' },
-    { id: 'business', name: '业务管理', description: '业务操作管理' },
-    { id: 'business.entry', name: '业务录入', description: '业务数据录入' },
+    
+    // 业务管理
+    { id: 'business.entry', name: '运单管理', description: '运单数据录入和管理' },
     { id: 'business.scale', name: '磅单管理', description: '磅单数据管理' },
+    { id: 'business.invoice_request', name: '开票申请', description: '开票申请管理' },
     { id: 'business.payment_request', name: '付款申请', description: '付款申请管理' },
-    { id: 'business.payment_requests', name: '付款申请列表', description: '付款申请列表管理' },
-    { id: 'contracts', name: '合同管理', description: '合同信息管理' },
-    { id: 'contracts.list', name: '合同列表', description: '合同列表查看' },
-    { id: 'contracts.create', name: '创建合同', description: '创建新合同' },
-    { id: 'contracts.edit', name: '编辑合同', description: '修改合同信息' },
-    { id: 'contracts.delete', name: '删除合同', description: '删除合同' },
-    { id: 'contracts.files', name: '合同文件', description: '合同文件管理' },
-    { id: 'contracts.permissions', name: '合同权限', description: '合同权限管理' },
-    { id: 'contracts.audit', name: '合同审计', description: '合同审计日志' },
-    { id: 'contracts.reminders', name: '合同提醒', description: '合同提醒管理' },
-    { id: 'contracts.tags', name: '合同标签', description: '合同标签管理' },
-    { id: 'contracts.numbering', name: '合同编号', description: '合同编号管理' },
-    { id: 'finance', name: '财务管理', description: '财务数据管理' },
-    { id: 'finance.reconciliation', name: '财务对账', description: '财务对账管理' },
-    { id: 'finance.payment_invoice', name: '付款发票', description: '付款发票管理' },
-    { id: 'data_maintenance', name: '数据维护', description: '数据维护管理' },
+    
+    // 审核管理
+    { id: 'audit', name: '审核管理', description: '审核管理权限（开票和付款审核）' },
+    { id: 'audit.invoice', name: '开票审核', description: '开票申请审核' },
+    { id: 'audit.payment', name: '付款审核', description: '付款申请审核' },
+    
+    // 财务管理
+    { id: 'finance.reconciliation', name: '运费对账', description: '运费对账管理' },
+    { id: 'finance.payment_invoice', name: '付款与开票', description: '付款与开票管理' },
+    { id: 'finance.invoice_request_management', name: '财务开票', description: '开票申请单管理' },
+    { id: 'finance.payment_requests', name: '财务付款', description: '付款申请单管理' },
+    
+    // 数据维护
     { id: 'data_maintenance.waybill', name: '运单维护', description: '运单数据维护' },
-    { id: 'settings', name: '系统设置', description: '系统配置管理' },
+    { id: 'data_maintenance.waybill_enhanced', name: '运单维护（增强版）', description: '运单数据维护增强版' },
+    
+    // 设置
     { id: 'settings.users', name: '用户管理', description: '用户管理设置' },
     { id: 'settings.permissions', name: '权限配置', description: '权限配置设置' },
     { id: 'settings.contract_permissions', name: '合同权限', description: '合同权限设置' },

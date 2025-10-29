@@ -122,107 +122,82 @@ const getDefaultPermissionsByRole = (role: string) => {
   }
 };
 
-// 模拟权限数据 - 使用数据库中的实际权限ID
+// 权限数据 - 与 AppSidebar.tsx 保持一致
 const mockPermissions = {
   menu: [
-    { id: 'dashboard', name: '仪表盘', description: '查看系统仪表盘' },
-    { id: 'dashboard.transport', name: '运输仪表盘', description: '运输数据概览' },
-    { id: 'dashboard.financial', name: '财务仪表盘', description: '财务数据概览' },
-    { id: 'dashboard.project', name: '项目仪表盘', description: '项目数据概览' },
+    // 数据看板
+    { id: 'dashboard.transport', name: '运输看板', description: '运输数据看板' },
+    { id: 'dashboard.financial', name: '财务看板', description: '财务数据看板' },
+    { id: 'dashboard.project', name: '项目看板', description: '项目数据看板' },
     { id: 'dashboard.shipper', name: '货主看板', description: '货主数据和层级统计' },
-    { id: 'dashboard.quantity', name: '数量仪表盘', description: '数量统计概览' },
-    { id: 'maintenance', name: '维护管理', description: '系统维护管理' },
-    { id: 'maintenance.projects', name: '项目管理', description: '项目维护管理' },
+    
+    // 合同管理
+    { id: 'contracts.list', name: '合同列表', description: '合同列表查看' },
+    
+    // 信息维护
+    { id: 'maintenance.projects', name: '项目管理', description: '项目信息维护' },
     { id: 'maintenance.drivers', name: '司机管理', description: '司机信息维护' },
     { id: 'maintenance.locations', name: '地点管理', description: '地点信息维护' },
+    { id: 'maintenance.locations_enhanced', name: '地点管理（增强版）', description: '地点信息维护增强版' },
     { id: 'maintenance.partners', name: '合作方管理', description: '合作方信息维护' },
-    { id: 'business', name: '业务管理', description: '业务操作管理' },
-    { id: 'business.entry', name: '业务录入', description: '业务数据录入' },
+    
+    // 业务管理
+    { id: 'business.entry', name: '运单管理', description: '运单数据录入和管理' },
     { id: 'business.scale', name: '磅单管理', description: '磅单数据管理' },
+    { id: 'business.invoice_request', name: '开票申请', description: '开票申请管理' },
     { id: 'business.payment_request', name: '付款申请', description: '付款申请管理' },
-    { id: 'business.payment_requests', name: '付款申请列表', description: '付款申请列表管理' },
-    { id: 'contracts', name: '合同管理', description: '合同信息管理' },
-    { id: 'contracts.list', name: '合同列表', description: '合同列表查看' },
-    { id: 'contracts.create', name: '创建合同', description: '创建新合同' },
-    { id: 'contracts.edit', name: '编辑合同', description: '修改合同信息' },
-    { id: 'contracts.delete', name: '删除合同', description: '删除合同' },
-    { id: 'contracts.files', name: '合同文件', description: '合同文件管理' },
-    { id: 'contracts.permissions', name: '合同权限', description: '合同权限管理' },
-    { id: 'contracts.audit', name: '合同审计', description: '合同审计日志' },
-    { id: 'contracts.reminders', name: '合同提醒', description: '合同提醒管理' },
-    { id: 'contracts.tags', name: '合同标签', description: '合同标签管理' },
-    { id: 'contracts.numbering', name: '合同编号', description: '合同编号管理' },
-    { id: 'finance', name: '财务管理', description: '财务数据管理' },
-    { id: 'finance.reconciliation', name: '财务对账', description: '财务对账管理' },
-    { id: 'finance.payment_invoice', name: '付款发票', description: '付款发票管理' },
-    { id: 'data_maintenance', name: '数据维护', description: '数据维护管理' },
+    
+    // 审核管理
+    { id: 'audit', name: '审核管理', description: '审核管理权限（开票和付款审核）' },
+    { id: 'audit.invoice', name: '开票审核', description: '开票申请审核' },
+    { id: 'audit.payment', name: '付款审核', description: '付款申请审核' },
+    
+    // 财务管理
+    { id: 'finance.reconciliation', name: '运费对账', description: '运费对账管理' },
+    { id: 'finance.payment_invoice', name: '付款与开票', description: '付款与开票管理' },
+    { id: 'finance.invoice_request_management', name: '财务开票', description: '开票申请单管理' },
+    { id: 'finance.payment_requests', name: '财务付款', description: '付款申请单管理' },
+    
+    // 数据维护
     { id: 'data_maintenance.waybill', name: '运单维护', description: '运单数据维护' },
-    { id: 'settings', name: '系统设置', description: '系统配置管理' },
+    { id: 'data_maintenance.waybill_enhanced', name: '运单维护（增强版）', description: '运单数据维护增强版' },
+    
+    // 设置
     { id: 'settings.users', name: '用户管理', description: '用户管理设置' },
     { id: 'settings.permissions', name: '权限配置', description: '权限配置设置' },
     { id: 'settings.contract_permissions', name: '合同权限', description: '合同权限设置' },
     { id: 'settings.role_templates', name: '角色模板', description: '角色模板设置' },
-    { id: 'settings.integrated', name: '集成设置', description: '集成权限管理' },
-    { id: 'settings.audit_logs', name: '审计日志', description: '系统审计日志' }
+    { id: 'settings.audit_logs', name: '操作日志', description: '系统审计日志' }
   ],
   function: [
-    { id: 'data', name: '数据管理', description: '数据操作管理' },
+    // 数据管理功能
     { id: 'data.create', name: '创建数据', description: '创建新数据' },
     { id: 'data.edit', name: '编辑数据', description: '修改数据信息' },
     { id: 'data.delete', name: '删除数据', description: '删除数据' },
     { id: 'data.export', name: '导出数据', description: '导出系统数据' },
-    { id: 'data.import', name: '导入数据', description: '导入系统数据' },
-    { id: 'scale_records', name: '磅单记录', description: '磅单记录管理' },
+    
+    // 磅单功能
     { id: 'scale_records.create', name: '创建磅单', description: '创建新磅单' },
     { id: 'scale_records.edit', name: '编辑磅单', description: '修改磅单信息' },
     { id: 'scale_records.view', name: '查看磅单', description: '查看磅单信息' },
-    { id: 'scale_records.delete', name: '删除磅单', description: '删除磅单' },
-    { id: 'finance', name: '财务管理', description: '财务功能管理' },
+    
+    // 财务功能
     { id: 'finance.view_cost', name: '查看成本', description: '查看成本信息' },
     { id: 'finance.approve_payment', name: '审批付款', description: '审批付款申请' },
-    { id: 'finance.generate_invoice', name: '生成发票', description: '生成付款发票' },
-    { id: 'finance.reconcile', name: '财务对账', description: '执行财务对账' },
-    { id: 'contract_management', name: '合同管理', description: '合同管理功能' },
+    
+    // 合同功能
     { id: 'contract.view', name: '查看合同', description: '查看合同信息' },
     { id: 'contract.create', name: '创建合同', description: '创建新合同' },
     { id: 'contract.edit', name: '编辑合同', description: '修改合同信息' },
-    { id: 'contract.delete', name: '删除合同', description: '删除合同' },
-    { id: 'contract.archive', name: '归档合同', description: '归档合同' },
-    { id: 'contract.files_upload', name: '上传文件', description: '上传合同文件' },
-    { id: 'contract.files_download', name: '下载文件', description: '下载合同文件' },
-    { id: 'contract.files_delete', name: '删除文件', description: '删除合同文件' },
-    { id: 'contract.permissions_manage', name: '权限管理', description: '管理合同权限' },
-    { id: 'contract.audit_logs', name: '审计日志', description: '查看合同审计日志' },
-    { id: 'contract.reminders', name: '合同提醒', description: '管理合同提醒' },
-    { id: 'contract.tags', name: '合同标签', description: '管理合同标签' },
-    { id: 'contract.numbering', name: '合同编号', description: '管理合同编号' },
-    { id: 'contract.sensitive_fields', name: '敏感字段', description: '管理敏感字段' },
-    { id: 'contract.approve', name: '审批合同', description: '审批合同' },
-    { id: 'contract.export', name: '导出合同', description: '导出合同数据' },
-    { id: 'system', name: '系统管理', description: '系统管理功能' },
-    { id: 'system.manage_users', name: '用户管理', description: '管理系统用户' },
-    { id: 'system.manage_roles', name: '角色管理', description: '管理系统角色' },
-    { id: 'system.view_logs', name: '查看日志', description: '查看系统日志' },
-    { id: 'system.backup', name: '系统备份', description: '执行系统备份' }
+    { id: 'contract.delete', name: '删除合同', description: '删除合同' }
   ],
   project: [
-    { id: 'project_access', name: '项目访问', description: '项目访问权限' },
     { id: 'project.view_all', name: '查看所有项目', description: '查看所有项目信息' },
-    { id: 'project.view_assigned', name: '查看分配项目', description: '查看分配的项目' },
-    { id: 'project.manage', name: '项目管理', description: '项目管理权限' },
-    { id: 'project.admin', name: '项目管理员', description: '项目管理员权限' },
-    { id: 'project_data', name: '项目数据', description: '项目数据权限' },
-    { id: 'project_data.view_financial', name: '查看财务数据', description: '查看项目财务数据' },
-    { id: 'project_data.edit_financial', name: '编辑财务数据', description: '编辑项目财务数据' },
-    { id: 'project_data.view_operational', name: '查看运营数据', description: '查看项目运营数据' },
-    { id: 'project_data.edit_operational', name: '编辑运营数据', description: '编辑项目运营数据' }
+    { id: 'project.view_assigned', name: '查看分配项目', description: '查看分配的项目' }
   ],
   data: [
-    { id: 'data_scope', name: '数据范围', description: '数据访问范围' },
     { id: 'data.all', name: '所有数据', description: '访问所有数据' },
     { id: 'data.own', name: '个人数据', description: '访问个人数据' },
-    { id: 'data.team', name: '团队数据', description: '访问团队数据' },
-    { id: 'data.project', name: '项目数据', description: '访问项目数据' },
     { id: 'data_operations', name: '数据操作', description: '数据操作权限' },
     { id: 'data.create', name: '创建数据', description: '创建新数据' },
     { id: 'data.edit', name: '编辑数据', description: '修改数据' },
