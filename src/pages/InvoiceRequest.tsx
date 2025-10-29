@@ -595,6 +595,22 @@ export default function InvoiceRequest() {
       const sheets = Array.from(sheetMap.values());
       const processedIds = idsToProcess;
 
+      // ✅ 调试：检查每个sheet的partner_costs
+      console.log('生成的sheets详情:');
+      sheets.forEach((sheet: any, idx) => {
+        console.log(`Sheet ${idx + 1} - ${sheet.invoicing_partner_full_name}:`);
+        console.log(`  运单数: ${sheet.record_count}`);
+        console.log(`  partner_costs数量: ${sheet.partner_costs?.length || 0}`);
+        console.log(`  运单列表:`, sheet.records.map((r: any) => r.auto_number));
+        if (sheet.partner_costs) {
+          console.log(`  partner_costs详情:`, sheet.partner_costs.map((c: any) => ({
+            id: c.id ? '有' : '❌无',
+            logistics_record_id: c.logistics_record_id,
+            amount: c.payable_amount
+          })));
+        }
+      });
+
       setInvoicePreviewData({ sheets, processed_record_ids: processedIds });
       setFinalInvoiceData({ sheets, all_record_ids: processedIds });
       setIsPreviewModalOpen(true);
