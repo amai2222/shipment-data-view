@@ -626,7 +626,7 @@ export default function InvoiceAudit() {
       font-family: "SimSun", "Microsoft YaHei", Arial, sans-serif;
       font-size: 12px;
       line-height: 1.5;
-      padding: 20px;
+      padding: 60px 20px 20px 20px;  /* ✅ 上边距60px，为打印按钮留空间 */
     }
     .header {
       text-align: center;
