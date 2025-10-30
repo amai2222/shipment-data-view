@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2 } from 'lucide-react';
-import { formatCurrency, formatDate } from '../utils/formatters';
-import type { InvoicePreviewData } from '../types';
+import { formatCurrency, formatDate } from '@/utils/invoicePaymentFormatters';
+import type { InvoicePreviewData } from '@/types/invoiceRequest';
 
 interface InvoicePreviewDialogProps {
   open: boolean;

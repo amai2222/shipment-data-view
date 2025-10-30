@@ -3,9 +3,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ChevronUp, ChevronDown } from 'lucide-react';
-import { formatCurrency, formatDate, simplifyRoute, formatQuantity } from '../utils/formatters';
-import { InvoiceSummaryRow } from './InvoiceSummaryRow';
-import type { LogisticsRecord, Partner, SelectionState } from '../types';
+import { formatCurrency, formatDate, simplifyRoute, formatQuantity } from '@/utils/invoicePaymentFormatters';
+import { InvoiceSummaryRow } from '@/components/common/InvoiceSummaryRow';
+import type { LogisticsRecord, Partner, SelectionState } from '@/types/invoiceRequest';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface InvoiceRecordsTableProps {

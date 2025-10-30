@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 
 // 导入新的组件和hooks
 import { InvoiceRequestFilterBar } from './components/InvoiceRequestFilterBar';
+import { formatCurrency, formatDate } from '@/utils/invoicePaymentFormatters';
+import type { LogisticsRecord as InvoiceRecord, PaymentFilters as InvoiceFilters, Partner } from '@/types/invoiceRequest';
 import { InvoiceRecordsTable } from './components/InvoiceRecordsTable';
 import { RecordDetailDialog } from './components/RecordDetailDialog';
 import { InvoicePreviewDialog } from './components/InvoicePreviewDialog';

@@ -1,6 +1,6 @@
 // 开票申请选择状态Hook
 import { useState, useCallback } from 'react';
-import type { SelectionState } from '../types';
+import type { SelectionState } from '@/types/invoiceRequest';
 
 export function useInvoiceSelection() {
   const [selection, setSelection] = useState<SelectionState>({

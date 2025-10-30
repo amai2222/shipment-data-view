@@ -20,7 +20,7 @@ import { usePaymentData } from './hooks/usePaymentData';
 import { usePaymentSelection } from './hooks/usePaymentSelection';
 import { usePaymentActions } from './hooks/usePaymentActions';
 
-import type { LogisticsRecord, PaymentFilters, Partner } from './types';
+import type { LogisticsRecord, PaymentFilters, Partner } from '@/types/paymentRequest';
 import { PaymentRequestFilterBar } from './components/PaymentRequestFilterBar';
 
 const INITIAL_FILTERS: PaymentFilters = {

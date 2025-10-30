@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { PaymentFilters } from '../types';
+import type { PaymentFilters } from '@/types/paymentRequest';
 
 const PAGE_SIZE = 50;
 

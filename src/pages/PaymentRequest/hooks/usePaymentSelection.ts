@@ -1,6 +1,6 @@
 // 付款申请选择状态Hook（与开票申请完全相同）
 import { useState, useCallback } from 'react';
-import type { SelectionState } from '../types';
+import type { SelectionState } from '@/types/paymentRequest';
 
 export function usePaymentSelection() {
   const [selection, setSelection] = useState<SelectionState>({

@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { InvoiceFilters } from '../types';
+import type { InvoiceFilters } from '@/types/invoiceRequest';
 
 const PAGE_SIZE = 50;
 

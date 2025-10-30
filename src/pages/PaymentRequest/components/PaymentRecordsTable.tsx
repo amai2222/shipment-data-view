@@ -4,9 +4,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { formatCurrency, formatDate, simplifyRoute, formatQuantity } from '../utils/formatters';
-import { PaymentSummaryRow } from './PaymentSummaryRow';
-import type { LogisticsRecord, Partner, SelectionState } from '../types';
+import { formatCurrency, formatDate, simplifyRoute, formatQuantity } from '@/utils/invoicePaymentFormatters';
+import { PaymentSummaryRow } from '@/components/common/PaymentSummaryRow';
+import type { LogisticsRecord, Partner, SelectionState } from '@/types/paymentRequest';
 
 interface PaymentRecordsTableProps {
   records: LogisticsRecord[];

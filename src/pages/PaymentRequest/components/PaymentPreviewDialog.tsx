@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2 } from 'lucide-react';
-import { formatCurrency } from '../utils/formatters';
-import type { PaymentPreviewData } from '../types';
+import { formatCurrency } from '@/utils/invoicePaymentFormatters';
+import type { PaymentPreviewData } from '@/types/paymentRequest';
 
 interface PaymentPreviewDialogProps {
   open: boolean;

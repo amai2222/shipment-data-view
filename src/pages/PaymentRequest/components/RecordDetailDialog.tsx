@@ -2,8 +2,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, formatDate } from '../utils/formatters';
-import type { LogisticsRecord } from '../types';
+import { formatCurrency, formatDate } from '@/utils/invoicePaymentFormatters';
+import type { LogisticsRecord } from '@/types/paymentRequest';
 
 interface RecordDetailDialogProps {
   open: boolean;

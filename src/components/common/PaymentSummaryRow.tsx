@@ -1,7 +1,7 @@
 // 付款申请合计行组件
 import { TableCell, TableRow } from '@/components/ui/table';
-import { formatCurrency } from '../utils/formatters';
-import type { Partner } from '../types';
+import { formatCurrency } from '@/utils/invoicePaymentFormatters';
+import type { Partner } from '@/types/paymentRequest';
 
 interface PaymentSummaryRowProps {
   totalPayableCost: number;
