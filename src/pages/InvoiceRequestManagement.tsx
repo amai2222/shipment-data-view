@@ -635,35 +635,35 @@ export default function InvoiceRequestManagement() {
     }
   };
 
-  // 一键回滚功能（回滚申请单状态到待审核）
-  const handleBatchRollback = async () => {
+  // 批量取消付款（回滚开票状态到已审批）
+  const handleBatchCancelInvoice = async () => {
     if (selection.selectedIds.size === 0) return;
     
     setIsBatchProcessing(true);
     try {
       const selectedIds = Array.from(selection.selectedIds);
       
-      // 将申请单状态回滚到 Pending（待审核）
+      // 只回滚已完成状态的申请单到已审批
       const { error } = await supabase
         .from('invoice_requests')
-        .update({ status: 'Pending', updated_at: new Date().toISOString() })
+        .update({ status: 'Approved', updated_at: new Date().toISOString() })
         .in('id', selectedIds)
-        .in('status', ['Approved', 'Completed']); // 只回滚已审批和已完成的
+        .eq('status', 'Completed');
 
       if (error) throw error;
 
       toast({
-        title: "回滚完成",
-        description: `已将 ${selectedIds.length} 个开票申请单的状态回滚到"待审核"。`,
+        title: "取消付款完成",
+        description: `已将 ${selectedIds.length} 个开票申请单的状态回滚到"已审批"。`,
       });
       
       loadInvoiceRequests();
       setSelection({ mode: 'none', selectedIds: new Set() });
     } catch (error) {
-      console.error('批量回滚失败:', error);
+      console.error('批量取消付款失败:', error);
       toast({
-        title: "回滚失败",
-        description: error instanceof Error ? error.message : '无法批量回滚开票申请单',
+        title: "取消付款失败",
+        description: error instanceof Error ? error.message : '无法批量取消付款',
         variant: "destructive",
       });
     } finally {
@@ -1509,22 +1509,22 @@ export default function InvoiceRequestManagement() {
       label: '批量开票',
       icon: <CheckCircle className="mr-2 h-4 w-4" />,
       variant: 'default',
-      className: 'bg-orange-600 hover:bg-orange-700 text-white border-0',
+      className: 'bg-green-600 hover:bg-green-700 text-white border-0',
       needConfirm: true,
       confirmTitle: `确认批量开票 ${selectionCount} 个申请单`,
       confirmDescription: '此操作将完成选中申请单的开票，并将所有关联运单的状态更新为已开票。请确认操作。',
       onClick: handleBatchInvoice
     },
     {
-      key: 'rollback',
-      label: '一键回滚',
+      key: 'cancel-invoice',
+      label: '批量取消付款',
       icon: <RotateCcw className="mr-2 h-4 w-4" />,
       variant: 'default',
-      className: 'bg-blue-600 hover:bg-blue-700 text-white border-0',
+      className: 'bg-orange-600 hover:bg-orange-700 text-white border-0',
       needConfirm: true,
-      confirmTitle: `确认回滚 ${selectionCount} 个申请单`,
-      confirmDescription: `此操作将：\n- 将申请单状态回滚到"待审核"\n- 不影响运单状态\n\n请确认操作。`,
-      onClick: handleBatchRollback
+      confirmTitle: `确认批量取消付款 ${selectionCount} 个申请单`,
+      confirmDescription: '此操作将把已完成的开票申请单状态回滚到"已审批"。请确认操作。',
+      onClick: handleBatchCancelInvoice
     },
     {
       key: 'void',
