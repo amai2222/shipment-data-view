@@ -26,6 +26,7 @@ import { MobilePullToRefresh } from '@/components/mobile/MobilePullToRefresh';
 import { MobileSkeletonLoader } from '@/components/mobile/MobileSkeletonLoader';
 import { triggerHaptic } from '@/utils/mobile';
 import { MobileConfirmDialog } from '@/components/mobile/MobileConfirmDialog';
+import { MobileHTMLPreviewDialog } from '@/components/mobile/MobileHTMLPreviewDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
@@ -78,6 +79,17 @@ export default function MobilePaymentRequestsList() {
   const [modalContentLoading, setModalContentLoading] = useState(false);
   const [partnerTotals, setPartnerTotals] = useState<PartnerTotal[]>([]);
   const [showApprovalPage, setShowApprovalPage] = useState<PaymentRequest | null>(null);
+  
+  // HTML预览对话框状态
+  const [htmlPreviewDialog, setHtmlPreviewDialog] = useState<{
+    open: boolean;
+    title: string;
+    htmlContent: string;
+  }>({
+    open: false,
+    title: '',
+    htmlContent: ''
+  });
   
   // 筛选器状态
   const [filters, setFilters] = useState({
@@ -565,21 +577,16 @@ export default function MobilePaymentRequestsList() {
       // 生成PDF内容
       const printHTML = await generatePaymentRequestPDF(excelData);
       
-      // 创建新窗口并写入HTML内容
-      const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
-      if (previewWindow) {
-        previewWindow.document.write(printHTML);
-        previewWindow.document.close();
-        
-        // 处理窗口关闭事件
-        previewWindow.onbeforeunload = () => {};
-      } else {
-        throw new Error('无法打开预览窗口，请检查浏览器弹窗设置');
-      }
+      // 在对话框中显示（兼容企业微信环境）
+      setHtmlPreviewDialog({
+        open: true,
+        title: `付款申请单 - ${req.request_id}`,
+        htmlContent: printHTML
+      });
 
       toast({ 
-        title: 'PDF生成成功', 
-        description: `已生成付款申请单PDF，包含 ${req.logistics_record_ids.length} 条运单。` 
+        title: '申请单加载成功', 
+        description: `已加载付款申请单，包含 ${req.logistics_record_ids.length} 条运单。` 
       });
     } catch (error) {
       console.error('生成PDF失败:', error);
@@ -1317,6 +1324,14 @@ export default function MobilePaymentRequestsList() {
           </MobileCard>
         )}
       </div>
+
+      {/* HTML预览对话框 - 兼容企业微信环境 */}
+      <MobileHTMLPreviewDialog
+        open={htmlPreviewDialog.open}
+        onOpenChange={(open) => setHtmlPreviewDialog(prev => ({ ...prev, open }))}
+        title={htmlPreviewDialog.title}
+        htmlContent={htmlPreviewDialog.htmlContent}
+      />
     </MobileLayout>
   );
 }
