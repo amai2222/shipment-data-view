@@ -131,7 +131,7 @@ const INVOICE_STATUS_OPTIONS = [
 ];
 
 // 日期格式化函数 - 将UTC日期转换为中国时区日期显示
-const formatDate = (dateString: string): string => {
+const formatChineseDate = (dateString: string): string => {
   if (!dateString) return '-';
   try {
     // 如果日期字符串没有时间部分，添加UTC时间
@@ -275,11 +275,6 @@ export default function InvoiceRequest() {
   const formatCurrency = (value: number | null | undefined): string => {
     if (value == null) return '-';
     return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
-  };
-  
-  const formatDate = (dateString: string | null | undefined): string => {
-    if (!dateString) return '-';
-    return format(new Date(dateString), 'yyyy/MM/dd');
   };
 
   const simplifyRoute = (loading?: string, unloading?: string): string => { 
@@ -985,7 +980,7 @@ export default function InvoiceRequest() {
                               {formatQuantity(r)}
                             </TableCell>
                             <TableCell className="cursor-pointer whitespace-nowrap hidden md:table-cell" onClick={() => setViewingRecord(r)}>
-                              {formatDate(r.loading_date)}
+                              {formatChineseDate(r.loading_date)}
                             </TableCell>
                             <TableCell className="font-mono cursor-pointer whitespace-nowrap font-bold text-primary" onClick={() => setViewingRecord(r)}>
                               {formatCurrency(
@@ -1126,7 +1121,7 @@ export default function InvoiceRequest() {
                                   {record.loading_location} → {record.unloading_location}
                                 </TableCell>
                                 <TableCell className="text-sm">
-                                  {formatDate(record.loading_date)}
+                                  {formatChineseDate(record.loading_date)}
                                 </TableCell>
                                 <TableCell className="text-sm font-mono">
                                   {formatCurrency(record.total_invoiceable_for_partner || 0)}
@@ -1191,7 +1186,7 @@ export default function InvoiceRequest() {
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground">装货日期</Label>
-                <p>{formatDate(viewingRecord.loading_date)}</p>
+                <p>{formatChineseDate(viewingRecord.loading_date)}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground">开票状态</Label>

@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Trash2, Loader2, ChevronsUpDown, ChevronUp, ChevronDown, Edit, FileText, CheckSquare, Square } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import type { LogisticsRecord, PaginationState } from '@/types/businessEntry';
+import { LogisticsRecord, PaginationState } from '../types';
 import { RouteDisplay } from '@/components/RouteDisplay';
 import { TransportDocumentGenerator, generatePrintVersion } from '@/components/TransportDocumentGenerator';
 import { useAllFilteredRecords } from '../hooks/useAllFilteredRecords';
-import type { LogisticsFilters } from '@/types/businessEntry';
+import { LogisticsFilters } from '../hooks/useLogisticsData';
 import { Checkbox } from "@/components/ui/checkbox";
 
 interface LogisticsTableProps {
