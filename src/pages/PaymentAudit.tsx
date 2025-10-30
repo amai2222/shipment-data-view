@@ -34,7 +34,8 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, X, Building, Search } from 'lucide-react';
+// @ts-expect-error - lucide-react图标导入
+import { CalendarIcon, X, Building2, Search } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 
@@ -49,6 +50,29 @@ interface PaymentRequest {
   record_count: number;
   max_amount?: number; // 申请金额（最高金额）
 }
+
+// 从RPC函数返回的原始数据类型
+interface PaymentRequestRaw {
+  id: string;
+  created_at: string;
+  request_id: string;
+  status: string;
+  notes: string | null;
+  logistics_record_ids: string[];
+  record_count: number;
+  max_amount?: number;
+  total_count?: number; // 用于分页
+}
+
+// RPC函数返回值类型
+interface VoidAndDeletePaymentRequestsResult {
+  success: boolean;
+  message?: string;
+  deleted_requests?: number;
+  affected_logistics_records?: number;
+  skipped_paid?: number;
+}
+
 interface LogisticsRecordDetail { id: string; auto_number: string; driver_name: string; license_plate: string; loading_location: string; unloading_location: string; loading_date: string; loading_weight: number | null; payable_amount: number | null; }
 interface PartnerTotal { partner_id: string; partner_name: string; total_amount: number; level: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
@@ -111,7 +135,6 @@ export default function PaymentAudit() {
     setLoading(true);
     try {
       // 使用后端筛选函数
-      // @ts-expect-error - RPC函数参数类型尚未更新
       const { data, error } = await supabase.rpc('get_payment_requests_filtered', {
         p_request_id: filters.requestId || null,
         p_waybill_number: filters.waybillNumber || null,
@@ -126,12 +149,12 @@ export default function PaymentAudit() {
       if (error) throw error;
       
       // 处理返回的数据
-      const requestsData = (data as PaymentRequest[]) || [];
+      const requestsData = (data as PaymentRequestRaw[]) || [];
       setRequests(requestsData.map(item => ({
         id: item.id,
         created_at: item.created_at,
         request_id: item.request_id,
-        status: item.status,
+        status: item.status as PaymentRequest['status'],
         notes: item.notes,
         logistics_record_ids: item.logistics_record_ids,
         record_count: item.record_count
@@ -139,7 +162,7 @@ export default function PaymentAudit() {
       
       // 设置总数和总页数
       if (requestsData.length > 0) {
-        const totalCount = (requestsData[0] as any).total_count || 0;
+        const totalCount = requestsData[0].total_count || 0;
         setTotalRequestsCount(totalCount);
         setTotalPages(Math.ceil(totalCount / pageSize));
       } else {
@@ -295,14 +318,6 @@ export default function PaymentAudit() {
     }
   };
 
-  const handleBatchApproveWithConfirm = () => {
-    const selectedCount = selection.selectedIds.size;
-    const confirmDialog = window.confirm(`确定要审批选中的 ${selectedCount} 个付款申请吗？`);
-    if (confirmDialog) {
-      handleBatchApprove();
-    }
-  };
-
   // 批量付款功能已移除
 
   const handleRollbackApproval = async (requestId: string) => {
@@ -324,10 +339,59 @@ export default function PaymentAudit() {
     }
   };
 
-  const handleRollbackApprovalWithConfirm = (requestId: string) => {
-    const confirmDialog = window.confirm(`确定要取消审批付款申请 ${requestId} 吗？此操作将把申请单状态回滚为待审批。`);
-    if (confirmDialog) {
-      handleRollbackApproval(requestId);
+  // 批量取消审批（回滚到待审批状态）
+  const handleBatchRollbackApproval = async () => {
+    if (selection.selectedIds.size === 0) return;
+    
+    setIsBatchOperating(true);
+    try {
+      const selectedIds = Array.from(selection.selectedIds);
+      const selectedReqs = requests.filter(r => selectedIds.includes(r.id) && r.status === 'Approved');
+      
+      if (selectedReqs.length === 0) {
+        toast({ title: "提示", description: "没有选择任何已审批状态的申请单。" });
+        setIsBatchOperating(false);
+        return;
+      }
+
+      // 批量调用回滚审批RPC函数
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const req of selectedReqs) {
+        try {
+          const { error } = await supabase.rpc('rollback_payment_request_approval', {
+            p_request_id: req.request_id
+          });
+          
+          if (error) {
+            failCount++;
+            console.error(`回滚申请单 ${req.request_id} 失败:`, error);
+          } else {
+            successCount++;
+          }
+        } catch (err) {
+          failCount++;
+          console.error(`回滚申请单 ${req.request_id} 失败:`, err);
+        }
+      }
+
+      toast({ 
+        title: "批量取消审批完成", 
+        description: `成功回滚 ${successCount} 个付款申请${failCount > 0 ? `，失败 ${failCount} 个` : ''}。` 
+      });
+      
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchPaymentRequests();
+    } catch (error) {
+      console.error('批量取消审批失败:', error);
+      toast({ 
+        title: "批量取消审批失败", 
+        description: error instanceof Error ? error.message : '无法批量取消审批', 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsBatchOperating(false);
     }
   };
 
@@ -803,8 +867,7 @@ export default function PaymentAudit() {
     }
   };
 
-  const handleApproval = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
-    e.stopPropagation();
+  const handleApproval = async (req: PaymentRequest) => {
     try {
       setExportingId(req.id);
       
@@ -827,13 +890,6 @@ export default function PaymentAudit() {
       toast({ title: "审批失败", description: "操作失败，请重试", variant: "destructive" });
     } finally {
       setExportingId(null);
-    }
-  };
-
-  const handleApprovalWithConfirm = (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
-    const confirmDialog = window.confirm(`确定要审批付款申请 ${req.request_id} 吗？`);
-    if (confirmDialog) {
-      handleApproval(e, req);
     }
   };
 
@@ -1052,9 +1108,9 @@ export default function PaymentAudit() {
 
       if (error) throw error;
 
-      const result = data as any;
-      let description = `已永久删除 ${result.deleted_requests} 个付款申请单，${result.affected_logistics_records} 条运单状态已回滚为未支付。`;
-      if (result.skipped_paid > 0) {
+      const result = data as VoidAndDeletePaymentRequestsResult;
+      let description = `已永久删除 ${result.deleted_requests || 0} 个付款申请单，${result.affected_logistics_records || 0} 条运单状态已回滚为未支付。`;
+      if (result.skipped_paid && result.skipped_paid > 0) {
         description += `\n跳过 ${result.skipped_paid} 个已付款的申请单（需要先取消付款才能删除）。`;
       }
 
@@ -1185,7 +1241,7 @@ export default function PaymentAudit() {
             {/* 项目 */}
             <div className="flex-1 min-w-[140px] space-y-2">
               <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
-                <Building className="h-4 w-4" />
+                <Building2 className="h-4 w-4" />
                 项目
               </Label>
               <select
@@ -1420,45 +1476,75 @@ export default function PaymentAudit() {
                 <span className="text-sm text-muted-foreground">
                   已选择 {selection.selectedIds.size} 个申请单
                 </span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleBatchApproveWithConfirm}
-                  disabled={isBatchOperating}
-                  className="flex items-center gap-2"
+                
+                {/* 批量审批按钮 - 红色 */}
+                <ConfirmDialog
+                  title="确认批量审批"
+                  description={`确定要批量审批选中的 ${selection.selectedIds.size} 个付款申请吗？审批后申请单状态将变为"已审批"。`}
+                  onConfirm={handleBatchApprove}
                 >
-                  {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
-                  批量审批
-                </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={isBatchOperating}
+                    className="flex items-center gap-2"
+                  >
+                    {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
+                    批量审批
+                  </Button>
+                </ConfirmDialog>
+
+                {/* 批量取消审批按钮 - 橙色 */}
+                <ConfirmDialog
+                  title="确认批量取消审批"
+                  description={`确定要批量取消审批选中的 ${selection.selectedIds.size} 个付款申请吗？此操作将把已审批的申请单状态回滚为待审批。`}
+                  onConfirm={handleBatchRollbackApproval}
+                >
+                  <Button
+                    variant="default"
+                    size="sm"
+                    disabled={isBatchOperating}
+                    className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    {isBatchOperating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                    批量取消审批
+                  </Button>
+                </ConfirmDialog>
+
+                {/* 一键回滚按钮 - 蓝色 */}
+                <ConfirmDialog
+                  title="确认一键回滚"
+                  description={`确定要回滚选中的 ${selectionCount} 个付款申请吗？\n\n此操作将：\n• 保留申请单记录（状态标记为已取消）\n• 回滚运单状态为未支付\n\n请确认操作。`}
+                  onConfirm={handleRollbackRequests}
+                >
+                  <Button 
+                    variant="default"
+                    size="sm"
+                    disabled={selectionCount === 0 || isCancelling} 
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                    一键回滚 ({selectionCount})
+                  </Button>
+                </ConfirmDialog>
+
+                {/* 一键作废按钮 - 仅管理员可见 - 红色 */}
                 {isAdmin && (
-                  <>
-                    <Button 
-                      variant="default"
-                      disabled={selectionCount === 0 || isCancelling} 
-                      onClick={() => {
-                        if (window.confirm('确定要回滚选中的 ' + selectionCount + ' 个付款申请吗？\n\n此操作将：\n- 保留申请单记录（状态标记为已取消）\n- 回滚运单状态为未支付\n\n请确认操作。')) {
-                          handleRollbackRequests();
-                        }
-                      }}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                      一键回滚 ({selectionCount})
-                    </Button>
+                  <ConfirmDialog
+                    title="⚠️ 确认一键作废"
+                    description={`确定要作废并删除选中的 ${selectionCount} 个付款申请吗？\n\n⚠️ 此操作将：\n• 永久删除申请单记录\n• 回滚运单状态为未支付\n\n此操作不可逆，请谨慎操作！`}
+                    onConfirm={handleDeleteRequests}
+                  >
                     <Button 
                       variant="destructive" 
+                      size="sm"
                       disabled={selectionCount === 0 || isCancelling} 
-                      onClick={() => {
-                        if (window.confirm('确定要作废并删除选中的 ' + selectionCount + ' 个付款申请吗？\n\n⚠️ 此操作将：\n- 永久删除申请单记录\n- 回滚运单状态为未支付\n\n此操作不可逆，请谨慎操作！')) {
-                          handleDeleteRequests();
-                        }
-                      }}
                       className="flex items-center gap-2"
                     >
                       {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                       一键作废 ({selectionCount})
                     </Button>
-                  </>
+                  </ConfirmDialog>
                 )}
               </div>
             )}
@@ -1521,32 +1607,42 @@ export default function PaymentAudit() {
                               查看申请单
                             </Button>
 
-                            {/* 取消审批按钮 - 灰色主题，只在已审批状态显示 */}
+                            {/* 取消审批按钮 - 橙色主题，只在已审批状态显示 */}
                             {req.status === 'Approved' && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleRollbackApprovalWithConfirm(req.request_id)} 
-                                disabled={exportingId === req.id}
-                                className="border-gray-300 text-gray-600 hover:bg-gray-50 shadow-sm transition-all duration-200"
+                              <ConfirmDialog
+                                title="确认取消审批"
+                                description={`确定要取消审批付款申请 ${req.request_id} 吗？此操作将把申请单状态回滚为待审批。`}
+                                onConfirm={() => handleRollbackApproval(req.request_id)}
                               >
-                                <RotateCcw className="mr-2 h-4 w-4" />
-                                取消审批
-                              </Button>
+                                <Button 
+                                  variant="default" 
+                                  size="sm" 
+                                  disabled={exportingId === req.id}
+                                  className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm transition-all duration-200"
+                                >
+                                  <RotateCcw className="mr-2 h-4 w-4" />
+                                  取消审批
+                                </Button>
+                              </ConfirmDialog>
                             )}
 
                             {/* 审批按钮 - 红色主题，只在待审批状态显示 */}
                             {req.status === 'Pending' && (
-                              <Button 
-                                variant="destructive" 
-                                size="sm" 
-                                onClick={(e) => handleApprovalWithConfirm(e, req)} 
-                                disabled={exportingId === req.id}
-                                className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                              <ConfirmDialog
+                                title="确认审批"
+                                description={`确定要审批付款申请 ${req.request_id} 吗？审批后申请单状态将变为"已审批"。`}
+                                onConfirm={() => handleApproval(req)}
                               >
-                                <ClipboardList className="mr-2 h-4 w-4" />
-                                审批
-                              </Button>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm" 
+                                  disabled={exportingId === req.id}
+                                  className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                                >
+                                  <ClipboardList className="mr-2 h-4 w-4" />
+                                  审批
+                                </Button>
+                              </ConfirmDialog>
                             )}
                           </div>
                         </TableCell>
