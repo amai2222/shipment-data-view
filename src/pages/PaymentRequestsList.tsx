@@ -1012,25 +1012,25 @@ export default function PaymentRequestsList() {
     return requests.every(req => selection.selectedIds.has(req.id));
   }, [requests, selection.selectedIds]);
 
-  // 一键回滚功能（回滚申请单状态到待审批）
-  const handleRollbackRequests = async () => {
+  // 批量取消付款（回滚付款状态到待审批）
+  const handleBatchCancelPayment = async () => {
     setIsCancelling(true);
     try {
-      let idsToRollback: string[] = [];
+      let idsToCancel: string[] = [];
       if (selection.mode === 'all_filtered') {
         const { data: allRequests, error: fetchError } = await supabase
           .from('payment_requests')
           .select('request_id')
-          .in('status', ['Approved', 'Paid']);
+          .eq('status', 'Paid');
         if (fetchError) throw fetchError;
-        idsToRollback = allRequests.map(r => r.request_id);
+        idsToCancel = allRequests.map(r => r.request_id);
       } else {
-        const selectedReqs = requests.filter(r => selection.selectedIds.has(r.id) && ['Approved', 'Paid'].includes(r.status));
-        idsToRollback = selectedReqs.map(r => r.request_id);
+        const selectedReqs = requests.filter(r => selection.selectedIds.has(r.id) && r.status === 'Paid');
+        idsToCancel = selectedReqs.map(r => r.request_id);
       }
 
-      if (idsToRollback.length === 0) {
-        toast({ title: "提示", description: "没有选择任何可回滚的申请单（仅\"已审批\"和\"已付款\"状态可回滚）。" });
+      if (idsToCancel.length === 0) {
+        toast({ title: "提示", description: "没有选择任何已付款状态的申请单。" });
         setIsCancelling(false);
         return;
       }
@@ -1039,19 +1039,20 @@ export default function PaymentRequestsList() {
       const { error } = await supabase
         .from('payment_requests')
         .update({ status: 'Pending', updated_at: new Date().toISOString() })
-        .in('request_id', idsToRollback);
+        .in('request_id', idsToCancel)
+        .eq('status', 'Paid');
 
       if (error) throw error;
 
       toast({ 
-        title: "回滚完成", 
-        description: `已将 ${idsToRollback.length} 个付款申请单的状态回滚到"待审批"。`
+        title: "取消付款完成", 
+        description: `已将 ${idsToCancel.length} 个付款申请单的状态回滚到"待审批"。`
       });
       setSelection({ mode: 'none', selectedIds: new Set() });
       fetchPaymentRequests();
     } catch (error) {
-      console.error("批量回滚申请失败:", error);
-      toast({ title: "错误", description: `操作失败: ${(error as any).message}`, variant: "destructive" });
+      console.error("批量取消付款失败:", error);
+      toast({ title: "取消付款失败", description: `操作失败: ${(error as Error).message}`, variant: "destructive" });
     } finally {
       setIsCancelling(false);
     }
@@ -1454,40 +1455,52 @@ export default function PaymentRequestsList() {
                 <span className="text-sm text-muted-foreground">
                   已选择 {selection.selectedIds.size} 个申请单
                 </span>
-                {/* 批量审批按钮 - 已隐藏 */}
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleBatchPay}
-                  disabled={isBatchOperating}
-                  className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+                {/* 批量付款按钮 - 绿色 */}
+                <ConfirmDialog
+                  title={`确认批量付款 ${selection.selectedIds.size} 张申请单`}
+                  description="此操作将完成选中申请单的付款，并更新运单状态为已付款。请确认操作。"
+                  onConfirm={handleBatchPay}
                 >
-                  {batchOperation === 'pay' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
-                  批量付款
-                </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    disabled={isBatchOperating}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {batchOperation === 'pay' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                    批量付款
+                  </Button>
+                </ConfirmDialog>
+
+                {/* 批量取消付款按钮 - 橙色 */}
+                <ConfirmDialog
+                  title={`确认批量取消付款 ${selectionCount} 张申请单`}
+                  description="此操作将把已付款的申请单状态回滚到"待审批"。请确认操作。"
+                  onConfirm={handleBatchCancelPayment}
+                >
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    disabled={selectionCount === 0 || isCancelling} 
+                    className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                    批量取消付款
+                  </Button>
+                </ConfirmDialog>
+
+                {/* 一键作废按钮 - 红色 */}
                 {isAdmin && (
-                  <>
-                    <ConfirmDialog
-                      title={`确认回滚 ${selectionCount} 张申请单`}
-                      description={`此操作将：\n- 将申请单状态回滚到"待审批"\n- 不影响运单状态\n\n请确认操作。`}
-                      onConfirm={handleRollbackRequests}
-                    >
-                      <Button variant="default" disabled={selectionCount === 0 || isCancelling} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-                        {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                        一键回滚 ({selectionCount})
-                      </Button>
-                    </ConfirmDialog>
-                    <ConfirmDialog
-                      title={`确认作废并删除 ${selectionCount} 张申请单`}
-                      description="⚠️ 此操作将：\n- 永久删除申请单记录\n- 回滚运单状态为未支付\n\n此操作不可逆，请谨慎操作！"
-                      onConfirm={handleDeleteRequests}
-                    >
-                      <Button variant="destructive" disabled={selectionCount === 0 || isCancelling} className="flex items-center gap-2">
-                        {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        一键作废 ({selectionCount})
-                      </Button>
-                    </ConfirmDialog>
-                  </>
+                  <ConfirmDialog
+                    title={`确认作废并删除 ${selectionCount} 张申请单`}
+                    description="⚠️ 此操作将：\n- 永久删除申请单记录\n- 回滚运单状态为未支付\n\n此操作不可逆，请谨慎操作！"
+                    onConfirm={handleDeleteRequests}
+                  >
+                    <Button variant="destructive" disabled={selectionCount === 0 || isCancelling} className="flex items-center gap-2">
+                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      一键作废 ({selectionCount})
+                    </Button>
+                  </ConfirmDialog>
                 )}
               </div>
             )}
@@ -1552,14 +1565,14 @@ export default function PaymentRequestsList() {
                               查看申请单
                             </Button>
 
-                            {/* 付款按钮 - 红色主题，只在已审批状态显示 */}
+                            {/* 付款按钮 - 绿色主题，只在已审批状态显示 */}
                             {req.status === 'Approved' && (
                               <Button 
                                 variant="default" 
                                 size="sm" 
                                 onClick={(e) => handlePayment(e, req)} 
                                 disabled={exportingId === req.id}
-                                className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                                className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
                               >
                                 <Banknote className="mr-2 h-4 w-4" />
                                 付款
@@ -1580,14 +1593,14 @@ export default function PaymentRequestsList() {
                               </Button>
                             )}
 
-                            {/* 取消审批按钮 - 灰色主题，只在已审批状态显示 */}
+                            {/* 取消审批按钮 - 橙色主题，只在已审批状态显示 */}
                             {req.status === 'Approved' && (
                               <Button 
-                                variant="outline" 
+                                variant="default" 
                                 size="sm" 
                                 onClick={() => handleRollbackApproval(req.request_id)} 
                                 disabled={exportingId === req.id}
-                                className="border-gray-300 text-gray-600 hover:bg-gray-50 shadow-sm transition-all duration-200"
+                                className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm transition-all duration-200"
                               >
                                 <RotateCcw className="mr-2 h-4 w-4" />
                                 取消审批
