@@ -63,9 +63,12 @@ export function useLogisticsData() {
   const [loading, setLoading] = useState(true);
   const [activeFilters, setActiveFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
   const [pagination, setPagination] = useState({ 
+    page: 1,
+    size: PAGE_SIZE,
     currentPage: 1, 
     totalPages: 1, 
-    totalCount: 0, 
+    totalCount: 0,
+    totalRecords: 0, 
     pageSize: PAGE_SIZE 
   });
   const [totalSummary, setTotalSummary] = useState<TotalSummary>(INITIAL_SUMMARY);
@@ -105,10 +108,13 @@ export function useLogisticsData() {
       setRecords(responseData.records || []);
       setTotalSummary(responseData.summary || INITIAL_SUMMARY);
       setPagination(prev => ({ 
-        ...prev, 
+        ...prev,
+        page: page,
+        size: pageSize,
         currentPage: page,
         totalPages: Math.ceil((responseData.totalCount || 0) / pageSize) || 1,
         totalCount: responseData.totalCount || 0,
+        totalRecords: responseData.totalCount || 0,
         pageSize: pageSize
       }));
 
@@ -138,7 +144,9 @@ export function useLogisticsData() {
 
   const handlePageSizeChange = useCallback((newPageSize: number) => {
     setPagination(prev => ({ 
-      ...prev, 
+      ...prev,
+      page: 1,
+      size: newPageSize,
       pageSize: newPageSize,
       currentPage: 1, // 改变页面大小时重置到第一页
       totalPages: Math.ceil(prev.totalCount / newPageSize) || 1

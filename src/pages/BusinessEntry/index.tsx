@@ -1,9 +1,7 @@
 // 业务录入 - 完整重构版本
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { Package } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { useLogisticsData, INITIAL_FILTERS } from './hooks/useLogisticsData';
 import { LogisticsTable } from './components/LogisticsTable';
 import { FilterBar } from './components/FilterBar';
@@ -12,32 +10,27 @@ import { ImportDialog } from './components/ImportDialog';
 import { UpdateModeImportDialog } from './components/UpdateModeImportDialog';
 import { useExcelImport } from './hooks/useExcelImport';
 import { useExcelImportWithUpdate } from './hooks/useExcelImportWithUpdate';
-import type { LogisticsRecord } from '@/types/businessEntry';
+import type { LogisticsRecord, LogisticsFilters, Project } from '@/types/businessEntry';
 import { supabase } from '@/integrations/supabase/client';
-import { DateRange } from 'react-day-picker';
-import { format } from 'date-fns';
 
 export default function BusinessEntry() {
-  const { toast } = useToast();
-  const [uiFilters, setUiFilters] = useState(INITIAL_FILTERS);
-  const [activeFilters, setActiveFilters] = useState(INITIAL_FILTERS);
-  const [isStale, setIsStale] = useState(false);
-  
   const {
     records,
-    totalCount,
-    summary,
-    currentPage,
-    pageSize,
-    totalPages,
-    isLoading,
-    loadData,
-    deleteRecord,
-    setCurrentPage,
-    setPageSize
+    loading,
+    activeFilters,
+    setActiveFilters,
+    pagination,
+    setPagination,
+    totalSummary,
+    handleDelete,
+    refetch,
+    sortField,
+    sortDirection,
+    handleSort,
+    handlePageSizeChange
   } = useLogisticsData();
 
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
 
@@ -46,11 +39,14 @@ export default function BusinessEntry() {
     isImportModalOpen,
     importStep,
     importPreview,
+    approvedDuplicates,
+    setApprovedDuplicates,
     importLogs,
+    importLogRef,
     handleExcelImport,
     executeFinalImport,
     closeImportModal
-  } = useExcelImport();
+  } = useExcelImport(refetch);
 
   const {
     isImporting: isUpdating,
@@ -59,11 +55,14 @@ export default function BusinessEntry() {
     importPreview: updatePreview,
     importMode,
     setImportMode,
+    approvedDuplicates: updateApprovedDuplicates,
+    setApprovedDuplicates: setUpdateApprovedDuplicates,
     importLogs: updateLogs,
+    importLogRef: updateLogRef,
     handleExcelImport: handleUpdateImport,
     executeFinalImport: executeUpdateImport,
     closeImportModal: closeUpdateModal
-  } = useExcelImportWithUpdate();
+  } = useExcelImportWithUpdate(refetch);
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -73,44 +72,24 @@ export default function BusinessEntry() {
     loadProjects();
   }, []);
 
-  useEffect(() => {
-    if (!isStale) {
-      loadData(activeFilters, currentPage, pageSize);
-    }
-  }, [activeFilters, currentPage, pageSize, isStale, loadData]);
+  const handleFiltersChange = useCallback((newFilters: LogisticsFilters) => {
+    setActiveFilters(newFilters);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [setActiveFilters, setPagination]);
 
   const handleSearch = useCallback(() => {
-    setActiveFilters(uiFilters);
-    setIsStale(false);
-    setCurrentPage(1);
-  }, [uiFilters, setCurrentPage]);
-
-  const handleFilterChange = useCallback((key: string, value: any) => {
-    setUiFilters(prev => ({ ...prev, [key]: value }));
-    setIsStale(true);
-  }, []);
-
-  const handleDateChange = useCallback((range: DateRange | undefined) => {
-    setUiFilters(prev => ({
-      ...prev,
-      startDate: range?.from ? format(range.from, 'yyyy-MM-dd') : '',
-      endDate: range?.to ? format(range.to, 'yyyy-MM-dd') : ''
-    }));
-    setIsStale(true);
-  }, []);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    refetch();
+  }, [setPagination, refetch]);
 
   const handleClear = useCallback(() => {
-    setUiFilters(INITIAL_FILTERS);
     setActiveFilters(INITIAL_FILTERS);
-    setIsStale(false);
-    setCurrentPage(1);
-  }, [setCurrentPage]);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [setPagination, setActiveFilters]);
 
-  const handleDelete = async (id: string) => {
-    const success = await deleteRecord(id);
-    if (success) {
-      loadData(activeFilters, currentPage, pageSize);
-    }
+  const handleDeleteRecord = async (id: string, autoNumber: string) => {
+    await handleDelete(id);
+    refetch();
   };
 
   return (
@@ -123,42 +102,43 @@ export default function BusinessEntry() {
       />
 
       <FilterBar
-        filters={uiFilters}
-        projects={projects}
-        onFilterChange={handleFilterChange}
-        onDateChange={handleDateChange}
+        filters={activeFilters}
+        onFiltersChange={handleFiltersChange}
         onSearch={handleSearch}
         onClear={handleClear}
-        onImport={() => {}}
-        onUpdateImport={() => {}}
-        isStale={isStale}
+        loading={loading}
+        projects={projects}
       />
 
       <LogisticsTable
         records={records}
+        loading={loading}
+        pagination={pagination}
+        setPagination={setPagination}
         onEdit={(record) => {
           setEditingRecord(record);
           setIsFormDialogOpen(true);
         }}
-        onDelete={handleDelete}
-        currentPage={currentPage}
-        pageSize={pageSize}
-        totalPages={totalPages}
-        totalRecords={totalCount}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={setPageSize}
-        isLoading={isLoading}
-        summary={summary}
-        filters={activeFilters}
+        onView={(record) => {
+          setEditingRecord(record);
+          setIsFormDialogOpen(true);
+        }}
+        onDelete={handleDeleteRecord}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSort={handleSort}
+        onPageSizeChange={handlePageSizeChange}
+        activeFilters={activeFilters}
       />
 
       <LogisticsFormDialog
-        open={isFormDialogOpen}
-        onOpenChange={setIsFormDialogOpen}
-        record={editingRecord}
-        onSuccess={() => {
+        isOpen={isFormDialogOpen}
+        onClose={() => setIsFormDialogOpen(false)}
+        editingRecord={editingRecord}
+        projects={projects}
+        onSubmitSuccess={() => {
           setIsFormDialogOpen(false);
-          loadData(activeFilters, currentPage, pageSize);
+          refetch();
         }}
       />
 
@@ -167,9 +147,11 @@ export default function BusinessEntry() {
         onClose={closeImportModal}
         importStep={importStep}
         importPreview={importPreview}
+        approvedDuplicates={approvedDuplicates}
+        setApprovedDuplicates={setApprovedDuplicates}
         importLogs={importLogs}
-        onImport={handleExcelImport}
-        onConfirm={executeFinalImport}
+        importLogRef={importLogRef}
+        onExecuteImport={executeFinalImport}
       />
 
       <UpdateModeImportDialog
@@ -178,10 +160,12 @@ export default function BusinessEntry() {
         importStep={updateStep}
         importPreview={updatePreview}
         importMode={importMode}
-        onModeChange={setImportMode}
+        setImportMode={setImportMode}
+        approvedDuplicates={updateApprovedDuplicates}
+        setApprovedDuplicates={setUpdateApprovedDuplicates}
         importLogs={updateLogs}
-        onImport={handleUpdateImport}
-        onConfirm={executeUpdateImport}
+        importLogRef={updateLogRef}
+        onExecuteImport={executeUpdateImport}
       />
     </div>
   );
