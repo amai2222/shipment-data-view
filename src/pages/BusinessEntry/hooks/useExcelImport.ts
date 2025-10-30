@@ -9,7 +9,7 @@ import { useState, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import type { ImportPreviewResult, ImportFailure } from '@/types/businessEntry';
+import { ImportPreviewResult, ImportFailure } from '../types';
 
 const parseExcelDate = (excelDate: any): string | null => {
   if (excelDate === null || excelDate === undefined || excelDate === '') return null;
