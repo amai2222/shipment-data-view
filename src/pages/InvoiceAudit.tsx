@@ -35,7 +35,8 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, X, Building, Search } from 'lucide-react';
+// @ts-expect-error - lucide-react图标导入
+import { CalendarIcon, X, Building2, Search } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 
@@ -57,7 +58,61 @@ interface InvoiceRequest {
   tax_number?: string;
   invoice_number?: string;
 }
-interface LogisticsRecordDetail { id: string; auto_number: string; driver_name: string; license_plate: string; loading_location: string; unloading_location: string; loading_date: string; loading_weight: number | null; invoiceable_amount: number | null; }
+
+// 从RPC函数返回的原始数据类型
+interface InvoiceRequestRaw {
+  id: string;
+  created_at: string;
+  request_number: string;
+  status: string;
+  remarks: string | null;
+  record_count: number;
+  total_amount?: number;
+  invoicing_partner_id?: string;
+  partner_name?: string;
+  partner_full_name?: string;
+  invoicing_partner_full_name?: string;
+  invoicing_partner_tax_number?: string;
+  tax_number?: string;
+  invoice_number?: string;
+  total_count?: number; // 用于分页
+}
+
+interface LogisticsRecordDetail { 
+  id: string; 
+  auto_number: string; 
+  driver_name: string; 
+  license_plate: string; 
+  loading_location: string; 
+  unloading_location: string; 
+  loading_date: string; 
+  loading_weight: number | null; 
+  invoiceable_amount: number | null; 
+}
+
+interface InvoiceRequestDetail {
+  id: string;
+  invoice_request_id: string;
+  logistics_record_id: string;
+  invoiceable_amount?: number;
+  amount?: number;
+}
+
+// RPC函数返回值类型
+interface VoidInvoiceRequestResult {
+  success: boolean;
+  message?: string;
+  affected_records?: number;
+}
+
+interface VoidAndDeleteInvoiceRequestsResult {
+  success: boolean;
+  message?: string;
+  deleted_requests?: number;
+  affected_logistics_records?: number;
+  affected_partner_costs?: number;
+}
+
 interface PartnerTotal { partner_id: string; partner_name: string; total_amount: number; level: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
 
@@ -119,7 +174,6 @@ export default function InvoiceAudit() {
     setLoading(true);
     try {
       // 使用后端筛选函数
-      // @ts-expect-error - RPC函数参数类型尚未更新
       const { data, error } = await supabase.rpc('get_invoice_requests_filtered', {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
@@ -137,28 +191,28 @@ export default function InvoiceAudit() {
       if (error) throw error;
       
       // 处理返回的数据
-      const requestsData = (data as any[]) || [];
+      const requestsData = (data as InvoiceRequestRaw[]) || [];
       setRequests(requestsData.map(item => ({
         id: item.id,
         created_at: item.created_at,
         request_number: item.request_number,
-        status: item.status,
+        status: item.status as InvoiceRequest['status'],
         remarks: item.remarks,
         logistics_record_ids: [],
         record_count: item.record_count || 0,
         total_amount: item.total_amount,
-        invoicing_partner_id: (item as any).invoicing_partner_id,  // ✅ 关键字段
-        partner_name: (item as any).partner_name,
-        partner_full_name: (item as any).partner_full_name,
-        invoicing_partner_full_name: (item as any).invoicing_partner_full_name,
-        invoicing_partner_tax_number: (item as any).invoicing_partner_tax_number,
-        tax_number: (item as any).tax_number,
-        invoice_number: (item as any).invoice_number
+        invoicing_partner_id: item.invoicing_partner_id,  // ✅ 关键字段
+        partner_name: item.partner_name,
+        partner_full_name: item.partner_full_name,
+        invoicing_partner_full_name: item.invoicing_partner_full_name,
+        invoicing_partner_tax_number: item.invoicing_partner_tax_number,
+        tax_number: item.tax_number,
+        invoice_number: item.invoice_number
       })));
       
       // 设置总数和总页数
       if (requestsData.length > 0) {
-        const totalCount = (requestsData[0] as any).total_count || 0;
+        const totalCount = requestsData[0].total_count || 0;
         setTotalRequestsCount(totalCount);
         setTotalPages(Math.ceil(totalCount / pageSize));
       } else {
@@ -309,14 +363,6 @@ export default function InvoiceAudit() {
     }
   };
 
-  const handleBatchApproveWithConfirm = () => {
-    const selectedCount = selection.selectedIds.size;
-    const confirmDialog = window.confirm(`确定要审批选中的 ${selectedCount} 个开票申请吗？`);
-    if (confirmDialog) {
-      handleBatchApprove();
-    }
-  };
-
   // 取消审批（回滚到待审批状态）
   const handleRollbackApproval = async (requestNumber: string) => {
     try {
@@ -340,10 +386,46 @@ export default function InvoiceAudit() {
     }
   };
 
-  const handleRollbackApprovalWithConfirm = (requestNumber: string) => {
-    const confirmDialog = window.confirm(`确定要取消审批开票申请 ${requestNumber} 吗？此操作将把申请单状态回滚为待审批。`);
-    if (confirmDialog) {
-      handleRollbackApproval(requestNumber);
+  // 批量取消审批（回滚到待审批状态）
+  const handleBatchRollbackApproval = async () => {
+    if (selection.selectedIds.size === 0) return;
+    
+    setIsBatchOperating(true);
+    try {
+      const selectedIds = Array.from(selection.selectedIds);
+      const selectedReqs = requests.filter(r => selectedIds.includes(r.id) && r.status === 'Approved');
+      
+      if (selectedReqs.length === 0) {
+        toast({ title: "提示", description: "没有选择任何已审批状态的申请单。" });
+        setIsBatchOperating(false);
+        return;
+      }
+
+      // 批量更新状态为Pending
+      const { error } = await supabase
+        .from('invoice_requests')
+        .update({ status: 'Pending' })
+        .in('id', selectedReqs.map(r => r.id))
+        .eq('status', 'Approved');
+
+      if (error) throw error;
+
+      toast({ 
+        title: "批量取消审批成功", 
+        description: `已将 ${selectedReqs.length} 个开票申请回滚为待审批状态。` 
+      });
+      
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchInvoiceRequests();
+    } catch (error) {
+      console.error('批量取消审批失败:', error);
+      toast({ 
+        title: "批量取消审批失败", 
+        description: error instanceof Error ? error.message : '无法批量取消审批', 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsBatchOperating(false);
     }
   };
 
@@ -391,11 +473,11 @@ export default function InvoiceAudit() {
       let partnerTaxNumber = '';
       let partnerFullName = '';
       
-      if ((req as any).invoicing_partner_id) {
+      if (req.invoicing_partner_id) {
         const { data: partnerBankData } = await supabase
           .from('partner_bank_details')
           .select('tax_number, full_name')
-          .eq('partner_id', (req as any).invoicing_partner_id)
+          .eq('partner_id', req.invoicing_partner_id)
           .single();
         
         if (partnerBankData) {
@@ -490,9 +572,9 @@ export default function InvoiceAudit() {
       // ✅ 将查询到的税号和全称传递给生成函数
       const enrichedRequest = {
         ...req,
-        invoicing_partner_tax_number: partnerTaxNumber || (req as any).invoicing_partner_tax_number,
-        tax_number: partnerTaxNumber || (req as any).tax_number,
-        invoicing_partner_full_name: partnerFullName || (req as any).invoicing_partner_full_name || (req as any).partner_full_name
+        invoicing_partner_tax_number: partnerTaxNumber || req.invoicing_partner_tax_number,
+        tax_number: partnerTaxNumber || req.tax_number,
+        invoicing_partner_full_name: partnerFullName || req.invoicing_partner_full_name || req.partner_full_name
       };
 
       // 生成打印HTML
@@ -523,6 +605,7 @@ export default function InvoiceAudit() {
       unloading_location: string;
       loading_date: string;
       loading_weight?: number;
+      cargo_type?: string;
     };
   }>) => {
     const totalWeight = details.reduce((sum, d) => sum + (d.logistics_record.loading_weight || 0), 0);
@@ -594,19 +677,19 @@ export default function InvoiceAudit() {
     const dynamicSummary = generateDynamicSummary();
     
     // 处理合作方名称和信息
-    const partnerName = (request as any).invoicing_partner_full_name || (request as any).partner_full_name || (request as any).partner_name || '未知合作方';
-    const requestNumber = (request as any).request_number || request.id;
-    const totalAmount = (request as any).total_amount || 0;
-    const recordCount = (request as any).record_count || details.length;
-    const createdAt = (request as any).created_at || new Date().toISOString();
-    const invoiceNumber = (request as any).invoice_number || '';
+    const partnerName = request.invoicing_partner_full_name || request.partner_full_name || request.partner_name || '未知合作方';
+    const requestNumber = request.request_number || request.id;
+    const totalAmount = request.total_amount || 0;
+    const recordCount = request.record_count || details.length;
+    const createdAt = request.created_at || new Date().toISOString();
+    const invoiceNumber = request.invoice_number || '';
     
     // 获取公司抬头和税号
-    const companyName = (request as any).invoicing_partner_full_name || (request as any).partner_full_name || partnerName;
-    const taxNumber = (request as any).invoicing_partner_tax_number || (request as any).tax_number || '';
+    const companyName = request.invoicing_partner_full_name || request.partner_full_name || partnerName;
+    const taxNumber = request.invoicing_partner_tax_number || request.tax_number || '';
     
     // 动态获取货物类型（从运单中提取）
-    const cargoTypes = [...new Set(details.map(d => (d.logistics_record as any).cargo_type).filter(Boolean))];
+    const cargoTypes = [...new Set(details.map(d => d.logistics_record.cargo_type).filter(Boolean))];
     const cargoType = cargoTypes.length === 1 ? cargoTypes[0] : (cargoTypes.length > 1 ? `${cargoTypes[0]}等` : '食品');
     
     return `
@@ -875,8 +958,7 @@ export default function InvoiceAudit() {
   };
 
   // 审批功能
-  const handleApproval = async (e: React.MouseEvent<HTMLButtonElement>, req: InvoiceRequest) => {
-    e.stopPropagation();
+  const handleApproval = async (req: InvoiceRequest) => {
     try {
       setExportingId(req.id);
       
@@ -899,13 +981,6 @@ export default function InvoiceAudit() {
       toast({ title: "审批失败", description: "操作失败，请重试", variant: "destructive" });
     } finally {
       setExportingId(null);
-    }
-  };
-
-  const handleApprovalWithConfirm = (e: React.MouseEvent<HTMLButtonElement>, req: InvoiceRequest) => {
-    const confirmDialog = window.confirm(`确定要审批开票申请 ${req.request_number} 吗？`);
-    if (confirmDialog) {
-      handleApproval(e, req);
     }
   };
 
@@ -950,7 +1025,7 @@ export default function InvoiceAudit() {
       const logisticsMap = new Map(logisticsData?.map(l => [l.id, l]) || []);
 
       // 组合数据（使用invoice_request_details表中的invoiceable_amount）
-      const detailedRecords = detailsData.map((detail: any) => {
+      const detailedRecords = (detailsData as InvoiceRequestDetail[]).map((detail) => {
         const record = logisticsMap.get(detail.logistics_record_id);
         return {
           id: record?.id || detail.logistics_record_id,
@@ -1061,7 +1136,8 @@ export default function InvoiceAudit() {
           
           if (error) throw error;
           
-          if ((data as any)?.success) {
+          const result = data as VoidInvoiceRequestResult;
+          if (result?.success) {
             successCount++;
           } else {
             failCount++;
@@ -1119,10 +1195,10 @@ export default function InvoiceAudit() {
 
       if (error) throw error;
 
-      const result = data as any;
+      const result = data as VoidAndDeleteInvoiceRequestsResult;
       toast({ 
         title: "作废成功", 
-        description: `已删除 ${result.deleted_requests} 个开票申请单，${result.affected_logistics_records} 条运单状态已回滚为未开票。`
+        description: `已删除 ${result.deleted_requests || 0} 个开票申请单，${result.affected_logistics_records || 0} 条运单状态已回滚为未开票。`
       });
       setSelection({ mode: 'none', selectedIds: new Set() });
       fetchInvoiceRequests();
@@ -1247,7 +1323,7 @@ export default function InvoiceAudit() {
             {/* 项目 */}
             <div className="flex-1 min-w-[140px] space-y-2">
               <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
-                <Building className="h-4 w-4" />
+                <Building2 className="h-4 w-4" />
                 项目
               </Label>
               <select
@@ -1482,45 +1558,75 @@ export default function InvoiceAudit() {
                 <span className="text-sm text-muted-foreground">
                   已选择 {selection.selectedIds.size} 个申请单
                 </span>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleBatchApproveWithConfirm}
-                  disabled={isBatchOperating}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                
+                {/* 批量审批按钮 - 绿色 */}
+                <ConfirmDialog
+                  title="确认批量审批"
+                  description={`确定要批量审批选中的 ${selection.selectedIds.size} 个开票申请吗？审批后申请单状态将变为"已审批"。`}
+                  onConfirm={handleBatchApprove}
                 >
-                  {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
-                  批量审批
-                </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    disabled={isBatchOperating}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
+                    批量审批
+                  </Button>
+                </ConfirmDialog>
+
+                {/* 批量取消审批按钮 - 橙色 */}
+                <ConfirmDialog
+                  title="确认批量取消审批"
+                  description={`确定要批量取消审批选中的 ${selection.selectedIds.size} 个开票申请吗？此操作将把已审批的申请单状态回滚为待审批。`}
+                  onConfirm={handleBatchRollbackApproval}
+                >
+                  <Button
+                    variant="default"
+                    size="sm"
+                    disabled={isBatchOperating}
+                    className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    {isBatchOperating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                    批量取消审批
+                  </Button>
+                </ConfirmDialog>
+
+                {/* 一键回滚按钮 - 蓝色 */}
+                <ConfirmDialog
+                  title="确认一键回滚"
+                  description={`确定要回滚选中的 ${selectionCount} 个开票申请吗？\n\n此操作将：\n• 保留申请单记录（状态标记为已作废）\n• 回滚运单状态为未开票\n\n请确认操作。`}
+                  onConfirm={handleRollbackRequests}
+                >
+                  <Button 
+                    variant="default"
+                    size="sm"
+                    disabled={selectionCount === 0 || isCancelling} 
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                    一键回滚 ({selectionCount})
+                  </Button>
+                </ConfirmDialog>
+
+                {/* 一键作废按钮 - 仅管理员可见 - 红色 */}
                 {isAdmin && (
-                  <>
-                    <Button 
-                      variant="default"
-                      disabled={selectionCount === 0 || isCancelling} 
-                      onClick={() => {
-                        if (window.confirm('确定要回滚选中的 ' + selectionCount + ' 个开票申请吗？\n\n此操作将：\n- 保留申请单记录（状态标记为已作废）\n- 回滚运单状态为未开票\n\n请确认操作。')) {
-                          handleRollbackRequests();
-                        }
-                      }}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                      一键回滚 ({selectionCount})
-                    </Button>
+                  <ConfirmDialog
+                    title="⚠️ 确认一键作废"
+                    description={`确定要作废并删除选中的 ${selectionCount} 个开票申请吗？\n\n⚠️ 此操作将：\n• 永久删除申请单记录\n• 回滚运单状态为未开票\n\n此操作不可逆，请谨慎操作！`}
+                    onConfirm={handleDeleteRequests}
+                  >
                     <Button 
                       variant="destructive" 
+                      size="sm"
                       disabled={selectionCount === 0 || isCancelling} 
-                      onClick={() => {
-                        if (window.confirm('确定要作废并删除选中的 ' + selectionCount + ' 个开票申请吗？\n\n⚠️ 此操作将：\n- 永久删除申请单记录\n- 回滚运单状态为未开票\n\n此操作不可逆，请谨慎操作！')) {
-                          handleDeleteRequests();
-                        }
-                      }}
                       className="flex items-center gap-2"
                     >
                       {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                       一键作废 ({selectionCount})
                     </Button>
-                  </>
+                  </ConfirmDialog>
                 )}
               </div>
             )}
@@ -1566,8 +1672,8 @@ export default function InvoiceAudit() {
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
                           {req.total_amount ? `¥${req.total_amount.toLocaleString()}` : '-'}
                         </TableCell>
-                        <TableCell className="max-w-[200px] cursor-pointer truncate text-sm text-muted-foreground" onClick={() => handleViewDetails(req)} title={(req as any).remarks || ''}>
-                          {(req as any).remarks || '-'}
+                        <TableCell className="max-w-[200px] cursor-pointer truncate text-sm text-muted-foreground" onClick={() => handleViewDetails(req)} title={req.remarks || ''}>
+                          {req.remarks || '-'}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -1583,32 +1689,42 @@ export default function InvoiceAudit() {
                               查看申请单
                             </Button>
 
-                            {/* 取消审批按钮 - 灰色主题，只在已审批状态显示 */}
+                            {/* 取消审批按钮 - 橙色主题，只在已审批状态显示 */}
                             {req.status === 'Approved' && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleRollbackApprovalWithConfirm(req.request_number)} 
-                                disabled={exportingId === req.id}
-                                className="border-gray-300 text-gray-600 hover:bg-gray-50 shadow-sm transition-all duration-200"
+                              <ConfirmDialog
+                                title="确认取消审批"
+                                description={`确定要取消审批开票申请 ${req.request_number} 吗？此操作将把申请单状态回滚为待审批。`}
+                                onConfirm={() => handleRollbackApproval(req.request_number)}
                               >
-                                <RotateCcw className="mr-2 h-4 w-4" />
-                                取消审批
-                              </Button>
+                                <Button 
+                                  variant="default" 
+                                  size="sm" 
+                                  disabled={exportingId === req.id}
+                                  className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm transition-all duration-200"
+                                >
+                                  <RotateCcw className="mr-2 h-4 w-4" />
+                                  取消审批
+                                </Button>
+                              </ConfirmDialog>
                             )}
 
                             {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
                             {req.status === 'Pending' && (
-                              <Button 
-                                variant="default" 
-                                size="sm" 
-                                onClick={(e) => handleApprovalWithConfirm(e, req)} 
-                                disabled={exportingId === req.id}
-                                className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                              <ConfirmDialog
+                                title="确认审批"
+                                description={`确定要审批开票申请 ${req.request_number} 吗？审批后申请单状态将变为"已审批"。`}
+                                onConfirm={() => handleApproval(req)}
                               >
-                                <ClipboardList className="mr-2 h-4 w-4" />
-                                审批
-                              </Button>
+                                <Button 
+                                  variant="default" 
+                                  size="sm" 
+                                  disabled={exportingId === req.id}
+                                  className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                                >
+                                  <ClipboardList className="mr-2 h-4 w-4" />
+                                  审批
+                                </Button>
+                              </ConfirmDialog>
                             )}
                           </div>
                         </TableCell>
