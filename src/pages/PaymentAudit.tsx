@@ -367,8 +367,8 @@ export default function PaymentAudit() {
       const requestIds = selectedReqs.map(r => r.request_id);
       const { data, error } = await supabase.rpc('batch_rollback_payment_approval', {
         p_request_ids: requestIds
-      });
-
+          });
+          
       if (error) throw error;
 
       const result = data as BatchRollbackApprovalResult;
@@ -377,7 +377,7 @@ export default function PaymentAudit() {
       let description = `成功回滚 ${result.rollback_count || 0} 个付款申请`;
       if (result.not_approved_count && result.not_approved_count > 0) {
         description += `，跳过 ${result.not_approved_count} 个非已审批状态的申请单`;
-      }
+          }
       if (result.failed_count && result.failed_count > 0) {
         description += `，失败 ${result.failed_count} 个`;
       }
@@ -1490,15 +1490,15 @@ export default function PaymentAudit() {
                   description={`确定要批量审批选中的 ${selection.selectedIds.size} 个付款申请吗？审批后申请单状态将变为"已审批"。`}
                   onConfirm={handleBatchApprove}
                 >
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={isBatchOperating}
-                    className="flex items-center gap-2"
-                  >
-                    {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
-                    批量审批
-                  </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={isBatchOperating}
+                  className="flex items-center gap-2"
+                >
+                  {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
+                  批量审批
+                </Button>
                 </ConfirmDialog>
 
                 {/* 批量取消审批按钮 - 橙色 */}
@@ -1507,8 +1507,8 @@ export default function PaymentAudit() {
                   description={`确定要批量取消审批选中的 ${selection.selectedIds.size} 个付款申请吗？此操作将把已审批的申请单状态回滚为待审批。`}
                   onConfirm={handleBatchRollbackApproval}
                 >
-                  <Button
-                    variant="default"
+                    <Button 
+                      variant="default"
                     size="sm"
                     disabled={isBatchOperating}
                     className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
@@ -1527,12 +1527,12 @@ export default function PaymentAudit() {
                   <Button 
                     variant="default"
                     size="sm"
-                    disabled={selectionCount === 0 || isCancelling} 
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                    一键回滚 ({selectionCount})
-                  </Button>
+                      disabled={selectionCount === 0 || isCancelling} 
+                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                      一键回滚 ({selectionCount})
+                    </Button>
                 </ConfirmDialog>
 
                 {/* 一键作废按钮 - 仅管理员可见 - 红色 */}
@@ -1621,15 +1621,15 @@ export default function PaymentAudit() {
                                 description={`确定要取消审批付款申请 ${req.request_id} 吗？此操作将把申请单状态回滚为待审批。`}
                                 onConfirm={() => handleRollbackApproval(req.request_id)}
                               >
-                                <Button 
+                              <Button 
                                   variant="default" 
-                                  size="sm" 
-                                  disabled={exportingId === req.id}
+                                size="sm" 
+                                disabled={exportingId === req.id}
                                   className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm transition-all duration-200"
-                                >
-                                  <RotateCcw className="mr-2 h-4 w-4" />
-                                  取消审批
-                                </Button>
+                              >
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                取消审批
+                              </Button>
                               </ConfirmDialog>
                             )}
 
@@ -1640,15 +1640,15 @@ export default function PaymentAudit() {
                                 description={`确定要审批付款申请 ${req.request_id} 吗？审批后申请单状态将变为"已审批"。`}
                                 onConfirm={() => handleApproval(req)}
                               >
-                                <Button 
-                                  variant="destructive" 
-                                  size="sm" 
-                                  disabled={exportingId === req.id}
-                                  className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
-                                >
-                                  <ClipboardList className="mr-2 h-4 w-4" />
-                                  审批
-                                </Button>
+                              <Button 
+                                variant="destructive" 
+                                size="sm" 
+                                disabled={exportingId === req.id}
+                                className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                              >
+                                <ClipboardList className="mr-2 h-4 w-4" />
+                                审批
+                              </Button>
                               </ConfirmDialog>
                             )}
                           </div>

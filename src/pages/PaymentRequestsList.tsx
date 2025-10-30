@@ -1462,46 +1462,46 @@ export default function PaymentRequestsList() {
                   description="此操作将完成选中申请单的付款，并更新运单状态为已付款。请确认操作。"
                   onConfirm={handleBatchPay}
                 >
-                  <Button
-                    variant="default"
-                    size="sm"
-                    disabled={isBatchOperating}
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={isBatchOperating}
                     className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    {batchOperation === 'pay' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
-                    批量付款
-                  </Button>
+                >
+                  {batchOperation === 'pay' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                  批量付款
+                </Button>
                 </ConfirmDialog>
 
                 {/* 批量取消付款按钮 - 橙色 */}
-                <ConfirmDialog
+                    <ConfirmDialog
                   title={`确认批量取消付款 ${selectionCount} 张申请单`}
                   description='此操作将把已付款的申请单状态回滚到"待审批"。请确认操作。'
                   onConfirm={handleBatchCancelPayment}
-                >
+                    >
                   <Button 
                     variant="default" 
                     size="sm"
                     disabled={selectionCount === 0 || isCancelling} 
                     className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
                   >
-                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                        {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                     批量取消付款
-                  </Button>
-                </ConfirmDialog>
+                      </Button>
+                    </ConfirmDialog>
 
                 {/* 一键作废按钮 - 红色 */}
                 {isAdmin && (
-                  <ConfirmDialog
-                    title={`确认作废并删除 ${selectionCount} 张申请单`}
-                    description="⚠️ 此操作将：\n- 永久删除申请单记录\n- 回滚运单状态为未支付\n\n此操作不可逆，请谨慎操作！"
-                    onConfirm={handleDeleteRequests}
-                  >
-                    <Button variant="destructive" disabled={selectionCount === 0 || isCancelling} className="flex items-center gap-2">
-                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                      一键作废 ({selectionCount})
-                    </Button>
-                  </ConfirmDialog>
+                    <ConfirmDialog
+                      title={`确认作废并删除 ${selectionCount} 张申请单`}
+                      description="⚠️ 此操作将：\n- 永久删除申请单记录\n- 回滚运单状态为未支付\n\n此操作不可逆，请谨慎操作！"
+                      onConfirm={handleDeleteRequests}
+                    >
+                      <Button variant="destructive" disabled={selectionCount === 0 || isCancelling} className="flex items-center gap-2">
+                        {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        一键作废 ({selectionCount})
+                      </Button>
+                    </ConfirmDialog>
                 )}
               </div>
             )}
