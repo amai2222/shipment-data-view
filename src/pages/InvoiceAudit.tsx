@@ -96,6 +96,10 @@ interface InvoiceRequestDetail {
   logistics_record_id: string;
   invoiceable_amount?: number;
   amount?: number;
+  partner_id?: string;
+  invoicing_partner_full_name?: string;
+  partner_full_name?: string;
+  partner_name?: string;
 }
 
 // RPC函数返回值类型
@@ -111,6 +115,15 @@ interface VoidAndDeleteInvoiceRequestsResult {
   deleted_requests?: number;
   affected_logistics_records?: number;
   affected_partner_costs?: number;
+}
+
+interface BatchRollbackApprovalResult {
+  success: boolean;
+  message?: string;
+  rollback_count?: number;
+  failed_count?: number;
+  not_approved_count?: number;
+  failed_requests?: string[];
 }
 
 interface PartnerTotal { partner_id: string; partner_name: string; total_amount: number; level: number; }
@@ -386,33 +399,44 @@ export default function InvoiceAudit() {
     }
   };
 
-  // 批量取消审批（回滚到待审批状态）
+  // 批量取消审批（回滚到待审批状态）- 使用批量函数优化
   const handleBatchRollbackApproval = async () => {
     if (selection.selectedIds.size === 0) return;
     
     setIsBatchOperating(true);
     try {
       const selectedIds = Array.from(selection.selectedIds);
-      const selectedReqs = requests.filter(r => selectedIds.includes(r.id) && r.status === 'Approved');
+      const selectedReqs = requests.filter(r => selectedIds.includes(r.id));
       
       if (selectedReqs.length === 0) {
-        toast({ title: "提示", description: "没有选择任何已审批状态的申请单。" });
+        toast({ title: "提示", description: "没有选择任何申请单。" });
         setIsBatchOperating(false);
         return;
       }
 
-      // 批量更新状态为Pending
-      const { error } = await supabase
-        .from('invoice_requests')
-        .update({ status: 'Pending' })
-        .in('id', selectedReqs.map(r => r.id))
-        .eq('status', 'Approved');
+      // 调用批量取消审批RPC函数（性能优化）
+      const requestIds = selectedReqs.map(r => r.id);
+      const { data, error } = await supabase.rpc('batch_rollback_invoice_approval', {
+        p_request_ids: requestIds
+      });
 
       if (error) throw error;
 
+      const result = data as BatchRollbackApprovalResult;
+      
+      // 构建详细的提示信息
+      let description = `成功回滚 ${result.rollback_count || 0} 个开票申请`;
+      if (result.not_approved_count && result.not_approved_count > 0) {
+        description += `，跳过 ${result.not_approved_count} 个非已审批状态的申请单`;
+      }
+      if (result.failed_count && result.failed_count > 0) {
+        description += `，失败 ${result.failed_count} 个`;
+      }
+
       toast({ 
-        title: "批量取消审批成功", 
-        description: `已将 ${selectedReqs.length} 个开票申请回滚为待审批状态。` 
+        title: "批量取消审批完成", 
+        description: description,
+        variant: result.failed_count && result.failed_count > 0 ? "destructive" : "default"
       });
       
       setSelection({ mode: 'none', selectedIds: new Set() });
@@ -905,7 +929,7 @@ export default function InvoiceAudit() {
   <div class="remarks" style="margin-top: 0; border: 1px solid #000; border-top: none; padding: 10px;">
     <div><strong>事项说明：</strong></div>
     <div class="remarks-content" style="border: none; min-height: 60px;">
-      ${(request as any).remarks || dynamicSummary}
+      ${request.remarks || dynamicSummary}
     </div>
   </div>
 
@@ -1045,9 +1069,10 @@ export default function InvoiceAudit() {
       // 计算合作方汇总（简化版，开票申请通常针对单一合作方）
       if (detailedRecords.length > 0) {
         const totalAmount = detailedRecords.reduce((sum, rec) => sum + (rec.invoiceable_amount || 0), 0);
+        const firstDetail = detailsData[0] as InvoiceRequestDetail;
         setPartnerTotals([{
-          partner_id: (detailsData[0] as any).partner_id || '',
-          partner_name: (detailsData[0] as any).invoicing_partner_full_name || (detailsData[0] as any).partner_full_name || (detailsData[0] as any).partner_name || '未知合作方',
+          partner_id: firstDetail.partner_id || '',
+          partner_name: firstDetail.invoicing_partner_full_name || firstDetail.partner_full_name || firstDetail.partner_name || '未知合作方',
           total_amount: totalAmount,
           level: 1
         }]);

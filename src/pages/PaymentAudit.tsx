@@ -73,6 +73,15 @@ interface VoidAndDeletePaymentRequestsResult {
   skipped_paid?: number;
 }
 
+interface BatchRollbackApprovalResult {
+  success: boolean;
+  message?: string;
+  rollback_count?: number;
+  failed_count?: number;
+  not_approved_count?: number;
+  failed_requests?: string[];
+}
+
 interface LogisticsRecordDetail { id: string; auto_number: string; driver_name: string; license_plate: string; loading_location: string; unloading_location: string; loading_date: string; loading_weight: number | null; payable_amount: number | null; }
 interface PartnerTotal { partner_id: string; partner_name: string; total_amount: number; level: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
@@ -339,46 +348,44 @@ export default function PaymentAudit() {
     }
   };
 
-  // 批量取消审批（回滚到待审批状态）
+  // 批量取消审批（回滚到待审批状态）- 使用批量函数优化
   const handleBatchRollbackApproval = async () => {
     if (selection.selectedIds.size === 0) return;
     
     setIsBatchOperating(true);
     try {
       const selectedIds = Array.from(selection.selectedIds);
-      const selectedReqs = requests.filter(r => selectedIds.includes(r.id) && r.status === 'Approved');
+      const selectedReqs = requests.filter(r => selectedIds.includes(r.id));
       
       if (selectedReqs.length === 0) {
-        toast({ title: "提示", description: "没有选择任何已审批状态的申请单。" });
+        toast({ title: "提示", description: "没有选择任何申请单。" });
         setIsBatchOperating(false);
         return;
       }
 
-      // 批量调用回滚审批RPC函数
-      let successCount = 0;
-      let failCount = 0;
+      // 调用批量取消审批RPC函数（性能优化）
+      const requestIds = selectedReqs.map(r => r.request_id);
+      const { data, error } = await supabase.rpc('batch_rollback_payment_approval', {
+        p_request_ids: requestIds
+      });
+
+      if (error) throw error;
+
+      const result = data as BatchRollbackApprovalResult;
       
-      for (const req of selectedReqs) {
-        try {
-          const { error } = await supabase.rpc('rollback_payment_request_approval', {
-            p_request_id: req.request_id
-          });
-          
-          if (error) {
-            failCount++;
-            console.error(`回滚申请单 ${req.request_id} 失败:`, error);
-          } else {
-            successCount++;
-          }
-        } catch (err) {
-          failCount++;
-          console.error(`回滚申请单 ${req.request_id} 失败:`, err);
-        }
+      // 构建详细的提示信息
+      let description = `成功回滚 ${result.rollback_count || 0} 个付款申请`;
+      if (result.not_approved_count && result.not_approved_count > 0) {
+        description += `，跳过 ${result.not_approved_count} 个非已审批状态的申请单`;
+      }
+      if (result.failed_count && result.failed_count > 0) {
+        description += `，失败 ${result.failed_count} 个`;
       }
 
       toast({ 
         title: "批量取消审批完成", 
-        description: `成功回滚 ${successCount} 个付款申请${failCount > 0 ? `，失败 ${failCount} 个` : ''}。` 
+        description: description,
+        variant: result.failed_count && result.failed_count > 0 ? "destructive" : "default"
       });
       
       setSelection({ mode: 'none', selectedIds: new Set() });
