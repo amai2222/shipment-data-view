@@ -25,6 +25,7 @@ import { MobileCard } from '@/components/mobile/MobileCard';
 import { MobilePullToRefresh } from '@/components/mobile/MobilePullToRefresh';
 import { MobileSkeletonLoader } from '@/components/mobile/MobileSkeletonLoader';
 import { triggerHaptic } from '@/utils/mobile';
+import { MobileConfirmDialog } from '@/components/mobile/MobileConfirmDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
@@ -1086,18 +1087,27 @@ export default function MobilePaymentRequestsList() {
                       </Button>
                     )}
 
-                    {/* 取消审批按钮 - 灰色主题，只在已审批状态显示 */}
+                    {/* 取消审批按钮 - 橙色主题，只在已审批状态显示 */}
                     {req.status === 'Approved' && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleRollbackApproval(req.request_id)} 
+                      <MobileConfirmDialog
+                        trigger={
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            disabled={exportingId === req.id}
+                            className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 active:scale-95 text-white shadow-md hover:shadow-lg transition-all duration-200 rounded-lg font-medium"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-1" />
+                            取消审批
+                          </Button>
+                        }
+                        title="确认取消审批"
+                        description={`确定要取消审批付款申请 ${req.request_id} 吗？\n\n此操作将把申请单状态回滚为待审批。`}
+                        confirmText="确认取消审批"
+                        variant="warning"
+                        onConfirm={() => handleRollbackApproval(req.request_id)}
                         disabled={exportingId === req.id}
-                        className="border-gray-300 text-gray-600 hover:bg-gray-50 shadow-sm transition-all duration-200"
-                      >
-                        <RotateCcw className="h-4 w-4 mr-1" />
-                        取消审批
-                      </Button>
+                      />
                     )}
                   </div>
 

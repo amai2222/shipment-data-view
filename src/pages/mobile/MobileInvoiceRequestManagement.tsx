@@ -19,6 +19,7 @@ import { LogisticsRecord } from "../../BusinessEntry/types";
 import { MobilePullToRefresh } from "@/components/mobile/MobilePullToRefresh";
 import { MobileSkeletonLoader } from "@/components/mobile/MobileSkeletonLoader";
 import { triggerHaptic } from "@/utils/mobile";
+import { MobileConfirmDialog } from "@/components/mobile/MobileConfirmDialog";
 
 // 开票申请单类型定义
 interface InvoiceRequest {
@@ -608,7 +609,59 @@ export default function MobileInvoiceRequestManagement() {
     }
   };
 
-  // 一键回滚（回滚申请单状态到待审核）
+  // 批量取消审批（回滚到待审核状态）- 使用批量函数优化
+  const handleBatchRollbackApproval = async () => {
+    if (selectedRequests.size === 0) return;
+    
+    setIsBatchProcessing(true);
+    try {
+      const selectedIds = Array.from(selectedRequests);
+      
+      // 调用批量取消审批RPC函数（性能优化）
+      const { data, error } = await supabase.rpc('batch_rollback_invoice_approval', {
+        p_request_ids: selectedIds
+      });
+
+      if (error) throw error;
+
+      const result = data as { 
+        success: boolean;
+        rollback_count?: number;
+        failed_count?: number;
+        not_approved_count?: number;
+      };
+
+      // 构建详细的提示信息
+      let description = `成功回滚 ${result.rollback_count || 0} 个开票申请`;
+      if (result.not_approved_count && result.not_approved_count > 0) {
+        description += `，跳过 ${result.not_approved_count} 个非已审批状态的申请单`;
+      }
+      if (result.failed_count && result.failed_count > 0) {
+        description += `，失败 ${result.failed_count} 个`;
+      }
+
+      toast({
+        title: "批量取消审批完成",
+        description: description,
+        variant: result.failed_count && result.failed_count > 0 ? "destructive" : "default"
+      });
+      
+      loadInvoiceRequests();
+      setSelectedRequests(new Set());
+      setBatchSelectionMode(false);
+    } catch (error) {
+      console.error('批量取消审批失败:', error);
+      toast({
+        title: "批量取消审批失败",
+        description: error instanceof Error ? error.message : '无法批量取消审批',
+        variant: "destructive",
+      });
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  // 一键回滚（保留申请单记录，只回滚运单状态）
   const handleBatchRollback = async () => {
     if (selectedRequests.size === 0) return;
     
@@ -616,17 +669,34 @@ export default function MobileInvoiceRequestManagement() {
     try {
       const selectedIds = Array.from(selectedRequests);
       
-      const { error } = await supabase
-        .from('invoice_requests')
-        .update({ status: 'Pending', updated_at: new Date().toISOString() })
-        .in('id', selectedIds)
-        .in('status', ['Approved', 'Completed']);
-
-      if (error) throw error;
+      // 调用void_invoice_request函数（保留记录）
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const requestId of selectedIds) {
+        try {
+          const { data, error } = await supabase.rpc('void_invoice_request', {
+            p_request_id: requestId,
+            p_void_reason: '批量回滚'
+          });
+          
+          if (error) throw error;
+          
+          const rpcResult = data as { success?: boolean };
+          if (rpcResult?.success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (err) {
+          console.error(`回滚申请单 ${requestId} 失败:`, err);
+          failCount++;
+        }
+      }
 
       toast({
         title: "回滚完成",
-        description: `已将 ${selectedIds.length} 个开票申请单的状态回滚到"待审核"`,
+        description: `成功回滚 ${successCount} 个申请单的运单状态${failCount > 0 ? `，失败 ${failCount} 个` : ''}。申请单记录已保留，状态标记为已作废。`,
       });
       
       loadInvoiceRequests();
@@ -636,7 +706,7 @@ export default function MobileInvoiceRequestManagement() {
       console.error('批量回滚失败:', error);
       toast({
         title: "回滚失败",
-        description: error.message || '无法批量回滚开票申请单',
+        description: error instanceof Error ? error.message : '无法批量回滚开票申请单',
         variant: "destructive",
       });
     } finally {
@@ -658,10 +728,15 @@ export default function MobileInvoiceRequestManagement() {
 
       if (error) throw error;
 
-      const result = data as any;
+      const result = data as {
+        success: boolean;
+        deleted_requests?: number;
+        affected_logistics_records?: number;
+      };
+      
       toast({
         title: "作废成功",
-        description: `已永久删除 ${result.deleted_requests} 个开票申请单，${result.affected_logistics_records} 条运单状态已回滚为未开票`,
+        description: `已永久删除 ${result.deleted_requests || 0} 个开票申请单，${result.affected_logistics_records || 0} 条运单状态已回滚为未开票`,
       });
       
       loadInvoiceRequests();
@@ -875,62 +950,121 @@ export default function MobileInvoiceRequestManagement() {
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-1 gap-2">
-                <Button
-                  onClick={() => {
-                    triggerHaptic('medium');
-                    handleBatchApprove();
-                  }}
-                  disabled={selectedRequests.size === 0 || isBatchProcessing}
-                  className="min-h-[44px] bg-green-600 hover:bg-green-700 text-white shadow-sm"
-                  size="sm"
-                >
-                  <CheckCircle className="mr-2 h-5 w-5" />
-                  批量确认
-                </Button>
-                <Button
-                  onClick={() => {
-                    triggerHaptic('medium');
-                    handleBatchReject();
-                  }}
-                  disabled={selectedRequests.size === 0 || isBatchProcessing}
-                  variant="destructive"
-                  size="sm"
-                  className="min-h-[44px] shadow-sm"
-                >
-                  <Ban className="mr-2 h-5 w-5" />
-                  批量拒绝
-                </Button>
-                <Button
-                  onClick={() => {
-                    triggerHaptic('warning');
-                    if (window.confirm('确定要回滚 ' + selectedRequests.size + ' 个申请单吗？\n\n此操作将申请单状态回滚到"待审核"，不影响运单状态。')) {
-                      handleBatchRollback();
+              <div className="space-y-3">
+                {/* 主要操作按钮组 - 2列布局 */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* 批量审批 - 绿色，渐变背景 */}
+                  <MobileConfirmDialog
+                    trigger={
+                      <Button
+                        disabled={selectedRequests.size === 0 || isBatchProcessing}
+                        className="min-h-[52px] w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 active:scale-95 text-white shadow-lg hover:shadow-xl transition-all duration-200 font-medium rounded-xl"
+                        size="sm"
+                      >
+                        <CheckCircle className="mr-2 h-5 w-5" />
+                        批量审批
+                      </Button>
                     }
-                  }}
-                  disabled={selectedRequests.size === 0 || isBatchProcessing}
-                  variant="default"
-                  className="min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                  size="sm"
-                >
-                  <RotateCcw className="mr-2 h-5 w-5" />
-                  一键回滚
-                </Button>
-                <Button
-                  onClick={() => {
-                    triggerHaptic('error');
-                    if (window.confirm('确定要作废并删除 ' + selectedRequests.size + ' 个申请单吗？\n\n⚠️ 此操作将永久删除记录并回滚运单状态，不可逆！')) {
-                      handleBatchVoid();
+                    title="确认批量审批"
+                    description={`确定要批量审批选中的 ${selectedRequests.size} 个开票申请吗？\n\n审批后申请单状态将变为"已审批"。`}
+                    confirmText="确认审批"
+                    variant="default"
+                    onConfirm={handleBatchApprove}
+                    disabled={selectedRequests.size === 0 || isBatchProcessing}
+                  />
+
+                  {/* 批量取消审批 - 橙色，渐变背景 */}
+                  <MobileConfirmDialog
+                    trigger={
+                      <Button
+                        disabled={selectedRequests.size === 0 || isBatchProcessing}
+                        className="min-h-[52px] w-full bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 active:scale-95 text-white shadow-lg hover:shadow-xl transition-all duration-200 font-medium rounded-xl"
+                        size="sm"
+                      >
+                        <RotateCcw className="mr-2 h-5 w-5" />
+                        取消审批
+                      </Button>
                     }
-                  }}
+                    title="确认批量取消审批"
+                    description={`确定要批量取消审批选中的 ${selectedRequests.size} 个开票申请吗？\n\n此操作将把已审批的申请单状态回滚为待审批。`}
+                    confirmText="确认取消审批"
+                    variant="warning"
+                    onConfirm={handleBatchRollbackApproval}
+                    disabled={selectedRequests.size === 0 || isBatchProcessing}
+                  />
+                </div>
+
+                {/* 次要操作按钮组 */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* 批量拒绝 - 红色边框 */}
+                  <MobileConfirmDialog
+                    trigger={
+                      <Button
+                        disabled={selectedRequests.size === 0 || isBatchProcessing}
+                        variant="outline"
+                        className="min-h-[52px] w-full border-2 border-red-400 text-red-600 hover:bg-red-50 active:bg-red-100 active:scale-95 shadow-md hover:shadow-lg transition-all duration-200 font-medium rounded-xl"
+                        size="sm"
+                      >
+                        <Ban className="mr-2 h-5 w-5" />
+                        批量拒绝
+                      </Button>
+                    }
+                    title="确认批量拒绝"
+                    description={`确定要批量拒绝选中的 ${selectedRequests.size} 个开票申请吗？`}
+                    confirmText="确认拒绝"
+                    variant="warning"
+                    onConfirm={handleBatchReject}
+                    disabled={selectedRequests.size === 0 || isBatchProcessing}
+                  />
+
+                  {/* 一键回滚 - 蓝色 */}
+                  <MobileConfirmDialog
+                    trigger={
+                      <Button
+                        disabled={selectedRequests.size === 0 || isBatchProcessing}
+                        className="min-h-[52px] w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 active:scale-95 text-white shadow-lg hover:shadow-xl transition-all duration-200 font-medium rounded-xl"
+                        size="sm"
+                      >
+                        <RotateCcw className="mr-2 h-5 w-5" />
+                        一键回滚
+                      </Button>
+                    }
+                    title="确认一键回滚"
+                    description={`确定要回滚选中的 ${selectedRequests.size} 个申请单吗？\n\n此操作将：\n• 保留申请单记录（标记为已作废）\n• 回滚运单状态为未开票`}
+                    confirmText="确认回滚"
+                    variant="warning"
+                    onConfirm={handleBatchRollback}
+                    disabled={selectedRequests.size === 0 || isBatchProcessing}
+                  />
+                </div>
+
+                {/* 危险操作按钮 - 单独一行，醒目提示 */}
+                <MobileConfirmDialog
+                  trigger={
+                    <Button
+                      disabled={selectedRequests.size === 0 || isBatchProcessing}
+                      variant="destructive"
+                      size="sm"
+                      className="min-h-[52px] w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-95 shadow-lg hover:shadow-xl transition-all duration-200 font-medium rounded-xl"
+                    >
+                      <Trash2 className="mr-2 h-5 w-5" />
+                      一键作废
+                    </Button>
+                  }
+                  title="⚠️ 危险操作"
+                  description={`确定要作废并删除选中的 ${selectedRequests.size} 个申请单吗？\n\n此操作将：\n• 永久删除申请单记录\n• 回滚运单状态为未开票\n\n此操作不可逆，请谨慎操作！`}
+                  confirmText="确认作废"
+                  variant="danger"
+                  onConfirm={handleBatchVoid}
                   disabled={selectedRequests.size === 0 || isBatchProcessing}
-                  variant="destructive"
-                  size="sm"
-                  className="min-h-[44px] shadow-sm"
-                >
-                  <Trash2 className="mr-2 h-5 w-5" />
-                  一键作废
-                </Button>
+                />
+
+                {/* 提示文字 */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-3 border border-blue-200">
+                  <p className="text-sm text-center text-blue-900 font-medium">
+                    已选择 <span className="text-lg font-bold text-blue-600">{selectedRequests.size}</span> 个申请单
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>
