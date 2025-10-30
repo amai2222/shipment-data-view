@@ -134,7 +134,8 @@ export default function PaymentRequestsList() {
         status: item.status,
         notes: item.notes,
         logistics_record_ids: item.logistics_record_ids,
-        record_count: item.record_count
+        record_count: item.record_count,
+        max_amount: item.max_amount  // ✅ 添加申请金额字段
       })));
       
       // 设置总数和总页数

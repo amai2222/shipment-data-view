@@ -1258,7 +1258,7 @@ export default function InvoiceRequestManagement() {
           <strong>运单数：${request.record_count}</strong>
         </td>
         <td class="text-right">
-          <strong>¥${request.total_amount.toLocaleString()}</strong>
+          <strong>¥${(request.total_amount || 0).toLocaleString()}</strong>
         </td>
       </tr>
     </tbody>
@@ -1403,8 +1403,8 @@ export default function InvoiceRequestManagement() {
                     <td></td>
                     <td></td>
                     <td>${format(new Date(request.created_at), 'yyyy年MM月')}</td>
-                    <td>${request.total_amount.toLocaleString()}</td>
-                    <td>${request.total_amount.toLocaleString()}</td>
+                    <td>${(request.total_amount || 0).toLocaleString()}</td>
+                    <td>${(request.total_amount || 0).toLocaleString()}</td>
                 </tr>
             `).join('')}
         </tbody>
@@ -1946,7 +1946,7 @@ export default function InvoiceRequestManagement() {
                         </div>
                       </TableCell>
                       <TableCell className="font-medium text-right">
-                        ¥{request.total_amount.toLocaleString()}
+                        {request.total_amount ? `¥${request.total_amount.toLocaleString()}` : '-'}
                       </TableCell>
                       <TableCell className="text-right">{request.record_count}条</TableCell>
                       <TableCell>
@@ -2038,7 +2038,9 @@ export default function InvoiceRequestManagement() {
                 </div>
                 <div>
                   <Label>开票金额</Label>
-                  <div className="font-medium">¥{selectedRequest.total_amount.toLocaleString()}</div>
+                  <div className="font-medium">
+                    {selectedRequest.total_amount ? `¥${selectedRequest.total_amount.toLocaleString()}` : '-'}
+                  </div>
                 </div>
                 <div>
                   <Label>运单数量</Label>
