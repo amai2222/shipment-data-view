@@ -1475,7 +1475,7 @@ export default function PaymentRequestsList() {
                 {/* 批量取消付款按钮 - 橙色 */}
                 <ConfirmDialog
                   title={`确认批量取消付款 ${selectionCount} 张申请单`}
-                  description="此操作将把已付款的申请单状态回滚到"待审批"。请确认操作。"
+                  description='此操作将把已付款的申请单状态回滚到"待审批"。请确认操作。'
                   onConfirm={handleBatchCancelPayment}
                 >
                   <Button 
