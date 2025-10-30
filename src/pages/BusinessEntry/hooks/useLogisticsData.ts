@@ -4,7 +4,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogisticsRecord } from '../types';
+import type { LogisticsRecord } from '@/types/businessEntry';
 
 interface LogisticsResponse {
   records: LogisticsRecord[];
@@ -12,17 +12,8 @@ interface LogisticsResponse {
   totalCount: number;
 }
 
-export interface LogisticsFilters {
-  startDate: string;
-  endDate: string;
-  projectName: string;
-  driverName: string;
-  licensePlate: string;
-  driverPhone: string;
-  otherPlatformName: string; // 其他平台名称筛选
-  waybillNumbers: string; // 运单编号筛选（支持多个，逗号分隔）
-  hasScaleRecord: string; // 是否有磅单筛选：'yes'有磅单, 'no'无磅单, ''不筛选
-}
+// LogisticsFilters类型已移至 @/types/businessEntry
+import type { LogisticsFilters } from '@/types/businessEntry';
 
 export const INITIAL_FILTERS: LogisticsFilters = {
   startDate: "",

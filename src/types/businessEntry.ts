@@ -101,3 +101,70 @@ export interface ImportFailure {
   driver_name?: string;
   license_plate?: string;
 }
+
+// BusinessEntry筛选器类型
+export interface LogisticsFilters {
+  startDate: string;
+  endDate: string;
+  projectName: string;
+  driverName: string;
+  licensePlate: string;
+  driverPhone: string;
+  otherPlatformName: string;
+  waybillNumbers: string;
+  hasScaleRecord: string;
+}
+
+// 分页状态类型
+export interface PaginationState {
+  currentPage: number;
+  pageSize: number;
+  totalPages: number;
+  totalRecords: number;
+}
+
+// 从useLogisticsData.ts提取的筛选器类型
+export interface LogisticsFilters {
+  startDate: string;
+  endDate: string;
+  projectName: string;
+  driverName: string;
+  licensePlate: string;
+  driverPhone: string;
+  otherPlatformName: string;
+  waybillNumbers: string;
+  hasScaleRecord: string;
+}
+
+// 从useLogisticsData.ts提取的分页状态类型
+export interface PaginationState {
+  currentPage: number;
+  totalPages: number;
+}
+
+// 从useAllFilteredRecords.ts提取的结果类型
+export interface AllFilteredRecordsResult {
+  recordIds: string[];
+  totalCount: number;
+  summary: {
+    projectNames: string[];
+    driverNames: string[];
+    dateRange: {
+      earliest: string;
+      latest: string;
+    };
+  };
+}
+
+// 运单筛选条件类型
+export interface LogisticsFilters {
+  startDate: string;
+  endDate: string;
+  projectName: string;
+  driverName: string;
+  licensePlate: string;
+  driverPhone: string;
+  otherPlatformName: string;
+  waybillNumbers: string;
+  hasScaleRecord: string;
+}

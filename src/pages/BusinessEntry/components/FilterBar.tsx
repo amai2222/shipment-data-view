@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { LogisticsFilters } from '../hooks/useLogisticsData';
-import { Project } from '../types';
+import type { LogisticsFilters } from '@/types/businessEntry';
+import type { Project } from '@/types/businessEntry';
 import { DateRange } from "react-day-picker";
 import { X } from "lucide-react";
 

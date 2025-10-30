@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-import { Project, LogisticsRecord } from './types';
+import { Project, LogisticsRecord } from '@/types/businessEntry';
 import { useLogisticsData, INITIAL_FILTERS, TotalSummary, LogisticsFilters } from './hooks/useLogisticsData';
 import { useExcelImport } from './hooks/useExcelImport';
 import { FilterBar } from './components/FilterBar';

@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CalendarIcon, Save, X, Plus, Package, Banknote, Weight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { LogisticsRecord, Project, PlatformTracking } from '../types';
+import type { LogisticsRecord, Project, PlatformTracking } from '@/types/businessEntry';
 import { PlatformTrackingInput } from '@/components/PlatformTrackingInput';
 import { MultiLocationInput } from '@/components/MultiLocationInput';
 import { DriverComboInput } from '@/components/DriverComboInput';
