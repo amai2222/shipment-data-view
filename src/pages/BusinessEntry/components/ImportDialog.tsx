@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Siren } from "lucide-react";
-import { ImportPreviewResult } from '../types';
+import type { ImportPreviewResult } from '@/types/businessEntry';
 
 interface ImportDialogProps {
   isOpen: boolean;

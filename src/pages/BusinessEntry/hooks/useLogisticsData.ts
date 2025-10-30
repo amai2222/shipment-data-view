@@ -4,7 +4,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogisticsRecord } from '../types';
+import type { LogisticsRecord } from '@/types/businessEntry';
 
 interface LogisticsResponse {
   records: LogisticsRecord[];
@@ -12,17 +12,8 @@ interface LogisticsResponse {
   totalCount: number;
 }
 
-export interface LogisticsFilters {
-  startDate: string;
-  endDate: string;
-  projectName: string;
-  driverName: string;
-  licensePlate: string;
-  driverPhone: string;
-  otherPlatformName: string; // 其他平台名称筛选
-  waybillNumbers: string; // 运单编号筛选（支持多个，逗号分隔）
-  hasScaleRecord: string; // 是否有磅单筛选：'yes'有磅单, 'no'无磅单, ''不筛选
-}
+// LogisticsFilters类型已移至 @/types/businessEntry
+import type { LogisticsFilters } from '@/types/businessEntry';
 
 export const INITIAL_FILTERS: LogisticsFilters = {
   startDate: "",
@@ -72,9 +63,12 @@ export function useLogisticsData() {
   const [loading, setLoading] = useState(true);
   const [activeFilters, setActiveFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
   const [pagination, setPagination] = useState({ 
+    page: 1,
+    size: PAGE_SIZE,
     currentPage: 1, 
     totalPages: 1, 
-    totalCount: 0, 
+    totalCount: 0,
+    totalRecords: 0, 
     pageSize: PAGE_SIZE 
   });
   const [totalSummary, setTotalSummary] = useState<TotalSummary>(INITIAL_SUMMARY);
@@ -114,10 +108,13 @@ export function useLogisticsData() {
       setRecords(responseData.records || []);
       setTotalSummary(responseData.summary || INITIAL_SUMMARY);
       setPagination(prev => ({ 
-        ...prev, 
+        ...prev,
+        page: page,
+        size: pageSize,
         currentPage: page,
         totalPages: Math.ceil((responseData.totalCount || 0) / pageSize) || 1,
         totalCount: responseData.totalCount || 0,
+        totalRecords: responseData.totalCount || 0,
         pageSize: pageSize
       }));
 
@@ -147,7 +144,9 @@ export function useLogisticsData() {
 
   const handlePageSizeChange = useCallback((newPageSize: number) => {
     setPagination(prev => ({ 
-      ...prev, 
+      ...prev,
+      page: 1,
+      size: newPageSize,
       pageSize: newPageSize,
       currentPage: 1, // 改变页面大小时重置到第一页
       totalPages: Math.ceil(prev.totalCount / newPageSize) || 1

@@ -2,7 +2,7 @@
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import AsyncCreatableSelect from 'react-select/async-creatable';
-import { useDebounce } from '../hooks/use-debounce';
+import { useDebounce } from '@/hooks/useDebounce';
 
 export interface SelectOption { value: string; label: string; [key: string]: any; }
 

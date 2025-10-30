@@ -2,20 +2,9 @@
 import { useState, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogisticsFilters } from './useLogisticsData';
+import type { LogisticsFilters } from '@/types/businessEntry';
 
-interface AllFilteredRecordsResult {
-  recordIds: string[];
-  totalCount: number;
-  summary: {
-    projectNames: string[];
-    driverNames: string[];
-    dateRange: {
-      earliest: string;
-      latest: string;
-    };
-  };
-}
+import type { AllFilteredRecordsResult } from '@/types/businessEntry';
 
 export function useAllFilteredRecords() {
   const [loading, setLoading] = useState(false);

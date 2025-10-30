@@ -18,4 +18,7 @@ export { ActionButton, ActionButtons } from './ActionButton';
 export type { ActionButtonConfig } from './ActionButton';
 export { EmptyState } from './EmptyState';
 export { LoadingState, TableLoadingState, CardLoadingState } from './LoadingState';
+export { InvoiceSummaryRow } from './InvoiceSummaryRow';
+export { PaymentSummaryRow } from './PaymentSummaryRow';
+export { BatchInputDialog } from './BatchInputDialog';
 
