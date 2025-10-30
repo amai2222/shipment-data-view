@@ -241,6 +241,7 @@ export default function PaymentRequest() {
   // ==========================================================================
   const formatCurrency = (value: number | null | undefined): string => { if (value == null) return '-'; return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value); };
   const simplifyRoute = (loading?: string, unloading?: string): string => { const start = (loading || '').substring(0, 2); const end = (unloading || '').substring(0, 2); return `${start}→${end}`; };
+  const formatDate = (dateString: string | null | undefined): string => { if (!dateString) return '-'; return format(new Date(dateString), 'yyyy/MM/dd'); };
   
   // 排序处理函数
   const handleSort = (field: string) => {
@@ -1690,7 +1691,7 @@ export default function PaymentRequest() {
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell>
                               <TableCell className="text-sm cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{simplifyRoute(r.loading_location, r.unloading_location)}</TableCell>
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatQuantity(r)}</TableCell>
-                              <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell>
+                              <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatDate(r.loading_date)}</TableCell>
                               <TableCell className="font-mono cursor-pointer whitespace-nowrap font-bold text-primary" onClick={() => setViewingRecord(r)}>{formatCurrency(r.payable_cost)}</TableCell>
                               {Array.isArray(displayedPartners) && displayedPartners.map(p => { const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.id)); return <TableCell key={p.id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatCurrency(cost?.payable_amount)}</TableCell>; })}
                                <TableCell className="whitespace-nowrap">
@@ -1774,7 +1775,7 @@ export default function PaymentRequest() {
             <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
               <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '未指定'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{formatDate(viewingRecord.loading_date)}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p>{getPaymentStatusBadge(viewingRecord.payment_status)}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
@@ -2119,7 +2120,7 @@ export default function PaymentRequest() {
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground">装货日期</Label>
-                          <p className="text-sm">{new Date(record.loading_date).toLocaleDateString('zh-CN')}</p>
+                          <p className="text-sm">{formatDate(record.loading_date)}</p>
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground">司机</Label>

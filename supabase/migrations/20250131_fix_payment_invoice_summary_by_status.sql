@@ -102,23 +102,23 @@ BEGIN
 
     -- 主查询逻辑（保持原有筛选逻辑不变）
     WITH filtered_records AS (
-        SELECT DISTINCT lr.*
+        SELECT DISTINCT
+            lr.*,
+            pc.chain_name
         FROM public.logistics_records lr
+        LEFT JOIN public.partner_chains pc ON lr.chain_id = pc.id
         WHERE 1=1
             AND (p_project_id IS NULL OR lr.project_id = p_project_id)
             AND (p_start_date IS NULL OR lr.loading_date >= p_start_date)
             AND (p_end_date IS NULL OR lr.loading_date <= p_end_date)
             AND (p_payment_status_array IS NULL OR lr.payment_status = ANY(p_payment_status_array))
-            AND (p_other_platform_name IS NULL OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements_text(lr.other_platform_names) AS platform_name
-                WHERE platform_name = p_other_platform_name
-            ))
+            AND (p_other_platform_name IS NULL OR 
+                (p_other_platform_name = '本平台' AND lr.external_tracking_numbers IS NULL) OR
+                p_other_platform_name = ANY(lr.other_platform_names)
+            )
             AND (v_waybill_array IS NULL OR (
                 lr.auto_number = ANY(v_waybill_array) 
-                OR EXISTS (
-                    SELECT 1 FROM jsonb_array_elements_text(lr.external_tracking_numbers) AS external_number
-                    WHERE external_number = ANY(v_waybill_array)
-                )
+                OR (lr.external_tracking_numbers IS NOT NULL AND lr.external_tracking_numbers && v_waybill_array)
             ))
             AND (v_driver_array IS NULL OR EXISTS (
                 SELECT 1 FROM public.drivers d WHERE d.id = lr.driver_id AND d.name = ANY(v_driver_array)
@@ -137,16 +137,13 @@ BEGIN
             AND (p_start_date IS NULL OR lr.loading_date >= p_start_date)
             AND (p_end_date IS NULL OR lr.loading_date <= p_end_date)
             AND (p_payment_status_array IS NULL OR lr.payment_status = ANY(p_payment_status_array))
-            AND (p_other_platform_name IS NULL OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements_text(lr.other_platform_names) AS platform_name
-                WHERE platform_name = p_other_platform_name
-            ))
+            AND (p_other_platform_name IS NULL OR 
+                (p_other_platform_name = '本平台' AND lr.external_tracking_numbers IS NULL) OR
+                p_other_platform_name = ANY(lr.other_platform_names)
+            )
             AND (v_waybill_array IS NULL OR (
                 lr.auto_number = ANY(v_waybill_array) 
-                OR EXISTS (
-                    SELECT 1 FROM jsonb_array_elements_text(lr.external_tracking_numbers) AS external_number
-                    WHERE external_number = ANY(v_waybill_array)
-                )
+                OR (lr.external_tracking_numbers IS NOT NULL AND lr.external_tracking_numbers && v_waybill_array)
             ))
             AND (v_driver_array IS NULL OR EXISTS (
                 SELECT 1 FROM public.drivers d WHERE d.id = lr.driver_id AND d.name = ANY(v_driver_array)
@@ -308,8 +305,11 @@ BEGIN
     END IF;
 
     WITH filtered_records AS (
-        SELECT DISTINCT lr.*
+        SELECT DISTINCT
+            lr.*,
+            pc.chain_name
         FROM logistics_records lr
+        LEFT JOIN partner_chains pc ON lr.chain_id = pc.id
         WHERE 1=1
             AND (p_project_id IS NULL OR lr.project_id = p_project_id)
             AND (p_start_date IS NULL OR lr.loading_date >= p_start_date)
@@ -320,16 +320,13 @@ BEGIN
                 (p_driver_receivable = '=0' AND (lr.payable_cost IS NULL OR lr.payable_cost = 0)) OR
                 (p_driver_receivable = '<0' AND lr.payable_cost < 0)
             )
-            AND (p_other_platform_name IS NULL OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements_text(lr.other_platform_names) AS platform_name
-                WHERE platform_name = p_other_platform_name
-            ))
+            AND (p_other_platform_name IS NULL OR 
+                (p_other_platform_name = '本平台' AND lr.external_tracking_numbers IS NULL) OR
+                p_other_platform_name = ANY(lr.other_platform_names)
+            )
             AND (v_waybill_array IS NULL OR (
                 lr.auto_number = ANY(v_waybill_array) 
-                OR EXISTS (
-                    SELECT 1 FROM jsonb_array_elements_text(lr.external_tracking_numbers) AS external_number
-                    WHERE external_number = ANY(v_waybill_array)
-                )
+                OR (lr.external_tracking_numbers IS NOT NULL AND lr.external_tracking_numbers && v_waybill_array)
             ))
             AND (v_driver_array IS NULL OR EXISTS (
                 SELECT 1 FROM drivers d WHERE d.id = lr.driver_id AND d.name = ANY(v_driver_array)
