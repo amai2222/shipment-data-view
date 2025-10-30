@@ -1,6 +1,3 @@
-// 文件路径: src/pages/Home.tsx
-// 描述: [最终审核版] 实现了数据看板的全部功能，包括混合式搜索、动态卡片和所有UI优化。
-
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { BarChart3, TrendingUp, Truck, Package, Eye, RefreshCw, Search, ChevronLeft, ChevronRight, Cuboid, DollarSign, Banknote } from "lucide-react";
+import { BarChart3, TrendingUp, Truck, Package, Eye, RefreshCw, Search, ChevronLeft, ChevronRight, Box, DollarSign, Banknote } from "lucide-react";
 import { SupabaseStorage } from "@/utils/supabase";
 import { Project, LogisticsRecord } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -25,7 +22,7 @@ import { PageHeader } from "@/components/PageHeader";
 const BILLING_TYPE_MAP = {
   '1': { name: '计重', unit: '吨', icon: Truck, color: 'text-green-600', bgColor: 'bg-green-100' },
   '2': { name: '计车', unit: '车', icon: Package, color: 'text-sky-600', bgColor: 'bg-sky-100' },
-  '3': { name: '计体积', unit: '立方', icon: Cuboid, color: 'text-orange-600', bgColor: 'bg-orange-100' },
+  '3': { name: '计体积', unit: '立方', icon: Box, color: 'text-orange-600', bgColor: 'bg-orange-100' },
 };
 
 interface DailyStat { date: string; actualTransport: number; returns: number; }
@@ -93,10 +90,11 @@ export default function Home() {
         p_project_id: filterInputs.projectId === 'all' ? null : filterInputs.projectId,
       });
       if (error) throw error;
-      setDashboardData(data as any);
-    } catch (err: any) {
-      console.error('获取看板数据失败:', err);
-      toast({ title: "数据加载失败", description: err.message, variant: "destructive" });
+      setDashboardData(data as DashboardDataV2 | null);
+    } catch (err) {
+      const error = err as Error;
+      console.error('获取看板数据失败:', error);
+      toast({ title: "数据加载失败", description: error.message, variant: "destructive" });
     } finally {
       if (isInitialLoad) setIsLoading(false);
       else setIsSearching(false);
@@ -168,9 +166,10 @@ export default function Home() {
   }, [isDetailDialogOpen, dialogFilter]);
 
   // --- 事件处理 ---
-  const handleTypeChartClick = useCallback((billingTypeId: keyof typeof BILLING_TYPE_MAP, data: any) => {
-    if (data?.activePayload?.[0]) {
-      const clickedDate = data.activePayload[0].payload.date;
+  const handleTypeChartClick = useCallback((billingTypeId: keyof typeof BILLING_TYPE_MAP, data: unknown) => {
+    const chartData = data as { activePayload?: Array<{ payload: { date: string } }> };
+    if (chartData?.activePayload?.[0]) {
+      const clickedDate = chartData.activePayload[0].payload.date;
       setDialogFilter({ projectId: filterInputs.projectId, date: clickedDate, billingTypeId });
       setIsDetailDialogOpen(true);
     }
@@ -181,9 +180,10 @@ export default function Home() {
     setIsDetailDialogOpen(true);
   }, [filterInputs.projectId]);
 
-  const handleOverviewChartClick = useCallback((data: any) => {
-    if (data?.activePayload?.[0]) {
-      const clickedDate = data.activePayload[0].payload.date;
+  const handleOverviewChartClick = useCallback((data: unknown) => {
+    const chartData = data as { activePayload?: Array<{ payload: { date: string } }> };
+    if (chartData?.activePayload?.[0]) {
+      const clickedDate = chartData.activePayload[0].payload.date;
       setDialogFilter({ projectId: filterInputs.projectId, date: clickedDate, billingTypeId: null });
       setIsDetailDialogOpen(true);
     }
@@ -196,29 +196,7 @@ export default function Home() {
 
   // 处理运单详情点击
   const handleWaybillClick = useCallback((record: LogisticsRecord) => {
-    // 转换字段名以兼容WaybillDetailDialog组件
-    const mappedRecord = {
-      ...record,
-      auto_number: record.autoNumber || record.auto_number,
-      loading_location: record.loadingLocation || record.loading_location,
-      unloading_location: record.unloadingLocation || record.unloading_location,
-      driver_name: record.driverName || record.driver_name,
-      license_plate: record.licensePlate || record.license_plate,
-      driver_phone: record.driverPhone || record.driver_phone,
-      project_name: record.projectName || record.project_name,
-      transport_type: record.transportType || record.transport_type,
-      loading_weight: record.loadingWeight || record.loading_weight,
-      unloading_weight: record.unloadingWeight || record.unloading_weight,
-      loading_date: record.loadingDate || record.loading_date,
-      unloading_date: record.unloadingDate || record.unloading_date,
-      payable_cost: record.payableFee || record.payable_cost || record.payableCost,
-      current_cost: record.currentCost || record.current_cost,
-      extra_cost: record.extraCost || record.extra_cost,
-      billing_type_id: record.billing_type_id || record.billingTypeId,
-      chain_name: record.chainName || record.chain_name,
-      remarks: record.remarks
-    };
-    setSelectedWaybill(mappedRecord as LogisticsRecord);
+    setSelectedWaybill(record);
     setIsWaybillDetailOpen(true);
   }, []);
 
@@ -625,7 +603,7 @@ export default function Home() {
                   const unit = record.billing_type_id 
                     ? BILLING_TYPE_MAP[record.billing_type_id.toString() as keyof typeof BILLING_TYPE_MAP]?.unit || '' 
                     : '';
-                  const route = `${record.loadingLocation?.substring(0, 2) || ''}-${record.unloadingLocation?.substring(0, 2) || ''}`;
+                  const route = `${record.loading_location?.substring(0, 2) || ''}-${record.unloading_location?.substring(0, 2) || ''}`;
                   
                   return (
                     <TableRow 
@@ -633,19 +611,19 @@ export default function Home() {
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => handleWaybillClick(record)}
                     >
-                      <TableCell className="whitespace-nowrap">{record.autoNumber}</TableCell>
-                      <TableCell className="whitespace-nowrap max-w-[150px] truncate" title={record.projectName}>{record.projectName || '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{record.driverName}</TableCell>
-                      <TableCell className="whitespace-nowrap">{record.licensePlate}</TableCell>
+                      <TableCell className="whitespace-nowrap">{record.auto_number}</TableCell>
+                      <TableCell className="whitespace-nowrap max-w-[150px] truncate" title={record.project_name}>{record.project_name || '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{record.driver_name}</TableCell>
+                      <TableCell className="whitespace-nowrap">{record.license_plate}</TableCell>
                       <TableCell className="whitespace-nowrap text-sm">{route}</TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {record.loadingWeight != null ? `${record.loadingWeight.toFixed(2)} ${unit}`.trim() : '-'}
+                        {record.loading_weight != null ? `${record.loading_weight.toFixed(2)} ${unit}`.trim() : '-'}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {record.unloadingWeight != null ? `${record.unloadingWeight.toFixed(2)} ${unit}`.trim() : '-'}
+                        {record.unloading_weight != null ? `${record.unloading_weight.toFixed(2)} ${unit}`.trim() : '-'}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap"><span className={`px-2 py-1 rounded-full text-xs ${record.transportType === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transportType}</span></TableCell>
-                      <TableCell className="whitespace-nowrap">{formatCurrency(record.payableFee)}</TableCell>
+                      <TableCell className="whitespace-nowrap"><span className={`px-2 py-1 rounded-full text-xs ${record.transport_type === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transport_type}</span></TableCell>
+                      <TableCell className="whitespace-nowrap">{formatCurrency(record.payable_cost)}</TableCell>
                       <TableCell className="whitespace-nowrap max-w-[150px] truncate" title={record.remarks}>{record.remarks || '-'}</TableCell>
                     </TableRow>
                   );

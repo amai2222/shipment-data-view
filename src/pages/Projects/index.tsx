@@ -772,10 +772,10 @@ export default function Projects() {
                              <Trash2 className="h-4 w-4" />
                            </Button>
                          </ConfirmDialog>
-                       </div>
-                    </div>
-                  </div>
-                </CardHeader>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
                 
                 {expandedProject === project.id && (
                   <CardContent className="pt-0">
