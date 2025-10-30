@@ -8,7 +8,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { LogisticsFilters } from '@/types/businessEntry';
 import type { Project } from '@/types/businessEntry';
 import { DateRange } from "react-day-picker";
-import { X } from "lucide-react";
+import { X, Plus, Upload, Download, CheckSquare } from "lucide-react";
 
 // 图标占位符组件（兼容性处理）
 const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
@@ -36,9 +36,15 @@ interface FilterBarProps {
   onClear: () => void;
   loading: boolean;
   projects: Project[];
+  onCreateNew?: () => void;
+  onImport?: () => void;
+  onUpdateImport?: () => void;
+  onExport?: () => void;
+  onToggleBatchMode?: () => void;
+  isBatchMode?: boolean;
 }
 
-export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading, projects }: FilterBarProps) {
+export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading, projects, onCreateNew, onImport, onUpdateImport, onExport, onToggleBatchMode, isBatchMode }: FilterBarProps) {
   const [waybillInput, setWaybillInput] = useState(filters.waybillNumbers);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [batchDialog, setBatchDialog] = useState<{
@@ -324,6 +330,48 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
 
   return (
     <div className="space-y-4">
+      {/* 操作按钮区域 */}
+      <div className="flex justify-between items-center">
+        <div className="flex gap-2">
+          {onCreateNew && (
+            <Button onClick={onCreateNew} className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="h-4 w-4 mr-2" />
+              新建运单
+            </Button>
+          )}
+          {onImport && (
+            <Button onClick={onImport} variant="outline" className="border-green-500 text-green-600 hover:bg-green-50">
+              <Upload className="h-4 w-4 mr-2" />
+              导入
+            </Button>
+          )}
+          {onUpdateImport && (
+            <Button onClick={onUpdateImport} variant="outline" className="border-purple-500 text-purple-600 hover:bg-purple-50">
+              <Upload className="h-4 w-4 mr-2" />
+              更新导入
+            </Button>
+          )}
+          {onExport && (
+            <Button onClick={onExport} variant="outline" className="border-orange-500 text-orange-600 hover:bg-orange-50">
+              <Download className="h-4 w-4 mr-2" />
+              导出
+            </Button>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {onToggleBatchMode && (
+            <Button 
+              onClick={onToggleBatchMode} 
+              variant={isBatchMode ? "default" : "outline"}
+              className={isBatchMode ? "bg-blue-600 hover:bg-blue-700" : ""}
+            >
+              <CheckSquare className="h-4 w-4 mr-2" />
+              {isBatchMode ? "退出批量模式" : "批量模式"}
+            </Button>
+          )}
+        </div>
+      </div>
+
       {/* 基础筛选器 */}
       <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

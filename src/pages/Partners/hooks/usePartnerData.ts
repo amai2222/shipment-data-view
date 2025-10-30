@@ -51,6 +51,18 @@ export function usePartnerData() {
     }
   };
 
-  return { partners, loading, fetchPartners, createPartner, updatePartner };
+  const deletePartner = async (id: string) => {
+    try {
+      const { error } = await supabase.from('partners').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: '成功', description: '合作方删除成功' });
+      return true;
+    } catch (error) {
+      toast({ title: '失败', description: (error as Error).message, variant: 'destructive' });
+      return false;
+    }
+  };
+
+  return { partners, loading, fetchPartners, createPartner, updatePartner, deletePartner };
 }
 

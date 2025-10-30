@@ -51,6 +51,18 @@ export function useProjectData() {
     }
   };
 
-  return { projects, loading, fetchProjects, createProject, updateProject };
+  const deleteProject = async (id: string) => {
+    try {
+      const { error } = await supabase.from('projects').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: '成功', description: '项目删除成功' });
+      return true;
+    } catch (error) {
+      toast({ title: '失败', description: (error as Error).message, variant: 'destructive' });
+      return false;
+    }
+  };
+
+  return { projects, loading, fetchProjects, createProject, updateProject, deleteProject };
 }
 

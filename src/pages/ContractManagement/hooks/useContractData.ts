@@ -56,6 +56,18 @@ export function useContractData() {
     }
   };
 
-  return { contracts, loading, fetchContracts, createContract, updateContract };
+  const deleteContract = async (id: string) => {
+    try {
+      const { error } = await supabase.from('contracts').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: '成功', description: '合同删除成功' });
+      return true;
+    } catch (error) {
+      toast({ title: '失败', description: (error as Error).message, variant: 'destructive' });
+      return false;
+    }
+  };
+
+  return { contracts, loading, fetchContracts, createContract, updateContract, deleteContract };
 }
 
