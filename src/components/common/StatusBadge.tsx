@@ -5,9 +5,9 @@ import { Badge } from "@/components/ui/badge";
 
 // 付款申请单状态配置
 export const PAYMENT_REQUEST_STATUS_CONFIG = {
-  Pending: { label: '待审批', variant: 'secondary' as const },
-  Approved: { label: '已审批', variant: 'default' as const },
-  Paid: { label: '已付款', variant: 'outline' as const },
+  Pending: { label: '待审核', variant: 'secondary' as const },
+  Approved: { label: '已审批待支付', variant: 'default' as const },
+  Paid: { label: '已支付', variant: 'outline' as const, className: 'border-green-500 text-green-700 bg-green-50' },
   Rejected: { label: '已驳回', variant: 'destructive' as const },
   Cancelled: { label: '已作废', variant: 'destructive' as const },
 };
@@ -43,7 +43,7 @@ export const STATUS_CONFIG = {
 
 interface StatusBadgeProps {
   status: string;
-  customConfig?: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }>;
+  customConfig?: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className?: string }>;
   className?: string;
 }
 
@@ -54,8 +54,10 @@ export function StatusBadge({ status, customConfig, className = "" }: StatusBadg
     return <Badge className={className}>{status}</Badge>;
   }
   
+  const badgeClassName = `${config.className || ''} ${className}`.trim();
+  
   return (
-    <Badge variant={config.variant} className={className}>
+    <Badge variant={config.variant} className={badgeClassName}>
       {config.label}
     </Badge>
   );

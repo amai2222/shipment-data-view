@@ -85,7 +85,7 @@ export default function PaymentRequestsList() {
     waybillNumber: '',
     driverName: '',
     loadingDate: null as Date | null,
-    status: '',
+    status: 'Approved', // 默认筛选"已审批待支付"
     projectId: '',
     partnerName: '',
     licensePlate: '',
@@ -860,21 +860,31 @@ export default function PaymentRequestsList() {
   // @ts-ignore - React.MouseEvent类型
   const handleCancelPayment = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
+    
+    // 检查状态：只有Paid状态才能取消付款
+    if (req.status !== 'Paid') {
+      toast({ 
+        title: '无法取消', 
+        description: '只有"已支付"状态的申请单才能取消付款', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+    
     try {
       setExportingId(req.id);
       
-      // 取消付款状态
-      // @ts-ignore - RPC函数类型
-      const { data, error } = await supabase.rpc('void_payment_for_request', {
-        p_request_id: req.request_id,
-        p_cancel_reason: '手动取消付款'
+      // 调用新的取消付款函数
+      const { data, error } = await supabase.rpc('cancel_payment_request', {
+        p_request_id: req.request_id
       });
 
       if (error) throw error;
 
+      const result = data as { success: boolean; message: string; updated_count: number };
       toast({ 
         title: '取消付款成功', 
-        description: `已取消 ${(data as { waybill_count?: number }).waybill_count || 0} 条运单的付款状态，运单状态回退到"未付款"。` 
+        description: result.message || `取消付款成功，${result.updated_count}条运单状态已回退到"支付审核通过"` 
       });
       
       // 刷新数据
@@ -1022,6 +1032,18 @@ export default function PaymentRequestsList() {
     if (requests.length === 0) return false;
     return requests.every(req => selection.selectedIds.has(req.id));
   }, [requests, selection.selectedIds]);
+
+  // 对申请单按状态分组排序：已审批待支付 > 已支付 > 待审核
+  const groupedRequests = useMemo(() => {
+    const statusOrder = { 'Approved': 1, 'Paid': 2, 'Pending': 3 };
+    return [...requests].sort((a, b) => {
+      const orderA = statusOrder[a.status as keyof typeof statusOrder] || 99;
+      const orderB = statusOrder[b.status as keyof typeof statusOrder] || 99;
+      if (orderA !== orderB) return orderA - orderB;
+      // 同状态按时间倒序
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [requests]);
 
   // 批量取消付款（回滚付款状态到待审批）
   const handleBatchCancelPayment = async () => {
@@ -1536,8 +1558,23 @@ export default function PaymentRequestsList() {
                 </TableHeader>
                 <TableBody>
                   {requests.length > 0 ? (
-                    requests.map((req) => (
-                      <TableRow 
+                    groupedRequests.map((req, index) => {
+                      // 检查是否需要插入分割线
+                      const prevReq = index > 0 ? groupedRequests[index - 1] : null;
+                      const showDivider = prevReq && prevReq.status !== req.status;
+                      
+                      return (
+                        <React.Fragment key={req.id}>
+                          {/* 状态分组分割线 */}
+                          {showDivider && (
+                            <TableRow className="bg-muted/30 hover:bg-muted/30">
+                              <TableCell colSpan={isAdmin ? 8 : 7} className="h-8 text-center text-sm font-medium text-muted-foreground">
+                                ─────────────────────────────
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          
+                          <TableRow 
                         key={req.id} 
                         data-state={selection.selectedIds.has(req.id) ? "selected" : undefined}
                         className="hover:bg-muted/50"
@@ -1589,31 +1626,17 @@ export default function PaymentRequestsList() {
                               </Button>
                             )}
 
-                            {/* 取消付款按钮 - 橙色主题，只在已付款状态显示 */}
+                            {/* 取消付款按钮 - 橙色背景，只在已付款状态显示 */}
                             {req.status === 'Paid' && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={(e) => handleCancelPayment(e, req)} 
-                                disabled={exportingId === req.id}
-                                className="border-orange-300 text-orange-700 hover:bg-orange-50 shadow-sm transition-all duration-200"
-                              >
-                                <Banknote className="mr-2 h-4 w-4" />
-                                取消付款
-                              </Button>
-                            )}
-
-                            {/* 取消审批按钮 - 橙色主题，只在已审批状态显示 */}
-                            {req.status === 'Approved' && (
                               <Button 
                                 variant="default" 
                                 size="sm" 
-                                onClick={() => handleRollbackApproval(req.request_id)} 
+                                onClick={(e) => handleCancelPayment(e, req)} 
                                 disabled={exportingId === req.id}
-                                className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm transition-all duration-200"
+                                className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
                               >
                                 <RotateCcw className="mr-2 h-4 w-4" />
-                                取消审批
+                                取消付款
                               </Button>
                             )}
 
@@ -1636,9 +1659,11 @@ export default function PaymentRequestsList() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))
+                        </React.Fragment>
+                      );
+                    })
                   ) : (
-                    <TableRow><TableCell colSpan={isAdmin ? 6 : 5} className="h-24 text-center">暂无付款申请记录。</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={isAdmin ? 8 : 7} className="h-24 text-center">暂无付款申请记录。</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -1745,3 +1770,4 @@ export default function PaymentRequestsList() {
     </div>
   );
 }
+

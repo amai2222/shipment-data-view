@@ -1023,7 +1023,7 @@ export default function PaymentAudit() {
     return requests.every(req => selection.selectedIds.has(req.id));
   }, [requests, selection.selectedIds]);
 
-  // 一键回滚功能（保留申请单记录，只回滚运单状态）
+  // 批量取消审批功能（只取消已审批状态，回退到待审核）
   const handleRollbackRequests = async () => {
     setIsCancelling(true);
     try {
@@ -1032,56 +1032,39 @@ export default function PaymentAudit() {
         const { data: allRequests, error: fetchError } = await supabase
           .from('payment_requests')
           .select('request_id')
-          .in('status', ['Pending', 'Approved']);
+          .eq('status', 'Approved'); // 只取消已审批状态
         if (fetchError) throw fetchError;
         idsToRollback = allRequests.map(r => r.request_id);
       } else {
-        const selectedReqs = requests.filter(r => selection.selectedIds.has(r.id) && ['Pending', 'Approved'].includes(r.status));
+        const selectedReqs = requests.filter(r => selection.selectedIds.has(r.id) && r.status === 'Approved');
         idsToRollback = selectedReqs.map(r => r.request_id);
       }
 
       if (idsToRollback.length === 0) {
-        toast({ title: "提示", description: "没有选择任何可回滚的申请单（仅\"待审批\"和\"已审批\"状态可回滚）。" });
-        setIsCancelling(false);
-        return;
-      }
-
-      // 检查回滚资格
-      const { data: eligibility, error: checkError } = await supabase.rpc('check_payment_rollback_eligibility', { 
-        p_request_ids: idsToRollback 
-      });
-      if (checkError) throw checkError;
-
-      const eligibilityData = eligibility as { eligible_count?: number; paid_count?: number; other_count?: number; total_count?: number };
-      if (eligibilityData.eligible_count === 0) {
         toast({ 
-          title: "无法回滚", 
-          description: `选中的申请单中：${eligibilityData.paid_count || 0} 个已付款，${eligibilityData.other_count || 0} 个已作废。只有待审批和已审批状态的申请单可以回滚。`,
-          variant: "destructive"
+          title: "提示", 
+          description: "没有选择任何可取消审批的申请单（仅\"已审批待支付\"状态可取消审批）。" 
         });
         setIsCancelling(false);
         return;
       }
 
-      // 执行回滚操作（保留记录）
-      const { data, error } = await supabase.rpc('void_payment_requests_by_ids', { p_request_ids: idsToRollback });
+      // 调用批量取消审批函数
+      const { data, error } = await supabase.rpc('batch_rollback_payment_approval', { 
+        p_request_ids: idsToRollback 
+      });
       if (error) throw error;
 
-      // 构建提示信息
-      const result = data as { cancelled_requests: number; waybill_count: number; paid_requests_skipped: number };
-      let description = `已成功回滚 ${result.cancelled_requests} 张申请单，${result.waybill_count} 条关联运单的状态已恢复为未支付。申请单记录已保留，状态标记为已取消。`;
-      if (result.paid_requests_skipped > 0) {
-        description += `\n已自动剔除 ${result.paid_requests_skipped} 个已付款的申请单。`;
-      }
-
+      const result = data as { success: boolean; message: string; rollback_count: number; skipped_count: number };
       toast({ 
-        title: "回滚完成", 
-        description: description
+        title: "取消审批完成", 
+        description: result.message || `已取消${result.rollback_count}个申请的审批，运单状态已回退到"已申请支付"`
       });
+      
       setSelection({ mode: 'none', selectedIds: new Set() });
       fetchPaymentRequests();
     } catch (error) {
-      console.error("批量回滚申请失败:", error);
+      console.error("批量取消审批失败:", error);
       toast({ title: "错误", description: `操作失败: ${(error as Error).message}`, variant: "destructive" });
     } finally {
       setIsCancelling(false);
