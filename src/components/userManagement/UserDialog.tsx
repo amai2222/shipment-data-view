@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { User, UserCreateData, UserUpdateData, AppRole } from '@/types/userManagement';
-import { ROLES_NEW as ROLES } from '@/config/permissionsNew';
+import { ROLES } from '@/config/permissionsNew';
 
 interface UserDialogProps {
   user?: User | null;

@@ -32,14 +32,12 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { useFilterState } from "@/hooks/useFilterState";
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { BatchInputDialog } from "@/pages/BusinessEntry/components/BatchInputDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
-// ✅ 导入可复用组件
-import { StatusBadge } from "@/components/common";
 
 // 占位符图标组件
 const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
@@ -97,14 +95,6 @@ interface EditChainData { recordId: string; recordNumber: string; projectId: str
 // 区域3: 常量定义和初始状态
 // ============================================================================
 const PAGE_SIZE = 50;
-
-// ✅ 支付状态配置（用于StatusBadge组件）
-const PAYMENT_STATUS_CONFIG = {
-  Unpaid: { label: '未支付', variant: 'destructive' as const },
-  Processing: { label: '已申请支付', variant: 'secondary' as const },
-  Paid: { label: '已完成支付', variant: 'default' as const },
-};
-
 const INITIAL_FINANCE_FILTERS: FinanceFilters = { 
   projectId: "all", 
   startDate: "", 
@@ -552,7 +542,17 @@ export default function PaymentRequest() {
     }
   };
   
-  // ✅ 已删除 getPaymentStatusBadge 函数，改用 StatusBadge 组件
+  /**
+   * 获取支付状态徽章组件
+   */
+  const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => {
+    switch (status) {
+      case 'Unpaid': return <Badge variant="destructive">未支付</Badge>;
+      case 'Processing': return <Badge variant="secondary">已申请支付</Badge>;
+      case 'Paid': return <Badge variant="default">已完成支付</Badge>;
+      default: return <Badge>{status}</Badge>;
+    }
+  };
 
   // ==========================================================================
   // 区域8: 单个运单编辑功能
@@ -1697,9 +1697,7 @@ export default function PaymentRequest() {
                                <TableCell className="whitespace-nowrap">
                                  <span className="text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none">{r.chain_name || '默认链路'}</span>
                                </TableCell>
-                              <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
-                                <StatusBadge status={r.payment_status} customConfig={PAYMENT_STATUS_CONFIG} />
-                              </TableCell>
+                              <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{getPaymentStatusBadge(r.payment_status)}</TableCell>
                               <TableCell className="whitespace-nowrap">
                                 <div className="flex items-center justify-center gap-1">
                                   {isRecordEditable(r) ? (
@@ -1778,7 +1776,7 @@ export default function PaymentRequest() {
               <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '未指定'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{formatDate(viewingRecord.loading_date)}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p><StatusBadge status={viewingRecord.payment_status} customConfig={PAYMENT_STATUS_CONFIG} /></p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p>{getPaymentStatusBadge(viewingRecord.payment_status)}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div>

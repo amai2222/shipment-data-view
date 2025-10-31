@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Users, UserCheck, UserX, Trash2 } from 'lucide-react';
 import { AppRole } from '@/types/userManagement';
-import { ROLES_NEW as ROLES } from '@/config/permissionsNew';
+import { ROLES } from '@/config/permissionsNew';
 
 interface BatchOperationsProps {
   selectedUsers: string[];

@@ -21,7 +21,6 @@ export interface MenuPermission extends PermissionGroup {
 
 // 功能权限接口
 export interface FunctionPermission extends PermissionGroup {
-  group?: string;
   requiredRoles?: string[];
 }
 

@@ -59,8 +59,7 @@ export default function PaymentRequestsList() {
   const [loading, setLoading] = useState(true);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const { toast } = useToast();
-  const { isAdmin, isFinance } = usePermissions();
-  const canViewSensitive = isAdmin || isFinance; // 管理员和财务都可以查看敏感信息（包括收款人信息）
+  const { isAdmin } = usePermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(null);
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
@@ -1452,7 +1451,7 @@ export default function PaymentRequestsList() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle>申请单列表</CardTitle>
-            {canViewSensitive && selection.selectedIds.size > 0 && (
+            {isAdmin && selection.selectedIds.size > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
                   已选择 {selection.selectedIds.size} 个申请单
@@ -1491,8 +1490,8 @@ export default function PaymentRequestsList() {
                       </Button>
                     </ConfirmDialog>
 
-                {/* 一键作废按钮 - 管理员和财务可见 - 红色 */}
-                {canViewSensitive && (
+                {/* 一键作废按钮 - 红色 */}
+                {isAdmin && (
                     <ConfirmDialog
                       title={`确认作废并删除 ${selectionCount} 张申请单`}
                       description="⚠️ 此操作将：\n- 永久删除申请单记录\n- 回滚运单状态为未支付\n\n此操作不可逆，请谨慎操作！"
@@ -1516,7 +1515,7 @@ export default function PaymentRequestsList() {
               <Table>
                  <TableHeader>
                    <TableRow>
-                     {canViewSensitive && <TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>}
+                     {isAdmin && <TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>}
                     <TableHead>申请编号</TableHead>
                     <TableHead>申请时间</TableHead>
                     <TableHead>付款申请单状态</TableHead>
@@ -1534,7 +1533,7 @@ export default function PaymentRequestsList() {
                         data-state={selection.selectedIds.has(req.id) ? "selected" : undefined}
                         className="hover:bg-muted/50"
                       >
-                        {canViewSensitive && (
+                        {isAdmin && (
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(req.id)} onCheckedChange={() => handleRequestSelect(req.id)} />
                           </TableCell>
@@ -1630,7 +1629,7 @@ export default function PaymentRequestsList() {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan={canViewSensitive ? 6 : 5} className="h-24 text-center">暂无付款申请记录。</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={isAdmin ? 6 : 5} className="h-24 text-center">暂无付款申请记录。</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

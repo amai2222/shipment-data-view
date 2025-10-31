@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertTriangle, Edit, Trash2, UserPlus } from 'lucide-react';
 import { User, AppRole } from '@/types/userManagement';
-import { ROLES_NEW as ROLES } from '@/config/permissionsNew';
+import { ROLES } from '@/config/permissionsNew';
 
 interface UserListProps {
   users: User[];

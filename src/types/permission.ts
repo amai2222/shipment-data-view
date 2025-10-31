@@ -53,10 +53,6 @@ export interface UserPermission {
 export interface PermissionGroup {
   key: string;
   label: string;
-  group?: string;
-  icon?: string;
-  url?: string;
-  requiredRoles?: string[];
   children: PermissionItem[];
 }
 
@@ -64,11 +60,6 @@ export interface PermissionItem {
   key: string;
   label: string;
   description?: string;
-  icon?: string;
-  group?: string;
-  scope?: string;
-  requiredRoles?: string[];
-  url?: string;
 }
 
 export interface PermissionConfig {
