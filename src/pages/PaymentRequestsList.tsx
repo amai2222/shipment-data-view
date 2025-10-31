@@ -1628,19 +1628,7 @@ export default function PaymentRequestsList() {
                               </Button>
                             )}
 
-                            {/* 取消付款按钮 - 橙色背景，只在已付款状态显示 */}
-                            {req.status === 'Paid' && (
-                              <Button 
-                                variant="default" 
-                                size="sm" 
-                                onClick={(e) => handleCancelPayment(e, req)} 
-                                disabled={exportingId === req.id}
-                                className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
-                              >
-                                <RotateCcw className="mr-2 h-4 w-4" />
-                                取消付款
-                              </Button>
-                            )}
+                            {/* 取消付款按钮 - 已移除，使用批量取消付款功能代替 */}
 
                             {/* 审批按钮 - 已隐藏 */}
 
