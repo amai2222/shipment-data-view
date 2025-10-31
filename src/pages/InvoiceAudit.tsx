@@ -400,7 +400,7 @@ export default function InvoiceAudit() {
     }
   };
 
-  // 批量取消审批（回滚到待审批状态）- 使用批量函数优化
+  // 批量取消审批（回滚到待审批状态）- 只对已审批待开票状态起作用
   const handleBatchRollbackApproval = async () => {
     if (selection.selectedIds.size === 0) return;
     
@@ -409,14 +409,21 @@ export default function InvoiceAudit() {
       const selectedIds = Array.from(selection.selectedIds);
       const selectedReqs = requests.filter(r => selectedIds.includes(r.id));
       
-      if (selectedReqs.length === 0) {
-        toast({ title: "提示", description: "没有选择任何申请单。" });
+      // 只处理已审批待开票状态的申请单
+      const approvedReqs = selectedReqs.filter(r => r.status === 'Approved');
+      const skippedCount = selectedReqs.length - approvedReqs.length;
+      
+      if (approvedReqs.length === 0) {
+        toast({ 
+          title: "提示", 
+          description: "没有选择任何已审批待开票的申请单。批量取消审批只对\"已审批待开票\"状态有效。" 
+        });
         setIsBatchOperating(false);
         return;
       }
 
       // 调用批量取消审批RPC函数（性能优化）
-      const requestIds = selectedReqs.map(r => r.id);
+      const requestIds = approvedReqs.map(r => r.id);
       const { data, error } = await supabase.rpc('batch_rollback_invoice_approval', {
         p_request_ids: requestIds
       });
@@ -427,8 +434,8 @@ export default function InvoiceAudit() {
       
       // 构建详细的提示信息
       let description = `成功回滚 ${result.rollback_count || 0} 个开票申请`;
-      if (result.not_approved_count && result.not_approved_count > 0) {
-        description += `，跳过 ${result.not_approved_count} 个非已审批状态的申请单`;
+      if (skippedCount > 0) {
+        description += `，跳过 ${skippedCount} 个非已审批待开票状态的申请单`;
       }
       if (result.failed_count && result.failed_count > 0) {
         description += `，失败 ${result.failed_count} 个`;
@@ -1207,25 +1214,37 @@ export default function InvoiceAudit() {
     }
   };
 
-  // 一键作废功能（删除申请单记录和回滚运单状态）
+  // 一键作废功能（删除申请单记录和回滚运单状态）- 跳过已开票
   const handleDeleteRequests = async () => {
     setIsCancelling(true);
     try {
       let idsToDelete: string[] = [];
+      let skippedCompleted = 0;
+      
       if (selection.mode === 'all_filtered') {
         const { data: allRequests, error: fetchError } = await supabase
           .from('invoice_requests')
           .select('id')
-          .in('status', ['Pending', 'Approved']);
+          .in('status', ['Pending', 'Approved']);  // 只选择待审核和已审批待开票
         if (fetchError) throw fetchError;
         idsToDelete = allRequests.map(r => r.id);
       } else {
-        const selectedReqs = requests.filter(r => selection.selectedIds.has(r.id) && ['Pending', 'Approved'].includes(r.status));
-        idsToDelete = selectedReqs.map(r => r.id);
+        const selectedReqs = requests.filter(r => selection.selectedIds.has(r.id));
+        // 统计跳过的已开票申请单
+        skippedCompleted = selectedReqs.filter(r => r.status === 'Completed').length;
+        // 只作废待审核和已审批待开票状态的
+        idsToDelete = selectedReqs
+          .filter(r => ['Pending', 'Approved'].includes(r.status))
+          .map(r => r.id);
       }
 
       if (idsToDelete.length === 0) {
-        toast({ title: "提示", description: "没有选择任何可作废的申请单（仅\"待审核\"和\"已审批\"状态可作废）。" });
+        toast({ 
+          title: "提示", 
+          description: skippedCompleted > 0 
+            ? `已跳过 ${skippedCompleted} 个已开票的申请单（已开票的申请单需要先取消开票才能作废）。` 
+            : "没有选择任何可作废的申请单（仅\"待审核\"和\"已审批待开票\"状态可作废）。" 
+        });
         setIsCancelling(false);
         return;
       }
@@ -1238,9 +1257,14 @@ export default function InvoiceAudit() {
       if (error) throw error;
 
       const result = data as VoidAndDeleteInvoiceRequestsResult;
+      let description = `已永久删除 ${result.deleted_requests || 0} 个开票申请单，${result.affected_logistics_records || 0} 条运单状态已回滚为未开票。`;
+      if (skippedCompleted > 0) {
+        description += `\n已跳过 ${skippedCompleted} 个已开票的申请单。`;
+      }
+      
       toast({ 
         title: "作废成功", 
-        description: `已删除 ${result.deleted_requests || 0} 个开票申请单，${result.affected_logistics_records || 0} 条运单状态已回滚为未开票。`
+        description: description
       });
       setSelection({ mode: 'none', selectedIds: new Set() });
       fetchInvoiceRequests();
@@ -1730,24 +1754,7 @@ export default function InvoiceAudit() {
                               查看申请单
                             </Button>
 
-                            {/* 取消审批按钮 - 橙色主题，只在已审批状态显示 */}
-                            {req.status === 'Approved' && (
-                              <ConfirmDialog
-                                title="确认取消审批"
-                                description={`确定要取消审批开票申请 ${req.request_number} 吗？此操作将把申请单状态回滚为待审批。`}
-                                onConfirm={() => handleRollbackApproval(req.request_number)}
-                              >
-                              <Button 
-                                  variant="default" 
-                                size="sm" 
-                                disabled={exportingId === req.id}
-                                  className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm transition-all duration-200"
-                              >
-                                <RotateCcw className="mr-2 h-4 w-4" />
-                                取消审批
-                              </Button>
-                              </ConfirmDialog>
-                            )}
+                            {/* 取消审批按钮 - 已移除，使用批量取消审批功能代替 */}
 
                             {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
                             {req.status === 'Pending' && (

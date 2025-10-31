@@ -685,26 +685,47 @@ export default function InvoiceRequestManagement() {
     }
   };
 
-  // 批量取消开票（回滚开票状态到已审批待开票）
+  // 批量取消开票（回滚开票状态到已审批待开票）- 只对已开票状态起作用
   const handleBatchCancelInvoice = async () => {
     if (selection.selectedIds.size === 0) return;
     
     setIsBatchProcessing(true);
     try {
       const selectedIds = Array.from(selection.selectedIds);
+      const selectedReqs = invoiceRequests.filter(r => selectedIds.includes(r.id));
+      
+      // 只处理已开票状态的申请单
+      const completedReqs = selectedReqs.filter(r => r.status === 'Completed');
+      const skippedCount = selectedReqs.length - completedReqs.length;
+      
+      if (completedReqs.length === 0) {
+        toast({
+          title: "提示",
+          description: "没有选择任何已开票的申请单。批量取消开票只对\"已开票\"状态有效。",
+        });
+        setIsBatchProcessing(false);
+        return;
+      }
+      
+      const completedIds = completedReqs.map(r => r.id);
       
       // 只回滚已开票状态的申请单到已审批待开票
       const { error } = await supabase
         .from('invoice_requests')
         .update({ status: 'Approved', updated_at: new Date().toISOString() })
-        .in('id', selectedIds)
+        .in('id', completedIds)
         .eq('status', 'Completed');
 
       if (error) throw error;
 
+      let description = `已将 ${completedReqs.length} 个开票申请单的状态回滚到"已审批待开票"。`;
+      if (skippedCount > 0) {
+        description += `\n已跳过 ${skippedCount} 个非已开票状态的申请单。`;
+      }
+
       toast({
         title: "取消开票成功",
-        description: `已将 ${selectedIds.length} 个开票申请单的状态回滚到"已审批待开票"。`,
+        description: description,
       });
       
       loadInvoiceRequests();
@@ -721,26 +742,49 @@ export default function InvoiceRequestManagement() {
     }
   };
 
-  // 一键作废功能（删除申请单记录和回滚运单状态）
+  // 一键作废功能（删除申请单记录和回滚运单状态）- 跳过已开票
   const handleBatchVoid = async () => {
     if (selection.selectedIds.size === 0) return;
     
     setIsBatchProcessing(true);
     try {
       const selectedIds = Array.from(selection.selectedIds);
+      const selectedReqs = invoiceRequests.filter(r => selectedIds.includes(r.id));
+      
+      // 只处理待审核和已审批待开票状态的申请单
+      const voidableReqs = selectedReqs.filter(r => ['Pending', 'Approved'].includes(r.status));
+      const skippedCompleted = selectedReqs.filter(r => r.status === 'Completed').length;
+      
+      if (voidableReqs.length === 0) {
+        toast({
+          title: "提示",
+          description: skippedCompleted > 0
+            ? `已跳过 ${skippedCompleted} 个已开票的申请单（已开票的申请单需要先取消开票才能作废）。`
+            : "没有选择任何可作废的申请单（仅\"待审核\"和\"已审批待开票\"状态可作废）。",
+        });
+        setIsBatchProcessing(false);
+        return;
+      }
+      
+      const voidableIds = voidableReqs.map(r => r.id);
       
       // 调用删除函数
       const { data, error } = await supabase.rpc('void_and_delete_invoice_requests', {
-        p_request_ids: selectedIds
+        p_request_ids: voidableIds
       });
       
       if (error) throw error;
       
       const result = data as any;
       if (result.success) {
+        let description = `已永久删除 ${result.deleted_requests} 个开票申请单，${result.affected_logistics_records} 条运单状态已回滚为未开票。`;
+        if (skippedCompleted > 0) {
+          description += `\n已跳过 ${skippedCompleted} 个已开票的申请单。`;
+        }
+        
         toast({
           title: "作废成功",
-          description: `已永久删除 ${result.deleted_requests} 个开票申请单，${result.affected_logistics_records} 条运单状态已回滚为未开票。`,
+          description: description,
         });
       }
       
