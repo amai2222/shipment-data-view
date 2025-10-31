@@ -357,24 +357,35 @@ function RequestCard({
 }: RequestCardProps) {
   const getStatusBadge = (status: PaymentRequest['status']) => {
     switch (status) {
-      case 'Pending': return <Badge variant="secondary">待审核</Badge>;
-      case 'Approved': return <Badge variant="default">已审批待支付</Badge>;
-      case 'Paid': return <Badge variant="outline" className="border-green-600 text-white bg-green-600">已支付</Badge>;
+      case 'Pending': 
+        return <Badge className="bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 border-0 shadow-sm px-3 py-1 text-sm font-medium">⏰ 待审核</Badge>;
+      case 'Approved': 
+        return <Badge className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-md px-3 py-1 text-sm font-medium">✅ 已审批待支付</Badge>;
+      case 'Paid': 
+        return <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 shadow-md px-3 py-1 text-sm font-medium">🎉 已支付</Badge>;
       default: return <Badge>{status}</Badge>;
     }
   };
 
   return (
-    <MobileCard>
-      <CardHeader className="pb-3">
+    <MobileCard className="relative overflow-hidden transition-all duration-300 hover:shadow-xl active:scale-[0.98] rounded-2xl shadow-lg border-0 bg-gradient-to-br from-white via-white to-gray-50">
+      {/* 顶部状态条 */}
+      <div className={cn(
+        "absolute top-0 left-0 right-0 h-1",
+        request.status === 'Pending' && "bg-gradient-to-r from-gray-400 to-gray-500",
+        request.status === 'Approved' && "bg-gradient-to-r from-blue-500 to-blue-600",
+        request.status === 'Paid' && "bg-gradient-to-r from-green-500 to-emerald-600"
+      )} />
+      
+      <CardHeader className="pb-3 pt-4">
         <div className="flex justify-between items-start">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-base flex items-center gap-2 mb-1">
-              <Receipt className="h-4 w-4 text-primary" />
-              <span className="font-mono text-sm">{request.request_id}</span>
+            <div className="text-xs text-gray-500 mb-1">申请单号</div>
+            <CardTitle className="text-base font-mono font-semibold mb-2">
+              {request.request_id}
             </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {format(new Date(request.created_at), 'yyyy-MM-dd HH:mm')}
+            <p className="text-xs text-gray-400 flex items-center gap-1">
+              🕐 {format(new Date(request.created_at), 'MM-dd HH:mm')}
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -383,9 +394,12 @@ function RequestCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-muted-foreground">运单数量</span>
-          <span className="font-medium">{request.record_count ?? 0} 条</span>
+        {/* 关键信息卡片 */}
+        <div className="rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 p-4 border border-blue-100/50">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">运单数量</span>
+            <span className="text-lg font-semibold text-gray-900">{request.record_count ?? 0} 条</span>
+          </div>
         </div>
 
         {/* 如果有审批状态，显示审批状态卡片 */}
@@ -407,18 +421,19 @@ function RequestCard({
           />
         )}
 
-        <div className="flex gap-2">
+        {/* 操作按钮区 */}
+        <div className="grid grid-cols-2 gap-2 pt-2">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={() => onExport(request)} 
             disabled={exportingId === request.id}
-            className="flex-1"
+            className="h-11 text-base rounded-xl font-medium"
           >
             {exportingId === request.id ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              <Loader2 className="h-5 w-5 mr-1.5 animate-spin" />
             ) : (
-              <FileSpreadsheet className="h-4 w-4 mr-1" />
+              <FileSpreadsheet className="h-5 w-5 mr-1.5" />
             )}
             导出
           </Button>
@@ -427,11 +442,11 @@ function RequestCard({
             <Button 
               variant="default" 
               size="sm" 
-              className="flex-1"
+              className="h-11 text-base rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md font-semibold"
               onClick={() => onApproval(request)}
             >
-              <Send className="h-4 w-4 mr-1" />
-              {request.status === 'Rejected' ? '重新审批' : '企业微信审批'}
+              <Send className="h-5 w-5 mr-1.5" />
+              {request.status === 'Rejected' ? '重新审批' : '审批'}
             </Button>
           )}
         </div>

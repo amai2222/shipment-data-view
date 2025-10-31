@@ -212,9 +212,12 @@ export default function MobilePaymentRequestsList() {
 
   const getStatusBadge = (status: PaymentRequest['status']) => {
     switch (status) {
-      case 'Pending': return <Badge variant="secondary">待审核</Badge>;
-      case 'Approved': return <Badge variant="default">已审批待支付</Badge>;
-      case 'Paid': return <Badge variant="outline" className="border-green-600 text-white bg-green-600">已支付</Badge>;
+      case 'Pending': 
+        return <Badge className="bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 border-0 shadow-sm px-3 py-1 text-sm font-medium">⏰ 待审核</Badge>;
+      case 'Approved': 
+        return <Badge className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-md px-3 py-1 text-sm font-medium">✅ 已审批待支付</Badge>;
+      case 'Paid': 
+        return <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 shadow-md px-3 py-1 text-sm font-medium">🎉 已支付</Badge>;
       default: return <Badge>{status}</Badge>;
     }
   };
@@ -979,17 +982,25 @@ export default function MobilePaymentRequestsList() {
             {requests.map((req) => (
               <MobileCard 
                 key={req.id}
-                className="transition-all duration-200 hover:shadow-md active:scale-[0.98] rounded-lg shadow-sm"
+                className="relative overflow-hidden transition-all duration-300 hover:shadow-xl active:scale-[0.98] rounded-2xl shadow-lg border-0 bg-gradient-to-br from-white via-white to-gray-50"
               >
-                <CardHeader className="pb-3">
+                {/* 顶部状态条 */}
+                <div className={cn(
+                  "absolute top-0 left-0 right-0 h-1",
+                  req.status === 'Pending' && "bg-gradient-to-r from-gray-400 to-gray-500",
+                  req.status === 'Approved' && "bg-gradient-to-r from-blue-500 to-blue-600",
+                  req.status === 'Paid' && "bg-gradient-to-r from-green-500 to-emerald-600"
+                )} />
+                
+                <CardHeader className="pb-3 pt-4">
                   <div className="flex justify-between items-start">
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base flex items-center gap-2 mb-1">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <span className="font-mono text-sm">{req.request_id}</span>
+                      <div className="text-xs text-gray-500 mb-1">申请单号</div>
+                      <CardTitle className="text-base font-mono font-semibold mb-2">
+                        {req.request_id}
                       </CardTitle>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}
+                      <p className="text-xs text-gray-400 flex items-center gap-1">
+                        🕐 {format(new Date(req.created_at), 'MM-dd HH:mm')}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
@@ -998,19 +1009,31 @@ export default function MobilePaymentRequestsList() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">运单数量</span>
-                    <span className="font-medium">{req.record_count ?? 0} 条</span>
+                  {/* 关键信息卡片 */}
+                  <div className="rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 p-4 border border-blue-100/50">
+                    {req.max_amount && (
+                      <div className="mb-3">
+                        <div className="text-xs text-gray-600 mb-1">申请金额</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          ¥{req.max_amount.toLocaleString()}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">运单数量</span>
+                      <span className="text-lg font-semibold text-gray-900">{req.record_count ?? 0} 条</span>
+                    </div>
                   </div>
                   
-                  {/* ✅ 添加备注显示 */}
+                  {/* ✅ 备注显示 */}
                   {req.notes && (
-                    <div className="p-2 bg-muted/50 rounded text-xs text-muted-foreground line-clamp-2">
+                    <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-sm text-amber-800">
                       💬 {req.notes}
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* 操作按钮区 */}
+                  <div className="grid grid-cols-2 gap-2 pt-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -1018,118 +1041,52 @@ export default function MobilePaymentRequestsList() {
                         triggerHaptic('light');
                         handleViewDetails(req);
                       }}
-                      className="min-h-[44px]"
+                      className="h-11 text-base rounded-xl font-medium"
                     >
-                      <Eye className="h-5 w-5 mr-1" />
-                      查看详情
+                      <Eye className="h-5 w-5 mr-1.5" />
+                      详情
                     </Button>
-                    {/* 导出按钮 - 取消颜色背景 */}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleExport(req)} 
-                      disabled={exportingId === req.id}
-                      className="min-h-[44px] border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200"
-                    >
-                      {exportingId === req.id ? (
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                      ) : (
-                        <FileText className="h-4 w-4 mr-1" />
-                      )}
-                      导出
-                    </Button>
-
-                    {/* 查看申请单按钮 - 蓝色主题 */}
-                    <Button 
-                      variant="default" 
-                      size="sm" 
-                      onClick={() => handleGeneratePDF(req)} 
-                      disabled={exportingId === req.id}
-                      className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200"
-                    >
-                      <FileTextIcon className="h-4 w-4 mr-1" />
-                      查看申请单
-                    </Button>
-
-                    {/* 付款按钮 - 红色主题，只在已审批状态显示 */}
+                    
+                    {/* 主要操作按钮 - 根据状态显示不同按钮 */}
                     {req.status === 'Approved' && (
                       <Button 
                         variant="default" 
                         size="sm" 
                         onClick={() => handlePayment(req)} 
                         disabled={exportingId === req.id}
-                        className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                        className="h-11 text-base rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md font-semibold"
                       >
-                        <Banknote className="h-4 w-4 mr-1" />
+                        <Banknote className="h-5 w-5 mr-1.5" />
                         付款
                       </Button>
                     )}
 
-                    {/* 审批按钮 - 蓝色主题，只在待审批状态显示 */}
                     {req.status === 'Pending' && (
                       <Button 
                         variant="default" 
                         size="sm" 
                         onClick={() => handleApproval(req)} 
                         disabled={exportingId === req.id}
-                        className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                        className="h-11 text-base rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md font-semibold"
                       >
-                        <Send className="h-4 w-4 mr-1" />
+                        <Send className="h-5 w-5 mr-1.5" />
                         审批
                       </Button>
                     )}
-
-                    {/* 取消付款按钮 - 橙色主题，只在已付款状态显示 */}
+                    
                     {req.status === 'Paid' && (
                       <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => handleCancelPayment(req)} 
                         disabled={exportingId === req.id}
-                        className="border-orange-300 text-orange-700 hover:bg-orange-50 shadow-sm transition-all duration-200"
+                        className="h-11 text-base rounded-xl border-orange-200 text-orange-600 hover:bg-orange-50"
                       >
-                        <Banknote className="h-4 w-4 mr-1" />
+                        <RotateCcw className="h-5 w-5 mr-1.5" />
                         取消付款
                       </Button>
                     )}
-
-                    {/* 取消审批按钮 - 橙色主题，只在已审批状态显示 */}
-                    {req.status === 'Approved' && (
-                      <MobileConfirmDialog
-                        trigger={
-                          <Button 
-                            variant="default" 
-                            size="sm" 
-                            disabled={exportingId === req.id}
-                            className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 active:scale-95 text-white shadow-md hover:shadow-lg transition-all duration-200 rounded-lg font-medium"
-                          >
-                            <RotateCcw className="h-4 w-4 mr-1" />
-                            取消审批
-                          </Button>
-                        }
-                        title="确认取消审批"
-                        description={`确定要取消审批付款申请 ${req.request_id} 吗？\n\n此操作将把申请单状态回滚为待审批。`}
-                        confirmText="确认取消审批"
-                        variant="warning"
-                        onConfirm={() => handleRollbackApproval(req.request_id)}
-                        disabled={exportingId === req.id}
-                      />
-                    )}
                   </div>
-
-                  {req.status === 'Pending' && (
-                    <div className="pt-2 border-t border-border">
-                      <Button 
-                        variant="default" 
-                        size="sm" 
-                        className="w-full flex items-center gap-2"
-                        onClick={() => handleApprovalClick(req)}
-                      >
-                        <Send className="h-4 w-4" />
-                        企业微信审批
-                      </Button>
-                    </div>
-                  )}
                 </CardContent>
               </MobileCard>
             ))}

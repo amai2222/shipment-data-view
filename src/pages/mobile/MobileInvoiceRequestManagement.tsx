@@ -1065,9 +1065,9 @@ export default function MobileInvoiceRequestManagement() {
             <Card 
               key={request.id} 
               className={cn(
-                "cursor-pointer transition-all duration-200 hover:shadow-md active:scale-[0.98]",
-                "rounded-lg shadow-sm border-border/50",
-                batchSelectionMode && selectedRequests.has(request.id) && "bg-blue-50 border-blue-300 shadow-md"
+                "relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl active:scale-[0.98]",
+                "rounded-2xl shadow-lg border-0 bg-gradient-to-br from-white via-white to-gray-50",
+                batchSelectionMode && selectedRequests.has(request.id) && "ring-2 ring-blue-500 shadow-2xl"
               )}
               onClick={() => {
                 triggerHaptic('light');
@@ -1078,106 +1078,115 @@ export default function MobileInvoiceRequestManagement() {
                 }
               }}
             >
-              <CardContent className="p-4 sm:p-5">
+              {/* 顶部状态条 */}
+              <div className={cn(
+                "absolute top-0 left-0 right-0 h-1",
+                request.status === 'Pending' && "bg-gradient-to-r from-gray-400 to-gray-500",
+                request.status === 'Approved' && "bg-gradient-to-r from-blue-500 to-blue-600",
+                request.status === 'Completed' && "bg-gradient-to-r from-green-500 to-emerald-600"
+              )} />
+              
+              <CardContent className="p-5 pt-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       {batchSelectionMode && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                        <div 
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleRequestSelection(request.id);
                           }}
-                          className="p-0 h-6 w-6"
+                          className="p-1"
                         >
                           {selectedRequests.has(request.id) ? (
-                            <CheckSquare className="h-4 w-4" />
+                            <CheckSquare className="h-5 w-5 text-blue-600" />
                           ) : (
-                            <Square className="h-4 w-4" />
+                            <Square className="h-5 w-5 text-gray-400" />
                           )}
-                        </Button>
+                        </div>
                       )}
-                      <div className="font-medium text-lg">{request.request_number}</div>
+                      <div>
+                        <div className="text-xs text-gray-500 mb-0.5">申请单号</div>
+                        <div className="font-mono font-semibold text-base">{request.request_number}</div>
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {request.partner_name}
-                      {request.invoicing_partner_full_name && (
-                        <span className="ml-2">({request.invoicing_partner_full_name})</span>
-                      )}
+                    <div className="text-sm text-gray-600 mt-2">
+                      {request.invoicing_partner_full_name || request.partner_full_name || request.partner_name}
                     </div>
                   </div>
-                  <Badge variant={getStatusBadgeVariant(request.status)}>
+                  <Badge className={cn(
+                    "px-3 py-1 text-sm font-medium shadow-md border-0",
+                    request.status === 'Pending' && "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700",
+                    request.status === 'Approved' && "bg-gradient-to-r from-blue-500 to-blue-600 text-white",
+                    request.status === 'Completed' && "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
+                  )}>
+                    {request.status === 'Pending' && '⏰ '}
+                    {request.status === 'Approved' && '✅ '}
+                    {request.status === 'Completed' && '🎉 '}
                     {getStatusText(request.status)}
                   </Badge>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 mb-3">
-                  <div>
-                    <div className="text-sm text-muted-foreground">开票金额</div>
-                    <div className="font-medium">¥{request.total_amount.toLocaleString()}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">运单数量</div>
-                    <div className="font-medium">{request.record_count}条</div>
+                {/* 关键信息卡片 */}
+                <div className="rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 p-4 border border-blue-100/50 mb-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">开票金额</div>
+                      <div className="text-xl font-bold text-blue-600">¥{request.total_amount.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">运单数量</div>
+                      <div className="text-xl font-semibold text-gray-900">{request.record_count}条</div>
+                    </div>
                   </div>
                 </div>
                 
-                {/* ✅ 添加备注显示 */}
+                {/* 备注显示 */}
                 {request.remarks && (
-                  <div className="mt-2 p-2 bg-muted/50 rounded text-xs text-muted-foreground truncate">
+                  <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-sm text-amber-800 mb-3">
                     💬 {request.remarks}
                   </div>
                 )}
                 
-                <div className="flex items-center justify-between text-sm text-muted-foreground mt-2">
-                  <span>{format(new Date(request.created_at), 'MM-dd HH:mm')}</span>
-                  {!batchSelectionMode && (
-                    <div className="flex items-center gap-2">
-                      {!request.is_voided && !request.is_merged && (
-                        <>
-                          {request.status === 'Pending' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleApproveInvoice(request);
-                              }}
-                              title="确认开票"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditStatus(request);
-                            }}
-                            title="编辑状态"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleVoidRequest(request);
-                            }}
-                            title="作废申请单"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                      <ChevronRight className="h-4 w-4" />
-                    </div>
-                  )}
+                <div className="flex items-center justify-between text-xs text-gray-400 mb-3">
+                  <span>🕐 {format(new Date(request.created_at), 'MM-dd HH:mm')}</span>
+                  {!batchSelectionMode && <ChevronRight className="h-4 w-4" />}
                 </div>
+                
+                {/* 操作按钮区 */}
+                {!batchSelectionMode && !request.is_voided && !request.is_merged && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        triggerHaptic('light');
+                        handleViewDetails(request);
+                      }}
+                      className="h-11 text-base rounded-xl font-medium"
+                    >
+                      <Eye className="h-5 w-5 mr-1.5" />
+                      详情
+                    </Button>
+                    
+                    {request.status === 'Approved' && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          triggerHaptic('medium');
+                          handleCompleteInvoice(request);
+                        }}
+                        className="h-11 text-base rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md font-semibold"
+                      >
+                        <CheckCircle className="h-5 w-5 mr-1.5" />
+                        开票
+                      </Button>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))
