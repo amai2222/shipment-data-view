@@ -1107,7 +1107,8 @@ export default function InvoiceRequest() {
                               <TableHead>司机</TableHead>
                               <TableHead>路线</TableHead>
                               <TableHead>装货日期</TableHead>
-                              <TableHead>开票金额</TableHead>
+                              <TableHead className="text-right">司机应收</TableHead>
+                              <TableHead className="text-right">开票金额</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1128,7 +1129,10 @@ export default function InvoiceRequest() {
                                 <TableCell className="text-sm">
                                   {formatChineseDate(record.loading_date)}
                                 </TableCell>
-                                <TableCell className="text-sm font-mono">
+                                <TableCell className="text-sm font-mono text-right">
+                                  {formatCurrency(record.payable_cost || 0)}
+                                </TableCell>
+                                <TableCell className="text-sm font-mono text-right">
                                   {formatCurrency(record.total_invoiceable_for_partner || 0)}
                                 </TableCell>
                               </TableRow>
