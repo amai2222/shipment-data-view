@@ -19,6 +19,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,16 +32,14 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { useFilterState } from "@/hooks/useFilterState";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { BatchInputDialog } from "@/pages/BusinessEntry/components/BatchInputDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 // ✅ 导入可复用组件
-import {
-  PaginationControl,
-  StatusBadge,
-  PAYMENT_STATUS_CONFIG,
-} from '@/components/common';
+import { StatusBadge } from "@/components/common";
 
 // 占位符图标组件
 const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
@@ -97,7 +96,15 @@ interface EditChainData { recordId: string; recordNumber: string; projectId: str
 // ============================================================================
 // 区域3: 常量定义和初始状态
 // ============================================================================
-const DEFAULT_PAGE_SIZE = 50;
+const PAGE_SIZE = 50;
+
+// ✅ 支付状态配置（用于StatusBadge组件）
+const PAYMENT_STATUS_CONFIG = {
+  Unpaid: { label: '未支付', variant: 'destructive' as const },
+  Processing: { label: '已申请支付', variant: 'secondary' as const },
+  Paid: { label: '已完成支付', variant: 'default' as const },
+};
+
 const INITIAL_FINANCE_FILTERS: FinanceFilters = { 
   projectId: "all", 
   startDate: "", 
@@ -130,7 +137,6 @@ export default function PaymentRequest() {
   const { toast } = useToast();
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_FINANCE_FILTERS);
   const [pagination, setPagination] = useState<PaginationState>({ currentPage: 1, totalPages: 1 });
-  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [showAdvanced, setShowAdvanced] = useState(false); // 控制高级筛选展开/收起
   const [platformOptions, setPlatformOptions] = useState<{platform_name: string; usage_count: number}[]>([]); // 动态平台选项
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
@@ -215,19 +221,19 @@ export default function PaymentRequest() {
         p_driver_phone: activeFilters.driverPhone || null,
         p_waybill_numbers: activeFilters.waybillNumbers || null,
         p_other_platform_name: activeFilters.otherPlatformName || null,
-        p_page_size: pageSize,
+        p_page_size: PAGE_SIZE,
         p_page_number: pagination.currentPage,
       });
       if (error) throw error;
       setReportData(data);
-      setPagination(prev => ({ ...prev, totalPages: Math.ceil(((data as any)?.count || 0) / pageSize) || 1 }));
+      setPagination(prev => ({ ...prev, totalPages: Math.ceil(((data as any)?.count || 0) / PAGE_SIZE) || 1 }));
     } catch (error) {
       console.error("加载财务对账数据失败:", error);
       toast({ title: "错误", description: `加载财务对账数据失败: ${(error as any).message}`, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [activeFilters, pagination.currentPage, pageSize, toast]);
+  }, [activeFilters, pagination.currentPage, toast]);
 
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
   useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); setReportData(null); } }, [fetchReportData, isStale]);
@@ -546,12 +552,7 @@ export default function PaymentRequest() {
     }
   };
   
-  /**
-   * 获取支付状态徽章组件（使用统一组件）
-   */
-  const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => {
-    return <StatusBadge status={status} customConfig={PAYMENT_STATUS_CONFIG} />;
-  };
+  // ✅ 已删除 getPaymentStatusBadge 函数，改用 StatusBadge 组件
 
   // ==========================================================================
   // 区域8: 单个运单编辑功能
@@ -1696,7 +1697,9 @@ export default function PaymentRequest() {
                                <TableCell className="whitespace-nowrap">
                                  <span className="text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none">{r.chain_name || '默认链路'}</span>
                                </TableCell>
-                              <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{getPaymentStatusBadge(r.payment_status)}</TableCell>
+                              <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
+                                <StatusBadge status={r.payment_status} customConfig={PAYMENT_STATUS_CONFIG} />
+                              </TableCell>
                               <TableCell className="whitespace-nowrap">
                                 <div className="flex items-center justify-center gap-1">
                                   {isRecordEditable(r) ? (
@@ -1754,17 +1757,15 @@ export default function PaymentRequest() {
       )}
       
       {/* ===== 分页组件 ===== */}
-      {!isStale && pagination.totalPages > 0 && (
-        <PaginationControl
-          currentPage={pagination.currentPage}
-          pageSize={pageSize}
-          totalPages={pagination.totalPages}
-          onPageChange={(page) => setPagination(p => ({ ...p, currentPage: page }))}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setPagination(p => ({ ...p, currentPage: 1 })); // 切换每页条数时重置到第一页
-          }}
-        />
+      {!isStale && pagination.totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem><PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setPagination(p => ({...p, currentPage: Math.max(1, p.currentPage - 1)})); }} className={cn({ "pointer-events-none opacity-50": pagination.currentPage === 1 })} /></PaginationItem>
+            <PaginationItem><PaginationLink isActive>{pagination.currentPage}</PaginationLink></PaginationItem>
+            <PaginationItem><span className="px-4 py-2 text-sm">/ {pagination.totalPages}</span></PaginationItem>
+            <PaginationItem><PaginationNext href="#" onClick={(e) => { e.preventDefault(); setPagination(p => ({...p, currentPage: Math.min(p.totalPages, p.currentPage + 1)})); }} className={cn({ "pointer-events-none opacity-50": pagination.currentPage === pagination.totalPages })} /></PaginationItem>
+          </PaginationContent>
+        </Pagination>
       )}
 
       {/* ===== 对话框区域 ===== */}
@@ -1777,7 +1778,7 @@ export default function PaymentRequest() {
               <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '未指定'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{formatDate(viewingRecord.loading_date)}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p>{getPaymentStatusBadge(viewingRecord.payment_status)}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p><StatusBadge status={viewingRecord.payment_status} customConfig={PAYMENT_STATUS_CONFIG} /></p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div>

@@ -1,16 +1,16 @@
 // ============================================================================
-// 文件: PaymentRequest.tsx - 合作方付款申请页�?
+// 文件: PaymentRequest.tsx - 合作方付款申请页面
 // ============================================================================
-// 功能说明�?
+// 功能说明：
 // 1. 运单财务对账数据展示（支持分页、筛选、排序）
-// 2. 批量选择运单并生成付款申�?
-// 3. 单个/批量修改合作方运�?
+// 2. 批量选择运单并生成付款申请
+// 3. 单个/批量修改合作方运费
 // 4. 单个/批量修改合作链路（自动重新计算成本）
 // 5. 运单详情查看
 // ============================================================================
 // 版本: FINAL-WITH-ALL-FEATURES-AND-NO-OMISSIONS
-// 文件大小: 1415�?
-// 最后更�? 2025-10-26
+// 文件大小: 1415行
+// 最后更新: 2025-10-26
 // ============================================================================
 
 // ============================================================================
@@ -39,8 +39,8 @@ import { BatchInputDialog } from "@/pages/BusinessEntry/components/BatchInputDia
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
-// 占位符图标组�?
-const Loader2 = ({ className }: { className?: string }) => <span className={className}>�?/span>;
+// 占位符图标组件
+const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
 const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
 const FileSpreadsheet = ({ className }: { className?: string }) => <span className={className}>📊</span>;
 const EditIcon = ({ className }: { className?: string }) => <span className={className}>✏️</span>;
@@ -60,12 +60,12 @@ interface PartnerCost { partner_id: string; partner_name: string; level: number;
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; project_id?: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; invoice_status?: 'Uninvoiced' | 'Processing' | 'Invoiced' | null; cargo_type: string | null; loading_weight: number | null; unloading_weight: number | null; remarks: string | null; billing_type_id: number | null; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; chain_id?: string | null; }
 interface FinanceFilters { 
-  // 常规筛�?
+  // 常规筛选
   projectId: string; 
   startDate: string; 
   endDate: string; 
   paymentStatus: string; 
-  // 高级筛�?
+  // 高级筛选
   partnerId: string; 
   driverName: string; 
   licensePlate: string; 
@@ -92,7 +92,7 @@ interface EditPartnerCostData { recordId: string; recordNumber: string; partnerC
 interface EditChainData { recordId: string; recordNumber: string; projectId: string; currentChainName: string; }
 
 // ============================================================================
-// 区域3: 常量定义和初始状�?
+// 区域3: 常量定义和初始状态
 // ============================================================================
 const PAGE_SIZE = 50;
 const INITIAL_FINANCE_FILTERS: FinanceFilters = { 
@@ -107,15 +107,15 @@ const INITIAL_FINANCE_FILTERS: FinanceFilters = {
   waybillNumbers: "",
   otherPlatformName: ""
 };
-const PAYMENT_STATUS_OPTIONS = [ { value: 'all', label: '所有状�? }, { value: 'Unpaid', label: '未支�? }, { value: 'Processing', label: '已申请支�? }, { value: 'Paid', label: '已完成支�? }, ];
-const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点�?搜索"按钮以查看最新结果�?/p> </div> );
+const PAYMENT_STATUS_OPTIONS = [ { value: 'all', label: '所有状态' }, { value: 'Unpaid', label: '未支付' }, { value: 'Processing', label: '已申请支付' }, { value: 'Paid', label: '已完成支付' }, ];
+const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击"搜索"按钮以查看最新结果。</p> </div> );
 
 // ============================================================================
-// 主组�? PaymentRequest
+// 主组件: PaymentRequest
 // ============================================================================
 export default function PaymentRequest() {
   // ==========================================================================
-  // 区域4: State状态管�?
+  // 区域4: State状态管理
   // ==========================================================================
   // 包含：数据状态、筛选状态、分页状态、选择状态、对话框状态等
   // ==========================================================================
@@ -139,7 +139,7 @@ export default function PaymentRequest() {
     isOpen: boolean;
     type: 'driver' | 'license' | 'phone' | 'waybill' | null;
   }>({ isOpen: false, type: null });
-  const [showAllLevels, setShowAllLevels] = useState(false); // 控制是否显示所有层级的合作�?
+  const [showAllLevels, setShowAllLevels] = useState(false); // 控制是否显示所有层级的合作方
   const [editPartnerCostData, setEditPartnerCostData] = useState<EditPartnerCostData | null>(null);
   const [editChainData, setEditChainData] = useState<EditChainData | null>(null);
   const [availableChains, setAvailableChains] = useState<PartnerChain[]>([]);
@@ -148,7 +148,7 @@ export default function PaymentRequest() {
   const [tempDriverCost, setTempDriverCost] = useState<number | string>(0);  // 临时司机应收（支持输入时的字符串状态）
   const [selectedChainId, setSelectedChainId] = useState<string>('');
   
-  // 批量修改状�?
+  // 批量修改状态
   const [isBatchModifying, setIsBatchModifying] = useState(false);
   const [batchModifyType, setBatchModifyType] = useState<'cost' | 'chain' | null>(null);
   const [batchChainId, setBatchChainId] = useState<string>('');
@@ -158,20 +158,20 @@ export default function PaymentRequest() {
     auto_number: string;
     loading_date: string;
     driver_name: string;
-    original_amount: number;           // 最高级合作方应�?
+    original_amount: number;           // 最高级合作方应收
     new_amount: string;                // 最高级合作方新应收
-    original_driver_amount: number;    // 司机原应�?
-    new_driver_amount: string;         // 司机新应�?
+    original_driver_amount: number;    // 司机原应收
+    new_driver_amount: string;         // 司机新应收
   }[]>([]);
   
-  // 排序状�?
+  // 排序状态
   const [sortField, setSortField] = useState<string>('loading_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // ==========================================================================
   // 区域5: 数据获取函数
   // ==========================================================================
-  // fetchInitialOptions: 获取项目和合作方列表（用于筛选器�?
+  // fetchInitialOptions: 获取项目和合作方列表（用于筛选器）
   // fetchReportData: 获取财务对账数据（运单列表）
   // ==========================================================================
   const fetchInitialOptions = useCallback(async () => {
@@ -185,7 +185,7 @@ export default function PaymentRequest() {
       // 加载动态平台选项
       const { data: platformsData } = await supabase.rpc('get_all_used_platforms');
       if (platformsData) {
-        const fixedPlatforms = ['本平�?, '中科智运', '中工智云', '可乐公司', '盼盼集团'];
+        const fixedPlatforms = ['本平台', '中科智运', '中工智云', '可乐公司', '盼盼集团'];
         const dynamicPlatforms = (platformsData as {platform_name: string; usage_count: number}[]).filter(
           p => !fixedPlatforms.includes(p.platform_name)
         );
@@ -232,15 +232,15 @@ export default function PaymentRequest() {
   // ==========================================================================
   // 区域6: 工具函数
   // ==========================================================================
-  // formatCurrency: 格式化货�?
-  // simplifyRoute: 简化路线显�?
+  // formatCurrency: 格式化货币
+  // simplifyRoute: 简化路线显示
   // isRecordEditable: 检查运单是否可编辑
   // getUneditableReason: 获取不可编辑原因
   // getBillingUnit: 获取计费单位
-  // formatQuantity: 格式化数量显�?
+  // formatQuantity: 格式化数量显示
   // ==========================================================================
   const formatCurrency = (value: number | null | undefined): string => { if (value == null) return '-'; return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value); };
-  const simplifyRoute = (loading?: string, unloading?: string): string => { const start = (loading || '').substring(0, 2); const end = (unloading || '').substring(0, 2); return `${start}�?{end}`; };
+  const simplifyRoute = (loading?: string, unloading?: string): string => { const start = (loading || '').substring(0, 2); const end = (unloading || '').substring(0, 2); return `${start}→${end}`; };
   const formatDate = (dateString: string | null | undefined): string => { if (!dateString) return '-'; return format(new Date(dateString), 'yyyy/MM/dd'); };
   
   // 排序处理函数
@@ -295,28 +295,28 @@ export default function PaymentRequest() {
     return records;
   }, [reportData?.records, sortField, sortDirection]);
   
-  // 检查运单是否可编辑（需要同时满足：未支�?�?未开票）
+  // 检查运单是否可编辑（需要同时满足：未支付 且 未开票）
   const isRecordEditable = (record: LogisticsRecordWithPartners): boolean => {
     const isPaymentEditable = record.payment_status === 'Unpaid';
     const isInvoiceEditable = !record.invoice_status || record.invoice_status === 'Uninvoiced';
     return isPaymentEditable && isInvoiceEditable;
   };
   
-  // 获取不可编辑的原�?
+  // 获取不可编辑的原因
   const getUneditableReason = (record: LogisticsRecordWithPartners): string => {
     if (record.payment_status !== 'Unpaid') {
-      return record.payment_status === 'Processing' ? '已申请支�? : '已完成支�?;
+      return record.payment_status === 'Processing' ? '已申请支付' : '已完成支付';
     }
     if (record.invoice_status && record.invoice_status !== 'Uninvoiced') {
-      return record.invoice_status === 'Processing' ? '开票中' : '已开�?;
+      return record.invoice_status === 'Processing' ? '开票中' : '已开票';
     }
     return '';
   };
   
   const getBillingUnit = (billingTypeId: number | null | undefined): string => {
     switch (billingTypeId) {
-      case 1: return '�?;
-      case 2: return '�?;
+      case 1: return '吨';
+      case 2: return '车';
       case 3: return '立方';
       default: return '';
     }
@@ -332,11 +332,11 @@ export default function PaymentRequest() {
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
   const handleDateChange = (dateRange: DateRange | undefined) => { setUiFilters(prev => ({ ...prev, startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' })); };
   
-  // 批量输入对话框处�?
+  // 批量输入对话框处理
   const openBatchDialog = (type: 'driver' | 'license' | 'phone' | 'waybill') => { setBatchDialog({ isOpen: true, type }); };
   const closeBatchDialog = () => { setBatchDialog({ isOpen: false, type: null }); };
   const handleBatchConfirm = (values: string[]) => {
-    // 运单管理版本�?BatchInputDialog onConfirm 回调传递的�?string[] 数组
+    // 运单管理版本的 BatchInputDialog onConfirm 回调传递的是 string[] 数组
     // 我们直接使用即可，不需要再 join
     const value = values.join(',');
     const type = batchDialog.type;
@@ -355,10 +355,10 @@ export default function PaymentRequest() {
   };
   const getBatchDialogConfig = () => {
     const type = batchDialog.type;
-    if (type === 'driver') return { title: '批量输入司机姓名', placeholder: '请粘贴司机姓名，用换行或逗号分隔�?, description: '支持批量输入多个司机姓名' };
-    if (type === 'license') return { title: '批量输入车牌�?, placeholder: '请粘贴车牌号，用换行或逗号分隔�?, description: '支持批量输入多个车牌�? };
-    if (type === 'phone') return { title: '批量输入电话号码', placeholder: '请粘贴电话号码，用换行或逗号分隔�?, description: '支持批量输入多个电话号码' };
-    if (type === 'waybill') return { title: '批量输入运单编号', placeholder: '请粘贴运单编号，用换行或逗号分隔�?, description: '支持批量输入多个运单编号' };
+    if (type === 'driver') return { title: '批量输入司机姓名', placeholder: '请粘贴司机姓名，用换行或逗号分隔。', description: '支持批量输入多个司机姓名' };
+    if (type === 'license') return { title: '批量输入车牌号', placeholder: '请粘贴车牌号，用换行或逗号分隔。', description: '支持批量输入多个车牌号' };
+    if (type === 'phone') return { title: '批量输入电话号码', placeholder: '请粘贴电话号码，用换行或逗号分隔。', description: '支持批量输入多个电话号码' };
+    if (type === 'waybill') return { title: '批量输入运单编号', placeholder: '请粘贴运单编号，用换行或逗号分隔。', description: '支持批量输入多个运单编号' };
     return { title: '', placeholder: '', description: '' };
   };
   const handleRecordSelect = (recordId: string) => { setSelection(prev => { const newSet = new Set(prev.selectedIds); if (newSet.has(recordId)) { newSet.delete(recordId); } else { newSet.add(recordId); } if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); };
@@ -369,20 +369,20 @@ export default function PaymentRequest() {
   // ==========================================================================
   
   /**
-   * 处理"一键申请付�?按钮点击事件
-   * 功能�?
-   * 1. 验证选择状�?
-   * 2. 获取所有需要处理的运单ID（支持跨页选择�?
+   * 处理"一键申请付款"按钮点击事件
+   * 功能：
+   * 1. 验证选择状态
+   * 2. 获取所有需要处理的运单ID（支持跨页选择）
    * 3. 调用RPC函数生成付款预览数据
    * 4. 排除最高级合作方，只为低层级合作方生成付款申请
-   * 5. 显示预览对话�?
+   * 5. 显示预览对话框
    */
   const handleApplyForPaymentClick = async () => {
     const isCrossPageSelection = selection.mode === 'all_filtered';
     const selectionCount = selection.selectedIds.size;
 
     if (!isCrossPageSelection && selectionCount === 0) {
-        toast({ title: "提示", description: "请先选择需要申请付款的运单�? });
+        toast({ title: "提示", description: "请先选择需要申请付款的运单。" });
         return;
     }
 
@@ -409,7 +409,7 @@ export default function PaymentRequest() {
       }
 
       if (idsToProcess.length === 0) {
-        toast({ title: "无可处理运单", description: "在当前选择或筛选条件下，没有找到可申请付款的“未支付”运单�? });
+        toast({ title: "无可处理运单", description: "在当前选择或筛选条件下，没有找到可申请付款的“未支付”运单。" });
         setIsGenerating(false);
         return;
       }
@@ -425,9 +425,9 @@ export default function PaymentRequest() {
       
       const sheetMap = new Map<string, any>();
 
-      // �?修复：按每个运单单独判断最高级，只包含低层级合作方
+      // ✅ 修复：按每个运单单独判断最高级，只包含低层级合作方
       for (const rec of records) {
-        // �?只处理未支付状态的运单
+        // ✅ 只处理未支付状态的运单
         if (rec.payment_status !== 'Unpaid') {
           continue;
         }
@@ -435,12 +435,12 @@ export default function PaymentRequest() {
         const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
         if (costs.length === 0) continue;
 
-        // 计算当前运单的最高层�?
+        // 计算当前运单的最高层级
         const recMaxLevel = Math.max(...costs.map(c => c.level));
         
         for (const cost of costs) {
-          // �?规则1：如果只�?个合作方，也要生成付款申�?
-          // �?规则2：如果有多个合作方，只为低层级生�?
+          // ✅ 规则1：如果只有1个合作方，也要生成付款申请
+          // ✅ 规则2：如果有多个合作方，只为低层级生成
           const shouldInclude = costs.length === 1 || cost.level < recMaxLevel;
           
           if (shouldInclude) {
@@ -479,14 +479,14 @@ export default function PaymentRequest() {
 
       const finalCount = previewData.processed_record_ids.length;
       if (finalCount === 0) {
-        toast({ title: "提示", description: "按规则排除最高级合作方后，没有需要申请付款的运单�?, variant: "destructive" });
+        toast({ title: "提示", description: "按规则排除最高级合作方后，没有需要申请付款的运单。", variant: "destructive" });
         setIsGenerating(false);
         return;
       }
       
       const originalProcessedIds = new Set(records.map(r => r.id));
       if (!isCrossPageSelection && (selectionCount > originalProcessedIds.size || originalProcessedIds.size > finalCount)) {
-          toast({ title: "部分运单被忽�?, description: `您选择的运单中，部分因状态不符或属于最高级合作方而被自动忽略。`, variant: "default", duration: 8000 });
+          toast({ title: "部分运单被忽略", description: `您选择的运单中，部分因状态不符或属于最高级合作方而被自动忽略。`, variant: "default", duration: 8000 });
       }
 
       setPaymentPreviewData(previewData);
@@ -505,11 +505,11 @@ export default function PaymentRequest() {
   };
 
   /**
-   * 确认并保存付款申�?
-   * 功能�?
-   * 1. 调用RPC函数process_payment_application创建付款申请�?
-   * 2. 更新运单状态为"已申请支�?
-   * 3. 清空选择状�?
+   * 确认并保存付款申请
+   * 功能：
+   * 1. 调用RPC函数process_payment_application创建付款申请单
+   * 2. 更新运单状态为"已申请支付"
+   * 3. 清空选择状态
    * 4. 刷新数据
    */
   const handleConfirmAndSave = async () => {
@@ -543,13 +543,13 @@ export default function PaymentRequest() {
   };
   
   /**
-   * 获取支付状态徽章组�?
+   * 获取支付状态徽章组件
    */
   const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => {
     switch (status) {
-      case 'Unpaid': return <Badge variant="destructive">未支�?/Badge>;
-      case 'Processing': return <Badge variant="secondary">已申请支�?/Badge>;
-      case 'Paid': return <Badge variant="default">已完成支�?/Badge>;
+      case 'Unpaid': return <Badge variant="destructive">未支付</Badge>;
+      case 'Processing': return <Badge variant="secondary">已申请支付</Badge>;
+      case 'Paid': return <Badge variant="default">已完成支付</Badge>;
       default: return <Badge>{status}</Badge>;
     }
   };
@@ -559,8 +559,8 @@ export default function PaymentRequest() {
   // ==========================================================================
   
   /**
-   * 打开"修改合作方运�?对话�?
-   * 只允许修改最高级合作方的运费，其他层级自动计�?
+   * 打开"修改合作方运费"对话框
+   * 只允许修改最高级合作方的运费，其他层级自动计算
    */
   const handleEditPartnerCost = (record: LogisticsRecordWithPartners) => {
     setEditPartnerCostData({
@@ -574,11 +574,11 @@ export default function PaymentRequest() {
   };
 
   /**
-   * 打开"修改合作链路"对话�?
-   * 功能�?
-   * 1. 获取运单所属项�?
-   * 2. 加载该项目的所有可用合作链�?
-   * 3. 显示当前链路和可选链�?
+   * 打开"修改合作链路"对话框
+   * 功能：
+   * 1. 获取运单所属项目
+   * 2. 加载该项目的所有可用合作链路
+   * 3. 显示当前链路和可选链路
    */
   const handleEditChain = async (record: LogisticsRecordWithPartners) => {
     // 如果没有 project_id，尝试通过 project_name 查找
@@ -605,7 +605,7 @@ export default function PaymentRequest() {
     
     setSelectedChainId(''); // 清空之前的选择
     
-    // 获取可用的合作链�?
+    // 获取可用的合作链路
     setIsLoadingChains(true);
     try {
       console.log('🔍 准备查询合作链路，使用的 project_id:', projectId);
@@ -622,12 +622,12 @@ export default function PaymentRequest() {
         .order('is_default', { ascending: false });
       
       if (error) {
-        console.error('�?查询合作链路错误:', error);
+        console.error('❌ 查询合作链路错误:', error);
         throw error;
       }
       
-      console.log('�?查询到的合作链路数量:', data?.length || 0);
-      console.log('�?合作链路详情:', data);
+      console.log('✅ 查询到的合作链路数量:', data?.length || 0);
+      console.log('✅ 合作链路详情:', data);
       
       if (!data || data.length === 0) {
         // 检查该项目是否真的没有链路
@@ -636,7 +636,7 @@ export default function PaymentRequest() {
           .select('project_id, chain_name')
           .limit(5);
         
-        console.log('🔍 数据库中的部分合作链路（用于对比�?', allChains);
+        console.log('🔍 数据库中的部分合作链路（用于对比）:', allChains);
         
         toast({ 
           title: "提示", 
@@ -656,22 +656,22 @@ export default function PaymentRequest() {
   };
 
   /**
-   * 恢复为系统自动计算（清除手动修改标记�?
-   * 功能�?
-   * 1. �?is_manually_modified 设为 false
-   * 2. 触发成本重算，恢复为系统自动计算的�?
+   * 恢复为系统自动计算（清除手动修改标记）
+   * 功能：
+   * 1. 将 is_manually_modified 设为 false
+   * 2. 触发成本重算，恢复为系统自动计算的值
    */
   const handleResetToAutoCalculation = async () => {
     if (!editPartnerCostData) return;
     
     setIsSaving(true);
     try {
-      // 找出最高级合作�?
+      // 找出最高级合作方
       const maxLevel = Math.max(...tempPartnerCosts.map(c => c.level));
       const highestLevelPartner = tempPartnerCosts.find(c => c.level === maxLevel);
       
       if (!highestLevelPartner) {
-        throw new Error("未找到最高级合作�?);
+        throw new Error("未找到最高级合作方");
       }
       
       // 清除手动修改标记
@@ -687,7 +687,7 @@ export default function PaymentRequest() {
       
       if (updateError) throw updateError;
       
-      // 调用重算函数，使用系统自动计算的�?
+      // 调用重算函数，使用系统自动计算的值
       const recordData = reportData?.records.find((r: any) => r.id === editPartnerCostData.recordId);
       if (recordData && recordData.chain_id) {
         const { error: recalcError } = await supabase.rpc('modify_logistics_record_chain_with_recalc' as any, {
@@ -719,7 +719,7 @@ export default function PaymentRequest() {
       
       toast({ 
         title: "成功", 
-        description: `已恢复为系统自动计算，最高级合作�?${highestLevelPartner.partner_name}"的运费和司机应收已重新计算` 
+        description: `已恢复为系统自动计算，最高级合作方"${highestLevelPartner.partner_name}"的运费和司机应收已重新计算` 
       });
       setEditPartnerCostData(null);
       setTempPartnerCosts([]);
@@ -734,9 +734,9 @@ export default function PaymentRequest() {
   };
   
   /**
-   * 保存合作方运费修改（支持修改所有层级的合作方和司机应收�?
-   * 功能�?
-   * 1. 保存所有层级合作方的运�?
+   * 保存合作方运费修改（支持修改所有层级的合作方和司机应收）
+   * 功能：
+   * 1. 保存所有层级合作方的运费
    * 2. 保存司机应收
    * 3. 设置 is_manually_modified 标记
    */
@@ -745,7 +745,7 @@ export default function PaymentRequest() {
     
     setIsSaving(true);
     try {
-      // 验证运单支付状态和开票状�?
+      // 验证运单支付状态和开票状态
       const { data: recordData, error: checkError } = await supabase
         .from('logistics_records')
         .select('payment_status, invoice_status')
@@ -754,28 +754,28 @@ export default function PaymentRequest() {
       
       if (checkError) throw checkError;
       
-      // 检查支付状�?
+      // 检查支付状态
       if (recordData.payment_status !== 'Unpaid') {
-        const statusText = recordData.payment_status === 'Processing' ? '已申请支�? : '已完成支�?;
+        const statusText = recordData.payment_status === 'Processing' ? '已申请支付' : '已完成支付';
         throw new Error(`只有未支付状态的运单才能修改运费。当前付款状态：${statusText}`);
       }
       
-      // 检查开票状�?
+      // 检查开票状态
       if (recordData.invoice_status && recordData.invoice_status !== 'Uninvoiced') {
-        const statusText = recordData.invoice_status === 'Processing' ? '开票中' : '已开�?;
+        const statusText = recordData.invoice_status === 'Processing' ? '开票中' : '已开票';
         throw new Error(`只有未开票状态的运单才能修改运费。当前开票状态：${statusText}`);
       }
       
-      // 1. 更新所有层级合作方的金�?
+      // 1. 更新所有层级合作方的金额
       for (const cost of tempPartnerCosts) {
-        // 确保金额是数字类�?
+        // 确保金额是数字类型
         const amount = typeof cost.payable_amount === 'string' ? parseFloat(cost.payable_amount) : cost.payable_amount;
         
         const { error: updateError } = await supabase
           .from('logistics_partner_costs')
           .update({
             payable_amount: amount,
-            is_manually_modified: true,  // 标记为用户手动修�?
+            is_manually_modified: true,  // 标记为用户手动修改
             updated_at: new Date().toISOString()
           })
           .eq('logistics_record_id', editPartnerCostData.recordId)
@@ -799,14 +799,14 @@ export default function PaymentRequest() {
       
       toast({ 
         title: "成功", 
-        description: `已更�?${tempPartnerCosts.length} 个合作方的运费和司机应收` 
+        description: `已更新 ${tempPartnerCosts.length} 个合作方的运费和司机应收` 
       });
       setEditPartnerCostData(null);
       setTempPartnerCosts([]);
       setTempDriverCost(0);
       fetchReportData();
     } catch (error) {
-      console.error("保存合作方运费失�?", error);
+      console.error("保存合作方运费失败:", error);
       toast({ title: "错误", description: `保存失败: ${(error as any).message}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
@@ -815,9 +815,9 @@ export default function PaymentRequest() {
 
   /**
    * 保存合作链路修改
-   * 功能�?
+   * 功能：
    * 1. 调用RPC函数modify_logistics_record_chain_with_recalc
-   * 2. 删除旧的合作方成本记�?
+   * 2. 删除旧的合作方成本记录
    * 3. 根据新链路重新计算所有合作方成本
    * 4. 刷新数据
    */
@@ -827,7 +827,7 @@ export default function PaymentRequest() {
     setIsSaving(true);
     try {
       const selectedChain = availableChains.find(c => c.id === newChainId);
-      if (!selectedChain) throw new Error("未找到选择的合作链�?);
+      if (!selectedChain) throw new Error("未找到选择的合作链路");
       
       // 调用修改合作链路的RPC函数（包含成本重算）
       const { data, error } = await supabase.rpc('modify_logistics_record_chain_with_recalc' as any, {
@@ -859,11 +859,11 @@ export default function PaymentRequest() {
   // ==========================================================================
   
   /**
-   * 批量恢复为系统自动计�?
-   * 功能�?
-   * 1. 批量清除选中运单的手动修改标�?
+   * 批量恢复为系统自动计算
+   * 功能：
+   * 1. 批量清除选中运单的手动修改标记
    * 2. 触发成本重算
-   * 3. 恢复为系统自动计算的�?
+   * 3. 恢复为系统自动计算的值
    */
   const handleBatchResetToAuto = async () => {
     if (batchCostRecords.length === 0) return;
@@ -876,7 +876,7 @@ export default function PaymentRequest() {
     try {
       for (const record of batchCostRecords) {
         try {
-          // 检查运单状�?
+          // 检查运单状态
           const { data: recordData, error: checkError } = await supabase
             .from('logistics_records')
             .select('payment_status, invoice_status, chain_name, chain_id')
@@ -887,17 +887,17 @@ export default function PaymentRequest() {
           
           if (recordData.payment_status !== 'Unpaid') {
             failedCount++;
-            failedList.push(`${record.auto_number}(已申请或已付�?`);
+            failedList.push(`${record.auto_number}(已申请或已付款)`);
             continue;
           }
           
           if (recordData.invoice_status && recordData.invoice_status !== 'Uninvoiced') {
             failedCount++;
-            failedList.push(`${record.auto_number}(已开�?`);
+            failedList.push(`${record.auto_number}(已开票)`);
             continue;
           }
           
-          // 获取最高级合作�?
+          // 获取最高级合作方
           const { data: costs } = await supabase
             .from('logistics_partner_costs')
             .select('partner_id, level')
@@ -913,7 +913,7 @@ export default function PaymentRequest() {
           
           const highestPartner = costs[0];
           
-          // 1. 清除合作方手动修改标�?
+          // 1. 清除合作方手动修改标记
           const { error: updateError } = await supabase
             .from('logistics_partner_costs')
             .update({
@@ -934,7 +934,7 @@ export default function PaymentRequest() {
             });
           }
           
-          // 3. 恢复司机应收为系统计算�?
+          // 3. 恢复司机应收为系统计算值
           // 司机应收 = 最高级合作方应收（重新计算后的值）
           // 需要重新读取计算后的合作方金额
           const { data: recalculatedCost } = await supabase
@@ -971,7 +971,7 @@ export default function PaymentRequest() {
       });
 
       if (failedList.length > 0) {
-        console.log('失败的运�?', failedList);
+        console.log('失败的运单:', failedList);
       }
 
       setBatchModifyType(null);
@@ -988,15 +988,15 @@ export default function PaymentRequest() {
   
   /**
    * 批量修改应收
-   * 功能�?
-   * 1. 逐个修改选中运单的最高级合作方应收金�?
-   * 2. 验证运单状态（只能修改"未支�?�?未开�?的运单）
-   * 3. 显示成功和失败统�?
+   * 功能：
+   * 1. 逐个修改选中运单的最高级合作方应收金额
+   * 2. 验证运单状态（只能修改"未支付"且"未开票"的运单）
+   * 3. 显示成功和失败统计
    */
   const handleBatchModifyCost = async () => {
-    // 验证每条记录的合作方和司机金额都有效（允�?，但不允许负数或空值）
+    // 验证每条记录的合作方和司机金额都有效（允许0，但不允许负数或空值）
     const invalidRecords = batchCostRecords.filter(r => {
-      // 验证合作方金�?
+      // 验证合作方金额
       const partnerValue = r.new_amount?.toString().trim();
       if (!partnerValue && partnerValue !== '0') return true;
       const partnerNum = parseFloat(partnerValue);
@@ -1027,7 +1027,7 @@ export default function PaymentRequest() {
           const newPartnerAmount = parseFloat(record.new_amount);
           const newDriverAmount = parseFloat(record.new_driver_amount);
           
-          // 检查运单状�?
+          // 检查运单状态
           const { data: recordData, error: checkError } = await supabase
             .from('logistics_records')
             .select('payment_status, invoice_status')
@@ -1038,17 +1038,17 @@ export default function PaymentRequest() {
           
           if (recordData.payment_status !== 'Unpaid') {
             failedCount++;
-            failedList.push(`${record.auto_number}(已申请或已付�?`);
+            failedList.push(`${record.auto_number}(已申请或已付款)`);
             continue;
           }
           
           if (recordData.invoice_status && recordData.invoice_status !== 'Uninvoiced') {
             failedCount++;
-            failedList.push(`${record.auto_number}(已开�?`);
+            failedList.push(`${record.auto_number}(已开票)`);
             continue;
           }
           
-          // 获取最高级合作�?
+          // 获取最高级合作方
           const { data: costs } = await supabase
             .from('logistics_partner_costs')
             .select('partner_id, level')
@@ -1069,7 +1069,7 @@ export default function PaymentRequest() {
             .from('logistics_partner_costs')
             .update({
               payable_amount: newPartnerAmount,
-              is_manually_modified: true,  // 标记为用户手动修�?
+              is_manually_modified: true,  // 标记为用户手动修改
               updated_at: new Date().toISOString()
             })
             .eq('logistics_record_id', record.id)
@@ -1098,12 +1098,12 @@ export default function PaymentRequest() {
 
       toast({
         title: "批量修改完成",
-        description: `成功更新 ${successCount} 条运单（含合作方和司机应收），失�?${failedCount} 条`,
+        description: `成功更新 ${successCount} 条运单（含合作方和司机应收），失败 ${failedCount} 条`,
         variant: successCount > 0 ? "default" : "destructive"
       });
 
       if (failedList.length > 0) {
-        console.log('失败的运�?', failedList);
+        console.log('失败的运单:', failedList);
       }
 
       setBatchModifyType(null);
@@ -1120,11 +1120,11 @@ export default function PaymentRequest() {
 
   /**
    * 批量修改合作链路
-   * 功能�?
+   * 功能：
    * 1. 调用RPC函数batch_modify_chain
-   * 2. 批量更新运单的合作链�?
-   * 3. 自动重新计算所有受影响运单的成�?
-   * 限制：所选运单必须属于同一个项�?
+   * 2. 批量更新运单的合作链路
+   * 3. 自动重新计算所有受影响运单的成本
+   * 限制：所选运单必须属于同一个项目
    */
   const handleBatchModifyChain = async () => {
     if (!batchChainId) {
@@ -1140,7 +1140,7 @@ export default function PaymentRequest() {
 
     const selectedChain = batchChains.find(c => c.id === batchChainId);
     if (!selectedChain) {
-      toast({ title: "错误", description: "未找到选择的合作链�?, variant: "destructive" });
+      toast({ title: "错误", description: "未找到选择的合作链路", variant: "destructive" });
       return;
     }
 
@@ -1161,7 +1161,7 @@ export default function PaymentRequest() {
       });
 
       if (result.failed_records && result.failed_records.length > 0) {
-        console.log('失败的运�?', result.failed_records);
+        console.log('失败的运单:', result.failed_records);
       }
 
       setBatchModifyType(null);
@@ -1178,10 +1178,10 @@ export default function PaymentRequest() {
   };
 
   /**
-   * 打开批量修改对话�?
+   * 打开批量修改对话框
    * @param type - 'cost': 批量修改应收 | 'chain': 批量修改链路
-   * 功能�?
-   * 1. 验证是否有选中的运�?
+   * 功能：
+   * 1. 验证是否有选中的运单
    * 2. 准备对话框数据（运单列表或可用链路）
    * 3. 显示对应的批量修改对话框
    */
@@ -1194,7 +1194,7 @@ export default function PaymentRequest() {
     setBatchModifyType(type);
 
     if (type === 'cost') {
-      // 准备批量修改应收的运单数�?
+      // 准备批量修改应收的运单数据
       const selectedRecords = reportData?.records.filter((r: any) => selection.selectedIds.has(r.id)) || [];
       
       const recordsWithCost = await Promise.all(
@@ -1206,7 +1206,7 @@ export default function PaymentRequest() {
               )
             : null;
           
-          // 获取司机应收金额（使用payable_cost字段�?
+          // 获取司机应收金额（使用payable_cost字段）
           const driverPayableCost = record.payable_cost || 0;
           
           return {
@@ -1224,7 +1224,7 @@ export default function PaymentRequest() {
       
       setBatchCostRecords(recordsWithCost);
     } else if (type === 'chain') {
-      // 获取选中运单的项目（假设都是同一项目�?
+      // 获取选中运单的项目（假设都是同一项目）
       const selectedRecords = reportData?.records.filter((r: any) => selection.selectedIds.has(r.id));
       if (selectedRecords && selectedRecords.length > 0) {
         const firstRecord = selectedRecords[0];
@@ -1252,7 +1252,7 @@ export default function PaymentRequest() {
   // ==========================================================================
   
   /**
-   * 日期范围选择器的�?
+   * 日期范围选择器的值
    */
   const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? { from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined } : undefined;
   const displayedPartners = useMemo(() => {
@@ -1282,7 +1282,7 @@ export default function PaymentRequest() {
   }, [reportData, allPartners, uiFilters.partnerId, showAllLevels]);
 
   /**
-   * 判断当前页是否全�?
+   * 判断当前页是否全选
    */
   const isAllOnPageSelected = useMemo(() => {
     if (!sortedRecords || sortedRecords.length === 0) return false;
@@ -1296,21 +1296,21 @@ export default function PaymentRequest() {
   const selectionCount = useMemo(() => { if (selection.mode === 'all_filtered') return reportData?.count || 0; return selection.selectedIds.size; }, [selection, reportData?.count]);
 
   // ==========================================================================
-  // 区域11: 加载状态处�?
+  // 区域11: 加载状态处理
   // ==========================================================================
   if (loading && !reportData && isStale) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
 
   // ==========================================================================
   // 区域12: JSX 渲染
   // ==========================================================================
-  // 页面结构�?
-  // 1. 页面头部（标�?+ 一键申请付款按钮）
+  // 页面结构：
+  // 1. 页面头部（标题 + 一键申请付款按钮）
   // 2. 筛选器（项目、日期、合作方、司机、支付状态）
-  // 3. 选择提示条（当前页选择/跨页选择�?
-  // 4. 批量操作按钮条（批量修改应收/链路�?
+  // 3. 选择提示条（当前页选择/跨页选择）
+  // 4. 批量操作按钮条（批量修改应收/链路）
   // 5. 运单列表表格
   // 6. 分页组件
-  // 7. 各种对话框（运单详情、付款预览、编辑对话框�?
+  // 7. 各种对话框（运单详情、付款预览、编辑对话框）
   // ==========================================================================
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -1326,7 +1326,7 @@ export default function PaymentRequest() {
       
       {/* ===== 页面头部 ===== */}
       <PageHeader 
-        title="合作方付款申�? 
+        title="合作方付款申请" 
         description="向合作方申请支付运费"
         icon={Banknote}
         iconColor="text-green-600"
@@ -1355,7 +1355,7 @@ export default function PaymentRequest() {
             </Button>
             <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
               {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-              一键申请付�?({selectionCount})
+              一键申请付款 ({selectionCount})
             </Button>
           </div>
         )}
@@ -1365,7 +1365,7 @@ export default function PaymentRequest() {
         {/* ===== 筛选器区域 ===== */}
         <Card className="border-muted/40 shadow-sm">
           <CardContent className="p-4">
-            {/* 常规筛选区�?*/}
+            {/* 常规筛选区域 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
               <div className="flex flex-col gap-1.5">
                 <Label>项目</Label>
@@ -1374,7 +1374,7 @@ export default function PaymentRequest() {
                     <SelectValue/>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">所有项�?/SelectItem>
+                    <SelectItem value="all">所有项目</SelectItem>
                     {Array.isArray(projects) && projects.map(p => (
                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
@@ -1388,10 +1388,10 @@ export default function PaymentRequest() {
               </div>
               
               <div className="flex flex-col gap-1.5">
-                <Label>支付状�?/Label>
+                <Label>支付状态</Label>
                 <Select value={uiFilters.paymentStatus} onValueChange={(v) => handleFilterChange('paymentStatus', v)}>
                   <SelectTrigger className="h-10">
-                    <SelectValue placeholder="选择状�?.." />
+                    <SelectValue placeholder="选择状态..." />
                   </SelectTrigger>
                   <SelectContent>
                     {PAYMENT_STATUS_OPTIONS.map(option => (
@@ -1409,7 +1409,7 @@ export default function PaymentRequest() {
               </div>
             </div>
             
-            {/* 展开/收起高级筛选按�?*/}
+            {/* 展开/收起高级筛选按钮 */}
             <div className="mt-4 flex justify-center">
               <Button
                 variant="ghost"
@@ -1420,26 +1420,26 @@ export default function PaymentRequest() {
                 {showAdvanced ? (
                   <>
                     <ChevronUp className="mr-1 h-4 w-4" />
-                    收起高级筛�?
+                    收起高级筛选
                   </>
                 ) : (
                   <>
                     <ChevronDown className="mr-1 h-4 w-4" />
-                    展开高级筛�?
+                    展开高级筛选
                   </>
                 )}
               </Button>
             </div>
             
-            {/* 高级筛选区�?*/}
+            {/* 高级筛选区域 */}
             {showAdvanced && (
               <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* 合作方筛�?*/}
+                  {/* 合作方筛选 */}
                   <div className="space-y-2">
                     <Label htmlFor="partner" className="text-sm font-medium text-purple-800 flex items-center gap-1">
                       <Users className="h-4 w-4" />
-                      合作�?
+                      合作方
                     </Label>
                     <Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}>
                       <SelectTrigger id="partner" className="h-10">
@@ -1448,13 +1448,13 @@ export default function PaymentRequest() {
                       <SelectContent>
                         <SelectItem value="all">所有合作方</SelectItem>
                         {Array.isArray(allPartners) && allPartners.map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.name} ({p.level}�?</SelectItem>
+                          <SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   
-                  {/* 司机筛�?*/}
+                  {/* 司机筛选 */}
                   <div className="space-y-2">
                     <Label htmlFor="driver" className="text-sm font-medium text-purple-800 flex items-center gap-1">
                       <Users className="h-4 w-4" />
@@ -1481,11 +1481,11 @@ export default function PaymentRequest() {
                     </div>
                   </div>
                   
-                  {/* 车牌号筛�?*/}
+                  {/* 车牌号筛选 */}
                   <div className="space-y-2">
                     <Label htmlFor="license" className="text-sm font-medium text-purple-800 flex items-center gap-1">
                       <Hash className="h-4 w-4" />
-                      车牌�?
+                      车牌号
                     </Label>
                     <div className="flex gap-1">
                       <Input
@@ -1508,7 +1508,7 @@ export default function PaymentRequest() {
                     </div>
                   </div>
                   
-                  {/* 电话筛�?*/}
+                  {/* 电话筛选 */}
                   <div className="space-y-2">
                     <Label htmlFor="phone" className="text-sm font-medium text-purple-800 flex items-center gap-1">
                       <Phone className="h-4 w-4" />
@@ -1535,7 +1535,7 @@ export default function PaymentRequest() {
                     </div>
                   </div>
                   
-                  {/* 运单编号筛�?*/}
+                  {/* 运单编号筛选 */}
                   <div className="space-y-2">
                     <Label htmlFor="waybill" className="text-sm font-medium text-purple-800 flex items-center gap-1">
                       <FileText className="h-4 w-4" />
@@ -1562,11 +1562,11 @@ export default function PaymentRequest() {
                       </Button>
                     </div>
                     <div className="text-xs text-purple-600">
-                      💡 支持搜索本平台和其他平台运单�?
+                      💡 支持搜索本平台和其他平台运单号
                     </div>
                   </div>
                   
-                  {/* 其他平台名称筛�?*/}
+                  {/* 其他平台名称筛选 */}
                   <div className="space-y-2">
                     <Label htmlFor="platform" className="text-sm font-medium text-purple-800 flex items-center gap-1">
                       <Building2 className="h-4 w-4" />
@@ -1577,8 +1577,8 @@ export default function PaymentRequest() {
                         <SelectValue placeholder="选择平台" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">所有平�?/SelectItem>
-                        <SelectItem value="本平�?>本平�?/SelectItem>
+                        <SelectItem value="all">所有平台</SelectItem>
+                        <SelectItem value="本平台">本平台</SelectItem>
                         <SelectItem value="中科智运">中科智运</SelectItem>
                         <SelectItem value="中工智云">中工智云</SelectItem>
                         <SelectItem value="可乐公司">可乐公司</SelectItem>
@@ -1590,7 +1590,7 @@ export default function PaymentRequest() {
                             </SelectItem>
                             {platformOptions.map((platform) => (
                               <SelectItem key={platform.platform_name} value={platform.platform_name}>
-                                {platform.platform_name} ({platform.usage_count}�?
+                                {platform.platform_name} ({platform.usage_count}条)
                               </SelectItem>
                             ))}
                           </>
@@ -1598,7 +1598,7 @@ export default function PaymentRequest() {
                       </SelectContent>
                     </Select>
                     <div className="text-xs text-purple-600">
-                      📊 固定平台: 5�?{platformOptions.length > 0 && `| 其他: ${platformOptions.length}个`}
+                      📊 固定平台: 5个 {platformOptions.length > 0 && `| 其他: ${platformOptions.length}个`}
                     </div>
                   </div>
                 </div>
@@ -1608,17 +1608,17 @@ export default function PaymentRequest() {
         </Card>
 
       {/* ===== 选择提示区域 ===== */}
-      {/* 提示1: 当前页全选提�?-> 可选择跨页全�?*/}
+      {/* 提示1: 当前页全选提示 -> 可选择跨页全选 */}
       {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && isAllOnPageSelected && reportData?.count > (reportData?.records?.length || 0) && (
         <div className="flex items-center justify-center gap-4 p-3 text-sm font-medium text-center bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-blue-800 rounded-lg shadow-sm">
-          <span>已选择当前页的所�?<b className="text-blue-600">{reportData?.records?.length}</b> 条记录�?/span>
+          <span>已选择当前页的所有 <b className="text-blue-600">{reportData?.records?.length}</b> 条记录。</span>
           <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700 font-semibold" onClick={() => setSelection({ mode: 'all_filtered', selectedIds: new Set() })}>选择全部 <b>{reportData?.count}</b> 条匹配的记录</Button>
         </div>
       )}
-      {/* 提示2: 跨页全选提�?*/}
+      {/* 提示2: 跨页全选提示 */}
       {selection.mode === 'all_filtered' && (
         <div className="flex items-center justify-center gap-4 p-3 text-sm font-medium text-center bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-800 rounded-lg shadow-sm">
-          <span>已选择全部 <b className="text-green-600">{reportData?.count}</b> 条匹配的记录�?/span>
+          <span>已选择全部 <b className="text-green-600">{reportData?.count}</b> 条匹配的记录。</span>
           <Button variant="link" className="p-0 h-auto text-green-600 hover:text-green-700 font-semibold" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
         </div>
       )}
@@ -1627,18 +1627,18 @@ export default function PaymentRequest() {
       {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && (
         <div className="flex items-center justify-between gap-4 p-3 text-sm font-medium text-center bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 text-blue-800 rounded-lg shadow-sm">
           <div className="flex items-center gap-4">
-            <span>已选择 <b className="text-blue-600">{selection.selectedIds.size}</b> 条记�?/span>
+            <span>已选择 <b className="text-blue-600">{selection.selectedIds.size}</b> 条记录</span>
             <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700 font-semibold" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
           </div>
         </div>
       )}
 
-      {/* ===== 主数据表格区�?===== */}
+      {/* ===== 主数据表格区域 ===== */}
       {isStale ? ( <StaleDataPrompt /> ) : (
         <>
           <Card className="shadow-sm">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gradient-to-r from-background to-muted/10 border-b">
-                <div><CardTitle className="text-lg">运单财务明细</CardTitle><p className="text-sm text-muted-foreground">{showAllLevels ? '显示所有层级的合作�? : '仅显示最高级合作�?}</p></div>
+                <div><CardTitle className="text-lg">运单财务明细</CardTitle><p className="text-sm text-muted-foreground">{showAllLevels ? '显示所有层级的合作方' : '仅显示最高级合作方'}</p></div>
                 <Button variant="outline" size="sm" onClick={() => setShowAllLevels(!showAllLevels)} className="w-full sm:w-auto whitespace-nowrap hover:bg-primary/10 transition-colors">
                   {showAllLevels ? '仅显示最高级' : '展示全部级别'}
                 </Button>
@@ -1664,7 +1664,7 @@ export default function PaymentRequest() {
                         </div>
                       </TableHead>
                       <TableHead className="whitespace-nowrap">路线</TableHead>
-                      <TableHead className="whitespace-nowrap">�?卸数�?/TableHead>
+                      <TableHead className="whitespace-nowrap">装/卸数量</TableHead>
                       <TableHead className="whitespace-nowrap cursor-pointer hover:bg-muted/50" onClick={() => handleSort('loading_date')}>
                         <div className="flex items-center gap-1">
                           日期
@@ -1677,9 +1677,9 @@ export default function PaymentRequest() {
                           {sortField === 'payable_cost' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
                         </div>
                       </TableHead>
-                      {Array.isArray(displayedPartners) && displayedPartners.map(p => <TableHead key={p.id} className="text-center whitespace-nowrap">{p.name}<div className="text-xs text-muted-foreground">({p.level}�?</div></TableHead>)}
+                      {Array.isArray(displayedPartners) && displayedPartners.map(p => <TableHead key={p.id} className="text-center whitespace-nowrap">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}
                       <TableHead className="whitespace-nowrap">合作链路</TableHead>
-                      <TableHead className="whitespace-nowrap">支付状�?/TableHead>
+                      <TableHead className="whitespace-nowrap">支付状态</TableHead>
                       <TableHead className="whitespace-nowrap text-center">操作</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
@@ -1710,7 +1710,7 @@ export default function PaymentRequest() {
                                           handleEditPartnerCost(r);
                                         }}
                                         className="h-8 px-2 hover:bg-blue-50 hover:text-blue-600 transition-all hover:shadow-sm"
-                                        title="修改合作方运�?
+                                        title="修改合作方运费"
                                       >
                                         <EditIcon className="h-3.5 w-3.5" />
                                       </Button>
@@ -1728,7 +1728,7 @@ export default function PaymentRequest() {
                                       </Button>
                                     </>
                                   ) : (
-                                    <span className="text-xs text-muted-foreground" title={`不可编辑�?{getUneditableReason(r)}`}>
+                                    <span className="text-xs text-muted-foreground" title={`不可编辑：${getUneditableReason(r)}`}>
                                       {getUneditableReason(r)}
                                     </span>
                                   )}
@@ -1766,20 +1766,20 @@ export default function PaymentRequest() {
         </Pagination>
       )}
 
-      {/* ===== 对话框区�?===== */}
-      {/* 对话�?: 运单详情对话�?*/}
+      {/* ===== 对话框区域 ===== */}
+      {/* 对话框1: 运单详情对话框 */}
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
           {viewingRecord && (
             <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
               <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '未指�?}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '未指定'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{formatDate(viewingRecord.loading_date)}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">支付状�?/Label><p>{getPaymentStatusBadge(viewingRecord.payment_status)}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p>{getPaymentStatusBadge(viewingRecord.payment_status)}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">车牌�?/Label><p>{viewingRecord.license_plate || '未填�?}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填�?}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{(viewingRecord as any).transport_type}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div>
@@ -1788,30 +1788,30 @@ export default function PaymentRequest() {
               <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{formatCurrency(viewingRecord.current_cost)}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono">{formatCurrency(viewingRecord.extra_cost)}</p></div>
               <div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{formatCurrency(viewingRecord.payable_cost)}</p></div>
-              <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{viewingRecord.remarks || '�?}</p></div>
+              <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{viewingRecord.remarks || '无'}</p></div>
             </div>
           )}
           <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button></div>
         </DialogContent>
       </Dialog>
 
-      {/* 对话�?: 付款申请预览对话�?*/}
+      {/* 对话框2: 付款申请预览对话框 */}
       <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>付款申请预览</DialogTitle>
-            <DialogDescription>将为以下合作方生成付款申请，并更�?{paymentPreviewData?.processed_record_ids.length || 0} 条运单状态为"已申请支�?�?/DialogDescription>
+            <DialogDescription>将为以下合作方生成付款申请，并更新 {paymentPreviewData?.processed_record_ids.length || 0} 条运单状态为"已申请支付"。</DialogDescription>
           </DialogHeader>
           {paymentPreviewData && (
             <div className="max-h-[60vh] overflow-y-auto p-1">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>付款�?(收款�?</TableHead>
+                    <TableHead>付款方 (收款人)</TableHead>
                     <TableHead>收款银行账号</TableHead>
                     <TableHead>开户行</TableHead>
                     <TableHead>支行网点</TableHead>
-                    <TableHead className="text-right">运单�?/TableHead>
+                    <TableHead className="text-right">运单数</TableHead>
                     <TableHead className="text-right">合计金额</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1834,13 +1834,13 @@ export default function PaymentRequest() {
             <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)} disabled={isSaving}>取消</Button>
             <Button onClick={handleConfirmAndSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              确认并生成申�?
+              确认并生成申请
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 对话�?: 单个修改合作方运费对话框 */}
+      {/* 对话框3: 单个修改合作方运费对话框 */}
       <Dialog open={!!editPartnerCostData} onOpenChange={(open) => !open && setEditPartnerCostData(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader className="pb-4 border-b">
@@ -1848,7 +1848,7 @@ export default function PaymentRequest() {
               <div className="p-2 bg-blue-100 rounded-lg">
                 <EditIcon className="h-5 w-5 text-blue-600" />
               </div>
-              修改合作方运�?
+              修改合作方运费
             </DialogTitle>
             <DialogDescription className="text-base">运单编号: <span className="font-mono font-semibold">{editPartnerCostData?.recordNumber}</span></DialogDescription>
           </DialogHeader>
@@ -1865,7 +1865,7 @@ export default function PaymentRequest() {
                         <Label className="text-xs font-medium text-green-700">司机应收</Label>
                         <p className="font-medium text-green-900">基础费用</p>
                         <span className="text-xs px-2 py-0.5 rounded-full mt-1 inline-block bg-green-100 text-green-700">
-                          直接支付给司�?
+                          直接支付给司机
                         </span>
                       </div>
                       <div>
@@ -1877,9 +1877,9 @@ export default function PaymentRequest() {
                           value={tempDriverCost.toString()}
                           onChange={(e) => {
                             const value = e.target.value;
-                            // 允许输入空、负号、数字和小数点（不立即parseFloat�?
+                            // 允许输入空、负号、数字和小数点（不立即parseFloat）
                             if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
-                              setTempDriverCost(value as any);  // 临时保存字符�?
+                              setTempDriverCost(value as any);  // 临时保存字符串
                             }
                           }}
                           onBlur={(e) => {
@@ -1906,12 +1906,12 @@ export default function PaymentRequest() {
                       <CardContent className="p-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label className="text-xs text-muted-foreground">合作方名�?/Label>
+                            <Label className="text-xs text-muted-foreground">合作方名称</Label>
                             <p className="font-medium">{cost.partner_name}</p>
                             <span className={`text-xs px-2 py-0.5 rounded-full mt-1 inline-block ${
                               isHighest ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
                             }`}>
-                              {cost.level}�?{isHighest && '(最高级)'}
+                              {cost.level}级 {isHighest && '(最高级)'}
                             </span>
                           </div>
                           <div>
@@ -1923,11 +1923,11 @@ export default function PaymentRequest() {
                               value={typeof cost.payable_amount === 'number' ? cost.payable_amount.toString() : cost.payable_amount}
                               onChange={(e) => {
                                 const value = e.target.value;
-                                // 允许输入空、负号、数字和小数点（不立即parseFloat�?
+                                // 允许输入空、负号、数字和小数点（不立即parseFloat）
                                 if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
                                   const newCosts = [...tempPartnerCosts];
                                   const targetIndex = newCosts.findIndex(c => c.partner_id === cost.partner_id);
-                                  newCosts[targetIndex].payable_amount = value as any;  // 临时保存字符�?
+                                  newCosts[targetIndex].payable_amount = value as any;  // 临时保存字符串
                                   setTempPartnerCosts(newCosts);
                                 }
                               }}
@@ -1956,11 +1956,11 @@ export default function PaymentRequest() {
                 })}
                 <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                   <p className="text-xs text-yellow-800">
-                    <strong>说明�?/strong>
-                    <br />�?🟢 绿色边框：司机应收金�?
-                    <br />�?🔵 蓝色边框：最高级合作方应收（通常是直接客户）
-                    <br />�?🟣 紫色边框：低层级合作方应收（中间商）
-                    <br />�?所有金额都可以独立修改
+                    <strong>说明：</strong>
+                    <br />• 🟢 绿色边框：司机应收金额
+                    <br />• 🔵 蓝色边框：最高级合作方应收（通常是直接客户）
+                    <br />• 🟣 紫色边框：低层级合作方应收（中间商）
+                    <br />• 所有金额都可以独立修改
                   </p>
                 </div>
               </div>
@@ -1982,7 +1982,7 @@ export default function PaymentRequest() {
             </ConfirmDialog>
             <ConfirmDialog
               title="确认修改应收"
-              description={`确定要修改运�?${editPartnerCostData?.recordNumber} 的应收金额吗？此操作将更新司机应收和所有合作方的费用。`}
+              description={`确定要修改运单 ${editPartnerCostData?.recordNumber} 的应收金额吗？此操作将更新司机应收和所有合作方的费用。`}
               onConfirm={handleSavePartnerCost}
             >
               <Button disabled={isSaving}>
@@ -1994,7 +1994,7 @@ export default function PaymentRequest() {
         </DialogContent>
       </Dialog>
 
-      {/* 对话�?: 单个修改合作链路对话�?*/}
+      {/* 对话框4: 单个修改合作链路对话框 */}
       <Dialog open={!!editChainData} onOpenChange={(open) => {
         if (!open) {
           setEditChainData(null);
@@ -2052,7 +2052,7 @@ export default function PaymentRequest() {
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                 <p className="text-xs text-blue-800">
-                  <strong>提示�?/strong>修改合作链路后，系统将自动重新计算该运单的所有合作方成本�?
+                  <strong>提示：</strong>修改合作链路后，系统将自动重新计算该运单的所有合作方成本。
                 </p>
               </div>
             </div>
@@ -2089,7 +2089,7 @@ export default function PaymentRequest() {
         </DialogContent>
       </Dialog>
 
-      {/* 对话�?: 批量修改应收对话�?*/}
+      {/* 对话框5: 批量修改应收对话框 */}
       <Dialog open={batchModifyType === 'cost'} onOpenChange={(open) => {
         if (!open) {
           setBatchModifyType(null);
@@ -2112,7 +2112,7 @@ export default function PaymentRequest() {
                 <Card key={record.id} className="border-l-4 border-l-green-500">
                   <CardContent className="p-4">
                     <div className="space-y-4">
-                      {/* 基本信息�?*/}
+                      {/* 基本信息行 */}
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                           <Label className="text-xs text-muted-foreground">运单编号</Label>
@@ -2128,7 +2128,7 @@ export default function PaymentRequest() {
                         </div>
                       </div>
                       
-                      {/* 合作方应收金�?*/}
+                      {/* 合作方应收金额 */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 p-3 rounded-md">
                         <div>
                           <Label className="text-xs font-medium text-blue-700">合作方原应收</Label>
@@ -2159,7 +2159,7 @@ export default function PaymentRequest() {
                             }}
                             disabled={isBatchModifying}
                             className="font-mono h-9 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            placeholder="输入金额（可以是0�?
+                            placeholder="输入金额（可以是0）"
                           />
                         </div>
                       </div>
@@ -2167,11 +2167,11 @@ export default function PaymentRequest() {
                       {/* 司机应收金额 */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-green-50 p-3 rounded-md">
                         <div>
-                          <Label className="text-xs font-medium text-green-700">司机原应�?/Label>
+                          <Label className="text-xs font-medium text-green-700">司机原应收</Label>
                           <p className="text-sm font-mono text-green-900">¥{record.original_driver_amount.toFixed(2)}</p>
                         </div>
                         <div>
-                          <Label htmlFor={`driver-amount-${index}`} className="text-xs font-medium text-green-700">司机新应�?(¥)</Label>
+                          <Label htmlFor={`driver-amount-${index}`} className="text-xs font-medium text-green-700">司机新应收 (¥)</Label>
                           <Input
                             id={`driver-amount-${index}`}
                             type="text"
@@ -2195,7 +2195,7 @@ export default function PaymentRequest() {
                             }}
                             disabled={isBatchModifying}
                             className="font-mono h-9 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            placeholder="输入金额（可以是0�?
+                            placeholder="输入金额（可以是0）"
                           />
                         </div>
                       </div>
@@ -2206,11 +2206,11 @@ export default function PaymentRequest() {
             </div>
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mt-4">
               <p className="text-xs text-yellow-800">
-                <strong>注意�?/strong>
-                <br />�?同时修改最高级合作方应收和司机应收
-                <br />�?只能修改"未支�?�?未开�?的运�?
-                <br />�?已申请付款或已开票的运单将自动跳�?
-                <br />�?金额可以设置�?（表示无需支付�?
+                <strong>注意：</strong>
+                <br />• 同时修改最高级合作方应收和司机应收
+                <br />• 只能修改"未支付"且"未开票"的运单
+                <br />• 已申请付款或已开票的运单将自动跳过
+                <br />• 金额可以设置为0（表示无需支付）
               </p>
             </div>
           </div>
@@ -2227,29 +2227,29 @@ export default function PaymentRequest() {
             </Button>
             <ConfirmDialog
               title="确认批量恢复默认"
-              description={`确定要将选中�?${batchCostRecords.length} 条运单的应收金额恢复为系统自动计算吗？此操作将清除手动修改标记，重新计算合作方应收，并将司机应收恢复为与合作方应收一致。`}
+              description={`确定要将选中的 ${batchCostRecords.length} 条运单的应收金额恢复为系统自动计算吗？此操作将清除手动修改标记，重新计算合作方应收，并将司机应收恢复为与合作方应收一致。`}
               onConfirm={handleBatchResetToAuto}
             >
               <Button variant="secondary" disabled={isBatchModifying}>
                 {isBatchModifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "🔄"}
-                批量恢复默认 ({batchCostRecords.length}�?
+                批量恢复默认 ({batchCostRecords.length}条)
               </Button>
             </ConfirmDialog>
             <ConfirmDialog
               title="确认批量修改应收"
-              description={`确定要批量修�?${batchCostRecords.length} 条运单的应收金额吗？此操作将同时更新合作方应收和司机应收。`}
+              description={`确定要批量修改 ${batchCostRecords.length} 条运单的应收金额吗？此操作将同时更新合作方应收和司机应收。`}
               onConfirm={handleBatchModifyCost}
             >
               <Button disabled={isBatchModifying}>
                 {isBatchModifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                确认修改 ({batchCostRecords.length}�?
+                确认修改 ({batchCostRecords.length}条)
               </Button>
             </ConfirmDialog>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 对话�?: 批量修改合作链路对话�?*/}
+      {/* 对话框6: 批量修改合作链路对话框 */}
       <Dialog open={batchModifyType === 'chain'} onOpenChange={(open) => {
         if (!open) {
           setBatchModifyType(null);
@@ -2265,7 +2265,7 @@ export default function PaymentRequest() {
               </div>
               批量修改合作链路
             </DialogTitle>
-            <DialogDescription>已选择 {selection.selectedIds.size} 条运�?/DialogDescription>
+            <DialogDescription>已选择 {selection.selectedIds.size} 条运单</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -2294,11 +2294,11 @@ export default function PaymentRequest() {
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
               <p className="text-xs text-blue-800">
-                <strong>提示�?/strong>
-                <br />�?修改链路后将自动重新计算所有合作方成本
-                <br />�?只能修改"未支�?�?未开�?的运�?
-                <br />�?已申请付款或已开票的运单将被跳过
-                <br />�?所选运单必须属于同一个项�?
+                <strong>提示：</strong>
+                <br />• 修改链路后将自动重新计算所有合作方成本
+                <br />• 只能修改"未支付"且"未开票"的运单
+                <br />• 已申请付款或已开票的运单将被跳过
+                <br />• 所选运单必须属于同一个项目
               </p>
             </div>
           </div>
@@ -2316,7 +2316,7 @@ export default function PaymentRequest() {
             </Button>
             <ConfirmDialog
               title="确认批量修改链路"
-              description={`确定要将选中�?${selection.selectedIds.size} 条运单的合作链路修改�?${batchChains.find(c => c.id === batchChainId)?.chain_name}"吗？此操作将自动重新计算所有合作方成本。`}
+              description={`确定要将选中的 ${selection.selectedIds.size} 条运单的合作链路修改为"${batchChains.find(c => c.id === batchChainId)?.chain_name}"吗？此操作将自动重新计算所有合作方成本。`}
               onConfirm={handleBatchModifyChain}
             >
               <Button disabled={isBatchModifying || !batchChainId}>
