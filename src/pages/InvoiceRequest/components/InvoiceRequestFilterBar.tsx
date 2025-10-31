@@ -125,7 +125,8 @@ export function InvoiceRequestFilterBar({
               <SelectContent>
                 <SelectItem value="all">全部状态</SelectItem>
                 <SelectItem value="Uninvoiced">未开票</SelectItem>
-                <SelectItem value="Processing">开票中</SelectItem>
+                <SelectItem value="Processing">已申请开票</SelectItem>
+                <SelectItem value="Approved">开票审核通过</SelectItem>
                 <SelectItem value="Invoiced">已开票</SelectItem>
               </SelectContent>
             </Select>

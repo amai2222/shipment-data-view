@@ -126,7 +126,8 @@ const INITIAL_INVOICE_FILTERS: InvoiceFilters = {
 const INVOICE_STATUS_OPTIONS = [ 
   { value: 'all', label: '所有状态' }, 
   { value: 'Uninvoiced', label: '未开票' }, 
-  { value: 'Processing', label: '开票中' }, 
+  { value: 'Processing', label: '已申请开票' }, 
+  { value: 'Approved', label: '开票审核通过' }, 
   { value: 'Invoiced', label: '已开票' }, 
 ];
 
@@ -203,11 +204,13 @@ export default function InvoiceRequest() {
       if (activeFilters.invoiceStatus && activeFilters.invoiceStatus !== 'all') {
         const statusMap: { [key: string]: string } = {
           'Uninvoiced': 'Uninvoiced',
-          'Processing': 'Processing', 
+          'Processing': 'Processing',
+          'Approved': 'Approved',
           'Invoiced': 'Invoiced',
           '已开票': 'Invoiced',
           '未开票': 'Uninvoiced',
-          '开票中': 'Processing'
+          '已申请开票': 'Processing',
+          '开票审核通过': 'Approved'
         };
         const mappedStatus = statusMap[activeFilters.invoiceStatus] || activeFilters.invoiceStatus;
         statusArray = [mappedStatus];
@@ -356,9 +359,11 @@ export default function InvoiceRequest() {
       case 'Uninvoiced':
         return <Badge variant="secondary" className="bg-gray-100">未开票</Badge>;
       case 'Processing':
-        return <Badge variant="default" className="bg-yellow-500">申请中</Badge>;
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">已申请开票</Badge>;
+      case 'Approved':
+        return <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50">开票审核通过</Badge>;
       case 'Invoiced':
-        return <Badge variant="default" className="bg-green-500">已开票</Badge>;
+        return <Badge variant="outline" className="border-green-600 text-white bg-green-600">已开票</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
