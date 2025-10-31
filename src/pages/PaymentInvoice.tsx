@@ -146,10 +146,9 @@ export default function PaymentInvoice() {
 
   const getStatusBadge = (status: PaymentRequest['status']) => {
     switch (status) {
-      case 'Pending': return <Badge variant="secondary">待审批</Badge>;
-      case 'Approved': return <Badge variant="default">已审批</Badge>;
-      case 'Paid': return <Badge variant="outline">已支付</Badge>;
-      case 'Rejected': return <Badge variant="destructive">已驳回</Badge>;
+      case 'Pending': return <Badge variant="secondary">待审核</Badge>;
+      case 'Approved': return <Badge variant="default">已审批待支付</Badge>;
+      case 'Paid': return <Badge variant="outline" className="border-green-600 text-white bg-green-600">已支付</Badge>;
       default: return <Badge>{status}</Badge>;
     }
   };

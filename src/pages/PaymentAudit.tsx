@@ -1512,7 +1512,7 @@ export default function PaymentAudit() {
                   >
                     {isBatchOperating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                     批量取消审批
-                  </Button>
+                    </Button>
                 </ConfirmDialog>
 
                 {/* 一键作废按钮 - 仅管理员可见 - 红色 */}
@@ -1575,7 +1575,7 @@ export default function PaymentAudit() {
                             </TableRow>
                           )}
                           
-                          <TableRow 
+                      <TableRow 
                         key={req.id} 
                         data-state={selection.selectedIds.has(req.id) ? "selected" : undefined}
                         className="hover:bg-muted/50"

@@ -8,17 +8,13 @@ export const PAYMENT_REQUEST_STATUS_CONFIG = {
   Pending: { label: '待审核', variant: 'secondary' as const },
   Approved: { label: '已审批待支付', variant: 'default' as const },
   Paid: { label: '已支付', variant: 'outline' as const, className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
-  Rejected: { label: '已驳回', variant: 'destructive' as const },
-  Cancelled: { label: '已作废', variant: 'destructive' as const },
 };
 
 // 开票申请单状态配置
 export const INVOICE_REQUEST_STATUS_CONFIG = {
   Pending: { label: '待审核', variant: 'secondary' as const },
-  Approved: { label: '已审批', variant: 'default' as const },
-  Completed: { label: '已完成', variant: 'outline' as const },
-  Rejected: { label: '已拒绝', variant: 'destructive' as const },
-  Voided: { label: '已作废', variant: 'destructive' as const },
+  Approved: { label: '已审批待开票', variant: 'default' as const },
+  Completed: { label: '已开票', variant: 'outline' as const, className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
 };
 
 // 通用状态配置（保持向后兼容）
@@ -28,7 +24,6 @@ export const STATUS_CONFIG = {
   
   // 开票申请状态
   Completed: { label: '已完成', variant: 'outline' as const },
-  Voided: { label: '已作废', variant: 'destructive' as const },
   
   // 运单付款/开票状态
   Paid: { label: '已付款', variant: 'outline' as const },

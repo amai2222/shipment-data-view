@@ -132,7 +132,7 @@ export default function InvoiceRequestManagement() {
     waybillNumber: '',       // 运单编号
     driverName: '',          // 司机姓名
     loadingDate: null as Date | null,  // 装货日期
-    status: '',              // 开票申请单状态
+    status: 'Approved',      // 默认筛选"已审批待开票"
     projectId: '',           // 项目ID
     licensePlate: '',        // 车牌号
     phoneNumber: '',         // 电话
@@ -193,7 +193,7 @@ export default function InvoiceRequestManagement() {
       waybillNumber: '',
       driverName: '',
       loadingDate: null,
-      status: '',
+      status: 'Approved', // 保持默认筛选"已审批待开票"
       projectId: '',
       licensePlate: '',
       phoneNumber: '',
@@ -551,6 +551,18 @@ export default function InvoiceRequestManagement() {
     return invoiceRequests.every(req => selection.selectedIds.has(req.id));
   }, [invoiceRequests, selection.selectedIds]);
 
+  // 对申请单按状态分组排序：已审批待开票 > 已开票 > 待审核
+  const groupedRequests = useMemo(() => {
+    const statusOrder = { 'Approved': 1, 'Completed': 2, 'Pending': 3 };
+    return [...invoiceRequests].sort((a, b) => {
+      const orderA = statusOrder[a.status as keyof typeof statusOrder] || 99;
+      const orderB = statusOrder[b.status as keyof typeof statusOrder] || 99;
+      if (orderA !== orderB) return orderA - orderB;
+      // 同状态按时间倒序
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [invoiceRequests]);
+
   // 分页处理函数
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -566,6 +578,44 @@ export default function InvoiceRequestManagement() {
   // 批量操作函数
   // 批量开票
   const handleBatchInvoice = async () => {
+    if (selection.selectedIds.size === 0) return;
+    
+    setIsBatchProcessing(true);
+    try {
+      const selectedRequestNumbers = invoiceRequests
+        .filter(r => selection.selectedIds.has(r.id))
+        .map(r => r.request_number);
+      
+      // 调用批量开票函数
+      const { data, error } = await supabase.rpc('batch_complete_invoice_requests', {
+        p_request_numbers: selectedRequestNumbers
+      });
+
+      if (error) throw error;
+
+      const result = data as { success: boolean; message: string; failed_count: number };
+      toast({ 
+        title: "批量开票完成", 
+        description: result.message,
+        variant: result.failed_count > 0 ? "destructive" : "default"
+      });
+      
+      loadInvoiceRequests();
+      setSelection({ mode: 'none', selectedIds: new Set() });
+    } catch (error) {
+      console.error('批量开票失败:', error);
+      toast({ 
+        title: "批量开票失败", 
+        description: error instanceof Error ? error.message : '未知错误', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  // 旧的实现（已废弃）
+  const handleBatchInvoice_OLD = async () => {
     if (selection.selectedIds.size === 0) return;
     
     setIsBatchProcessing(true);
@@ -635,7 +685,7 @@ export default function InvoiceRequestManagement() {
     }
   };
 
-  // 批量取消付款（回滚开票状态到已审批）
+  // 批量取消开票（回滚开票状态到已审批待开票）
   const handleBatchCancelInvoice = async () => {
     if (selection.selectedIds.size === 0) return;
     
@@ -643,7 +693,7 @@ export default function InvoiceRequestManagement() {
     try {
       const selectedIds = Array.from(selection.selectedIds);
       
-      // 只回滚已完成状态的申请单到已审批
+      // 只回滚已开票状态的申请单到已审批待开票
       const { error } = await supabase
         .from('invoice_requests')
         .update({ status: 'Approved', updated_at: new Date().toISOString() })
@@ -653,17 +703,17 @@ export default function InvoiceRequestManagement() {
       if (error) throw error;
 
       toast({
-        title: "取消付款完成",
-        description: `已将 ${selectedIds.length} 个开票申请单的状态回滚到"已审批"。`,
+        title: "取消开票成功",
+        description: `已将 ${selectedIds.length} 个开票申请单的状态回滚到"已审批待开票"。`,
       });
       
       loadInvoiceRequests();
       setSelection({ mode: 'none', selectedIds: new Set() });
     } catch (error) {
-      console.error('批量取消付款失败:', error);
+      console.error('批量取消开票失败:', error);
       toast({
-        title: "取消付款失败",
-        description: error instanceof Error ? error.message : '无法批量取消付款',
+        title: "取消开票失败",
+        description: error instanceof Error ? error.message : '无法批量取消开票',
         variant: "destructive",
       });
     } finally {
@@ -808,6 +858,33 @@ export default function InvoiceRequestManagement() {
 
   // 完成开票（单个）
   const handleCompleteInvoice = async (request: InvoiceRequest) => {
+    try {
+      // 调用新的开票函数（会同时更新申请单和运单状态）
+      const { data, error } = await supabase.rpc('complete_invoice_request_v2', {
+        p_request_number: request.request_number
+      });
+
+      if (error) throw error;
+
+      const result = data as { success: boolean; message: string; updated_count: number };
+      toast({ 
+        title: "开票成功", 
+        description: result.message || `开票完成，${result.updated_count}条运单状态已更新为"已开票"` 
+      });
+      
+      loadInvoiceRequests();
+    } catch (error) {
+      console.error('开票失败:', error);
+      toast({ 
+        title: "开票失败", 
+        description: error instanceof Error ? error.message : '未知错误', 
+        variant: 'destructive' 
+      });
+    }
+  };
+
+  // 旧的实现（已废弃）
+  const handleCompleteInvoice_OLD = async (request: InvoiceRequest) => {
     try {
       // 更新开票申请单状态为已完成
       const { error: requestError } = await supabase
@@ -1517,13 +1594,13 @@ export default function InvoiceRequestManagement() {
     },
     {
       key: 'cancel-invoice',
-      label: '批量取消付款',
+      label: '批量取消开票',
       icon: <RotateCcw className="mr-2 h-4 w-4" />,
       variant: 'default',
       className: 'bg-orange-600 hover:bg-orange-700 text-white border-0',
       needConfirm: true,
-      confirmTitle: `确认批量取消付款 ${selectionCount} 个申请单`,
-      confirmDescription: '此操作将把已完成的开票申请单状态回滚到"已审批"。请确认操作。',
+      confirmTitle: `确认批量取消开票 ${selectionCount} 个申请单`,
+      confirmDescription: '此操作将把已开票的申请单状态回滚到"已审批待开票"。请确认操作。',
       onClick: handleBatchCancelInvoice
     },
     {
@@ -1539,9 +1616,9 @@ export default function InvoiceRequestManagement() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [selectionCount]);
 
-  // 过滤后的申请单列表
-  // 筛选逻辑已在loadInvoiceRequests中处理，直接使用invoiceRequests
-  const filteredRequests = invoiceRequests;
+  // 过滤后的申请单列表（使用分组排序后的数据）
+  // 筛选逻辑已在loadInvoiceRequests中处理，使用groupedRequests实现状态分组
+  const filteredRequests = groupedRequests;
 
   // 加载筛选选项数据
   const loadFilterOptions = async () => {
@@ -1655,9 +1732,8 @@ export default function InvoiceRequestManagement() {
               >
                 <option value="">全部状态</option>
                 <option value="Pending">待审核</option>
-                <option value="Approved">已审批</option>
-                <option value="Completed">已完成</option>
-                <option value="Voided">已作废</option>
+                <option value="Approved">已审批待开票</option>
+                <option value="Completed">已开票</option>
               </select>
             </div>
 
@@ -1919,8 +1995,25 @@ export default function InvoiceRequestManagement() {
               />
               <TableBody>
                 {filteredRequests.length > 0 ? (
-                  filteredRequests.map((request) => (
-                    <TableRow 
+                  filteredRequests.map((request, index) => {
+                    // 检查是否需要插入分割线
+                    const prevReq = index > 0 ? filteredRequests[index - 1] : null;
+                    const showDivider = prevReq && prevReq.status !== request.status;
+                    
+                    return (
+                      <React.Fragment key={request.id}>
+                        {/* 状态分组分割线 */}
+                        {showDivider && (
+                          <TableRow className="bg-gradient-to-r from-transparent via-muted to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted hover:to-transparent border-y border-border/50">
+                            <TableCell colSpan={tableColumns.length + 1} className="h-3 p-0">
+                              <div className="w-full h-full flex items-center justify-center">
+                                <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        
+                        <TableRow 
                       key={request.id}
                       data-state={selection.selectedIds.has(request.id) ? "selected" : undefined}
                       className="cursor-pointer hover:bg-muted/50"
@@ -1984,7 +2077,9 @@ export default function InvoiceRequestManagement() {
                         />
                       </TableCell>
                     </TableRow>
-                  ))
+                      </React.Fragment>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={8} className="h-24 text-center">

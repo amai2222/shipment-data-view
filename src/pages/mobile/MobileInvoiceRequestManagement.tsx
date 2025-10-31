@@ -818,12 +818,8 @@ export default function MobileInvoiceRequestManagement() {
     switch (status) {
       case 'Pending': return 'secondary';
       case 'Approved': return 'default';
-      case 'Rejected': return 'destructive';
       case 'Completed': return 'outline';
-      case 'Voided': return 'destructive';
-      case 'Cancelled': return 'destructive';
       case 'Processing': return 'secondary';
-      case 'Merged': return 'secondary';
       default: return 'secondary';
     }
   };
@@ -832,13 +828,9 @@ export default function MobileInvoiceRequestManagement() {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'Pending': return '待审核';
-      case 'Approved': return '已通过';
-      case 'Rejected': return '已拒绝';
-      case 'Completed': return '已完成';
-      case 'Voided': return '已作废';
-      case 'Cancelled': return '已取消';
+      case 'Approved': return '已审批待开票';
+      case 'Completed': return '已开票';
       case 'Processing': return '处理中';
-      case 'Merged': return '已合并';
       default: return status;
     }
   };
@@ -1043,9 +1035,8 @@ export default function MobileInvoiceRequestManagement() {
                 <SelectContent>
                   <SelectItem value="all">全部状态</SelectItem>
                   <SelectItem value="Pending">待审核</SelectItem>
-                  <SelectItem value="Approved">已通过</SelectItem>
-                  <SelectItem value="Completed">已完成</SelectItem>
-                  <SelectItem value="Voided">已作废</SelectItem>
+                  <SelectItem value="Approved">已审批待开票</SelectItem>
+                  <SelectItem value="Completed">已开票</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1308,9 +1299,8 @@ export default function MobileInvoiceRequestManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Pending">待审核</SelectItem>
-                  <SelectItem value="Approved">已通过</SelectItem>
-                  <SelectItem value="Rejected">已拒绝</SelectItem>
-                  <SelectItem value="Completed">已完成</SelectItem>
+                  <SelectItem value="Approved">已审批待开票</SelectItem>
+                  <SelectItem value="Completed">已开票</SelectItem>
                 </SelectContent>
               </Select>
             </div>
