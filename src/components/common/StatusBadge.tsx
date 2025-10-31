@@ -21,6 +21,13 @@ export const INVOICE_REQUEST_STATUS_CONFIG = {
   Voided: { label: '已作废', variant: 'destructive' as const },
 };
 
+// 运单支付状态配置（用于付款申请页面）
+export const PAYMENT_STATUS_CONFIG = {
+  Unpaid: { label: '未支付', variant: 'destructive' as const },
+  Processing: { label: '已申请支付', variant: 'secondary' as const },
+  Paid: { label: '已完成支付', variant: 'default' as const },
+};
+
 // 通用状态配置（保持向后兼容）
 export const STATUS_CONFIG = {
   // 付款申请状态

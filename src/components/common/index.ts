@@ -8,7 +8,8 @@ export {
   getStatusVariant, 
   STATUS_CONFIG,
   PAYMENT_REQUEST_STATUS_CONFIG,
-  INVOICE_REQUEST_STATUS_CONFIG 
+  INVOICE_REQUEST_STATUS_CONFIG,
+  PAYMENT_STATUS_CONFIG
 } from './StatusBadge';
 export { BulkActionBar } from './BulkActionBar';
 export type { BulkAction } from './BulkActionBar';
