@@ -545,11 +545,12 @@ export default function PaymentRequest() {
   /**
    * 获取支付状态徽章组件
    */
-  const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Paid') => {
+  const getPaymentStatusBadge = (status: 'Unpaid' | 'Processing' | 'Approved' | 'Paid') => {
     switch (status) {
       case 'Unpaid': return <Badge variant="destructive">未支付</Badge>;
       case 'Processing': return <Badge variant="secondary">已申请支付</Badge>;
-      case 'Paid': return <Badge variant="default">已完成支付</Badge>;
+      case 'Approved': return <Badge variant="outline" className="border-green-500 text-green-700">支付审核通过</Badge>;
+      case 'Paid': return <Badge variant="default">已支付</Badge>;
       default: return <Badge>{status}</Badge>;
     }
   };

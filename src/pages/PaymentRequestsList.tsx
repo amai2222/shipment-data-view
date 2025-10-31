@@ -820,21 +820,31 @@ export default function PaymentRequestsList() {
   // @ts-ignore - React.MouseEvent类型
   const handlePayment = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
+    
+    // 检查状态：只有Approved状态才能付款
+    if (req.status !== 'Approved') {
+      toast({ 
+        title: '无法付款', 
+        description: '只有"待支付"状态的申请单才能执行付款操作', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+    
     try {
       setExportingId(req.id);
       
-      // 更新付款状态
-      // @ts-ignore - RPC函数类型
-      const { data, error } = await supabase.rpc('set_payment_status_for_waybills', {
-        p_record_ids: req.logistics_record_ids,
-        p_payment_status: 'Paid'
+      // 调用新的付款函数（会同时更新申请单和运单状态）
+      const { data, error } = await supabase.rpc('pay_payment_request', {
+        p_request_id: req.request_id
       });
 
       if (error) throw error;
 
+      const result = data as { success: boolean; message: string; updated_count: number };
       toast({ 
         title: '付款成功', 
-        description: `已更新 ${(data as { updated_waybills?: number })?.updated_waybills || 0} 条运单的付款状态，同步了 ${(data as { updated_partner_costs?: number })?.updated_partner_costs || 0} 条合作方成本记录。` 
+        description: result.message || `付款完成，${result.updated_count}条运单状态已更新为"已支付"` 
       });
       
       // 刷新数据

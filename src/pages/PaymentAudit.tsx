@@ -878,11 +878,10 @@ export default function PaymentAudit() {
     try {
       setExportingId(req.id);
       
-      // 更新申请状态为已审批
-      const { error } = await supabase
-        .from('payment_requests')
-        .update({ status: 'Approved' })
-        .eq('id', req.id);
+      // 调用新的审批函数（会同时更新申请单和运单状态）
+      const { data, error } = await supabase.rpc('approve_payment_request', {
+        p_request_id: req.request_id
+      });
       
       if (error) {
         console.error('审批失败:', error);
@@ -890,7 +889,11 @@ export default function PaymentAudit() {
         return;
       }
       
-      toast({ title: "审批成功", description: "付款申请已审批通过" });
+      const result = data as { success: boolean; message: string; updated_count: number };
+      toast({ 
+        title: "审批成功", 
+        description: result.message || `付款申请已审批通过，${result.updated_count}条运单状态已更新为"支付审核通过"` 
+      });
       fetchPaymentRequests();
     } catch (error) {
       console.error('审批操作失败:', error);
