@@ -202,20 +202,36 @@ export function UserManagement({
         }
       });
 
+      // ✅ 改进错误处理：显示详细错误信息
       if (error) {
         console.error('调用 Edge Function 失败:', error);
+        console.error('错误详情:', error.context);
+        
+        // 尝试解析错误响应体
+        let errorMessage = error.message || "调用服务失败";
+        if (error.context?.body) {
+          try {
+            const errorBody = typeof error.context.body === 'string' 
+              ? JSON.parse(error.context.body) 
+              : error.context.body;
+            errorMessage = errorBody.error || errorBody.details || errorMessage;
+          } catch (e) {
+            console.error('解析错误响应失败:', e);
+          }
+        }
+        
         toast({
           title: "创建失败",
-          description: error.message || "调用服务失败",
+          description: errorMessage,
           variant: "destructive"
         });
         return;
       }
 
-      if (!data.success) {
+      if (!data?.success) {
         toast({
           title: "创建失败",
-          description: data.error || "创建用户失败",
+          description: data?.error || data?.details || "创建用户失败",
           variant: "destructive"
         });
         return;
