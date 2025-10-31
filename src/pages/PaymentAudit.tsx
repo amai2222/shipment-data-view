@@ -117,7 +117,7 @@ export default function PaymentAudit() {
     waybillNumber: '',
     driverName: '',
     loadingDate: null as Date | null,
-    status: '',
+    status: 'Pending', // 默认筛选"待审核"
     projectId: '',
     partnerName: '',
     licensePlate: '',
@@ -1023,6 +1023,18 @@ export default function PaymentAudit() {
     return requests.every(req => selection.selectedIds.has(req.id));
   }, [requests, selection.selectedIds]);
 
+  // 对申请单按状态分组排序：待审核 > 已审批待支付 > 已支付
+  const groupedRequests = useMemo(() => {
+    const statusOrder = { 'Pending': 1, 'Approved': 2, 'Paid': 3 };
+    return [...requests].sort((a, b) => {
+      const orderA = statusOrder[a.status as keyof typeof statusOrder] || 99;
+      const orderB = statusOrder[b.status as keyof typeof statusOrder] || 99;
+      if (orderA !== orderB) return orderA - orderB;
+      // 同状态按时间倒序
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [requests]);
+
   // 批量取消审批功能（只取消已审批状态，回退到待审核）
   const handleRollbackRequests = async () => {
     setIsCancelling(true);
@@ -1469,17 +1481,17 @@ export default function PaymentAudit() {
                   已选择 {selection.selectedIds.size} 个申请单
                 </span>
                 
-                {/* 批量审批按钮 - 红色 */}
+                {/* 批量审批按钮 - 绿色 */}
                 <ConfirmDialog
                   title="确认批量审批"
                   description={`确定要批量审批选中的 ${selection.selectedIds.size} 个付款申请吗？审批后申请单状态将变为"已审批"。`}
                   onConfirm={handleBatchApprove}
                 >
                 <Button
-                  variant="destructive"
+                  variant="default"
                   size="sm"
                   disabled={isBatchOperating}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
                 >
                   {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
                   批量审批
@@ -1501,23 +1513,6 @@ export default function PaymentAudit() {
                     {isBatchOperating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                     批量取消审批
                   </Button>
-                </ConfirmDialog>
-
-                {/* 一键回滚按钮 - 蓝色 */}
-                <ConfirmDialog
-                  title="确认一键回滚"
-                  description={`确定要回滚选中的 ${selectionCount} 个付款申请吗？\n\n此操作将：\n• 保留申请单记录（状态标记为已取消）\n• 回滚运单状态为未支付\n\n请确认操作。`}
-                  onConfirm={handleRollbackRequests}
-                >
-                  <Button 
-                    variant="default"
-                    size="sm"
-                      disabled={selectionCount === 0 || isCancelling} 
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                      一键回滚 ({selectionCount})
-                    </Button>
                 </ConfirmDialog>
 
                 {/* 一键作废按钮 - 仅管理员可见 - 红色 */}
@@ -1562,8 +1557,25 @@ export default function PaymentAudit() {
                 </TableHeader>
                 <TableBody>
                   {requests.length > 0 ? (
-                    requests.map((req) => (
-                      <TableRow 
+                    groupedRequests.map((req, index) => {
+                      // 检查是否需要插入分割线
+                      const prevReq = index > 0 ? groupedRequests[index - 1] : null;
+                      const showDivider = prevReq && prevReq.status !== req.status;
+                      
+                      return (
+                        <React.Fragment key={req.id}>
+                          {/* 状态分组分割线 */}
+                          {showDivider && (
+                            <TableRow className="bg-gradient-to-r from-transparent via-muted to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted hover:to-transparent border-y border-border/50">
+                              <TableCell colSpan={isAdmin ? 8 : 7} className="h-3 p-0">
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          
+                          <TableRow 
                         key={req.id} 
                         data-state={selection.selectedIds.has(req.id) ? "selected" : undefined}
                         className="hover:bg-muted/50"
@@ -1618,7 +1630,7 @@ export default function PaymentAudit() {
                               </ConfirmDialog>
                             )}
 
-                            {/* 审批按钮 - 红色主题，只在待审批状态显示 */}
+                            {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
                             {req.status === 'Pending' && (
                               <ConfirmDialog
                                 title="确认审批"
@@ -1626,10 +1638,10 @@ export default function PaymentAudit() {
                                 onConfirm={() => handleApproval(req)}
                               >
                               <Button 
-                                variant="destructive" 
+                                variant="default" 
                                 size="sm" 
                                 disabled={exportingId === req.id}
-                                className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                                className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
                               >
                                 <ClipboardList className="mr-2 h-4 w-4" />
                                 审批
@@ -1639,9 +1651,11 @@ export default function PaymentAudit() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))
+                        </React.Fragment>
+                      );
+                    })
                   ) : (
-                    <TableRow><TableCell colSpan={isAdmin ? 6 : 5} className="h-24 text-center">暂无付款申请记录。</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={isAdmin ? 8 : 7} className="h-24 text-center">暂无付款申请记录。</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 export const PAYMENT_REQUEST_STATUS_CONFIG = {
   Pending: { label: '待审核', variant: 'secondary' as const },
   Approved: { label: '已审批待支付', variant: 'default' as const },
-  Paid: { label: '已支付', variant: 'outline' as const, className: 'border-green-500 text-green-700 bg-green-50' },
+  Paid: { label: '已支付', variant: 'outline' as const, className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
   Rejected: { label: '已驳回', variant: 'destructive' as const },
   Cancelled: { label: '已作废', variant: 'destructive' as const },
 };

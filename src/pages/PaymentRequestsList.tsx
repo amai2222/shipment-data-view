@@ -1567,9 +1567,11 @@ export default function PaymentRequestsList() {
                         <React.Fragment key={req.id}>
                           {/* 状态分组分割线 */}
                           {showDivider && (
-                            <TableRow className="bg-muted/30 hover:bg-muted/30">
-                              <TableCell colSpan={isAdmin ? 8 : 7} className="h-8 text-center text-sm font-medium text-muted-foreground">
-                                ─────────────────────────────
+                            <TableRow className="bg-gradient-to-r from-transparent via-muted to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted hover:to-transparent border-y border-border/50">
+                              <TableCell colSpan={isAdmin ? 8 : 7} className="h-3 p-0">
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
+                                </div>
                               </TableCell>
                             </TableRow>
                           )}
