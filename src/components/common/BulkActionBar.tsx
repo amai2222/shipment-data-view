@@ -39,12 +39,13 @@ export function BulkActionBar({
         已选择 {selectedCount} 个
       </span>
       {actions.map(action => {
+        // ✅ 修复：如果需要确认，button不应该直接绑定onClick
         const button = (
           <Button
             key={action.key}
             variant={action.variant || 'outline'}
             size="sm"
-            onClick={action.onClick}
+            onClick={action.needConfirm ? undefined : action.onClick}  // ✅ 关键修复
             disabled={action.disabled || isProcessing}
             className={action.className}
           >
@@ -60,7 +61,7 @@ export function BulkActionBar({
               key={action.key}
               title={action.confirmTitle}
               description={action.confirmDescription || ''}
-              onConfirm={action.onClick}
+              onConfirm={action.onClick}  // ✅ onClick只在确认后执行
             >
               {button}
             </ConfirmDialog>

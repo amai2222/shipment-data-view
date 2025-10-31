@@ -1574,7 +1574,6 @@ export default function InvoiceRequestManagement() {
     { key: 'amount', label: '开票金额', align: 'right' },
     { key: 'count', label: '运单数量', align: 'right' },
     { key: 'status', label: '状态' },
-    { key: 'time', label: '创建时间' },
     { key: 'remarks', label: '备注' },
     { key: 'actions', label: '操作', align: 'center' }
   ], []);
@@ -1662,18 +1661,9 @@ export default function InvoiceRequestManagement() {
         description="管理和跟踪所有开票申请单的状态"
         icon={FileText}
         iconColor="text-blue-600"
-      >
-        <div className="flex gap-2">
-          <Button onClick={exportInvoiceRequests} variant="outline">
-            <FileDown className="h-4 w-4 mr-2" />
-            导出
-          </Button>
-          <Button onClick={loadInvoiceRequests} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            刷新
-          </Button>
-        </div>
-      </PageHeader>
+      />
+
+      {/* 筛选条件卡片 */}
 
 
       {/* 筛选器（参考财务付款页面） */}
@@ -2028,15 +2018,8 @@ export default function InvoiceRequestManagement() {
                       <TableCell className="font-medium">
                         {request.request_number}
                       </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{request.partner_name}</div>
-                          {request.invoicing_partner_full_name && (
-                            <div className="text-sm text-muted-foreground">
-                              {request.invoicing_partner_full_name}
-                            </div>
-                          )}
-                        </div>
+                      <TableCell className="font-medium">
+                        {request.invoicing_partner_full_name || request.partner_full_name || request.partner_name}
                       </TableCell>
                       <TableCell className="font-medium text-right">
                         {request.total_amount ? `¥${request.total_amount.toLocaleString()}` : '-'}
@@ -2045,9 +2028,6 @@ export default function InvoiceRequestManagement() {
                       <TableCell>
                         {/* ✅ 使用StatusBadge组件 */}
                         <StatusBadge status={request.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(request.created_at), 'yyyy-MM-dd HH:mm')}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground" title={request.remarks || ''}>
                         {request.remarks || '-'}
@@ -2061,6 +2041,9 @@ export default function InvoiceRequestManagement() {
                               icon: <FileText className="mr-2 h-4 w-4" />,
                               variant: 'default',
                               className: 'bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200',
+                              needConfirm: true,
+                              confirmTitle: '查看开票申请单',
+                              confirmDescription: `确定要查看申请单 ${request.request_number} 的详细信息吗？`,
                               onClick: () => viewInvoiceRequestForm(request)
                             },
                             ...(request.status === 'Approved' ? [{

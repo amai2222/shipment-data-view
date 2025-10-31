@@ -35,11 +35,12 @@ export function ActionButton({
   title,
   size = 'sm'
 }: ActionButtonProps) {
+  // ✅ 修复：如果需要确认，button不应该直接绑定onClick
   const button = (
     <Button
       variant={variant}
       size={size}
-      onClick={onClick}
+      onClick={needConfirm ? undefined : onClick}  // ✅ 关键修复：需要确认时不绑定onClick
       disabled={disabled}
       className={className}
       title={title}
@@ -54,7 +55,7 @@ export function ActionButton({
       <ConfirmDialog
         title={confirmTitle}
         description={confirmDescription || ''}
-        onConfirm={onClick}
+        onConfirm={onClick}  // ✅ onClick只在确认后执行
       >
         {button}
       </ConfirmDialog>
