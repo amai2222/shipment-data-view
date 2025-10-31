@@ -51,43 +51,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
         if (currentUser) {
-          setTimeout(async () => {
-            try {
-              const { data: profileData, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', currentUser.id)
-                .maybeSingle();
+          try {
+            const { data: profileData, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', currentUser.id)
+              .maybeSingle();
 
-              if (error) {
-                console.error('获取用户配置文件失败:', error);
-                setProfile(null);
-              } else if (profileData) {
-                const anyProfile = profileData as any;
-                setProfile({
-                  id: anyProfile.id,
-                  email: anyProfile.email || '',
-                  username: anyProfile.username || anyProfile.email || '',
-                  full_name: anyProfile.full_name || '',
-                  role: (anyProfile.role as UserRole) ?? 'operator',
-                  is_active: anyProfile.is_active ?? true
-                });
-              } else {
-                setProfile(null);
-              }
-            } catch (catchError) {
-              console.error('处理用户配置文件时发生意外错误:', catchError);
+            if (error) {
+              console.error('获取用户配置文件失败:', error);
               setProfile(null);
-            } finally {
-              setLoading(false);
+              setLoading(false); // 关键修复！
+              // 清除无效session
+              await supabase.auth.signOut();
+            } else if (profileData) {
+              const anyProfile = profileData as any;
+              setProfile({
+                id: anyProfile.id,
+                email: anyProfile.email || '',
+                username: anyProfile.username || anyProfile.email || '',
+                full_name: anyProfile.full_name || '',
+                role: (anyProfile.role as UserRole) ?? 'operator',
+                is_active: anyProfile.is_active ?? true
+              });
+              setLoading(false); // 关键修复！
+            } else {
+              setProfile(null);
+              setLoading(false); // 关键修复！
             }
-          }, 0);
+          } catch (catchError) {
+            console.error('处理用户配置文件时发生意外错误:', catchError);
+            setProfile(null);
+            setLoading(false); // 关键修复！
+            // 清除session
+            await supabase.auth.signOut();
+          }
         } else {
           setProfile(null);
           setLoading(false);
