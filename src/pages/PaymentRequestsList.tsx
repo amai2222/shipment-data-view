@@ -1221,10 +1221,9 @@ export default function PaymentRequestsList() {
                 className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm h-10"
               >
                 <option value="">全部状态</option>
-                <option value="Pending">待审批</option>
-                <option value="Approved">已审批</option>
-                <option value="Paid">已付款</option>
-                <option value="Cancelled">已作废</option>
+                <option value="Pending">待审核</option>
+                <option value="Approved">已审批待支付</option>
+                <option value="Paid">已支付</option>
               </select>
             </div>
 

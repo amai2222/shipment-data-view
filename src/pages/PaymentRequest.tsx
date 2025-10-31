@@ -57,7 +57,7 @@ const Building2 = ({ className }: { className?: string }) => <span className={cl
 // 包含所有接口定义：运单、合作方、筛选器、分页、选择状态等
 // ============================================================================
 interface PartnerCost { partner_id: string; partner_name: string; level: number; payable_amount: number; full_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; }
-interface LogisticsRecord { id: string; auto_number: string; project_name: string; project_id?: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Paid'; invoice_status?: 'Uninvoiced' | 'Processing' | 'Invoiced' | null; cargo_type: string | null; loading_weight: number | null; unloading_weight: number | null; remarks: string | null; billing_type_id: number | null; }
+interface LogisticsRecord { id: string; auto_number: string; project_name: string; project_id?: string; driver_id: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; license_plate: string | null; driver_phone: string | null; payable_cost: number | null; partner_costs?: PartnerCost[]; payment_status: 'Unpaid' | 'Processing' | 'Approved' | 'Paid'; invoice_status?: 'Uninvoiced' | 'Processing' | 'Invoiced' | null; cargo_type: string | null; loading_weight: number | null; unloading_weight: number | null; remarks: string | null; billing_type_id: number | null; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { current_cost?: number; extra_cost?: number; chain_name?: string | null; chain_id?: string | null; }
 interface FinanceFilters { 
   // 常规筛选
@@ -107,7 +107,13 @@ const INITIAL_FINANCE_FILTERS: FinanceFilters = {
   waybillNumbers: "",
   otherPlatformName: ""
 };
-const PAYMENT_STATUS_OPTIONS = [ { value: 'all', label: '所有状态' }, { value: 'Unpaid', label: '未支付' }, { value: 'Processing', label: '已申请支付' }, { value: 'Paid', label: '已完成支付' }, ];
+const PAYMENT_STATUS_OPTIONS = [ 
+  { value: 'all', label: '所有状态' }, 
+  { value: 'Unpaid', label: '未支付' }, 
+  { value: 'Processing', label: '已申请支付' }, 
+  { value: 'Approved', label: '支付审核通过' }, 
+  { value: 'Paid', label: '已支付' }, 
+];
 const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击"搜索"按钮以查看最新结果。</p> </div> );
 
 // ============================================================================
@@ -305,7 +311,12 @@ export default function PaymentRequest() {
   // 获取不可编辑的原因
   const getUneditableReason = (record: LogisticsRecordWithPartners): string => {
     if (record.payment_status !== 'Unpaid') {
-      return record.payment_status === 'Processing' ? '已申请支付' : '已完成支付';
+      const statusText = {
+        'Processing': '已申请支付',
+        'Approved': '支付审核通过',
+        'Paid': '已支付'
+      }[record.payment_status] || record.payment_status;
+      return statusText;
     }
     if (record.invoice_status && record.invoice_status !== 'Uninvoiced') {
       return record.invoice_status === 'Processing' ? '开票中' : '已开票';
@@ -757,7 +768,11 @@ export default function PaymentRequest() {
       
       // 检查支付状态
       if (recordData.payment_status !== 'Unpaid') {
-        const statusText = recordData.payment_status === 'Processing' ? '已申请支付' : '已完成支付';
+        const statusText = {
+          'Processing': '已申请支付',
+          'Approved': '支付审核通过',
+          'Paid': '已支付'
+        }[recordData.payment_status] || recordData.payment_status;
         throw new Error(`只有未支付状态的运单才能修改运费。当前付款状态：${statusText}`);
       }
       
