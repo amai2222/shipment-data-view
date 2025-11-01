@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Users, 
   Search, 
@@ -19,7 +20,6 @@ import { UserManagement } from '@/components/permissions/UserManagement';
 import { PermissionQuickActions } from '@/components/PermissionQuickActions';
 import { PermissionResetService } from '@/services/PermissionResetService';
 import { PageHeader } from '@/components/PageHeader';
-import { OrphanedUsersCleanup } from '@/components/admin/OrphanedUsersCleanup';
 
 export default function UserManagementPage() {
   const { toast } = useToast();
@@ -66,16 +66,45 @@ export default function UserManagementPage() {
   // 批量权限更新处理
   const handleBulkPermissionUpdate = async (action: string, data: any) => {
     try {
-      // 这里需要根据具体的action类型来处理
       console.log('批量权限更新:', action, data);
-      toast({
-        title: "操作成功",
-        description: `批量${action}操作已完成`,
-      });
-    } catch (error) {
+      
+      if (action === 'change-role' && data.role) {
+        // 批量修改角色
+        const { error } = await supabase
+          .from('profiles')
+          .update({ role: data.role })
+          .in('id', selectedUsers);
+        
+        if (error) throw error;
+        
+        toast({
+          title: "批量更新成功",
+          description: `已将 ${selectedUsers.length} 个用户的角色更新为 ${data.role}`,
+        });
+        
+        await loadAllData();
+      } else if (action === 'apply-template' && data.template) {
+        // 应用模板：删除自定义权限，让用户使用角色模板
+        const { error } = await supabase
+          .from('user_permissions')
+          .delete()
+          .in('user_id', selectedUsers)
+          .is('project_id', null);
+        
+        if (error) throw error;
+        
+        toast({
+          title: "模板应用成功",
+          description: `已将 ${selectedUsers.length} 个用户重置为角色模板权限`,
+        });
+        
+        await loadAllData();
+      }
+    } catch (error: any) {
+      console.error('批量操作失败:', error);
       toast({
         title: "操作失败",
-        description: `批量${action}操作失败`,
+        description: error.message || `批量${action}操作失败`,
         variant: "destructive",
       });
     }
@@ -84,16 +113,64 @@ export default function UserManagementPage() {
   // 复制权限处理
   const handleCopyPermissions = async (fromUserId: string, toUserIds: string[]) => {
     try {
-      // 这里需要实现复制权限的逻辑
       console.log('复制权限:', fromUserId, toUserIds);
+      
+      // 1. 获取源用户的权限配置
+      const { data: sourcePermissions, error: fetchError } = await supabase
+        .from('user_permissions')
+        .select('*')
+        .eq('user_id', fromUserId)
+        .is('project_id', null)
+        .maybeSingle();
+      
+      if (fetchError) throw fetchError;
+      
+      if (!sourcePermissions) {
+        toast({
+          title: "提示",
+          description: "源用户没有自定义权限，使用角色模板",
+        });
+        return;
+      }
+      
+      // 2. 复制到目标用户
+      const permissionsToInsert = toUserIds.map(userId => ({
+        user_id: userId,
+        project_id: null,
+        menu_permissions: sourcePermissions.menu_permissions || [],
+        function_permissions: sourcePermissions.function_permissions || [],
+        project_permissions: sourcePermissions.project_permissions || [],
+        data_permissions: sourcePermissions.data_permissions || [],
+        created_by: fromUserId
+      }));
+      
+      // 先删除目标用户的现有权限
+      const { error: deleteError } = await supabase
+        .from('user_permissions')
+        .delete()
+        .in('user_id', toUserIds)
+        .is('project_id', null);
+      
+      if (deleteError) throw deleteError;
+      
+      // 插入新权限
+      const { error: insertError } = await supabase
+        .from('user_permissions')
+        .insert(permissionsToInsert);
+      
+      if (insertError) throw insertError;
+      
       toast({
         title: "复制成功",
-        description: `权限已从用户复制到${toUserIds.length}个用户`,
+        description: `权限已从用户复制到 ${toUserIds.length} 个用户`,
       });
-    } catch (error) {
+      
+      await loadAllData();
+    } catch (error: any) {
+      console.error('复制权限失败:', error);
       toast({
         title: "复制失败",
-        description: "权限复制失败",
+        description: error.message || "权限复制失败",
         variant: "destructive",
       });
     }
@@ -205,9 +282,6 @@ export default function UserManagementPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* 孤立用户清理工具 */}
-      <OrphanedUsersCleanup />
 
       {/* 快速操作组件 */}
       <PermissionQuickActions

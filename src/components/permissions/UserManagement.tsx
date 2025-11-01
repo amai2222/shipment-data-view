@@ -389,17 +389,44 @@ export function UserManagement({
 
   const handleBulkDelete = async () => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .in('id', selectedUsers);
+      // 修复：使用 Edge Function 批量删除用户，确保同时删除 auth.users 和 profiles
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const userId of selectedUsers) {
+        try {
+          const { data, error } = await supabase.functions.invoke('delete-user', {
+            body: {
+              userId,
+              hardDelete: true  // 硬删除，彻底删除用户
+            }
+          });
+          
+          if (error || !data?.success) {
+            failCount++;
+            console.error(`删除用户 ${userId} 失败:`, error || data?.error);
+          } else {
+            successCount++;
+          }
+        } catch (error) {
+          failCount++;
+          console.error(`删除用户 ${userId} 异常:`, error);
+        }
+      }
 
-      if (error) throw error;
-
-      toast({
-        title: "批量删除成功",
-        description: `已删除 ${selectedUsers.length} 个用户`,
-      });
+      if (successCount > 0) {
+        toast({
+          title: "批量删除完成",
+          description: `成功删除 ${successCount} 个用户${failCount > 0 ? `，${failCount} 个失败` : ''}`,
+          variant: failCount > 0 ? "default" : "default"
+        });
+      } else {
+        toast({
+          title: "删除失败",
+          description: "所有用户删除失败",
+          variant: "destructive"
+        });
+      }
 
       setShowBulkDeleteDialog(false);
       onSelectionChange([]);
@@ -408,7 +435,7 @@ export function UserManagement({
       console.error('批量删除失败:', error);
       toast({
         title: "删除失败",
-        description: "批量删除失败",
+        description: error.message || "批量删除失败",
         variant: "destructive"
       });
     }
