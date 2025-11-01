@@ -100,8 +100,8 @@ export function MobileScaleRecordForm({ projects, onSuccess, onCancel }: MobileS
 
       if (error) throw error;
       
-      const drivers = data?.map(item => item.drivers).filter(Boolean) || [];
-      setProjectDrivers(drivers as Driver[]);
+      const drivers = (data?.map(item => item.drivers).flat().filter(Boolean) || []) as Driver[];
+      setProjectDrivers(drivers);
     } catch (error) {
       console.error('Error loading project drivers:', error);
       setProjectDrivers([]);
