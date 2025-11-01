@@ -134,7 +134,7 @@ export default function InvoiceAudit() {
   const [loading, setLoading] = useState(true);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const { toast } = useToast();
-  const { hasButtonAccess } = useUnifiedPermissions();
+  const { hasButtonAccess, loading: permissionsLoading, isAdmin } = useUnifiedPermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<InvoiceRequest | null>(null);
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
