@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { UserRole } from '@/types/permission';
-import { safeLogger } from '@/utils/safeLogger';
+import { safeLogger as logger } from '@/utils/safeLogger';
 
 interface RolePermissions {
   menu_permissions: string[];
@@ -22,7 +22,7 @@ export function useSimplePermissions() {
   const userRole = useMemo(() => {
     const role = profile?.role as UserRole || 'viewer';
     // 使用安全的debug调用
-    safeLogger.debug('当前用户角色:', role, '用户信息:', profile);
+    logger.debug('当前用户角色:', role, '用户信息:', profile);
     return role;
   }, [profile?.role]);
 
@@ -52,14 +52,14 @@ export function useSimplePermissions() {
             return;
           }
           
-          safeLogger.warn('从数据库加载权限失败，使用默认权限:', error);
+          logger.warn('从数据库加载权限失败，使用默认权限:', error);
           setDbPermissions(null);
         } else {
-          safeLogger.debug('从数据库加载权限成功:', data);
+          logger.debug('从数据库加载权限成功:', data);
           setDbPermissions(data);
         }
       } catch (error) {
-        safeLogger.error('加载权限失败:', error);
+        logger.error('加载权限失败:', error);
         setDbPermissions(null);
       } finally {
         setLoading(false);
@@ -73,11 +73,11 @@ export function useSimplePermissions() {
   const rolePermissions = useMemo(() => {
     try {
       if (dbPermissions) {
-        safeLogger.debug(`使用数据库权限: ${userRole}`, dbPermissions);
+        logger.debug(`使用数据库权限: ${userRole}`, dbPermissions);
         return dbPermissions;
       } else {
         // 数据库加载失败时的回退策略
-        safeLogger.log(`使用默认权限配置: ${userRole}`);
+        logger.log(`使用默认权限配置: ${userRole}`);
         return {
           menu_permissions: [],
           function_permissions: [],
@@ -105,15 +105,15 @@ export function useSimplePermissions() {
       if (userRole === 'admin') return true;
       
       if (!rolePermissions || !rolePermissions.menu_permissions) {
-        safeLogger.debug('菜单权限检查失败 - 角色权限未加载:', menuKey);
+        logger.debug('菜单权限检查失败 - 角色权限未加载:', menuKey);
         return false;
       }
       const hasAccess = rolePermissions.menu_permissions.includes(menuKey) || 
                        rolePermissions.menu_permissions.includes('all');
-      safeLogger.permission('menu', menuKey, hasAccess);
+      logger.permission('menu', menuKey, hasAccess);
       return hasAccess;
     } catch (error) {
-      safeLogger.error('菜单权限检查失败:', error);
+      logger.error('菜单权限检查失败:', error);
       return false;
     }
   };
@@ -178,7 +178,7 @@ export function useSimplePermissions() {
   // 检查是否为管理员
   const isAdmin = useMemo(() => {
     const admin = userRole === 'admin';
-    safeLogger.debug('用户是否为管理员:', admin);
+    logger.debug('用户是否为管理员:', admin);
     return admin;
   }, [userRole]);
 

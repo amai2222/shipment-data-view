@@ -56,6 +56,9 @@ export const ROLES_NEW: Record<UserRole, { label: string; color: string; descrip
   }
 };
 
+// 导出 ROLES 别名以保持向后兼容
+export const ROLES = ROLES_NEW;
+
 // 菜单权限配置
 export const MENU_PERMISSIONS_NEW: PermissionGroupNew[] = [
   {
