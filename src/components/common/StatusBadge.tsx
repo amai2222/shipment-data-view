@@ -5,15 +5,15 @@ import { Badge } from "@/components/ui/badge";
 
 // 付款申请单状态配置
 export const PAYMENT_REQUEST_STATUS_CONFIG = {
-  Pending: { label: '待审核', variant: 'secondary' as const, className: '' },
-  Approved: { label: '已审批待支付', variant: 'default' as const, className: '' },
+  Pending: { label: '待审核', variant: 'secondary' as const },
+  Approved: { label: '已审批待支付', variant: 'default' as const },
   Paid: { label: '已支付', variant: 'outline' as const, className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
 };
 
 // 开票申请单状态配置
 export const INVOICE_REQUEST_STATUS_CONFIG = {
-  Pending: { label: '待审核', variant: 'secondary' as const, className: '' },
-  Approved: { label: '已审批待开票', variant: 'default' as const, className: '' },
+  Pending: { label: '待审核', variant: 'secondary' as const },
+  Approved: { label: '已审批待开票', variant: 'default' as const },
   Completed: { label: '已开票', variant: 'outline' as const, className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
 };
 
@@ -23,17 +23,17 @@ export const STATUS_CONFIG = {
   ...PAYMENT_REQUEST_STATUS_CONFIG,
   
   // 开票申请状态
-  Completed: { label: '已完成', variant: 'outline' as const, className: '' },
+  Completed: { label: '已完成', variant: 'outline' as const },
   
   // 运单付款/开票状态
-  Paid: { label: '已付款', variant: 'outline' as const, className: '' },
-  Unpaid: { label: '未付款', variant: 'secondary' as const, className: '' },
-  Invoiced: { label: '已开票', variant: 'outline' as const, className: '' },
-  Uninvoiced: { label: '未开票', variant: 'secondary' as const, className: '' },
-  Processing: { label: '处理中', variant: 'default' as const, className: '' }, // 仅用于运单状态
+  Paid: { label: '已付款', variant: 'outline' as const },
+  Unpaid: { label: '未付款', variant: 'secondary' as const },
+  Invoiced: { label: '已开票', variant: 'outline' as const },
+  Uninvoiced: { label: '未开票', variant: 'secondary' as const },
+  Processing: { label: '处理中', variant: 'default' as const }, // 仅用于运单状态
   
   // 其他状态
-  Merged: { label: '已合并', variant: 'secondary' as const, className: '' },
+  Merged: { label: '已合并', variant: 'secondary' as const },
 };
 
 interface StatusBadgeProps {

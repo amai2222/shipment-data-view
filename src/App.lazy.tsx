@@ -52,6 +52,8 @@ export const AuditLogs = lazy(() => import('./pages/Settings/AuditLogs'));
 
 // 权限管理
 export const IntegratedUserManagement = lazy(() => import('./pages/IntegratedUserManagement'));
+export const DebugPermissions = lazy(() => import('./pages/DebugPermissions'));
+export const PermissionTest = lazy(() => import('./pages/PermissionTest'));
 
 // ============================================
 // 移动端页面懒加载

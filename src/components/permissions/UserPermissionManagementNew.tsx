@@ -40,18 +40,14 @@ interface UserPermissionManagementNewProps {
   users: any[];
   projects: any[];
   userPermissions: UserPermissionNew[];
-  onSaveUserPermission: (permission: Partial<UserPermissionNew>) => Promise<any>;
-  onDeleteUserPermission: (userId: string, projectId?: string) => Promise<any>;
-  loading: boolean;
+  onDataChange: () => void;
 }
 
 export function UserPermissionManagementNew({ 
   users, 
   projects, 
-  userPermissions,
-  onSaveUserPermission,
-  onDeleteUserPermission,
-  loading
+  userPermissions, 
+  onDataChange 
 }: UserPermissionManagementNewProps) {
   const { toast } = useToast();
   const [selectedUser, setSelectedUser] = useState<string>('');
@@ -141,12 +137,24 @@ export function UserPermissionManagementNew({
         custom_settings: {}
       };
 
-      await onSaveUserPermission(permissionData);
+      // 使用 upsert 操作
+      const { error } = await supabase
+        .from('user_permissions')
+        .upsert([permissionData], {
+          onConflict: 'user_id,project_id'
+        });
+
+      if (error) {
+        console.error('数据库错误详情:', error);
+        throw new Error(`数据库操作失败: ${error.message}`);
+      }
 
       toast({
         title: "成功",
         description: "用户权限已保存",
       });
+
+      onDataChange();
     } catch (error) {
       console.error('保存用户权限失败:', error);
       toast({
@@ -272,7 +280,7 @@ export function UserPermissionManagementNew({
           <Checkbox
             id="inherit-role"
             checked={inheritRole}
-            onCheckedChange={(checked) => setInheritRole(checked === true)}
+            onCheckedChange={setInheritRole}
           />
           <Label htmlFor="inherit-role">
             继承角色默认权限

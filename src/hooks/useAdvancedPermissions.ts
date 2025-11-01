@@ -33,7 +33,7 @@ export function useAdvancedPermissions() {
           .eq('user_id', user.id),
         supabase
           .from('role_permission_templates')
-          .select('id, role, name, description, color, menu_permissions, function_permissions, project_permissions, data_permissions, is_system, created_at, updated_at')
+          .select('role, menu_permissions, function_permissions, project_permissions, data_permissions, name, description')
       ]);
 
       if (userPermsResult.error) {

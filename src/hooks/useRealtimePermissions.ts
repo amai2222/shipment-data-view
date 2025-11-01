@@ -133,9 +133,7 @@ export function useRealtimePermissions() {
         },
         (payload) => {
           console.log('用户权限变更:', payload);
-          const newData = payload.new as any;
-          const oldData = payload.old as any;
-          const userId = newData?.user_id || oldData?.user_id;
+          const userId = payload.new?.user_id || payload.old?.user_id;
           if (userId) {
             refreshUserPermissions(userId);
           }

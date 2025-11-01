@@ -216,7 +216,7 @@ export function UnifiedPermissionManager({ onPermissionChange }: UnifiedPermissi
             users={users}
             projects={projects}
             userPermissions={userPermissions}
-            roleTemplates={Object.values(roleTemplates)}
+            roleTemplates={roleTemplates}
             onDataChange={handleDataChange}
           />
         </TabsContent>

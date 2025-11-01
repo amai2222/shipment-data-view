@@ -36,11 +36,10 @@ interface RoleTemplateNew {
 
 interface RoleManagementNewProps {
   roleTemplates: RoleTemplateNew[];
-  onSaveRoleTemplate: (template: Partial<RoleTemplateNew>) => Promise<any>;
-  loading: boolean;
+  onDataChange: () => void;
 }
 
-export function RoleManagementNew({ roleTemplates, onSaveRoleTemplate, loading }: RoleManagementNewProps) {
+export function RoleManagementNew({ roleTemplates, onDataChange }: RoleManagementNewProps) {
   const { toast } = useToast();
   const [selectedRole, setSelectedRole] = useState<string>('admin');
   const [saving, setSaving] = useState(false);
@@ -116,12 +115,24 @@ export function RoleManagementNew({ roleTemplates, onSaveRoleTemplate, loading }
         is_system: true
       };
 
-      await onSaveRoleTemplate(permissionData);
+      // 使用 upsert 操作，避免更新失败
+      const { error } = await supabase
+        .from('role_permission_templates')
+        .upsert([permissionData], {
+          onConflict: 'role'
+        });
+
+      if (error) {
+        console.error('数据库错误详情:', error);
+        throw new Error(`数据库操作失败: ${error.message}`);
+      }
 
       toast({
         title: "成功",
         description: "角色权限已保存",
       });
+
+      onDataChange();
     } catch (error) {
       console.error('保存角色权限失败:', error);
       toast({

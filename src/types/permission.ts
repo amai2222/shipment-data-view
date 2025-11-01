@@ -54,20 +54,12 @@ export interface PermissionGroup {
   key: string;
   label: string;
   children: PermissionItem[];
-  group?: string;
-  icon?: string;
-  scope?: string;
-  requiredRoles?: string[];
 }
 
 export interface PermissionItem {
   key: string;
   label: string;
   description?: string;
-  icon?: string;
-  scope?: string;
-  group?: string;
-  requiredRoles?: string[];
 }
 
 export interface PermissionConfig {

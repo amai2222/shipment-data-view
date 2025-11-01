@@ -54,16 +54,14 @@ export function useContractPermissionRealtime(
             table: 'contract_permissions' 
           },
           (payload) => {
-            const newData = payload.new as any;
-            const oldData = payload.old as any;
             const change: ContractPermissionChange = {
               table: payload.table,
               operation: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
-              contract_id: newData?.contract_id || oldData?.contract_id,
-              user_id: newData?.user_id || oldData?.user_id,
-              role_id: newData?.role_id || oldData?.role_id,
-              department_id: newData?.department_id || oldData?.department_id,
-              permission_type: newData?.permission_type || oldData?.permission_type,
+              contract_id: payload.new?.contract_id || payload.old?.contract_id,
+              user_id: payload.new?.user_id || payload.old?.user_id,
+              role_id: payload.new?.role_id || payload.old?.role_id,
+              department_id: payload.new?.department_id || payload.old?.department_id,
+              permission_type: payload.new?.permission_type || payload.old?.permission_type,
               timestamp: new Date().toISOString()
             };
             
@@ -78,13 +76,11 @@ export function useContractPermissionRealtime(
             table: 'contract_owner_permissions' 
           },
           (payload) => {
-            const newData = payload.new as any;
-            const oldData = payload.old as any;
             const change: ContractPermissionChange = {
               table: payload.table,
               operation: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
-              contract_id: newData?.contract_id || oldData?.contract_id,
-              user_id: newData?.owner_id || oldData?.owner_id,
+              contract_id: payload.new?.contract_id || payload.old?.contract_id,
+              user_id: payload.new?.owner_id || payload.old?.owner_id,
               timestamp: new Date().toISOString()
             };
             

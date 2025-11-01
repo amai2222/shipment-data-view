@@ -3,64 +3,11 @@
 // 这里重新导出以保持向后兼容
 export { UserWithPermissions } from './index';
 
-// 用户角色类型定义
-export type UserRole = "admin" | "finance" | "business" | "partner" | "operator" | "viewer";
-
-// 权限类型
-export type PermissionType = 'menu' | 'function' | 'project' | 'data';
-
 export interface UserPermissions {
   menu: string[];
   function: string[];
   project: string[];
   data: string[];
-}
-
-// 用户权限
-export interface UserPermission {
-  id: string;
-  user_id: string;
-  project_id?: string | null;
-  menu_permissions: string[];
-  function_permissions: string[];
-  project_permissions: string[];
-  data_permissions: string[];
-  inherit_role: boolean;
-  custom_settings: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-  created_by?: string;
-}
-
-// 角色权限模板
-export interface RolePermissionTemplate {
-  id: string;
-  role: UserRole;
-  name: string;
-  description: string;
-  color: string;
-  menu_permissions: string[];
-  function_permissions: string[];
-  project_permissions: string[];
-  data_permissions: string[];
-  is_system: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-// 权限上下文
-export interface PermissionContext {
-  userId: string;
-  userRole: UserRole;
-  currentProject?: string;
-  permissions: UserPermissions;
-}
-
-// 权限检查结果
-export interface PermissionCheck {
-  hasPermission: boolean;
-  reason?: string;
-  inheritedFrom?: 'role' | 'user' | 'project';
 }
 
 export interface RoleTemplate {

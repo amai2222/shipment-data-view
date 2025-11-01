@@ -40,6 +40,8 @@ import ContractPermission from "./pages/Settings/ContractPermission";
 import RoleTemplate from "./pages/Settings/RoleTemplate";
 import PermissionManagement from "./pages/Settings/PermissionManagement";
 import IntegratedUserManagement from "./pages/IntegratedUserManagement";
+import DebugPermissions from "./pages/DebugPermissions";
+import PermissionTest from "./pages/PermissionTest";
 import MobileIntegratedUserManagement from "./pages/mobile/MobileIntegratedUserManagement";
 import AuditLogs from "./pages/Settings/AuditLogs";
 import MobileAuditLogs from "./pages/mobile/MobileAuditLogs";
@@ -286,6 +288,18 @@ const App = () => (
             <Route path="/settings/audit-logs" element={
               <ProtectedRoute requiredPermission="settings.audit_logs">
                 <AppLayout><AuditLogs /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/debug-permissions" element={
+              <ProtectedRoute requiredPermission="settings.permissions">
+                <AppLayout><DebugPermissions /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/permission-test" element={
+              <ProtectedRoute requiredPermission="settings.permissions">
+                <AppLayout><PermissionTest /></AppLayout>
               </ProtectedRoute>
             } />
             
