@@ -9,13 +9,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, User, Lock, Truck, AlertCircle } from 'lucide-react';
 import { WorkWechatAuth } from '@/components/WorkWechatAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { isMobile } from '@/utils/device';
 
 export default function Auth() {
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { user, signIn } = useAuth();
+  const { user, profile, signIn } = useAuth();
   const location = useLocation();
 
   // 检测是否在企业微信环境中
@@ -24,8 +25,14 @@ export default function Auth() {
     return ua.includes('wxwork');
   };
 
-  // 如果已经登录，重定向到目标页面
+  // 如果已经登录，根据角色重定向到目标页面
   if (user) {
+    // 特殊处理：partner（货主）角色直接跳转到货主看板
+    if (profile?.role === 'partner') {
+      // 根据设备类型跳转到对应的货主看板
+      const shipperPath = isMobile() ? '/m/dashboard/shipper' : '/dashboard/shipper';
+      return <Navigate to={shipperPath} replace />;
+    }
     const from = location.state?.from?.pathname || '/';
     return <Navigate to={from} replace />;
   }
@@ -54,8 +61,20 @@ export default function Auth() {
   };
 
   const handleWorkWechatSuccess = () => {
-    const from = location.state?.from?.pathname || '/';
-    window.location.href = from;
+    // 企业微信登录成功后，由 onAuthStateChange 处理跳转
+    // 这里不需要手动跳转，因为：
+    // 1. onAuthStateChange 会根据角色自动跳转（partner → 货主看板）
+    // 2. 其他角色会由 ProtectedRoute 或默认路由处理
+    // 如果 profile 还没加载，等待 onAuthStateChange 处理
+    // 如果 profile 已加载且是 partner，跳转到货主看板
+    if (profile?.role === 'partner') {
+      const shipperPath = isMobile() ? '/m/dashboard/shipper' : '/dashboard/shipper';
+      window.location.href = shipperPath;
+    } else {
+      // 其他角色按原逻辑跳转
+      const from = location.state?.from?.pathname || '/';
+      window.location.href = from;
+    }
   };
 
   return (

@@ -70,14 +70,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setProfile(null);
               } else if (profileData) {
                 const anyProfile = profileData as any;
-                setProfile({
+                const userProfile = {
                   id: anyProfile.id,
                   email: anyProfile.email || '',
                   username: anyProfile.username || anyProfile.email || '',
                   full_name: anyProfile.full_name || '',
                   role: (anyProfile.role as UserRole) ?? 'operator',
                   is_active: anyProfile.is_active ?? true
-                });
+                };
+                setProfile(userProfile);
+                
+                // 特殊处理：partner（货主）角色登录后直接跳转到货主看板
+                if (event === 'SIGNED_IN' && userProfile.role === 'partner') {
+                  if (isMobile()) {
+                    navigate('/m/dashboard/shipper', { replace: true });
+                  } else {
+                    navigate('/dashboard/shipper', { replace: true });
+                  }
+                }
               } else {
                 setProfile(null);
               }
@@ -135,12 +145,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: loginError };
       }
 
-      // 登录成功！onAuthStateChange 会处理后续状态，我们在这里处理导航
-      if (isMobile()) {
-        navigate('/m/', { replace: true }); // 移动设备跳转到移动端首页
-      } else {
-        navigate('/', { replace: true }); // 桌面设备跳转到桌面端首页
-      }
+      // 登录成功！onAuthStateChange 会处理后续状态
+      // 注意：这里不立即导航，等待 onAuthStateChange 加载 profile 后根据角色跳转
+      // 特殊处理：partner 角色会在 onAuthStateChange 中跳转到货主看板
 
       return {}; // 返回成功
     } catch (error) {

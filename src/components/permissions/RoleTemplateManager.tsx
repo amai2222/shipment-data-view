@@ -326,6 +326,18 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
     };
   };
 
+  // 父级菜单key映射（组key到父级菜单key）
+  const groupToParentKeyMap: Record<string, string> = {
+    'dashboard_group': 'dashboard',
+    'business_group': 'business',
+    'maintenance_group': 'maintenance',
+    'finance_group': 'finance',
+    'contracts_group': 'contracts',
+    'audit_group': 'audit',
+    'data_maintenance_group': 'data_maintenance',
+    'settings_group': 'settings'
+  };
+
   // 权限选择组件
   const PermissionSelector = ({ 
     title, 
@@ -342,19 +354,26 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
       const group = permissions.find(p => p.key === groupKey);
       if (!group) return;
 
+      // 获取父级菜单key
+      const parentKey = groupToParentKeyMap[groupKey];
       const groupPermissions = group.children?.map((child: any) => child.key) || [];
+      
+      // 合并父级key和子级key
+      const allGroupPermissions = parentKey 
+        ? [parentKey, ...groupPermissions]
+        : groupPermissions;
       
       if (checked) {
         // 去重：只添加不存在的权限
         const newPermissions = [...selectedPermissions];
-        groupPermissions.forEach(permission => {
+        allGroupPermissions.forEach(permission => {
           if (!newPermissions.includes(permission)) {
             newPermissions.push(permission);
           }
         });
         onSelectionChange(newPermissions);
       } else {
-        const filteredPermissions = selectedPermissions.filter(p => !groupPermissions.includes(p));
+        const filteredPermissions = selectedPermissions.filter(p => !allGroupPermissions.includes(p));
         onSelectionChange(filteredPermissions);
       }
     };
@@ -388,6 +407,21 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
         requestAnimationFrame(restoreScroll);
       });
     };
+    
+    // 获取父级菜单key的显示标签
+    const getParentLabel = (groupKey: string): string => {
+      const labels: Record<string, string> = {
+        'dashboard_group': '数据看板（主）',
+        'business_group': '业务管理（主）',
+        'maintenance_group': '信息维护（主）',
+        'finance_group': '财务管理（主）',
+        'contracts_group': '合同管理（主）',
+        'audit_group': '审核管理（主）',
+        'data_maintenance_group': '数据维护（主）',
+        'settings_group': '设置（主）'
+      };
+      return labels[groupKey] || '主菜单';
+    };
 
     return (
       <div className="space-y-4">
@@ -396,34 +430,65 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
           ref={(el) => scrollAreaRefs.current[title] = el}
           className="space-y-2 max-h-80 overflow-y-auto scroll-smooth border rounded-lg p-4"
         >
-          {permissions.map(group => (
-            <div key={group.key} className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id={group.key}
-                  checked={group.children?.every((child: any) => selectedPermissions.includes(child.key))}
-                  onCheckedChange={(checked) => handleGroupToggle(group.key, checked as boolean)}
-                />
-                <Label htmlFor={group.key} className="font-medium">
-                  {group.label}
-                </Label>
+          {permissions.map(group => {
+            const parentKey = groupToParentKeyMap[group.key];
+            const parentLabel = parentKey 
+              ? group.label.replace('数据看板', '数据看板（主）')
+                  .replace('业务管理', '业务管理（主）')
+                  .replace('信息维护', '信息维护（主）')
+                  .replace('财务管理', '财务管理（主）')
+                  .replace('合同管理', '合同管理（主）')
+                  .replace('审核管理', '审核管理（主）')
+                  .replace('数据维护', '数据维护（主）')
+                  .replace('设置', '设置（主）')
+              : null;
+            
+            return (
+              <div key={group.key} className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id={group.key}
+                    checked={
+                      (parentKey ? selectedPermissions.includes(parentKey) : true) &&
+                      group.children?.every((child: any) => selectedPermissions.includes(child.key))
+                    }
+                    onCheckedChange={(checked) => handleGroupToggle(group.key, checked as boolean)}
+                  />
+                  <Label htmlFor={group.key} className="font-medium">
+                    {group.label}
+                  </Label>
+                </div>
+                <div className="ml-6 space-y-1">
+                  {/* 显示父级菜单项（如果存在） */}
+                  {parentKey && (
+                    <div className="flex items-center space-x-2 mb-1 pb-1 border-b border-dashed">
+                      <Checkbox
+                        id={parentKey}
+                        checked={selectedPermissions.includes(parentKey)}
+                        onCheckedChange={(checked) => handlePermissionToggle(parentKey, checked)}
+                      />
+                      <Label htmlFor={parentKey} className="text-sm font-medium text-blue-600">
+                        {getParentLabel(group.key)}
+                      </Label>
+                    </div>
+                  )}
+                  {/* 显示子菜单项 */}
+                  {group.children?.map((permission: any) => (
+                    <div key={permission.key} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={permission.key}
+                        checked={selectedPermissions.includes(permission.key)}
+                        onCheckedChange={(checked) => handlePermissionToggle(permission.key, checked as boolean)}
+                      />
+                      <Label htmlFor={permission.key} className="text-sm">
+                        {permission.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="ml-6 space-y-1">
-                {group.children?.map((permission: any) => (
-                  <div key={permission.key} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={permission.key}
-                      checked={selectedPermissions.includes(permission.key)}
-                      onCheckedChange={(checked) => handlePermissionToggle(permission.key, checked as boolean)}
-                    />
-                    <Label htmlFor={permission.key} className="text-sm">
-                      {permission.label}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );

@@ -2,6 +2,10 @@
 // 描述: 一个简单的工具函数，用于检测当前设备是否为移动设备（基于屏幕宽度）。
 
 export const isMobile = (): boolean => {
-  // 768px 是平板电脑的常见断点，我们将其及以下的设备视作“移动端”
+  // 安全检查：确保在浏览器环境中
+  if (typeof window === 'undefined') {
+    return false; // SSR 环境默认返回 false（桌面端）
+  }
+  // 768px 是平板电脑的常见断点，我们将其及以下的设备视作"移动端"
   return window.innerWidth <= 768;
 };
