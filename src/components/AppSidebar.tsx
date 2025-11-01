@@ -172,9 +172,6 @@ export function AppSidebar() {
       '/settings/integrated': 'settings.integrated',
       '/settings/audit-logs': 'settings.audit_logs',
       
-      // 调试页面（通常只有管理员可以访问）
-      '/debug-permissions': 'settings.permissions',
-      '/permission-test': 'settings.permissions',
     };
     
     return (url: string) => urlToKeyMap[url] || '';
