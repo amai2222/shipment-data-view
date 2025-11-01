@@ -27,7 +27,7 @@ import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
-import { usePermissions } from '@/hooks/usePermissions';
+import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 import { PageHeader } from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -91,7 +91,7 @@ export default function PaymentAudit() {
   const [loading, setLoading] = useState(true);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const { toast } = useToast();
-  const { isAdmin } = usePermissions();
+  const { hasButtonAccess } = useUnifiedPermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(null);
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
@@ -1475,7 +1475,7 @@ export default function PaymentAudit() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle>申请单列表</CardTitle>
-            {isAdmin && selection.selectedIds.size > 0 && (
+            {hasButtonAccess('finance.approve_payment') && selection.selectedIds.size > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
                   已选择 {selection.selectedIds.size} 个申请单

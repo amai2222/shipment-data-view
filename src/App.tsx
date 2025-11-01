@@ -104,325 +104,325 @@ const App = () => (
             
             {/* --- 受保护的路由 --- */}
             <Route path="/" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.transport">
                 <AppLayout><TransportOverview /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/home" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.transport">
                 <AppLayout><TransportOverview /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/dashboard/transport" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.transport">
                 <AppLayout><TransportOverview /></AppLayout>
               </ProtectedRoute>
             } />
 
             {/* ★★★ 2. 添加新的“项目看板”概览页路由 ★★★ */}
             <Route path="/dashboard/project" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.project">
                 <AppLayout><ProjectsOverview /></AppLayout>
               </ProtectedRoute>
             } />
 
             {/* ★★★ 3. 添加新的“项目详情”下钻页路由 ★★★ */}
             <Route path="/project/:projectId" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.project">
                 <AppLayout><ProjectDashboard /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/dashboard/financial" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.financial">
                 <AppLayout><FinancialOverview /></AppLayout>
               </ProtectedRoute>
             } />
             
             {/* 您原有的“项目管理”路由，保持不变 */}
             <Route path="/projects" element={
-              <ProtectedRoute requiredRoles={['admin', 'business']}>
+              <ProtectedRoute requiredPermission="maintenance.projects">
                 <AppLayout><Projects /></AppLayout>
               </ProtectedRoute>
             } />
             
             {/* ... 其他路由保持不变 ... */}
             <Route path="/drivers" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+              <ProtectedRoute requiredPermission="maintenance.drivers">
                 <AppLayout><Drivers /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/locations" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+              <ProtectedRoute requiredPermission="maintenance.locations">
                 <AppLayout><Locations /></AppLayout>
               </ProtectedRoute>
             } />
             
             {/* 增强版地点管理 - 支持批量地理编码 */}
             <Route path="/locations-enhanced" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+              <ProtectedRoute requiredPermission="maintenance.locations_enhanced">
                 <AppLayout><EnhancedLocations /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/partners" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="maintenance.partners">
                 <AppLayout><Partners /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/partners/hierarchy" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'operator']}>
+              <ProtectedRoute requiredPermission="maintenance.partners">
                 <AppLayout><PartnerHierarchyManagement /></AppLayout>
               </ProtectedRoute>
             } />
             
             {/* 货主看板 - 所有角色均可访问 */}
             <Route path="/dashboard/shipper" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer', 'partner']}>
+              <ProtectedRoute requiredPermission="dashboard.shipper">
                 <AppLayout><ShipperDashboard /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/business-entry" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+              <ProtectedRoute requiredPermission="business.entry">
                 <AppLayout><BusinessEntry /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/scale-records" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+              <ProtectedRoute requiredPermission="business.scale">
                 <AppLayout><ScaleRecords /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/payment-request" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="business.payment_request">
                 <AppLayout><PaymentRequest /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/invoice-request" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'operator']}>
+              <ProtectedRoute requiredPermission="business.invoice_request">
                 <AppLayout><InvoiceRequest /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/invoice-request-management" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+              <ProtectedRoute requiredPermission="finance.invoice_request_management">
                 <AppLayout><InvoiceRequestManagement /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/payment-requests-list" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="finance.payment_requests">
                 <AppLayout><PaymentRequestsList /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/finance/reconciliation" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="finance.reconciliation">
                 <AppLayout><FinanceReconciliation /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/finance/payment-invoice" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="finance.payment_invoice">
                 <AppLayout><PaymentInvoice /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/finance/payment-invoice/:requestId" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="finance.payment_invoice">
                 <AppLayout><PaymentInvoiceDetail /></AppLayout>
               </ProtectedRoute>
             } />
             
             {/* 审核管理路由 */}
             <Route path="/audit/payment" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="audit.payment">
                 <AppLayout><PaymentAudit /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/audit/invoice" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="audit.invoice">
                 <AppLayout><InvoiceAudit /></AppLayout>
               </ProtectedRoute>
             } />
             
             
             <Route path="/settings/users" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.users">
                 <AppLayout><UserManagement /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/settings/permissions" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.permissions">
                 <AppLayout><PermissionConfig /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/settings/contract-permissions" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.contract_permissions">
                 <AppLayout><ContractPermission /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/settings/role-templates" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.role_templates">
                 <AppLayout><RoleTemplate /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/settings/integrated" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.integrated">
                 <AppLayout><IntegratedUserManagement /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/settings/audit-logs" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.audit_logs">
                 <AppLayout><AuditLogs /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/debug-permissions" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.permissions">
                 <AppLayout><DebugPermissions /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/permission-test" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.permissions">
                 <AppLayout><PermissionTest /></AppLayout>
               </ProtectedRoute>
             } />
             
             <Route path="/contracts" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+              <ProtectedRoute requiredPermission="contracts.list">
                 <AppLayout><ContractManagement /></AppLayout>
               </ProtectedRoute>
             } />
             
             {/* 运单维护 - 原有页面（默认） */}
             <Route path="/data-maintenance/waybill" element={
-              <ProtectedRoute requiredRoles={['admin', 'operator']}>
+              <ProtectedRoute requiredPermission="data_maintenance.waybill">
                 <AppLayout><WaybillMaintenance /></AppLayout>
               </ProtectedRoute>
             } />
             
             {/* 运单维护 - 增强版本（可选） */}
             <Route path="/data-maintenance/waybill-enhanced" element={
-              <ProtectedRoute requiredRoles={['admin', 'operator']}>
+              <ProtectedRoute requiredPermission="data_maintenance.waybill_enhanced">
                 <AppLayout><EnhancedWaybillMaintenance /></AppLayout>
               </ProtectedRoute>
             } />
             
             {/* --- 移动端路由 --- */}
             <Route path="/m/" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.transport">
                 <MobileHomeNew />
               </ProtectedRoute>
             } />
             
             <Route path="/m/business-entry" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+              <ProtectedRoute requiredPermission="business.entry">
                 <MobileLayout><MobileBusinessEntry /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/business-entry/new" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+              <ProtectedRoute requiredPermission="business.entry">
                 <MobileLayout><MobileBusinessEntryForm /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/business-entry/edit/:id" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+              <ProtectedRoute requiredPermission="business.entry">
                 <MobileLayout><MobileBusinessEntryForm /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/dashboard/project" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.project">
                 <MobileProjectOverview />
               </ProtectedRoute>
             } />
 
 
             <Route path="/m/dashboard/financial" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.financial">
                 <MobileLayout><FinancialOverview /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/projects" element={
-              <ProtectedRoute requiredRoles={['admin', 'business']}>
+              <ProtectedRoute requiredPermission="maintenance.projects">
                 <MobileProjectOverview />
               </ProtectedRoute>
             } />
 
             <Route path="/m/projects/detail/:projectId" element={
-              <ProtectedRoute requiredRoles={['admin', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="maintenance.projects">
                 <MobileProjectDetail />
               </ProtectedRoute>
             } />
 
             <Route path="/m/projects/detail/:projectId/records" element={
-              <ProtectedRoute requiredRoles={['admin', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="maintenance.projects">
                 <MobileProjectRecords />
               </ProtectedRoute>
             } />
 
             <Route path="/m/projects/detail/:projectId/dashboard" element={
-              <ProtectedRoute requiredRoles={['admin', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="maintenance.projects">
                 <MobileProjectDashboardDetail />
               </ProtectedRoute>
             } />
 
             <Route path="/m/waybill/:waybillId" element={
-              <ProtectedRoute requiredRoles={['admin', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="business.entry">
                 <MobileWaybillDetail />
               </ProtectedRoute>
             } />
 
             <Route path="/m/drivers" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+              <ProtectedRoute requiredPermission="maintenance.drivers">
                 <MobileDrivers />
               </ProtectedRoute>
             } />
 
             <Route path="/m/locations" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+              <ProtectedRoute requiredPermission="maintenance.locations">
                 <MobileLocations />
               </ProtectedRoute>
             } />
 
             <Route path="/m/partners" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="maintenance.partners">
                 <MobilePartners />
               </ProtectedRoute>
             } />
 
             <Route path="/m/partners/hierarchy" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+              <ProtectedRoute requiredPermission="maintenance.partners">
                 <MobileLayout><PartnerHierarchyManagement /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/locations-enhanced" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer']}>
+              <ProtectedRoute requiredPermission="maintenance.locations_enhanced">
                 <MobileLayout><EnhancedLocations /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/scale-records" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator']}>
+              <ProtectedRoute requiredPermission="business.scale">
                 <MobileScaleRecords />
               </ProtectedRoute>
             } />

@@ -193,11 +193,8 @@ export function AppSidebar() {
         return menuKey && hasMenuAccess(menuKey);
       })
     })).filter(group => {
-      // 非管理员隐藏设置菜单
-      if (group.title === "设置" && !isAdmin) {
-        return false;
-      }
       // 如果组内没有可访问的菜单项，隐藏整个组
+      // 已移除硬编码的 isAdmin 判断，统一使用权限过滤
       return group.items.length > 0;
     });
   }, [hasMenuAccess, isAdmin, getMenuKey]);
