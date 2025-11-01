@@ -109,6 +109,7 @@ export default function BusinessEntry() {
   const [editingRecord, setEditingRecord] = useState<LogisticsRecord | null>(null);
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [selectedRecords, setSelectedRecords] = useState<LogisticsRecord[]>([]);
+  const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]); // 新增：选中的记录ID列表
   const [isBatchPDFOpen, setIsBatchPDFOpen] = useState(false);
   const { records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch, sortField, sortDirection, handleSort, handlePageSizeChange } = useLogisticsData();
   const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, duplicateActions, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates, setDuplicateActions } = useExcelImport(() => { refetch(); });
@@ -135,33 +136,150 @@ export default function BusinessEntry() {
     if (pagination.currentPage !== 1) { setPagination(p => ({ ...p, currentPage: 1 })); }
   };
 
-  const exportToExcel = async () => {
+  // 导出筛选结果（全部筛选后的数据）
+  const exportFilteredToExcel = async () => {
     toast({ title: "导出", description: "正在准备导出全部筛选结果..." });
     try {
-      let query = supabase.from('logistics_records_view').select('*');
-      if (activeFilters.projectName) query = query.eq('project_name', activeFilters.projectName);
-      if (activeFilters.driverName) query = query.ilike('driver_name', `%${activeFilters.driverName}%`);
-      if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
-      if (activeFilters.driverPhone) query = query.ilike('driver_phone', `%${activeFilters.driverPhone}%`);
-      if (activeFilters.startDate) query = query.gte('loading_date', activeFilters.startDate);
-      if (activeFilters.endDate) query = query.lte('loading_date', activeFilters.endDate);
-      
-      const { data, error } = await query.order('created_at', { ascending: false }).limit(10000);
-      if (error) throw error;
+      // 使用与列表查询相同的 RPC 函数，确保筛选条件一致
+      // 分批获取所有数据（每批1000条）
+      let allRecords: any[] = [];
+      let currentPage = 1;
+      const pageSize = 1000; // 每批获取1000条
+      let hasMore = true;
 
-      const dataToExport = data.map((r: any) => ({
-        '运单编号': r.auto_number, '项目名称': r.project_name, '合作链路': r.chain_name || '默认', '司机姓名': r.driver_name, '车牌号': r.license_plate, '司机电话': r.driver_phone, '装货地点': r.loading_location, '卸货地点': r.unloading_location, '装货日期': r.loading_date, '卸货日期': r.unloading_date, '运输类型': r.transport_type, '装货重量': r.loading_weight, '卸货重量': r.unloading_weight, '运费金额': r.current_cost, '额外费用': r.extra_cost, '司机应收': r.payable_cost, '备注': r.remarks,
-      }));
-      
-      const ws = XLSX.utils.json_to_sheet(dataToExport);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "运单记录");
-      XLSX.writeFile(wb, "运单记录.xlsx");
-      toast({ title: "成功", description: `已成功导出 ${data.length} 条记录！` });
+      while (hasMore) {
+        const { data, error } = await supabase.rpc('get_logistics_summary_and_records_enhanced', {
+          p_start_date: activeFilters.startDate || null,
+          p_end_date: activeFilters.endDate || null,
+          p_project_name: activeFilters.projectName || null,
+          p_driver_name: activeFilters.driverName || null,
+          p_license_plate: activeFilters.licensePlate || null,
+          p_driver_phone: activeFilters.driverPhone || null,
+          p_other_platform_name: activeFilters.otherPlatformName || null,
+          p_waybill_numbers: activeFilters.waybillNumbers || null,
+          p_has_scale_record: activeFilters.hasScaleRecord || null,
+          p_page_number: currentPage,
+          p_page_size: pageSize,
+          p_sort_field: 'auto_number',
+          p_sort_direction: 'desc'
+        });
+
+        if (error) throw error;
+        
+        const responseData = data as any;
+        const records = responseData?.records || [];
+        
+        if (records.length === 0 || records.length < pageSize) {
+          hasMore = false;
+        }
+        
+        allRecords = allRecords.concat(records);
+        currentPage++;
+        
+        // 防止无限循环，最多导出50000条
+        if (allRecords.length >= 50000) {
+          toast({ 
+            title: "提示", 
+            description: `数据量较大，已导出前 ${allRecords.length} 条记录。如需导出更多，请使用更精确的筛选条件。`,
+            variant: "default"
+          });
+          break;
+        }
+      }
+
+      if (allRecords.length === 0) {
+        toast({ title: "提示", description: "没有符合筛选条件的数据可导出", variant: "default" });
+        return;
+      }
+
+      exportRecordsToExcel(allRecords, '筛选结果');
     } catch(e: any) {
+      console.error('导出失败:', e);
       toast({ title: "错误", description: `导出失败: ${e.message}`, variant: "destructive" });
     }
   };
+
+  // 导出勾选的数据
+  const exportSelectedToExcel = async () => {
+    if (selectedRecordIds.length === 0) {
+      toast({ title: "提示", description: "请先勾选要导出的运单记录", variant: "default" });
+      return;
+    }
+
+    toast({ title: "导出", description: `正在准备导出 ${selectedRecordIds.length} 条勾选的记录...` });
+    try {
+      // 根据勾选的记录ID获取完整数据
+      const { data, error } = await supabase
+        .from('logistics_records_view')
+        .select('*')
+        .in('id', selectedRecordIds);
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({ title: "提示", description: "无法获取勾选的记录数据", variant: "default" });
+        return;
+      }
+
+      exportRecordsToExcel(data, '勾选数据');
+    } catch(e: any) {
+      console.error('导出失败:', e);
+      toast({ title: "错误", description: `导出失败: ${e.message}`, variant: "destructive" });
+    }
+  };
+
+  // 处理表格选中状态变化
+  const handleSelectionChange = useCallback((selectedIds: string[]) => {
+    setSelectedRecordIds(selectedIds);
+  }, []);
+
+  // 统一的导出Excel函数
+  const exportRecordsToExcel = (records: any[], exportType: '筛选结果' | '勾选数据') => {
+    // 格式化导出数据
+    const dataToExport = records.map((r: any) => ({
+      '运单编号': r.auto_number || '',
+      '项目名称': r.project_name || '',
+      '合作链路': r.chain_name || '默认',
+      '司机姓名': r.driver_name || '',
+      '车牌号': r.license_plate || '',
+      '司机电话': r.driver_phone || '',
+      '装货地点': r.loading_location || '',
+      '卸货地点': r.unloading_location || '',
+      '装货日期': r.loading_date || '',
+      '卸货日期': r.unloading_date || '',
+      '运输类型': r.transport_type || '',
+      '装货重量': r.loading_weight || 0,
+      '卸货重量': r.unloading_weight || 0,
+      '运费金额': r.current_cost || 0,
+      '额外费用': r.extra_cost || 0,
+      '司机应收': r.payable_cost || 0,
+      '备注': r.remarks || '',
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "运单记录");
+    
+    // 生成文件名
+    let fileName = '';
+    if (exportType === '勾选数据') {
+      fileName = `运单记录_勾选_${records.length}条_${new Date().toLocaleDateString('zh-CN')}.xlsx`;
+    } else {
+      const filterParts: string[] = [];
+      if (activeFilters.projectName) filterParts.push(`项目-${activeFilters.projectName}`);
+      if (activeFilters.startDate || activeFilters.endDate) {
+        filterParts.push(`${activeFilters.startDate || '开始'}至${activeFilters.endDate || '结束'}`);
+      }
+      fileName = filterParts.length > 0 
+        ? `运单记录_${filterParts.join('_')}.xlsx`
+        : `运单记录_${new Date().toLocaleDateString('zh-CN')}.xlsx`;
+    }
+    
+    XLSX.writeFile(wb, fileName);
+    toast({ title: "成功", description: `已成功导出 ${records.length} 条${exportType === '勾选数据' ? '勾选的' : '筛选后的'}记录！` });
+  };
+
+  // 兼容旧代码（保持向后兼容）
+  const exportToExcel = exportFilteredToExcel;
 
   const handleTemplateDownload = () => {
     const templateData = [
@@ -320,13 +438,35 @@ export default function BusinessEntry() {
             </Label>
           </Button>
         )}
-        <Button onClick={exportToExcel} disabled={loading}><Download className="mr-2 h-4 w-4" />导出数据</Button>
+        {/* 导出按钮组 */}
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={exportFilteredToExcel} 
+            disabled={loading}
+            variant="outline"
+            title="导出当前筛选条件下的所有数据"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            导出筛选结果
+          </Button>
+          {isBatchMode && selectedRecordIds.length > 0 && (
+            <Button 
+              onClick={exportSelectedToExcel} 
+              disabled={loading}
+              variant="default"
+              title={`导出已勾选的 ${selectedRecordIds.length} 条记录`}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              导出勾选 ({selectedRecordIds.length})
+            </Button>
+          )}
+        </div>
       </PageHeader>
 
       <div className="space-y-6">
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
-      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} onBatchAction={handleBatchAction} isBatchMode={isBatchMode} onToggleBatchMode={toggleBatchMode} activeFilters={activeFilters} />)}
+      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} onBatchAction={handleBatchAction} isBatchMode={isBatchMode} onToggleBatchMode={toggleBatchMode} activeFilters={activeFilters} onSelectionChange={handleSelectionChange} />)}
       {hasButtonAccess('data.import') && <EnhancedImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} duplicateActions={duplicateActions} setDuplicateActions={setDuplicateActions} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
       <LogisticsFormDialog
         isOpen={isFormDialogOpen}

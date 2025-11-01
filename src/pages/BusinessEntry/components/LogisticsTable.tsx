@@ -31,9 +31,10 @@ interface LogisticsTableProps {
   isBatchMode?: boolean;
   onToggleBatchMode?: () => void;
   activeFilters: LogisticsFilters; // 新增：当前活跃的筛选条件
+  onSelectionChange?: (selectedIds: string[]) => void; // 新增：选中状态改变回调
 }
 
-export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, onPageSizeChange, billingTypes = {}, onBatchAction, isBatchMode = false, onToggleBatchMode, activeFilters }: LogisticsTableProps) => {
+export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, onPageSizeChange, billingTypes = {}, onBatchAction, isBatchMode = false, onToggleBatchMode, activeFilters, onSelectionChange }: LogisticsTableProps) => {
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
   const [allFilteredRecordIds, setAllFilteredRecordIds] = useState<string[]>([]);
   const { getAllFilteredRecordIds, loading: loadingAllRecords } = useAllFilteredRecords();
@@ -41,7 +42,16 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
   // 当筛选条件改变时，清空缓存的记录ID
   useEffect(() => {
     setAllFilteredRecordIds([]);
-  }, [activeFilters]);
+    setSelectedRecords(new Set()); // 清空选中状态
+    if (onSelectionChange) onSelectionChange([]);
+  }, [activeFilters, onSelectionChange]);
+
+  // 当选中状态改变时，通知父组件
+  useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange(Array.from(selectedRecords));
+    }
+  }, [selectedRecords, onSelectionChange]);
   
   const handlePageChange = (newPage: number) => {
     setPagination(p => ({ ...p, currentPage: newPage }));
