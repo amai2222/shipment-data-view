@@ -115,9 +115,12 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
         return;
       }
 
+      // 重要：自动添加父级菜单key，确保与数据库格式一致
+      const menuPermissionsWithParents = addParentMenuKeys(newTemplate.menu_permissions);
+
       const updateData = {
         role: editingRole,
-        menu_permissions: newTemplate.menu_permissions,
+        menu_permissions: menuPermissionsWithParents,  // 包含父级key的完整权限列表
         function_permissions: newTemplate.function_permissions,
         project_permissions: newTemplate.project_permissions || [],
         data_permissions: newTemplate.data_permissions || [],
@@ -178,6 +181,104 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
         variant: "destructive"
       });
     }
+  };
+
+  // 添加父级菜单权限key的辅助函数
+  const addParentMenuKeys = (childKeys: string[]): string[] => {
+    const parentKeyMap: Record<string, string> = {
+      'dashboard.transport': 'dashboard',
+      'dashboard.financial': 'dashboard',
+      'dashboard.project': 'dashboard',
+      'dashboard.shipper': 'dashboard',
+      'dashboard.quantity': 'dashboard',
+      'business.entry': 'business',
+      'business.scale': 'business',
+      'business.payment_request': 'business',
+      'business.payment_requests': 'business',
+      'business.invoice_request': 'business',
+      'maintenance.projects': 'maintenance',
+      'maintenance.drivers': 'maintenance',
+      'maintenance.locations': 'maintenance',
+      'maintenance.locations_enhanced': 'maintenance',
+      'maintenance.partners': 'maintenance',
+      'finance.reconciliation': 'finance',
+      'finance.payment_invoice': 'finance',
+      'finance.payment_requests': 'finance',
+      'finance.invoice_request_management': 'finance',
+      'contracts.list': 'contracts',
+      'contracts.create': 'contracts',
+      'contracts.edit': 'contracts',
+      'contracts.delete': 'contracts',
+      'contracts.audit': 'contracts',
+      'contracts.files': 'contracts',
+      'contracts.permissions': 'contracts',
+      'contracts.reminders': 'contracts',
+      'contracts.tags': 'contracts',
+      'contracts.numbering': 'contracts',
+      'audit.invoice': 'audit',
+      'audit.payment': 'audit',
+      'data_maintenance.waybill': 'data_maintenance',
+      'data_maintenance.waybill_enhanced': 'data_maintenance',
+      'settings.users': 'settings',
+      'settings.permissions': 'settings',
+      'settings.contract_permissions': 'settings',
+      'settings.role_templates': 'settings',
+      'settings.integrated': 'settings',
+      'settings.audit_logs': 'settings'
+    };
+
+    const result = [...new Set(childKeys)]; // 去重
+    const parentKeys = new Set<string>();
+
+    // 为每个子菜单添加对应的父级key
+    childKeys.forEach(childKey => {
+      const parentKey = parentKeyMap[childKey];
+      if (parentKey && !result.includes(parentKey)) {
+        parentKeys.add(parentKey);
+      }
+    });
+
+    // 合并父级key和子菜单key
+    return [...result, ...Array.from(parentKeys)];
+  };
+
+  // 一键设置操作员权限（基于管理员，排除设置菜单）
+  const handleQuickSetupOperator = () => {
+    const adminTemplate = roleTemplates['admin'];
+    if (!adminTemplate) {
+      toast({
+        title: "错误",
+        description: "管理员模板不存在",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // 从管理员权限中排除设置菜单（7个）
+    const operatorMenuPermissions = (adminTemplate.menu_permissions || []).filter(
+      (perm: string) => !perm.startsWith('settings')
+    );
+
+    // 从管理员权限中排除系统管理功能
+    const operatorFunctionPermissions = (adminTemplate.function_permissions || []).filter(
+      (perm: string) => !perm.startsWith('system')
+    );
+
+    // 设置为操作员模板
+    setEditingRole('operator');
+    setNewTemplate({
+      role: 'operator',
+      menu_permissions: operatorMenuPermissions,
+      function_permissions: operatorFunctionPermissions,
+      project_permissions: [...(adminTemplate.project_permissions || [])],
+      data_permissions: [...(adminTemplate.data_permissions || [])]
+    });
+    setShowEditDialog(true);
+    
+    toast({
+      title: "快速设置",
+      description: "已基于管理员权限生成操作员权限（已排除设置菜单和系统管理功能）",
+    });
   };
 
   // 复制模板
@@ -472,6 +573,18 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg">{template.name || role}</CardTitle>
                       <div className="flex items-center gap-1">
+                        {role === 'operator' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleQuickSetupOperator}
+                            title="一键设置：基于管理员权限，自动排除设置菜单"
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Copy className="h-4 w-4 mr-1" />
+                            一键设置
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
