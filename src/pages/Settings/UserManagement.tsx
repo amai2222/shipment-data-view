@@ -19,6 +19,7 @@ import { UserManagement } from '@/components/permissions/UserManagement';
 import { PermissionQuickActions } from '@/components/PermissionQuickActions';
 import { PermissionResetService } from '@/services/PermissionResetService';
 import { PageHeader } from '@/components/PageHeader';
+import { OrphanedUsersCleanup } from '@/components/admin/OrphanedUsersCleanup';
 
 export default function UserManagementPage() {
   const { toast } = useToast();
@@ -204,6 +205,9 @@ export default function UserManagementPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 孤立用户清理工具 */}
+      <OrphanedUsersCleanup />
 
       {/* 快速操作组件 */}
       <PermissionQuickActions

@@ -271,12 +271,17 @@ export function UserManagement({
     if (!userToDelete) return;
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userToDelete.id);
+      // 调用 Edge Function 删除用户，同时删除 auth.users 和 profiles
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: {
+          userId: userToDelete.id,
+          hardDelete: true  // 硬删除，彻底删除用户
+        }
+      });
 
-      if (error) throw error;
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || '删除用户失败');
+      }
 
       toast({
         title: "删除成功",
@@ -290,7 +295,7 @@ export function UserManagement({
       console.error('删除用户失败:', error);
       toast({
         title: "删除失败",
-        description: "删除用户失败",
+        description: error.message || "删除用户失败",
         variant: "destructive"
       });
     }

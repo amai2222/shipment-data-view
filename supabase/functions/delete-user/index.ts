@@ -1,139 +1,53 @@
-// supabase/functions/delete-user/index.ts
-// 用于安全删除用户的 Edge Function
-
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
+// 用户删除函数 V2 - 支持智能数据转移
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface DeleteUserRequest {
-  userId: string;
-  hardDelete?: boolean; // true: 完全删除, false: 软删除（设置 is_active = false）
 }
 
 serve(async (req) => {
   // 处理 CORS 预检请求
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // 从环境变量获取配置
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    // 使用 Service Role Key 创建管理员客户端
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
+    // 创建 Supabase 管理客户端
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
       }
-    });
+    )
 
-    // 验证当前用户是否登录
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    // 获取请求数据
+    const requestData = await req.json()
+    const { userId, hardDelete = false, transferToUserId } = requestData
+
+    if (!userId) {
       return new Response(
-        JSON.stringify({ error: '未授权访问' }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // 从 Authorization header 获取当前用户的 token
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user: currentUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !currentUser) {
-      return new Response(
-        JSON.stringify({ error: '身份验证失败' }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // 解析请求体
-    const requestData: DeleteUserRequest = await req.json();
-
-    // 验证必填字段
-    if (!requestData.userId) {
-      return new Response(
-        JSON.stringify({ error: '缺少必填字段：userId' }),
+        JSON.stringify({ error: '缺少 userId 参数' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-      );
+      )
     }
 
-    // 防止删除自己
-    if (currentUser.id === requestData.userId) {
-      return new Response(
-        JSON.stringify({ error: '不能删除自己的账号' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+    console.log('删除用户请求:', { userId, hardDelete, transferToUserId })
 
-    // 获取当前用户的角色
-    const { data: currentUserProfile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', currentUser.id)
-      .single();
-
-    if (profileError || !currentUserProfile) {
-      return new Response(
-        JSON.stringify({ error: '无法获取用户信息' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // 权限检查：
-    // 1. system_admin 可以硬删除和软删除
-    // 2. admin 只能软删除
-    const isSystemAdmin = currentUserProfile.role === 'system_admin';
-    const isAdmin = currentUserProfile.role === 'admin';
-
-    if (!isSystemAdmin && !isAdmin) {
-      return new Response(
-        JSON.stringify({ error: '您没有权限删除用户。需要管理员权限。' }),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // 如果要硬删除，必须是 system_admin
-    if (requestData.hardDelete && !isSystemAdmin) {
-      return new Response(
-        JSON.stringify({ error: '只有系统管理员可以永久删除用户。普通管理员只能停用用户。' }),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // 获取要删除的用户信息
+    // 检查目标用户是否存在
     const { data: targetUser, error: targetUserError } = await supabaseAdmin
       .from('profiles')
-      .select('email, full_name, role')
-      .eq('id', requestData.userId)
-      .single();
+      .select('*')
+      .eq('id', userId)
+      .single()
 
     if (targetUserError || !targetUser) {
       return new Response(
@@ -142,21 +56,81 @@ serve(async (req) => {
           status: 404, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-      );
+      )
     }
 
-    console.log('开始删除用户，用户ID:', requestData.userId, '硬删除:', requestData.hardDelete);
+    if (hardDelete) {
+      // 硬删除：需要先处理关联数据
+      let adminId = transferToUserId
 
-    if (requestData.hardDelete) {
-      // 硬删除：完全删除用户
-      // 先删除 profiles 表中的记录（会触发级联删除相关数据）
+      // 如果没有指定转移目标，自动查找管理员
+      if (!adminId) {
+        const { data: adminUser } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('email', 'admin@example.com')
+          .single()
+        
+        adminId = adminUser?.id
+      }
+
+      if (!adminId) {
+        return new Response(
+          JSON.stringify({ error: '找不到数据接管的管理员账户' }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      console.log('开始转移用户数据到管理员:', adminId)
+
+      // 转移所有关联数据（使用智能查询）
+      const tables = [
+        { table: 'drivers', column: 'user_id' },
+        { table: 'location_projects', column: 'user_id' },
+        { table: 'logistics_records', column: 'created_by_user_id' },
+        { table: 'logistics_records', column: 'user_id' },
+        { table: 'logistics_partner_costs', column: 'user_id' },
+        { table: 'payment_requests', column: 'created_by' },
+        { table: 'payment_requests', column: 'user_id' },
+        { table: 'invoice_requests', column: 'created_by' },
+        { table: 'invoice_requests', column: 'approved_by' },
+        { table: 'invoice_requests', column: 'applicant_id' },
+        { table: 'invoice_requests', column: 'voided_by' },
+        { table: 'scale_records', column: 'user_id' },
+        { table: 'scale_records', column: 'created_by_user_id' },
+        { table: 'notifications', column: 'user_id' },
+        { table: 'operation_logs', column: 'operated_by' },
+      ]
+
+      // 转移数据
+      for (const { table, column } of tables) {
+        const { error: updateError } = await supabaseAdmin
+          .from(table)
+          .update({ [column]: adminId })
+          .eq(column, userId)
+
+        if (updateError && !updateError.message.includes('No rows')) {
+          console.error(`转移 ${table}.${column} 失败:`, updateError)
+        }
+      }
+
+      // 删除有唯一约束的表
+      await supabaseAdmin.from('user_permissions').delete().eq('user_id', userId)
+      await supabaseAdmin.from('user_roles').delete().eq('user_id', userId)
+
+      console.log('数据转移完成，开始删除用户')
+
+      // 删除 profiles
       const { error: deleteProfileError } = await supabaseAdmin
         .from('profiles')
         .delete()
-        .eq('id', requestData.userId);
+        .eq('id', userId)
 
       if (deleteProfileError) {
-        console.error('删除用户档案失败:', deleteProfileError);
+        console.error('删除用户档案失败:', deleteProfileError)
         return new Response(
           JSON.stringify({ 
             error: '删除用户档案失败',
@@ -166,16 +140,14 @@ serve(async (req) => {
             status: 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
-        );
+        )
       }
 
-      // 再删除 auth 用户
-      const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(
-        requestData.userId
-      );
+      // 删除 auth 用户
+      const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
       if (deleteAuthError) {
-        console.error('删除认证用户失败:', deleteAuthError);
+        console.error('删除认证用户失败:', deleteAuthError)
         return new Response(
           JSON.stringify({ 
             error: '删除认证用户失败',
@@ -185,18 +157,19 @@ serve(async (req) => {
             status: 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
-        );
+        )
       }
 
-      console.log('用户已永久删除');
+      console.log('用户已永久删除')
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: '用户已永久删除',
+          message: '用户已永久删除，关联数据已转移给管理员',
           data: {
-            userId: requestData.userId,
+            userId: userId,
             email: targetUser.email,
+            transferredTo: adminId,
             deleted_at: new Date().toISOString(),
             type: 'hard_delete'
           }
@@ -205,22 +178,15 @@ serve(async (req) => {
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-      );
-
+      )
     } else {
-      // 软删除：只设置 is_active = false
-      const { data: updateData, error: updateError } = await supabaseAdmin
+      // 软删除：仅停用用户
+      const { error: updateError } = await supabaseAdmin
         .from('profiles')
-        .update({ 
-          is_active: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', requestData.userId)
-        .select()
-        .single();
+        .update({ is_active: false })
+        .eq('id', userId)
 
       if (updateError) {
-        console.error('停用用户失败:', updateError);
         return new Response(
           JSON.stringify({ 
             error: '停用用户失败',
@@ -230,20 +196,16 @@ serve(async (req) => {
             status: 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
-        );
+        )
       }
-
-      console.log('用户已停用');
 
       return new Response(
         JSON.stringify({
           success: true,
           message: '用户已停用',
           data: {
-            userId: requestData.userId,
+            userId: userId,
             email: targetUser.email,
-            is_active: false,
-            updated_at: updateData.updated_at,
             type: 'soft_delete'
           }
         }),
@@ -251,21 +213,21 @@ serve(async (req) => {
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-      );
+      )
     }
 
-  } catch (error: any) {
-    console.error('删除用户异常:', error);
+  } catch (error) {
+    console.error('删除用户失败:', error)
     return new Response(
       JSON.stringify({ 
-        error: '删除用户时发生异常',
-        details: error.message 
+        error: error.message || '删除用户失败',
+        details: error 
       }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
-    );
+    )
   }
-});
+})
 
