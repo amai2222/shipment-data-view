@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
-import { usePermissions } from "@/hooks/usePermissions";
+import { useUnifiedPermissions } from "@/hooks/useUnifiedPermissions";
 import { FileText, Search, Filter, Eye, Edit, RefreshCw, ChevronRight, X, CheckCircle, FileDown, CheckSquare, Square, Trash2, Ban, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -97,7 +97,7 @@ export default function MobileInvoiceRequestManagement() {
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   
   const { toast } = useToast();
-  const { isAdmin } = usePermissions();
+  const { hasButtonAccess } = useUnifiedPermissions();
 
   // 加载开票申请单列表
   const loadInvoiceRequests = async () => {
@@ -974,8 +974,8 @@ export default function MobileInvoiceRequestManagement() {
                   disabled={selectedRequests.size === 0 || isBatchProcessing}
                 />
 
-                {/* 危险操作按钮 - 仅管理员可见 */}
-                {isAdmin && (
+                {/* 危险操作按钮 - 需要审批权限 */}
+                {hasButtonAccess('finance.approve_payment') && (
                   <MobileConfirmDialog
                     trigger={
                       <Button

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { usePermissions } from '@/hooks/usePermissions';
+import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { Network, RefreshCw, Settings } from 'lucide-react';
@@ -109,8 +109,8 @@ const TreeNode = ({ node, level, onToggle, onDrop, onCancelRoot, onDetach, canEd
 
 // 主组件
 export default function PartnerHierarchyManagement() {
-  const { isAdmin, isFinance } = usePermissions();
-  const canEdit = isAdmin || isFinance;
+  const { hasFunctionAccess } = useUnifiedPermissions();
+  const canEdit = hasFunctionAccess('data.edit');
 
   const [partners, setPartners] = useState<any[]>([]);
   const [tree, setTree] = useState<any[]>([]);

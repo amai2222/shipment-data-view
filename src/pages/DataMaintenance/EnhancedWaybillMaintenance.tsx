@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { usePermissions } from "@/hooks/usePermissions";
+import { useUnifiedPermissions } from "@/hooks/useUnifiedPermissions";
 import { Project } from "@/types";
 import { UpdateModeImportDialog } from '@/pages/BusinessEntry/components/UpdateModeImportDialog';
 import { useExcelImportWithUpdate } from '@/pages/BusinessEntry/hooks/useExcelImportWithUpdate';
@@ -47,7 +47,9 @@ import {
 
 export default function EnhancedWaybillMaintenance() {
   const { toast } = useToast();
-  const { isAdmin, isOperator } = usePermissions();
+  const { hasButtonAccess, hasRole } = useUnifiedPermissions();
+  const isAdmin = hasRole('admin');
+  const isOperator = hasRole('operator');
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [waybillCount, setWaybillCount] = useState<number>(0);

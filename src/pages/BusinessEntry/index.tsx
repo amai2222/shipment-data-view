@@ -10,7 +10,7 @@ import { Download, FileDown, FileUp, Loader2, Search, Plus, MoreHorizontal, Arro
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
-import { usePermissions } from "@/hooks/usePermissions";
+import { useUnifiedPermissions } from "@/hooks/useUnifiedPermissions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -101,7 +101,7 @@ const StaleDataPrompt = () => (
 
 export default function BusinessEntry() {
   const { toast } = useToast();
-  const { isAdmin } = usePermissions();
+  const { hasButtonAccess } = useUnifiedPermissions();
   const [projects, setProjects] = useState<Project[]>([]);
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecord | null>(null);
   const [uiFilters, setUiFilters] = useState(INITIAL_FILTERS);
@@ -304,7 +304,7 @@ export default function BusinessEntry() {
           <CheckSquare className="mr-2 h-4 w-4" />
           {isBatchMode ? "退出批量模式" : "批量选择"}
         </Button>
-        {isAdmin && (
+        {hasButtonAccess('data.create') && (
           <Button onClick={handleOpenAddDialog}>
             <Plus className="mr-2 h-4 w-4" />
             新增运单

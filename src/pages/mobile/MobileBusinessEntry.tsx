@@ -27,7 +27,7 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { usePermissions } from '@/hooks/usePermissions';
+import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
@@ -69,7 +69,7 @@ export default function MobileBusinessEntry() {
   
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { isAdmin } = usePermissions();
+  const { hasButtonAccess } = useUnifiedPermissions();
 
   useEffect(() => {
     loadRecords();
@@ -175,7 +175,7 @@ export default function MobileBusinessEntry() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!isAdmin) {
+    if (!hasButtonAccess('data.delete')) {
       toast({
         title: "权限不足",
         description: "只有管理员可以删除记录",
@@ -393,13 +393,13 @@ export default function MobileBusinessEntry() {
                           <Eye className="h-4 w-4 mr-2" />
                           查看详情
                         </DropdownMenuItem>
-                        {isAdmin && (
+                        {hasButtonAccess('data.edit') && (
                           <DropdownMenuItem onClick={() => navigate(`/m/business-entry/edit/${record.id}`)}>
                             <Edit className="h-4 w-4 mr-2" />
                             编辑
                           </DropdownMenuItem>
                         )}
-                        {isAdmin && (
+                        {hasButtonAccess('data.delete') && (
                           <DropdownMenuItem 
                             onClick={() => handleDelete(record.id)}
                             className="text-red-600"

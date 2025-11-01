@@ -28,7 +28,7 @@ import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
-import { usePermissions } from '@/hooks/usePermissions';
+import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 import { PageHeader } from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -134,7 +134,7 @@ export default function InvoiceAudit() {
   const [loading, setLoading] = useState(true);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const { toast } = useToast();
-  const { isAdmin } = usePermissions();
+  const { hasButtonAccess } = useUnifiedPermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<InvoiceRequest | null>(null);
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
@@ -1618,7 +1618,7 @@ export default function InvoiceAudit() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle>申请单列表</CardTitle>
-            {isAdmin && selection.selectedIds.size > 0 && (
+            {hasButtonAccess('finance.approve_payment') && selection.selectedIds.size > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
                   已选择 {selection.selectedIds.size} 个申请单
@@ -1658,8 +1658,8 @@ export default function InvoiceAudit() {
                   </Button>
                 </ConfirmDialog>
 
-                {/* 一键作废按钮 - 仅管理员可见 - 红色 */}
-                {isAdmin && (
+                {/* 一键作废按钮 - 需要审批权限 - 红色 */}
+                {hasButtonAccess('finance.approve_payment') && (
                   <ConfirmDialog
                     title="⚠️ 确认一键作废"
                     description={`确定要作废并删除选中的 ${selectionCount} 个开票申请吗？\n\n⚠️ 此操作将：\n• 永久删除申请单记录\n• 回滚运单状态为未开票\n\n此操作不可逆，请谨慎操作！`}

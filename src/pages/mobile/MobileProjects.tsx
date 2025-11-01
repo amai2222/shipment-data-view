@@ -21,7 +21,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { usePermissions } from '@/hooks/usePermissions';
+import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 import { format } from 'date-fns';
 
 interface Project {
@@ -59,7 +59,7 @@ export default function MobileProjects() {
   
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { isAdmin } = usePermissions();
+  const { hasButtonAccess } = useUnifiedPermissions();
 
   useEffect(() => {
     loadProjects();
@@ -191,7 +191,7 @@ export default function MobileProjects() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!isAdmin) {
+    if (!hasButtonAccess('data.delete')) {
       toast({
         title: "权限不足",
         description: "只有管理员可以删除项目",
@@ -265,7 +265,7 @@ export default function MobileProjects() {
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">项目管理</h1>
-        {isAdmin && (
+        {hasButtonAccess('data.create') && (
           <Button onClick={() => navigate('/m/projects/new')} size="sm">
             <Plus className="h-4 w-4 mr-2" />
             新增
@@ -298,7 +298,7 @@ export default function MobileProjects() {
               <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">暂无项目</h3>
               <p className="text-muted-foreground mb-4">还没有创建任何项目</p>
-              {isAdmin && (
+              {hasButtonAccess('data.create') && (
                 <Button onClick={() => navigate('/m/projects/new')}>
                   <Plus className="h-4 w-4 mr-2" />
                   创建第一个项目
@@ -324,8 +324,8 @@ export default function MobileProjects() {
                   className: getStatusColor(project.project_status)
                 }}
                 onView={() => navigate(`/m/projects/detail/${project.id}`)}
-                onEdit={isAdmin ? () => navigate(`/m/projects/edit/${project.id}`) : undefined}
-                onDelete={isAdmin ? () => handleDelete(project.id) : undefined}
+                onEdit={hasButtonAccess('data.edit') ? () => navigate(`/m/projects/edit/${project.id}`) : undefined}
+                onDelete={hasButtonAccess('data.delete') ? () => handleDelete(project.id) : undefined}
               >
                 <div className="space-y-3">
                   {/* 项目基本信息 */}

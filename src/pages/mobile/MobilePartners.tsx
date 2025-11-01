@@ -21,7 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Partner } from "@/types";
-import { usePermissions } from "@/hooks/usePermissions";
+import { useUnifiedPermissions } from "@/hooks/useUnifiedPermissions";
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { MobileCard } from '@/components/mobile/MobileCard';
 import { useQueryClient } from '@tanstack/react-query';
@@ -59,8 +59,8 @@ export default function MobilePartners() {
   });
 
   const { toast } = useToast();
-  const { isAdmin, isFinance } = usePermissions();
-  const canViewSensitive = isAdmin || isFinance;
+  const { hasDataAccess } = useUnifiedPermissions();
+  const canViewSensitive = hasDataAccess('data.all');
 
   useEffect(() => {
     loadData();

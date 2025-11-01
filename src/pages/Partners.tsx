@@ -17,7 +17,7 @@ import { Partner } from '@/types';
 import { Trash2, Edit, Plus, Download, Upload, Users, Eye, EyeOff } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PageHeader } from '@/components/PageHeader';
-import { usePermissions } from '@/hooks/usePermissions';
+import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 import { useQueryClient } from '@tanstack/react-query';
 
 // 扩展 Partner 类型，使其可以直接包含项目列表
@@ -56,8 +56,8 @@ const DeleteConfirmButton = ({ partnerId, partnerName, onConfirm }: { partnerId:
 };
 
 export default function Partners() {
-  const { isAdmin, isFinance } = usePermissions();
-  const canViewSensitive = isAdmin || isFinance;
+  const { hasDataAccess } = useUnifiedPermissions();
+  const canViewSensitive = hasDataAccess('data.all');
   const queryClient = useQueryClient();
   const [partners, setPartners] = useState<PartnerWithProjects[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);

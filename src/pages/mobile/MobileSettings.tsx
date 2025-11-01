@@ -42,7 +42,7 @@ export default function MobileSettings() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const { hasMenuAccess, isAdmin } = useSimplePermissions();
+  const { hasMenuAccess, isAdmin } = useUnifiedPermissions();
   
   const [settings, setSettings] = useState({
     notifications: {

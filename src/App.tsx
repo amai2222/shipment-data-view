@@ -428,141 +428,141 @@ const App = () => (
             } />
 
             <Route path="/m/payment-requests-management" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="finance.payment_requests">
                 <MobilePaymentRequestsManagement />
               </ProtectedRoute>
             } />
 
             <Route path="/m/invoice-request-management" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="finance.invoice_request_management">
                 <MobileLayout><InvoiceRequestManagement /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/payment-request" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="business.payment_request">
                 <MobileLayout><PaymentRequest /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/payment-requests-list" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="finance.payment_requests">
                 <MobilePaymentRequestsList />
               </ProtectedRoute>
             } />
             
             <Route path="/m/dashboard" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.transport">
                 <MobileDashboard />
               </ProtectedRoute>
             } />
             
             {/* 移动端货主看板 - 所有角色均可访问 */}
             <Route path="/m/dashboard/shipper" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'operator', 'viewer', 'partner']}>
+              <ProtectedRoute requiredPermission="dashboard.shipper">
                 <MobileShipperDashboard />
               </ProtectedRoute>
             } />
             
             <Route path="/m/financial-overview" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.financial">
                 <MobileFinancialOverview />
               </ProtectedRoute>
             } />
 
             <Route path="/m/finance/reconciliation" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="finance.reconciliation">
                 <MobileLayout><FinanceReconciliation /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/finance/payment-invoice" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="finance.payment_invoice">
                 <MobileLayout><PaymentInvoice /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/finance/payment-invoice/:requestId" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance']}>
+              <ProtectedRoute requiredPermission="finance.payment_invoice">
                 <MobileLayout><PaymentInvoiceDetail /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/settings/permissions" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.permissions">
                 <MobileLayout><PermissionConfig /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/data-maintenance/waybill" element={
-              <ProtectedRoute requiredRoles={['admin', 'operator']}>
+              <ProtectedRoute requiredPermission="data_maintenance.waybill">
                 <MobileLayout><WaybillMaintenance /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/data-maintenance/waybill-enhanced" element={
-              <ProtectedRoute requiredRoles={['admin', 'operator']}>
+              <ProtectedRoute requiredPermission="data_maintenance.waybill_enhanced">
                 <MobileLayout><EnhancedWaybillMaintenance /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/settings/integrated" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.integrated">
                 <MobileIntegratedUserManagement />
               </ProtectedRoute>
             } />
 
             <Route path="/m/settings/audit-logs" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.audit_logs">
                 <MobileAuditLogs />
               </ProtectedRoute>
             } />
             
             {/* 移动端审核管理路由 */}
             <Route path="/m/audit/payment" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'operator']}>
+              <ProtectedRoute requiredPermission="audit.payment">
                 <MobileLayout><PaymentAudit /></MobileLayout>
               </ProtectedRoute>
             } />
-            
+
             <Route path="/m/audit/invoice" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'operator']}>
+              <ProtectedRoute requiredPermission="audit.invoice">
                 <MobileLayout><InvoiceAudit /></MobileLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/m/contracts" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business']}>
+              <ProtectedRoute requiredPermission="contracts.list">
                 <MobileContractManagement />
               </ProtectedRoute>
             } />
 
             <Route path="/m/notifications" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="dashboard.transport">
                 <MobileNotifications />
               </ProtectedRoute>
             } />
 
             <Route path="/m/settings/users" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.users">
                 <MobileUserManagement />
               </ProtectedRoute>
             } />
 
             <Route path="/m/settings/contract-permissions" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.contract_permissions">
                 <MobileContractPermission />
               </ProtectedRoute>
             } />
 
             <Route path="/m/settings/role-templates" element={
-              <ProtectedRoute requiredRoles={['admin']}>
+              <ProtectedRoute requiredPermission="settings.role_templates">
                 <MobileRoleTemplate />
               </ProtectedRoute>
             } />
 
             <Route path="/m/settings" element={
-              <ProtectedRoute requiredRoles={['admin', 'finance', 'business', 'viewer']}>
+              <ProtectedRoute requiredPermission="settings">
                 <MobileSettings />
               </ProtectedRoute>
             } />
