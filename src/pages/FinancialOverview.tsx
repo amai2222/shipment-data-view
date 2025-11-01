@@ -213,8 +213,14 @@ export default function FinancialOverview() {
   if (error) { return <div className="flex flex-col justify-center items-center h-screen text-center p-4"><h2 className="text-xl font-semibold text-destructive">数据加载失败</h2><p className="mt-2 text-sm text-muted-foreground max-w-md">无法获取财务概览数据，这可能是由于数据库权限或函数错误导致的。</p><code className="mt-4 p-2 bg-muted text-muted-foreground rounded-md text-xs">{error}</code></div> }
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      {loading && <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex justify-center items-center z-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
+    <div className="space-y-6 p-4 md:p-6 relative">
+      {loading && (
+        <div className="fixed inset-0 bg-background/30 backdrop-blur-[2px] flex justify-center items-center z-[5] pointer-events-none">
+          <div className="relative z-[6] bg-background/90 backdrop-blur-sm rounded-lg p-6 shadow-lg border">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        </div>
+      )}
       
       <PageHeader 
         title="财务看板" 
