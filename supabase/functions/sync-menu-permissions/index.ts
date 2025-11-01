@@ -46,18 +46,11 @@ serve(async (req) => {
     const oldMenuCount = currentTemplate?.menu_permissions?.length || 0
     const oldFunctionCount = currentTemplate?.function_permissions?.length || 0
 
-    // 合并菜单权限（保留原有 + 添加新的）
-    const allMenuPermissions = Array.from(new Set([
-      ...(currentTemplate?.menu_permissions || []),
-      ...menuKeys
-    ])).sort()
-
-    // 合并功能权限（如果提供）
+    // 完全替换模式：前端传来的就是完整的菜单列表
+    // 这样菜单减少时也能正确同步
+    const allMenuPermissions = Array.from(new Set(menuKeys)).sort()
     const allFunctionPermissions = functionKeys 
-      ? Array.from(new Set([
-          ...(currentTemplate?.function_permissions || []),
-          ...functionKeys
-        ])).sort()
+      ? Array.from(new Set(functionKeys)).sort()
       : (currentTemplate?.function_permissions || [])
 
     // 更新 admin 角色模板

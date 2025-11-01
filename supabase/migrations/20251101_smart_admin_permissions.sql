@@ -32,9 +32,9 @@ BEGIN
                       COALESCE(array_length(NEW.project_permissions, 1), 0) +
                       COALESCE(array_length(NEW.data_permissions, 1), 0);
         
-        -- 如果新权限少于旧权限，阻止修改
+        -- 如果新权限少于旧权限，记录警告但允许修改
         IF v_new_total < v_old_total THEN
-            RAISE EXCEPTION '🚫 禁止减少 admin 角色权限！当前: % 个，尝试修改为: % 个。admin 必须拥有完整权限。',
+            RAISE WARNING '⚠️ admin 角色权限减少！当前: % 个，新: % 个。这可能是菜单结构调整。',
                 v_old_total, v_new_total;
         END IF;
         

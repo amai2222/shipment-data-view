@@ -566,54 +566,84 @@ export function PermissionVisualizer({
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {PROJECT_PERMISSIONS.map((projectGroup) => (
-                    <Card key={projectGroup.key} className="border-l-4 border-l-purple-500">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium text-purple-700">
-                          {projectGroup.label}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="space-y-3">
-                          {projectGroup.children?.map((permission) => {
-                            const hasUserPermission = userPermissions.project.includes(permission.key);
-                            const hasRolePermission = rolePermissions.project.includes(permission.key);
-                            
-                            let status = 'none';
-                            if (hasRolePermission) {
-                              status = 'inherited'; // 修复：有角色权限就显示为继承
-                            } else if (hasUserPermission) {
-                              status = 'custom';
-                            }
-                            
-                            return (
-                              <div key={permission.key} className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
-                                <div className="flex items-center gap-3">
-                                  <Building2 className="h-4 w-4 text-gray-600" />
-                                  <div>
-                                    <div className="font-medium text-sm">{permission.label}</div>
-                                    <div className="text-xs text-gray-500">{permission.description}</div>
+                  {PROJECT_PERMISSIONS.map((projectGroup) => {
+                    const hasGroupUserPermission = userPermissions.project.includes(projectGroup.key);
+                    const hasGroupRolePermission = rolePermissions.project.includes(projectGroup.key);
+                    
+                    let groupStatus = 'none';
+                    if (hasGroupRolePermission) {
+                      groupStatus = 'inherited';
+                    } else if (hasGroupUserPermission) {
+                      groupStatus = 'custom';
+                    }
+                    
+                    return (
+                      <Card key={projectGroup.key} className="border-l-4 border-l-purple-500">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm font-medium text-purple-700">
+                              {projectGroup.label}
+                            </CardTitle>
+                            {/* 显示分组key的勾选状态 */}
+                            <div className="flex items-center gap-2">
+                              {getStatusIcon(groupStatus)}
+                              {getStatusBadge(groupStatus)}
+                              {!readOnly && (
+                                <Checkbox
+                                  checked={hasGroupRolePermission || hasGroupUserPermission}
+                                  onCheckedChange={(checked) => 
+                                    onPermissionChange?.('project', projectGroup.key, checked as boolean)
+                                  }
+                                />
+                              )}
+                            </div>
+                          </div>
+                          <CardDescription className="text-xs">
+                            分组权限key: {projectGroup.key}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="space-y-3">
+                            {projectGroup.children?.map((permission) => {
+                              const hasUserPermission = userPermissions.project.includes(permission.key);
+                              const hasRolePermission = rolePermissions.project.includes(permission.key);
+                              
+                              let status = 'none';
+                              if (hasRolePermission) {
+                                status = 'inherited';
+                              } else if (hasUserPermission) {
+                                status = 'custom';
+                              }
+                              
+                              return (
+                                <div key={permission.key} className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 ml-4">
+                                  <div className="flex items-center gap-3">
+                                    <Building2 className="h-4 w-4 text-gray-600" />
+                                    <div>
+                                      <div className="font-medium text-sm">{permission.label}</div>
+                                      <div className="text-xs text-gray-500">{permission.description}</div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {getStatusIcon(status)}
+                                    {getStatusBadge(status)}
+                                    {!readOnly && (
+                                      <Checkbox
+                                        checked={hasRolePermission || hasUserPermission}
+                                        onCheckedChange={(checked) => 
+                                          onPermissionChange?.('project', permission.key, checked as boolean)
+                                        }
+                                      />
+                                    )}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  {getStatusIcon(status)}
-                                  {getStatusBadge(status)}
-                                  {!readOnly && (
-                                    <Checkbox
-                                      checked={hasRolePermission || hasUserPermission}
-                                      onCheckedChange={(checked) => 
-                                        onPermissionChange?.('project', permission.key, checked as boolean)
-                                      }
-                                    />
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                              );
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </div>
             </CardContent>
@@ -649,55 +679,85 @@ export function PermissionVisualizer({
           <CollapsibleContent>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {DATA_PERMISSIONS.map((dataGroup) => (
-                  <Card key={dataGroup.key} className="border-l-4 border-l-purple-500">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Database className="h-4 w-4 text-purple-600" />
-                        {dataGroup.label}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-3">
-                        {dataGroup.children?.map((permission) => {
-                          const hasUserPermission = userPermissions.data.includes(permission.key);
-                          const hasRolePermission = rolePermissions.data.includes(permission.key);
+                {DATA_PERMISSIONS.map((dataGroup) => {
+                  const hasGroupUserPermission = userPermissions.data.includes(dataGroup.key);
+                  const hasGroupRolePermission = rolePermissions.data.includes(dataGroup.key);
+                  
+                  let groupStatus = 'none';
+                  if (hasGroupRolePermission) {
+                    groupStatus = 'inherited';
+                  } else if (hasGroupUserPermission) {
+                    groupStatus = 'custom';
+                  }
+                  
+                  return (
+                    <Card key={dataGroup.key} className="border-l-4 border-l-purple-500">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Database className="h-4 w-4 text-purple-600" />
+                            {dataGroup.label}
+                          </CardTitle>
+                          {/* 显示分组key的勾选状态 */}
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(groupStatus)}
+                            {getStatusBadge(groupStatus)}
+                            {!readOnly && (
+                              <Checkbox
+                                checked={hasGroupRolePermission || hasGroupUserPermission}
+                                onCheckedChange={(checked) => 
+                                  onPermissionChange?.('data', dataGroup.key, checked as boolean)
+                                }
+                              />
+                            )}
+                          </div>
+                        </div>
+                        <CardDescription className="text-xs">
+                          分组权限key: {dataGroup.key}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="space-y-3">
+                          {dataGroup.children?.map((permission) => {
+                            const hasUserPermission = userPermissions.data.includes(permission.key);
+                            const hasRolePermission = rolePermissions.data.includes(permission.key);
                           
-                          let status = 'none';
-                          if (hasRolePermission) {
-                            status = 'inherited'; // 有角色权限就显示为继承
-                          } else if (hasUserPermission) {
-                            status = 'custom';
-                          }
-                          
-                          return (
-                            <div key={permission.key} className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
-                              <div className="flex items-center gap-3">
-                                <Database className="h-4 w-4 text-gray-600" />
-                                <div>
-                                  <div className="font-medium text-sm">{permission.label}</div>
-                                  <div className="text-xs text-gray-500">{permission.description}</div>
+                            let status = 'none';
+                            if (hasRolePermission) {
+                              status = 'inherited';
+                            } else if (hasUserPermission) {
+                              status = 'custom';
+                            }
+                            
+                            return (
+                              <div key={permission.key} className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 ml-4">
+                                <div className="flex items-center gap-3">
+                                  <Database className="h-4 w-4 text-gray-600" />
+                                  <div>
+                                    <div className="font-medium text-sm">{permission.label}</div>
+                                    <div className="text-xs text-gray-500">{permission.description}</div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {getStatusIcon(status)}
+                                  {getStatusBadge(status)}
+                                  {!readOnly && (
+                                    <Checkbox
+                                      checked={hasRolePermission || hasUserPermission}
+                                      onCheckedChange={(checked) => 
+                                        onPermissionChange?.('data', permission.key, checked as boolean)
+                                      }
+                                    />
+                                  )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                {getStatusIcon(status)}
-                                {getStatusBadge(status)}
-                                {!readOnly && (
-                                  <Checkbox
-                                    checked={hasRolePermission || hasUserPermission}
-                                    onCheckedChange={(checked) => 
-                                      onPermissionChange?.('data', permission.key, checked as boolean)
-                                    }
-                                  />
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </CardContent>
           </CollapsibleContent>
