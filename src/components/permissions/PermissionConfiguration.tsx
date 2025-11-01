@@ -73,13 +73,21 @@ export function PermissionConfiguration({
       const userPermission = realtimeUserPermissions.find(perm => perm.user_id === user.id);
       const roleTemplate = realtimeRoleTemplates[user.role] || {};
       
+      // 修复：当用户权限为空数组时，也使用角色模板
+      const hasUserPermission = userPermission && (
+        (userPermission.menu_permissions && userPermission.menu_permissions.length > 0) ||
+        (userPermission.function_permissions && userPermission.function_permissions.length > 0) ||
+        (userPermission.project_permissions && userPermission.project_permissions.length > 0) ||
+        (userPermission.data_permissions && userPermission.data_permissions.length > 0)
+      );
+      
       return {
         ...user,
         permissions: {
-          menu: userPermission?.menu_permissions || roleTemplate.menu_permissions || [],
-          function: userPermission?.function_permissions || roleTemplate.function_permissions || [],
-          project: userPermission?.project_permissions || roleTemplate.project_permissions || [],
-          data: userPermission?.data_permissions || roleTemplate.data_permissions || []
+          menu: hasUserPermission ? (userPermission.menu_permissions || []) : (roleTemplate.menu_permissions || []),
+          function: hasUserPermission ? (userPermission.function_permissions || []) : (roleTemplate.function_permissions || []),
+          project: hasUserPermission ? (userPermission.project_permissions || []) : (roleTemplate.project_permissions || []),
+          data: hasUserPermission ? (userPermission.data_permissions || []) : (roleTemplate.data_permissions || [])
         }
       };
     });

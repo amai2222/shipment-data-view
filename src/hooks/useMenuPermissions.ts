@@ -44,7 +44,11 @@ export function useMenuPermissions(): MenuPermissions {
         .limit(1)
         .maybeSingle();
 
-      if (userPerms) {
+      // 修复：只有当用户权限真正有内容时才使用，否则使用角色模板
+      if (userPerms && (
+        (userPerms.menu_permissions && userPerms.menu_permissions.length > 0) ||
+        (userPerms.function_permissions && userPerms.function_permissions.length > 0)
+      )) {
         setMenuPermissions(userPerms.menu_permissions || []);
         setFunctionPermissions(userPerms.function_permissions || []);
         setLoading(false);

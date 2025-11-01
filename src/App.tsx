@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "./components/AppLayout";
 import { MobileRedirect } from "./components/MobileRedirect";
 import { MobileLayout } from "./components/mobile/MobileLayout";
+import { AutoMenuSync } from "./components/AutoMenuSync";
 
 // --- 页面组件导入 ---
 import Home from "./pages/Home";
@@ -95,6 +96,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <AutoMenuSync />
           <MobileRedirect>
             <Routes>
             {/* --- 公开路由 --- */}
