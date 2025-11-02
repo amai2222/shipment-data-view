@@ -1,35 +1,16 @@
-// 货主看板 - 桌面端（美化版，参考财务看板设计）
-import { useState, useEffect, useCallback } from 'react';
+// 货主看板 - 桌面端（最小化版本）
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/PageHeader';
-import { 
-  Package, 
-  Weight, 
-  DollarSign, 
-  Briefcase, 
-  AlertCircle, 
-  Download, 
-  RefreshCw, 
-  Building2,
-  TrendingUp,
-  Users,
-  CheckCircle,
-  Clock,
-  FileText,
-  ArrowUpRight,
-  TreePine,
-  Loader2
-} from 'lucide-react';
+import { Package, Weight, DollarSign, Briefcase, AlertCircle, Download, RefreshCw, Building2 } from 'lucide-react';
 import { format, subDays } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 // 类型定义
 interface ShipperDashboardStats {
@@ -71,9 +52,6 @@ interface SubordinateShipper {
   pending_invoices: number;
 }
 
-// 图表颜色
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
-
 // 格式化数字
 const formatNumber = (num: number) => {
   if (num >= 10000) return `${(num / 10000).toFixed(2)}万`;
@@ -83,7 +61,7 @@ const formatNumber = (num: number) => {
 // 格式化金额
 const formatCurrency = (num: number) => {
   if (num >= 10000) return `¥${(num / 10000).toFixed(2)}万`;
-  return `¥${num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `¥${num.toLocaleString('zh-CN')}`;
 };
 
 // 格式化重量
@@ -270,6 +248,12 @@ export default function ShipperDashboard() {
             <p className="text-muted-foreground">
               合作方角色的货主看板功能正在开发中，请使用其他角色访问。
             </p>
+            <div className="mt-4 p-3 bg-gray-50 rounded text-sm">
+              <p><strong>调试信息：</strong></p>
+              <p>用户角色: {user?.role}</p>
+              <p>用户ID: {user?.id}</p>
+              <p>状态: 功能开发中</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -297,34 +281,13 @@ export default function ShipperDashboard() {
     );
   }
 
-  // 计算图表数据
-  const levelComparisonData = stats ? [
-    { name: '本级', records: stats.summary.selfRecords, weight: stats.summary.selfWeight, amount: stats.summary.selfAmount },
-    { name: '下级', records: stats.summary.subordinatesRecords, weight: stats.summary.subordinatesWeight, amount: stats.summary.subordinatesAmount }
-  ] : [];
-
-  const subordinatesChartData = subordinates.slice(0, 10).map(sub => ({
-    name: sub.shipper_name.length > 6 ? sub.shipper_name.substring(0, 6) + '...' : sub.shipper_name,
-    full_name: sub.shipper_name,
-    records: sub.record_count,
-    amount: sub.total_amount
-  }));
-
   return (
-    <div className="space-y-6 p-4 md:p-6 relative">
-      {isLoading && (
-        <div className="fixed inset-0 bg-background/30 backdrop-blur-[2px] flex justify-center items-center z-[5] pointer-events-none">
-          <div className="relative z-[6] bg-background/90 backdrop-blur-sm rounded-lg p-6 shadow-lg border">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        </div>
-      )}
-      
-      <PageHeader 
-        title="货主看板" 
+    <div className="space-y-6 p-6">
+      {/* 页面头部 */}
+      <PageHeader
+        title="货主看板"
+        icon={Building2}
         description="货主数据统计和层级管理"
-        icon={TreePine}
-        iconColor="text-emerald-600"
       >
         <div className="flex items-center gap-4">
           {/* 货主选择（非合作方角色显示） */}
@@ -381,318 +344,163 @@ export default function ShipperDashboard() {
         </div>
       </PageHeader>
 
+      {/* 加载状态 */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-8">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            <span>加载中...</span>
+          </div>
+        </div>
+      )}
+
       {/* 主要内容 */}
       {!isLoading && stats && (
         <>
-          {/* 核心统计指标 - 美化版（参考财务看板） */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {/* 总运单数 */}
-            <Card className="relative overflow-hidden border-l-4 border-l-blue-500 hover:shadow-lg transition-all duration-300">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">总运单数</CardTitle>
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Package className="h-4 w-4 text-blue-600" />
-                  </div>
-                </div>
+          {/* 总体统计 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">总运单数</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{formatNumber(stats.summary.totalRecords)}</div>
-                <p className="text-xs text-muted-foreground mt-1">本级: {formatNumber(stats.summary.selfRecords)} | 下级: {formatNumber(stats.summary.subordinatesRecords)}</p>
-                <div className="flex items-center mt-2">
-                  <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
-                  <span className="text-xs text-green-600">累计运单</span>
-                </div>
+                <div className="text-2xl font-bold">{formatNumber(stats.summary.totalRecords)}</div>
+                <p className="text-xs text-muted-foreground">
+                  本级: {formatNumber(stats.summary.selfRecords)} | 下级: {formatNumber(stats.summary.subordinatesRecords)}
+                </p>
               </CardContent>
             </Card>
 
-            {/* 总重量 */}
-            <Card className="relative overflow-hidden border-l-4 border-l-green-500 hover:shadow-lg transition-all duration-300">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">总重量</CardTitle>
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Weight className="h-4 w-4 text-green-600" />
-                  </div>
-                </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">总重量</CardTitle>
+                <Weight className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">{formatWeight(stats.summary.totalWeight)}</div>
-                <p className="text-xs text-muted-foreground mt-1">本级: {formatWeight(stats.summary.selfWeight)} | 下级: {formatWeight(stats.summary.subordinatesWeight)}</p>
-                <div className="flex items-center mt-2">
-                  <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
-                  <span className="text-xs text-green-600">运输总量</span>
-                </div>
+                <div className="text-2xl font-bold">{formatWeight(stats.summary.totalWeight)}</div>
+                <p className="text-xs text-muted-foreground">
+                  本级: {formatWeight(stats.summary.selfWeight)} | 下级: {formatWeight(stats.summary.subordinatesWeight)}
+                </p>
               </CardContent>
             </Card>
 
-            {/* 总金额 */}
-            <Card className="relative overflow-hidden border-l-4 border-l-orange-500 hover:shadow-lg transition-all duration-300">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">总金额</CardTitle>
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <DollarSign className="h-4 w-4 text-orange-600" />
-                  </div>
-                </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">总金额</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-600">{formatCurrency(stats.summary.totalAmount)}</div>
-                <p className="text-xs text-muted-foreground mt-1">本级: {formatCurrency(stats.summary.selfAmount)} | 下级: {formatCurrency(stats.summary.subordinatesAmount)}</p>
-                <div className="flex items-center mt-2">
-                  <DollarSign className="h-3 w-3 text-orange-500 mr-1" />
-                  <span className="text-xs text-orange-600">应收总额</span>
-                </div>
+                <div className="text-2xl font-bold">{formatCurrency(stats.summary.totalAmount)}</div>
+                <p className="text-xs text-muted-foreground">
+                  本级: {formatCurrency(stats.summary.selfAmount)} | 下级: {formatCurrency(stats.summary.subordinatesAmount)}
+                </p>
               </CardContent>
             </Card>
 
-            {/* 活跃项目 */}
-            <Card className="relative overflow-hidden border-l-4 border-l-purple-500 hover:shadow-lg transition-all duration-300">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">活跃项目</CardTitle>
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Briefcase className="h-4 w-4 text-purple-600" />
-                  </div>
-                </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">活跃项目</CardTitle>
+                <Briefcase className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-600">{stats.summary.activeProjects}</div>
-                <p className="text-xs text-muted-foreground mt-1">活跃司机: {stats.summary.activeDrivers}</p>
-                <div className="flex items-center mt-2">
-                  <Users className="h-3 w-3 text-purple-500 mr-1" />
-                  <span className="text-xs text-purple-600">活跃资源</span>
-                </div>
+                <div className="text-2xl font-bold">{stats.summary.activeProjects}</div>
+                <p className="text-xs text-muted-foreground">
+                  活跃司机: {stats.summary.activeDrivers}
+                </p>
               </CardContent>
             </Card>
           </div>
 
-          {/* 待处理事项概览 - 美化版 */}
-          <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-0 shadow-lg">
+          {/* 待处理事项 */}
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-amber-600" />
+                <AlertCircle className="h-5 w-5" />
                 待处理事项
-                <Badge variant="secondary" className="ml-auto bg-amber-100 text-amber-700 border-amber-200">
-                  需关注
-                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-white rounded-lg shadow-sm">
-                  <div className="text-2xl font-bold text-blue-600">{stats.pending.pendingPayments}</div>
-                  <p className="text-sm text-muted-foreground">待付款</p>
-                  <Badge variant="outline" className="mt-2 bg-blue-50 text-blue-700 border-blue-200">
-                    <Clock className="h-3 w-3 mr-1" />
-                    待处理
-                  </Badge>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <DollarSign className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">待付款</p>
+                    <p className="text-2xl font-bold">{stats.pending.pendingPayments}</p>
+                  </div>
                 </div>
-                <div className="text-center p-4 bg-white rounded-lg shadow-sm">
-                  <div className="text-2xl font-bold text-purple-600">{stats.pending.pendingInvoices}</div>
-                  <p className="text-sm text-muted-foreground">待开票</p>
-                  <Badge variant="outline" className="mt-2 bg-purple-50 text-purple-700 border-purple-200">
-                    <FileText className="h-3 w-3 mr-1" />
-                    需开票
-                  </Badge>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Download className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">待开票</p>
+                    <p className="text-2xl font-bold">{stats.pending.pendingInvoices}</p>
+                  </div>
                 </div>
-                <div className="text-center p-4 bg-white rounded-lg shadow-sm">
-                  <div className="text-2xl font-bold text-red-600">{stats.pending.overduePayments}</div>
-                  <p className="text-sm text-muted-foreground">逾期付款</p>
-                  <Badge variant="outline" className="mt-2 bg-red-50 text-red-700 border-red-200">
-                    <AlertCircle className="h-3 w-3 mr-1" />
-                    逾期
-                  </Badge>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">逾期付款</p>
+                    <p className="text-2xl font-bold">{stats.pending.overduePayments}</p>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* 图表区域 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 本级/下级对比 */}
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-blue-600" />
-                  本级 vs 下级对比
-                  <Badge variant="secondary" className="ml-auto">数据对比</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="h-80 p-6">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={levelComparisonData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis 
-                      dataKey="name" 
-                      tick={{ fontSize: 12 }}
-                      tickLine={{ stroke: '#6b7280' }}
-                    />
-                    <YAxis 
-                      tick={{ fontSize: 12 }}
-                      tickLine={{ stroke: '#6b7280' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                      }}
-                      formatter={(value: number, name: string) => {
-                        if (name === 'amount') return [formatCurrency(value), '金额'];
-                        if (name === 'weight') return [formatWeight(value), '重量'];
-                        return [formatNumber(value), '运单数'];
-                      }}
-                    />
-                    <Legend />
-                    <Bar 
-                      dataKey="records" 
-                      fill="url(#blueGradient)" 
-                      name="运单数"
-                      radius={[6, 6, 0, 0]}
-                    />
-                    <Bar 
-                      dataKey="amount" 
-                      fill="url(#orangeGradient)" 
-                      name="金额"
-                      radius={[6, 6, 0, 0]}
-                    />
-                    <defs>
-                      <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" />
-                        <stop offset="100%" stopColor="#1d4ed8" />
-                      </linearGradient>
-                      <linearGradient id="orangeGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f97316" />
-                        <stop offset="100%" stopColor="#ea580c" />
-                      </linearGradient>
-                    </defs>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* 下级货主排名 */}
-            {subordinatesChartData.length > 0 && (
-              <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <CardHeader className="bg-gradient-to-r from-emerald-50 to-green-50">
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-emerald-600" />
-                    下级货主排名 (Top 10)
-                    <Badge variant="secondary" className="ml-auto">合作伙伴</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="h-80 p-6">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={subordinatesChartData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis 
-                        type="number" 
-                        tickFormatter={formatCurrency}
-                        tick={{ fontSize: 12 }}
-                        tickLine={{ stroke: '#6b7280' }}
-                      />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        width={100} 
-                        tick={{ fontSize: 11 }}
-                        tickLine={{ stroke: '#6b7280' }}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                        }}
-                        formatter={(value: number) => [formatCurrency(value), '总金额']}
-                        labelFormatter={(value: string) => {
-                          const item = subordinatesChartData.find(d => d.name === value);
-                          return item?.full_name || value;
-                        }}
-                      />
-                      <Legend />
-                      <Bar 
-                        dataKey="amount" 
-                        fill="url(#greenGradient)" 
-                        name="总金额"
-                        radius={[0, 6, 6, 0]}
-                      />
-                      <defs>
-                        <linearGradient id="greenGradient" x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%" stopColor="#10b981" />
-                          <stop offset="100%" stopColor="#059669" />
-                        </linearGradient>
-                      </defs>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* 下级货主列表 - 美化版 */}
+          {/* 下级货主列表 */}
           {subordinates.length > 0 && (
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50">
-                <CardTitle className="flex items-center gap-2">
-                  <TreePine className="h-5 w-5 text-emerald-600" />
-                  下级货主详情
-                  <Badge variant="outline" className="ml-auto bg-emerald-50 text-emerald-700 border-emerald-200">
-                    {subordinates.length} 个货主
-                  </Badge>
-                </CardTitle>
-                <CardDescription>下级货主的详细运单统计信息</CardDescription>
+            <Card>
+              <CardHeader>
+                <CardTitle>下级货主</CardTitle>
+                <CardDescription>下级货主的运单统计</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="rounded-lg border overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-gray-50">
-                      <TableRow>
-                        <TableHead className="font-semibold">货主名称</TableHead>
-                        <TableHead className="font-semibold">层级</TableHead>
-                        <TableHead className="font-semibold">运单数</TableHead>
-                        <TableHead className="font-semibold">总重量</TableHead>
-                        <TableHead className="font-semibold">总金额</TableHead>
-                        <TableHead className="font-semibold">活跃项目</TableHead>
-                        <TableHead className="font-semibold">待付款</TableHead>
-                        <TableHead className="font-semibold">待开票</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>货主名称</TableHead>
+                      <TableHead>层级</TableHead>
+                      <TableHead>运单数</TableHead>
+                      <TableHead>总重量</TableHead>
+                      <TableHead>总金额</TableHead>
+                      <TableHead>活跃项目</TableHead>
+                      <TableHead>待付款</TableHead>
+                      <TableHead>待开票</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {subordinates.map((shipper) => (
+                      <TableRow key={shipper.shipper_id}>
+                        <TableCell className="font-medium">{shipper.shipper_name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            第{shipper.hierarchy_depth}级
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatNumber(shipper.record_count)}</TableCell>
+                        <TableCell>{formatWeight(shipper.total_weight)}</TableCell>
+                        <TableCell>{formatCurrency(shipper.total_amount)}</TableCell>
+                        <TableCell>{shipper.active_projects}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {shipper.pending_payments}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {shipper.pending_invoices}
+                          </Badge>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {subordinates.map((shipper, index) => (
-                        <TableRow key={shipper.shipper_id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                          <TableCell className="font-medium">{shipper.shipper_name}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                              第{shipper.hierarchy_depth}级
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="font-semibold text-blue-600">{formatNumber(shipper.record_count)}</TableCell>
-                          <TableCell className="font-semibold text-green-600">{formatWeight(shipper.total_weight)}</TableCell>
-                          <TableCell className="font-semibold text-orange-600">{formatCurrency(shipper.total_amount)}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                              {shipper.active_projects}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                              {shipper.pending_payments}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                              {shipper.pending_invoices}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           )}
