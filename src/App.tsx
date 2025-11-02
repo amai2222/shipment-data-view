@@ -548,7 +548,7 @@ const App = () => (
             } />
 
             <Route path="/m/settings" element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredPermission="settings">
                 <MobileSettings />
               </ProtectedRoute>
             } />
