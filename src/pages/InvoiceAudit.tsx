@@ -1,7 +1,8 @@
 ﻿// 文件路径: src/pages/InvoiceAudit.tsx
 // 描述: 开票审核页面 - 完全复制自PaymentAudit，将付款逻辑改为开票逻辑
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
+import type { MouseEvent } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -496,8 +497,7 @@ export default function InvoiceAudit() {
   ], []);
 
   // 查看开票申请表（打印格式）
-  // @ts-expect-error - React.MouseEvent类型
-  const handleViewInvoiceRequestForm = async (e: React.MouseEvent<HTMLButtonElement>, req: InvoiceRequest) => {
+  const handleViewInvoiceRequestForm = async (e: MouseEvent<HTMLButtonElement>, req: InvoiceRequest) => {
     e.stopPropagation();
     
     try {
@@ -1706,7 +1706,7 @@ export default function InvoiceAudit() {
                       const showDivider = prevReq && prevReq.status !== req.status;
                       
                       return (
-                        <React.Fragment key={req.id}>
+                        <Fragment key={req.id}>
                           {/* 状态分组分割线 */}
                           {showDivider && (
                             <TableRow className="bg-gradient-to-r from-transparent via-muted to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted hover:to-transparent border-y border-border/50">
@@ -1777,7 +1777,7 @@ export default function InvoiceAudit() {
                           </div>
                         </TableCell>
                       </TableRow>
-                        </React.Fragment>
+                        </Fragment>
                       );
                     })
                   ) : (

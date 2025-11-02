@@ -2,6 +2,7 @@
 // 描述: 这是包含了所有修复的、最终的、完整的代码。
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -258,7 +259,7 @@ export default function Projects() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!formData.name || !formData.startDate || !formData.endDate || !formData.manager || !formData.loadingAddress || !formData.unloadingAddress) {

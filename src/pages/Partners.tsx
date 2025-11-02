@@ -2,6 +2,7 @@
 // 这是修复后的完整代码，请直接替换
 
 import { useState, useEffect, useCallback } from 'react';
+import type { FormEvent, ChangeEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -147,7 +148,7 @@ export default function Partners() {
   }, [fetchPartners]);
 
   // 【【【核心修复逻辑在这里】】】
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) { toast.error('请输入合作方名称'); return; }
     if (formData.taxRate < 0 || formData.taxRate >= 1) { toast.error('税点必须在0-1之间'); return; }
@@ -290,7 +291,7 @@ export default function Partners() {
     toast.success('导出成功');
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();

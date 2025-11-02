@@ -5,7 +5,8 @@
 //       通过引入选择状态管理、复选框UI和调用批量RPC，完成了您最终的架构构想，
 //       并修复了之前因传输失败导致的灾难性代码截断问题。
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
+import type { MouseEvent } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -449,8 +450,7 @@ export default function PaymentAudit() {
 
   // 导出功能已移除
 
-  // @ts-expect-error - React.MouseEvent类型
-  const handleGeneratePDF = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
+  const handleGeneratePDF = async (e: MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
     try {
       setExportingId(req.id);
@@ -845,8 +845,7 @@ export default function PaymentAudit() {
 
   // 付款功能已移除
 
-  // @ts-expect-error - React.MouseEvent类型
-  const handleCancelPayment = async (e: React.MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
+  const handleCancelPayment = async (e: MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
     try {
       setExportingId(req.id);
@@ -1563,7 +1562,7 @@ export default function PaymentAudit() {
                       const showDivider = prevReq && prevReq.status !== req.status;
                       
                       return (
-                        <React.Fragment key={req.id}>
+                        <Fragment key={req.id}>
                           {/* 状态分组分割线 */}
                           {showDivider && (
                             <TableRow className="bg-gradient-to-r from-transparent via-muted to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted hover:to-transparent border-y border-border/50">
@@ -1651,7 +1650,7 @@ export default function PaymentAudit() {
                           </div>
                         </TableCell>
                       </TableRow>
-                        </React.Fragment>
+                        </Fragment>
                       );
                     })
                   ) : (

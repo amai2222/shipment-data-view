@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import type { FormEvent, ChangeEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,7 +102,7 @@ export default function Locations() {
   }
 
   // 提交表单
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!formData.name) {
@@ -161,7 +162,7 @@ export default function Locations() {
   }
 
   // Excel导入功能
-  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExcelImport = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 

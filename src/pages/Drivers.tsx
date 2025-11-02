@@ -2,6 +2,7 @@
 // 这是最终的、完整的、修复后的代码，请直接替换
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import type { FormEvent, ChangeEvent } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -230,7 +231,7 @@ export default function Drivers() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.licensePlate || !formData.phone) {
       toast({ title: "请填写所有必填字段", variant: "destructive" });
@@ -275,7 +276,7 @@ export default function Drivers() {
     }
   };
 
-  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExcelImport = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 

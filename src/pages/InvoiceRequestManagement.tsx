@@ -1,5 +1,5 @@
 ﻿// 财务开票页面
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -2035,7 +2035,7 @@ export default function InvoiceRequestManagement() {
                     const showDivider = prevReq && prevReq.status !== request.status;
                     
                     return (
-                      <React.Fragment key={request.id}>
+                      <Fragment key={request.id}>
                         {/* 状态分组分割线 */}
                         {showDivider && (
                           <TableRow className="bg-gradient-to-r from-transparent via-muted to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted hover:to-transparent border-y border-border/50">
@@ -2104,7 +2104,7 @@ export default function InvoiceRequestManagement() {
                         />
                       </TableCell>
                     </TableRow>
-                      </React.Fragment>
+                      </Fragment>
                     );
                   })
                 ) : (
