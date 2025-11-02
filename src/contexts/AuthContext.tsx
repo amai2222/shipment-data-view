@@ -5,9 +5,9 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
-import { isMobile } from '@/utils/device';
+// import { useToast } from '@/hooks/use-toast'; // 暂时注释，等Lovable应用新的package.json配置
+// import { useNavigate } from 'react-router-dom';
+// import { isMobile } from '@/utils/device';
 
 // 定义用户角色类型，确保类型安全
 export type UserRole = 'admin' | 'finance' | 'business' | 'partner' | 'operator' | 'viewer';
@@ -47,8 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
-  const navigate = useNavigate();
+  // const { toast } = useToast(); // 暂时注释，等Lovable应用新的package.json配置
+  // const navigate = useNavigate();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -82,13 +82,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setProfile(userProfile);
                 
                 // 特殊处理：partner（货主）角色登录后直接跳转到货主看板
-                if (event === 'SIGNED_IN' && userProfile.role === 'partner') {
-                  if (isMobile()) {
-                    navigate('/m/dashboard/shipper', { replace: true });
-                  } else {
-                    navigate('/dashboard/shipper', { replace: true });
-                  }
-                }
+                // 暂时注释，等Lovable应用新的package.json配置（精确版本React）
+                // if (event === 'SIGNED_IN' && userProfile.role === 'partner') {
+                //   if (isMobile()) {
+                //     navigate('/m/dashboard/shipper', { replace: true });
+                //   } else {
+                //     navigate('/dashboard/shipper', { replace: true });
+                //   }
+                // }
               } else {
                 setProfile(null);
               }
@@ -161,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
-      toast({ title: "登出失败", description: error.message, variant: "destructive" });
+      // toast({ title: "登出失败", description: error.message, variant: "destructive" }); // 暂时注释
       console.error("登出失败:", error.message);
     }
     // onAuthStateChange 会处理用户状态变化，并由 ProtectedRoute 自动导航到 /auth
