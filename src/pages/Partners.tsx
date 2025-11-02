@@ -33,7 +33,7 @@ interface PartnerWithProjects extends Partner {
 
 // 删除确认组件
 const DeleteConfirmButton = ({ partnerId, partnerName, onConfirm }: { partnerId: string, partnerName: string, onConfirm: (id: string) => void }) => {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
 
   return (
     <>

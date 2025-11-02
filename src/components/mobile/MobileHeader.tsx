@@ -1,4 +1,5 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, MoreVertical, Search, Share2, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -145,12 +146,12 @@ export function ScrollableMobileHeader({
   className
 }: {
   title: string;
-  children?: React.ReactNode;
+  children?: ReactNode;
   className?: string;
 }) {
-  const [scrolled, setScrolled] = React.useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
     };

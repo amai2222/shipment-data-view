@@ -1,5 +1,5 @@
 // 性能监控工具
-import React from 'react';
+import { useEffect, createElement, ComponentType } from 'react';
 // 用于检测和报告应用性能问题
 
 interface PerformanceMetric {
@@ -169,20 +169,20 @@ export const performanceMonitor = new PerformanceMonitor();
 
 // React HOC for component performance monitoring
 export function withPerformanceMonitoring<P extends object>(
-  WrappedComponent: React.ComponentType<P>,
+  WrappedComponent: ComponentType<P>,
   componentName?: string
 ) {
   return function PerformanceMonitoredComponent(props: P) {
     const name = componentName || WrappedComponent.displayName || WrappedComponent.name;
     
-    React.useEffect(() => {
+    useEffect(() => {
       performanceMonitor.start(`render-${name}`);
       return () => {
         performanceMonitor.end(`render-${name}`);
       };
     });
 
-    return React.createElement(WrappedComponent, props);
+    return createElement(WrappedComponent, props);
   };
 }
 

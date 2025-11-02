@@ -1,13 +1,13 @@
 // 测试修复后的组件
 // 文件: src/components/PermissionErrorTest.tsx
 
-import React from 'react';
+import { useState } from 'react';
 import { PermissionChangeConfirmDialog } from './PermissionChangeConfirmDialog';
 import { PermissionConfigDialog } from './PermissionConfigDialog';
 
 export function PermissionErrorTest() {
-  const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
-  const [showConfigDialog, setShowConfigDialog] = React.useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showConfigDialog, setShowConfigDialog] = useState(false);
 
   // 测试数据
   const testChanges = [

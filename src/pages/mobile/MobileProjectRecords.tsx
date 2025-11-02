@@ -1,5 +1,5 @@
 ﻿// 移动端项目运单列表页面
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -153,7 +153,7 @@ export default function MobileProjectRecords() {
   });
 
   // 过滤和排序记录
-  const filteredAndSortedRecords = React.useMemo(() => {
+  const filteredAndSortedRecords = useMemo(() => {
     if (!records) return [];
     
     let filtered = records.filter(record => {

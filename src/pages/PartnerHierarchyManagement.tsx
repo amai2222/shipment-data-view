@@ -1,7 +1,7 @@
 ﻿// 货主层级管理页面  
 // 功能: 仅管理货主类型合作方的层级关系，支持拖拽调整上下级
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -317,7 +317,7 @@ export default function PartnerHierarchyManagement() {
     setSelected(selected.size === unassigned.length ? new Set() : new Set(unassigned.map((p: any) => p.id)));
   };
 
-  const filtered = React.useMemo(() => {
+  const filtered = useMemo(() => {
     if (!search) return tree;
     const filter = (nodes: any[]): any[] => {
       const res: any[] = [];

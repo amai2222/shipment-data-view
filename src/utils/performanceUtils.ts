@@ -3,6 +3,8 @@
  * 根据代码优化建议报告 - 工具和监控建议
  */
 
+import { useRef, useEffect } from 'react';
+
 /**
  * 性能测量装饰器
  */
@@ -49,9 +51,9 @@ export async function measureAsync<T>(
  * React组件渲染性能监控
  */
 export function useRenderCount(componentName: string) {
-  const renderCount = React.useRef(0);
+  const renderCount = useRef(0);
   
-  React.useEffect(() => {
+  useEffect(() => {
     renderCount.current += 1;
     if (import.meta.env.DEV) {
       console.log(`[Render] ${componentName} 渲染次数: ${renderCount.current}`);

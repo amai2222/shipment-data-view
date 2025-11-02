@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useState } from "react";
 import { Check, ChevronsUpDown, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,8 @@ export function CreatableCombobox({
   options = [], value, onValueChange, onCreateNew,
   placeholder = "选择选项...", searchPlaceholder = "搜索选项...", emptyPlaceholder = "未找到结果。"
 }: CreatableComboboxProps) {
-  const [open, setOpen] = React.useState(false);
-  const [searchValue, setSearchValue] = React.useState("");
+  const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
 
   // Ensure options is always an array
   const safeOptions = Array.isArray(options) ? options : [];

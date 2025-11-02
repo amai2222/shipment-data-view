@@ -1,5 +1,5 @@
 // 内存优化工具
-import React from 'react';
+import { useEffect, useMemo } from 'react';
 // 提供内存管理、垃圾回收、缓存清理等功能
 
 class MemoryOptimizer {
@@ -112,7 +112,7 @@ export const memoryOptimizer = new MemoryOptimizer();
 
 // React Hook for memory optimization
 export function useMemoryOptimization(cleanupFn?: () => void) {
-  React.useEffect(() => {
+  useEffect(() => {
     if (cleanupFn) {
       memoryOptimizer.addCleanupObserver(cleanupFn);
     }
@@ -124,7 +124,7 @@ export function useMemoryOptimization(cleanupFn?: () => void) {
     };
   }, [cleanupFn]);
 
-  const memoryInfo = React.useMemo(() => {
+  const memoryInfo = useMemo(() => {
     return memoryOptimizer.getMemoryInfo();
   }, []);
 

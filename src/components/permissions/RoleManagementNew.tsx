@@ -1,7 +1,7 @@
 ﻿// 新角色管理组件
 // 文件: src/components/permissions/RoleManagementNew.tsx
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,7 +51,7 @@ export function RoleManagementNew({ roleTemplates, onDataChange }: RoleManagemen
   });
 
   // 获取当前角色的权限配置
-  React.useEffect(() => {
+  useEffect(() => {
     const template = roleTemplates.find(t => t.role === selectedRole);
     if (template) {
       setCurrentPermissions({

@@ -1,5 +1,5 @@
 // 正确路径: src/pages/BusinessEntry/components/ReactSelectCreatable.tsx
-import * as React from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import AsyncCreatableSelect from 'react-select/async-creatable';
 import { useDebounce } from '../hooks/use-debounce';
@@ -25,7 +25,7 @@ const selectStyles = {
 };
 
 export function ReactSelectCreatable({ value, onChange, placeholder = "选择或输入...", tableName, projectId, disabled = false }: ReactSelectCreatableProps) {
-  const [debouncedInputValue, setDebouncedInputValue] = React.useState('');
+  const [debouncedInputValue, setDebouncedInputValue] = useState('');
   const debouncedValue = useDebounce(debouncedInputValue, 500);
 
   const loadOptions = async (inputValue: string): Promise<SelectOption[]> => {

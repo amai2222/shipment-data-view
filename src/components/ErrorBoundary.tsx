@@ -157,10 +157,12 @@ export function MobileErrorFallback({
 /**
  * Hook：在函数组件中使用错误边界
  */
-export function useErrorHandler() {
-  const [error, setError] = React.useState<Error | null>(null);
+import { useState, useEffect } from 'react';
 
-  React.useEffect(() => {
+export function useErrorHandler() {
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
     if (error) {
       throw error;
     }

@@ -1,6 +1,6 @@
 ﻿// 用户权限管理组件
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +45,7 @@ export function UserPermissionManagement({
   });
 
   // 获取当前用户权限配置
-  React.useEffect(() => {
+  useEffect(() => {
     if (!selectedUser) return;
 
     const userPerm = userPermissions.find(p => 
