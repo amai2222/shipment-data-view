@@ -2,10 +2,22 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>物流业务跟踪系统</title>
-    <meta name="description" content="高效的物流业务跟踪与统计分析系统" />
-    <meta name="author" content="物流业务跟踪系统" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>中科物流管理系统</title>
+    <meta name="description" content="中科物流业务跟踪与管理系统 - 高效管理，精准统计" />
+    <meta name="author" content="中科物流" />
+    
+    <!-- PWA 支持 -->
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="物流系统" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    
+    <!-- 预连接优化 -->
+    <link rel="preconnect" href="https://mnwzvtvyauyxwowjjsmf.supabase.co" />
+    <link rel="dns-prefetch" href="https://mnwzvtvyauyxwowjjsmf.supabase.co" />
     
     <!-- 内容安全策略 (CSP) -->
     <meta http-equiv="Content-Security-Policy" 
@@ -37,5 +49,62 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- PWA Service Worker 注册 -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then((registration) => {
+              console.log('✅ Service Worker 注册成功:', registration.scope);
+              
+              // 检查更新
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                console.log('🔄 发现新版本 Service Worker');
+                
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // 新版本可用，提示用户刷新
+                    if (confirm('发现新版本，是否立即更新？')) {
+                      newWorker.postMessage({ type: 'SKIP_WAITING' });
+                      window.location.reload();
+                    }
+                  }
+                });
+              });
+            })
+            .catch((error) => {
+              console.log('❌ Service Worker 注册失败:', error);
+            });
+        });
+        
+        // 监听 Service Worker 控制器变化
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        });
+      }
+      
+      // 禁用双击缩放（移动端优化）
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', (event) => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+          event.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, { passive: false });
+      
+      // 阻止默认的触摸滚动行为（在某些容器中）
+      document.addEventListener('touchmove', (event) => {
+        if (event.scale !== 1) {
+          event.preventDefault();
+        }
+      }, { passive: false });
+    </script>
   </body>
 </html>
