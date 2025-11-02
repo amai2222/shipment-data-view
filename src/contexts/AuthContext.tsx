@@ -6,8 +6,8 @@ import type { ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom'; // ★★★ 1. 导入 useNavigate
-import { isMobile } from '@/utils/device'; // ★★★ 2. 导入设备检测工具
+// import { useNavigate } from 'react-router-dom'; // 暂时注释掉避免 Hooks 错误
+// import { isMobile } from '@/utils/device'; // 暂时注释掉
 
 // 定义用户角色类型，确保类型安全
 export type UserRole = 'admin' | 'finance' | 'business' | 'partner' | 'operator' | 'viewer';
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const navigate = useNavigate(); // ★★★ 3. 获取 navigate 函数
+  // const navigate = useNavigate(); // 暂时注释掉避免 Hooks 错误
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -82,13 +82,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setProfile(userProfile);
                 
                 // 特殊处理：partner（货主）角色登录后直接跳转到货主看板
-                if (event === 'SIGNED_IN' && userProfile.role === 'partner') {
-                  if (isMobile()) {
-                    navigate('/m/dashboard/shipper', { replace: true });
-                  } else {
-                    navigate('/dashboard/shipper', { replace: true });
-                  }
-                }
+                // 暂时注释掉以避免 Hooks 错误，等 overrides 生效后恢复
+                // if (event === 'SIGNED_IN' && userProfile.role === 'partner') {
+                //   if (isMobile()) {
+                //     navigate('/m/dashboard/shipper', { replace: true });
+                //   } else {
+                //     navigate('/dashboard/shipper', { replace: true });
+                //   }
+                // }
               } else {
                 setProfile(null);
               }
@@ -109,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [toast]); // 移除 navigate 依赖
 
   // ★★★ 4. 修改 signIn 函数以处理重定向
   const signIn = async (usernameOrEmail: string, password: string) => {
