@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+// import { useToast } from '@/hooks/use-toast'; // 暂时注释掉避免 Hooks 错误
 // import { useNavigate } from 'react-router-dom'; // 暂时注释掉避免 Hooks 错误
 // import { isMobile } from '@/utils/device'; // 暂时注释掉
 
@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  // const { toast } = useToast(); // 暂时注释掉避免 Hooks 错误
   // const navigate = useNavigate(); // 暂时注释掉避免 Hooks 错误
 
   useEffect(() => {
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [toast]); // 移除 navigate 依赖
+  }, []); // 暂时移除所有 Hook 依赖
 
   // ★★★ 4. 修改 signIn 函数以处理重定向
   const signIn = async (usernameOrEmail: string, password: string) => {
@@ -162,7 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
-      toast({ title: "登出失败", description: error.message, variant: "destructive" });
+      // toast({ title: "登出失败", description: error.message, variant: "destructive" }); // 暂时注释掉
+      console.error("登出失败:", error.message);
     }
     // onAuthStateChange 会处理用户状态变化，并由 ProtectedRoute 自动导航到 /auth
   };
