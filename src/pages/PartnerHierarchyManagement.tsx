@@ -1,7 +1,7 @@
-// 货主层级管理页面  
+﻿// 货主层级管理页面  
 // 功能: 仅管理货主类型合作方的层级关系，支持拖拽调整上下级
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

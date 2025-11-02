@@ -1,9 +1,9 @@
-/**
+﻿/**
  * React 错误边界组件
  * 根据代码优化建议报告 - 低优先级优化 3.3
  */
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';

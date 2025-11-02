@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 移动端优化功能演示页面
  * 展示所有移动端优化组件的使用方法
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { EnhancedMobileLayout } from '@/components/mobile/EnhancedMobileLayout';
 import { MobileCard, MobileInfoRow, MobileStatCard } from '@/components/mobile/MobileCard';
 import { MobilePullToRefresh } from '@/components/mobile/MobilePullToRefresh';

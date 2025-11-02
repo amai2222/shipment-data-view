@@ -1,5 +1,5 @@
-// 合同工作流管理组件
-import React, { useState, useEffect } from 'react';
+﻿// 合同工作流管理组件
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { GitBranch } from 'lucide-react';
 

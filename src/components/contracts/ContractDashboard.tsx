@@ -1,5 +1,5 @@
-// 合同管理仪表盘组件
-import React, { useState, useEffect } from 'react';
+﻿// 合同管理仪表盘组件
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

@@ -1,7 +1,7 @@
-// 权限配置弹窗组件
+﻿// 权限配置弹窗组件
 // 文件: src/components/PermissionConfigDialog.tsx
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,

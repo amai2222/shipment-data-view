@@ -1,5 +1,5 @@
-// 移动端首页 - 现代化重新设计
-import React, { useState, useEffect } from 'react';
+﻿// 移动端首页 - 现代化重新设计
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

@@ -1,5 +1,5 @@
-// 移动端项目详细看板页面 - 对标桌面端功能
-import React, { useState, useMemo } from 'react';
+﻿// 移动端项目详细看板页面 - 对标桌面端功能
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

@@ -1,8 +1,8 @@
-// 合作方-项目关系Hook使用示例
+﻿// 合作方-项目关系Hook使用示例
 // 文件路径: src/examples/PartnerProjectExample.tsx
 // 描述: 展示如何在其他组件中使用usePartnerProjectRelation Hook
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

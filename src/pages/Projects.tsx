@@ -1,7 +1,7 @@
-// 文件路径: src/pages/Projects.tsx
+﻿// 文件路径: src/pages/Projects.tsx
 // 描述: 这是包含了所有修复的、最终的、完整的代码。
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

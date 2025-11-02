@@ -1,7 +1,7 @@
-// 文件路径: src/pages/Partners.tsx
+﻿// 文件路径: src/pages/Partners.tsx
 // 这是修复后的完整代码，请直接替换
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

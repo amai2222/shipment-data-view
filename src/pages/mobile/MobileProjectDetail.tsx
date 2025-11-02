@@ -1,5 +1,5 @@
-// 移动端项目详情页面 - 现代化设计
-import React, { useState, useEffect } from 'react';
+﻿// 移动端项目详情页面 - 现代化设计
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

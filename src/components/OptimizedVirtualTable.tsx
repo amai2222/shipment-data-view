@@ -1,7 +1,7 @@
-// 优化的虚拟化表格组件
+﻿// 优化的虚拟化表格组件
 // 用于处理大量数据的高性能表格
 
-import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";

@@ -1,5 +1,5 @@
-// 移动端通知页面
-import React, { useState } from 'react';
+﻿// 移动端通知页面
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

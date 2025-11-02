@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 移动端触摸优化组件
  * 提供更好的触摸反馈和交互体验
  */
 
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/utils/mobile';
 

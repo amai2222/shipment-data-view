@@ -1,7 +1,7 @@
-// 安全的权限加载测试组件
+﻿// 安全的权限加载测试组件
 // 文件: src/components/SafePermissionLoader.tsx
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

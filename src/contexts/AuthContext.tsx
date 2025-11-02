@@ -1,7 +1,7 @@
 // 文件路径: src/contexts/AuthContext.tsx
 // 描述: 这是修复后的完整代码，signIn 函数已集成设备感知重定向逻辑。
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';

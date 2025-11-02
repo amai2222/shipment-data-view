@@ -1,7 +1,7 @@
-// 项目状态管理组件
+﻿// 项目状态管理组件
 // 提供项目状态变更界面和自动权限分配功能
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

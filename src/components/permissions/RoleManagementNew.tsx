@@ -1,7 +1,7 @@
-// 新角色管理组件
+﻿// 新角色管理组件
 // 文件: src/components/permissions/RoleManagementNew.tsx
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

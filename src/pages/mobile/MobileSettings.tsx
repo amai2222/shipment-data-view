@@ -1,5 +1,5 @@
-// 移动端设置页面 - 对标桌面端设置菜单
-import React, { useState } from 'react';
+﻿// 移动端设置页面 - 对标桌面端设置菜单
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

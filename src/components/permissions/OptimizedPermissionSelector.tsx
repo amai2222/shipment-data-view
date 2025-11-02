@@ -1,5 +1,5 @@
-// 优化的权限选择器组件
-import React, { useRef, useCallback } from 'react';
+﻿// 优化的权限选择器组件
+import { useRef, useCallback } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 

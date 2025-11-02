@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 模糊地址地理编码演示组件
  * 展示如何处理各种模糊地址格式
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

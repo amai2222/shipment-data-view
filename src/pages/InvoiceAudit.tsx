@@ -1,7 +1,7 @@
-// 文件路径: src/pages/InvoiceAudit.tsx
+﻿// 文件路径: src/pages/InvoiceAudit.tsx
 // 描述: 开票审核页面 - 完全复制自PaymentAudit，将付款逻辑改为开票逻辑
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';

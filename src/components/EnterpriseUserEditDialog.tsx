@@ -1,7 +1,7 @@
-// 企业级用户编辑对话框
+﻿// 企业级用户编辑对话框
 // 文件: src/components/EnterpriseUserEditDialog.tsx
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

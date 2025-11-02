@@ -1,7 +1,7 @@
-// src/components/PartnerSelector.tsx
+﻿// src/components/PartnerSelector.tsx
 // 合作方选择组件 - 支持按类型分类和货主层级树展示
 
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronRight, ChevronDown, Building2, Users, Landmark, Home } from 'lucide-react';
 import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';

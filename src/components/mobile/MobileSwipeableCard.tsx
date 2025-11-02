@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 可滑动的移动端卡片组件
  * 支持左右滑动显示操作按钮
  */
 
-import React, { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

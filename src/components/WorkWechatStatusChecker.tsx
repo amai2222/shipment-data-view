@@ -1,7 +1,7 @@
-// 企业微信关联状态检查组件
+﻿// 企业微信关联状态检查组件
 // 文件: src/components/WorkWechatStatusChecker.tsx
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

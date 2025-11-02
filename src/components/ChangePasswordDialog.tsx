@@ -1,7 +1,7 @@
-// 修改密码弹窗组件
+﻿// 修改密码弹窗组件
 // 文件: src/components/ChangePasswordDialog.tsx
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

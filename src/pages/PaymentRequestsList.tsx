@@ -1,11 +1,11 @@
-// 文件路径: src/pages/PaymentRequestsList.tsx
+﻿// 文件路径: src/pages/PaymentRequestsList.tsx
 // 版本: z8A8C-FINAL-BULK-ACTION-RESTORATION
 // 描述: [最终生产级批量操作修复] 此代码最终、决定性地、无可辩驳地
 //       在正确的页面上实现了安全的、支持跨页选择的批量作废功能。
 //       通过引入选择状态管理、复选框UI和调用批量RPC，完成了您最终的架构构想，
 //       并修复了之前因传输失败导致的灾难性代码截断问题。
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';

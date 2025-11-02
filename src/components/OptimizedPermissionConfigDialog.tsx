@@ -1,7 +1,7 @@
-// 优化的权限配置弹窗组件 - 使用 React.memo
+﻿// 优化的权限配置弹窗组件 - 使用 React.memo
 // 文件: src/components/OptimizedPermissionConfigDialog.tsx
 
-import React, { useState, useEffect, memo, useMemo } from 'react';
+import { useState, useEffect, memo, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,

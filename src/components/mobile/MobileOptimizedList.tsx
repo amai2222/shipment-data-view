@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 移动端优化列表组件
  * 集成下拉刷新、无限滚动、虚拟列表等功能
  */
 
-import React, { useCallback, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { FixedSizeList as VirtualList, ListChildComponentProps } from 'react-window';
 // import AutoSizer from 'react-virtualized-auto-sizer';
 import { MobilePullToRefresh } from './MobilePullToRefresh';

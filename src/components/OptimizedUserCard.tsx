@@ -1,7 +1,7 @@
-// 优化的用户卡片组件 - 使用 React.memo 减少重新渲染
+﻿// 优化的用户卡片组件 - 使用 React.memo 减少重新渲染
 // 文件: src/components/OptimizedUserCard.tsx
 
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
