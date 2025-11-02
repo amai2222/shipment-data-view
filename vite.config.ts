@@ -18,5 +18,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    // 确保只有一个 React 实例，解决 @radix-ui 等库的 Hooks 错误
+    dedupe: ['react', 'react-dom'],
   },
 }));
