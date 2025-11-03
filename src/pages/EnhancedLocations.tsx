@@ -819,7 +819,7 @@ export default function EnhancedLocations() {
 
       {/* 批量操作状态栏 */}
       {selectedLocations.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50">
+        <Card className="border-blue-200 bg-blue-50 rounded-xl shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -860,9 +860,9 @@ export default function EnhancedLocations() {
       )}
 
       {/* 地点列表 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <Card className="rounded-xl shadow-md hover:shadow-lg transition-shadow duration-200 border-gray-200">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+          <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
             <MapPin className="h-5 w-5" />
             地点列表 ({filteredLocations.length})
             {selectedLocations.length > 0 && (
@@ -873,10 +873,10 @@ export default function EnhancedLocations() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-xl border border-gray-200">
             <Table>
-              <TableHeader>
-                <TableRow>
+              <TableHeader className="bg-gradient-to-r from-gray-50 to-gray-100">
+                <TableRow className="border-b border-gray-200">
                   <TableHead className="w-12">
                     <Checkbox
                       checked={selectAll}

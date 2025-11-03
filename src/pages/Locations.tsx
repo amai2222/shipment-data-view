@@ -338,8 +338,8 @@ export default function Locations() {
       <div className="space-y-6">
 
       {/* 地点列表 */}
-      <Card className="shadow-card">
-        <CardHeader>
+      <Card className="rounded-xl shadow-md hover:shadow-lg transition-shadow duration-200 border-gray-200">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
           <div className="flex items-center justify-between">
             <CardTitle>地点列表 ({filteredLocations.length} / {locations.length} 个地点)</CardTitle>
             <div className="flex space-x-2">
@@ -414,7 +414,7 @@ export default function Locations() {
 
             {/* 筛选选项（可展开/收起） */}
             {showFilters && (
-              <Card className="bg-muted/30">
+              <Card className="bg-blue-50/30 border-blue-200 rounded-lg">
                 <CardContent className="pt-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
