@@ -56,6 +56,7 @@ export default function MenuConfigPage() {
   const [editingMenu, setEditingMenu] = useState<MenuConfig | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [draggedMenu, setDraggedMenu] = useState<MenuConfig | null>(null);
+  const [draggedGroup, setDraggedGroup] = useState<MenuConfig | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const { toast } = useToast();
 
@@ -192,15 +193,103 @@ export default function MenuConfigPage() {
     setHasChanges(true);
   };
 
-  // 拖拽重新排序（本地修改）
-  const handleDragReorder = (draggedId: string, targetOrderIndex: number) => {
-    setMenus(prev => 
-      prev.map(m => 
-        m.id === draggedId 
-          ? { ...m, order_index: targetOrderIndex }
-          : m
-      )
-    );
+  // 拖拽分组重新排序（智能分配序号）
+  const handleGroupDragReorder = (draggedId: string, targetId: string) => {
+    const draggedGroup = menus.find(m => m.id === draggedId && m.is_group);
+    const targetGroup = menus.find(m => m.id === targetId && m.is_group);
+    
+    if (!draggedGroup || !targetGroup) return;
+
+    setMenus(prev => {
+      // 获取所有分组和菜单项
+      const groups = prev.filter(m => m.is_group);
+      const items = prev.filter(m => !m.is_group);
+      
+      // 移除被拖拽的分组
+      const withoutDragged = groups.filter(g => g.id !== draggedId);
+      
+      // 找到目标位置
+      const targetIndex = withoutDragged.findIndex(g => g.id === targetId);
+      
+      // 插入到目标位置
+      const reordered = [
+        ...withoutDragged.slice(0, targetIndex),
+        draggedGroup,
+        ...withoutDragged.slice(targetIndex)
+      ];
+      
+      // 重新分配分组序号：10, 20, 30, 40...
+      const renumberedGroups = reordered.map((group, index) => ({
+        ...group,
+        order_index: (index + 1) * 10
+      }));
+      
+      // 同时更新该分组下的所有菜单项序号
+      const renumberedItems = items.map(item => {
+        const parentGroup = renumberedGroups.find(g => g.key === item.parent_key);
+        if (!parentGroup) return item;
+        
+        // 获取该分组下的所有菜单
+        const siblingItems = items
+          .filter(i => i.parent_key === item.parent_key)
+          .sort((a, b) => a.order_index - b.order_index);
+        
+        // 找到当前菜单在分组内的位置
+        const indexInGroup = siblingItems.findIndex(i => i.id === item.id);
+        
+        return {
+          ...item,
+          order_index: parentGroup.order_index + indexInGroup + 1
+        };
+      });
+      
+      return [...renumberedGroups, ...renumberedItems];
+    });
+    
+    setHasChanges(true);
+  };
+
+  // 拖拽菜单项重新排序（智能分配序号）
+  const handleDragReorder = (draggedId: string, targetId: string) => {
+    const draggedMenu = menus.find(m => m.id === draggedId);
+    const targetMenu = menus.find(m => m.id === targetId);
+    
+    if (!draggedMenu || !targetMenu || draggedMenu.parent_key !== targetMenu.parent_key) {
+      return; // 只能在同一分组内拖拽
+    }
+
+    setMenus(prev => {
+      // 获取该分组的所有菜单
+      const groupMenus = prev.filter(m => m.parent_key === draggedMenu.parent_key && !m.is_group);
+      const otherMenus = prev.filter(m => m.parent_key !== draggedMenu.parent_key || m.is_group);
+      
+      // 找到分组的基础序号
+      const group = prev.find(m => m.key === draggedMenu.parent_key);
+      const baseIndex = group?.order_index || 0;
+      
+      // 移除被拖拽的菜单
+      const withoutDragged = groupMenus.filter(m => m.id !== draggedId);
+      
+      // 找到目标位置
+      const targetIndex = withoutDragged.findIndex(m => m.id === targetId);
+      
+      // 插入到目标位置
+      const reordered = [
+        ...withoutDragged.slice(0, targetIndex),
+        draggedMenu,
+        ...withoutDragged.slice(targetIndex)
+      ];
+      
+      // 重新分配序号：基础序号 + 1, +2, +3...
+      const renumbered = reordered.map((menu, index) => ({
+        ...menu,
+        order_index: baseIndex + index + 1
+      }));
+      
+      // 合并回所有菜单
+      return [...otherMenus, ...renumbered];
+    });
+    
     setHasChanges(true);
   };
 
@@ -328,6 +417,7 @@ export default function MenuConfigPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">拖动</TableHead>
                 <TableHead>标题</TableHead>
                 <TableHead>Key</TableHead>
                 <TableHead>图标</TableHead>
@@ -338,7 +428,27 @@ export default function MenuConfigPage() {
             </TableHeader>
             <TableBody>
               {groups.map(menu => (
-                <TableRow key={menu.id}>
+                <TableRow 
+                  key={menu.id}
+                  draggable
+                  onDragStart={() => setDraggedGroup(menu)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    if (draggedGroup && draggedGroup.id !== menu.id) {
+                      handleGroupDragReorder(draggedGroup.id, menu.id);
+                    }
+                    setDraggedGroup(null);
+                  }}
+                  onDragEnd={() => setDraggedGroup(null)}
+                  className={`
+                    cursor-move transition-all
+                    ${draggedGroup?.id === menu.id ? 'opacity-50 bg-blue-50' : ''}
+                    ${draggedGroup && draggedGroup.id !== menu.id ? 'hover:bg-blue-50 hover:border-t-2 hover:border-blue-500' : ''}
+                  `}
+                >
+                  <TableCell>
+                    <GripVertical className="h-4 w-4 text-gray-400" />
+                  </TableCell>
                   <TableCell className="font-medium">{menu.title}</TableCell>
                   <TableCell><code className="text-xs">{menu.key}</code></TableCell>
                   <TableCell><Badge variant="outline">{menu.icon}</Badge></TableCell>
@@ -422,7 +532,7 @@ export default function MenuConfigPage() {
                       }}
                       onDrop={() => {
                         if (draggedMenu && draggedMenu.id !== menu.id) {
-                          handleDragReorder(draggedMenu.id, menu.order_index);
+                          handleDragReorder(draggedMenu.id, menu.id);
                         }
                         setDraggedMenu(null);
                       }}
