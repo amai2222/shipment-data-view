@@ -440,13 +440,14 @@ export default function Partners() {
 
         {(['货主', '合作商', '资方', '本公司'] as const).map((type) => (
           <TabsContent key={type} value={type}>
-            <Card>
-              <CardHeader>
-                <CardTitle>{type}列表 ({partners.filter(p => p.partnerType === type).length})</CardTitle>
+            <Card className="rounded-xl shadow-md hover:shadow-lg transition-shadow duration-200 border-gray-200">
+              <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                <CardTitle className="text-xl font-semibold text-gray-900">{type}列表 ({partners.filter(p => p.partnerType === type).length})</CardTitle>
               </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
+              <CardContent className="p-0">
+                <div className="overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-gradient-to-r from-gray-50 to-gray-100">
                     <TableRow>
                       <TableHead>合作方名称</TableHead>
                       {showDetails && <TableHead>合作方全名</TableHead>}

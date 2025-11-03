@@ -635,10 +635,10 @@ export default function Drivers() {
       </PageHeader>
 
       <div className="space-y-6">
-        <Card className="shadow-card">
-        <CardHeader>
+        <Card className="rounded-xl shadow-md hover:shadow-lg transition-shadow duration-200 border-gray-200">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
           <div className="flex items-center justify-between">
-            <CardTitle>司机列表 (共 {totalCount} 条记录)</CardTitle>
+            <CardTitle className="text-xl font-semibold text-gray-900">司机列表 (共 {totalCount} 条记录)</CardTitle>
             <div className="flex space-x-2">
               <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleExcelImport} className="hidden" />
               <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex items-center space-x-2"><Upload className="h-4 w-4" /><span>导入Excel</span></Button>
@@ -684,7 +684,7 @@ export default function Drivers() {
 
             {/* 筛选选项 */}
             {showFilters && (
-              <Card className="bg-muted/30">
+              <Card className="bg-blue-50/30 border-blue-200 rounded-lg">
                 <CardContent className="pt-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -710,10 +710,10 @@ export default function Drivers() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
             <Table>
-              <TableHeader>
-                <TableRow>
+              <TableHeader className="bg-gradient-to-r from-gray-50 to-gray-100">
+                <TableRow className="border-b border-gray-200">
           {isBatchSelecting && (
             <TableHead className="w-12">
               <DropdownMenu>

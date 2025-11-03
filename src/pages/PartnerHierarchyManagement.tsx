@@ -357,7 +357,7 @@ export default function PartnerHierarchyManagement() {
       </PageHeader>
 
       {/* 提示 */}
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="bg-blue-50 border-blue-200 rounded-xl shadow-sm">
         <CardContent className="pt-4">
           <div className="text-sm">
             <div className="font-medium mb-2">💡 使用说明:</div>
@@ -412,9 +412,9 @@ export default function PartnerHierarchyManagement() {
       </Card>
 
       {/* 树 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>组织架构树 ({partners.length})</CardTitle>
+      <Card className="rounded-xl shadow-md hover:shadow-lg transition-shadow duration-200 border-gray-200">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+          <CardTitle className="text-xl font-semibold text-gray-900">组织架构树 ({partners.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (

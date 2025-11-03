@@ -498,8 +498,13 @@ export default function Projects() {
         iconColor="text-purple-600"
       >
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild><Button onClick={resetForm}><Plus className="h-4 w-4 mr-2" />新增项目</Button></DialogTrigger>
-            <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogTrigger asChild>
+            <Button onClick={resetForm} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-md hover:shadow-lg transition-all duration-200">
+              <Plus className="h-5 w-5 mr-2" />
+              新增项目
+            </Button>
+          </DialogTrigger>
+            <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto rounded-2xl">
               <DialogHeader>
                 <DialogTitle>{editingProject ? "编辑项目" : "新增项目"}</DialogTitle>
                 <DialogDescription>
@@ -609,10 +614,10 @@ export default function Projects() {
       </PageHeader>
 
       <div className="space-y-6">
-        <Card className="shadow-card">
-        <CardHeader>
+        <Card className="rounded-xl shadow-md hover:shadow-lg transition-shadow duration-200 border-gray-200">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
           <div className="flex items-center justify-between">
-            <CardTitle>项目列表 (共 {projects.length} 个项目，显示 {filteredAndSortedProjects.length} 个)</CardTitle>
+            <CardTitle className="text-xl font-semibold text-gray-900">项目列表 (共 {projects.length} 个项目，显示 {filteredAndSortedProjects.length} 个)</CardTitle>
           </div>
           
           {/* 筛选和排序工具栏 */}
@@ -674,7 +679,7 @@ export default function Projects() {
             
             {/* 高级筛选面板 */}
             {showFilters && (
-              <Card className="bg-muted/30">
+              <Card className="bg-blue-50/30 border-blue-200 rounded-lg">
                 <CardContent className="pt-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -701,7 +706,7 @@ export default function Projects() {
         <CardContent>
           <div className="space-y-4">
             {filteredAndSortedProjects.map((project) => (
-              <Card key={project.id} className="border shadow-sm">
+              <Card key={project.id} className="border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
                 <CardHeader 
                   className="cursor-pointer hover:bg-muted/50 transition-colors pb-3" 
                   onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
@@ -718,12 +723,12 @@ export default function Projects() {
                           <span className="mx-2">·</span>
                           计划数: {project.plannedTotalTons ?? '—'}
                           <span className="mx-2">·</span>
-                          状态: <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            (project as any).projectStatus === '进行中' ? 'bg-green-100 text-green-800' :
-                            (project as any).projectStatus === '已完成' ? 'bg-blue-100 text-blue-800' :
-                            (project as any).projectStatus === '已暂停' ? 'bg-yellow-100 text-yellow-800' :
-                            (project as any).projectStatus === '已取消' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
+                          状态: <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                            (project as any).projectStatus === '进行中' ? 'bg-green-100 text-green-700 border-green-300' :
+                            (project as any).projectStatus === '已完成' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                            (project as any).projectStatus === '已暂停' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                            (project as any).projectStatus === '已取消' ? 'bg-red-100 text-red-700 border-red-300' :
+                            'bg-gray-100 text-gray-700 border-gray-300'
                           }`}>
                             {(project as any).projectStatus || '进行中'}
                           </span>
@@ -759,9 +764,10 @@ export default function Projects() {
                            </Select>
                          </div>
                          <Button 
-                           variant="outline" 
-                           size="sm" 
-                           onClick={(e) => { e.stopPropagation(); handleEdit(project); }}
+                          variant="outline" 
+                          size="sm" 
+                          className="hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); handleEdit(project); }}
                          >
                            <Edit className="h-4 w-4" />
                          </Button>
@@ -770,9 +776,9 @@ export default function Projects() {
                            description={`您确定要删除项目 "${project.name}" 吗？`}
                            onConfirm={() => handleDelete(project.id, project.name)}
                          >
-                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}>
-                             <Trash2 className="h-4 w-4" />
-                           </Button>
+                          <Button variant="ghost" size="icon" className="text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors" onClick={(e) => e.stopPropagation()}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                          </ConfirmDialog>
                        </div>
                     </div>
