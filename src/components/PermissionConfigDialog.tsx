@@ -28,6 +28,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { PermissionDatabaseService } from '@/services/PermissionDatabaseService';
 import { useToast } from '@/hooks/use-toast';
+import { useDynamicMenuPermissions } from '@/hooks/useDynamicMenuPermissions';
 
 interface User {
   id: string;
@@ -213,6 +214,7 @@ export function PermissionConfigDialog({
   onSave 
 }: PermissionConfigDialogProps) {
   const { toast } = useToast();
+  const { loading: menuLoading, menuPermissions: dynamicMenuPermissions } = useDynamicMenuPermissions();
   const [selectedPermissions, setSelectedPermissions] = useState<Record<string, string[]>>({
     menu: [],
     function: [],
@@ -452,26 +454,42 @@ export function PermissionConfigDialog({
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {(mockPermissions.menu || []).map(permission => (
-                      <div key={permission.id} className="flex items-center space-x-3">
-                        <Checkbox
-                          id={permission.id}
-                          checked={selectedPermissions.menu?.includes(permission.id) || false}
-                          onCheckedChange={() => handlePermissionToggle('menu', permission.id)}
-                        />
-                        <div className="flex-1">
-                          <label 
-                            htmlFor={permission.id}
-                            className="text-sm font-medium cursor-pointer"
-                          >
-                            {permission.name}
-                          </label>
-                          <p className="text-xs text-gray-600">{permission.description}</p>
+                  {menuLoading ? (
+                    <div className="text-center py-8 text-muted-foreground">加载菜单权限...</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {dynamicMenuPermissions.map(group => (
+                        <div key={group.group} className="space-y-2">
+                          <div className="font-semibold text-sm text-blue-700 flex items-center gap-2">
+                            📁 {group.group}
+                            <Badge variant="outline" className="text-xs">
+                              {group.permissions.filter(p => selectedPermissions.menu?.includes(p.key)).length} / {group.permissions.length}
+                            </Badge>
+                          </div>
+                          <div className="ml-4 space-y-2">
+                            {group.permissions.map(permission => (
+                              <div key={permission.key} className="flex items-center space-x-3">
+                                <Checkbox
+                                  id={permission.key}
+                                  checked={selectedPermissions.menu?.includes(permission.key) || false}
+                                  onCheckedChange={() => handlePermissionToggle('menu', permission.key)}
+                                />
+                                <div className="flex-1">
+                                  <label 
+                                    htmlFor={permission.key}
+                                    className="text-sm font-medium cursor-pointer"
+                                  >
+                                    {permission.label}
+                                  </label>
+                                  <p className="text-xs text-gray-600">{permission.url || permission.key}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
