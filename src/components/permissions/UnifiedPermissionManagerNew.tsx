@@ -168,10 +168,7 @@ export function UnifiedPermissionManagerNew({ onPermissionChange }: UnifiedPermi
             users={users}
             projects={projects}
             userPermissions={userPermissions}
-            roleTemplates={roleTemplates}
-            onSaveUserPermission={saveUserPermission}
-            onDeleteUserPermission={deleteUserPermission}
-            loading={loading}
+            onDataChange={loadData}
           />
         </TabsContent>
       </Tabs>

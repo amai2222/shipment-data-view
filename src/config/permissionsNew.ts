@@ -239,3 +239,6 @@ export function getUserPermissions(userRole: UserRole, permissions: PermissionGr
   
   return userPermissions;
 }
+
+// 导出 ROLES 别名以保持向后兼容
+export const ROLES = ROLES_NEW;

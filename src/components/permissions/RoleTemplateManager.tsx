@@ -465,7 +465,7 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                       <Checkbox
                         id={parentKey}
                         checked={selectedPermissions.includes(parentKey)}
-                        onCheckedChange={(checked) => handlePermissionToggle(parentKey, checked)}
+                        onCheckedChange={(checked) => handlePermissionToggle(parentKey, !!checked)}
                       />
                       <Label htmlFor={parentKey} className="text-sm font-medium text-blue-600">
                         {getParentLabel(group.key)}

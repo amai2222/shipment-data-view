@@ -280,7 +280,7 @@ export function UserPermissionManagementNew({
           <Checkbox
             id="inherit-role"
             checked={inheritRole}
-            onCheckedChange={setInheritRole}
+            onCheckedChange={(checked) => setInheritRole(!!checked)}
           />
           <Label htmlFor="inherit-role">
             继承角色默认权限

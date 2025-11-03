@@ -49,7 +49,8 @@ export function StatusBadge({ status, customConfig, className = "" }: StatusBadg
     return <Badge className={className}>{status}</Badge>;
   }
   
-  const badgeClassName = `${config.className || ''} ${className}`.trim();
+  const configClassName = 'className' in config ? config.className : '';
+  const badgeClassName = `${configClassName || ''} ${className}`.trim();
   
   return (
     <Badge variant={config.variant} className={badgeClassName}>
