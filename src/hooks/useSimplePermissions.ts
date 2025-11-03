@@ -42,7 +42,7 @@ export function useSimplePermissions() {
         if (error) {
           // Admin角色使用默认全权限
           if (userRole === 'admin') {
-            logger.info('Admin角色使用默认全权限');
+            safeLogger.info('Admin角色使用默认全权限');
             setDbPermissions({
               menu_permissions: ['projects', 'business-entry', 'drivers', 'partners', 'locations', 'reports', 'finance-management', 'user-management', 'role-management', 'system-settings', 'all'],
               function_permissions: ['create', 'edit', 'delete', 'view', 'export', 'import', 'approve', 'reject', 'assign', 'unassign', 'all'],
@@ -86,7 +86,7 @@ export function useSimplePermissions() {
         };
       }
     } catch (error) {
-      logger.error('获取角色权限失败:', error);
+      safeLogger.error('获取角色权限失败:', error);
       return {
         menu_permissions: [],
         function_permissions: [],
@@ -132,7 +132,7 @@ export function useSimplePermissions() {
       return rolePermissions.function_permissions.includes(functionKey) || 
              rolePermissions.function_permissions.includes('all');
     } catch (error) {
-      logger.error('功能权限检查失败:', error);
+      safeLogger.error('功能权限检查失败:', error);
       return false;
     }
   };
@@ -151,7 +151,7 @@ export function useSimplePermissions() {
       return rolePermissions.project_permissions.includes(projectKey) || 
              rolePermissions.project_permissions.includes('all');
     } catch (error) {
-      logger.error('项目权限检查失败:', error);
+      safeLogger.error('项目权限检查失败:', error);
       return false;
     }
   };
@@ -170,7 +170,7 @@ export function useSimplePermissions() {
       return rolePermissions.data_permissions.includes(dataKey) || 
              rolePermissions.data_permissions.includes('all');
     } catch (error) {
-      logger.error('数据权限检查失败:', error);
+      safeLogger.error('数据权限检查失败:', error);
       return false;
     }
   };
