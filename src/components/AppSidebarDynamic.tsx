@@ -126,20 +126,22 @@ export function AppSidebarDynamic() {
   }
 
   return (
-    <Sidebar className={`${collapsed ? "w-16" : "w-72"} transition-all duration-300 border-r`}>
-      <SidebarHeader className="border-b p-4">
-        <div className="flex items-center gap-2">
-          <Truck className="h-6 w-6 text-primary" />
+    <Sidebar className={`${collapsed ? "w-16" : "w-64"} transition-all duration-300 border-r bg-slate-50`}>
+      <SidebarHeader className="border-b bg-white p-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Truck className="h-6 w-6 text-primary" />
+          </div>
           {!collapsed && (
             <div>
-              <h2 className="font-semibold text-lg">物流系统</h2>
-              <p className="text-xs text-muted-foreground">中科物流跟踪系统</p>
+              <h2 className="font-bold text-lg text-slate-900">物流系统</h2>
+              <p className="text-xs text-slate-500 mt-0.5">中科物流跟踪系统</p>
             </div>
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-3 py-4">
+      <SidebarContent className="px-2 py-3 bg-slate-50">
         {menuGroups.map((group) => {
           const GroupIcon = getIcon(group.icon);
           const isOpen = openGroups.includes(group.title);
@@ -149,18 +151,22 @@ export function AppSidebarDynamic() {
               key={group.key}
               open={isOpen}
               onOpenChange={() => toggleGroup(group.title)}
-              className="mb-2"
+              className="mb-1"
             >
               <SidebarGroup>
                 <CollapsibleTrigger asChild>
-                  <SidebarGroupLabel className="group/label flex items-center justify-between cursor-pointer hover:bg-accent rounded-md px-2 py-2 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <GroupIcon className="h-4 w-4 flex-shrink-0" />
-                      {!collapsed && <span className="font-medium">{group.title}</span>}
+                  <SidebarGroupLabel className="group/label flex items-center justify-between cursor-pointer hover:bg-white/80 rounded-lg px-3 py-2.5 transition-all mb-1">
+                    <div className="flex items-center gap-3">
+                      <GroupIcon className="h-5 w-5 flex-shrink-0 text-slate-600" />
+                      {!collapsed && (
+                        <span className="font-semibold text-[15px] text-slate-700">
+                          {group.title}
+                        </span>
+                      )}
                     </div>
                     {!collapsed && (
                       <ChevronDown
-                        className={`h-4 w-4 transition-transform duration-200 ${
+                        className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
                           isOpen ? "rotate-180" : ""
                         }`}
                       />
@@ -170,7 +176,7 @@ export function AppSidebarDynamic() {
 
                 <CollapsibleContent>
                   <SidebarGroupContent>
-                    <SidebarMenu>
+                    <SidebarMenu className="space-y-0.5">
                       {group.items.map((item) => {
                         const ItemIcon = getIcon(item.icon);
                         const active = isActive(item.url);
@@ -179,16 +185,24 @@ export function AppSidebarDynamic() {
                           <SidebarMenuItem key={item.key}>
                             <SidebarMenuButton
                               asChild
-                              className={`${
-                                active
-                                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                                  : "hover:bg-accent"
-                              } transition-colors ${collapsed ? "justify-center" : ""}`}
+                              className={`
+                                ${collapsed ? "justify-center h-11" : "h-11 px-3"}
+                                ${
+                                  active
+                                    ? "bg-primary text-white hover:bg-primary/90 font-medium shadow-sm"
+                                    : "hover:bg-white/70 text-slate-700 hover:text-slate-900"
+                                } 
+                                transition-all duration-200 rounded-lg
+                              `}
                               tooltip={collapsed ? item.title : undefined}
                             >
-                              <Link to={item.url || '#'} className="flex items-center gap-2">
-                                <ItemIcon className="h-4 w-4 flex-shrink-0" />
-                                {!collapsed && <span>{item.title}</span>}
+                              <Link to={item.url || '#'} className="flex items-center gap-3 w-full">
+                                <ItemIcon className={`h-5 w-5 flex-shrink-0 ${active ? '' : 'text-slate-500'}`} />
+                                {!collapsed && (
+                                  <span className="text-[14px] leading-tight">
+                                    {item.title}
+                                  </span>
+                                )}
                               </Link>
                             </SidebarMenuButton>
                           </SidebarMenuItem>
