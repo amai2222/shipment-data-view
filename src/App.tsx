@@ -50,6 +50,7 @@ const PermissionManagement = lazy(() => import("./pages/Settings/PermissionManag
 const IntegratedUserManagement = lazy(() => import("./pages/IntegratedUserManagement"));
 const AuditLogs = lazy(() => import("./pages/Settings/AuditLogs"));
 const MenuConfig = lazy(() => import("./pages/Settings/MenuConfig"));
+const SystemBackup = lazy(() => import("./pages/Settings/SystemBackup"));
 const ScaleRecords = lazy(() => import("./pages/ScaleRecords"));
 const ContractManagement = lazy(() => import("./pages/ContractManagement"));
 const WaybillMaintenance = lazy(() => import("./pages/DataMaintenance/WaybillMaintenance"));
@@ -297,6 +298,12 @@ const App = () => (
             <Route path="/settings/menu-config" element={
               <ProtectedRoute requiredPermission="settings.menu_config">
                 <AppLayout><MenuConfig /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings/backup" element={
+              <ProtectedRoute requiredPermission="settings.backup">
+                <AppLayout><SystemBackup /></AppLayout>
               </ProtectedRoute>
             } />
             

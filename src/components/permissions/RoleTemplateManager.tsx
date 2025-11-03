@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { OptimizedPermissionSelector } from './OptimizedPermissionSelector';
@@ -22,7 +23,8 @@ import {
   Building2,
   Database,
   Key,
-  UserPlus
+  UserPlus,
+  AlertCircle
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS, DATA_PERMISSIONS, ROLES } from '@/config/permissions';
@@ -769,11 +771,40 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Shield className="h-4 w-4" />
                 <span>配置 {editingRole} 角色的菜单访问权限</span>
+                {editingRole === 'admin' && (
+                  <Badge variant="default" className="ml-2">
+                    管理员自动拥有所有菜单权限
+                  </Badge>
+                )}
               </div>
               <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
                 {menuLoading ? (
                   <div className="text-center py-8 text-muted-foreground">
                     加载菜单权限配置...
+                  </div>
+                ) : editingRole === 'admin' ? (
+                  <div className="space-y-4">
+                    <Alert className="border-blue-500 bg-blue-50">
+                      <AlertCircle className="h-4 w-4 text-blue-600" />
+                      <AlertDescription className="text-blue-800">
+                        <p className="font-semibold">管理员权限说明</p>
+                        <p className="text-sm mt-1">管理员角色自动拥有所有菜单的访问权限，无需手动配置。当添加新菜单时，管理员会自动获得访问权限。</p>
+                      </AlertDescription>
+                    </Alert>
+                    <PermissionSelector
+                      title="菜单权限（只读）"
+                      permissions={menuPermissionsForSelector}
+                      selectedPermissions={newTemplate.menu_permissions}
+                      onSelectionChange={(permissions) => {
+                        // admin 角色不允许修改
+                        toast({
+                          title: "提示",
+                          description: "管理员自动拥有所有权限，无需修改",
+                          variant: "default"
+                        });
+                      }}
+                      disabled={true}
+                    />
                   </div>
                 ) : (
                   <PermissionSelector
@@ -792,13 +823,29 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Settings className="h-4 w-4" />
                 <span>配置 {editingRole} 角色的功能操作权限</span>
+                {editingRole === 'admin' && (
+                  <Badge variant="default" className="ml-2">
+                    管理员拥有所有功能权限
+                  </Badge>
+                )}
               </div>
               <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
                 <PermissionSelector
-                  title="功能权限"
+                  title={editingRole === 'admin' ? "功能权限（只读）" : "功能权限"}
                   permissions={FUNCTION_PERMISSIONS}
                   selectedPermissions={newTemplate.function_permissions}
-                  onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, function_permissions: permissions }))}
+                  onSelectionChange={(permissions) => {
+                    if (editingRole === 'admin') {
+                      toast({
+                        title: "提示",
+                        description: "管理员自动拥有所有功能权限，无需修改",
+                        variant: "default"
+                      });
+                      return;
+                    }
+                    setNewTemplate(prev => ({ ...prev, function_permissions: permissions }));
+                  }}
+                  disabled={editingRole === 'admin'}
                 />
               </div>
             </TabsContent>
@@ -807,13 +854,29 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Building2 className="h-4 w-4" />
                 <span>配置 {editingRole} 角色的项目访问权限</span>
+                {editingRole === 'admin' && (
+                  <Badge variant="default" className="ml-2">
+                    管理员拥有所有项目权限
+                  </Badge>
+                )}
               </div>
               <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
                 <PermissionSelector
-                  title="项目权限"
+                  title={editingRole === 'admin' ? "项目权限（只读）" : "项目权限"}
                   permissions={PROJECT_PERMISSIONS}
                   selectedPermissions={newTemplate.project_permissions}
-                  onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, project_permissions: permissions }))}
+                  onSelectionChange={(permissions) => {
+                    if (editingRole === 'admin') {
+                      toast({
+                        title: "提示",
+                        description: "管理员自动拥有所有项目权限，无需修改",
+                        variant: "default"
+                      });
+                      return;
+                    }
+                    setNewTemplate(prev => ({ ...prev, project_permissions: permissions }));
+                  }}
+                  disabled={editingRole === 'admin'}
                 />
               </div>
             </TabsContent>
@@ -822,13 +885,29 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Database className="h-4 w-4" />
                 <span>配置 {editingRole} 角色的数据操作权限</span>
+                {editingRole === 'admin' && (
+                  <Badge variant="default" className="ml-2">
+                    管理员拥有所有数据权限
+                  </Badge>
+                )}
               </div>
               <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
                 <PermissionSelector
-                  title="数据权限"
+                  title={editingRole === 'admin' ? "数据权限（只读）" : "数据权限"}
                   permissions={DATA_PERMISSIONS}
                   selectedPermissions={newTemplate.data_permissions}
-                  onSelectionChange={(permissions) => setNewTemplate(prev => ({ ...prev, data_permissions: permissions }))}
+                  onSelectionChange={(permissions) => {
+                    if (editingRole === 'admin') {
+                      toast({
+                        title: "提示",
+                        description: "管理员自动拥有所有数据权限，无需修改",
+                        variant: "default"
+                      });
+                      return;
+                    }
+                    setNewTemplate(prev => ({ ...prev, data_permissions: permissions }));
+                  }}
+                  disabled={editingRole === 'admin'}
                 />
               </div>
             </TabsContent>
