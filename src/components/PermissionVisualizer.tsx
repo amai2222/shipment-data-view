@@ -26,6 +26,7 @@ import {
   Database
 } from 'lucide-react';
 import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS, DATA_PERMISSIONS } from '@/config/permissions';
+import { useDynamicMenuPermissions } from '@/hooks/useDynamicMenuPermissions';
 
 interface PermissionVisualizerProps {
   userPermissions: {
@@ -75,6 +76,30 @@ export function PermissionVisualizer({
     project: true,
     data: true
   });
+
+  // 使用动态菜单权限
+  const { loading: menuLoading, menuPermissions: dynamicMenuPermissions } = useDynamicMenuPermissions();
+  
+  // 转换为旧格式（兼容现有代码）
+  const MENU_PERMISSIONS_DYNAMIC = useMemo(() => {
+    if (menuLoading || !dynamicMenuPermissions.length) {
+      return MENU_PERMISSIONS;
+    }
+    
+    // 将动态菜单转换为扁平数组格式
+    const flatMenus: any[] = [];
+    dynamicMenuPermissions.forEach(group => {
+      group.permissions.forEach(item => {
+        flatMenus.push({
+          key: item.key,
+          label: item.label,
+          icon: group.icon || 'Menu',
+          group: group.group
+        });
+      });
+    });
+    return flatMenus;
+  }, [menuLoading, dynamicMenuPermissions]);
 
   // 计算权限统计
   const permissionStats = useMemo(() => {
@@ -309,7 +334,7 @@ export function PermissionVisualizer({
 
   // 渲染菜单权限
   const renderMenuPermissions = () => {
-    const groupedMenus = MENU_PERMISSIONS.reduce((acc, menu) => {
+    const groupedMenus = MENU_PERMISSIONS_DYNAMIC.reduce((acc, menu) => {
       const group = menu.label || '其他';
       if (!acc[group]) {
         acc[group] = [];

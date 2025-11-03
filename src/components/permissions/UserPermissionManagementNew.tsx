@@ -1,7 +1,7 @@
 ﻿// 新用户权限管理组件
 // 文件: src/components/permissions/UserPermissionManagementNew.tsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,7 @@ import {
 } from '@/config/permissionsNew';
 import { PermissionGroupNew } from '@/config/permissionsNew';
 import { supabase } from '@/integrations/supabase/client';
+import { useDynamicMenuPermissions } from '@/hooks/useDynamicMenuPermissions';
 
 interface UserPermissionNew {
   id: string;
@@ -60,6 +61,26 @@ export function UserPermissionManagementNew({
     data_permissions: [] as string[]
   });
   const [inheritRole, setInheritRole] = useState(true);
+
+  // 使用动态菜单权限
+  const { loading: menuLoading, menuPermissions: dynamicMenuPermissions } = useDynamicMenuPermissions();
+  
+  // 转换为 PermissionGroupNew 格式
+  const MENU_PERMISSIONS_DYNAMIC = useMemo((): PermissionGroupNew[] => {
+    if (menuLoading || !dynamicMenuPermissions.length) {
+      return MENU_PERMISSIONS_NEW;
+    }
+    
+    return dynamicMenuPermissions.map(group => ({
+      key: group.group.toLowerCase().replace(/\s+/g, '_'),
+      label: group.group,
+      children: group.permissions.map(item => ({
+        key: item.key,
+        label: item.label,
+        description: item.url || undefined
+      }))
+    }));
+  }, [menuLoading, dynamicMenuPermissions]);
 
   // 获取当前用户的权限配置
   useEffect(() => {
@@ -310,7 +331,13 @@ export function UserPermissionManagementNew({
             </TabsList>
             
             <TabsContent value="menu">
-              {renderPermissionList(MENU_PERMISSIONS_NEW, 'menu', '菜单权限', <Settings className="h-5 w-5" />)}
+              {menuLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  加载菜单权限配置...
+                </div>
+              ) : (
+                renderPermissionList(MENU_PERMISSIONS_DYNAMIC, 'menu', '菜单权限', <Settings className="h-5 w-5" />)
+              )}
             </TabsContent>
             
             <TabsContent value="function">

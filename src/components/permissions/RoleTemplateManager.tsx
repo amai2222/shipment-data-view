@@ -27,6 +27,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MENU_PERMISSIONS, FUNCTION_PERMISSIONS, PROJECT_PERMISSIONS, DATA_PERMISSIONS, ROLES } from '@/config/permissions';
 import { RoleTemplate } from '@/types/permission';
+import { useDynamicMenuPermissions } from '@/hooks/useDynamicMenuPermissions';
 
 interface RoleTemplateManagerProps {
   roleTemplates: Record<string, RoleTemplate>;
@@ -35,6 +36,9 @@ interface RoleTemplateManagerProps {
 
 export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateManagerProps) {
   const { toast } = useToast();
+  
+  // 使用动态菜单权限
+  const { loading: menuLoading, menuPermissions: dynamicMenuPermissions } = useDynamicMenuPermissions();
   
   const [showCreateRoleDialog, setShowCreateRoleDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -59,6 +63,24 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
 
   // 滚动位置保持
   const scrollAreaRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // 转换动态菜单权限为 PermissionGroup 格式
+  const menuPermissionsForSelector = useMemo(() => {
+    if (menuLoading || !dynamicMenuPermissions.length) {
+      return MENU_PERMISSIONS; // 加载中时使用默认配置
+    }
+
+    return dynamicMenuPermissions.map(group => ({
+      key: group.group.toLowerCase().replace(/\s+/g, '_'),
+      label: group.group,
+      icon: 'Menu',
+      children: group.permissions.map(item => ({
+        key: item.key,
+        label: item.label,
+        description: item.url
+      }))
+    }));
+  }, [menuLoading, dynamicMenuPermissions]);
 
   // 创建新角色
   const handleCreateRole = async () => {
@@ -749,14 +771,20 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
                 <span>配置 {editingRole} 角色的菜单访问权限</span>
               </div>
               <div className="max-h-96 overflow-y-auto scroll-smooth border rounded-lg p-4">
-                <PermissionSelector
-                  title="菜单权限"
-                  permissions={MENU_PERMISSIONS}
-                  selectedPermissions={newTemplate.menu_permissions}
-                  onSelectionChange={(permissions) => {
-                    setNewTemplate(prev => ({ ...prev, menu_permissions: permissions }));
-                  }}
-                />
+                {menuLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    加载菜单权限配置...
+                  </div>
+                ) : (
+                  <PermissionSelector
+                    title="菜单权限"
+                    permissions={menuPermissionsForSelector}
+                    selectedPermissions={newTemplate.menu_permissions}
+                    onSelectionChange={(permissions) => {
+                      setNewTemplate(prev => ({ ...prev, menu_permissions: permissions }));
+                    }}
+                  />
+                )}
               </div>
             </TabsContent>
 

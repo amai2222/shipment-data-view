@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,7 @@ const ROLES = [
 
 // 导入动态权限配置
 import { generateMenuPermissions, FUNCTION_PERMISSIONS } from '@/config/dynamicPermissions';
+import { useDynamicMenuPermissions } from '@/hooks/useDynamicMenuPermissions';
 
 // 使用导入的功能权限配置
 
@@ -64,8 +65,19 @@ export default function PermissionManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
 
-  // 使用动态生成的菜单权限配置
-  const menuPermissions = generateMenuPermissions();
+  // 使用动态菜单权限（从数据库读取）
+  const { loading: menuLoading, menuPermissions: dynamicMenuPermissions } = useDynamicMenuPermissions();
+  
+  // 转换为旧格式（向后兼容）
+  const menuPermissions = useMemo(() => {
+    if (menuLoading || !dynamicMenuPermissions.length) {
+      return generateMenuPermissions();
+    }
+    return dynamicMenuPermissions.map(group => ({
+      group: group.group,
+      permissions: group.permissions
+    }));
+  }, [menuLoading, dynamicMenuPermissions]);
 
   // 使用优化的权限管理 Hook
   const {

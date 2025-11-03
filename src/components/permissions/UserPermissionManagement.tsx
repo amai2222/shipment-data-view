@@ -1,6 +1,6 @@
 ﻿// 用户权限管理组件
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import {
   ROLES
 } from '@/config/permissions';
 import { supabase } from '@/integrations/supabase/client';
+import { useDynamicMenuPermissions } from '@/hooks/useDynamicMenuPermissions';
 
 interface UserPermissionManagementProps {
   users: any[];
@@ -38,6 +39,29 @@ export function UserPermissionManagement({
   const [selectedUser, setSelectedUser] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // 使用动态菜单权限
+  const { loading: menuLoading, menuPermissions: dynamicMenuPermissions } = useDynamicMenuPermissions();
+  
+  // 转换为组件需要的格式
+  const menuPermissionsForDisplay = useMemo(() => {
+    if (menuLoading || !dynamicMenuPermissions.length) {
+      return MENU_PERMISSIONS;
+    }
+    
+    // 转换为旧的嵌套格式
+    const converted: any = {};
+    dynamicMenuPermissions.forEach(group => {
+      converted[group.group] = {
+        label: group.group,
+        children: group.permissions.map(item => ({
+          key: item.key,
+          label: item.label
+        }))
+      };
+    });
+    return converted;
+  }, [menuLoading, dynamicMenuPermissions]);
   const [inheritRole, setInheritRole] = useState(true);
   const [currentPermissions, setCurrentPermissions] = useState({
     menu_permissions: [] as string[],
@@ -162,13 +186,13 @@ export function UserPermissionManagement({
 
   // 渲染权限列表
   const renderPermissionList = (
-    permissions: any,
+    permissionsData: any,
     currentPerms: string[],
     type: string
   ) => {
     return (
       <div className="space-y-4">
-        {Object.entries(permissions).map(([key, group]: [string, any]) => (
+        {Object.entries(permissionsData).map(([key, group]: [string, any]) => (
           <Card key={key} className="border-l-4 border-l-green-500">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -311,10 +335,16 @@ export function UserPermissionManagement({
 
             <TabsContent value="menu">
               <div className="max-h-96 overflow-y-auto scroll-smooth">
-                {renderPermissionList(
-                  MENU_PERMISSIONS,
-                  currentPermissions.menu_permissions,
-                  'menu'
+                {menuLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    加载菜单权限配置...
+                  </div>
+                ) : (
+                  renderPermissionList(
+                    menuPermissionsForDisplay,
+                    currentPermissions.menu_permissions,
+                    'menu'
+                  )
                 )}
               </div>
             </TabsContent>
