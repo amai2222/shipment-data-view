@@ -1,7 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, Suspense } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebarDynamic as AppSidebar } from "./AppSidebarDynamic";
 import { EnhancedHeader } from "./EnhancedHeader";
+import { PageLoading } from "./ui/loading-spinner";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -19,7 +20,9 @@ export function AppLayout({ children }: AppLayoutProps) {
           
           {/* Content Area with Enhanced Scrolling */}
           <div className="flex-1 overflow-auto bg-gradient-to-b from-background to-secondary/20">
-            {children}
+            <Suspense fallback={<PageLoading />}>
+              {children}
+            </Suspense>
           </div>
         </main>
       </div>
