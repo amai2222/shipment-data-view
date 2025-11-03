@@ -212,9 +212,14 @@ export default function MenuConfigPage() {
     }
   };
 
-  // 分离分组和菜单项
-  const groups = menus.filter(m => m.is_group);
-  const items = menus.filter(m => !m.is_group);
+  // 分离分组和菜单项，并按 order_index 排序
+  const groups = menus
+    .filter(m => m.is_group)
+    .sort((a, b) => a.order_index - b.order_index);
+    
+  const items = menus
+    .filter(m => !m.is_group)
+    .sort((a, b) => a.order_index - b.order_index);
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -319,7 +324,9 @@ export default function MenuConfigPage() {
 
         {/* 菜单项列表（按分组显示，与侧边栏顺序一致） */}
         {groups.map(group => {
-          const groupItems = items.filter(item => item.parent_key === group.key);
+          const groupItems = items
+            .filter(item => item.parent_key === group.key)
+            .sort((a, b) => a.order_index - b.order_index);  // 确保组内也排序
           if (groupItems.length === 0) return null;
           
           return (
