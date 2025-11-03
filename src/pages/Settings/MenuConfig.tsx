@@ -317,77 +317,85 @@ export default function MenuConfigPage() {
           </Table>
         </div>
 
-        {/* 菜单项列表 */}
-        <div className="bg-card rounded-lg border p-6">
-          <h2 className="text-xl font-semibold mb-4">菜单项</h2>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>标题</TableHead>
-                <TableHead>URL</TableHead>
-                <TableHead>所属分组</TableHead>
-                <TableHead>图标</TableHead>
-                <TableHead>权限</TableHead>
-                <TableHead>排序</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map(menu => (
-                <TableRow key={menu.id}>
-                  <TableCell className="font-medium">{menu.title}</TableCell>
-                  <TableCell><code className="text-xs">{menu.url}</code></TableCell>
-                  <TableCell><Badge>{menu.parent_key}</Badge></TableCell>
-                  <TableCell><Badge variant="outline">{menu.icon}</Badge></TableCell>
-                  <TableCell>
-                    <div className="flex gap-1 flex-wrap">
-                      {menu.required_permissions?.map(p => (
-                        <Badge key={p} variant="secondary" className="text-xs">
-                          {p}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>{menu.order_index}</TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={menu.is_active}
-                      onCheckedChange={() => toggleActive(menu)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => moveMenu(menu, 'up')}>
-                        <MoveUp className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => moveMenu(menu, 'down')}>
-                        <MoveDown className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingMenu(menu);
-                          setIsDialogOpen(true);
-                        }}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDelete(menu.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        {/* 菜单项列表（按分组显示，与侧边栏顺序一致） */}
+        {groups.map(group => {
+          const groupItems = items.filter(item => item.parent_key === group.key);
+          if (groupItems.length === 0) return null;
+          
+          return (
+            <div key={group.id} className="bg-card rounded-lg border p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Badge variant="default">{group.title}</Badge>
+                <span className="text-sm text-muted-foreground">({groupItems.length} 个菜单)</span>
+              </h2>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>标题</TableHead>
+                    <TableHead>URL</TableHead>
+                    <TableHead>图标</TableHead>
+                    <TableHead>权限</TableHead>
+                    <TableHead>排序</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {groupItems.map(menu => (
+                    <TableRow key={menu.id}>
+                      <TableCell className="font-medium">{menu.title}</TableCell>
+                      <TableCell><code className="text-xs">{menu.url}</code></TableCell>
+                      <TableCell><Badge variant="outline">{menu.icon}</Badge></TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap">
+                          {menu.required_permissions?.map(p => (
+                            <Badge key={p} variant="secondary" className="text-xs">
+                              {p}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>{menu.order_index}</TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={menu.is_active}
+                          onCheckedChange={() => toggleActive(menu)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => moveMenu(menu, 'up')}>
+                            <MoveUp className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => moveMenu(menu, 'down')}>
+                            <MoveDown className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingMenu(menu);
+                              setIsDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDelete(menu.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
