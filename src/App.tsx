@@ -13,76 +13,80 @@ import { MobileRedirect } from "./components/MobileRedirect";
 import { MobileLayout } from "./components/mobile/MobileLayout";
 import { AutoMenuSync } from "./components/AutoMenuSync";
 
-// --- 页面组件导入 ---
-import Home from "./pages/Home";
+// --- 懒加载页面组件导入 ---
+import { Suspense, lazy } from 'react';
+import { LoadingSpinner } from "./App.lazy";
+
+// 懒加载公共组件
 import Auth from "./pages/Auth";
-import TransportOverview from "./pages/TransportOverview";
-import Projects from "./pages/Projects";
-import Drivers from "./pages/Drivers";
-import Locations from "./pages/Locations";
-import EnhancedLocations from "./pages/EnhancedLocations";
-import Partners from "./pages/Partners";
-import PartnerHierarchyManagement from "./pages/PartnerHierarchyManagement";
-import BusinessEntry from "./pages/BusinessEntry";
-import PaymentRequest from "./pages/PaymentRequest";
-import InvoiceRequest from "./pages/InvoiceRequest";
-import InvoiceRequestManagement from "./pages/InvoiceRequestManagement";
-import FinancialOverview from "./pages/FinancialOverview";
-import FinanceReconciliation from "./pages/FinanceReconciliation";
-import PaymentInvoice from "./pages/PaymentInvoice";
-import PaymentInvoiceDetail from "./pages/PaymentInvoiceDetail";
 import NotFound from "./pages/NotFound";
 import NotFoundWithStaticFileCheck from "./components/NotFoundWithStaticFileCheck";
-import PaymentRequestsList from "./pages/PaymentRequestsList";
-import UserManagement from "./pages/Settings/UserManagement";
-import PermissionConfig from "./pages/Settings/PermissionConfig";
-import ContractPermission from "./pages/Settings/ContractPermission";
-import RoleTemplate from "./pages/Settings/RoleTemplate";
-import PermissionManagement from "./pages/Settings/PermissionManagement";
-import IntegratedUserManagement from "./pages/IntegratedUserManagement";
-import MobileIntegratedUserManagement from "./pages/mobile/MobileIntegratedUserManagement";
-import AuditLogs from "./pages/Settings/AuditLogs";
-import MobileAuditLogs from "./pages/mobile/MobileAuditLogs";
-import ScaleRecords from "./pages/ScaleRecords";
-import ContractManagement from "./pages/ContractManagement";
-import WaybillMaintenance from "./pages/DataMaintenance/WaybillMaintenance";
-import EnhancedWaybillMaintenance from "./pages/DataMaintenance/EnhancedWaybillMaintenance";
-import MobileNotifications from "./pages/mobile/MobileNotifications";
-import MobileSettings from "./pages/mobile/MobileSettings";
-import MobileUserManagement from "./pages/mobile/MobileUserManagement";
-import MobileContractPermission from "./pages/mobile/MobileContractPermission";
-import MobileRoleTemplate from "./pages/mobile/MobileRoleTemplate";
 
-// ★★★ 1. 导入我们新创建的两个页面 ★★★
-import ProjectsOverview from "./pages/ProjectsOverview"; // 新的概览页
-import ProjectDashboard from "./pages/ProjectDashboard"; // 改造后的详情页
+// 使用懒加载导入主要页面
+const Home = lazy(() => import("./pages/Home"));
+const TransportOverview = lazy(() => import("./pages/TransportOverview"));
+const Projects = lazy(() => import("./pages/Projects"));
+const ProjectsOverview = lazy(() => import("./pages/ProjectsOverview"));
+const ProjectDashboard = lazy(() => import("./pages/ProjectDashboard"));
+const Drivers = lazy(() => import("./pages/Drivers"));
+const Locations = lazy(() => import("./pages/Locations"));
+const EnhancedLocations = lazy(() => import("./pages/EnhancedLocations"));
+const Partners = lazy(() => import("./pages/Partners"));
+const PartnerHierarchyManagement = lazy(() => import("./pages/PartnerHierarchyManagement"));
+const BusinessEntry = lazy(() => import("./pages/BusinessEntry"));
+const PaymentRequest = lazy(() => import("./pages/PaymentRequest"));
+const InvoiceRequest = lazy(() => import("./pages/InvoiceRequest"));
+const InvoiceRequestManagement = lazy(() => import("./pages/InvoiceRequestManagement"));
+const FinancialOverview = lazy(() => import("./pages/FinancialOverview"));
+const FinanceReconciliation = lazy(() => import("./pages/FinanceReconciliation"));
+const PaymentInvoice = lazy(() => import("./pages/PaymentInvoice"));
+const PaymentInvoiceDetail = lazy(() => import("./pages/PaymentInvoiceDetail"));
+const PaymentRequestsList = lazy(() => import("./pages/PaymentRequestsList"));
+const UserManagement = lazy(() => import("./pages/Settings/UserManagement"));
+const PermissionConfig = lazy(() => import("./pages/Settings/PermissionConfig"));
+const ContractPermission = lazy(() => import("./pages/Settings/ContractPermission"));
+const RoleTemplate = lazy(() => import("./pages/Settings/RoleTemplate"));
+const PermissionManagement = lazy(() => import("./pages/Settings/PermissionManagement"));
+const IntegratedUserManagement = lazy(() => import("./pages/IntegratedUserManagement"));
+const AuditLogs = lazy(() => import("./pages/Settings/AuditLogs"));
+const ScaleRecords = lazy(() => import("./pages/ScaleRecords"));
+const ContractManagement = lazy(() => import("./pages/ContractManagement"));
+const WaybillMaintenance = lazy(() => import("./pages/DataMaintenance/WaybillMaintenance"));
+const EnhancedWaybillMaintenance = lazy(() => import("./pages/DataMaintenance/EnhancedWaybillMaintenance"));
+const ShipperDashboard = lazy(() => import("./pages/ShipperDashboard"));
+const PaymentAudit = lazy(() => import("./pages/PaymentAudit"));
+const InvoiceAudit = lazy(() => import("./pages/InvoiceAudit"));
 
-// 移动端页面导入
-import MobileHome from "./pages/mobile/MobileHome";
-import MobileBusinessEntry from "./pages/mobile/MobileBusinessEntry";
-import MobileBusinessEntryForm from "./pages/mobile/MobileBusinessEntryForm";
-import MobileProjectDashboard from "./pages/mobile/MobileProjectDashboard";
-import MobileScaleRecords from "./pages/mobile/MobileScaleRecords";
-import MobileDrivers from "./pages/mobile/MobileDrivers";
-import MobileLocations from "./pages/mobile/MobileLocations";
-import MobilePartners from "./pages/mobile/MobilePartners";
-import MobileDashboard from "./pages/mobile/MobileDashboard";
-import MobileFinancialOverview from "./pages/mobile/MobileFinancialOverview";
-import MobilePaymentRequestsList from "./pages/mobile/MobilePaymentRequestsList";
-import MobilePermissionManagement from "./pages/mobile/MobilePermissionManagement";
-import MobilePaymentRequestsManagement from "./pages/mobile/MobilePaymentRequestsManagement";
-import MobileInvoiceRequestManagement from "./pages/mobile/MobileInvoiceRequestManagement";
-import MobileContractManagement from "./pages/mobile/MobileContractManagement";
-import MobileProjectOverview from "./pages/mobile/MobileProjectOverview";
-import MobileProjectDetail from "./pages/mobile/MobileProjectDetail";
-import MobileHomeNew from "./pages/mobile/MobileHomeNew";
-import MobileProjectRecords from "./pages/mobile/MobileProjectRecords";
-import MobileWaybillDetail from "./pages/mobile/MobileWaybillDetail";
-import MobileProjectDashboardDetail from "./pages/mobile/MobileProjectDashboardDetail";
-import ShipperDashboard from "./pages/ShipperDashboard";
-import MobileShipperDashboard from "./pages/mobile/MobileShipperDashboard";
-import PaymentAudit from "./pages/PaymentAudit";
-import InvoiceAudit from "./pages/InvoiceAudit";
+// 移动端页面懒加载
+const MobileHomeNew = lazy(() => import("./pages/mobile/MobileHomeNew"));
+const MobileHome = lazy(() => import("./pages/mobile/MobileHome"));
+const MobileBusinessEntry = lazy(() => import("./pages/mobile/MobileBusinessEntry"));
+const MobileBusinessEntryForm = lazy(() => import("./pages/mobile/MobileBusinessEntryForm"));
+const MobileProjectDashboard = lazy(() => import("./pages/mobile/MobileProjectDashboard"));
+const MobileScaleRecords = lazy(() => import("./pages/mobile/MobileScaleRecords"));
+const MobileDrivers = lazy(() => import("./pages/mobile/MobileDrivers"));
+const MobileLocations = lazy(() => import("./pages/mobile/MobileLocations"));
+const MobilePartners = lazy(() => import("./pages/mobile/MobilePartners"));
+const MobileDashboard = lazy(() => import("./pages/mobile/MobileDashboard"));
+const MobileFinancialOverview = lazy(() => import("./pages/mobile/MobileFinancialOverview"));
+const MobilePaymentRequestsList = lazy(() => import("./pages/mobile/MobilePaymentRequestsList"));
+const MobilePermissionManagement = lazy(() => import("./pages/mobile/MobilePermissionManagement"));
+const MobilePaymentRequestsManagement = lazy(() => import("./pages/mobile/MobilePaymentRequestsManagement"));
+const MobileInvoiceRequestManagement = lazy(() => import("./pages/mobile/MobileInvoiceRequestManagement"));
+const MobileContractManagement = lazy(() => import("./pages/mobile/MobileContractManagement"));
+const MobileProjectOverview = lazy(() => import("./pages/mobile/MobileProjectOverview"));
+const MobileProjectDetail = lazy(() => import("./pages/mobile/MobileProjectDetail"));
+const MobileProjectRecords = lazy(() => import("./pages/mobile/MobileProjectRecords"));
+const MobileWaybillDetail = lazy(() => import("./pages/mobile/MobileWaybillDetail"));
+const MobileProjectDashboardDetail = lazy(() => import("./pages/mobile/MobileProjectDashboardDetail"));
+const MobileShipperDashboard = lazy(() => import("./pages/mobile/MobileShipperDashboard"));
+const MobileIntegratedUserManagement = lazy(() => import("./pages/mobile/MobileIntegratedUserManagement"));
+const MobileAuditLogs = lazy(() => import("./pages/mobile/MobileAuditLogs"));
+const MobileNotifications = lazy(() => import("./pages/mobile/MobileNotifications"));
+const MobileSettings = lazy(() => import("./pages/mobile/MobileSettings"));
+const MobileUserManagement = lazy(() => import("./pages/mobile/MobileUserManagement"));
+const MobileContractPermission = lazy(() => import("./pages/mobile/MobileContractPermission"));
+const MobileRoleTemplate = lazy(() => import("./pages/mobile/MobileRoleTemplate"));
 
 const queryClient = new QueryClient();
 
@@ -96,7 +100,8 @@ const App = () => (
           <Sonner />
           <AutoMenuSync />
           <MobileRedirect>
-            <Routes>
+            <Suspense fallback={<LoadingSpinner />}>
+              <Routes>
             {/* --- 公开路由 --- */}
             <Route path="/auth" element={<Auth />} />
             
@@ -556,6 +561,7 @@ const App = () => (
             {/* --- 404路由 - 排除静态文件扩展名 --- */}
             <Route path="*" element={<NotFoundWithStaticFileCheck />} />
           </Routes>
+          </Suspense>
           </MobileRedirect>
         </TooltipProvider>
       </AuthProvider>
