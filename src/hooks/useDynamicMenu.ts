@@ -43,6 +43,7 @@ export function useDynamicMenu() {
   const [loading, setLoading] = useState(true);
   const [menuGroups, setMenuGroups] = useState<MenuGroup[]>([]);
   const [urlToKeyMap, setUrlToKeyMap] = useState<Record<string, string>>({});
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { hasMenuAccess, isAdmin } = useSimplePermissions();
 
   // 从数据库加载菜单配置
@@ -116,7 +117,29 @@ export function useDynamicMenu() {
     };
 
     loadMenuConfig();
-  }, []);
+
+    // 订阅菜单配置变化（实时更新）
+    const subscription = supabase
+      .channel('menu_config_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'menu_config'
+        },
+        (payload) => {
+          safeLogger.debug('菜单配置变化:', payload);
+          // 菜单变化时重新加载
+          loadMenuConfig();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [refreshTrigger]);
 
   // 根据权限过滤菜单
   const filteredMenuGroups = useMemo(() => {
@@ -160,12 +183,18 @@ export function useDynamicMenu() {
     return hasMenuAccess(menuKey);
   };
 
+  // 手动刷新菜单
+  const refreshMenus = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   return {
     loading,
     menuGroups: filteredMenuGroups,
     urlToKeyMap,
     getMenuKey,
-    checkMenuAccess
+    checkMenuAccess,
+    refreshMenus
   };
 }
 

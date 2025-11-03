@@ -115,7 +115,7 @@ export default function MenuConfigPage() {
 
         toast({
           title: '创建成功',
-          description: '新菜单已创建',
+          description: '新菜单已创建，侧边栏将自动显示',
         });
       }
 
@@ -145,7 +145,7 @@ export default function MenuConfigPage() {
 
       toast({
         title: '删除成功',
-        description: '菜单已删除',
+        description: '菜单已删除，侧边栏将自动更新',
       });
 
       loadMenus();
@@ -167,6 +167,11 @@ export default function MenuConfigPage() {
         .eq('id', menu.id);
 
       if (error) throw error;
+
+      toast({
+        title: '已保存',
+        description: `菜单"${menu.title}"已${!menu.is_active ? '启用' : '禁用'}，侧边栏将自动更新`,
+      });
 
       loadMenus();
     } catch (error: any) {
@@ -191,6 +196,11 @@ export default function MenuConfigPage() {
         .eq('id', menu.id);
 
       if (error) throw error;
+
+      toast({
+        title: '已保存',
+        description: `菜单顺序已调整，侧边栏将自动更新`,
+      });
 
       loadMenus();
     } catch (error: any) {
