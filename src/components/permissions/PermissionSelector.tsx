@@ -68,9 +68,9 @@ export function PermissionSelector({
           const someSelected = selectedCount > 0 && selectedCount < groupPermissions.length;
 
           return (
-            <div key={group.key} className="space-y-2">
+            <div key={group.key} className="border rounded-lg p-3 bg-gradient-to-r from-blue-50 to-white">
               {/* 组标题 */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 mb-3 pb-2 border-b">
                 <Checkbox
                   id={`group-${group.key}`}
                   checked={allSelected}
@@ -84,17 +84,17 @@ export function PermissionSelector({
                 />
                 <Label 
                   htmlFor={`group-${group.key}`}
-                  className="font-medium cursor-pointer"
+                  className="font-semibold text-base cursor-pointer flex items-center gap-2"
                 >
-                  {group.label}
+                  📁 {group.label}
                 </Label>
-                <Badge variant="outline" className="ml-auto">
+                <Badge variant="secondary" className="ml-auto">
                   {selectedCount}/{groupPermissions.length}
                 </Badge>
               </div>
 
               {/* 权限项 */}
-              <div className="ml-6 space-y-1">
+              <div className="ml-6 space-y-1.5">
                 {group.children.map(item => (
                   <div key={item.key} className="flex items-center space-x-2">
                     <Checkbox

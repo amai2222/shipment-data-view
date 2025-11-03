@@ -79,27 +79,6 @@ export function PermissionVisualizer({
 
   // 使用动态菜单权限
   const { loading: menuLoading, menuPermissions: dynamicMenuPermissions } = useDynamicMenuPermissions();
-  
-  // 转换为旧格式（兼容现有代码）
-  const MENU_PERMISSIONS_DYNAMIC = useMemo(() => {
-    if (menuLoading || !dynamicMenuPermissions.length) {
-      return MENU_PERMISSIONS;
-    }
-    
-    // 将动态菜单转换为扁平数组格式
-    const flatMenus: any[] = [];
-    dynamicMenuPermissions.forEach(group => {
-      group.permissions.forEach(item => {
-        flatMenus.push({
-          key: item.key,
-          label: item.label,
-          icon: group.icon || 'Menu',
-          group: group.group
-        });
-      });
-    });
-    return flatMenus;
-  }, [menuLoading, dynamicMenuPermissions]);
 
   // 计算权限统计
   const permissionStats = useMemo(() => {
@@ -332,34 +311,36 @@ export function PermissionVisualizer({
     }
   };
 
-  // 渲染菜单权限
+  // 渲染菜单权限（按分组显示，从数据库读取）
   const renderMenuPermissions = () => {
-    const groupedMenus = MENU_PERMISSIONS_DYNAMIC.reduce((acc, menu) => {
-      const group = menu.label || '其他';
-      if (!acc[group]) {
-        acc[group] = [];
-      }
-      acc[group].push(menu);
-      return acc;
-    }, {} as Record<string, typeof MENU_PERMISSIONS>);
+    if (menuLoading) {
+      return <div className="text-center py-8 text-muted-foreground">加载菜单权限...</div>;
+    }
+
+    if (!dynamicMenuPermissions.length) {
+      return <div className="text-center py-8 text-muted-foreground">暂无菜单配置</div>;
+    }
 
     return (
       <div className="space-y-4">
-        {Object.entries(groupedMenus).map(([groupName, menus]) => (
-          <Card key={groupName} className="border-l-4 border-l-blue-500">
+        {dynamicMenuPermissions.map((group) => (
+          <Card key={group.group} className="border-l-4 border-l-blue-500">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-blue-700">
-                {groupName}
+              <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
+                📁 {group.group}
+                <Badge variant="outline" className="text-xs">
+                  {group.permissions.length} 个菜单
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {menus.map((menu) => {
+                {group.permissions.map((menu) => {
                   const status = getPermissionStatus('menu', menu.key);
                   const Icon = menuIcons[menu.key.split('.')[0]] || menuIcons.default;
                   
                   return (
-                    <div key={menu.key} className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
+                    <div key={menu.key} className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 hover:bg-gray-100 transition-colors">
                       <div className="flex items-center gap-3">
                         <Icon className="h-4 w-4 text-gray-600" />
                         <div>

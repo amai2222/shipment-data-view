@@ -43,22 +43,25 @@ export function useDynamicMenuPermissions() {
           return;
         }
 
-        // 分离分组和菜单项
-        const groups = menuData.filter(m => m.is_group);
+        // 分离分组和菜单项，并按 order_index 排序
+        const groups = menuData
+          .filter(m => m.is_group)
+          .sort((a, b) => a.order_index - b.order_index);  // 按顺序排序
+        
         const items = menuData.filter(m => !m.is_group);
 
-        // 构建分组权限结构
+        // 构建分组权限结构（保持分组顺序）
         const groupedPermissions: MenuPermissionGroup[] = groups.map(group => ({
           group: group.title,
           permissions: items
             .filter(item => item.parent_key === group.key)
+            .sort((a, b) => a.order_index - b.order_index)  // 按顺序排序，不是字母
             .map(item => ({
               key: item.key,
               label: item.title,
               url: item.url || undefined
             }))
-            .sort((a, b) => a.key.localeCompare(b.key))
-        })).sort((a, b) => a.group.localeCompare(b.group));
+        }));
 
         // 收集所有权限键
         const allKeys = groupedPermissions.flatMap(group => 
