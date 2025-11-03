@@ -31,9 +31,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Edit, Trash2, MoveUp, MoveDown, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash2, MoveUp, MoveDown, RefreshCw, GripVertical, Menu } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { PermissionSyncManager } from '@/components/permissions/PermissionSyncManager';
+import { PageHeader } from '@/components/PageHeader';
 
 interface MenuConfig {
   id: string;
@@ -50,9 +51,12 @@ interface MenuConfig {
 
 export default function MenuConfigPage() {
   const [menus, setMenus] = useState<MenuConfig[]>([]);
+  const [originalMenus, setOriginalMenus] = useState<MenuConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingMenu, setEditingMenu] = useState<MenuConfig | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [draggedMenu, setDraggedMenu] = useState<MenuConfig | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
   const { toast } = useToast();
 
   // 可用的图标列表
@@ -74,6 +78,8 @@ export default function MenuConfigPage() {
 
       if (error) throw error;
       setMenus(data || []);
+      setOriginalMenus(data || []); // 保存原始数据用于对比
+      setHasChanges(false);
     } catch (error: any) {
       toast({
         title: '加载失败',
@@ -158,58 +164,103 @@ export default function MenuConfigPage() {
     }
   };
 
-  // 切换激活状态
-  const toggleActive = async (menu: MenuConfig) => {
+  // 切换激活状态（本地修改）
+  const toggleActive = (menu: MenuConfig) => {
+    setMenus(prev => 
+      prev.map(m => 
+        m.id === menu.id 
+          ? { ...m, is_active: !m.is_active }
+          : m
+      )
+    );
+    setHasChanges(true);
+  };
+
+  // 调整顺序（本地修改，每次移动10个单位）
+  const moveMenu = (menu: MenuConfig, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' 
+      ? menu.order_index - 10
+      : menu.order_index + 10;
+
+    setMenus(prev => 
+      prev.map(m => 
+        m.id === menu.id 
+          ? { ...m, order_index: newIndex }
+          : m
+      )
+    );
+    setHasChanges(true);
+  };
+
+  // 拖拽重新排序（本地修改）
+  const handleDragReorder = (draggedId: string, targetOrderIndex: number) => {
+    setMenus(prev => 
+      prev.map(m => 
+        m.id === draggedId 
+          ? { ...m, order_index: targetOrderIndex }
+          : m
+      )
+    );
+    setHasChanges(true);
+  };
+
+  // 保存所有更改
+  const handleSaveAllChanges = async () => {
     try {
-      const { error } = await supabase
-        .from('menu_config')
-        .update({ is_active: !menu.is_active })
-        .eq('id', menu.id);
-
-      if (error) throw error;
-
-      toast({
-        title: '已保存',
-        description: `菜单"${menu.title}"已${!menu.is_active ? '启用' : '禁用'}，侧边栏将自动更新`,
+      // 找出所有有变化的菜单
+      const updates = menus.filter(menu => {
+        const original = originalMenus.find(o => o.id === menu.id);
+        return original && (
+          original.is_active !== menu.is_active ||
+          original.order_index !== menu.order_index
+        );
       });
 
-      loadMenus();
+      if (updates.length === 0) {
+        toast({
+          title: '无变更',
+          description: '没有需要保存的更改',
+        });
+        return;
+      }
+
+      // 批量更新
+      for (const menu of updates) {
+        const { error } = await supabase
+          .from('menu_config')
+          .update({
+            is_active: menu.is_active,
+            order_index: menu.order_index
+          })
+          .eq('id', menu.id);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: '保存成功',
+        description: `已保存 ${updates.length} 项更改，侧边栏将自动更新`,
+      });
+
+      // 重新加载
+      await loadMenus();
     } catch (error: any) {
       toast({
-        title: '更新失败',
+        title: '保存失败',
         description: error.message,
         variant: 'destructive',
       });
     }
   };
 
-  // 调整顺序
-  const moveMenu = async (menu: MenuConfig, direction: 'up' | 'down') => {
-    const newIndex = direction === 'up' 
-      ? menu.order_index - 15
-      : menu.order_index + 15;
-
-    try {
-      const { error } = await supabase
-        .from('menu_config')
-        .update({ order_index: newIndex })
-        .eq('id', menu.id);
-
-      if (error) throw error;
-
-      toast({
-        title: '已保存',
-        description: `菜单顺序已调整，侧边栏将自动更新`,
-      });
-
-      loadMenus();
-    } catch (error: any) {
-      toast({
-        title: '移动失败',
-        description: error.message,
-        variant: 'destructive',
-      });
-    }
+  // 取消更改
+  const handleCancelChanges = () => {
+    setMenus([...originalMenus]);
+    setHasChanges(false);
+    toast({
+      title: '已取消',
+      description: '所有未保存的更改已撤销',
+    });
   };
 
   // 分离分组和菜单项，并按 order_index 排序
@@ -222,15 +273,24 @@ export default function MenuConfigPage() {
     .sort((a, b) => a.order_index - b.order_index);
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">菜单配置管理</h1>
-          <p className="text-muted-foreground mt-2">
-            管理系统菜单结构、图标、排序和权限
-          </p>
-        </div>
+    <div className="space-y-6 p-4 md:p-6">
+      <PageHeader
+        title="菜单配置管理"
+        description="管理系统菜单结构、图标、排序和权限"
+        icon={Menu}
+      >
         <div className="flex gap-2">
+          {hasChanges && (
+            <>
+              <Button onClick={handleCancelChanges} variant="outline">
+                取消
+              </Button>
+              <Button onClick={handleSaveAllChanges} className="bg-green-600 hover:bg-green-700">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                保存更改
+              </Button>
+            </>
+          )}
           <Button onClick={loadMenus} variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             刷新
@@ -333,13 +393,17 @@ export default function MenuConfigPage() {
             <div key={group.id} className="bg-card rounded-lg border p-6">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                 <Badge variant="default">{group.title}</Badge>
-                <span className="text-sm text-muted-foreground">({groupItems.length} 个菜单)</span>
+                <span className="text-sm text-muted-foreground">
+                  ({groupItems.length} 个菜单 · 排序值: {group.order_index})
+                </span>
               </h2>
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">拖动</TableHead>
                     <TableHead>标题</TableHead>
                     <TableHead>URL</TableHead>
+                    <TableHead>所属分组</TableHead>
                     <TableHead>图标</TableHead>
                     <TableHead>权限</TableHead>
                     <TableHead>排序</TableHead>
@@ -349,9 +413,34 @@ export default function MenuConfigPage() {
                 </TableHeader>
                 <TableBody>
                   {groupItems.map(menu => (
-                    <TableRow key={menu.id}>
+                    <TableRow 
+                      key={menu.id}
+                      draggable
+                      onDragStart={() => setDraggedMenu(menu)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                      }}
+                      onDrop={() => {
+                        if (draggedMenu && draggedMenu.id !== menu.id) {
+                          handleDragReorder(draggedMenu.id, menu.order_index);
+                        }
+                        setDraggedMenu(null);
+                      }}
+                      onDragEnd={() => setDraggedMenu(null)}
+                      className={`
+                        cursor-move transition-all
+                        ${draggedMenu?.id === menu.id ? 'opacity-50 bg-blue-50' : ''}
+                        ${draggedMenu && draggedMenu.id !== menu.id ? 'hover:bg-blue-50 hover:border-t-2 hover:border-blue-500' : ''}
+                      `}
+                    >
+                      <TableCell>
+                        <GripVertical className="h-4 w-4 text-gray-400" />
+                      </TableCell>
                       <TableCell className="font-medium">{menu.title}</TableCell>
                       <TableCell><code className="text-xs">{menu.url}</code></TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{group.title}</Badge>
+                      </TableCell>
                       <TableCell><Badge variant="outline">{menu.icon}</Badge></TableCell>
                       <TableCell>
                         <div className="flex gap-1 flex-wrap">
@@ -371,16 +460,11 @@ export default function MenuConfigPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => moveMenu(menu, 'up')}>
-                            <MoveUp className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => moveMenu(menu, 'down')}>
-                            <MoveDown className="h-3 w-3" />
-                          </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setEditingMenu(menu);
                               setIsDialogOpen(true);
                             }}
@@ -390,7 +474,10 @@ export default function MenuConfigPage() {
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={() => handleDelete(menu.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(menu.id);
+                            }}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
