@@ -49,6 +49,7 @@ const RoleTemplate = lazy(() => import("./pages/Settings/RoleTemplate"));
 const PermissionManagement = lazy(() => import("./pages/Settings/PermissionManagement"));
 const IntegratedUserManagement = lazy(() => import("./pages/IntegratedUserManagement"));
 const AuditLogs = lazy(() => import("./pages/Settings/AuditLogs"));
+const MenuConfig = lazy(() => import("./pages/Settings/MenuConfig"));
 const ScaleRecords = lazy(() => import("./pages/ScaleRecords"));
 const ContractManagement = lazy(() => import("./pages/ContractManagement"));
 const WaybillMaintenance = lazy(() => import("./pages/DataMaintenance/WaybillMaintenance"));
@@ -291,6 +292,12 @@ const App = () => (
             <Route path="/settings/audit-logs" element={
               <ProtectedRoute requiredPermission="settings.audit_logs">
                 <AppLayout><AuditLogs /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings/menu-config" element={
+              <ProtectedRoute requiredPermission="settings.menu_config">
+                <AppLayout><MenuConfig /></AppLayout>
               </ProtectedRoute>
             } />
             
