@@ -316,7 +316,7 @@ export default function MenuConfigPage() {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
+      </PageHeader>
 
       {/* 权限同步管理 */}
       <PermissionSyncManager />

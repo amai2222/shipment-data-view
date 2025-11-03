@@ -1,9 +1,9 @@
+/* 移动端优化样式 - @import 必须在最前面 */
+@import './styles/mobile.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* 移动端优化样式 */
-@import './styles/mobile.css';
 
 /* Safari兼容性样式 */
 * {

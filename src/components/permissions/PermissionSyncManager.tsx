@@ -16,6 +16,7 @@ interface SyncStatus {
   onlyInMenu: string[];
   onlyInPermissions: string[];
   inBoth: string[];
+  keyToTitleMap?: Map<string, string>;
 }
 
 export function PermissionSyncManager() {
@@ -28,7 +29,7 @@ export function PermissionSyncManager() {
     try {
       setLoading(true);
 
-      // 1. 从 menu_config 获取所有菜单项的权限键
+      // 1. 从 menu_config 获取所有菜单项的权限键和标题
       const { data: menuData, error: menuError } = await supabase
         .from('menu_config')
         .select('key, title, required_permissions')
@@ -38,6 +39,12 @@ export function PermissionSyncManager() {
       if (menuError) throw menuError;
 
       const menuKeys = menuData?.map(m => m.key) || [];
+      
+      // 创建 key -> title 的映射
+      const keyToTitleMap = new Map<string, string>();
+      menuData?.forEach(m => {
+        keyToTitleMap.set(m.key, m.title);
+      });
 
       // 2. 从 role_permission_templates 获取所有已使用的权限键（排除管理员）
       const { data: roleData, error: roleError } = await supabase
@@ -62,8 +69,9 @@ export function PermissionSyncManager() {
         permissionKeys: allPermissionKeys,
         onlyInMenu,
         onlyInPermissions,
-        inBoth
-      });
+        inBoth,
+        keyToTitleMap  // 添加映射
+      } as any);
 
       toast({
         title: '检查完成',
@@ -223,7 +231,8 @@ export function PermissionSyncManager() {
                   <div className="flex flex-wrap gap-2">
                     {syncStatus.onlyInMenu.map(key => (
                       <Badge key={key} variant="outline" className="text-xs">
-                        {key}
+                        {syncStatus.keyToTitleMap?.get(key) || key}
+                        <span className="ml-1 text-muted-foreground">({key})</span>
                       </Badge>
                     ))}
                   </div>

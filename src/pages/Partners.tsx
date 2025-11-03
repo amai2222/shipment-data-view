@@ -548,6 +548,7 @@ export default function Partners() {
                     )}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

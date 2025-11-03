@@ -775,7 +775,6 @@ export default function MobileInvoiceRequestManagement() {
         unloading_weight: logisticsData.goods_weight,
         current_cost: logisticsData.unit_price,
         payable_cost: logisticsData.total_price,
-        payable_cost: logisticsData.total_price,
         license_plate: driverInfo.license_plate || '',
         driver_phone: driverInfo.phone || '',
         transport_type: null,
