@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
+import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { 
   Filter, 
   Search, 
@@ -59,6 +60,10 @@ export function InvoiceRequestFilterBar({
   const [isBatchLicenseOpen, setIsBatchLicenseOpen] = useState(false);
   const [isBatchPhoneOpen, setIsBatchPhoneOpen] = useState(false);
   const [isBatchReceivableOpen, setIsBatchReceivableOpen] = useState(false);
+  
+  // 货主-项目级联筛选
+  const [selectedShipperId, setSelectedShipperId] = useState('all');
+  const [selectedProjectId, setSelectedProjectId] = useState('all');
 
   const handleReset = () => {
     onClear();
@@ -92,24 +97,20 @@ export function InvoiceRequestFilterBar({
         {/* 基础筛选条件 - 参考运单管理布局 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
           {/* 项目筛选 */}
-          <div className="space-y-2">
-            <Label htmlFor="project-filter" className="text-sm font-medium text-blue-800 flex items-center gap-1">
-              <FileText className="h-4 w-4" />
-              项目
-            </Label>
-            <Select value={filters.projectId || 'all'} onValueChange={(value) => onFiltersChange({...filters, projectId: value === 'all' ? '' : value})}>
-              <SelectTrigger id="project-filter" className="h-10">
-                <SelectValue placeholder="全部项目" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部项目</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* 货主-项目级联筛选器 */}
+          <div className="md:col-span-2">
+            <ShipperProjectCascadeFilter
+              selectedShipperId={selectedShipperId}
+              selectedProjectId={selectedProjectId}
+              onShipperChange={(id) => {
+                setSelectedShipperId(id);
+                setSelectedProjectId('all');
+              }}
+              onProjectChange={(id) => {
+                setSelectedProjectId(id);
+                onFiltersChange({...filters, projectId: id === 'all' ? '' : id});
+              }}
+            />
           </div>
 
           {/* 开票状态 */}

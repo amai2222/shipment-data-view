@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +63,10 @@ export default function ScaleRecords() {
   // 自定义 Hooks
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState<FilterState>(initialFilterState);
   const { toast } = useToast();
+  
+  // 货主-项目级联筛选
+  const [selectedShipperId, setSelectedShipperId] = useState('all');
+  const [selectedProjectId, setSelectedProjectId] = useState('all');
 
   useEffect(() => {
     loadProjects();
@@ -336,8 +341,22 @@ export default function ScaleRecords() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-end justify-between gap-4 flex-wrap">
-            <div className="flex items-end gap-4 flex-grow">
-              <div className="flex-1 min-w-[180px]"><Label htmlFor="project">项目</Label><Select value={uiFilters.projectId || "all"} onValueChange={(value) => setUiFilters(prev => ({ ...prev, projectId: value === "all" ? "" : value }))}><SelectTrigger><SelectValue placeholder="选择项目" /></SelectTrigger><SelectContent><SelectItem value="all">全部项目</SelectItem>{projects.filter(p => p.id && p.id.trim() !== '').map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
+            <div className="flex items-end gap-4 flex-grow flex-wrap">
+              {/* 货主-项目级联筛选器 */}
+              <div className="flex-grow min-w-[400px]">
+                <ShipperProjectCascadeFilter
+                  selectedShipperId={selectedShipperId}
+                  selectedProjectId={selectedProjectId}
+                  onShipperChange={(id) => {
+                    setSelectedShipperId(id);
+                    setSelectedProjectId('all');
+                  }}
+                  onProjectChange={(id) => {
+                    setSelectedProjectId(id);
+                    setUiFilters(prev => ({ ...prev, projectId: id === 'all' ? '' : id }));
+                  }}
+                />
+              </div>
               <div className="flex-1 min-w-[280px]"><Label htmlFor="date-range">日期范围</Label><DateRangePicker date={{ from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined, }} setDate={handleDateRangeChange} /></div>
               <div className="flex-1 min-w-[180px]"><Label htmlFor="licensePlate">车牌号</Label><Input id="licensePlate" placeholder="输入车牌号" value={uiFilters.licensePlate} onChange={(e) => setUiFilters(prev => ({ ...prev, licensePlate: e.target.value }))} /></div>
             </div>

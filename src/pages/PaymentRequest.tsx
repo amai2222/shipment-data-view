@@ -38,6 +38,7 @@ import { Input } from "@/components/ui/input";
 import { BatchInputDialog } from "@/pages/BusinessEntry/components/BatchInputDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeFilter";
 
 // 占位符图标组件
 const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
@@ -134,6 +135,8 @@ export default function PaymentRequest() {
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_FINANCE_FILTERS);
   const [pagination, setPagination] = useState<PaginationState>({ currentPage: 1, totalPages: 1 });
   const [showAdvanced, setShowAdvanced] = useState(false); // 控制高级筛选展开/收起
+  const [selectedShipperId, setSelectedShipperId] = useState('all');
+  const [selectedProjectId, setSelectedProjectId] = useState('all');
   const [platformOptions, setPlatformOptions] = useState<{platform_name: string; usage_count: number}[]>([]); // 动态平台选项
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
@@ -1383,19 +1386,19 @@ export default function PaymentRequest() {
           <CardContent className="p-4">
             {/* 常规筛选区域 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
-              <div className="flex flex-col gap-1.5">
-                <Label>项目</Label>
-                <Select value={uiFilters.projectId} onValueChange={(v) => handleFilterChange('projectId', v)}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue/>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">所有项目</SelectItem>
-                    {Array.isArray(projects) && projects.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="md:col-span-2">
+                <ShipperProjectCascadeFilter
+                  selectedShipperId={selectedShipperId}
+                  selectedProjectId={selectedProjectId}
+                  onShipperChange={(id) => {
+                    setSelectedShipperId(id);
+                    setSelectedProjectId('all');
+                  }}
+                  onProjectChange={(id) => {
+                    setSelectedProjectId(id);
+                    handleFilterChange('projectId', id);
+                  }}
+                />
               </div>
               
               <div className="flex flex-col gap-1.5">
