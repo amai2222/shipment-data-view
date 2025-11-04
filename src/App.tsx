@@ -573,7 +573,7 @@ const App = () => (
 
             {/* --- 404路由 - 排除静态文件扩展名 --- */}
             <Route path="*" element={<NotFoundWithStaticFileCheck />} />
-              </Routes>
+          </Routes>
           </MobileRedirect>
         </TooltipProvider>
       </AuthProvider>
