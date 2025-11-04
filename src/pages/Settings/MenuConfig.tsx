@@ -116,7 +116,7 @@ export default function MenuConfigPage() {
 
         toast({
           title: '更新成功',
-          description: '菜单配置已更新',
+          description: '菜单配置已更新，管理员权限已自动同步',
         });
       } else {
         // 新建
@@ -128,7 +128,7 @@ export default function MenuConfigPage() {
 
         toast({
           title: '创建成功',
-          description: '新菜单已创建，侧边栏将自动显示',
+          description: '新菜单已创建，管理员权限已自动同步，侧边栏将自动显示',
         });
       }
 
@@ -334,7 +334,7 @@ export default function MenuConfigPage() {
 
       toast({
         title: '保存成功',
-        description: `已保存 ${updates.length} 项更改，侧边栏将自动更新`,
+        description: `已保存 ${updates.length} 项更改，管理员权限已自动同步，侧边栏将自动更新`,
       });
 
       // 重新加载
