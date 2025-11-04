@@ -168,7 +168,14 @@ export function ShipperProjectCascadeFilter({
 
         console.log('提取的项目列表:', projectList);
 
-        setProjects(projectList || []);
+        // 去重（根据项目ID）
+        const uniqueProjects = Array.from(
+          new Map(projectList.map(p => [p.id, p])).values()
+        );
+
+        console.log('去重后的项目列表:', uniqueProjects);
+
+        setProjects(uniqueProjects || []);
 
         // 如果当前选中的项目不在新列表中，清空选择
         if (selectedProjectId && !projectList.find(p => p.id === selectedProjectId)) {
@@ -402,12 +409,16 @@ export function ShipperProjectCascadeFilter({
                 该货主暂无关联项目
               </div>
             )}
-            {projects.map(project => (
+            {projects.map((project, index) => (
               <SelectItem key={project.id} value={project.id}>
                 {project.name}
-                {project.project_code && (
+                {project.project_code ? (
                   <span className="text-xs text-muted-foreground ml-2">
                     ({project.project_code})
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    (#{index + 1})
                   </span>
                 )}
               </SelectItem>
