@@ -22,6 +22,7 @@ const Building2 = ({ className }: { className?: string }) => <span className={cl
 import { useState, useEffect } from "react";
 import { BatchInputDialog } from "./BatchInputDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeFilter";
 
 interface Partner {
   id: string;
@@ -46,11 +47,9 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     type: 'driver' | 'license' | 'phone' | 'waybill' | null;
   }>({ isOpen: false, type: null });
   
-  // 合作商和项目状态
-  const [partners, setPartners] = useState<Partner[]>([]);
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
-  const [partnerProjects, setPartnerProjects] = useState<Project[]>([]);
-  const [loadingPartners, setLoadingPartners] = useState(false);
+  // 货主和项目级联筛选
+  const [selectedShipperId, setSelectedShipperId] = useState('all');
+  const [selectedProjectId, setSelectedProjectId] = useState('all');
   
   // 动态平台选项状态
   const [platformOptions, setPlatformOptions] = useState<{
@@ -326,53 +325,29 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     <div className="space-y-4">
       {/* 基础筛选器 */}
       <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          {/* 合作商选择 */}
-          <div className="space-y-2">
-            <Label htmlFor="partner-name" className="text-sm font-medium text-blue-800 flex items-center gap-1">
-              <Building2 className="h-4 w-4" />
-              合作商
-            </Label>
-            <Select
-              value={selectedPartnerId || 'all'}
-              onValueChange={(value) => handlePartnerChange(value === 'all' ? '' : value)}
-              disabled={loading || loadingPartners}
-            >
-              <SelectTrigger id="partner-name" className="h-10">
-                <SelectValue placeholder="所有合作商" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">所有合作商</SelectItem>
-                {partners.map(partner => (
-                  <SelectItem key={partner.id} value={partner.id}>
-                    {partner.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 项目名称 */}
-          <div className="space-y-2">
-            <Label htmlFor="project-name" className="text-sm font-medium text-blue-800 flex items-center gap-1">
-              <FileText className="h-4 w-4" />
-              项目名称
-            </Label>
-            <Select
-              value={filters.projectName || 'all'}
-              onValueChange={(value) => handleInputChange('projectName', value === 'all' ? '' : value)}
-              disabled={loading || (selectedPartnerId ? partnerProjects.length === 0 : projects.length === 0)}
-            >
-              <SelectTrigger id="project-name" className="h-10">
-                <SelectValue placeholder={selectedPartnerId ? "选择合作商的项目" : "所有项目"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">所有项目</SelectItem>
-                {(selectedPartnerId ? partnerProjects : projects).map(project => (
-                  <SelectItem key={project.id} value={project.name}>{project.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* 货主-项目级联筛选器（占2列） */}
+          <div className="lg:col-span-2">
+            <ShipperProjectCascadeFilter
+              selectedShipperId={selectedShipperId}
+              selectedProjectId={selectedProjectId}
+              onShipperChange={(id) => {
+                setSelectedShipperId(id);
+                setSelectedProjectId('all');
+                handleInputChange('projectName', '');
+              }}
+              onProjectChange={(id) => {
+                setSelectedProjectId(id);
+                if (id === 'all') {
+                  handleInputChange('projectName', '');
+                } else {
+                  const project = projects.find(p => p.id === id);
+                  if (project) {
+                    handleInputChange('projectName', project.name);
+                  }
+                }
+              }}
+            />
           </div>
 
           {/* 日期范围 */}
