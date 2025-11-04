@@ -334,9 +334,9 @@ export function ShipperProjectCascadeFilter({
               )}
             >
               <span className="truncate">
-                {!selectedShipperId || selectedShipperId === 'all'
+                {(!selectedShipperId || selectedShipperId === 'all')
                   ? '' 
-                  : flattenShippers(shippers).find(s => s.id === selectedShipperId)?.name}
+                  : allShippers.find(s => s.id === selectedShipperId)?.name || ''}
               </span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
