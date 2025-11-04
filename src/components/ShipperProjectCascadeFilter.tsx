@@ -186,14 +186,17 @@ export function ShipperProjectCascadeFilter({
 
         setProjects(uniqueProjects || []);
 
-        // 如果当前选中的项目不在新列表中，清空选择
-        if (selectedProjectId && !projectList.find(p => p.id === selectedProjectId)) {
+        // 自动选择第一个项目（如果有项目的话）
+        if (uniqueProjects.length > 0) {
+          onProjectChange(uniqueProjects[0].id);
+        } else {
           onProjectChange('all');
         }
 
       } catch (error) {
         console.error('加载项目失败:', error);
         setProjects([]);
+        onProjectChange('all');
       }
     };
 

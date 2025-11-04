@@ -333,8 +333,9 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
               selectedProjectId={selectedProjectId}
               onShipperChange={(id) => {
                 setSelectedShipperId(id);
-                setSelectedProjectId('all');
                 handleInputChange('projectName', '');
+                // 货主变化后，项目会自动加载，等待项目加载完成
+                setSelectedProjectId('all');
               }}
               onProjectChange={(id) => {
                 setSelectedProjectId(id);
