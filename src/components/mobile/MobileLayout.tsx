@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -409,7 +409,16 @@ export function MobileLayout({ children }: MobileLayoutProps) {
 
       {/* 主内容区域 */}
       <main className="container mx-auto px-4 py-4 max-w-full">
-        {children}
+        <Suspense fallback={
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-sm text-muted-foreground">加载中...</p>
+            </div>
+          </div>
+        }>
+          {children}
+        </Suspense>
       </main>
     </div>
   );

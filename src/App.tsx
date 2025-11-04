@@ -107,6 +107,7 @@ const App = () => (
           <Sonner />
           <AutoMenuSync />
           <MobileRedirect>
+            <Suspense fallback={<LoadingSpinner />}>
               <Routes>
             {/* --- 公开路由 --- */}
             <Route path="/auth" element={<Auth />} />
@@ -579,6 +580,7 @@ const App = () => (
             {/* --- 404路由 - 排除静态文件扩展名 --- */}
             <Route path="*" element={<NotFoundWithStaticFileCheck />} />
           </Routes>
+            </Suspense>
           </MobileRedirect>
         </TooltipProvider>
       </AuthProvider>
