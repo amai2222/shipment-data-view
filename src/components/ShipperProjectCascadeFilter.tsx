@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { ChevronRight, ChevronDown, Users, Building2, Check, ChevronsUpDown } from 'lucide-react';
@@ -324,22 +325,18 @@ export function ShipperProjectCascadeFilter({
         </Label>
         <Popover open={shipperOpen} onOpenChange={setShipperOpen}>
           <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={shipperOpen}
-              className={cn(
-                "w-full justify-between h-10",
-                (!selectedShipperId || selectedShipperId === 'all') && "text-muted-foreground"
-              )}
-            >
-              <span className="truncate">
-                {(!selectedShipperId || selectedShipperId === 'all')
+            <div className="relative cursor-pointer">
+              <Input
+                value={(!selectedShipperId || selectedShipperId === 'all')
                   ? '' 
                   : allShippers.find(s => s.id === selectedShipperId)?.name || ''}
-              </span>
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
+                placeholder="选择货主..."
+                readOnly
+                className="h-10 cursor-pointer pr-8"
+                onClick={() => setShipperOpen(true)}
+              />
+              <ChevronsUpDown className="absolute right-3 top-3 h-4 w-4 opacity-50" />
+            </div>
           </PopoverTrigger>
           <PopoverContent className="w-[400px] p-0">
             <Command>
