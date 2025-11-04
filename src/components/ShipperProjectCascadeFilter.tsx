@@ -36,7 +36,7 @@ interface Shipper {
 interface Project {
   id: string;
   name: string;
-  project_code: string;
+  project_code?: string;  // 可选字段
 }
 
 interface ShipperProjectCascadeFilterProps {
@@ -132,7 +132,7 @@ export function ShipperProjectCascadeFilter({
         // 加载所有项目
         const { data } = await supabase
           .from('projects')
-          .select('id, name, project_code')
+          .select('id, name')
           .order('name');
         
         setProjects(data || []);
@@ -149,8 +149,7 @@ export function ShipperProjectCascadeFilter({
             project_id,
             projects (
               id,
-              name,
-              project_code
+              name
             )
           `)
           .eq('partner_id', selectedShipperId);
