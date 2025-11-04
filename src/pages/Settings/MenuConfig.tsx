@@ -639,7 +639,12 @@ function MenuConfigForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    // 处理 url 字段：如果是分组，强制设置为 null
+    const submitData = {
+      ...formData,
+      url: formData.is_group ? null : (formData.url || null)
+    };
+    onSave(submitData);
   };
 
   return (
@@ -679,7 +684,11 @@ function MenuConfigForm({
             <Switch
               id="is_group"
               checked={formData.is_group}
-              onCheckedChange={checked => setFormData({ ...formData, is_group: checked })}
+              onCheckedChange={checked => setFormData({ 
+                ...formData, 
+                is_group: checked,
+                url: checked ? '' : formData.url  // 切换为分组时清空 URL
+              })}
             />
             <Label htmlFor="is_group">是否为分组</Label>
           </div>
