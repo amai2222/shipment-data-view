@@ -6,13 +6,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronRight, ChevronDown, Users, Building2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Users, Building2, Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 interface Shipper {
   id: string;
@@ -47,7 +55,8 @@ export function ShipperProjectCascadeFilter({
   const [shippers, setShippers] = useState<Shipper[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedShippers, setExpandedShippers] = useState<Set<string>>(new Set());
+  const [shipperOpen, setShipperOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
 
   // 加载货主数据（树形结构）
   useEffect(() => {
@@ -155,17 +164,18 @@ export function ShipperProjectCascadeFilter({
     loadProjects();
   }, [selectedShipperId]);
 
-  // 切换展开/收起
-  const toggleExpand = (shipperId: string) => {
-    setExpandedShippers(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(shipperId)) {
-        newSet.delete(shipperId);
-      } else {
-        newSet.add(shipperId);
+  // 扁平化货主列表（用于下拉框）
+  const flattenShippers = (shipperList: Shipper[], level = 0): (Shipper & { level: number })[] => {
+    const result: (Shipper & { level: number })[] = [];
+    
+    shipperList.forEach(shipper => {
+      result.push({ ...shipper, level });
+      if (shipper.children && shipper.children.length > 0) {
+        result.push(...flattenShippers(shipper.children, level + 1));
       }
-      return newSet;
     });
+    
+    return result;
   };
 
   // 渲染货主树形选项
@@ -241,33 +251,81 @@ export function ShipperProjectCascadeFilter({
 
   return (
     <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${className}`}>
-      {/* 货主筛选（树形） */}
+      {/* 货主筛选（可搜索的Combobox） */}
       <div className="space-y-2">
         <Label className="flex items-center gap-2">
           <Users className="h-4 w-4" />
           货主筛选
-          {selectedShipperId && selectedShipperId !== 'all' && (
-            <Badge variant="secondary" className="text-xs">
-              已筛选
-            </Badge>
-          )}
         </Label>
-        <div className="border rounded-lg p-2 max-h-64 overflow-y-auto bg-white">
-          {/* 全部选项 */}
-          <div
-            className={`
-              flex items-center gap-2 px-3 py-2 cursor-pointer rounded-lg transition-colors mb-1
-              ${selectedShipperId === 'all' ? 'bg-blue-100 text-blue-900 font-medium' : 'hover:bg-gray-100'}
-            `}
-            onClick={() => onShipperChange('all')}
-          >
-            <Users className="h-3.5 w-3.5" />
-            <span className="text-sm">所有货主</span>
-          </div>
-
-          {/* 树形货主列表 */}
-          {renderShipperTree(shippers)}
-        </div>
+        <Popover open={shipperOpen} onOpenChange={setShipperOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={shipperOpen}
+              className="w-full justify-between"
+            >
+              {selectedShipperId === 'all' 
+                ? '所有货主' 
+                : flattenShippers(shippers).find(s => s.id === selectedShipperId)?.partner_name || '选择货主'}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[400px] p-0">
+            <Command>
+              <CommandInput 
+                placeholder="搜索货主..." 
+                value={searchValue}
+                onValueChange={setSearchValue}
+              />
+              <CommandEmpty>未找到货主</CommandEmpty>
+              <CommandGroup className="max-h-64 overflow-y-auto">
+                <CommandItem
+                  value="all"
+                  onSelect={() => {
+                    onShipperChange('all');
+                    setShipperOpen(false);
+                    setSearchValue('');
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      selectedShipperId === 'all' ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  所有货主
+                </CommandItem>
+                {flattenShippers(shippers).map((shipper) => (
+                  <CommandItem
+                    key={shipper.id}
+                    value={shipper.partner_name}
+                    onSelect={() => {
+                      onShipperChange(shipper.id);
+                      setShipperOpen(false);
+                      setSearchValue('');
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selectedShipperId === shipper.id ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <span style={{ paddingLeft: `${shipper.level * 16}px` }}>
+                      {shipper.partner_name}
+                    </span>
+                    {shipper.children && shipper.children.length > 0 && (
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        {shipper.children.length}
+                      </Badge>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* 项目筛选 */}
