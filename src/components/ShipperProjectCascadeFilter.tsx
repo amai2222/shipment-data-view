@@ -59,6 +59,7 @@ export function ShipperProjectCascadeFilter({
   const [loading, setLoading] = useState(true);
   const [shipperOpen, setShipperOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   // 加载货主数据（树形结构）
   useEffect(() => {
@@ -175,18 +176,33 @@ export function ShipperProjectCascadeFilter({
     loadProjects();
   }, [selectedShipperId]);
 
-  // 扁平化货主列表（用于下拉框）
+  // 扁平化货主列表（用于下拉框，支持展开/折叠）
   const flattenShippers = (shipperList: Shipper[], level = 0): (Shipper & { level: number })[] => {
     const result: (Shipper & { level: number })[] = [];
     
     shipperList.forEach(shipper => {
       result.push({ ...shipper, level });
-      if (shipper.children && shipper.children.length > 0) {
+      // 只有展开状态才显示子货主
+      if (shipper.children && shipper.children.length > 0 && expandedIds.has(shipper.id)) {
         result.push(...flattenShippers(shipper.children, level + 1));
       }
     });
     
     return result;
+  };
+
+  // 切换展开/折叠
+  const toggleExpand = (shipperId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(shipperId)) {
+        newSet.delete(shipperId);
+      } else {
+        newSet.add(shipperId);
+      }
+      return newSet;
+    });
   };
 
   // 渲染货主树形选项
@@ -274,12 +290,15 @@ export function ShipperProjectCascadeFilter({
               variant="outline"
               role="combobox"
               aria-expanded={shipperOpen}
-              className="w-full justify-between h-10"
+              className={cn(
+                "w-full justify-between h-10",
+                (!selectedShipperId || selectedShipperId === 'all') && "text-muted-foreground"
+              )}
             >
               <span className="truncate">
-                {selectedShipperId === 'all' 
-                  ? '所有货主' 
-                  : flattenShippers(shippers).find(s => s.id === selectedShipperId)?.name || '所有货主'}
+                {!selectedShipperId || selectedShipperId === 'all'
+                  ? '' 
+                  : flattenShippers(shippers).find(s => s.id === selectedShipperId)?.name}
               </span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
@@ -287,52 +306,68 @@ export function ShipperProjectCascadeFilter({
           <PopoverContent className="w-[400px] p-0">
             <Command>
               <CommandInput 
-                placeholder="搜索货主名称..." 
+                placeholder="输入货主名称搜索..." 
+                className="h-10"
               />
               <CommandEmpty>未找到匹配的货主</CommandEmpty>
-              <CommandGroup className="max-h-80 overflow-y-auto">
-                <CommandItem
-                  value="all"
-                  onSelect={() => {
-                    onShipperChange('all');
-                    setShipperOpen(false);
-                    setSearchValue('');
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      selectedShipperId === 'all' ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  所有货主
-                </CommandItem>
-                {flattenShippers(shippers).map((shipper) => (
-                  <CommandItem
-                    key={shipper.id}
-                    value={shipper.name}
-                    onSelect={() => {
-                      onShipperChange(shipper.id);
-                      setShipperOpen(false);
-                      setSearchValue('');
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selectedShipperId === shipper.id ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <span style={{ paddingLeft: `${shipper.level * 16}px` }}>
-                      {shipper.name}
-                    </span>
-                    {shipper.children && shipper.children.length > 0 && (
-                      <Badge variant="secondary" className="ml-2 text-xs">
-                        {shipper.children.length}
-                      </Badge>
-                    )}
-                  </CommandItem>
-                ))}
+              <CommandGroup className="max-h-96 overflow-y-auto p-2">
+                {flattenShippers(shippers).map((shipper) => {
+                  const hasChildren = shipper.children && shipper.children.length > 0;
+                  const isExpanded = expandedIds.has(shipper.id);
+                  const isSelected = selectedShipperId === shipper.id;
+                  
+                  return (
+                    <div key={shipper.id} className="relative">
+                      <CommandItem
+                        value={shipper.name}
+                        onSelect={() => {
+                          onShipperChange(shipper.id);
+                          setShipperOpen(false);
+                        }}
+                        className={cn(
+                          "flex items-center cursor-pointer",
+                          isSelected && "bg-blue-50"
+                        )}
+                      >
+                        <div className="flex items-center gap-1 flex-1" style={{ paddingLeft: `${shipper.level * 16}px` }}>
+                          {/* 展开/折叠箭头 */}
+                          {hasChildren ? (
+                            <div 
+                              onClick={(e) => toggleExpand(shipper.id, e)}
+                              className="cursor-pointer hover:bg-gray-200 rounded p-0.5"
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-3.5 w-3.5" />
+                              ) : (
+                                <ChevronRight className="h-3.5 w-3.5" />
+                              )}
+                            </div>
+                          ) : (
+                            <div className="w-5" />
+                          )}
+                          
+                          {/* 选中标记 */}
+                          <Check
+                            className={cn(
+                              "h-4 w-4 text-blue-600",
+                              isSelected ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          
+                          {/* 货主名称 */}
+                          <span className="flex-1 text-sm">{shipper.name}</span>
+                          
+                          {/* 子货主数量 */}
+                          {hasChildren && (
+                            <Badge variant="outline" className="text-xs ml-2">
+                              {shipper.children.length}
+                            </Badge>
+                          )}
+                        </div>
+                      </CommandItem>
+                    </div>
+                  );
+                })}
               </CommandGroup>
             </Command>
           </PopoverContent>
