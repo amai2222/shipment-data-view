@@ -35,7 +35,7 @@ serve(async (req)=>{
     if (!anonKey) throw new Error("Missing anon key");
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: canView, error: permError } = await userClient.rpc('is_finance_or_admin' as any);
-    if (permError) throw new Error(`Permission check failed: ${permError.message}`);
+    if (permError) throw new Error(`Permission check failed: ${(permError instanceof Error ? permError.message : String(permError))}`);
     if (!canView) {
       return new Response(JSON.stringify({ error: 'Forbidden: finance or admin only' }), {
         status: 403,
@@ -52,14 +52,14 @@ serve(async (req)=>{
       .select('logistics_record_ids')
       .eq('request_id', requestId)
       .single();
-    if (requestError) throw new Error(`Failed to fetch payment request: ${requestError.message}`);
+    if (requestError) throw new Error(`Failed to fetch payment request: ${(requestError instanceof Error ? requestError.message : String(requestError))}`);
     const ids = requestData?.logistics_record_ids || [];
     if (ids.length === 0) throw new Error("No logistics records found for this request.");
 
     const { data: v2Data, error: rpcError } = await userClient.rpc('get_payment_request_data_v2' as any, {
       p_record_ids: ids,
     });
-    if (rpcError) throw new Error(`RPC get_payment_request_data_v2 failed: ${rpcError.message}`);
+    if (rpcError) throw new Error(`RPC get_payment_request_data_v2 failed: ${(rpcError instanceof Error ? rpcError.message : String(rpcError))}`);
     const records: any[] = Array.isArray((v2Data as any)?.records) ? (v2Data as any).records : [];
 
     const sheetMap = new Map<string, any>();
@@ -282,7 +282,7 @@ serve(async (req)=>{
       }
     });
   } catch (error) {
-    console.error("[CRITICAL] Function crashed. Error:", error.stack || error.message);
+    console.error("[CRITICAL] Function crashed. Error:", error.stack || (error instanceof Error ? error.message : String(error)));
     return new Response(JSON.stringify({
       error: error?.message || "Unknown error"
     }), {

@@ -163,8 +163,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error:', error);
+    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ error: 'Internal server error', details: errorMessage }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -203,7 +204,7 @@ async function handleGeocode(amapKey: string, request: GeocodingRequest): Promis
     );
   } catch (error) {
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: (error instanceof Error ? error.message : String(error)) }),
       { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -229,7 +230,7 @@ async function handleBatchGeocode(amapKey: string, addresses: string[]): Promise
           const result = await response.json();
           return { address, ...result };
         } catch (error) {
-          return { address, success: false, error: error.message };
+          return { address, success: false, error: (error instanceof Error ? error.message : String(error)) };
         }
       });
       
@@ -251,7 +252,7 @@ async function handleBatchGeocode(amapKey: string, addresses: string[]): Promise
     );
   } catch (error) {
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: (error instanceof Error ? error.message : String(error)) }),
       { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -319,7 +320,7 @@ async function handleSmartGeocode(amapKey: string, request: { address: string; c
     throw lastError || new Error('所有地理编码策略都失败了');
   } catch (error) {
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: (error instanceof Error ? error.message : String(error)) }),
       { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -355,7 +356,7 @@ async function handleUpdateLocationGeocoding(supabaseClient: any, data: Location
       .eq('id', data.id);
 
     if (error) {
-      throw new Error(`更新地理编码信息失败: ${error.message}`);
+      throw new Error(`更新地理编码信息失败: ${(error instanceof Error ? error.message : String(error))}`);
     }
 
     return new Response(
@@ -367,7 +368,7 @@ async function handleUpdateLocationGeocoding(supabaseClient: any, data: Location
     );
   } catch (error) {
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: (error instanceof Error ? error.message : String(error)) }),
       { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -387,7 +388,7 @@ async function handleBatchUpdateGeocoding(supabaseClient: any, locations: Locati
       });
 
     if (error) {
-      throw new Error(`批量更新地理编码失败: ${error.message}`);
+      throw new Error(`批量更新地理编码失败: ${(error instanceof Error ? error.message : String(error))}`);
     }
 
     return new Response(
@@ -399,7 +400,7 @@ async function handleBatchUpdateGeocoding(supabaseClient: any, locations: Locati
     );
   } catch (error) {
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: (error instanceof Error ? error.message : String(error)) }),
       { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

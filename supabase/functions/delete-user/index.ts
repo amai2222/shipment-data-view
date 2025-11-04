@@ -220,7 +220,7 @@ serve(async (req) => {
     console.error('删除用户失败:', error)
     return new Response(
       JSON.stringify({ 
-        error: error.message || '删除用户失败',
+        error: (error instanceof Error ? error.message : String(error)) || '删除用户失败',
         details: error 
       }),
       { 
