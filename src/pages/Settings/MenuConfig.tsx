@@ -99,11 +99,17 @@ export default function MenuConfigPage() {
   // 保存菜单
   const handleSave = async (menu: Partial<MenuConfig>) => {
     try {
+      // 处理 url 字段：如果是分组，url 必须是 null（不是空字符串）
+      const menuData = {
+        ...menu,
+        url: menu.is_group ? null : (menu.url || null)
+      };
+      
       if (editingMenu?.id) {
         // 更新
         const { error } = await supabase
           .from('menu_config')
-          .update(menu)
+          .update(menuData)
           .eq('id', editingMenu.id);
 
         if (error) throw error;
@@ -116,7 +122,7 @@ export default function MenuConfigPage() {
         // 新建
         const { error } = await supabase
           .from('menu_config')
-          .insert([menu]);
+          .insert([menuData]);
 
         if (error) throw error;
 
