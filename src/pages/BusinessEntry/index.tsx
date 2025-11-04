@@ -414,53 +414,65 @@ export default function BusinessEntry() {
         icon={FileText}
         iconColor="text-blue-600"
       >
+        {/* 批量选择按钮（始终显示） */}
         <Button 
           variant={isBatchMode ? "default" : "outline"} 
           onClick={toggleBatchMode}
-          className={isBatchMode ? "bg-blue-600 text-white" : ""}
+          className={isBatchMode ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
         >
           <CheckSquare className="mr-2 h-4 w-4" />
-          {isBatchMode ? "退出批量模式" : "批量选择"}
+          {isBatchMode ? "退出批量" : "批量选择"}
         </Button>
+
+        {/* 新增运单按钮（始终显示） */}
         {hasButtonAccess('data.create') && (
-          <Button onClick={handleOpenAddDialog}>
+          <Button onClick={handleOpenAddDialog} className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white">
             <Plus className="mr-2 h-4 w-4" />
             新增运单
           </Button>
         )}
-        <Button variant="outline" onClick={handleTemplateDownload}><FileDown className="mr-2 h-4 w-4" />下载模板</Button>
-        {hasButtonAccess('data.import') && (
-          <Button variant="outline" asChild disabled={loading || isImporting}>
-            <Label htmlFor="excel-upload" className="cursor-pointer flex items-center">
-              {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
-              导入Excel
-              <Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={loading || isImporting}/>
-            </Label>
-          </Button>
-        )}
-        {/* 导出按钮组 */}
-        <div className="flex items-center gap-2">
-          <Button 
-            onClick={exportFilteredToExcel} 
-            disabled={loading}
-            variant="outline"
-            title="导出当前筛选条件下的所有数据"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            导出筛选结果
-          </Button>
-          {isBatchMode && selectedRecordIds.length > 0 && (
+
+        {/* 批量模式下显示的按钮 */}
+        {isBatchMode && (
+          <>
+            <Button variant="outline" onClick={handleTemplateDownload}>
+              <FileDown className="mr-2 h-4 w-4" />
+              下载模板
+            </Button>
+            
+            {hasButtonAccess('data.import') && (
+              <Button variant="outline" asChild disabled={loading || isImporting}>
+                <Label htmlFor="excel-upload" className="cursor-pointer flex items-center">
+                  {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+                  导入Excel
+                  <Input id="excel-upload" type="file" className="hidden" onChange={handleExcelImport} accept=".xlsx, .xls" disabled={loading || isImporting}/>
+                </Label>
+              </Button>
+            )}
+            
             <Button 
-              onClick={exportSelectedToExcel} 
+              onClick={exportFilteredToExcel} 
               disabled={loading}
-              variant="default"
-              title={`导出已勾选的 ${selectedRecordIds.length} 条记录`}
+              variant="outline"
+              title="导出当前筛选条件下的所有数据"
             >
               <Download className="mr-2 h-4 w-4" />
-              导出勾选 ({selectedRecordIds.length})
+              导出筛选
             </Button>
-          )}
-        </div>
+            
+            {selectedRecordIds.length > 0 && (
+              <Button 
+                onClick={exportSelectedToExcel} 
+                disabled={loading}
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
+                title={`导出已勾选的 ${selectedRecordIds.length} 条记录`}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                导出勾选 ({selectedRecordIds.length})
+              </Button>
+            )}
+          </>
+        )}
       </PageHeader>
 
       <div className="space-y-6">

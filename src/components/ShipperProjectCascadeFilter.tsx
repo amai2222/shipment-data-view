@@ -60,6 +60,7 @@ export function ShipperProjectCascadeFilter({
   const [shipperOpen, setShipperOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [allShippers, setAllShippers] = useState<Shipper[]>([]); // 保存完整的货主列表用于搜索
 
   // 加载货主数据（树形结构）
   useEffect(() => {
@@ -112,11 +113,18 @@ export function ShipperProjectCascadeFilter({
         });
 
         setShippers(rootShippers);
+        
+        // 保存所有货主（扁平列表，用于搜索）
+        const allShippersList = shipperData || [];
+        setAllShippers(allShippersList as Shipper[]);
+        
         console.log('构建的树形货主:', rootShippers);
+        console.log('所有货主（扁平）:', allShippersList);
 
       } catch (error) {
         console.error('加载货主数据失败:', error);
-        setShippers([]); // 失败时设置为空数组
+        setShippers([]);
+        setAllShippers([]);
       } finally {
         setLoading(false);
       }
@@ -204,6 +212,21 @@ export function ShipperProjectCascadeFilter({
     });
     
     return result;
+  };
+
+  // 搜索时使用所有货主（不受展开/折叠限制）
+  const getSearchableShippers = (): (Shipper & { level: number })[] => {
+    const buildLevel = (shipperList: Shipper[], level = 0): (Shipper & { level: number })[] => {
+      const result: (Shipper & { level: number })[] = [];
+      shipperList.forEach(shipper => {
+        result.push({ ...shipper, level });
+        if (shipper.children && shipper.children.length > 0) {
+          result.push(...buildLevel(shipper.children, level + 1));
+        }
+      });
+      return result;
+    };
+    return buildLevel(shippers);
   };
 
   // 切换展开/折叠
@@ -326,7 +349,8 @@ export function ShipperProjectCascadeFilter({
               />
               <CommandEmpty>未找到匹配的货主</CommandEmpty>
               <CommandGroup className="max-h-96 overflow-y-auto p-2">
-                {flattenShippers(shippers).map((shipper) => {
+                {/* 搜索时显示所有货主，非搜索时显示折叠的树 */}
+                {getSearchableShippers().map((shipper) => {
                   const hasChildren = shipper.children && shipper.children.length > 0;
                   const isExpanded = expandedIds.has(shipper.id);
                   const isSelected = selectedShipperId === shipper.id;

@@ -361,27 +361,24 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
             <Button variant="outline" onClick={onClear} disabled={loading} className="h-10">
               清除
             </Button>
-            <Button onClick={onSearch} disabled={loading} className="h-10 bg-blue-600 hover:bg-blue-700">
-              <Search className="mr-1 h-4 w-4" />搜索
+            <Button onClick={onSearch} disabled={loading} className="h-10 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-md text-white">
+              <Search className="mr-1 h-4 w-4" />
+              搜索
             </Button>
-          </div>
-
-          {/* 高级搜索按钮 */}
-          <div className="flex items-end">
             <Button
               variant="outline"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="h-10 w-full"
+              className="h-10"
             >
               {showAdvanced ? (
                 <>
                   <ChevronUp className="mr-1 h-4 w-4" />
-                  收起高级搜索
+                  收起
                 </>
               ) : (
                 <>
                   <ChevronDown className="mr-1 h-4 w-4" />
-                  高级搜索
+                  高级
                 </>
               )}
             </Button>
