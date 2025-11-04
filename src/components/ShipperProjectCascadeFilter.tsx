@@ -140,6 +140,8 @@ export function ShipperProjectCascadeFilter({
       }
 
       try {
+        console.log('开始加载货主的项目，货主ID:', selectedShipperId);
+        
         // 获取该货主关联的项目
         const { data, error } = await supabase
           .from('project_partners')
@@ -153,12 +155,19 @@ export function ShipperProjectCascadeFilter({
           `)
           .eq('partner_id', selectedShipperId);
 
-        if (error) throw error;
+        console.log('project_partners 查询结果:', data, error);
+
+        if (error) {
+          console.error('查询 project_partners 失败:', error);
+          throw error;
+        }
 
         const projectList = data
           ?.map(pp => pp.projects)
           .filter(Boolean)
           .flat() as Project[];
+
+        console.log('提取的项目列表:', projectList);
 
         setProjects(projectList || []);
 
@@ -379,18 +388,21 @@ export function ShipperProjectCascadeFilter({
         <Label className="flex items-center gap-2">
           <Building2 className="h-4 w-4" />
           项目筛选
-          {selectedShipperId && selectedShipperId !== 'all' && (
-            <span className="text-xs text-muted-foreground">
-              （{projects.length} 个项目）
-            </span>
-          )}
+          <span className="text-xs text-muted-foreground">
+            （{projects.length} 个项目）
+          </span>
         </Label>
         <Select value={selectedProjectId} onValueChange={onProjectChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="选择项目" />
+          <SelectTrigger className="h-10">
+            <SelectValue placeholder={projects.length > 0 ? "选择项目" : "请先选择货主"} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">所有项目</SelectItem>
+            {projects.length === 0 && selectedShipperId !== 'all' && (
+              <div className="px-2 py-1 text-sm text-muted-foreground">
+                该货主暂无关联项目
+              </div>
+            )}
             {projects.map(project => (
               <SelectItem key={project.id} value={project.id}>
                 {project.name}
