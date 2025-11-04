@@ -11,7 +11,6 @@ import { lazy } from 'react';
 
 // 首页和仪表盘
 export const Home = lazy(() => import('./pages/Home'));
-export const Dashboard = lazy(() => import('./pages/Dashboard'));
 export const TransportOverview = lazy(() => import('./pages/TransportOverview'));
 
 // 项目相关
