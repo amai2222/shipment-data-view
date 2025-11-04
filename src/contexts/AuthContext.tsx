@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 // import { isMobile } from '@/utils/device';
 
 // 定义用户角色类型，确保类型安全
-export type UserRole = 'admin' | 'finance' | 'business' | 'partner' | 'operator' | 'viewer';
+export type UserRole = 'admin' | 'finance' | 'business' | 'partner' | 'operator' | 'viewer' | 'fleet_manager' | 'driver';
 
 // 定义用户档案的完整接口
 export interface UserProfile {

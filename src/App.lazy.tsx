@@ -84,8 +84,17 @@ export const MobileRoleTemplate = lazy(() => import('./pages/mobile/MobileRoleTe
 export const MobilePermissionManagement = lazy(() => import('./pages/mobile/MobilePermissionManagement'));
 
 // ============================================
+// 内部车辆管理 - 移动端页面懒加载 ⭐ 新增
+// ============================================
+
+export const MobileMyExpenses = lazy(() => import('./pages/mobile/internal/MobileMyExpenses'));
+export const MobileDriverSalary = lazy(() => import('./pages/mobile/internal/MobileDriverSalary'));
+export const MobileMyVehicles = lazy(() => import('./pages/mobile/internal/MobileMyVehicles'));
+export const MobileSalaryRecords = lazy(() => import('./pages/mobile/internal/MobileSalaryRecords'));
+export const MobileQuickEntry = lazy(() => import('./pages/mobile/internal/MobileQuickEntry'));
+
+// ============================================
 // 加载组件
 // ============================================
 
 export { default as LoadingSpinner } from './components/ui/loading-spinner';
-

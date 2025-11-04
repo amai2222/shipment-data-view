@@ -27,13 +27,40 @@ export default function Auth() {
   };
 
   // 如果已经登录，根据角色重定向到目标页面
-  if (user) {
-    // 特殊处理：partner（货主）角色直接跳转到货主看板
-    if (profile?.role === 'partner') {
-      // 根据设备类型跳转到对应的货主看板
-      const shipperPath = isMobile() ? '/m/dashboard/shipper' : '/dashboard/shipper';
-      return <Navigate to={shipperPath} replace />;
+  if (user && profile) {
+    // 定义角色默认首页映射
+    const roleHomePage: Record<string, { pc: string; mobile: string }> = {
+      partner: {
+        pc: '/dashboard/shipper',
+        mobile: '/m/dashboard/shipper'
+      },
+      fleet_manager: {
+        pc: '/internal/vehicles',
+        mobile: '/m/internal/vehicles'
+      },
+      driver: {
+        pc: '/internal/my-expenses',
+        mobile: '/m/internal/my-expenses'
+      },
+      finance: {
+        pc: '/dashboard/financial',
+        mobile: '/m/dashboard/financial'
+      },
+      operator: {
+        pc: '/business-entry',
+        mobile: '/m/business-entry'
+      }
+    };
+    
+    // 获取该角色的默认首页
+    const defaultHome = roleHomePage[profile.role];
+    
+    if (defaultHome) {
+      const targetPath = isMobile() ? defaultHome.mobile : defaultHome.pc;
+      return <Navigate to={targetPath} replace />;
     }
+    
+    // 其他角色（admin, business, viewer）使用原来的跳转逻辑
     const from = location.state?.from?.pathname || '/';
     return <Navigate to={from} replace />;
   }
@@ -63,19 +90,27 @@ export default function Auth() {
 
   const handleWorkWechatSuccess = () => {
     // 企业微信登录成功后，由 onAuthStateChange 处理跳转
-    // 这里不需要手动跳转，因为：
-    // 1. onAuthStateChange 会根据角色自动跳转（partner → 货主看板）
-    // 2. 其他角色会由 ProtectedRoute 或默认路由处理
-    // 如果 profile 还没加载，等待 onAuthStateChange 处理
-    // 如果 profile 已加载且是 partner，跳转到货主看板
-    if (profile?.role === 'partner') {
-      const shipperPath = isMobile() ? '/m/dashboard/shipper' : '/dashboard/shipper';
-      window.location.href = shipperPath;
-    } else {
-      // 其他角色按原逻辑跳转
-      const from = location.state?.from?.pathname || '/';
-      window.location.href = from;
+    if (profile) {
+      // 复用角色首页映射表
+      const roleHomePage: Record<string, { pc: string; mobile: string }> = {
+        partner: { pc: '/dashboard/shipper', mobile: '/m/dashboard/shipper' },
+        fleet_manager: { pc: '/internal/vehicles', mobile: '/m/internal/vehicles' },
+        driver: { pc: '/internal/my-expenses', mobile: '/m/internal/my-expenses' },
+        finance: { pc: '/dashboard/financial', mobile: '/m/dashboard/financial' },
+        operator: { pc: '/business-entry', mobile: '/m/business-entry' }
+      };
+      
+      const defaultHome = roleHomePage[profile.role];
+      if (defaultHome) {
+        const targetPath = isMobile() ? defaultHome.mobile : defaultHome.pc;
+        window.location.href = targetPath;
+        return;
+      }
     }
+    
+    // 其他角色按原逻辑跳转
+    const from = location.state?.from?.pathname || '/';
+    window.location.href = from;
   };
 
   return (

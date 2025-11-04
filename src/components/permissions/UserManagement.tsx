@@ -60,7 +60,9 @@ export function UserManagement({
     business: '业务人员',
     operator: '操作员',
     partner: '合作伙伴',
-    viewer: '查看者'
+    viewer: '查看者',
+    fleet_manager: '车队长',
+    driver: '司机'
   };
   
   // 状态管理

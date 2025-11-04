@@ -67,6 +67,16 @@ export const ROLES: Record<UserRole, RoleDefinition> = {
     label: '查看者',
     color: 'bg-gray-500',
     description: '只能查看数据，不能进行任何修改操作'
+  },
+  fleet_manager: {
+    label: '车队长',
+    color: 'bg-orange-500',
+    description: '管理内部车辆和司机，审核费用申请'
+  },
+  driver: {
+    label: '司机',
+    color: 'bg-teal-500',
+    description: '内部司机，可查看工资和提交费用申请'
   }
 };
 
@@ -449,5 +459,33 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'data_scope', 'data.all',
       'data_operations'
     ]
+  },
+  fleet_manager: {
+    menu_permissions: [
+      'dashboard', 'dashboard.transport', 'dashboard.project',
+      'business', 'business.entry', 'business.scale',
+      'maintenance', 'maintenance.drivers', 'maintenance.projects',
+      'internal.vehicles', 'internal.certificates', 'internal.vehicle_status',
+      'internal.expense_review', 'internal.income_input', 'internal.pending_tasks',
+      'internal.ledger', 'internal.balance', 'internal.reports'
+    ],
+    function_permissions: [
+      'data', 'data.create', 'data.edit', 'data.export',
+      'scale_records', 'scale_records.create', 'scale_records.edit', 'scale_records.view',
+      'internal.approve_expense', 'internal.input_income'
+    ],
+    project_permissions: ['project_access', 'project.view_all'],
+    data_permissions: ['data_scope', 'data.all']
+  },
+  driver: {
+    menu_permissions: [
+      'internal.my_expenses', 'internal.driver_salary', 'internal.salary_records'
+    ],
+    function_permissions: [
+      'data', 'data.create',
+      'internal.submit_expense'
+    ],
+    project_permissions: [],
+    data_permissions: ['data_scope', 'data.own']
   }
 };
