@@ -24,9 +24,11 @@ import { cn } from '@/lib/utils';
 
 interface Shipper {
   id: string;
-  partner_name: string;
-  partner_full_name: string;
-  parent_id: string | null;
+  name: string;
+  full_name: string;
+  parent_partner_id: string | null;  // 正确的字段名！
+  is_root?: boolean;
+  partner_type?: string;
   children?: Shipper[];
   projects?: Project[];
 }
@@ -64,14 +66,19 @@ export function ShipperProjectCascadeFilter({
       try {
         setLoading(true);
 
-        // 获取所有货主
+        // 获取所有货主（使用正确的字段名）
         const { data: shipperData, error } = await supabase
           .from('partners')
-          .select('id, partner_name, partner_full_name, parent_id')
+          .select('*')
           .eq('partner_type', '货主')
-          .order('partner_name');
+          .order('name');
 
-        if (error) throw error;
+        if (error) {
+          console.error('加载货主失败:', error);
+          throw error;
+        }
+
+        console.log('加载的货主数据:', shipperData);
 
         // 构建树形结构
         const shipperMap = new Map<string, Shipper>();
@@ -85,26 +92,30 @@ export function ShipperProjectCascadeFilter({
           });
         });
 
-        // 第二遍：构建树形关系
+        // 第二遍：构建树形关系（使用 parent_partner_id）
         shipperData?.forEach(s => {
           const shipper = shipperMap.get(s.id)!;
-          if (s.parent_id) {
-            const parent = shipperMap.get(s.parent_id);
+          if (s.parent_partner_id) {
+            const parent = shipperMap.get(s.parent_partner_id);
             if (parent) {
               parent.children = parent.children || [];
               parent.children.push(shipper);
             } else {
+              // 有parent_id但找不到父节点，视为根节点
               rootShippers.push(shipper);
             }
           } else {
+            // 无parent_id，是根节点
             rootShippers.push(shipper);
           }
         });
 
         setShippers(rootShippers);
+        console.log('构建的树形货主:', rootShippers);
 
       } catch (error) {
         console.error('加载货主数据失败:', error);
+        setShippers([]); // 失败时设置为空数组
       } finally {
         setLoading(false);
       }
@@ -263,23 +274,23 @@ export function ShipperProjectCascadeFilter({
               variant="outline"
               role="combobox"
               aria-expanded={shipperOpen}
-              className="w-full justify-between"
+              className="w-full justify-between h-10"
             >
-              {selectedShipperId === 'all' 
-                ? '所有货主' 
-                : flattenShippers(shippers).find(s => s.id === selectedShipperId)?.partner_name || '选择货主'}
+              <span className="truncate">
+                {selectedShipperId === 'all' 
+                  ? '所有货主' 
+                  : flattenShippers(shippers).find(s => s.id === selectedShipperId)?.name || '所有货主'}
+              </span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[400px] p-0">
             <Command>
               <CommandInput 
-                placeholder="搜索货主..." 
-                value={searchValue}
-                onValueChange={setSearchValue}
+                placeholder="搜索货主名称..." 
               />
-              <CommandEmpty>未找到货主</CommandEmpty>
-              <CommandGroup className="max-h-64 overflow-y-auto">
+              <CommandEmpty>未找到匹配的货主</CommandEmpty>
+              <CommandGroup className="max-h-80 overflow-y-auto">
                 <CommandItem
                   value="all"
                   onSelect={() => {
@@ -299,7 +310,7 @@ export function ShipperProjectCascadeFilter({
                 {flattenShippers(shippers).map((shipper) => (
                   <CommandItem
                     key={shipper.id}
-                    value={shipper.partner_name}
+                    value={shipper.name}
                     onSelect={() => {
                       onShipperChange(shipper.id);
                       setShipperOpen(false);
@@ -313,7 +324,7 @@ export function ShipperProjectCascadeFilter({
                       )}
                     />
                     <span style={{ paddingLeft: `${shipper.level * 16}px` }}>
-                      {shipper.partner_name}
+                      {shipper.name}
                     </span>
                     {shipper.children && shipper.children.length > 0 && (
                       <Badge variant="secondary" className="ml-2 text-xs">
