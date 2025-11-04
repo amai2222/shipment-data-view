@@ -170,6 +170,8 @@ export default function InvoiceAudit() {
   });
   const [showFilters, setShowFilters] = useState(true);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [selectedShipperId, setSelectedShipperId] = useState('all');
+  const [selectedProjectId, setSelectedProjectId] = useState('all');
   
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
@@ -1340,70 +1342,36 @@ export default function InvoiceAudit() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* 常规查询 - 第一行 */}
-          <div className="flex flex-wrap gap-3 items-end">
-            {/* 开票单号 */}
-            <div className="flex-1 min-w-[180px] space-y-2">
-              <Label htmlFor="requestNumber" className="text-sm font-medium">开票单号</Label>
-              <div className="relative">
-                <Input
-                  id="requestNumber"
-                  placeholder="输入开票单号"
-                  value={filters.requestNumber}
-                  onChange={(e) => handleFilterChange('requestNumber', e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      fetchInvoiceRequests();
-                    }
-                  }}
-                  className="pr-8"
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
-                  onClick={() => openBatchInputDialog('requestNumber')}
-                >
-                  <span className="text-lg">+</span>
-                </Button>
-              </div>
+          {/* 常规查询 - 一行布局 */}
+          <div className="flex items-end gap-3 flex-wrap">
+            {/* 货主-项目级联筛选器 */}
+            <div className="flex-none" style={{width: '480px'}}>
+              <ShipperProjectCascadeFilter
+                selectedShipperId={selectedShipperId}
+                selectedProjectId={selectedProjectId}
+                onShipperChange={(id) => {
+                  setSelectedShipperId(id);
+                  setSelectedProjectId('all');
+                }}
+                onProjectChange={(id) => {
+                  setSelectedProjectId(id);
+                  handleFilterChange('projectId', id === 'all' ? '' : id);
+                }}
+              />
             </div>
 
             {/* 申请单状态 */}
-            <div className="flex-1 min-w-[140px] space-y-2">
-              <Label htmlFor="status" className="text-sm font-medium">开票申请单状态</Label>
+            <div className="flex-none w-40 space-y-2">
+              <Label className="text-sm font-medium">状态</Label>
               <select
-                id="status"
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
                 className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm h-10"
               >
-                <option value="">全部状态</option>
+                <option value="">全部</option>
                 <option value="Pending">待审核</option>
-                <option value="Approved">已审批待开票</option>
+                <option value="Approved">已审批</option>
                 <option value="Completed">已开票</option>
-              </select>
-            </div>
-
-            {/* 项目 */}
-            <div className="flex-1 min-w-[140px] space-y-2">
-              <Label htmlFor="projectId" className="text-sm font-medium flex items-center gap-1">
-                <Building2 className="h-4 w-4" />
-                项目
-              </Label>
-              <select
-                id="projectId"
-                value={filters.projectId}
-                onChange={(e) => handleFilterChange('projectId', e.target.value)}
-                disabled={loadingProjects}
-                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50 h-10"
-              >
-                <option value="">{loadingProjects ? "加载中..." : "全部项目"}</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
               </select>
             </div>
 

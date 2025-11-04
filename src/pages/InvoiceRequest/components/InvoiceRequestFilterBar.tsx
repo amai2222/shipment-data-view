@@ -93,12 +93,11 @@ export function InvoiceRequestFilterBar({
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="space-y-4">
-        {/* 基础筛选条件 - 参考运单管理布局 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
-          {/* 项目筛选 */}
+      <CardContent className="p-4">
+        {/* 基础筛选条件 - 一行布局 */}
+        <div className="flex items-end gap-3 flex-wrap">
           {/* 货主-项目级联筛选器 */}
-          <div className="md:col-span-2">
+          <div className="flex-none" style={{width: '480px'}}>
             <ShipperProjectCascadeFilter
               selectedShipperId={selectedShipperId}
               selectedProjectId={selectedProjectId}
@@ -114,70 +113,35 @@ export function InvoiceRequestFilterBar({
           </div>
 
           {/* 开票状态 */}
-          <div className="space-y-2">
-            <Label htmlFor="status-filter" className="text-sm font-medium text-blue-800 flex items-center gap-1">
-              <CheckCircle className="h-4 w-4" />
-              开票状态
-            </Label>
+          <div className="flex-none w-36 space-y-2">
+            <Label className="text-sm font-medium text-blue-800">状态</Label>
             <Select value={filters.invoiceStatus || 'all'} onValueChange={(value) => onFiltersChange({...filters, invoiceStatus: value === 'all' ? '' : value})}>
-              <SelectTrigger id="status-filter" className="h-10">
-                <SelectValue placeholder="全部状态" />
+              <SelectTrigger className="h-10">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">全部状态</SelectItem>
+                <SelectItem value="all">全部</SelectItem>
                 <SelectItem value="Uninvoiced">未开票</SelectItem>
-                <SelectItem value="Processing">已申请开票</SelectItem>
-                <SelectItem value="Approved">开票审核通过</SelectItem>
+                <SelectItem value="Processing">申请中</SelectItem>
+                <SelectItem value="Approved">已审核</SelectItem>
                 <SelectItem value="Invoiced">已开票</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* 日期范围 */}
-          <div className="space-y-2 relative z-10">
-            <Label htmlFor="date-range-picker" className="text-sm font-medium text-blue-800 flex items-center gap-1">
-              <CalendarIcon className="h-4 w-4" />
-              日期范围
-            </Label>
-            <div className="w-full">
-              <DateRangePicker 
-                date={dateRangeValue} 
-                setDate={handleDateChange} 
-                disabled={loading}
-                className="w-full"
-              />
-            </div>
+          <div className="flex-none w-64 space-y-2">
+            <Label className="text-sm font-medium text-blue-800">日期范围</Label>
+            <DateRangePicker date={dateRangeValue} setDate={handleDateChange} disabled={loading} />
           </div>
 
-          {/* 操作按钮 */}
-          <div className="flex items-end gap-2">
-            <Button variant="outline" onClick={handleReset} disabled={loading} className="h-10">
-              清除
-            </Button>
-          </div>
-        </div>
-
-        {/* 高级搜索按钮和搜索按钮 */}
-        <div className="flex items-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-            className="h-10 flex-1"
-          >
-            {isAdvancedOpen ? (
-              <>
-                <ChevronUp className="mr-1 h-4 w-4" />
-                收起高级搜索
-              </>
-            ) : (
-              <>
-                <ChevronDown className="mr-1 h-4 w-4" />
-                高级搜索
-              </>
-            )}
-          </Button>
-          <Button onClick={onSearch} disabled={loading} className="h-10 bg-blue-600 hover:bg-blue-700">
+          {/* 按钮组 */}
+          <Button variant="outline" onClick={handleReset} disabled={loading} className="h-10">清除</Button>
+          <Button onClick={onSearch} disabled={loading} className="h-10 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white">
             <Search className="mr-1 h-4 w-4" />搜索
+          </Button>
+          <Button variant="outline" onClick={() => setIsAdvancedOpen(!isAdvancedOpen)} className="h-10">
+            {isAdvancedOpen ? <><ChevronUp className="mr-1 h-4 w-4" />收起</> : <><ChevronDown className="mr-1 h-4 w-4" />高级</>}
           </Button>
         </div>
 

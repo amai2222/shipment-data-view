@@ -1384,9 +1384,9 @@ export default function PaymentRequest() {
         {/* ===== 筛选器区域 ===== */}
         <Card className="border-muted/40 shadow-sm">
           <CardContent className="p-4">
-            {/* 常规筛选区域 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
-              <div className="md:col-span-2">
+            {/* 常规筛选区域 - 一行布局 */}
+            <div className="flex items-end gap-3 flex-wrap">
+              <div className="flex-none" style={{width: '480px'}}>
                 <ShipperProjectCascadeFilter
                   selectedShipperId={selectedShipperId}
                   selectedProjectId={selectedProjectId}
@@ -1401,16 +1401,16 @@ export default function PaymentRequest() {
                 />
               </div>
               
-              <div className="flex flex-col gap-1.5">
+              <div className="flex-none w-64 space-y-2">
                 <Label>日期范围</Label>
                 <DateRangePicker date={dateRangeValue} setDate={handleDateChange} />
               </div>
               
-              <div className="flex flex-col gap-1.5">
+              <div className="flex-none w-36 space-y-2">
                 <Label>支付状态</Label>
                 <Select value={uiFilters.paymentStatus} onValueChange={(v) => handleFilterChange('paymentStatus', v)}>
                   <SelectTrigger className="h-10">
-                    <SelectValue placeholder="选择状态..." />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {PAYMENT_STATUS_OPTIONS.map(option => (
@@ -1420,33 +1420,12 @@ export default function PaymentRequest() {
                 </Select>
               </div>
               
-              <div className="flex gap-2 items-end">
-                <Button onClick={handleSearch} className="h-10 flex-1 bg-blue-600 hover:bg-blue-700">
-                  <Search className="mr-2 h-4 w-4"/>搜索
-                </Button>
-                <Button variant="outline" onClick={handleClear} className="h-10 flex-1">清除</Button>
-              </div>
-            </div>
-            
-            {/* 展开/收起高级筛选按钮 */}
-            <div className="mt-4 flex justify-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-              >
-                {showAdvanced ? (
-                  <>
-                    <ChevronUp className="mr-1 h-4 w-4" />
-                    收起高级筛选
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="mr-1 h-4 w-4" />
-                    展开高级筛选
-                  </>
-                )}
+              <Button variant="outline" onClick={handleClear} className="h-10">清除</Button>
+              <Button onClick={handleSearch} className="h-10 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white">
+                <Search className="mr-2 h-4 w-4"/>搜索
+              </Button>
+              <Button variant="outline" onClick={() => setShowAdvanced(!showAdvanced)} className="h-10">
+                {showAdvanced ? <><ChevronUp className="mr-1 h-4 w-4" />收起</> : <><ChevronDown className="mr-1 h-4 w-4" />高级</>}
               </Button>
             </div>
             
