@@ -196,29 +196,8 @@ export default function Home() {
 
   // 处理运单详情点击
   const handleWaybillClick = useCallback((record: LogisticsRecord) => {
-    // 转换字段名以兼容WaybillDetailDialog组件
-    const mappedRecord = {
-      ...record,
-      auto_number: record.autoNumber || record.auto_number,
-      loading_location: record.loadingLocation || record.loading_location,
-      unloading_location: record.unloadingLocation || record.unloading_location,
-      driver_name: record.driverName || record.driver_name,
-      license_plate: record.licensePlate || record.license_plate,
-      driver_phone: record.driverPhone || record.driver_phone,
-      project_name: record.projectName || record.project_name,
-      transport_type: record.transportType || record.transport_type,
-      loading_weight: record.loadingWeight || record.loading_weight,
-      unloading_weight: record.unloadingWeight || record.unloading_weight,
-      loading_date: record.loadingDate || record.loading_date,
-      unloading_date: record.unloadingDate || record.unloading_date,
-      payable_cost: record.payableFee || record.payable_cost || record.payableCost,
-      current_cost: record.currentCost || record.current_cost,
-      extra_cost: record.extraCost || record.extra_cost,
-      billing_type_id: record.billing_type_id || record.billingTypeId,
-      chain_name: record.chainName || record.chain_name,
-      remarks: record.remarks
-    };
-    setSelectedWaybill(mappedRecord as LogisticsRecord);
+    // LogisticsRecord 已经是正确的 snake_case 格式，直接使用
+    setSelectedWaybill(record);
     setIsWaybillDetailOpen(true);
   }, []);
 

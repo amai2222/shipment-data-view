@@ -14,81 +14,86 @@ import { MobileLayout } from "./components/mobile/MobileLayout";
 import { AutoMenuSync } from "./components/AutoMenuSync";
 
 // --- 懒加载页面组件导入 ---
-import { Suspense, lazy } from 'react';
-import { LoadingSpinner } from "./App.lazy";
+import { Suspense } from 'react';
 
-// 懒加载公共组件
+// 从 App.lazy.tsx 统一导入所有懒加载组件
+import {
+  LoadingSpinner,
+  // PC端页面
+  Home,
+  TransportOverview,
+  Projects,
+  ProjectsOverview,
+  ProjectDashboard,
+  Drivers,
+  Locations,
+  Partners,
+  BusinessEntry,
+  ScaleRecords,
+  PaymentRequest,
+  InvoiceRequest,
+  FinanceReconciliation,
+  PaymentInvoice,
+  PaymentInvoiceDetail,
+  PaymentRequestsList,
+  FinancialOverview,
+  ContractManagement,
+  WaybillMaintenance,
+  UserManagement,
+  PermissionConfig,
+  ContractPermission,
+  RoleTemplate,
+  AuditLogs,
+  IntegratedUserManagement,
+  // 移动端页面
+  MobileHomeNew,
+  MobileHome,
+  MobileDashboard,
+  MobileBusinessEntry,
+  MobileBusinessEntryForm,
+  MobileProjectOverview,
+  MobileProjectDetail,
+  MobileProjectRecords,
+  MobileProjectDashboardDetail,
+  MobileWaybillDetail,
+  MobileDrivers,
+  MobileLocations,
+  MobilePartners,
+  MobileScaleRecords,
+  MobilePaymentRequestsList,
+  MobilePaymentRequestsManagement,
+  MobileFinancialOverview,
+  MobileContractManagement,
+  MobileIntegratedUserManagement,
+  MobileAuditLogs,
+  MobileNotifications,
+  MobileSettings,
+  MobileUserManagement,
+  MobileContractPermission,
+  MobileRoleTemplate,
+  MobilePermissionManagement
+} from "./App.lazy";
+
+// 懒加载公共组件（非懒加载）
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import NotFoundWithStaticFileCheck from "./components/NotFoundWithStaticFileCheck";
 
-// 使用懒加载导入主要页面
-const Home = lazy(() => import("./pages/Home"));
-const TransportOverview = lazy(() => import("./pages/TransportOverview"));
-const Projects = lazy(() => import("./pages/Projects"));
-const ProjectsOverview = lazy(() => import("./pages/ProjectsOverview"));
-const ProjectDashboard = lazy(() => import("./pages/ProjectDashboard"));
-const Drivers = lazy(() => import("./pages/Drivers"));
-const Locations = lazy(() => import("./pages/Locations"));
+// 需要单独懒加载的组件（App.lazy.tsx 中没有）
+import { lazy } from 'react';
 const EnhancedLocations = lazy(() => import("./pages/EnhancedLocations"));
-const Partners = lazy(() => import("./pages/Partners"));
 const PartnerHierarchyManagement = lazy(() => import("./pages/PartnerHierarchyManagement"));
-const BusinessEntry = lazy(() => import("./pages/BusinessEntry"));
-const PaymentRequest = lazy(() => import("./pages/PaymentRequest"));
-const InvoiceRequest = lazy(() => import("./pages/InvoiceRequest"));
 const InvoiceRequestManagement = lazy(() => import("./pages/InvoiceRequestManagement"));
-const FinancialOverview = lazy(() => import("./pages/FinancialOverview"));
-const FinanceReconciliation = lazy(() => import("./pages/FinanceReconciliation"));
-const PaymentInvoice = lazy(() => import("./pages/PaymentInvoice"));
-const PaymentInvoiceDetail = lazy(() => import("./pages/PaymentInvoiceDetail"));
-const PaymentRequestsList = lazy(() => import("./pages/PaymentRequestsList"));
-const UserManagement = lazy(() => import("./pages/Settings/UserManagement"));
-const PermissionConfig = lazy(() => import("./pages/Settings/PermissionConfig"));
-const ContractPermission = lazy(() => import("./pages/Settings/ContractPermission"));
-const RoleTemplate = lazy(() => import("./pages/Settings/RoleTemplate"));
 const PermissionManagement = lazy(() => import("./pages/Settings/PermissionManagement"));
-const IntegratedUserManagement = lazy(() => import("./pages/IntegratedUserManagement"));
-const AuditLogs = lazy(() => import("./pages/Settings/AuditLogs"));
 const MenuConfig = lazy(() => import("./pages/Settings/MenuConfig"));
 const SystemBackup = lazy(() => import("./pages/Settings/SystemBackup"));
-const ScaleRecords = lazy(() => import("./pages/ScaleRecords"));
-const ContractManagement = lazy(() => import("./pages/ContractManagement"));
-const WaybillMaintenance = lazy(() => import("./pages/DataMaintenance/WaybillMaintenance"));
-const EnhancedWaybillMaintenance = lazy(() => import("./pages/DataMaintenance/EnhancedWaybillMaintenance"));
 const ShipperDashboard = lazy(() => import("./pages/ShipperDashboard"));
 const PaymentAudit = lazy(() => import("./pages/PaymentAudit"));
 const InvoiceAudit = lazy(() => import("./pages/InvoiceAudit"));
-
-// 移动端页面懒加载
-const MobileHomeNew = lazy(() => import("./pages/mobile/MobileHomeNew"));
-const MobileHome = lazy(() => import("./pages/mobile/MobileHome"));
-const MobileBusinessEntry = lazy(() => import("./pages/mobile/MobileBusinessEntry"));
-const MobileBusinessEntryForm = lazy(() => import("./pages/mobile/MobileBusinessEntryForm"));
-const MobileProjectDashboard = lazy(() => import("./pages/mobile/MobileProjectDashboard"));
-const MobileScaleRecords = lazy(() => import("./pages/mobile/MobileScaleRecords"));
-const MobileDrivers = lazy(() => import("./pages/mobile/MobileDrivers"));
-const MobileLocations = lazy(() => import("./pages/mobile/MobileLocations"));
-const MobilePartners = lazy(() => import("./pages/mobile/MobilePartners"));
-const MobileDashboard = lazy(() => import("./pages/mobile/MobileDashboard"));
-const MobileFinancialOverview = lazy(() => import("./pages/mobile/MobileFinancialOverview"));
-const MobilePaymentRequestsList = lazy(() => import("./pages/mobile/MobilePaymentRequestsList"));
-const MobilePermissionManagement = lazy(() => import("./pages/mobile/MobilePermissionManagement"));
-const MobilePaymentRequestsManagement = lazy(() => import("./pages/mobile/MobilePaymentRequestsManagement"));
+const EnhancedWaybillMaintenance = lazy(() => import("./pages/DataMaintenance/EnhancedWaybillMaintenance"));
 const MobileInvoiceRequestManagement = lazy(() => import("./pages/mobile/MobileInvoiceRequestManagement"));
-const MobileContractManagement = lazy(() => import("./pages/mobile/MobileContractManagement"));
-const MobileProjectOverview = lazy(() => import("./pages/mobile/MobileProjectOverview"));
-const MobileProjectDetail = lazy(() => import("./pages/mobile/MobileProjectDetail"));
-const MobileProjectRecords = lazy(() => import("./pages/mobile/MobileProjectRecords"));
-const MobileWaybillDetail = lazy(() => import("./pages/mobile/MobileWaybillDetail"));
-const MobileProjectDashboardDetail = lazy(() => import("./pages/mobile/MobileProjectDashboardDetail"));
 const MobileShipperDashboard = lazy(() => import("./pages/mobile/MobileShipperDashboard"));
-const MobileIntegratedUserManagement = lazy(() => import("./pages/mobile/MobileIntegratedUserManagement"));
-const MobileAuditLogs = lazy(() => import("./pages/mobile/MobileAuditLogs"));
-const MobileNotifications = lazy(() => import("./pages/mobile/MobileNotifications"));
-const MobileSettings = lazy(() => import("./pages/mobile/MobileSettings"));
-const MobileUserManagement = lazy(() => import("./pages/mobile/MobileUserManagement"));
-const MobileContractPermission = lazy(() => import("./pages/mobile/MobileContractPermission"));
-const MobileRoleTemplate = lazy(() => import("./pages/mobile/MobileRoleTemplate"));
+const MobileProjectDashboard = lazy(() => import("./pages/mobile/MobileProjectDashboard"));
 
 const queryClient = new QueryClient();
 
