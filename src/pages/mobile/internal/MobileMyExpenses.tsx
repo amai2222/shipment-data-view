@@ -281,97 +281,156 @@ export default function MobileMyExpenses() {
   return (
     <MobileLayout>
       <div className="space-y-4 pb-20">
-        {/* 顶部统计卡片 */}
+        {/* 个人欢迎卡片 */}
+        <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 text-white border-0 shadow-lg">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                    <User className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">{profile?.full_name || '司机'}</h2>
+                    <p className="text-blue-100 text-sm">内部司机</p>
+                  </div>
+                </div>
+                <div className="mt-3 text-sm opacity-90">
+                  {format(new Date(), 'yyyy年MM月dd日 EEEE', { locale: zhCN })}
+                </div>
+              </div>
+              <Truck className="h-16 w-16 opacity-30" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 顶部统计卡片 - 优化版 */}
         <div className="grid grid-cols-3 gap-3">
-          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-            <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-yellow-700">{stats.pending}</div>
-              <div className="text-xs text-yellow-600 mt-1">待审核</div>
+          <Card className="bg-gradient-to-br from-yellow-400 to-orange-500 border-0 shadow-md">
+            <CardContent className="p-4 text-center text-white">
+              <Clock className="h-5 w-5 mx-auto mb-2 opacity-80" />
+              <div className="text-3xl font-bold">{stats.pending}</div>
+              <div className="text-xs mt-1 opacity-90">待审核</div>
             </CardContent>
           </Card>
           
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-            <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-green-700">{stats.approved}</div>
-              <div className="text-xs text-green-600 mt-1">已通过</div>
+          <Card className="bg-gradient-to-br from-green-400 to-emerald-500 border-0 shadow-md">
+            <CardContent className="p-4 text-center text-white">
+              <CheckCircle className="h-5 w-5 mx-auto mb-2 opacity-80" />
+              <div className="text-3xl font-bold">{stats.approved}</div>
+              <div className="text-xs mt-1 opacity-90">已通过</div>
             </CardContent>
           </Card>
           
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-            <CardContent className="p-3 text-center">
-              <div className="text-lg font-bold text-blue-700">¥{stats.thisMonth.toFixed(0)}</div>
-              <div className="text-xs text-blue-600 mt-1">本月累计</div>
+          <Card className="bg-gradient-to-br from-blue-400 to-cyan-500 border-0 shadow-md">
+            <CardContent className="p-4 text-center text-white">
+              <DollarSign className="h-5 w-5 mx-auto mb-2 opacity-80" />
+              <div className="text-2xl font-bold">¥{stats.thisMonth.toFixed(0)}</div>
+              <div className="text-xs mt-1 opacity-90">本月累计</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* 快捷操作按钮 */}
-        <div className="grid grid-cols-3 gap-2">
+        {/* 快捷操作按钮 - 美化版 */}
+        <div className="grid grid-cols-3 gap-3">
           <Button 
             onClick={() => navigate('/m/internal/quick-entry')}
-            className="h-20 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+            className="h-24 bg-gradient-to-br from-green-500 via-emerald-500 to-teal-600 hover:from-green-600 hover:to-teal-700 shadow-lg border-0 rounded-2xl"
           >
             <div className="flex flex-col items-center gap-2">
-              <Truck className="h-6 w-6" />
-              <span className="text-xs">录入运单</span>
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                <Truck className="h-6 w-6" />
+              </div>
+              <span className="text-sm font-medium">录入运单</span>
             </div>
           </Button>
           
           <Button 
             onClick={() => setShowNewDialog(true)}
-            className="h-20 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+            className="h-24 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg border-0 rounded-2xl"
           >
             <div className="flex flex-col items-center gap-2">
-              <Plus className="h-6 w-6" />
-              <span className="text-xs">费用申请</span>
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                <Plus className="h-6 w-6" />
+              </div>
+              <span className="text-sm font-medium">费用申请</span>
             </div>
           </Button>
           
           <Button 
-            variant="outline"
             onClick={() => navigate('/m/internal/driver-salary')}
-            className="h-20"
+            className="h-24 bg-gradient-to-br from-orange-400 via-amber-500 to-yellow-600 hover:from-orange-500 hover:to-yellow-700 shadow-lg border-0 rounded-2xl"
           >
             <div className="flex flex-col items-center gap-2">
-              <DollarSign className="h-6 w-6" />
-              <span className="text-xs">我的工资</span>
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                <DollarSign className="h-6 w-6" />
+              </div>
+              <span className="text-sm font-medium">我的工资</span>
             </div>
           </Button>
         </div>
 
-        {/* 我的车辆卡片 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                🚗 我的车辆
-              </span>
+        {/* 我的车辆卡片 - 美化版 */}
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="bg-gradient-to-r from-slate-700 to-slate-800 p-4">
+            <div className="flex items-center justify-between text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                  <Truck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">我的车辆</h3>
+                  <p className="text-xs text-slate-300">Vehicle Info</p>
+                </div>
+              </div>
               <Button 
                 size="sm" 
-                variant="outline"
+                variant="secondary"
                 onClick={() => navigate('/m/internal/my-vehicles')}
+                className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
               >
                 申请换车
               </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm text-muted-foreground">
-              <p>主车：云F97310（东风天龙）</p>
-              <p>备用车：云F66789（福田欧曼）</p>
+            </div>
+          </div>
+          <CardContent className="p-4 bg-gradient-to-br from-slate-50 to-slate-100">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm">
+                <div className="w-2 h-12 bg-green-500 rounded-full"></div>
+                <div className="flex-1">
+                  <div className="text-xs text-muted-foreground">主车</div>
+                  <div className="text-lg font-bold">云F97310</div>
+                  <div className="text-xs text-muted-foreground">东风天龙</div>
+                </div>
+                <Badge className="bg-green-100 text-green-700 border-0">主车</Badge>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm">
+                <div className="w-2 h-12 bg-blue-400 rounded-full"></div>
+                <div className="flex-1">
+                  <div className="text-xs text-muted-foreground">备用车</div>
+                  <div className="text-lg font-bold">云F66789</div>
+                  <div className="text-xs text-muted-foreground">福田欧曼</div>
+                </div>
+                <Badge className="bg-blue-100 text-blue-700 border-0">备用</Badge>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* 申请记录列表 */}
-        <Card>
-          <CardHeader>
+        {/* 申请记录列表 - 美化版 */}
+        <Card className="border-0 shadow-md">
+          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b">
             <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              我的申请记录
+              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                <FileText className="h-4 w-4 text-indigo-600" />
+              </div>
+              <span className="font-semibold text-gray-800">我的申请记录</span>
+              <Badge variant="secondary" className="ml-auto">
+                {applications.length} 条
+              </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 pt-4">
             {loading ? (
               <div className="text-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
@@ -398,20 +457,23 @@ export default function MobileMyExpenses() {
                 return (
                   <Card 
                     key={app.id} 
-                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-0 shadow-sm bg-gradient-to-br from-white to-gray-50"
                     onClick={() => {
                       setSelectedApp(app);
                       setShowDetailDialog(true);
                     }}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
+                    <CardContent className="p-4 relative overflow-hidden">
+                      {/* 装饰性背景图案 */}
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-50 to-transparent rounded-full -mr-16 -mt-16 opacity-50"></div>
+                      
+                      <div className="flex items-start justify-between relative z-10">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge className={typeConfig.color}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Badge className={`${typeConfig.color} shadow-sm`}>
                               {typeConfig.label}
                             </Badge>
-                            <Badge className={statusConfig.color}>
+                            <Badge className={`${statusConfig.color} shadow-sm`}>
                               <StatusIcon className="h-3 w-3 mr-1" />
                               {statusConfig.label}
                             </Badge>
