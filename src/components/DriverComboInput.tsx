@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { insertRecord } from "@/lib/supabase-helpers";
 
 interface Driver {
   id: string;
@@ -82,15 +83,11 @@ export function DriverComboInput({
     }
 
     try {
-      const { data, error } = await supabase
-        .from("drivers")
-        .insert({
-          name: newDriverData.name.trim(),
-          license_plate: newDriverData.license_plate.trim() || null,
-          phone: newDriverData.phone.trim() || null,
-        })
-        .select()
-        .single();
+      const { data, error } = await insertRecord<Driver>("drivers", {
+        name: newDriverData.name.trim(),
+        license_plate: newDriverData.license_plate.trim() || null,
+        phone: newDriverData.phone.trim() || null,
+      });
 
       if (error) throw error;
 
@@ -106,10 +103,11 @@ export function DriverComboInput({
 
       // 自动选择新添加的司机
       if (data) {
-        onChange(data.id, {
-          name: data.name,
-          license_plate: data.license_plate || "",
-          phone: data.phone || "",
+        const driverData = data as any;
+        onChange(driverData.id, {
+          name: driverData.name,
+          license_plate: driverData.license_plate || "",
+          phone: driverData.phone || "",
         });
       }
 

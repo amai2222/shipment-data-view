@@ -1,7 +1,7 @@
 // 权限管理系统类型定义
 
 // 用户角色类型定义
-export type UserRole = "admin" | "finance" | "business" | "partner" | "operator" | "viewer";
+export type UserRole = "admin" | "finance" | "business" | "partner" | "operator" | "viewer" | "fleet_manager" | "driver";
 
 export interface User {
   id: string;

@@ -74,6 +74,26 @@ export function usePermissions() {
       canCreateRecords: false,
       canDeleteRecords: false,
     },
+    fleet_manager: {
+      canViewFinance: false,
+      canManageProjects: false,
+      canManagePartners: false,
+      canExportData: false,
+      canManageUsers: false,
+      canViewAllRecords: false,
+      canCreateRecords: false,
+      canDeleteRecords: false,
+    },
+    driver: {
+      canViewFinance: false,
+      canManageProjects: false,
+      canManagePartners: false,
+      canExportData: false,
+      canManageUsers: false,
+      canViewAllRecords: false,
+      canCreateRecords: false,
+      canDeleteRecords: false,
+    },
   };
 
   const permissions = profile ? rolePermissions[profile.role] : null;

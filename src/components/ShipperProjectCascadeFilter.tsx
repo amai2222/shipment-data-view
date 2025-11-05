@@ -88,7 +88,7 @@ export function ShipperProjectCascadeFilter({
         const rootShippers: Shipper[] = [];
 
         // 第一遍：创建映射
-        shipperData?.forEach(s => {
+        (shipperData as any[] || []).forEach((s: any) => {
           shipperMap.set(s.id, {
             ...s,
             children: []
@@ -96,7 +96,7 @@ export function ShipperProjectCascadeFilter({
         });
 
         // 第二遍：构建树形关系（使用 parent_partner_id）
-        shipperData?.forEach(s => {
+        (shipperData as any[] || []).forEach((s: any) => {
           const shipper = shipperMap.get(s.id)!;
           if (s.parent_partner_id) {
             const parent = shipperMap.get(s.parent_partner_id);
