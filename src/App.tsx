@@ -77,6 +77,7 @@ import {
   MobileDriverSalary,
   MobileMyVehicles,
   MobileSalaryRecords,
+  MobileQuickEntry,
   // 车队长端
   MobileFleetDashboard,
   MobileExpenseReview,

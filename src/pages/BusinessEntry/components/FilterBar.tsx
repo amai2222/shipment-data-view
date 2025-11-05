@@ -51,6 +51,10 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
   
+  // 合作商加载状态
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [loadingPartners, setLoadingPartners] = useState(false);
+  
   // 动态平台选项状态
   const [platformOptions, setPlatformOptions] = useState<{
     platform_name: string;
