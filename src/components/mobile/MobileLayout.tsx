@@ -25,7 +25,8 @@ import {
   DollarSign,
   Banknote,
   TreePine,
-  CheckCircle
+  CheckCircle,
+  Calendar
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
