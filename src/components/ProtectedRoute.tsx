@@ -1,9 +1,10 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LogOut } from 'lucide-react';
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 import { isMobile } from '@/utils/device';
+import { Button } from '@/components/ui/button';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -18,9 +19,15 @@ export function ProtectedRoute({
   requiredPermission,
   requireAnyRole = true
 }: ProtectedRouteProps) {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const { hasPageAccess, hasRole, loading: permLoading } = useUnifiedPermissions();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth');
+  };
 
   const loading = authLoading || permLoading;
 
@@ -56,16 +63,50 @@ export function ProtectedRoute({
       } else {
         return (
           <div className="flex flex-col items-center justify-center min-h-screen p-4">
-            <h1 className="text-2xl font-bold text-destructive mb-2">访问被拒绝</h1>
-            <p className="text-muted-foreground text-center">
-              您没有访问此页面的权限。
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              需要权限: {requiredPermission}
-            </p>
-            <p className="text-xs text-muted-foreground mt-4 text-center max-w-md">
-              提示：您也没有访问货主看板的权限，请联系管理员为您分配相应权限。
-            </p>
+            <div className="max-w-md w-full space-y-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-4xl">🚫</span>
+                </div>
+                <h1 className="text-2xl font-bold text-destructive mb-2">访问被拒绝</h1>
+                <p className="text-muted-foreground">
+                  您没有访问此页面的权限
+                </p>
+                <p className="text-sm text-muted-foreground mt-2 font-mono bg-red-50 inline-block px-3 py-1 rounded">
+                  需要权限: {requiredPermission}
+                </p>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm text-yellow-800">
+                  <strong>提示：</strong>您也没有访问货主看板的权限，请联系管理员为您分配相应权限。
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <Button
+                  onClick={handleLogout}
+                  className="w-full"
+                  variant="default"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  退出登录
+                </Button>
+                <Button
+                  onClick={() => navigate(-1)}
+                  variant="outline"
+                  className="w-full"
+                >
+                  返回上一页
+                </Button>
+              </div>
+
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">
+                  当前用户：{profile?.full_name} ({profile?.role})
+                </p>
+              </div>
+            </div>
           </div>
         );
       }
