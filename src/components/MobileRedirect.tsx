@@ -22,6 +22,12 @@ export function MobileRedirect({ children }: MobileRedirectProps) {
       return;
     }
 
+    // 对于内部车辆管理路径（/m/internal/*），不做任何重定向
+    // 因为这些页面是专为移动端设计的，即使在PC端也应该保持移动端路径
+    if (location.pathname.startsWith('/m/internal/')) {
+      return;
+    }
+
     const shouldRedirectToMobile = isMobile || isTablet;
     const isAlreadyOnMobilePath = location.pathname.startsWith('/m/');
     
@@ -33,6 +39,7 @@ export function MobileRedirect({ children }: MobileRedirectProps) {
     }
     
     // 如果是桌面设备但在移动端路径，则重定向回桌面版
+    // 但排除内部车辆管理路径（已在上面处理）
     if (!shouldRedirectToMobile && isAlreadyOnMobilePath) {
       const desktopPath = location.pathname.replace(/^\/m/, '') || '/';
       navigate(desktopPath + location.search, { replace: true });

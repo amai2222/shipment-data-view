@@ -63,6 +63,17 @@ export default function Auth() {
     if (defaultHome) {
       const targetPath = isMobile() ? defaultHome.mobile : defaultHome.pc;
       console.log('  跳转路径:', targetPath);
+      console.log('  完整映射:', JSON.stringify(defaultHome));
+      
+      // 强制验证路径
+      if (profile.role === 'driver' && !targetPath.startsWith('/m/internal/')) {
+        console.error('❌ 错误！司机跳转路径不正确:', targetPath);
+        console.error('应该是: /m/internal/my-expenses');
+        console.error('实际是:', targetPath);
+        // 强制修正
+        return <Navigate to="/m/internal/my-expenses" replace />;
+      }
+      
       return <Navigate to={targetPath} replace />;
     }
     
