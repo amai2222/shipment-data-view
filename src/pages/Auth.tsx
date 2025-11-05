@@ -40,11 +40,11 @@ export default function Auth() {
         mobile: '/m/dashboard/shipper'
       },
       fleet_manager: {
-        pc: '/internal/vehicles',
+        pc: '/m/internal/fleet-dashboard',  // 暂时PC端也用移动端页面
         mobile: '/m/internal/fleet-dashboard'
       },
       driver: {
-        pc: '/internal/my-expenses',
+        pc: '/m/internal/my-expenses',  // 暂时PC端也用移动端页面
         mobile: '/m/internal/my-expenses'
       },
       finance: {
@@ -101,8 +101,8 @@ export default function Auth() {
       // 复用角色首页映射表
       const roleHomePage: Record<string, { pc: string; mobile: string }> = {
         partner: { pc: '/dashboard/shipper', mobile: '/m/dashboard/shipper' },
-        fleet_manager: { pc: '/internal/vehicles', mobile: '/m/internal/fleet-dashboard' },
-        driver: { pc: '/internal/my-expenses', mobile: '/m/internal/my-expenses' },
+        fleet_manager: { pc: '/m/internal/fleet-dashboard', mobile: '/m/internal/fleet-dashboard' },
+        driver: { pc: '/m/internal/my-expenses', mobile: '/m/internal/my-expenses' },
         finance: { pc: '/dashboard/financial', mobile: '/m/dashboard/financial' },
         operator: { pc: '/business-entry', mobile: '/m/business-entry' }
       };
