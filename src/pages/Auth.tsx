@@ -36,7 +36,7 @@ export default function Auth() {
       },
       fleet_manager: {
         pc: '/internal/vehicles',
-        mobile: '/m/internal/vehicles'
+        mobile: '/m/internal/fleet-dashboard'
       },
       driver: {
         pc: '/internal/my-expenses',

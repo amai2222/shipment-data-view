@@ -87,11 +87,17 @@ export const MobilePermissionManagement = lazy(() => import('./pages/mobile/Mobi
 // 内部车辆管理 - 移动端页面懒加载 ⭐ 新增
 // ============================================
 
+// 内部司机端
 export const MobileMyExpenses = lazy(() => import('./pages/mobile/internal/MobileMyExpenses'));
 export const MobileDriverSalary = lazy(() => import('./pages/mobile/internal/MobileDriverSalary'));
 export const MobileMyVehicles = lazy(() => import('./pages/mobile/internal/MobileMyVehicles'));
 export const MobileSalaryRecords = lazy(() => import('./pages/mobile/internal/MobileSalaryRecords'));
 export const MobileQuickEntry = lazy(() => import('./pages/mobile/internal/MobileQuickEntry'));
+
+// 车队长端
+export const MobileFleetDashboard = lazy(() => import('./pages/mobile/internal/MobileFleetDashboard'));
+export const MobileExpenseReview = lazy(() => import('./pages/mobile/internal/MobileExpenseReview'));
+export const MobileVehicleManagement = lazy(() => import('./pages/mobile/internal/MobileVehicleManagement'));
 
 // ============================================
 // 加载组件

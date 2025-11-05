@@ -76,7 +76,11 @@ import {
   MobileMyExpenses,
   MobileDriverSalary,
   MobileMyVehicles,
-  MobileSalaryRecords
+  MobileSalaryRecords,
+  // 车队长端
+  MobileFleetDashboard,
+  MobileExpenseReview,
+  MobileVehicleManagement
 } from "./App.lazy";
 
 // 懒加载公共组件（非懒加载）
@@ -604,6 +608,25 @@ const App = () => (
             <Route path="/m/internal/salary-records" element={
               <ProtectedRoute requiredPermission="internal.salary_records">
                 <MobileSalaryRecords />
+              </ProtectedRoute>
+            } />
+
+            {/* --- 车队长移动端路由 ⭐ --- */}
+            <Route path="/m/internal/fleet-dashboard" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <MobileFleetDashboard />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/vehicles" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <MobileVehicleManagement />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/expense-review" element={
+              <ProtectedRoute requiredPermission="internal.expense_review">
+                <MobileExpenseReview />
               </ProtectedRoute>
             } />
 
