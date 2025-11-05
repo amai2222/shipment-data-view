@@ -611,6 +611,12 @@ const App = () => (
               </ProtectedRoute>
             } />
 
+            <Route path="/m/internal/quick-entry" element={
+              <ProtectedRoute requiredPermission="internal.my_expenses">
+                <MobileQuickEntry />
+              </ProtectedRoute>
+            } />
+
             {/* --- 车队长移动端路由 ⭐ --- */}
             <Route path="/m/internal/fleet-dashboard" element={
               <ProtectedRoute requiredPermission="internal.vehicles">
