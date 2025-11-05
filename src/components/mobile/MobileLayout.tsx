@@ -172,6 +172,62 @@ const menuGroups = [
     ]
   },
   {
+    title: '内部车辆管理',
+    icon: Truck,
+    items: [
+      // 车队长菜单
+      {
+        name: '车队工作台',
+        href: '/m/internal/fleet-dashboard',
+        icon: BarChart3,
+        roles: ['fleet_manager']
+      },
+      {
+        name: '车辆管理',
+        href: '/m/internal/vehicles',
+        icon: Truck,
+        roles: ['fleet_manager']
+      },
+      {
+        name: '费用审核',
+        href: '/m/internal/expense-review',
+        icon: FileText,
+        roles: ['fleet_manager']
+      },
+      // 司机菜单
+      {
+        name: '我的费用申请',
+        href: '/m/internal/my-expenses',
+        icon: FileText,
+        roles: ['driver']
+      },
+      {
+        name: '录入运单',
+        href: '/m/internal/quick-entry',
+        icon: Truck,
+        roles: ['driver']
+      },
+      {
+        name: '我的工资',
+        href: '/m/internal/driver-salary',
+        icon: DollarSign,
+        roles: ['driver']
+      },
+      {
+        name: '我的车辆',
+        href: '/m/internal/my-vehicles',
+        icon: Truck,
+        roles: ['driver']
+      },
+      {
+        name: '工资记录',
+        href: '/m/internal/salary-records',
+        icon: Calendar,
+        roles: ['driver']
+      }
+    ]
+  },
+  {
     title: '财务管理',
     icon: Calculator,
     items: [
