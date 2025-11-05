@@ -37,6 +37,13 @@ export const Locations = lazy(() => import('./pages/Locations'));
 export const Partners = lazy(() => import('./pages/Partners'));
 export const FleetManagement = lazy(() => import('./pages/FleetManagement'));
 
+// 内部车辆管理 - PC端
+export const VehicleManagement = lazy(() => import('./pages/internal/VehicleManagement'));
+export const DriverManagement = lazy(() => import('./pages/internal/DriverManagement'));
+export const ExpenseApproval = lazy(() => import('./pages/internal/ExpenseApproval'));
+export const IncomeInput = lazy(() => import('./pages/internal/IncomeInput'));
+export const PendingTasks = lazy(() => import('./pages/internal/PendingTasks'));
+
 // 合同管理
 export const ContractManagement = lazy(() => import('./pages/ContractManagement'));
 

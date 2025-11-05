@@ -29,6 +29,12 @@ import {
   Locations,
   Partners,
   FleetManagement,
+  // 内部车辆管理 - PC端
+  VehicleManagement,
+  DriverManagement,
+  ExpenseApproval,
+  IncomeInput,
+  PendingTasks,
   BusinessEntry,
   ScaleRecords,
   PaymentRequest,
@@ -204,6 +210,37 @@ const App = () => (
             <Route path="/fleet-management" element={
               <ProtectedRoute requiredPermission="maintenance.fleet">
                 <AppLayout><FleetManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            {/* --- 内部车辆管理 - PC端路由 ⭐ --- */}
+            <Route path="/internal/vehicles" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <AppLayout><VehicleManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/internal/drivers" element={
+              <ProtectedRoute requiredPermission="internal.driver_management">
+                <AppLayout><DriverManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/internal/expense-approval" element={
+              <ProtectedRoute requiredPermission="internal.expense_review">
+                <AppLayout><ExpenseApproval /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/internal/income-input" element={
+              <ProtectedRoute requiredPermission="internal.income_input">
+                <AppLayout><IncomeInput /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/internal/pending-tasks" element={
+              <ProtectedRoute requiredPermission="internal.pending_tasks">
+                <AppLayout><PendingTasks /></AppLayout>
               </ProtectedRoute>
             } />
             
