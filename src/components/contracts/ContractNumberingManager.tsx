@@ -98,7 +98,7 @@ export function ContractNumberingManager({ onRuleUpdate }: ContractNumberingMana
             format: formData.format,
             current_sequence: formData.current_sequence,
             updated_at: new Date().toISOString()
-          })
+          } as any)
           .eq('id', editingRule.id);
 
         if (error) throw error;
@@ -111,14 +111,14 @@ export function ContractNumberingManager({ onRuleUpdate }: ContractNumberingMana
         // 创建新规则
         const { error } = await supabase
           .from('contract_numbering_rules')
-          .insert({
+          .insert([{
             category: formData.category,
             prefix: formData.prefix,
             format: formData.format,
             current_sequence: formData.current_sequence,
             year: new Date().getFullYear(),
             month: new Date().getMonth() + 1
-          });
+          }] as any);
 
         if (error) throw error;
 

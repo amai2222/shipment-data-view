@@ -116,7 +116,7 @@ export function ContractReports({ contractId }: ContractReportsProps) {
 
       const monthlyData: Record<string, { contracts: number; amount: number }> = {};
 
-      contracts?.forEach(contract => {
+      typedContracts?.forEach(contract => {
         const endDate = new Date(contract.end_date);
         const createdDate = new Date(contract.created_at);
         const monthKey = format(createdDate, 'yyyy-MM');

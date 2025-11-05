@@ -97,7 +97,7 @@ export function ContractTagManager({ onTagUpdate }: ContractTagManagerProps) {
             name: formData.name.trim(),
             color: formData.color,
             description: formData.description.trim() || null
-          })
+          } as any)
           .eq('id', editingTag.id);
 
         if (error) throw error;
@@ -110,12 +110,12 @@ export function ContractTagManager({ onTagUpdate }: ContractTagManagerProps) {
         // 创建新标签
         const { error } = await supabase
           .from('contract_tags')
-          .insert({
+          .insert([{
             name: formData.name.trim(),
             color: formData.color,
             description: formData.description.trim() || null,
             is_system: false
-          });
+          }] as any);
 
         if (error) throw error;
 

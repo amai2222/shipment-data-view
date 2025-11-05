@@ -183,7 +183,7 @@ export function ContractPermissionManager({ contractId, onPermissionUpdate }: Co
         // 更新现有权限
         const { error } = await supabase
           .from('contract_permissions')
-          .update(permissionData)
+          .update(permissionData as any)
           .eq('id', editingPermission.id);
 
         if (error) throw error;
