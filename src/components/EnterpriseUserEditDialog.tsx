@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase } from '@/lib/supabase-helpers';
 import { 
   User, 
   Mail, 
@@ -126,7 +126,7 @@ export function EnterpriseUserEditDialog({
       setLoading(true);
 
       // 更新用户基本信息
-      const { error: profileError } = await supabase
+      const { error: profileError } = await relaxedSupabase
         .from('profiles')
         .update({
           full_name: pendingChanges.full_name,
@@ -143,7 +143,7 @@ export function EnterpriseUserEditDialog({
 
       // 如果修改了密码，调用 Edge Function
       if (pendingChanges.password) {
-        const { data: passwordData, error: passwordError } = await supabase.functions.invoke('update-user-password', {
+        const { data: passwordData, error: passwordError } = await relaxedSupabase.functions.invoke('update-user-password', {
           body: {
             userId: user.id,
             newPassword: pendingChanges.password
@@ -157,7 +157,7 @@ export function EnterpriseUserEditDialog({
 
       // 如果修改了邮箱，调用 Edge Function
       if (pendingChanges.email !== user.email) {
-        const { data: emailData, error: emailError } = await supabase.functions.invoke('update-user', {
+        const { data: emailData, error: emailError } = await relaxedSupabase.functions.invoke('update-user', {
           body: {
             userId: user.id,
             email: pendingChanges.email

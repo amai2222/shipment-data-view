@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase } from '@/lib/supabase-helpers';
 import { useAuth, UserProfile } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { CheckCircle, Clock, XCircle, Send, AlertTriangle } from 'lucide-react';
@@ -99,7 +99,7 @@ export function PaymentApproval({
   // 获取支付请求的当前状态
   const fetchPaymentRequestStatus = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await relaxedSupabase
         .from('payment_requests')
         .select('status, work_wechat_sp_no')
         .eq('id', paymentRequestId)
@@ -122,7 +122,7 @@ export function PaymentApproval({
   const fetchApprovers = async () => {
     try {
       // **关键修改：查询角色包含 'admin', 'finance', 和 'approver' 的用户**
-      const { data, error } = await supabase
+      const { data, error } = await relaxedSupabase
         .from('profiles')
         .select('id, full_name, work_wechat_userid')
         .in('role', ['admin', 'finance']) // 只包含有效角色
@@ -169,7 +169,7 @@ export function PaymentApproval({
 
     setIsSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('work-wechat-approval', {
+      const { data, error } = await relaxedSupabase.functions.invoke('work-wechat-approval', {
         body: {
           action: 'submit',
           payment_request_id: paymentRequestId,

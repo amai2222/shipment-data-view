@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PermissionDatabaseService } from '@/services/PermissionDatabaseService';
 import { PermissionResetService } from '@/services/PermissionResetService';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase } from '@/lib/supabase-helpers';
 
 interface PermissionDebugInfo {
   userPermissions: any;
@@ -28,7 +28,7 @@ export function PermissionDebugger() {
     setLoading(true);
     try {
       // 获取用户信息
-      const { data: userData } = await supabase
+      const { data: userData } = await relaxedSupabase
         .from('profiles')
         .select('id, email, role')
         .eq('id', userId)
@@ -52,7 +52,7 @@ export function PermissionDebugger() {
       );
 
       // 检查数据库状态
-      const { data: templateData } = await supabase
+      const { data: templateData } = await relaxedSupabase
         .from('role_permission_templates')
         .select('*')
         .eq('role', userData.role)

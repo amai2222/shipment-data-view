@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { FileViewerDialog } from '@/components/FileViewerDialog';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Plus, Download, Eye, Trash2, FileText, History, Archive } from 'lucide-react';
 import { format } from 'date-fns';
@@ -68,7 +68,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
         return;
       }
       
-      const { data, error } = await supabase
+      const { data, error } = await relaxedSupabase
         .from('contract_file_versions')
         .select(`
           *,
@@ -127,7 +127,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
 
     try {
       // 获取合同信息用于文件命名
-      const { data: contractData } = await supabase
+      const { data: contractData } = await relaxedSupabase
         .from('contracts')
         .select('contract_number, counterparty_company, our_company')
         .eq('id', contractId)
@@ -153,7 +153,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
         reader.readAsDataURL(selectedFile);
       });
 
-      const { data, error } = await supabase.functions.invoke('qiniu-upload', {
+      const { data, error } = await relaxedSupabase.functions.invoke('qiniu-upload', {
         body: {
           files: [{
             fileName: selectedFile.name,
@@ -170,7 +170,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
       if (!data.success) throw new Error(data.error || 'Upload failed');
 
       // 获取当前版本号
-      const { data: maxVersion } = await supabase
+      const { data: maxVersion } = await relaxedSupabase
         .from('contract_file_versions')
         .select('version_number')
         .eq('contract_id', contractId)
@@ -183,7 +183,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
 
       // 如果是原件或附件，将其他版本设为非当前版本
       if (formData.file_type === 'original' || formData.file_type === 'attachment') {
-        await supabase
+        await relaxedSupabase
           .from('contract_file_versions')
           .update({ is_current: false })
           .eq('contract_id', contractId)
@@ -191,7 +191,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
       }
 
       // 保存文件版本记录
-      const { error: insertError } = await supabase
+      const { error: insertError } = await relaxedSupabase
         .from('contract_file_versions')
         .insert({
           contract_id: contractId,
@@ -243,7 +243,7 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await relaxedSupabase
         .from('contract_file_versions')
         .delete()
         .eq('id', fileId);
@@ -270,14 +270,14 @@ export function ContractFileManager({ contractId, contractNumber, onFileUpdate }
   const handleSetCurrent = async (fileId: string, fileType: string) => {
     try {
       // 先将同类型的所有文件设为非当前版本
-      await supabase
+      await relaxedSupabase
         .from('contract_file_versions')
         .update({ is_current: false })
         .eq('contract_id', contractId)
         .eq('file_type', fileType);
 
       // 将指定文件设为当前版本
-      const { error } = await supabase
+      const { error } = await relaxedSupabase
         .from('contract_file_versions')
         .update({ is_current: true })
         .eq('id', fileId);

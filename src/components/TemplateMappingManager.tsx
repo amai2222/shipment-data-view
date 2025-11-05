@@ -36,7 +36,7 @@ import {
   FileText,
   AlertCircle
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { relaxedSupabase } from '@/lib/supabase-helpers';
 import { useToast } from "@/hooks/use-toast";
 
 interface ImportTemplate {
@@ -142,7 +142,7 @@ export default function TemplateMappingManager() {
   // 加载模板列表
   const loadTemplates = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await relaxedSupabase
         .from('import_templates')
         .select('*')
         .order('created_at', { ascending: false });
@@ -172,7 +172,7 @@ export default function TemplateMappingManager() {
   // 加载字段映射
   const loadFieldMappings = async (templateId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await relaxedSupabase
         .from('import_field_mappings')
         .select('*')
         .eq('template_id', templateId)
@@ -199,7 +199,7 @@ export default function TemplateMappingManager() {
   // 加载固定映射
   const loadFixedMappings = async (templateId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await relaxedSupabase
         .from('import_fixed_mappings')
         .select('*')
         .eq('template_id', templateId);
@@ -234,7 +234,7 @@ export default function TemplateMappingManager() {
 
     setIsLoading(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await relaxedSupabase.auth.getUser();
       
       const templateData = {
         ...(selectedTemplate?.id && { id: selectedTemplate.id }),
@@ -250,7 +250,7 @@ export default function TemplateMappingManager() {
         updated_at: new Date().toISOString()
       };
       
-      const { data, error } = await supabase
+      const { data, error } = await relaxedSupabase
         .from('import_templates')
         .upsert(templateData)
         .select()
@@ -278,7 +278,7 @@ export default function TemplateMappingManager() {
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await relaxedSupabase
         .from('import_field_mappings')
         .upsert({
           ...(editingField?.id && { id: editingField.id }),
@@ -311,7 +311,7 @@ export default function TemplateMappingManager() {
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await relaxedSupabase
         .from('import_fixed_mappings')
         .upsert({
           ...(editingFixed?.id && { id: editingFixed.id }),
@@ -337,7 +337,7 @@ export default function TemplateMappingManager() {
   // 删除字段映射
   const handleDeleteFieldMapping = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await relaxedSupabase
         .from('import_field_mappings')
         .delete()
         .eq('id', id);
@@ -357,7 +357,7 @@ export default function TemplateMappingManager() {
   // 删除固定映射
   const handleDeleteFixedMapping = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await relaxedSupabase
         .from('import_fixed_mappings')
         .delete()
         .eq('id', id);

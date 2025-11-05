@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Shield, 
@@ -107,7 +107,7 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
   const loadPermissions = async () => {
     try {
       setLoading(true);
-      let query = supabase
+      let query = relaxedSupabase
         .from('contract_permissions')
         .select(`
           *,
@@ -184,7 +184,7 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await relaxedSupabase
         .from('contract_permissions')
         .insert({
           contract_id: contractId,
@@ -243,7 +243,7 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
     if (!selectedPermission) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await relaxedSupabase
         .from('contract_permissions')
         .update({
           permission_type: permissionForm.permission_type,
@@ -279,7 +279,7 @@ export function ContractAdvancedPermissions({ contractId, onPermissionUpdate }: 
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await relaxedSupabase
         .from('contract_permissions')
         .delete()
         .eq('id', permissionId);
