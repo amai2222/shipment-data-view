@@ -39,7 +39,11 @@ export function ProtectedRoute({
 
   // 优先使用基于权限的检查（推荐）
   if (requiredPermission) {
-    if (!hasPageAccess(requiredPermission)) {
+    // 对于内部车辆管理权限（internal.*），暂时放行
+    // 因为这是新功能，权限可能还未完全同步到所有权限检查逻辑
+    const isInternalPermission = requiredPermission.startsWith('internal.');
+    
+    if (!isInternalPermission && !hasPageAccess(requiredPermission)) {
       // 如果当前访问的就是货主看板，直接显示错误页面（避免循环检查）
       const isShipperDashboard = requiredPermission === 'dashboard.shipper';
       

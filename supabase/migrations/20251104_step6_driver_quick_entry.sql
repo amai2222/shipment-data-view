@@ -105,14 +105,14 @@ BEGIN
         -- 装货地点信息
         (
             SELECT jsonb_agg(jsonb_build_object('id', l.id, 'name', l.name))
-            FROM unnest(dpr.common_loading_location_ids) AS loc_id
-            JOIN locations l ON l.id = loc_id
+            FROM unnest(dpr.common_loading_location_ids) AS location_id
+            JOIN locations l ON l.id = location_id
         ) as common_loading_locations,
         -- 卸货地点信息
         (
             SELECT jsonb_agg(jsonb_build_object('id', l.id, 'name', l.name))
-            FROM unnest(dpr.common_unloading_location_ids) AS loc_id
-            JOIN locations l ON l.id = loc_id
+            FROM unnest(dpr.common_unloading_location_ids) AS unload_location_id
+            JOIN locations l ON l.id = unload_location_id
         ) as common_unloading_locations
     FROM internal_driver_project_routes dpr
     INNER JOIN projects p ON dpr.project_id = p.id
