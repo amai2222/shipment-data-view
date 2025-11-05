@@ -28,6 +28,11 @@ export default function Auth() {
 
   // 如果已经登录，根据角色重定向到目标页面
   if (user && profile) {
+    // 调试日志
+    console.log('Auth.tsx - 用户已登录，准备跳转');
+    console.log('  角色:', profile.role);
+    console.log('  是否移动端:', isMobile());
+    
     // 定义角色默认首页映射
     const roleHomePage: Record<string, { pc: string; mobile: string }> = {
       partner: {
@@ -57,10 +62,12 @@ export default function Auth() {
     
     if (defaultHome) {
       const targetPath = isMobile() ? defaultHome.mobile : defaultHome.pc;
+      console.log('  跳转路径:', targetPath);
       return <Navigate to={targetPath} replace />;
     }
     
     // 其他角色（admin, business, viewer）使用原来的跳转逻辑
+    console.log('  未匹配角色，使用默认跳转');
     const from = location.state?.from?.pathname || '/';
     return <Navigate to={from} replace />;
   }
@@ -94,7 +101,7 @@ export default function Auth() {
       // 复用角色首页映射表
       const roleHomePage: Record<string, { pc: string; mobile: string }> = {
         partner: { pc: '/dashboard/shipper', mobile: '/m/dashboard/shipper' },
-        fleet_manager: { pc: '/internal/vehicles', mobile: '/m/internal/vehicles' },
+        fleet_manager: { pc: '/internal/vehicles', mobile: '/m/internal/fleet-dashboard' },
         driver: { pc: '/internal/my-expenses', mobile: '/m/internal/my-expenses' },
         finance: { pc: '/dashboard/financial', mobile: '/m/dashboard/financial' },
         operator: { pc: '/business-entry', mobile: '/m/business-entry' }
