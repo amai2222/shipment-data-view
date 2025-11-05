@@ -90,6 +90,18 @@ export default function PermissionConfigPage() {
     setHasChanges(true);
   };
 
+  // 加载状态
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="mt-4 text-sm text-muted-foreground">加载权限配置中...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 space-y-4">
       <PageHeader
