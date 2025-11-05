@@ -326,13 +326,24 @@ export function MobileLayout({ children }: MobileLayoutProps) {
   // 过滤菜单分组
   const filteredMenuGroups = menuGroups.map(group => ({
     ...group,
-    items: group.items.filter(item => 
-      hasRole(item.roles as any) && hasMenuAccess(item.href)
-    )
+    items: group.items.filter(item => {
+      // 先检查角色
+      const hasRoleAccess = hasRole(item.roles);
+      if (!hasRoleAccess) return false;
+      
+      // 对于内部车辆管理菜单 (/m/internal/)，只检查角色，不检查数据库权限
+      // 因为这些是新功能，可能还没在 menu_config 表中配置完全
+      if (item.href.startsWith('/m/internal/')) {
+        return true;
+      }
+      
+      // 其他菜单需要检查数据库权限
+      return hasMenuAccess(item.href);
+    })
   })).filter(group => group.items.length > 0);
 
   const filteredSettingsNavigation = settingsNavigation.filter(item => 
-    hasRole(item.roles as any) && hasMenuAccess(item.href)
+    hasRole(item.roles) && hasMenuAccess(item.href)
   );
 
   return (

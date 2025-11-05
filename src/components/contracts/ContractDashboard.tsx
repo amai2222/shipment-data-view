@@ -73,6 +73,9 @@ export function ContractDashboard() {
         .select('*');
 
       if (error) throw error;
+      
+      // 类型断言
+      const typedContracts = contracts as any[];
 
       const now = new Date();
       const thirtyDaysFromNow = addDays(now, 30);
@@ -91,7 +94,7 @@ export function ContractDashboard() {
 
       const expiring: ExpiringContract[] = [];
 
-      contracts?.forEach(contract => {
+      typedContracts?.forEach(contract => {
         const endDate = new Date(contract.end_date);
         const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
