@@ -43,6 +43,12 @@ export const DriverManagement = lazy(() => import('./pages/internal/DriverManage
 export const ExpenseApproval = lazy(() => import('./pages/internal/ExpenseApproval'));
 export const IncomeInput = lazy(() => import('./pages/internal/IncomeInput'));
 export const PendingTasks = lazy(() => import('./pages/internal/PendingTasks'));
+export const CertificateManagement = lazy(() => import('./pages/internal/CertificateManagement'));
+export const VehicleStatus = lazy(() => import('./pages/internal/VehicleStatus'));
+export const VehicleLedger = lazy(() => import('./pages/internal/VehicleLedger'));
+export const ExpenseCategories = lazy(() => import('./pages/internal/ExpenseCategories'));
+export const VehicleBalance = lazy(() => import('./pages/internal/VehicleBalance'));
+export const FinancialReports = lazy(() => import('./pages/internal/FinancialReports'));
 
 // 合同管理
 export const ContractManagement = lazy(() => import('./pages/ContractManagement'));

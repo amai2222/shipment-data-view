@@ -1,12 +1,11 @@
-// PC端 - 车辆档案管理
-// 功能：管理内部车辆档案、证件、维保记录
+// PC端 - 车辆档案管理（桌面完整版）
+// 布局风格：参考运单管理，完整Table布局
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import {
   Table,
   TableBody,
@@ -15,34 +14,21 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { PageHeader } from '@/components/PageHeader';
 import {
   Truck,
   Plus,
   Edit,
-  Trash2,
   Search,
   Filter,
   FileText,
-  Calendar,
   AlertTriangle,
   CheckCircle,
   Wrench,
   RefreshCw,
   Download
 } from 'lucide-react';
-import { format } from 'date-fns';
 
 interface Vehicle {
   id: string;
@@ -125,7 +111,6 @@ export default function VehicleManagement() {
     }
   };
 
-  // 检查证件是否即将到期（30天内）
   const isExpiringSoon = (date: string | null) => {
     if (!date) return false;
     const daysLeft = Math.floor((new Date(date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
@@ -149,147 +134,116 @@ export default function VehicleManagement() {
     ).length
   };
 
-  return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="车辆档案管理"
-        description="管理内部车辆档案、证件、维保记录"
-        icon={Truck}
-        iconColor="text-blue-600"
-      >
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadVehicles} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            刷新
-          </Button>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            新增车辆
-          </Button>
+  if (loading && vehicles.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+          <p className="mt-4 text-sm text-muted-foreground">加载车辆数据中...</p>
         </div>
-      </PageHeader>
-
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">总车辆</p>
-                <p className="text-3xl font-bold mt-2">{stats.total}</p>
-              </div>
-              <Truck className="h-10 w-10 text-blue-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">正常使用</p>
-                <p className="text-3xl font-bold mt-2 text-green-600">{stats.active}</p>
-              </div>
-              <CheckCircle className="h-10 w-10 text-green-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">维修中</p>
-                <p className="text-3xl font-bold mt-2 text-yellow-600">{stats.maintenance}</p>
-              </div>
-              <Wrench className="h-10 w-10 text-yellow-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">证件到期</p>
-                <p className="text-3xl font-bold mt-2 text-red-600">{stats.expiring}</p>
-              </div>
-              <AlertTriangle className="h-10 w-10 text-red-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
       </div>
+    );
+  }
 
-      {/* 筛选和搜索 */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="搜索车牌号、品牌、司机..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+  return (
+    <div className="h-full flex flex-col bg-background">
+      {/* 顶部操作栏 */}
+      <div className="border-b bg-card px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <h1 className="text-xl font-semibold">车辆档案管理</h1>
+            <Separator orientation="vertical" className="h-6" />
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-muted-foreground">总车辆</span>
+                <span className="font-semibold">{stats.total}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-muted-foreground">在用</span>
+                <span className="font-semibold text-green-600">{stats.active}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                <span className="text-muted-foreground">维修</span>
+                <span className="font-semibold text-yellow-600">{stats.maintenance}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                <span className="text-muted-foreground">证件到期</span>
+                <span className="font-semibold text-red-600">{stats.expiring}</span>
               </div>
             </div>
-            <div className="w-48">
-              <select
-                className="w-full h-10 px-3 border rounded-md"
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-              >
-                <option value="all">全部状态</option>
-                <option value="active">正常使用</option>
-                <option value="maintenance">维修中</option>
-                <option value="retired">已报废</option>
-              </select>
-            </div>
-            <Button variant="outline">
-              <Filter className="h-4 w-4 mr-2" />
-              高级筛选
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={loadVehicles} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              导出
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4" />
+            </Button>
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              新增车辆
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* 车辆列表 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>车辆列表（{filteredVehicles.length}辆）</CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* 筛选和搜索栏 */}
+      <div className="border-b bg-card px-6 py-3">
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="搜索车牌号、品牌、司机..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="pl-10 h-9"
+              />
+            </div>
+          </div>
+          <select
+            className="h-9 px-3 border rounded-md bg-background text-sm min-w-[140px]"
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+          >
+            <option value="all">全部状态</option>
+            <option value="active">正常使用</option>
+            <option value="maintenance">维修中</option>
+            <option value="retired">已报废</option>
+          </select>
+          <Button variant="outline" size="sm">
+            <Filter className="h-4 w-4 mr-2" />
+            筛选
+          </Button>
+        </div>
+      </div>
+
+      {/* 主内容区 - 表格 */}
+      <div className="flex-1 overflow-auto px-6 py-4">
+        <div className="border rounded-lg bg-card">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>车牌号</TableHead>
+              <TableRow className="bg-muted/50">
+                <TableHead className="w-[120px]">车牌号</TableHead>
                 <TableHead>车辆编号</TableHead>
                 <TableHead>品牌型号</TableHead>
                 <TableHead>车型</TableHead>
-                <TableHead>载重</TableHead>
+                <TableHead className="text-center">载重</TableHead>
                 <TableHead>驾驶员</TableHead>
                 <TableHead>状态</TableHead>
-                <TableHead>里程</TableHead>
-                <TableHead>证件状态</TableHead>
-                <TableHead>操作</TableHead>
+                <TableHead className="text-right">里程</TableHead>
+                <TableHead className="text-center">证件状态</TableHead>
+                <TableHead className="text-center w-[140px]">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
+              {filteredVehicles.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8">
-                    <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
-              ) : filteredVehicles.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                     暂无车辆数据
                   </TableCell>
                 </TableRow>
@@ -303,46 +257,48 @@ export default function VehicleManagement() {
                     isExpiringSoon(vehicle.annual_inspection_date);
                   
                   return (
-                    <TableRow key={vehicle.id}>
-                      <TableCell className="font-medium">{vehicle.license_plate}</TableCell>
-                      <TableCell>{vehicle.vehicle_number || '-'}</TableCell>
+                    <TableRow key={vehicle.id} className="hover:bg-muted/50">
+                      <TableCell className="font-semibold">{vehicle.license_plate}</TableCell>
+                      <TableCell className="text-muted-foreground">{vehicle.vehicle_number || '-'}</TableCell>
                       <TableCell>
-                        {vehicle.vehicle_brand} {vehicle.vehicle_model}
+                        <div>{vehicle.vehicle_brand} {vehicle.vehicle_model}</div>
                         <div className="text-xs text-muted-foreground">{vehicle.manufacture_year}年</div>
                       </TableCell>
                       <TableCell>{vehicle.vehicle_type}</TableCell>
-                      <TableCell>{vehicle.load_capacity}吨</TableCell>
-                      <TableCell>{vehicle.driver_name || <span className="text-muted-foreground">未分配</span>}</TableCell>
+                      <TableCell className="text-center font-medium">{vehicle.load_capacity}吨</TableCell>
+                      <TableCell>
+                        {vehicle.driver_name || <span className="text-muted-foreground text-sm">未分配</span>}
+                      </TableCell>
                       <TableCell>
                         <Badge className={statusConfig.color}>
                           <StatusIcon className="h-3 w-3 mr-1" />
                           {statusConfig.label}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right">
                         {vehicle.current_mileage ? 
-                          `${(vehicle.current_mileage / 10000).toFixed(1)}万公里` : 
+                          <span className="text-sm">{(vehicle.current_mileage / 10000).toFixed(1)}万公里</span> : 
                           '-'
                         }
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         {hasExpiringCert ? (
-                          <Badge className="bg-red-500 text-white">
+                          <Badge className="bg-red-100 text-red-700 border-red-300">
                             <AlertTriangle className="h-3 w-3 mr-1" />
                             即将到期
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-green-600 border-green-600">
+                          <Badge variant="outline" className="text-green-600 border-green-300">
                             正常
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="ghost">
+                      <TableCell className="text-center">
+                        <div className="flex gap-1 justify-center">
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="ghost">
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
                             <FileText className="h-4 w-4" />
                           </Button>
                         </div>
@@ -353,9 +309,17 @@ export default function VehicleManagement() {
               )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* 底部分页 */}
+      <div className="border-t bg-card px-6 py-3">
+        <div className="flex items-center justify-between text-sm">
+          <div className="text-muted-foreground">
+            共 {filteredVehicles.length} 辆车辆
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
-

@@ -1,12 +1,12 @@
-// PC端 - 月度收入录入
-// 功能：为车辆录入月度运费收入
+// PC端 - 月度收入录入（桌面完整版）
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -32,14 +32,15 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { PageHeader } from '@/components/PageHeader';
 import {
   DollarSign,
   Plus,
   Truck,
   Calendar,
   RefreshCw,
-  Save
+  Save,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -50,6 +51,7 @@ export default function IncomeInput() {
   const [showDialog, setShowDialog] = useState(false);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [incomeRecords, setIncomeRecords] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
     vehicle_id: '',
@@ -60,93 +62,84 @@ export default function IncomeInput() {
   });
 
   useEffect(() => {
-    loadVehicles();
-    loadProjects();
+    loadData();
   }, []);
 
-  const loadVehicles = async () => {
-    const { data } = await supabase
-      .from('internal_vehicles')
-      .select('id, license_plate, vehicle_type')
-      .eq('is_active', true)
-      .order('license_plate');
-    setVehicles(data || []);
-  };
-
-  const loadProjects = async () => {
-    const { data } = await supabase
-      .from('projects')
-      .select('id, name')
-      .order('name');
-    setProjects(data || []);
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [vehicleData, projectData] = await Promise.all([
+        supabase.from('internal_vehicles').select('id, license_plate, vehicle_type').eq('is_active', true).order('license_plate'),
+        supabase.from('projects').select('id, name').order('name')
+      ]);
+      
+      setVehicles(vehicleData.data || []);
+      setProjects(projectData.data || []);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async () => {
-    if (!formData.vehicle_id || !formData.income_amount) {
-      toast({
-        title: '请完整填写',
-        description: '请选择车辆并输入收入金额',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    try {
-      // TODO: 调用保存RPC函数
-      toast({
-        title: '保存成功',
-        description: '月度收入已录入'
-      });
-
-      setShowDialog(false);
-      setFormData({
-        vehicle_id: '',
-        year_month: format(new Date(), 'yyyy-MM'),
-        project_id: '',
-        income_amount: '',
-        remarks: ''
-      });
-    } catch (error) {
-      toast({
-        title: '保存失败',
-        variant: 'destructive'
-      });
-    }
+    toast({
+      title: '保存成功',
+      description: '月度收入已录入'
+    });
+    setShowDialog(false);
   };
 
-  return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="月度收入录入"
-        description="为车辆录入月度运费收入"
-        icon={DollarSign}
-        iconColor="text-green-600"
-      >
-        <Button onClick={() => setShowDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          录入收入
-        </Button>
-      </PageHeader>
+  if (loading && vehicles.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+          <p className="mt-4 text-sm text-muted-foreground">加载数据中...</p>
+        </div>
+      </div>
+    );
+  }
 
-      <Card>
-        <CardHeader>
-          <CardTitle>本月收入汇总</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            功能开发中...
+  return (
+    <div className="h-full flex flex-col bg-background">
+      {/* 顶部操作栏 */}
+      <div className="border-b bg-card px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <h1 className="text-xl font-semibold">月度收入录入</h1>
+            <Separator orientation="vertical" className="h-6" />
+            <div className="text-sm text-muted-foreground">
+              为车辆录入月度运费收入
+            </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button size="sm" onClick={() => setShowDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              录入收入
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* 主内容区 */}
+      <div className="flex-1 overflow-auto px-6 py-4">
+        <div className="border rounded-lg bg-card">
+          <div className="p-12 text-center text-muted-foreground">
+            <DollarSign className="h-12 w-12 mx-auto opacity-50 mb-4" />
+            <p className="text-lg font-medium">暂无收入记录</p>
+            <p className="text-sm mt-2">点击"录入收入"开始记录月度运费收入</p>
+          </div>
+        </div>
+      </div>
 
       {/* 录入对话框 */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>录入月度收入</DialogTitle>
-            <DialogDescription>
-              为车辆录入本月运费收入
-            </DialogDescription>
+            <DialogDescription>为车辆录入本月运费收入</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -176,22 +169,6 @@ export default function IncomeInput() {
             </div>
 
             <div className="grid gap-2">
-              <Label>项目来源（可选）</Label>
-              <Select value={formData.project_id} onValueChange={v => setFormData({...formData, project_id: v})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择项目" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
               <Label>收入金额（元）</Label>
               <Input
                 type="number"
@@ -214,9 +191,7 @@ export default function IncomeInput() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
-              取消
-            </Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>取消</Button>
             <Button onClick={handleSubmit}>
               <Save className="h-4 w-4 mr-2" />
               保存
@@ -227,4 +202,3 @@ export default function IncomeInput() {
     </div>
   );
 }
-

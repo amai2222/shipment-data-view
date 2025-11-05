@@ -35,6 +35,12 @@ import {
   ExpenseApproval,
   IncomeInput,
   PendingTasks,
+  CertificateManagement,
+  VehicleStatus,
+  VehicleLedger,
+  ExpenseCategories,
+  VehicleBalance,
+  FinancialReports,
   BusinessEntry,
   ScaleRecords,
   PaymentRequest,
@@ -241,6 +247,42 @@ const App = () => (
             <Route path="/internal/pending-tasks" element={
               <ProtectedRoute requiredPermission="internal.pending_tasks">
                 <AppLayout><PendingTasks /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/internal/certificates" element={
+              <ProtectedRoute requiredPermission="internal.certificates">
+                <AppLayout><CertificateManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/internal/vehicle-status" element={
+              <ProtectedRoute requiredPermission="internal.vehicle_status">
+                <AppLayout><VehicleStatus /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/internal/ledger" element={
+              <ProtectedRoute requiredPermission="internal.ledger">
+                <AppLayout><VehicleLedger /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/internal/expenses" element={
+              <ProtectedRoute requiredPermission="internal.expenses">
+                <AppLayout><ExpenseCategories /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/internal/balance" element={
+              <ProtectedRoute requiredPermission="internal.balance">
+                <AppLayout><VehicleBalance /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/internal/reports" element={
+              <ProtectedRoute requiredPermission="internal.reports">
+                <AppLayout><FinancialReports /></AppLayout>
               </ProtectedRoute>
             } />
             
