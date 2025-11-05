@@ -39,7 +39,9 @@ import {
   Upload,
   Image as ImageIcon,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  User,
+  Truck
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
