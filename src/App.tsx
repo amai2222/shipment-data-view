@@ -28,6 +28,7 @@ import {
   Drivers,
   Locations,
   Partners,
+  FleetManagement,
   BusinessEntry,
   ScaleRecords,
   PaymentRequest,
@@ -197,6 +198,12 @@ const App = () => (
             <Route path="/partners/hierarchy" element={
               <ProtectedRoute requiredPermission="maintenance.partners">
                 <AppLayout><PartnerHierarchyManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/fleet-management" element={
+              <ProtectedRoute requiredPermission="maintenance.fleet">
+                <AppLayout><FleetManagement /></AppLayout>
               </ProtectedRoute>
             } />
             

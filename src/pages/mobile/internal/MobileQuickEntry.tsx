@@ -9,12 +9,20 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
@@ -27,7 +35,8 @@ import {
   Phone,
   Loader2,
   CheckCircle,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -75,12 +84,26 @@ export default function MobileQuickEntry() {
   // 司机信息（自动填充）
   const [driverInfo, setDriverInfo] = useState<any>(null);
   const [myVehicle, setMyVehicle] = useState<any>(null);
+  
+  // 地点管理
+  const [projectLoadingLocations, setProjectLoadingLocations] = useState<any[]>([]);
+  const [projectUnloadingLocations, setProjectUnloadingLocations] = useState<any[]>([]);
+  const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
+  const [addLocationName, setAddLocationName] = useState('');
+  const [addLocationType, setAddLocationType] = useState<'loading' | 'unloading'>('loading');
 
   useEffect(() => {
     loadMyInfo();
     loadMyRoutes();
     loadRecentWaybills();
   }, []);
+
+  // 当选择项目后，加载该项目的地点
+  useEffect(() => {
+    if (formData.project_id) {
+      loadProjectLocations(formData.project_id);
+    }
+  }, [formData.project_id]);
 
   // 加载司机信息
   const loadMyInfo = async () => {
@@ -142,6 +165,92 @@ export default function MobileQuickEntry() {
       setRecentWaybills(data || []);
     } catch (error) {
       console.error('加载运单失败:', error);
+    }
+  };
+
+  // 加载项目的地点列表
+  const loadProjectLocations = async (projectId: string) => {
+    try {
+      const { data, error } = await supabase.rpc('get_project_locations', {
+        p_project_id: projectId
+      });
+      
+      if (error) throw error;
+      
+      const loadingLocs = (data || []).filter((loc: any) => loc.location_type === 'loading');
+      const unloadingLocs = (data || []).filter((loc: any) => loc.location_type === 'unloading');
+      
+      setProjectLoadingLocations(loadingLocs);
+      setProjectUnloadingLocations(unloadingLocs);
+    } catch (error) {
+      console.error('加载地点失败:', error);
+      setProjectLoadingLocations([]);
+      setProjectUnloadingLocations([]);
+    }
+  };
+
+  // 快速添加地点
+  const handleAddLocation = async () => {
+    if (!addLocationName.trim()) {
+      toast({
+        title: '请输入地点名称',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!formData.project_id) {
+      toast({
+        title: '请先选择项目',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase.rpc('driver_add_location', {
+        p_location_name: addLocationName.trim(),
+        p_project_id: formData.project_id,
+        p_location_type: addLocationType
+      });
+
+      if (error) throw error;
+      
+      if (data.success) {
+        toast({
+          title: '添加成功',
+          description: `地点"${addLocationName}"已添加`
+        });
+
+        // 刷新地点列表
+        loadProjectLocations(formData.project_id);
+
+        // 自动选中新添加的地点
+        if (addLocationType === 'loading') {
+          setFormData(prev => ({ ...prev, loading_location_id: data.location_id }));
+        } else {
+          setFormData(prev => ({ ...prev, unloading_location_id: data.location_id }));
+        }
+
+        setShowAddLocationDialog(false);
+        setAddLocationName('');
+      } else {
+        toast({
+          title: '添加失败',
+          description: data.error,
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('添加地点失败:', error);
+      toast({
+        title: '添加失败',
+        description: '请稍后重试',
+        variant: 'destructive'
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -259,44 +368,86 @@ export default function MobileQuickEntry() {
               </Select>
             </div>
 
-            {/* 装货地 */}
+            {/* 装货地 - 支持快速添加 */}
             <div className="grid gap-2">
-              <Label>装货地 *</Label>
+              <Label className="flex items-center justify-between">
+                <span>装货地 *</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-xs"
+                  onClick={() => {
+                    setAddLocationType('loading');
+                    setShowAddLocationDialog(true);
+                  }}
+                  disabled={!formData.project_id}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  添加地点
+                </Button>
+              </Label>
               <Select 
                 value={formData.loading_location_id} 
                 onValueChange={value => setFormData(prev => ({ ...prev, loading_location_id: value }))}
-                disabled={!selectedRoute}
+                disabled={!formData.project_id}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="选择装货地点" />
+                  <SelectValue placeholder={formData.project_id ? "选择装货地点" : "请先选择项目"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {selectedRoute?.common_loading_locations?.map((loc: any) => (
-                    <SelectItem key={loc.id} value={loc.id}>
-                      {loc.name}
+                  {projectLoadingLocations.map((loc: any) => (
+                    <SelectItem key={loc.location_id} value={loc.location_id}>
+                      {loc.location_name}
                     </SelectItem>
                   ))}
+                  {projectLoadingLocations.length === 0 && (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      暂无装货地点，请点击"添加地点"
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* 卸货地 */}
+            {/* 卸货地 - 支持快速添加 */}
             <div className="grid gap-2">
-              <Label>卸货地 *</Label>
+              <Label className="flex items-center justify-between">
+                <span>卸货地 *</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-xs"
+                  onClick={() => {
+                    setAddLocationType('unloading');
+                    setShowAddLocationDialog(true);
+                  }}
+                  disabled={!formData.project_id}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  添加地点
+                </Button>
+              </Label>
               <Select 
                 value={formData.unloading_location_id} 
                 onValueChange={value => setFormData(prev => ({ ...prev, unloading_location_id: value }))}
-                disabled={!selectedRoute}
+                disabled={!formData.project_id}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="选择卸货地点" />
+                  <SelectValue placeholder={formData.project_id ? "选择卸货地点" : "请先选择项目"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {selectedRoute?.common_unloading_locations?.map((loc: any) => (
-                    <SelectItem key={loc.id} value={loc.id}>
-                      {loc.name}
+                  {projectUnloadingLocations.map((loc: any) => (
+                    <SelectItem key={loc.location_id} value={loc.location_id}>
+                      {loc.location_name}
                     </SelectItem>
                   ))}
+                  {projectUnloadingLocations.length === 0 && (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      暂无卸货地点，请点击"添加地点"
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -415,6 +566,52 @@ export default function MobileQuickEntry() {
             </CardContent>
           </Card>
         )}
+
+        {/* 快速添加地点对话框 */}
+        <Dialog open={showAddLocationDialog} onOpenChange={setShowAddLocationDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>添加地点</DialogTitle>
+              <DialogDescription>
+                添加{addLocationType === 'loading' ? '装货' : '卸货'}地点，并自动关联到项目
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <Label>地点名称</Label>
+                <Input
+                  placeholder="输入地点名称..."
+                  value={addLocationName}
+                  onChange={e => setAddLocationName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">自动关联到项目</p>
+                    <p className="text-xs mt-1 text-blue-600">
+                      添加后，该地点将自动关联到当前项目，其他司机录单时也能使用
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddLocationDialog(false)}>
+                取消
+              </Button>
+              <Button onClick={handleAddLocation} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                确认添加
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MobileLayout>
   );

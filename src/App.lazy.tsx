@@ -35,6 +35,7 @@ export const FinancialOverview = lazy(() => import('./pages/FinancialOverview'))
 export const Drivers = lazy(() => import('./pages/Drivers'));
 export const Locations = lazy(() => import('./pages/Locations'));
 export const Partners = lazy(() => import('./pages/Partners'));
+export const FleetManagement = lazy(() => import('./pages/FleetManagement'));
 
 // 合同管理
 export const ContractManagement = lazy(() => import('./pages/ContractManagement'));
