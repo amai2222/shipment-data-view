@@ -130,7 +130,7 @@ serve(async (req) => {
     }
 
     // 验证角色
-    const validRoles = ['admin', 'system_admin', 'business', 'finance', 'operator', 'viewer'];
+    const validRoles = ['admin', 'system_admin', 'business', 'finance', 'operator', 'viewer', 'partner', 'fleet_manager', 'driver'];
     if (!validRoles.includes(requestData.role)) {
       return new Response(
         JSON.stringify({ error: `无效的角色。有效角色：${validRoles.join(', ')}` }),
