@@ -121,6 +121,303 @@ export class SupabaseStorage {
     }
   }
 
+  // 地点相关
+  static async getLocations(): Promise<Location[]> {
+    const { data, error } = await supabase
+      .from('locations')
+      .select(`*, location_projects(project_id)`)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data?.map(l => ({
+      id: l.id,
+      name: l.name,
+      projectIds: l.location_projects?.map((lp: any) => lp.project_id) || [],
+      createdAt: l.created_at,
+    })) || [];
+  }
+
+  static async addLocation(location: Omit<Location, 'id' | 'createdAt'>): Promise<Location> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('请先登录');
+
+    const { data, error } = await supabase
+      .from('locations')
+      .insert([{ user_id: user.id, name: location.name }])
+      .select().single();
+    if (error) throw error;
+
+    if (location.projectIds && location.projectIds.length > 0) {
+      const { error: relationError } = await supabase
+        .from('location_projects')
+        .insert(location.projectIds.map(projectId => ({ 
+          location_id: data.id, 
+          project_id: projectId, 
+          user_id: user.id 
+        })));
+      if (relationError) throw relationError;
+    }
+    return { 
+      id: data.id, 
+      name: data.name, 
+      projectIds: location.projectIds || [], 
+      createdAt: data.created_at 
+    };
+  }
+
+  static async updateLocation(id: string, updates: Partial<Location>): Promise<void> {
+    const { error } = await supabase.from('locations').update({ name: updates.name }).eq('id', id);
+    if (error) throw error;
+
+    if (updates.projectIds !== undefined) {
+      await supabase.from('location_projects').delete().eq('location_id', id);
+      if (updates.projectIds.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('请先登录');
+        const { error: relationError } = await supabase
+          .from('location_projects')
+          .insert(updates.projectIds.map(projectId => ({ 
+            location_id: id, 
+            project_id: projectId, 
+            user_id: user.id 
+          })));
+        if (relationError) throw relationError;
+      }
+    }
+  }
+
+  static async deleteLocation(id: string): Promise<void> {
+    const { error } = await supabase.from('locations').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  // 司机相关
+  static async getDrivers(filter: string, page: number, pageSize: number): Promise<{ drivers: Driver[], totalCount: number }> {
+    const { data, error } = await supabase.rpc('get_drivers_paginated', {
+      p_page_number: page,
+      p_page_size: pageSize,
+      p_search_text: filter,
+    });
+
+    if (error) {
+      console.error('Error fetching drivers:', error);
+      throw error;
+    }
+    
+    if (data && Array.isArray(data) && data.length > 0) {
+      return {
+        drivers: data.map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          licensePlate: d.license_plate,
+          phone: d.phone,
+          projectIds: d.project_ids,
+          createdAt: d.created_at
+        })),
+        totalCount: data[0].total_records || 0,
+      };
+    }
+    
+    return { drivers: [], totalCount: 0 };
+  }
+
+  static async addDriver(driver: Omit<Driver, 'id' | 'createdAt'>): Promise<Driver> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('请先登录');
+
+    const { data, error } = await supabase
+      .from('drivers')
+      .insert([{ 
+        user_id: user.id, 
+        name: driver.name, 
+        license_plate: driver.licensePlate, 
+        phone: driver.phone
+      }])
+      .select().single();
+
+    if (error) throw error;
+
+    if (driver.projectIds && driver.projectIds.length > 0) {
+      const { error: relationError } = await supabase
+        .from('driver_projects')
+        .insert(driver.projectIds.map(projectId => ({ 
+          driver_id: data.id, 
+          project_id: projectId, 
+          user_id: user.id 
+        })));
+      if (relationError) throw relationError;
+    }
+
+    return {
+      id: data.id,
+      name: data.name,
+      licensePlate: data.license_plate,
+      phone: data.phone,
+      projectIds: driver.projectIds || [],
+      createdAt: data.created_at,
+    };
+  }
+
+  static async updateDriver(id: string, updates: Partial<Driver>): Promise<void> {
+    const { error } = await supabase
+      .from('drivers')
+      .update({ 
+        name: updates.name, 
+        license_plate: updates.licensePlate, 
+        phone: updates.phone
+      })
+      .eq('id', id);
+    if (error) throw error;
+
+    if (updates.projectIds !== undefined) {
+      await supabase.from('driver_projects').delete().eq('driver_id', id);
+      if (updates.projectIds.length > 0) {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) throw new Error('请先登录');
+        const { error: relationError } = await supabase
+          .from('driver_projects')
+          .insert(updates.projectIds.map(projectId => ({ 
+            driver_id: id, 
+            project_id: projectId, 
+            user_id: currentUser.id 
+          })));
+        if (relationError) throw relationError;
+      }
+    }
+  }
+
+  static async deleteDriver(id: string): Promise<void> {
+    const { error } = await supabase.from('drivers').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  // 运单相关
+  static async getLogisticsRecords(): Promise<LogisticsRecord[]> {
+    const result = await this.getFilteredLogisticsRecords(undefined, undefined, undefined, undefined, 1000, 0);
+    return result.records;
+  }
+
+  static async getFilteredLogisticsRecords(
+    projectId?: string,
+    driverId?: string,
+    startDate?: string,
+    endDate?: string,
+    limit: number = 100,
+    offset: number = 0
+  ): Promise<{ records: LogisticsRecord[], totalCount: number }> {
+    const { data, error } = await supabase.rpc('get_filtered_logistics_records_fixed', {
+      p_project_id: projectId || null,
+      p_driver_id: driverId || null,
+      p_start_date: startDate || null,
+      p_end_date: endDate || null,
+      p_limit: limit,
+      p_offset: offset
+    });
+
+    if (error) throw error;
+
+    if (!data || !(data as any).records) {
+      return { records: [], totalCount: 0 };
+    }
+
+    const totalCount = (data as any).totalCount || 0;
+    const records = (data as any).records.map((record: any) => ({
+      id: record.id,
+      autoNumber: record.auto_number,
+      projectId: record.project_id,
+      projectName: record.project_name,
+      chainId: record.chain_id,
+      loadingDate: record.loading_date,
+      loadingLocation: record.loading_location,
+      unloadingLocation: record.unloading_location,
+      driverId: record.driver_id,
+      driverName: record.driver_name,
+      licensePlate: record.license_plate,
+      driverPhone: record.driver_phone,
+      loadingWeight: record.loading_weight,
+      unloadingDate: record.unloading_date,
+      unloadingWeight: record.unloading_weight,
+      transportType: record.transport_type as "实际运输" | "退货",
+      currentFee: record.current_cost,
+      extraFee: record.extra_cost,
+      payableFee: record.payable_cost,
+      remarks: record.remarks,
+      createdAt: record.created_at,
+      createdByUserId: record.created_by_user_id,
+    }));
+
+    return { records, totalCount };
+  }
+
+  static async addLogisticsRecord(record: Omit<LogisticsRecord, 'id' | 'autoNumber' | 'createdAt'>): Promise<LogisticsRecord> {
+    const autoNumber = await this.generateAutoNumber();
+
+    const { data, error } = await supabase
+      .from('logistics_records')
+      .insert([{
+        auto_number: autoNumber,
+        project_id: record.projectId,
+        project_name: record.projectName,
+        chain_id: record.chainId,
+        loading_date: record.loadingDate,
+        loading_location: record.loadingLocation,
+        unloading_location: record.unloadingLocation,
+        driver_id: record.driverId,
+        driver_name: record.driverName,
+        license_plate: record.licensePlate,
+        driver_phone: record.driverPhone,
+        loading_weight: record.loadingWeight,
+        unloading_date: record.unloadingDate,
+        unloading_weight: record.unloadingWeight,
+        transport_type: record.transportType,
+        current_cost: record.currentFee,
+        extra_cost: record.extraFee,
+        payable_cost: record.payableFee,
+        remarks: record.remarks,
+        created_by_user_id: record.createdByUserId,
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      id: data.id,
+      autoNumber: data.auto_number,
+      projectId: data.project_id,
+      projectName: data.project_name,
+      chainId: data.chain_id,
+      loadingDate: data.loading_date,
+      loadingLocation: data.loading_location,
+      unloadingLocation: data.unloading_location,
+      driverId: data.driver_id,
+      driverName: data.driver_name,
+      licensePlate: data.license_plate,
+      driverPhone: data.driver_phone,
+      loadingWeight: data.loading_weight,
+      unloadingDate: data.unloading_date,
+      unloadingWeight: data.unloading_weight,
+      transportType: data.transport_type as "实际运输" | "退货",
+      currentFee: data.current_cost,
+      extraFee: data.extra_cost,
+      payableFee: data.payable_cost,
+      remarks: data.remarks,
+      createdAt: data.created_at,
+      createdByUserId: data.created_by_user_id,
+    };
+  }
+
+  // 合作商链相关
+  static async getPartnerChains(projectId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('partner_chains')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
   static async generateAutoNumber(): Promise<string> {
     const now = new Date();
     const year = now.getFullYear();
