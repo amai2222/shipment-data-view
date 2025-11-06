@@ -35,6 +35,7 @@ export interface LogisticsRecord {
   external_tracking_numbers?: string[]; // 外部运单号数组
   other_platform_names?: string[]; // 其他平台名称数组
   created_at?: string;
+  created_by_user_id?: string; // 创建人ID（必需字段）
 }
 
 // [核心移除] - LogisticsFormData 类型已不再需要
