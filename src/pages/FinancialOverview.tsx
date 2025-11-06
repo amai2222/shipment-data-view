@@ -6,7 +6,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { relaxedSupabase as supabase } from "@/lib/supabase-helpers";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Loader2, Banknote, TrendingUp, DollarSign, FileText, AlertCircle, CheckCircle, Clock, ArrowUpRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
