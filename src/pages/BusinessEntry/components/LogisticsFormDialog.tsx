@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { CalendarIcon, Save, X, Plus, Package, Banknote, Weight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { relaxedSupabase as supabase } from "@/lib/supabase-helpers";
 import { LogisticsRecord, Project, PlatformTracking } from '../types';
 import { PlatformTrackingInput } from '@/components/PlatformTrackingInput';
 import { MultiLocationInput } from '@/components/MultiLocationInput';
