@@ -1,12 +1,11 @@
-// PC端 - 月度收入录入（桌面完整版）
+// PC端 - 月度收入录入（参考操作日志布局）
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -52,6 +51,8 @@ export default function IncomeInput() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [incomeRecords, setIncomeRecords] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
   
   const [formData, setFormData] = useState({
     vehicle_id: '',
@@ -81,60 +82,58 @@ export default function IncomeInput() {
   };
 
   const handleSubmit = async () => {
-    toast({
-      title: '保存成功',
-      description: '月度收入已录入'
-    });
+    toast({ title: '保存成功', description: '月度收入已录入' });
     setShowDialog(false);
   };
 
-  if (loading && vehicles.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-          <p className="mt-4 text-sm text-muted-foreground">加载数据中...</p>
-        </div>
-      </div>
-    );
-  }
+  const paginatedRecords = incomeRecords.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(incomeRecords.length / pageSize);
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* 顶部操作栏 */}
-      <div className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-xl font-semibold">月度收入录入</h1>
-            <Separator orientation="vertical" className="h-6" />
-            <div className="text-sm text-muted-foreground">
-              为车辆录入月度运费收入
+    <div className="space-y-6 p-6">
+      <div>
+        <h1 className="text-3xl font-bold">月度收入录入</h1>
+        <p className="text-muted-foreground">为车辆录入月度运费收入</p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                收入管理
+              </CardTitle>
+              <CardDescription>
+                录入和管理车辆月度运费收入
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button size="sm" onClick={() => setShowDialog(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                录入收入
+              </Button>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button size="sm" onClick={() => setShowDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              录入收入
-            </Button>
-          </div>
-        </div>
-      </div>
+        </CardHeader>
+      </Card>
 
-      {/* 主内容区 */}
-      <div className="flex-1 overflow-auto px-6 py-4">
-        <div className="border rounded-lg bg-card">
-          <div className="p-12 text-center text-muted-foreground">
+      <Card>
+        <CardHeader>
+          <CardTitle>收入记录</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-12 text-muted-foreground">
             <DollarSign className="h-12 w-12 mx-auto opacity-50 mb-4" />
-            <p className="text-lg font-medium">暂无收入记录</p>
-            <p className="text-sm mt-2">点击"录入收入"开始记录月度运费收入</p>
+            <p className="text-lg">暂无收入记录</p>
+            <p className="text-sm mt-2">点击"录入收入"开始记录</p>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* 录入对话框 */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader>
@@ -143,59 +142,34 @@ export default function IncomeInput() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="grid gap-2">
+            <div>
               <Label>年月</Label>
-              <Input
-                type="month"
-                value={formData.year_month}
-                onChange={e => setFormData({...formData, year_month: e.target.value})}
-              />
+              <Input type="month" value={formData.year_month} onChange={e => setFormData({...formData, year_month: e.target.value})} />
             </div>
-
-            <div className="grid gap-2">
+            <div>
               <Label>车辆</Label>
               <Select value={formData.vehicle_id} onValueChange={v => setFormData({...formData, vehicle_id: v})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择车辆" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="选择车辆" /></SelectTrigger>
                 <SelectContent>
                   {vehicles.map(v => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.license_plate} - {v.vehicle_type}
-                    </SelectItem>
+                    <SelectItem key={v.id} value={v.id}>{v.license_plate} - {v.vehicle_type}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="grid gap-2">
+            <div>
               <Label>收入金额（元）</Label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={formData.income_amount}
-                onChange={e => setFormData({...formData, income_amount: e.target.value})}
-                step="0.01"
-              />
+              <Input type="number" placeholder="0.00" value={formData.income_amount} onChange={e => setFormData({...formData, income_amount: e.target.value})} step="0.01" />
             </div>
-
-            <div className="grid gap-2">
+            <div>
               <Label>备注</Label>
-              <Textarea
-                placeholder="输入备注..."
-                value={formData.remarks}
-                onChange={e => setFormData({...formData, remarks: e.target.value})}
-                rows={3}
-              />
+              <Textarea placeholder="输入备注..." value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} rows={3} />
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>取消</Button>
-            <Button onClick={handleSubmit}>
-              <Save className="h-4 w-4 mr-2" />
-              保存
-            </Button>
+            <Button onClick={handleSubmit}><Save className="h-4 w-4 mr-2" />保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

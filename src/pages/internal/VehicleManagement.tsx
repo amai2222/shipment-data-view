@@ -1,11 +1,19 @@
-// PC端 - 车辆档案管理（桌面完整版）
-// 布局风格：参考运单管理，完整Table布局
+// PC端 - 车辆档案管理（参考操作日志布局）
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -27,8 +35,10 @@ import {
   CheckCircle,
   Wrench,
   RefreshCw,
-  Download
+  Download,
+  Eye
 } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface Vehicle {
   id: string;
@@ -54,6 +64,11 @@ export default function VehicleManagement() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
 
   useEffect(() => {
     loadVehicles();
@@ -134,192 +149,357 @@ export default function VehicleManagement() {
     ).length
   };
 
-  if (loading && vehicles.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-          <p className="mt-4 text-sm text-muted-foreground">加载车辆数据中...</p>
-        </div>
-      </div>
-    );
-  }
+  const paginatedVehicles = filteredVehicles.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(filteredVehicles.length / pageSize);
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* 顶部操作栏 */}
-      <div className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-xl font-semibold">车辆档案管理</h1>
-            <Separator orientation="vertical" className="h-6" />
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-muted-foreground">总车辆</span>
-                <span className="font-semibold">{stats.total}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-muted-foreground">在用</span>
-                <span className="font-semibold text-green-600">{stats.active}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span className="text-muted-foreground">维修</span>
-                <span className="font-semibold text-yellow-600">{stats.maintenance}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                <span className="text-muted-foreground">证件到期</span>
-                <span className="font-semibold text-red-600">{stats.expiring}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={loadVehicles} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4" />
-            </Button>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              新增车辆
-            </Button>
-          </div>
-        </div>
+    <div className="space-y-6 p-6">
+      {/* 页面标题 */}
+      <div>
+        <h1 className="text-3xl font-bold">车辆档案管理</h1>
+        <p className="text-muted-foreground">管理内部车辆档案、证件、维保记录</p>
       </div>
 
-      {/* 筛选和搜索栏 */}
-      <div className="border-b bg-card px-6 py-3">
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="搜索车牌号、品牌、司机..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="pl-10 h-9"
-              />
+      {/* 操作栏卡片 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="h-5 w-5" />
+                车辆查询
+              </CardTitle>
+              <CardDescription>
+                共 {stats.total} 辆车辆 | 在用 {stats.active} | 维修 {stats.maintenance} | 证件到期 {stats.expiring}
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                {showFilters ? '隐藏' : '显示'}筛选
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadVehicles}
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                刷新
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                导出
+              </Button>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                新增车辆
+              </Button>
             </div>
           </div>
-          <select
-            className="h-9 px-3 border rounded-md bg-background text-sm min-w-[140px]"
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-          >
-            <option value="all">全部状态</option>
-            <option value="active">正常使用</option>
-            <option value="maintenance">维修中</option>
-            <option value="retired">已报废</option>
-          </select>
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
-            筛选
-          </Button>
-        </div>
-      </div>
+        </CardHeader>
 
-      {/* 主内容区 - 表格 */}
-      <div className="flex-1 overflow-auto px-6 py-4">
-        <div className="border rounded-lg bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-[120px]">车牌号</TableHead>
-                <TableHead>车辆编号</TableHead>
-                <TableHead>品牌型号</TableHead>
-                <TableHead>车型</TableHead>
-                <TableHead className="text-center">载重</TableHead>
-                <TableHead>驾驶员</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead className="text-right">里程</TableHead>
-                <TableHead className="text-center">证件状态</TableHead>
-                <TableHead className="text-center w-[140px]">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredVehicles.length === 0 ? (
+        {/* 筛选器 */}
+        {showFilters && (
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>搜索</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="车牌号、品牌、司机..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>车辆状态</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="active">正常使用</SelectItem>
+                    <SelectItem value="maintenance">维修中</SelectItem>
+                    <SelectItem value="retired">已报废</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>显示数量</Label>
+                <Select value={pageSize.toString()} disabled>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="20">20条/页</SelectItem>
+                    <SelectItem value="50">50条/页</SelectItem>
+                    <SelectItem value="100">100条/页</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}>
+                清除筛选
+              </Button>
+              <Button onClick={loadVehicles}>
+                应用筛选
+              </Button>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* 车辆列表卡片 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>车辆列表</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
-                    暂无车辆数据
-                  </TableCell>
+                  <TableHead>车牌号</TableHead>
+                  <TableHead>车辆编号</TableHead>
+                  <TableHead>品牌型号</TableHead>
+                  <TableHead>车型</TableHead>
+                  <TableHead className="text-center">载重</TableHead>
+                  <TableHead>驾驶员</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead className="text-right">里程</TableHead>
+                  <TableHead className="text-center">证件状态</TableHead>
+                  <TableHead className="text-center">操作</TableHead>
                 </TableRow>
-              ) : (
-                filteredVehicles.map(vehicle => {
-                  const statusConfig = getStatusConfig(vehicle.vehicle_status);
-                  const StatusIcon = statusConfig.icon;
-                  const hasExpiringCert = 
-                    isExpiringSoon(vehicle.driving_license_expire_date) || 
-                    isExpiringSoon(vehicle.insurance_expire_date) ||
-                    isExpiringSoon(vehicle.annual_inspection_date);
-                  
-                  return (
-                    <TableRow key={vehicle.id} className="hover:bg-muted/50">
-                      <TableCell className="font-semibold">{vehicle.license_plate}</TableCell>
-                      <TableCell className="text-muted-foreground">{vehicle.vehicle_number || '-'}</TableCell>
-                      <TableCell>
-                        <div>{vehicle.vehicle_brand} {vehicle.vehicle_model}</div>
-                        <div className="text-xs text-muted-foreground">{vehicle.manufacture_year}年</div>
-                      </TableCell>
-                      <TableCell>{vehicle.vehicle_type}</TableCell>
-                      <TableCell className="text-center font-medium">{vehicle.load_capacity}吨</TableCell>
-                      <TableCell>
-                        {vehicle.driver_name || <span className="text-muted-foreground text-sm">未分配</span>}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={statusConfig.color}>
-                          <StatusIcon className="h-3 w-3 mr-1" />
-                          {statusConfig.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {vehicle.current_mileage ? 
-                          <span className="text-sm">{(vehicle.current_mileage / 10000).toFixed(1)}万公里</span> : 
-                          '-'
-                        }
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {hasExpiringCert ? (
-                          <Badge className="bg-red-100 text-red-700 border-red-300">
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                      加载中...
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedVehicles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                      暂无车辆数据
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedVehicles.map(vehicle => {
+                    const statusConfig = getStatusConfig(vehicle.vehicle_status);
+                    const StatusIcon = statusConfig.icon;
+                    const hasExpiringCert = 
+                      isExpiringSoon(vehicle.driving_license_expire_date) || 
+                      isExpiringSoon(vehicle.insurance_expire_date) ||
+                      isExpiringSoon(vehicle.annual_inspection_date);
+                    
+                    return (
+                      <TableRow key={vehicle.id} className="hover:bg-muted/50">
+                        <TableCell className="font-semibold">{vehicle.license_plate}</TableCell>
+                        <TableCell className="text-muted-foreground">{vehicle.vehicle_number || '-'}</TableCell>
+                        <TableCell>
+                          <div>{vehicle.vehicle_brand} {vehicle.vehicle_model}</div>
+                          <div className="text-xs text-muted-foreground">{vehicle.manufacture_year}年</div>
+                        </TableCell>
+                        <TableCell>{vehicle.vehicle_type}</TableCell>
+                        <TableCell className="text-center font-medium">{vehicle.load_capacity}吨</TableCell>
+                        <TableCell>
+                          {vehicle.driver_name || <span className="text-muted-foreground text-sm">未分配</span>}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={statusConfig.color}>
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {statusConfig.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {vehicle.current_mileage ? 
+                            <span className="text-sm">{(vehicle.current_mileage / 10000).toFixed(1)}万公里</span> : 
+                            '-'
+                          }
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {hasExpiringCert ? (
+                            <Badge className="bg-red-100 text-red-700">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              即将到期
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-green-600">
+                              正常
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex gap-1 justify-center">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                setSelectedVehicle(vehicle);
+                                setShowDetailDialog(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* 分页 */}
+          {!loading && filteredVehicles.length > 0 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                显示 {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, filteredVehicles.length)} 条，共 {filteredVehicles.length} 条
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  上一页
+                </Button>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">第 {page} / {totalPages} 页</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  下一页
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 车辆详情对话框 */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="max-w-2xl">
+          {selectedVehicle && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Truck className="h-5 w-5" />
+                  车辆详细信息
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedVehicle.license_plate}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">车牌号</Label>
+                    <p className="font-semibold">{selectedVehicle.license_plate}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">车辆编号</Label>
+                    <p>{selectedVehicle.vehicle_number || '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">品牌型号</Label>
+                    <p>{selectedVehicle.vehicle_brand} {selectedVehicle.vehicle_model}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">车型</Label>
+                    <p>{selectedVehicle.vehicle_type}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">载重</Label>
+                    <p className="font-medium">{selectedVehicle.load_capacity}吨</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">出厂年份</Label>
+                    <p>{selectedVehicle.manufacture_year}年</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">当前驾驶员</Label>
+                    <p>{selectedVehicle.driver_name || '未分配'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">当前里程</Label>
+                    <p>
+                      {selectedVehicle.current_mileage ? 
+                        `${(selectedVehicle.current_mileage / 10000).toFixed(1)}万公里` : 
+                        '-'
+                      }
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <Label className="text-lg font-semibold">证件信息</Label>
+                  <div className="grid grid-cols-1 gap-3 mt-3">
+                    {selectedVehicle.driving_license_expire_date && (
+                      <div className="flex justify-between items-center p-3 bg-muted rounded-md">
+                        <div>
+                          <p className="font-medium">行驶证到期日期</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(selectedVehicle.driving_license_expire_date), 'yyyy-MM-dd')}
+                          </p>
+                        </div>
+                        {isExpiringSoon(selectedVehicle.driving_license_expire_date) && (
+                          <Badge className="bg-red-100 text-red-700">
                             <AlertTriangle className="h-3 w-3 mr-1" />
                             即将到期
                           </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-green-600 border-green-300">
-                            正常
+                        )}
+                      </div>
+                    )}
+                    {selectedVehicle.insurance_expire_date && (
+                      <div className="flex justify-between items-center p-3 bg-muted rounded-md">
+                        <div>
+                          <p className="font-medium">保险到期日期</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(selectedVehicle.insurance_expire_date), 'yyyy-MM-dd')}
+                          </p>
+                        </div>
+                        {isExpiringSoon(selectedVehicle.insurance_expire_date) && (
+                          <Badge className="bg-red-100 text-red-700">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            即将到期
                           </Badge>
                         )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex gap-1 justify-center">
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-
-      {/* 底部分页 */}
-      <div className="border-t bg-card px-6 py-3">
-        <div className="flex items-center justify-between text-sm">
-          <div className="text-muted-foreground">
-            共 {filteredVehicles.length} 辆车辆
-          </div>
-        </div>
-      </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

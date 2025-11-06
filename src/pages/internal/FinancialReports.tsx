@@ -1,12 +1,10 @@
-// PC端 - 财务报表（桌面完整版）
+// PC端 - 财务报表（参考操作日志布局）
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { Label } from '@/components/ui/label';
 import {
   BarChart3,
   TrendingUp,
@@ -20,12 +18,8 @@ import {
 } from 'lucide-react';
 
 export default function FinancialReports() {
-  const { toast } = useToast();
-  
-  const [loading, setLoading] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-
-  const [stats, setStats] = useState({
+  const [stats] = useState({
     totalIncome: 89250,
     totalExpense: 32680,
     netProfit: 56570,
@@ -34,123 +28,111 @@ export default function FinancialReports() {
     tripCount: 45
   });
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* 顶部操作栏 */}
-      <div className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-xl font-semibold">财务报表</h1>
-            <Separator orientation="vertical" className="h-6" />
-            <div className="text-sm text-muted-foreground">
-              内部车辆月度财务分析
+    <div className="space-y-6 p-6">
+      <div>
+        <h1 className="text-3xl font-bold">财务报表</h1>
+        <p className="text-muted-foreground">内部车辆月度财务分析报表</p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                月度报表
+              </CardTitle>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                type="month"
+                value={selectedMonth}
+                onChange={e => setSelectedMonth(e.target.value)}
+                className="w-40 h-9"
+              />
+              <Button variant="outline" size="sm">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Input
-              type="month"
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              className="w-40 h-9"
-            />
-            <Button variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="border-2 border-green-200 bg-green-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />总收入
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-700">¥{stats.totalIncome.toFixed(0)}</div>
+            <p className="text-xs text-green-600 mt-2">本月运费收入</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-red-200 bg-red-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-red-700 flex items-center gap-2">
+              <TrendingDown className="h-4 w-4" />总支出
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-700">¥{stats.totalExpense.toFixed(0)}</div>
+            <p className="text-xs text-red-600 mt-2">本月费用支出</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-blue-200 bg-blue-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />净利润
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-700">¥{stats.netProfit.toFixed(0)}</div>
+            <p className="text-xs text-blue-600 mt-2">收入 - 支出</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* 主内容区 - 统计卡片 */}
-      <div className="flex-1 overflow-auto px-6 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card className="border-2 border-green-200 bg-green-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                总收入
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-700">¥{stats.totalIncome.toFixed(0)}</div>
-              <p className="text-xs text-green-600 mt-2">本月运费收入</p>
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Truck className="h-4 w-4 text-blue-600" />车辆数
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.vehicleCount}</div>
+          </CardContent>
+        </Card>
 
-          <Card className="border-2 border-red-200 bg-red-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-red-700 flex items-center gap-2">
-                <TrendingDown className="h-4 w-4" />
-                总支出
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-red-700">¥{stats.totalExpense.toFixed(0)}</div>
-              <p className="text-xs text-red-600 mt-2">本月费用支出</p>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Users className="h-4 w-4 text-blue-600" />司机数
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.driverCount}</div>
+          </CardContent>
+        </Card>
 
-          <Card className="border-2 border-blue-200 bg-blue-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                净利润
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-700">¥{stats.netProfit.toFixed(0)}</div>
-              <p className="text-xs text-blue-600 mt-2">收入 - 支出</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Truck className="h-4 w-4 text-blue-600" />
-                车辆数
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.vehicleCount}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Users className="h-4 w-4 text-blue-600" />
-                司机数
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.driverCount}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-blue-600" />
-                出车次数
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.tripCount}</div>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-blue-600" />出车次数
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.tripCount}</div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

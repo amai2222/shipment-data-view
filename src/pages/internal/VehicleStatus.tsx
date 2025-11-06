@@ -1,9 +1,9 @@
-// PC端 - 车辆状态（桌面完整版）
+// PC端 - 车辆状态（参考操作日志布局）
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -28,6 +28,8 @@ export default function VehicleStatus() {
   
   const [loading, setLoading] = useState(false);
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
 
   useEffect(() => {
     loadVehicles();
@@ -65,84 +67,97 @@ export default function VehicleStatus() {
     retired: vehicles.filter(v => v.vehicle_status === 'retired').length
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  const paginatedVehicles = vehicles.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(vehicles.length / pageSize);
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      <div className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-xl font-semibold">车辆状态</h1>
-            <Separator orientation="vertical" className="h-6" />
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-muted-foreground">正常</span>
-                <span className="font-semibold text-green-600">{stats.active}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span className="text-muted-foreground">维修</span>
-                <span className="font-semibold text-yellow-600">{stats.maintenance}</span>
-              </div>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={loadVehicles} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
+    <div className="space-y-6 p-6">
+      <div>
+        <h1 className="text-3xl font-bold">车辆状态</h1>
+        <p className="text-muted-foreground">实时查看车辆运行状态和里程信息</p>
       </div>
 
-      <div className="flex-1 overflow-auto px-6 py-4">
-        <div className="border rounded-lg bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>车牌号</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead className="text-right">当前里程</TableHead>
-                <TableHead>最后更新</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {vehicles.map((v, i) => {
-                const config = getStatusConfig(v.vehicle_status);
-                const Icon = config.icon;
-                return (
-                  <TableRow key={i} className="hover:bg-muted/50">
-                    <TableCell className="font-semibold">{v.license_plate}</TableCell>
-                    <TableCell>
-                      <Badge className={config.color}>
-                        <Icon className="h-3 w-3 mr-1" />
-                        {config.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {v.current_mileage ? `${(v.current_mileage / 10000).toFixed(1)}万公里` : '-'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {v.updated_at ? format(new Date(v.updated_at), 'yyyy-MM-dd HH:mm') : '-'}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="h-5 w-5" />
+                车辆状态监控
+              </CardTitle>
+              <CardDescription>
+                正常 {stats.active} | 维修 {stats.maintenance} | 报废 {stats.retired}
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={loadVehicles} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>状态列表</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>车牌号</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead className="text-right">当前里程</TableHead>
+                  <TableHead>最后更新</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                      加载中...
                     </TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+                ) : paginatedVehicles.map((v, i) => {
+                  const config = getStatusConfig(v.vehicle_status);
+                  const Icon = config.icon;
+                  return (
+                    <TableRow key={i} className="hover:bg-muted/50">
+                      <TableCell className="font-semibold">{v.license_plate}</TableCell>
+                      <TableCell>
+                        <Badge className={config.color}>
+                          <Icon className="h-3 w-3 mr-1" />
+                          {config.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {v.current_mileage ? `${(v.current_mileage / 10000).toFixed(1)}万公里` : '-'}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {v.updated_at ? format(new Date(v.updated_at), 'yyyy-MM-dd HH:mm') : '-'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
 
-      <div className="border-t bg-card px-6 py-3">
-        <div className="text-sm text-muted-foreground">
-          共 {vehicles.length} 辆车辆
-        </div>
-      </div>
+          {!loading && vehicles.length > 0 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                显示 {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, vehicles.length)} 条，共 {vehicles.length} 条
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>上一页</Button>
+                <span className="text-sm flex items-center">第 {page} / {totalPages} 页</span>
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>下一页</Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
-

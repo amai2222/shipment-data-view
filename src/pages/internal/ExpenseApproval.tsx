@@ -1,12 +1,11 @@
-// PC端 - 费用申请审核（桌面完整版）
+// PC端 - 费用申请审核（参考操作日志布局）
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -33,7 +32,8 @@ import {
   Clock,
   DollarSign,
   RefreshCw,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Eye
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -70,6 +70,8 @@ export default function ExpenseApproval() {
   const [selectedApp, setSelectedApp] = useState<ExpenseApplication | null>(null);
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [reviewComment, setReviewComment] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
 
   useEffect(() => {
     loadApplications();
@@ -103,6 +105,8 @@ export default function ExpenseApproval() {
       });
 
       setShowReviewDialog(false);
+      setSelectedApp(null);
+      setReviewComment('');
       loadApplications();
     } catch (error) {
       toast({
@@ -117,155 +121,181 @@ export default function ExpenseApproval() {
     total: applications.reduce((sum, a) => sum + a.amount, 0)
   };
 
-  if (loading && applications.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-          <p className="mt-4 text-sm text-muted-foreground">加载费用申请中...</p>
-        </div>
-      </div>
-    );
-  }
+  const paginatedApps = applications.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(applications.length / pageSize);
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* 顶部操作栏 */}
-      <div className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-xl font-semibold">费用申请审核</h1>
-            <Separator orientation="vertical" className="h-6" />
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span className="text-muted-foreground">待审核</span>
-                <span className="font-semibold text-yellow-600">{stats.pending}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-muted-foreground">金额合计</span>
-                <span className="font-semibold text-blue-600">¥{stats.total.toFixed(2)}</span>
-              </div>
+    <div className="space-y-6 p-6">
+      {/* 页面标题 */}
+      <div>
+        <h1 className="text-3xl font-bold">费用申请审核</h1>
+        <p className="text-muted-foreground">审核司机提交的费用申请</p>
+      </div>
+
+      {/* 操作栏卡片 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                费用审核
+              </CardTitle>
+              <CardDescription>
+                待审核 {stats.pending} 条 | 金额合计 ¥{stats.total.toFixed(2)}
+              </CardDescription>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={loadApplications} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadApplications}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              刷新
             </Button>
           </div>
-        </div>
-      </div>
+        </CardHeader>
 
-      {/* 标签切换 */}
-      <div className="border-b bg-card px-6 py-2">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="pending">待审核</TabsTrigger>
-            <TabsTrigger value="approved">已通过</TabsTrigger>
-            <TabsTrigger value="rejected">已驳回</TabsTrigger>
-            <TabsTrigger value="paid">已付款</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="pending">待审核</TabsTrigger>
+              <TabsTrigger value="approved">已通过</TabsTrigger>
+              <TabsTrigger value="rejected">已驳回</TabsTrigger>
+              <TabsTrigger value="paid">已付款</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </CardContent>
+      </Card>
 
-      {/* 主内容区 - 表格 */}
-      <div className="flex-1 overflow-auto px-6 py-4">
-        <div className="border rounded-lg bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-[140px]">申请单号</TableHead>
-                <TableHead>司机</TableHead>
-                <TableHead>费用类型</TableHead>
-                <TableHead>费用日期</TableHead>
-                <TableHead className="text-right">金额</TableHead>
-                <TableHead className="max-w-[200px]">说明</TableHead>
-                <TableHead>凭证</TableHead>
-                <TableHead>申请时间</TableHead>
-                <TableHead className="text-center w-[100px]">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {applications.length === 0 ? (
+      {/* 申请列表卡片 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>费用申请列表</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
-                    暂无{activeTab === 'pending' ? '待审核' : ''}申请
-                  </TableCell>
+                  <TableHead className="w-[140px]">申请单号</TableHead>
+                  <TableHead>司机</TableHead>
+                  <TableHead>费用类型</TableHead>
+                  <TableHead>费用日期</TableHead>
+                  <TableHead className="text-right">金额</TableHead>
+                  <TableHead className="max-w-[200px]">说明</TableHead>
+                  <TableHead>凭证</TableHead>
+                  <TableHead>申请时间</TableHead>
+                  <TableHead className="text-center">操作</TableHead>
                 </TableRow>
-              ) : (
-                applications.map(app => (
-                  <TableRow key={app.id} className="hover:bg-muted/50">
-                    <TableCell className="font-mono text-xs">{app.application_number}</TableCell>
-                    <TableCell className="font-medium">{app.driver_name}</TableCell>
-                    <TableCell>
-                      <Badge className={EXPENSE_TYPES[app.expense_type]?.color}>
-                        {EXPENSE_TYPES[app.expense_type]?.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {format(new Date(app.expense_date), 'yyyy-MM-dd')}
-                    </TableCell>
-                    <TableCell className="text-right font-bold text-primary">
-                      ¥{app.amount.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
-                      {app.description || '-'}
-                    </TableCell>
-                    <TableCell>
-                      {app.receipt_photos?.length > 0 ? (
-                        <Badge variant="secondary" className="text-xs">
-                          <ImageIcon className="h-3 w-3 mr-1" />
-                          {app.receipt_photos.length}张
-                        </Badge>
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {format(new Date(app.created_at), 'MM-dd HH:mm')}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {app.status === 'pending' ? (
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setSelectedApp(app);
-                            setShowReviewDialog(true);
-                          }}
-                          className="h-8"
-                        >
-                          审核
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="ghost" className="h-8">
-                          查看
-                        </Button>
-                      )}
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                      加载中...
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-
-      {/* 底部统计 */}
-      <div className="border-t bg-card px-6 py-3">
-        <div className="flex items-center justify-between text-sm">
-          <div className="text-muted-foreground">
-            共 {applications.length} 条申请
+                ) : paginatedApps.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      暂无{activeTab === 'pending' ? '待审核' : ''}申请
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedApps.map(app => (
+                    <TableRow key={app.id} className="hover:bg-muted/50">
+                      <TableCell className="font-mono text-xs">{app.application_number}</TableCell>
+                      <TableCell className="font-medium">{app.driver_name}</TableCell>
+                      <TableCell>
+                        <Badge className={EXPENSE_TYPES[app.expense_type]?.color}>
+                          {EXPENSE_TYPES[app.expense_type]?.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {format(new Date(app.expense_date), 'yyyy-MM-dd')}
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-primary">
+                        ¥{app.amount.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                        {app.description || '-'}
+                      </TableCell>
+                      <TableCell>
+                        {app.receipt_photos?.length > 0 ? (
+                          <Badge variant="secondary" className="text-xs">
+                            <ImageIcon className="h-3 w-3 mr-1" />
+                            {app.receipt_photos.length}张
+                          </Badge>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {format(new Date(app.created_at), 'MM-dd HH:mm')}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex gap-1 justify-center">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => {
+                              setSelectedApp(app);
+                              setShowReviewDialog(true);
+                            }}
+                          >
+                            {app.status === 'pending' ? <FileText className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
-        </div>
-      </div>
 
-      {/* 审核对话框（简化版） */}
+          {/* 分页 */}
+          {!loading && applications.length > 0 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                显示 {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, applications.length)} 条，共 {applications.length} 条
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  上一页
+                </Button>
+                <span className="text-sm flex items-center">第 {page} / {totalPages} 页</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  下一页
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 审核对话框 */}
       <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
         <DialogContent className="max-w-2xl">
           {selectedApp && (
             <>
               <DialogHeader>
                 <DialogTitle>审核费用申请</DialogTitle>
+                <DialogDescription>{selectedApp.application_number}</DialogDescription>
               </DialogHeader>
+
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
@@ -273,30 +303,82 @@ export default function ExpenseApproval() {
                     <p className="font-medium mt-1">{selectedApp.driver_name}</p>
                   </div>
                   <div>
+                    <Label>费用类型</Label>
+                    <div className="mt-1">
+                      <Badge className={EXPENSE_TYPES[selectedApp.expense_type]?.color}>
+                        {EXPENSE_TYPES[selectedApp.expense_type]?.label}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <Label>费用日期</Label>
+                    <p className="mt-1">{format(new Date(selectedApp.expense_date), 'yyyy-MM-dd')}</p>
+                  </div>
+                  <div>
                     <Label>费用金额</Label>
                     <p className="font-bold text-primary text-lg mt-1">¥{selectedApp.amount.toFixed(2)}</p>
                   </div>
                 </div>
-                <div>
-                  <Label>审批意见</Label>
-                  <Textarea
-                    value={reviewComment}
-                    onChange={e => setReviewComment(e.target.value)}
-                    rows={3}
-                    className="mt-2"
-                  />
-                </div>
+
+                {selectedApp.description && (
+                  <div>
+                    <Label>费用说明</Label>
+                    <p className="mt-2 text-sm bg-muted p-3 rounded">{selectedApp.description}</p>
+                  </div>
+                )}
+
+                {selectedApp.receipt_photos?.length > 0 && (
+                  <div>
+                    <Label>凭证照片</Label>
+                    <div className="grid grid-cols-4 gap-3 mt-2">
+                      {selectedApp.receipt_photos.map((url, index) => (
+                        <img
+                          key={index}
+                          src={url}
+                          alt={`凭证${index + 1}`}
+                          className="w-full h-32 object-cover rounded border cursor-pointer hover:shadow-lg"
+                          onClick={() => window.open(url, '_blank')}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedApp.status === 'pending' && (
+                  <div>
+                    <Label>审批意见（可选）</Label>
+                    <Textarea
+                      placeholder="输入审批意见..."
+                      value={reviewComment}
+                      onChange={e => setReviewComment(e.target.value)}
+                      rows={3}
+                      className="mt-2"
+                    />
+                  </div>
+                )}
               </div>
-              <DialogFooter>
-                <Button variant="outline" className="text-red-600" onClick={() => handleReview(false)}>
-                  <XCircle className="h-4 w-4 mr-2" />
-                  驳回
-                </Button>
-                <Button className="bg-green-600" onClick={() => handleReview(true)}>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  通过
-                </Button>
-              </DialogFooter>
+
+              {selectedApp.status === 'pending' && (
+                <DialogFooter>
+                  <div className="flex gap-2 w-full">
+                    <Button
+                      variant="outline"
+                      className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                      onClick={() => handleReview(false)}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      驳回
+                    </Button>
+                    <Button
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                      onClick={() => handleReview(true)}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      通过
+                    </Button>
+                  </div>
+                </DialogFooter>
+              )}
             </>
           )}
         </DialogContent>
