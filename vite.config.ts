@@ -17,9 +17,12 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // 强制所有React导入指向同一个实例
+      "react": path.resolve(__dirname, "./node_modules/react"),
+      "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
     },
     // 确保只有一个 React 实例，解决 @radix-ui 等库的 Hooks 错误
-    dedupe: ['react', 'react-dom'],
+    dedupe: ['react', 'react-dom', '@radix-ui/react-tooltip'],
   },
   build: {
     // 优化代码分割
