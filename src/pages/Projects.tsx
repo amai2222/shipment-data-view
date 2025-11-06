@@ -14,9 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Edit, Trash2, Package, Loader2, ChevronDown, ChevronRight, Link, Settings, Search, Filter, X, ArrowUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { SupabaseStorage } from "@/utils/supabase";
+import { SupabaseStorage, supabase } from "@/utils/supabase";
 import { Project, Location, Partner, ProjectPartner, PartnerChain } from "@/types";
-import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { PartnerSelector } from "@/components/PartnerSelector";

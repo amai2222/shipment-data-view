@@ -11,11 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { BarChart3, TrendingUp, Truck, Package, Eye, RefreshCw, Search, ChevronLeft, ChevronRight, Cuboid, DollarSign, Banknote } from "lucide-react";
-import { SupabaseStorage } from "@/utils/supabase";
+import { SupabaseStorage, supabase } from "@/utils/supabase";
 import { Project, LogisticsRecord } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { ResponsiveNumber, ResponsiveCurrency, ResponsiveNumberWithUnit } from "@/components/ResponsiveNumber";
 import { WaybillDetailDialog } from "@/components/WaybillDetailDialog";
 import { PageHeader } from "@/components/PageHeader";

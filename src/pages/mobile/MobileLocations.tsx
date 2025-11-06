@@ -14,7 +14,7 @@ import {
   X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { SupabaseStorage } from "@/utils/supabase";
+import { SupabaseStorage, supabase } from "@/utils/supabase";
 import { Location, Project } from "@/types";
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { MobileCard } from '@/components/mobile/MobileCard';

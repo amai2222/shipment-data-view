@@ -14,8 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2, Filter, X, FileImage, CheckSquare, Square, Link, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { SupabaseStorage } from "@/utils/supabase";
-import { supabase } from "@/integrations/supabase/client";
+import { SupabaseStorage, supabase } from "@/utils/supabase";
 import { Driver, Project } from "@/types";
 import * as XLSX from 'xlsx';
 import { PageHeader } from '@/components/PageHeader';

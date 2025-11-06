@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/combobox";
-import { SupabaseStorage } from "@/utils/supabase";
+import { SupabaseStorage, supabase } from "@/utils/supabase";
 import { Project, Driver, Location, PartnerChain } from "@/types";
 
 interface LogisticsFormProps {
