@@ -25,6 +25,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { PageHeader } from '@/components/PageHeader';
 import {
   FileText,
   CheckCircle,
@@ -125,12 +126,13 @@ export default function ExpenseApproval() {
   const totalPages = Math.ceil(applications.length / pageSize);
 
   return (
-    <div className="space-y-6 p-6">
-      {/* 页面标题 */}
-      <div>
-        <h1 className="text-3xl font-bold">费用申请审核</h1>
-        <p className="text-muted-foreground">审核司机提交的费用申请</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="费用申请审核"
+        description="审核司机提交的费用申请"
+        icon={FileText}
+        iconColor="text-blue-600"
+      />
 
       {/* 操作栏卡片 */}
       <Card>

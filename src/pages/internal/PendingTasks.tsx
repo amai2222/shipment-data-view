@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { PageHeader } from '@/components/PageHeader';
 import {
   Bell,
   FileText,
@@ -103,11 +104,13 @@ export default function PendingTasks() {
   const totalCount = tasks.reduce((sum, t) => sum + t.count, 0);
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">待办事项</h1>
-        <p className="text-muted-foreground">查看需要处理的任务和提醒</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="待办事项"
+        description="查看需要处理的任务和提醒"
+        icon={Bell}
+        iconColor="text-orange-600"
+      />
 
       <Card>
         <CardHeader>

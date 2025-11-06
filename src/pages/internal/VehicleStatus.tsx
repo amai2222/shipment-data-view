@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { PageHeader } from '@/components/PageHeader';
 import {
   Truck,
   CheckCircle,
@@ -71,11 +72,13 @@ export default function VehicleStatus() {
   const totalPages = Math.ceil(vehicles.length / pageSize);
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">车辆状态</h1>
-        <p className="text-muted-foreground">实时查看车辆运行状态和里程信息</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="车辆状态"
+        description="实时查看车辆运行状态和里程信息"
+        icon={Truck}
+        iconColor="text-green-600"
+      />
 
       <Card>
         <CardHeader>

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { PageHeader } from '@/components/PageHeader';
 import {
   DollarSign,
   Truck,
@@ -79,11 +80,13 @@ export default function VehicleBalance() {
   const totalPages = Math.ceil(balances.length / pageSize);
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">车辆余额</h1>
-        <p className="text-muted-foreground">查看各车辆的收支余额统计</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="车辆余额"
+        description="查看各车辆的收支余额统计"
+        icon={DollarSign}
+        iconColor="text-blue-600"
+      />
 
       <Card>
         <CardHeader>

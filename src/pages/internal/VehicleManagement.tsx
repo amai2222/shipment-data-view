@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { PageHeader } from '@/components/PageHeader';
 import {
   Truck,
   Plus,
@@ -153,12 +154,13 @@ export default function VehicleManagement() {
   const totalPages = Math.ceil(filteredVehicles.length / pageSize);
 
   return (
-    <div className="space-y-6 p-6">
-      {/* 页面标题 */}
-      <div>
-        <h1 className="text-3xl font-bold">车辆档案管理</h1>
-        <p className="text-muted-foreground">管理内部车辆档案、证件、维保记录</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="车辆档案管理"
+        description="管理内部车辆档案、证件、维保记录"
+        icon={Truck}
+        iconColor="text-blue-600"
+      />
 
       {/* 操作栏卡片 */}
       <Card>

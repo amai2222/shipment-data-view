@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { PageHeader } from '@/components/PageHeader';
 import {
   DollarSign,
   TrendingUp,
@@ -101,11 +102,13 @@ export default function VehicleLedger() {
   const totalPages = Math.ceil(filteredRecords.length / pageSize);
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">车辆收支流水</h1>
-        <p className="text-muted-foreground">查看车辆的收入和支出明细流水账</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="车辆收支流水"
+        description="查看车辆的收入和支出明细流水账"
+        icon={DollarSign}
+        iconColor="text-green-600"
+      />
 
       <Card>
         <CardHeader>

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { PageHeader } from '@/components/PageHeader';
 import {
   FileText,
   PieChart,
@@ -100,11 +101,13 @@ export default function ExpenseCategories() {
   const totalCount = categories.reduce((sum, c) => sum + c.count, 0);
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">费用分类统计</h1>
-        <p className="text-muted-foreground">按类别统计分析费用支出情况</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="费用分类统计"
+        description="按类别统计分析费用支出情况"
+        icon={PieChart}
+        iconColor="text-purple-600"
+      />
 
       <Card>
         <CardHeader>

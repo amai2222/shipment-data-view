@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/PageHeader';
 import {
   BarChart3,
   TrendingUp,
@@ -29,11 +30,13 @@ export default function FinancialReports() {
   });
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">财务报表</h1>
-        <p className="text-muted-foreground">内部车辆月度财务分析报表</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="财务报表"
+        description="内部车辆月度财务分析报表"
+        icon={BarChart3}
+        iconColor="text-purple-600"
+      />
 
       <Card>
         <CardHeader>

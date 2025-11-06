@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { PageHeader } from '@/components/PageHeader';
 import {
   DollarSign,
   Plus,
@@ -90,11 +91,13 @@ export default function IncomeInput() {
   const totalPages = Math.ceil(incomeRecords.length / pageSize);
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">月度收入录入</h1>
-        <p className="text-muted-foreground">为车辆录入月度运费收入</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="月度收入录入"
+        description="为车辆录入月度运费收入"
+        icon={DollarSign}
+        iconColor="text-green-600"
+      />
 
       <Card>
         <CardHeader>

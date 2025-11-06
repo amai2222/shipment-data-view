@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { PageHeader } from '@/components/PageHeader';
 import {
   FileText,
   AlertTriangle,
@@ -121,11 +122,13 @@ export default function CertificateManagement() {
   const totalPages = Math.ceil(filteredCerts.length / pageSize);
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">证件管理</h1>
-        <p className="text-muted-foreground">管理车辆和司机的各类证件，跟踪到期提醒</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="证件管理"
+        description="管理车辆和司机的各类证件，跟踪到期提醒"
+        icon={FileText}
+        iconColor="text-orange-600"
+      />
 
       <Card>
         <CardHeader>

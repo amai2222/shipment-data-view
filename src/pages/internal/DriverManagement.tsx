@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { PageHeader } from '@/components/PageHeader';
 import {
   Users,
   Plus,
@@ -136,12 +137,13 @@ export default function DriverManagement() {
   const totalPages = Math.ceil(filteredDrivers.length / pageSize);
 
   return (
-    <div className="space-y-6 p-6">
-      {/* 页面标题 */}
-      <div>
-        <h1 className="text-3xl font-bold">内部司机管理</h1>
-        <p className="text-muted-foreground">管理司机档案、证件、工资设置</p>
-      </div>
+    <div className="p-4 space-y-4">
+      <PageHeader
+        title="内部司机管理"
+        description="管理司机档案、证件、工资设置"
+        icon={Users}
+        iconColor="text-blue-600"
+      />
 
       {/* 操作栏卡片 */}
       <Card>
