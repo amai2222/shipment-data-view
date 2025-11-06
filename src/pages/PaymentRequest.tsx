@@ -1241,7 +1241,20 @@ export default function PaymentRequest() {
         })
       );
       
-      setBatchCostRecords(recordsWithCost);
+      // 排序：先按日期降序（最新在前），再按运单编号升序（编号小在前）
+      const sortedRecords = recordsWithCost.sort((a, b) => {
+        // 第一优先级：按日期降序
+        const dateA = new Date(a.loading_date).getTime();
+        const dateB = new Date(b.loading_date).getTime();
+        if (dateB !== dateA) {
+          return dateB - dateA; // 降序
+        }
+        
+        // 第二优先级：按运单编号升序
+        return a.auto_number.localeCompare(b.auto_number);
+      });
+      
+      setBatchCostRecords(sortedRecords);
     } else if (type === 'chain') {
       // 获取选中运单的项目（假设都是同一项目）
       const selectedRecords = reportData?.records.filter((r: any) => selection.selectedIds.has(r.id));
