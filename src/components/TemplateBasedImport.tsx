@@ -298,8 +298,8 @@ export default function TemplateBasedImport() {
       
       // 调用导入函数
       const { data, error } = await supabase.rpc('batch_import_logistics_records', {
-        p_records: importData
-      });
+        p_records: importData as any
+      } as any);
 
       if (error) throw error;
 

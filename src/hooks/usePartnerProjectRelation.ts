@@ -98,7 +98,7 @@ export function usePartnerProjectRelation(): UsePartnerProjectRelationReturn {
       
       // 按项目分组，找到每个项目的最高级别合作商
       const projectMaxLevels = new Map();
-      projectPartnersData.forEach(item => {
+      projectPartnersData.forEach((item: any) => {
         if (item.project_id) {
           const currentMax = projectMaxLevels.get(item.project_id) || 0;
           if (item.level > currentMax) {
@@ -109,7 +109,7 @@ export function usePartnerProjectRelation(): UsePartnerProjectRelationReturn {
       
       // 获取每个项目最高级别的合作商
       const highestLevelPartners = new Map();
-      projectPartnersData.forEach(item => {
+      projectPartnersData.forEach((item: any) => {
         if (item.project_id && item.partners) {
           const projectMaxLevel = projectMaxLevels.get(item.project_id);
           if (item.level === projectMaxLevel) {
@@ -170,7 +170,7 @@ export function usePartnerProjectRelation(): UsePartnerProjectRelationReturn {
       
       // 去重并格式化数据
       const uniqueProjects = new Map();
-      data?.forEach(item => {
+      data?.forEach((item: any) => {
         if (item.projects && !uniqueProjects.has(item.projects.id)) {
           uniqueProjects.set(item.projects.id, item.projects);
         }
@@ -224,7 +224,7 @@ export function usePartnerProjectRelation(): UsePartnerProjectRelationReturn {
         .single();
       
       if (error) return null;
-      return data?.level || null;
+      return (data as any)?.level || null;
     } catch (error) {
       console.error('获取合作商级别失败:', error);
       return null;
@@ -261,7 +261,7 @@ export function usePartnerProjectRelation(): UsePartnerProjectRelationReturn {
       
       if (error) throw error;
       
-      return data?.map(item => ({
+      return data?.map((item: any) => ({
         partner_id: item.partner_id,
         project_id: item.project_id,
         level: item.level,
@@ -286,7 +286,7 @@ export function usePartnerProjectRelation(): UsePartnerProjectRelationReturn {
       
       if (error) return false;
       
-      const maxLevel = data?.[0]?.level || 0;
+      const maxLevel = (data as any)?.[0]?.level || 0;
       const partnerLevel = await getPartnerLevelInProject(partnerId, projectId);
       
       return partnerLevel === maxLevel;

@@ -157,9 +157,8 @@ export function UnifiedPermissionManagerNew({ onPermissionChange }: UnifiedPermi
 
         <TabsContent value="roles" className="space-y-4">
           <RoleManagementNew 
-            roleTemplates={roleTemplates}
-            onSaveRoleTemplate={saveRoleTemplate}
-            loading={loading}
+            roleTemplates={Object.values(roleTemplates)}
+            onDataChange={loadData}
           />
         </TabsContent>
 

@@ -344,7 +344,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         ? formData.other_platform_names.split(',').map(name => name.trim()).filter(Boolean)
         : [];
       
-      const externalTrackingNumbers = formData.external_tracking_numbers 
+      const externalTrackingNumbers: string[][] = formData.external_tracking_numbers 
         ? formData.external_tracking_numbers.split(',').map(trackingGroup => {
             // 每个trackingGroup可能包含多个运单号，用|分隔
             const trackingNumbers = trackingGroup.split('|').map(tn => tn.trim()).filter(Boolean);
@@ -396,7 +396,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
           p_unloading_date: formData.unloadingDate?.toISOString()
-        });
+        } as any);
         
         // 更新可选字段
         if (error) throw error;
@@ -405,14 +405,15 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         if (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0) {
           const { error: platformError } = await supabase
             .from('logistics_records')
-            .update({ 
-              external_tracking_numbers: externalTrackingNumbers,
-              other_platform_names: otherPlatformNames
-            })
+            .update({
+              external_tracking_numbers: externalTrackingNumbers as any,
+              other_platform_names: otherPlatformNames as any,
+            } as any)
             .eq('id', editingRecord.id);
+          
           if (platformError) throw platformError;
         }
-        if (error) throw error;
+        
         toast({ title: "成功", description: "运单已更新" });
       } else {
         // 使用数据库函数来添加运单并自动计算合作方成本

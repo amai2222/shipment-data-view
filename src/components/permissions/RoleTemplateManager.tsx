@@ -367,12 +367,14 @@ export function RoleTemplateManager({ roleTemplates, onUpdate }: RoleTemplateMan
     title, 
     permissions, 
     selectedPermissions, 
-    onSelectionChange 
+    onSelectionChange,
+    disabled
   }: {
     title: string;
     permissions: any[];
     selectedPermissions: string[];
     onSelectionChange: (permissions: string[]) => void;
+    disabled?: boolean;
   }) => {
     const handleGroupToggle = (groupKey: string, checked: boolean) => {
       const group = permissions.find(p => p.key === groupKey);

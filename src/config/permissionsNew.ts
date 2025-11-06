@@ -53,6 +53,16 @@ export const ROLES_NEW: Record<UserRole, { label: string; color: string; descrip
     label: '查看者',
     color: 'bg-gray-500',
     description: '只能查看数据，不能进行任何修改操作'
+  },
+  fleet_manager: {
+    label: '车队经理',
+    color: 'bg-indigo-500',
+    description: '管理车队和司机'
+  },
+  driver: {
+    label: '司机',
+    color: 'bg-teal-500',
+    description: '司机用户'
   }
 };
 

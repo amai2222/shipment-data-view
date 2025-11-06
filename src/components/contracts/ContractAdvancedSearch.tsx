@@ -143,8 +143,8 @@ export function ContractAdvancedSearch({ onSearch, onClear, initialFilters }: Co
 
       setAvailableTags(tagsData || []);
       
-      const uniqueDepartments = [...new Set((contractsData || []).map(c => c.department).filter(Boolean))];
-      const uniquePersons = [...new Set((contractsData || []).map(c => c.responsible_person).filter(Boolean))];
+      const uniqueDepartments = [...new Set((contractsData || []).map((c: any) => c.department).filter(Boolean))] as string[];
+      const uniquePersons = [...new Set((contractsData || []).map((c: any) => c.responsible_person).filter(Boolean))] as string[];
       
       setDepartments(uniqueDepartments);
       setResponsiblePersons(uniquePersons);

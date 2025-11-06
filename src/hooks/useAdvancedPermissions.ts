@@ -3,19 +3,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { 
-  UserPermission, 
-  RolePermissionTemplate, 
-  PermissionContext, 
-  PermissionCheck,
-  UserRole,
-  PermissionType
-} from '@/types/permissions';
+import { UserPermissions } from '@/types/permissions';
+import { UserRole } from '@/types/permission';
 
 export function useAdvancedPermissions() {
   const { user, profile } = useAuth();
-  const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
-  const [roleTemplates, setRoleTemplates] = useState<Record<UserRole, RolePermissionTemplate>>({} as Record<UserRole, RolePermissionTemplate>);
+  const [userPermissions, setUserPermissions] = useState<any[]>([]);
+  const [roleTemplates, setRoleTemplates] = useState<Record<UserRole, any>>({} as Record<UserRole, any>);
   const [loading, setLoading] = useState(true);
   const [currentProject, setCurrentProject] = useState<string | null>(null);
 
@@ -101,7 +95,7 @@ export function useAdvancedPermissions() {
   }, [user?.id, loadPermissions]); // 添加 loadPermissions 依赖
 
   // 获取当前用户的权限上下文
-  const getPermissionContext = useMemo((): PermissionContext => {
+  const getPermissionContext = useMemo((): any => {
     if (!user || !profile) {
       return {
         userId: '',
@@ -242,7 +236,7 @@ export function useAdvancedPermissions() {
   };
 
   // 检查权限
-  const hasPermission = useCallback((permission: string, type: PermissionType = 'function'): PermissionCheck => {
+  const hasPermission = useCallback((permission: string, type: string = 'function'): any => {
     try {
       const context = getPermissionContext;
       const permissions = context.permissions[type === 'menu' ? 'menu' : 

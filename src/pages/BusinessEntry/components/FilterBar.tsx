@@ -221,55 +221,6 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     }
   };
 
-  // 根据合作商加载项目（获取该合作商的所有项目，不限级别）
-  const loadProjectsByPartner = async (partnerId: string) => {
-    if (!partnerId) {
-      setPartnerProjects([]);
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('project_partners')
-        .select(`
-          project_id,
-          projects (
-            id,
-            name,
-            start_date,
-            end_date,
-            manager,
-            loading_address,
-            unloading_address,
-            project_status
-          )
-        `)
-        .eq('partner_id', partnerId); // 获取该合作商的所有项目，不限级别
-
-      if (error) throw error;
-      
-      // 去重并格式化数据
-      const uniqueProjects = new Map();
-      data?.forEach(item => {
-        if (item.projects && !uniqueProjects.has(item.projects.id)) {
-          uniqueProjects.set(item.projects.id, item.projects);
-        }
-      });
-      
-      setPartnerProjects(Array.from(uniqueProjects.values()));
-    } catch (error) {
-      console.error('加载合作商项目失败:', error);
-      setPartnerProjects([]);
-    }
-  };
-
-  // 合作商选择变化
-  const handlePartnerChange = (partnerId: string) => {
-    setSelectedPartnerId(partnerId);
-    handleInputChange('projectName', ''); // 清空项目选择
-    // 不更新合作商筛选，只用于动态加载项目
-    loadProjectsByPartner(partnerId);
-  };
 
   // 初始化加载合作商
   useEffect(() => {

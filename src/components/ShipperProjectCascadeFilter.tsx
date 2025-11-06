@@ -251,7 +251,7 @@ export function ShipperProjectCascadeFilter({
   const renderShipperTree = (shipperList: Shipper[], level = 0) => {
     return shipperList.map(shipper => {
       const hasChildren = shipper.children && shipper.children.length > 0;
-      const isExpanded = expandedShippers.has(shipper.id);
+      const isExpanded = expandedIds.has(shipper.id);
       const isSelected = selectedShipperId === shipper.id;
 
       return (
@@ -271,7 +271,7 @@ export function ShipperProjectCascadeFilter({
                 className="h-4 w-4 p-0"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleExpand(shipper.id);
+                  toggleExpand(shipper.id, e);
                 }}
               >
                 {isExpanded ? (
@@ -284,7 +284,7 @@ export function ShipperProjectCascadeFilter({
             {!hasChildren && <div className="w-4" />}
             
             <Users className="h-3.5 w-3.5" />
-            <span className="flex-1 text-sm">{shipper.partner_name}</span>
+            <span className="flex-1 text-sm">{shipper.name}</span>
             
             {hasChildren && (
               <Badge variant="secondary" className="text-xs">
