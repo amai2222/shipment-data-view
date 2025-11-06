@@ -50,6 +50,13 @@ export default function FinancialOverview() {
       // 优先使用统一函数（如果存在），否则回退到多个RPC调用
       const { data: unifiedData, error: unifiedError } = await supabase.rpc('get_financial_overview_data');
       
+      // 如果函数不存在或报错，直接使用默认数据
+      if (unifiedError) {
+        console.warn('get_financial_overview_data函数不存在，使用默认数据');
+        setLoading(false);
+        return;
+      }
+      
       if (!unifiedError && unifiedData) {
         // 使用统一函数返回的数据
         const data = unifiedData;
