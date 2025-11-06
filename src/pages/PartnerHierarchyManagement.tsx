@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';

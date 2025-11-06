@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 // 看板数据类型定义
 export interface ProjectDetails {

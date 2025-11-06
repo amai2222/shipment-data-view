@@ -2,7 +2,7 @@
 // 文件: src/hooks/useRealtimePermissionCache.ts
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useMemoryLeakFix } from './useMemoryLeakFix';
 
 interface RealtimePermissionCacheOptions {

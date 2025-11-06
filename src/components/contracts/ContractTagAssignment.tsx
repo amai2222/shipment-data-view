@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Tag, Plus, X, Edit } from 'lucide-react';
 

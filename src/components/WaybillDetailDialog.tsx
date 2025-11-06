@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Truck, Calendar, Banknote, Weight, Package, User, Phone, Building2, FileImage, Eye } from 'lucide-react';
 import { LogisticsRecord } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 interface WaybillDetailDialogProps {
   isOpen: boolean;

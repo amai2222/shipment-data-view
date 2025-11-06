@@ -1,7 +1,7 @@
 // 数据库权限服务
 // 文件: src/services/PermissionDatabaseService.ts
 
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 export interface DatabasePermission {
   id: string;

@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { MobileContractList } from '@/components/mobile/MobileContractList';
 import { MobileContractDetail } from '@/components/mobile/MobileContractDetail';
 import { MobileContractDashboard } from '@/components/mobile/MobileContractDashboard';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Plus, FileText, Calendar, Building, DollarSign, List, Eye, ArrowLeft, BarChart3 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';

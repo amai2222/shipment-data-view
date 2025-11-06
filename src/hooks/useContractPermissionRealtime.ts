@@ -2,7 +2,7 @@
 // 文件: src/hooks/useContractPermissionRealtime.ts
 
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { ContractPermissionChange, ContractPermissionSyncStatus } from '@/types/permissions';
 import { ContractPermissionServiceSimple as ContractPermissionService } from '@/services/contractPermissionServiceSimple';
 

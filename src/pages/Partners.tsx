@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { Partner } from '@/types';
 import { Trash2, Edit, Plus, Download, Upload, Users, Eye, EyeOff } from 'lucide-react';
 import * as XLSX from 'xlsx';

@@ -2,7 +2,7 @@
 // 文件: src/hooks/useMenuPermissions.ts
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface MenuPermissions {

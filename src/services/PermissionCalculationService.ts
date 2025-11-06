@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { PROJECT_ROLE_PERMISSIONS } from './ProjectAssignmentService';
 
 export interface UserEffectivePermissions {

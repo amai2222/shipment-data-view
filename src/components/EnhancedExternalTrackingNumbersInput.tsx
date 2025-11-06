@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Trash2, ExternalLink, Search, Settings, CheckCircle } from 'lucide-react';
 import { ExternalTrackingNumber, PlatformOption } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 interface EnhancedExternalTrackingNumbersInputProps {
   externalTrackingNumbers: ExternalTrackingNumber[];

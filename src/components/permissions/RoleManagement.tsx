@@ -19,7 +19,7 @@ import {
   ROLES
 } from '@/config/permissions';
 import { PermissionGroup } from '@/types/permission';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 interface RoleTemplate {
   role: string;

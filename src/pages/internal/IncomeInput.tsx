@@ -31,7 +31,7 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import {
   DollarSign,
   Plus,

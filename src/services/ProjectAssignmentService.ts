@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { DynamicRoleService } from './DynamicRoleService';
 
 // 动态生成项目角色权限映射 - 自动同步系统角色

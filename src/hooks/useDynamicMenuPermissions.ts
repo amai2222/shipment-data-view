@@ -2,7 +2,7 @@
 // 从 menu_config 表读取菜单权限选项，替代硬编码配置
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { safeLogger } from '@/utils/safeLogger';
 
 export interface MenuPermissionItem {

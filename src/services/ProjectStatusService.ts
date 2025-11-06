@@ -1,7 +1,7 @@
 // 项目状态变更服务
 // 处理项目状态变更时的自动权限分配
 
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { DynamicRoleService } from './DynamicRoleService';
 
 export interface ProjectStatusChange {

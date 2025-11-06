@@ -10,7 +10,7 @@ import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { MobileSkeletonLoader } from '@/components/mobile/MobileSkeletonLoader';
 import { NoDataState } from '@/components/mobile/MobileEmptyState';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Bell, 

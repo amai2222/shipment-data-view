@@ -1,7 +1,7 @@
 // 统一的权限计算服务
 // 文件: src/services/UnifiedPermissionService.ts
 
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 export interface UserPermissionData {
   user_id: string;

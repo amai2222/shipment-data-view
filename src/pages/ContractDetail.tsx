@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ContractTagAssignment } from '@/components/contracts/ContractTagAssignment';
 import { ContractFileManager } from '@/components/contracts/ContractFileManager';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ArrowLeft, 

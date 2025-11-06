@@ -19,7 +19,7 @@ import {
   Save,
   AlertTriangle
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { ROLES, MENU_PERMISSIONS, FUNCTION_PERMISSIONS } from '@/config/permissions';
 
 interface PermissionTemplatesProps {

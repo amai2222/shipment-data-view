@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Shield, Users, Settings2, RefreshCw } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { PermissionQuickActions } from './PermissionQuickActions';
 import { BatchPermissionOperations } from './BatchPermissionOperations';
 import { PermissionTemplates } from './PermissionTemplates';

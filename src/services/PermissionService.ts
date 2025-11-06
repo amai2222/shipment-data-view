@@ -1,6 +1,6 @@
 // 权限管理服务层 - 统一数据操作
 
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { 
   User, 
   Project, 

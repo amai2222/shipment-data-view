@@ -14,7 +14,7 @@ import {
   Clock,
   RefreshCw
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { format, addDays, isAfter, isBefore } from 'date-fns';
 import { zhCN } from 'date-fns/locale';

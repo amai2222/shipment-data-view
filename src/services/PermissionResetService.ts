@@ -1,5 +1,5 @@
 // 重置权限服务 - 从数据库读取角色模板权限，不使用硬编码
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { UserRole } from '@/types/permission';
 
 export class PermissionResetService {

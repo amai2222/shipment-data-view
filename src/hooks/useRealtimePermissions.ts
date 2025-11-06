@@ -2,7 +2,7 @@
 // 文件: src/hooks/useRealtimePermissions.ts
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { BatchQueryService } from '@/services/BatchQueryService';
 
 interface User {

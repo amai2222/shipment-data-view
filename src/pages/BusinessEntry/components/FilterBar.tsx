@@ -21,7 +21,7 @@ const FileText = ({ className }: { className?: string }) => <span className={cla
 const Building2 = ({ className }: { className?: string }) => <span className={className}>🏢</span>;
 import { useState, useEffect } from "react";
 import { BatchInputDialog } from "./BatchInputDialog";
-import { supabase } from "@/integrations/supabase/client";
+import { relaxedSupabase as supabase } from "@/lib/supabase-helpers";
 import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeFilter";
 
 interface Partner {

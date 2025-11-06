@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, X, Eye, FileImage, Loader2, Truck } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 export interface VehiclePhotos {

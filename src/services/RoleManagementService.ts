@@ -1,7 +1,7 @@
 // 角色管理服务
 // 处理角色的创建、更新和删除
 
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { ROLES } from '@/config/permissions';
 
 export interface RoleCreationData {

@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Shield, Users, Menu, Settings, Save, Search, User, Building2, Trash, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useOptimizedPermissions } from '@/hooks/useOptimizedPermissions';
 import { PageHeader } from '@/components/PageHeader';

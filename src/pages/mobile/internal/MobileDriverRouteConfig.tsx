@@ -23,7 +23,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import {
   Users,

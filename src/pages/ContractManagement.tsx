@@ -22,7 +22,7 @@ import { ContractAdvancedPermissions } from '@/components/contracts/ContractAdva
 import { ContractDashboard } from '@/components/contracts/ContractDashboard';
 import { ContractWorkflow } from '@/components/contracts/ContractWorkflow';
 import { ContractReports } from '@/components/contracts/ContractReports';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { useFilterState } from '@/hooks/useFilterState';
 import { Upload, Search, FileText, Filter, Plus, Download, Trash2, Settings, Tag, Hash, Shield, Archive, Bell, FileSearch, UserCheck } from 'lucide-react';

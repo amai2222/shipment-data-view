@@ -1,7 +1,7 @@
 // 合同权限服务层
 // 文件: src/services/contractPermissionService.ts
 
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { 
   ContractPermission, 
   ContractOwnerPermission, 

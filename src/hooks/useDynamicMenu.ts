@@ -2,7 +2,7 @@
 // 从数据库读取菜单配置，替代硬编码的菜单结构
 
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useSimplePermissions } from './useSimplePermissions';
 import { safeLogger } from '@/utils/safeLogger';
 

@@ -20,7 +20,7 @@ import {
   ROLES_NEW
 } from '@/config/permissionsNew';
 import { PermissionGroupNew } from '@/config/permissionsNew';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useDynamicMenuPermissions } from '@/hooks/useDynamicMenuPermissions';
 
 interface UserPermissionNew {

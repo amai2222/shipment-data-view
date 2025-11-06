@@ -34,7 +34,7 @@ import {
   Clock,
   BarChart3
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfYear, endOfYear, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { zhCN } from 'date-fns/locale';

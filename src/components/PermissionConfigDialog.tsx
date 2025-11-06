@@ -25,7 +25,7 @@ import {
   Copy,
   Loader2
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { PermissionDatabaseService } from '@/services/PermissionDatabaseService';
 import { useToast } from '@/hooks/use-toast';
 import { useDynamicMenuPermissions } from '@/hooks/useDynamicMenuPermissions';

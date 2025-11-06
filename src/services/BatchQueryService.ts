@@ -1,7 +1,7 @@
 // 批量查询服务 - 优化数据库请求
 // 文件: src/services/BatchQueryService.ts
 
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 export interface BatchUserPermissions {
   user_id: string;

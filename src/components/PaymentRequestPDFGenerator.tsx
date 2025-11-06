@@ -1,7 +1,7 @@
 ﻿import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 interface PaymentRequestPDFGeneratorProps {
   requestId: string;

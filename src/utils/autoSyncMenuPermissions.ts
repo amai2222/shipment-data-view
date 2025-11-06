@@ -1,5 +1,5 @@
 // 自动同步前端菜单权限到数据库
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 // 从 AppSidebar.tsx 提取所有菜单 key
 export const getAllMenuKeys = (): string[] => {
