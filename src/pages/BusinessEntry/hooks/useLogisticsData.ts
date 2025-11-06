@@ -90,7 +90,7 @@ export function useLogisticsData() {
   ) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_logistics_summary_and_records_enhanced', {
+      const { data, error } = await (supabase.rpc as any)('get_logistics_summary_and_records_enhanced', {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,
