@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 // @ts-expect-error - lucide-react图标导入
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, RotateCcw, Users } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, RotateCcw, Users, Merge, Undo2 } from 'lucide-react';
 // ✅ 导入可复用组件
 import {
   PaginationControl,
@@ -149,6 +149,10 @@ export default function InvoiceAudit() {
   // 批量操作状态
   const [isBatchOperating, setIsBatchOperating] = useState(false);
   const [batchOperation, setBatchOperation] = useState<'approve' | 'invoice' | null>(null);
+  
+  // 合并和取消合并状态
+  const [isMerging, setIsMerging] = useState(false);
+  const [isUnmerging, setIsUnmerging] = useState(false);
   
   // 批量输入对话框状态
   const [batchInputDialog, setBatchInputDialog] = useState<{
@@ -1593,6 +1597,25 @@ export default function InvoiceAudit() {
                   已选择 {selection.selectedIds.size} 个申请单
                 </span>
                 
+                {/* 合并开票按钮 - 紫色 */}
+                {selection.selectedIds.size >= 2 && (
+                  <ConfirmDialog
+                    title="确认合并开票申请"
+                    description={`确定要将选中的 ${selection.selectedIds.size} 个开票申请单合并为一个新的申请单吗？\n\n原申请单状态将变为"已合并"，运单将关联到新申请单。`}
+                    onConfirm={handleMergeInvoices}
+                  >
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={isMerging}
+                      className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      {isMerging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Merge className="h-4 w-4" />}
+                      合并开票 ({selection.selectedIds.size}个)
+                    </Button>
+                  </ConfirmDialog>
+                )}
+                
                 {/* 批量审批按钮 - 绿色 */}
                 <ConfirmDialog
                   title="确认批量审批"
@@ -1697,7 +1720,21 @@ export default function InvoiceAudit() {
                             <Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(req.id)} onCheckedChange={() => handleRequestSelect(req.id)} />
                           </TableCell>
                         )}
-                        <TableCell className="font-mono cursor-pointer" onClick={() => handleViewDetails(req)}>{req.request_number}</TableCell>
+                        <TableCell className="font-mono cursor-pointer" onClick={() => handleViewDetails(req)}>
+                          <div className="flex items-center gap-2">
+                            <span>{req.request_number}</span>
+                            {req.is_merged_request && (
+                              <Badge className="bg-purple-100 text-purple-800 text-xs">
+                                合并({req.merged_count})
+                              </Badge>
+                            )}
+                            {req.status === 'Merged' && (
+                              <Badge variant="outline" className="text-gray-600 text-xs">
+                                已合并
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
                           <StatusBadge status={req.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
@@ -1723,7 +1760,23 @@ export default function InvoiceAudit() {
                               查看申请单
                             </Button>
 
-                            {/* 取消审批按钮 - 已移除，使用批量取消审批功能代替 */}
+                            {/* 取消合并按钮 - 橙色，只有合并申请单且待审核状态才显示 */}
+                            {req.is_merged_request && req.status === 'Pending' && (
+                              <Button 
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUnmergeInvoice(req);
+                                }}
+                                disabled={isUnmerging}
+                                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200"
+                                title="取消合并"
+                              >
+                                <Undo2 className="mr-2 h-4 w-4" />
+                                取消合并
+                              </Button>
+                            )}
 
                             {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
                             {req.status === 'Pending' && (
