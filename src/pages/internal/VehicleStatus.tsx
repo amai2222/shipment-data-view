@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   RefreshCw
 } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function VehicleStatus() {
   const { toast } = useToast();
