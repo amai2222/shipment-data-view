@@ -233,14 +233,12 @@ BEGIN
     INSERT INTO invoice_request_details (
         invoice_request_id,
         logistics_record_id,
-        amount,
-        created_by
+        amount
     )
     SELECT DISTINCT ON (detail.logistics_record_id)
         v_new_request_uuid,
         detail.logistics_record_id,
-        detail.amount,
-        v_current_user_id
+        detail.amount
     FROM invoice_requests ir
     JOIN invoice_request_details detail ON ir.id = detail.invoice_request_id
     WHERE ir.request_number = ANY(p_request_ids);
