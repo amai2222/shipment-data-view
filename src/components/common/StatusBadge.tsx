@@ -8,6 +8,7 @@ export const PAYMENT_REQUEST_STATUS_CONFIG = {
   Pending: { label: '待审核', variant: 'secondary' as const },
   Approved: { label: '已审批待支付', variant: 'default' as const },
   Paid: { label: '已支付', variant: 'outline' as const, className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
+  Merged: { label: '已合并', variant: 'secondary' as const, className: 'bg-gray-100 text-gray-800' },
 };
 
 // 开票申请单状态配置

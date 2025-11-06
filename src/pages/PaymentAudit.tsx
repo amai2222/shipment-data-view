@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 // @ts-expect-error - lucide-react图标导入
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users, Merge, Undo2 } from 'lucide-react';
 // ✅ 导入可复用组件
 import {
   PaginationControl,
@@ -106,6 +106,10 @@ export default function PaymentAudit() {
   // 批量操作状态
   const [isBatchOperating, setIsBatchOperating] = useState(false);
   const [batchOperation, setBatchOperation] = useState<'approve' | 'pay' | null>(null);
+  
+  // 合并和取消合并状态
+  const [isMerging, setIsMerging] = useState(false);
+  const [isUnmerging, setIsUnmerging] = useState(false);
   
   // 批量输入对话框状态
   const [batchInputDialog, setBatchInputDialog] = useState<{
@@ -295,6 +299,101 @@ export default function PaymentAudit() {
   };
 
   // 批量操作处理函数
+  /**
+   * 合并付款申请
+   */
+  const handleMergePayments = async () => {
+    if (selection.selectedIds.size < 2) {
+      toast({ title: '请选择至少2个申请单', variant: 'destructive' });
+      return;
+    }
+
+    const selectedRequests = requests.filter(r => selection.selectedIds.has(r.id));
+    
+    const allPending = selectedRequests.every(r => r.status === 'Pending');
+    if (!allPending) {
+      toast({ title: '只能合并待审核状态的申请单', variant: 'destructive' });
+      return;
+    }
+
+    setIsMerging(true);
+    try {
+      const requestIds = selectedRequests.map(r => r.request_id);
+      
+      const { data, error } = await supabase.rpc('merge_payment_requests', {
+        p_request_ids: requestIds
+      });
+      
+      if (error) throw error;
+      
+      if (!data.success) {
+        toast({ title: '合并失败', description: data.message, variant: 'destructive' });
+        return;
+      }
+      
+      toast({ 
+        title: '合并成功', 
+        description: `已生成新申请单：${data.new_request_id}，包含${data.waybill_count}条运单`
+      });
+      
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      loadRequests();
+      
+    } catch (error: any) {
+      toast({ title: '合并失败', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  /**
+   * 取消合并付款申请
+   */
+  const handleUnmergePayment = async (request: PaymentRequest) => {
+    if (!request.is_merged_request) {
+      toast({ title: '此申请单不是合并申请单', variant: 'destructive' });
+      return;
+    }
+    
+    if (request.status !== 'Pending') {
+      toast({ title: '只能取消待审核状态的合并申请单', variant: 'destructive' });
+      return;
+    }
+    
+    const confirmed = window.confirm(
+      `确定要取消合并申请单 ${request.request_id} 吗？\n\n` +
+      `此操作将恢复 ${request.merged_count} 个原申请单，删除当前合并申请单。`
+    );
+    
+    if (!confirmed) return;
+    
+    setIsUnmerging(true);
+    try {
+      const { data, error } = await supabase.rpc('unmerge_payment_request', {
+        p_merged_request_id: request.request_id
+      });
+      
+      if (error) throw error;
+      
+      if (!data.success) {
+        toast({ title: '取消合并失败', description: data.message, variant: 'destructive' });
+        return;
+      }
+      
+      toast({ 
+        title: '取消合并成功', 
+        description: `已恢复 ${data.restored_count} 个原申请单`
+      });
+      
+      loadRequests();
+      
+    } catch (error: any) {
+      toast({ title: '取消合并失败', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsUnmerging(false);
+    }
+  };
+
   const handleBatchApprove = async () => {
     if (selection.selectedIds.size === 0) {
       toast({ title: "提示", description: "请先选择要审批的申请单", variant: "destructive" });
@@ -1449,6 +1548,25 @@ export default function PaymentAudit() {
                   已选择 {selection.selectedIds.size} 个申请单
                 </span>
                 
+                {/* 合并付款按钮 - 紫色 */}
+                {selection.selectedIds.size >= 2 && (
+                  <ConfirmDialog
+                    title="确认合并付款申请"
+                    description={`确定要将选中的 ${selection.selectedIds.size} 个付款申请单合并为一个新的申请单吗？\n\n原申请单状态将变为"已合并"，运单将关联到新申请单。`}
+                    onConfirm={handleMergePayments}
+                  >
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={isMerging}
+                      className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      {isMerging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Merge className="h-4 w-4" />}
+                      合并付款 ({selection.selectedIds.size}个)
+                    </Button>
+                  </ConfirmDialog>
+                )}
+                
                 {/* 批量审批按钮 - 绿色 */}
                 <ConfirmDialog
                   title="确认批量审批"
@@ -1553,7 +1671,21 @@ export default function PaymentAudit() {
                             <Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(req.id)} onCheckedChange={() => handleRequestSelect(req.id)} />
                           </TableCell>
                         )}
-                        <TableCell className="font-mono cursor-pointer" onClick={() => handleViewDetails(req)}>{req.request_id}</TableCell>
+                        <TableCell className="font-mono cursor-pointer" onClick={() => handleViewDetails(req)}>
+                          <div className="flex items-center gap-2">
+                            <span>{req.request_id}</span>
+                            {req.is_merged_request && (
+                              <Badge className="bg-purple-100 text-purple-800 text-xs">
+                                合并({req.merged_count})
+                              </Badge>
+                            )}
+                            {req.status === 'Merged' && (
+                              <Badge variant="outline" className="text-gray-600 text-xs">
+                                已合并
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
                           <StatusBadge status={req.status} customConfig={PAYMENT_REQUEST_STATUS_CONFIG} />
