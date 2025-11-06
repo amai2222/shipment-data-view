@@ -24,7 +24,7 @@ export function useAllFilteredRecords() {
   const getAllFilteredRecordIds = useCallback(async (filters: LogisticsFilters): Promise<AllFilteredRecordsResult | null> => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_all_filtered_record_ids', {
+      const { data, error } = await (supabase.rpc as any)('get_all_filtered_record_ids', {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,

@@ -55,9 +55,9 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
     setImportStep('preview');
     
     try {
-      const { data, error } = await supabase.rpc('preview_import_with_update_mode', {
+      const { data, error } = await (supabase.rpc as any)('preview_import_with_update_mode', {
         p_records: validRows
-      });
+      } as any);
 
       if (error) throw error;
 
@@ -227,25 +227,25 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
       + `${importMode === 'update' ? `将更新重复记录 ${approvedDuplicates.size} 条` : '重复记录已跳过'}`);
 
     try {
-      const { data: result, error } = await supabase.rpc('batch_import_logistics_records_with_update', { 
+      const { data: result, error } = await (supabase.rpc as any)('batch_import_logistics_records_with_update', { 
         p_records: recordsToImport,
         p_update_mode: importMode === 'update'
-      });
+      } as any);
       
       if (error) throw error;
       
       if (result && typeof result === 'object' && 'success_count' in result) {
-        const successCount = result.success_count || 0;
-        const errorCount = result.error_count || 0;
-        const insertedCount = result.inserted_count || 0;
-        const updatedCount = result.updated_count || 0;
+        const successCount = (result as any).success_count || 0;
+        const errorCount = (result as any).error_count || 0;
+        const insertedCount = (result as any).inserted_count || 0;
+        const updatedCount = (result as any).updated_count || 0;
 
         addLog(`导入完成！成功: ${successCount}, 失败: ${errorCount}`);
         addLog(`其中创建: ${insertedCount} 条，更新: ${updatedCount} 条`);
 
         if (errorCount > 0) {
           // 显示详细错误信息
-          const errorDetails = result.error_details || [];
+          const errorDetails = (result as any).error_details || [];
           addLog(`详细错误信息:`);
           errorDetails.forEach((error: any, index: number) => {
             const excelRow = error.record_index + 1; // Excel行号从1开始

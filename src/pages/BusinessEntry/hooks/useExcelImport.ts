@@ -97,9 +97,9 @@ export function useExcelImport(onImportSuccess: () => void) {
         };
       });
 
-      const { data: previewResult, error } = await supabase.rpc('preview_import_with_duplicates_check', { 
+      const { data: previewResult, error } = await (supabase.rpc as any)('preview_import_with_duplicates_check', { 
         p_records: recordsToPreview 
-      });
+      } as any);
       
       if (error) throw error;
 
@@ -227,9 +227,9 @@ export function useExcelImport(onImportSuccess: () => void) {
     addLog(`其中新记录 ${importPreview.new_records.length} 条，强制导入重复记录 ${approvedDuplicates.size} 条`);
 
     try {
-      const { data: result, error } = await supabase.rpc('import_logistics_data', { 
+      const { data: result, error } = await (supabase.rpc as any)('import_logistics_data', { 
         p_records: finalRecordsToImport 
-      });
+      } as any);
       
       if (error) throw error;
       

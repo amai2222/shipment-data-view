@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { UserPermissions } from '@/types/permissions';
 import { UserRole } from '@/types/permission';
+import type { RolePermissionTemplate } from '@/types/supabase-rpc';
 
 export function useAdvancedPermissions() {
   const { user, profile } = useAuth();
