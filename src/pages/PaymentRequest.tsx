@@ -173,9 +173,9 @@ export default function PaymentRequest() {
     new_driver_amount: string;         // 司机新应收
   }[]>([]);
   
-  // 排序状态
+  // 排序状态（默认：收货日期降序，同一日期按编号升序）
   const [sortField, setSortField] = useState<string>('loading_date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // ==========================================================================
   // 区域5: 数据获取函数
