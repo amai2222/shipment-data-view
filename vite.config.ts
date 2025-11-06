@@ -22,7 +22,15 @@ export default defineConfig(({ mode }) => ({
       "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
     },
     // 确保只有一个 React 实例，解决 @radix-ui 等库的 Hooks 错误
-    dedupe: ['react', 'react-dom', '@radix-ui/react-tooltip'],
+    dedupe: [
+      'react', 
+      'react-dom',
+      'react/jsx-runtime',
+      '@radix-ui/react-tooltip',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs'
+    ],
   },
   build: {
     // 优化代码分割
