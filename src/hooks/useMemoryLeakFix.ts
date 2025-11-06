@@ -2,7 +2,7 @@
 // 文件: src/hooks/useMemoryLeakFix.ts
 
 import { useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 export function useMemoryLeakFix() {
   const cleanupFunctions = useRef<(() => void)[]>([]);

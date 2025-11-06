@@ -3,7 +3,7 @@
  * 集成高德地图API，自动处理地址的地理编码
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { SupabaseAMapService, LocationGeocodingData, geocodingUtils } from './SupabaseAMapService';
 import { useToast } from '@/hooks/use-toast';
 

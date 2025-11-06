@@ -1,7 +1,7 @@
 // 简化的合同权限服务层（用于测试导入）
 // 文件: src/services/contractPermissionServiceSimple.ts
 
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 export class ContractPermissionServiceSimple {
   // 获取用户有效权限

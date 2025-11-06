@@ -1,6 +1,6 @@
 import { LocalStorage } from './storage';
 import { SupabaseStorage } from './supabase';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 export class DataMigration {
   // 迁移所有数据到Supabase

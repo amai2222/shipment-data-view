@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 // import { useToast } from '@/hooks/use-toast'; // 暂时注释，等Lovable应用新的package.json配置
 // import { useNavigate } from 'react-router-dom';
 // import { isMobile } from '@/utils/device';

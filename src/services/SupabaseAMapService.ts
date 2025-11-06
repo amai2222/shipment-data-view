@@ -3,7 +3,7 @@
  * 通过Supabase Edge Functions安全调用高德地图API
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 
 // 地理编码请求参数

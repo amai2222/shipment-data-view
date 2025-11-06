@@ -1,6 +1,6 @@
 // 正确路径: src/pages/BusinessEntry/components/ReactSelectCreatable.tsx
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import AsyncCreatableSelect from 'react-select/async-creatable';
 import { useDebounce } from '../hooks/use-debounce';
 
