@@ -57,11 +57,17 @@ export default function ExpenseCategories() {
   const loadCategories = async () => {
     setLoading(true);
     try {
+      // 计算月份范围（处理不同月份的天数）
+      const [year, month] = selectedMonth.split('-');
+      const startDate = `${selectedMonth}-01`;
+      const nextMonth = new Date(parseInt(year), parseInt(month), 1); // 下个月1号
+      const endDate = nextMonth.toISOString().slice(0, 10);
+      
       const { data, error } = await supabase
         .from('internal_driver_expense_applications')
         .select('expense_type, amount')
-        .gte('expense_date', `${selectedMonth}-01`)
-        .lt('expense_date', `${selectedMonth}-31`);
+        .gte('expense_date', startDate)
+        .lt('expense_date', endDate);
 
       if (error) throw error;
 
