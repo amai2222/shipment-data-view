@@ -2126,6 +2126,42 @@ export default function PaymentRequest() {
                         </div>
                       </div>
                       
+                      {/* 司机应收金额 - 优先显示 */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-green-50 p-3 rounded-md">
+                        <div>
+                          <Label className="text-xs font-medium text-green-700">司机原应收</Label>
+                          <p className="text-sm font-mono text-green-900">¥{record.original_driver_amount.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <Label htmlFor={`driver-amount-${index}`} className="text-xs font-medium text-green-700">司机新应收 (¥)</Label>
+                          <Input
+                            id={`driver-amount-${index}`}
+                            type="text"
+                            inputMode="decimal"
+                            value={record.new_driver_amount}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
+                                const newRecords = [...batchCostRecords];
+                                newRecords[index].new_driver_amount = value;
+                                setBatchCostRecords(newRecords);
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const value = e.target.value;
+                              if (value && value !== '-' && !isNaN(parseFloat(value))) {
+                                const newRecords = [...batchCostRecords];
+                                newRecords[index].new_driver_amount = parseFloat(value).toFixed(2);
+                                setBatchCostRecords(newRecords);
+                              }
+                            }}
+                            disabled={isBatchModifying}
+                            className="font-mono h-9 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            placeholder="输入金额（可以是0）"
+                          />
+                        </div>
+                      </div>
+                      
                       {/* 合作方应收金额 */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 p-3 rounded-md">
                         <div>
@@ -2152,42 +2188,6 @@ export default function PaymentRequest() {
                               if (value && value !== '-' && !isNaN(parseFloat(value))) {
                                 const newRecords = [...batchCostRecords];
                                 newRecords[index].new_amount = parseFloat(value).toFixed(2);
-                                setBatchCostRecords(newRecords);
-                              }
-                            }}
-                            disabled={isBatchModifying}
-                            className="font-mono h-9 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            placeholder="输入金额（可以是0）"
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* 司机应收金额 */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-green-50 p-3 rounded-md">
-                        <div>
-                          <Label className="text-xs font-medium text-green-700">司机原应收</Label>
-                          <p className="text-sm font-mono text-green-900">¥{record.original_driver_amount.toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <Label htmlFor={`driver-amount-${index}`} className="text-xs font-medium text-green-700">司机新应收 (¥)</Label>
-                          <Input
-                            id={`driver-amount-${index}`}
-                            type="text"
-                            inputMode="decimal"
-                            value={record.new_driver_amount}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
-                                const newRecords = [...batchCostRecords];
-                                newRecords[index].new_driver_amount = value;
-                                setBatchCostRecords(newRecords);
-                              }
-                            }}
-                            onBlur={(e) => {
-                              const value = e.target.value;
-                              if (value && value !== '-' && !isNaN(parseFloat(value))) {
-                                const newRecords = [...batchCostRecords];
-                                newRecords[index].new_driver_amount = parseFloat(value).toFixed(2);
                                 setBatchCostRecords(newRecords);
                               }
                             }}

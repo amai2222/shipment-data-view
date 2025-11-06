@@ -487,8 +487,8 @@ export default function VehicleManagement() {
     ).length
   };
 
-  const paginatedVehicles = filteredVehiclesData.slice((page - 1) * pageSize, page * pageSize);
-  const totalPages = Math.ceil(filteredVehiclesData.length / pageSize);
+  const paginatedVehiclesData = filteredVehiclesData.slice((page - 1) * pageSize, page * pageSize);
+  const totalPagesData = Math.ceil(filteredVehiclesData.length / pageSize);
 
   return (
     <div className="p-4 space-y-4">
@@ -631,14 +631,14 @@ export default function VehicleManagement() {
                       加载中...
                     </TableCell>
                   </TableRow>
-                ) : paginatedVehicles.length === 0 ? (
+                ) : paginatedVehiclesData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       暂无车辆数据
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedVehicles.map(vehicle => {
+                  paginatedVehiclesData.map(vehicle => {
                     const statusConfig = getStatusConfig(vehicle.vehicle_status);
                     const StatusIcon = statusConfig.icon;
                     const hasExpiringCert = 
@@ -730,13 +730,13 @@ export default function VehicleManagement() {
                   上一页
                 </Button>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">第 {page} / {totalPages} 页</span>
+                  <span className="text-sm">第 {page} / {totalPagesData} 页</span>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
+                  onClick={() => setPage(p => Math.min(totalPagesData, p + 1))}
+                  disabled={page === totalPagesData}
                 >
                   下一页
                 </Button>
