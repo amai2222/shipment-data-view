@@ -1,4 +1,4 @@
-// PC端 - 证件管理（参考操作日志布局）
+// PC端 - 证件管理（完整功能实现）
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -33,20 +34,42 @@ import {
   Calendar,
   RefreshCw,
   Search,
-  Filter
+  Filter,
+  Save,
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+interface Certificate {
+  id?: string;
+  type: string;
+  owner: string;
+  owner_id: string;
+  owner_type: 'vehicle' | 'driver';
+  expire_date: string;
+  certificate_number?: string;
+  photo_url?: string;
+}
 
 export default function CertificateManagement() {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
-  const [certificates, setCertificates] = useState<any[]>([]);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 20;
+
+  const [updateFormData, setUpdateFormData] = useState({
+    expire_date: '',
+    certificate_number: '',
+    photo_file: null as File | null
+  });
 
   useEffect(() => {
     loadCertificates();
@@ -57,37 +80,113 @@ export default function CertificateManagement() {
     try {
       const { data: vehicleData } = await supabase
         .from('internal_vehicles')
-        .select('license_plate, driving_license_expire_date, insurance_expire_date, annual_inspection_date')
+        .select('id, license_plate, driving_license_expire_date, insurance_expire_date, annual_inspection_date')
         .order('license_plate');
 
       const { data: driverData } = await supabase
         .from('internal_drivers')
-        .select('name, driver_license_expire_date, qualification_certificate_expire_date')
+        .select('id, name, driver_license_expire_date, qualification_certificate_expire_date')
         .order('name');
 
-      const allCerts: any[] = [];
+      const allCerts: Certificate[] = [];
       
       vehicleData?.forEach(v => {
         if (v.driving_license_expire_date) {
-          allCerts.push({ type: '车辆行驶证', owner: v.license_plate, expire_date: v.driving_license_expire_date });
+          allCerts.push({ 
+            type: '车辆行驶证', 
+            owner: v.license_plate, 
+            owner_id: v.id,
+            owner_type: 'vehicle',
+            expire_date: v.driving_license_expire_date 
+          });
         }
         if (v.insurance_expire_date) {
-          allCerts.push({ type: '车辆保险', owner: v.license_plate, expire_date: v.insurance_expire_date });
+          allCerts.push({ 
+            type: '车辆保险', 
+            owner: v.license_plate, 
+            owner_id: v.id,
+            owner_type: 'vehicle',
+            expire_date: v.insurance_expire_date 
+          });
         }
         if (v.annual_inspection_date) {
-          allCerts.push({ type: '年检', owner: v.license_plate, expire_date: v.annual_inspection_date });
+          allCerts.push({ 
+            type: '年检', 
+            owner: v.license_plate, 
+            owner_id: v.id,
+            owner_type: 'vehicle',
+            expire_date: v.annual_inspection_date 
+          });
         }
       });
 
       driverData?.forEach(d => {
         if (d.driver_license_expire_date) {
-          allCerts.push({ type: '驾驶证', owner: d.name, expire_date: d.driver_license_expire_date });
+          allCerts.push({ 
+            type: '驾驶证', 
+            owner: d.name, 
+            owner_id: d.id,
+            owner_type: 'driver',
+            expire_date: d.driver_license_expire_date 
+          });
+        }
+        if (d.qualification_certificate_expire_date) {
+          allCerts.push({ 
+            type: '从业资格证', 
+            owner: d.name, 
+            owner_id: d.id,
+            owner_type: 'driver',
+            expire_date: d.qualification_certificate_expire_date 
+          });
         }
       });
 
       setCertificates(allCerts);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 更新证件信息
+  const handleUpdateCertificate = async () => {
+    if (!selectedCert || !updateFormData.expire_date) {
+      toast({
+        title: '请填写到期日期',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const table = selectedCert.owner_type === 'vehicle' ? 'internal_vehicles' : 'internal_drivers';
+      const field = selectedCert.type === '车辆行驶证' ? 'driving_license_expire_date' :
+                    selectedCert.type === '车辆保险' ? 'insurance_expire_date' :
+                    selectedCert.type === '年检' ? 'annual_inspection_date' :
+                    selectedCert.type === '驾驶证' ? 'driver_license_expire_date' :
+                    'qualification_certificate_expire_date';
+
+      const { error } = await supabase
+        .from(table)
+        .update({ [field]: updateFormData.expire_date })
+        .eq('id', selectedCert.owner_id);
+
+      if (error) throw error;
+
+      toast({
+        title: '更新成功',
+        description: `证件 ${selectedCert.type} 已更新`
+      });
+
+      setShowUpdateDialog(false);
+      setSelectedCert(null);
+      setUpdateFormData({ expire_date: '', certificate_number: '', photo_file: null });
+      loadCertificates();
+    } catch (error: any) {
+      toast({
+        title: '更新失败',
+        description: error.message || '无法更新证件',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -185,9 +284,19 @@ export default function CertificateManagement() {
                     <SelectItem value="车辆保险">车辆保险</SelectItem>
                     <SelectItem value="年检">年检</SelectItem>
                     <SelectItem value="驾驶证">驾驶证</SelectItem>
+                    <SelectItem value="从业资格证">从业资格证</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => { setSearchTerm(''); setTypeFilter('all'); }}>
+                清除筛选
+              </Button>
+              <Button onClick={loadCertificates}>
+                应用筛选
+              </Button>
             </div>
           </CardContent>
         )}
@@ -242,7 +351,20 @@ export default function CertificateManagement() {
                             <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                setSelectedCert(cert);
+                                setUpdateFormData({
+                                  expire_date: cert.expire_date,
+                                  certificate_number: '',
+                                  photo_file: null
+                                });
+                                setShowUpdateDialog(true);
+                              }}
+                            >
                               <Upload className="h-4 w-4" />
                             </Button>
                           </div>
@@ -255,7 +377,6 @@ export default function CertificateManagement() {
             </Table>
           </div>
 
-          {/* 分页 */}
           {!loading && filteredCerts.length > 0 && (
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-muted-foreground">
@@ -274,6 +395,82 @@ export default function CertificateManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* 更新证件对话框 */}
+      <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
+        <DialogContent>
+          {selectedCert && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  更新证件
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedCert.type} - {selectedCert.owner}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div>
+                  <Label>到期日期 <span className="text-red-500">*</span></Label>
+                  <Input
+                    type="date"
+                    value={updateFormData.expire_date}
+                    onChange={e => setUpdateFormData({...updateFormData, expire_date: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <Label>证件号码（可选）</Label>
+                  <Input
+                    placeholder="输入证件号码"
+                    value={updateFormData.certificate_number}
+                    onChange={e => setUpdateFormData({...updateFormData, certificate_number: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <Label>证件照片（可选）</Label>
+                  <div className="border-2 border-dashed rounded-md p-4 text-center cursor-pointer hover:border-primary">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          setUpdateFormData({...updateFormData, photo_file: e.target.files[0]});
+                        }
+                      }}
+                      className="hidden"
+                      id="cert-photo-upload"
+                    />
+                    <label htmlFor="cert-photo-upload" className="cursor-pointer">
+                      <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        {updateFormData.photo_file ? updateFormData.photo_file.name : '点击上传证件照片'}
+                      </p>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => {
+                  setShowUpdateDialog(false);
+                  setSelectedCert(null);
+                }}>
+                  <X className="h-4 w-4 mr-2" />
+                  取消
+                </Button>
+                <Button onClick={handleUpdateCertificate}>
+                  <Save className="h-4 w-4 mr-2" />
+                  保存
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

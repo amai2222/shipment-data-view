@@ -1,12 +1,13 @@
-// PC端 - 内部司机管理（参考操作日志布局）
+// PC端 - 内部司机管理（完整功能实现）
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -37,7 +38,10 @@ import {
   RefreshCw,
   Download,
   AlertTriangle,
-  Eye
+  Eye,
+  Save,
+  X,
+  Upload
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -52,7 +56,29 @@ interface Driver {
   commission_rate: number | null;
   primary_vehicle: string | null;
   driver_license_expire_date: string | null;
+  id_card_number: string | null;
 }
+
+interface DriverFormData {
+  name: string;
+  phone: string;
+  id_card_number: string;
+  hire_date: string;
+  employment_status: string;
+  base_salary: string;
+  salary_calculation_type: string;
+  commission_rate: string;
+  driver_license_number: string;
+  driver_license_expire_date: string;
+  qualification_certificate_expire_date: string;
+  remarks: string;
+}
+
+const SALARY_TYPES = [
+  { value: 'monthly', label: '月薪制', description: '固定月薪' },
+  { value: 'trip_based', label: '计次制', description: '按趟次计费+提成' },
+  { value: 'commission', label: '提成制', description: '纯提成' }
+];
 
 export default function DriverManagement() {
   const { toast } = useToast();
@@ -64,8 +90,25 @@ export default function DriverManagement() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 20;
+
+  const [formData, setFormData] = useState<DriverFormData>({
+    name: '',
+    phone: '',
+    id_card_number: '',
+    hire_date: format(new Date(), 'yyyy-MM-dd'),
+    employment_status: 'active',
+    base_salary: '5000',
+    salary_calculation_type: 'monthly',
+    commission_rate: '10',
+    driver_license_number: '',
+    driver_license_expire_date: '',
+    qualification_certificate_expire_date: '',
+    remarks: ''
+  });
 
   useEffect(() => {
     loadDrivers();
@@ -92,6 +135,133 @@ export default function DriverManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 新增司机
+  const handleAddDriver = async () => {
+    if (!formData.name || !formData.phone) {
+      toast({
+        title: '请填写必填项',
+        description: '姓名和电话为必填项',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('internal_drivers')
+        .insert([{
+          name: formData.name,
+          phone: formData.phone,
+          id_card_number: formData.id_card_number || null,
+          hire_date: formData.hire_date,
+          employment_status: formData.employment_status,
+          base_salary: parseFloat(formData.base_salary),
+          salary_calculation_type: formData.salary_calculation_type,
+          commission_rate: formData.salary_calculation_type === 'monthly' ? null : parseFloat(formData.commission_rate),
+          driver_license_number: formData.driver_license_number || null,
+          driver_license_expire_date: formData.driver_license_expire_date || null,
+          qualification_certificate_expire_date: formData.qualification_certificate_expire_date || null,
+          remarks: formData.remarks || null
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: '新增成功',
+        description: `司机 ${formData.name} 已添加`
+      });
+
+      setShowAddDialog(false);
+      resetForm();
+      loadDrivers();
+    } catch (error: any) {
+      toast({
+        title: '新增失败',
+        description: error.message || '无法添加司机',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // 编辑司机
+  const handleEditDriver = async () => {
+    if (!selectedDriver) return;
+
+    try {
+      const { error } = await supabase
+        .from('internal_drivers')
+        .update({
+          name: formData.name,
+          phone: formData.phone,
+          id_card_number: formData.id_card_number || null,
+          hire_date: formData.hire_date,
+          employment_status: formData.employment_status,
+          base_salary: parseFloat(formData.base_salary),
+          salary_calculation_type: formData.salary_calculation_type,
+          commission_rate: formData.salary_calculation_type === 'monthly' ? null : parseFloat(formData.commission_rate),
+          driver_license_number: formData.driver_license_number || null,
+          driver_license_expire_date: formData.driver_license_expire_date || null,
+          qualification_certificate_expire_date: formData.qualification_certificate_expire_date || null
+        })
+        .eq('id', selectedDriver.id);
+
+      if (error) throw error;
+
+      toast({
+        title: '更新成功',
+        description: `司机 ${formData.name} 信息已更新`
+      });
+
+      setShowEditDialog(false);
+      setSelectedDriver(null);
+      loadDrivers();
+    } catch (error: any) {
+      toast({
+        title: '更新失败',
+        description: error.message || '无法更新司机',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      phone: '',
+      id_card_number: '',
+      hire_date: format(new Date(), 'yyyy-MM-dd'),
+      employment_status: 'active',
+      base_salary: '5000',
+      salary_calculation_type: 'monthly',
+      commission_rate: '10',
+      driver_license_number: '',
+      driver_license_expire_date: '',
+      qualification_certificate_expire_date: '',
+      remarks: ''
+    });
+  };
+
+  const openEditDialog = (driver: Driver) => {
+    setSelectedDriver(driver);
+    setFormData({
+      name: driver.name,
+      phone: driver.phone,
+      id_card_number: driver.id_card_number || '',
+      hire_date: driver.hire_date,
+      employment_status: driver.employment_status,
+      base_salary: driver.base_salary.toString(),
+      salary_calculation_type: driver.salary_calculation_type,
+      commission_rate: (driver.commission_rate || 10).toString(),
+      driver_license_number: '',
+      driver_license_expire_date: driver.driver_license_expire_date || '',
+      qualification_certificate_expire_date: '',
+      remarks: ''
+    });
+    setShowEditDialog(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -135,6 +305,156 @@ export default function DriverManagement() {
 
   const paginatedDrivers = filteredDrivers.slice((page - 1) * pageSize, page * pageSize);
   const totalPages = Math.ceil(filteredDrivers.length / pageSize);
+
+  // 司机表单组件
+  const DriverForm = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>姓名 <span className="text-red-500">*</span></Label>
+          <Input
+            placeholder="司机姓名"
+            value={formData.name}
+            onChange={e => setFormData({...formData, name: e.target.value})}
+            required
+          />
+        </div>
+        <div>
+          <Label>电话 <span className="text-red-500">*</span></Label>
+          <Input
+            placeholder="手机号"
+            value={formData.phone}
+            onChange={e => setFormData({...formData, phone: e.target.value})}
+            required
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>身份证号</Label>
+          <Input
+            placeholder="18位身份证号"
+            value={formData.id_card_number}
+            onChange={e => setFormData({...formData, id_card_number: e.target.value})}
+            maxLength={18}
+          />
+        </div>
+        <div>
+          <Label>入职日期</Label>
+          <Input
+            type="date"
+            value={formData.hire_date}
+            onChange={e => setFormData({...formData, hire_date: e.target.value})}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>在职状态</Label>
+          <Select value={formData.employment_status} onValueChange={v => setFormData({...formData, employment_status: v})}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">在职</SelectItem>
+              <SelectItem value="on_leave">请假</SelectItem>
+              <SelectItem value="resigned">离职</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="border-t pt-4">
+        <h3 className="font-semibold mb-3">工资设置</h3>
+        <div className="space-y-4">
+          <div>
+            <Label>工资制度 <span className="text-red-500">*</span></Label>
+            <Select value={formData.salary_calculation_type} onValueChange={v => setFormData({...formData, salary_calculation_type: v})}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SALARY_TYPES.map(type => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label} - {type.description}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>基本工资（元）</Label>
+              <Input
+                type="number"
+                placeholder="5000"
+                value={formData.base_salary}
+                onChange={e => setFormData({...formData, base_salary: e.target.value})}
+                step="100"
+              />
+            </div>
+            {formData.salary_calculation_type !== 'monthly' && (
+              <div>
+                <Label>提成比例（%）</Label>
+                <Input
+                  type="number"
+                  placeholder="10"
+                  value={formData.commission_rate}
+                  onChange={e => setFormData({...formData, commission_rate: e.target.value})}
+                  step="1"
+                  min="0"
+                  max="100"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t pt-4">
+        <h3 className="font-semibold mb-3">证件信息</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>驾驶证号</Label>
+            <Input
+              placeholder="驾驶证号码"
+              value={formData.driver_license_number}
+              onChange={e => setFormData({...formData, driver_license_number: e.target.value})}
+            />
+          </div>
+          <div>
+            <Label>驾驶证到期日期</Label>
+            <Input
+              type="date"
+              value={formData.driver_license_expire_date}
+              onChange={e => setFormData({...formData, driver_license_expire_date: e.target.value})}
+            />
+          </div>
+          <div>
+            <Label>从业资格证到期日期</Label>
+            <Input
+              type="date"
+              value={formData.qualification_certificate_expire_date}
+              onChange={e => setFormData({...formData, qualification_certificate_expire_date: e.target.value})}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <Label>备注</Label>
+        <Textarea
+          placeholder="输入备注信息..."
+          value={formData.remarks}
+          onChange={e => setFormData({...formData, remarks: e.target.value})}
+          rows={3}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <div className="p-4 space-y-4">
@@ -180,7 +500,7 @@ export default function DriverManagement() {
                 <Download className="h-4 w-4 mr-2" />
                 导出
               </Button>
-              <Button size="sm">
+              <Button size="sm" onClick={() => setShowAddDialog(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 新增司机
               </Button>
@@ -308,7 +628,12 @@ export default function DriverManagement() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0"
+                              onClick={() => openEditDialog(driver)}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                           </div>
@@ -353,6 +678,68 @@ export default function DriverManagement() {
         </CardContent>
       </Card>
 
+      {/* 新增司机对话框 */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              新增司机
+            </DialogTitle>
+            <DialogDescription>
+              添加新的内部司机档案
+            </DialogDescription>
+          </DialogHeader>
+
+          <DriverForm />
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowAddDialog(false);
+              resetForm();
+            }}>
+              <X className="h-4 w-4 mr-2" />
+              取消
+            </Button>
+            <Button onClick={handleAddDriver}>
+              <Save className="h-4 w-4 mr-2" />
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 编辑司机对话框 */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              编辑司机
+            </DialogTitle>
+            <DialogDescription>
+              修改司机档案信息
+            </DialogDescription>
+          </DialogHeader>
+
+          <DriverForm />
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowEditDialog(false);
+              setSelectedDriver(null);
+            }}>
+              <X className="h-4 w-4 mr-2" />
+              取消
+            </Button>
+            <Button onClick={handleEditDriver}>
+              <Save className="h-4 w-4 mr-2" />
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 司机详情对话框 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
         <DialogContent className="max-w-2xl">
@@ -375,6 +762,10 @@ export default function DriverManagement() {
                   <div>
                     <Label className="text-muted-foreground">电话</Label>
                     <p>{selectedDriver.phone}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">身份证号</Label>
+                    <p className="font-mono text-sm">{selectedDriver.id_card_number || '-'}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">入职日期</Label>

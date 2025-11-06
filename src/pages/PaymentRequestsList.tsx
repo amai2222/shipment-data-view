@@ -550,9 +550,21 @@ export default function PaymentRequestsList() {
             chain_name?: string;
             paying_partner_id?: string;
           };
-          const sorted = (sheetData.records || []).slice().sort((a: unknown, b: unknown) => 
-            String((a as { record: { auto_number?: string } }).record.auto_number || "").localeCompare(String((b as { record: { auto_number?: string } }).record.auto_number || ""))
-          );
+          // 排序规则：先按日期降序（最新在前），再按运单编号升序（编号小在前）
+          const sorted = (sheetData.records || []).slice().sort((a: unknown, b: unknown) => {
+            const aRecord = (a as { record: { auto_number?: string; loading_date?: string } }).record;
+            const bRecord = (b as { record: { auto_number?: string; loading_date?: string } }).record;
+            
+            // 第一优先级：按日期降序（最新的在前）
+            const dateA = new Date(aRecord.loading_date || '').getTime();
+            const dateB = new Date(bRecord.loading_date || '').getTime();
+            if (dateB !== dateA) {
+              return dateB - dateA; // 降序
+            }
+            
+            // 第二优先级：按运单编号升序（编号小的在前）
+            return String(aRecord.auto_number || "").localeCompare(String(bRecord.auto_number || ""));
+          });
           
           const payingPartnerName = sheetData.paying_partner_full_name || sheetData.paying_partner_name || "";
           const bankAccount = sheetData.paying_partner_bank_account || "";
