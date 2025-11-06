@@ -408,6 +408,107 @@ export default function InvoiceAudit() {
     }
   };
 
+  /**
+   * 合并开票申请
+   */
+  const handleMergeInvoices = async () => {
+    if (selection.selectedIds.size < 2) {
+      toast({ title: '请选择至少2个申请单', variant: 'destructive' });
+      return;
+    }
+
+    const selectedRequests = requests.filter(r => selection.selectedIds.has(r.id));
+    
+    const allPending = selectedRequests.every(r => r.status === 'Pending');
+    if (!allPending) {
+      toast({ title: '只能合并待审核状态的申请单', variant: 'destructive' });
+      return;
+    }
+    
+    const partnerIds = new Set(selectedRequests.map(r => r.partner_id));
+    if (partnerIds.size > 1) {
+      toast({ title: '只能合并同一合作方的申请单', variant: 'destructive' });
+      return;
+    }
+
+    setIsMerging(true);
+    try {
+      const requestNumbers = selectedRequests.map(r => r.request_number);
+      
+      const { data, error } = await supabase.rpc('merge_invoice_requests', {
+        p_request_ids: requestNumbers
+      });
+      
+      if (error) throw error;
+      
+      if (!data.success) {
+        toast({ title: '合并失败', description: data.message, variant: 'destructive' });
+        return;
+      }
+      
+      toast({ 
+        title: '合并成功', 
+        description: `已生成新申请单：${data.new_request_number}，包含${data.waybill_count}条运单`
+      });
+      
+      setSelection({ mode: 'none', selectedIds: new Set() });
+      fetchInvoiceRequests();
+      
+    } catch (error: any) {
+      toast({ title: '合并失败', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  /**
+   * 取消合并开票申请
+   */
+  const handleUnmergeInvoice = async (request: InvoiceRequest) => {
+    if (!request.is_merged_request) {
+      toast({ title: '此申请单不是合并申请单', variant: 'destructive' });
+      return;
+    }
+    
+    if (request.status !== 'Pending') {
+      toast({ title: '只能取消待审核状态的合并申请单', variant: 'destructive' });
+      return;
+    }
+    
+    const confirmed = window.confirm(
+      `确定要取消合并申请单 ${request.request_number} 吗？\n\n` +
+      `此操作将恢复 ${request.merged_count} 个原申请单，删除当前合并申请单。`
+    );
+    
+    if (!confirmed) return;
+    
+    setIsUnmerging(true);
+    try {
+      const { data, error } = await supabase.rpc('unmerge_invoice_request', {
+        p_merged_request_number: request.request_number
+      });
+      
+      if (error) throw error;
+      
+      if (!data.success) {
+        toast({ title: '取消合并失败', description: data.message, variant: 'destructive' });
+        return;
+      }
+      
+      toast({ 
+        title: '取消合并成功', 
+        description: `已恢复 ${data.restored_count} 个原申请单`
+      });
+      
+      fetchInvoiceRequests();
+      
+    } catch (error: any) {
+      toast({ title: '取消合并失败', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsUnmerging(false);
+    }
+  };
+
   // 批量取消审批（回滚到待审批状态）- 只对已审批待开票状态起作用
   const handleBatchRollbackApproval = async () => {
     if (selection.selectedIds.size === 0) return;
