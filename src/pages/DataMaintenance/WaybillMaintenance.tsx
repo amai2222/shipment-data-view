@@ -24,6 +24,7 @@ import { useExcelImportWithUpdate } from '@/pages/BusinessEntry/hooks/useExcelIm
 import TemplateMappingManager from '@/components/TemplateMappingManager';
 import TemplateBasedImport from '@/components/TemplateBasedImport';
 import { PageHeader } from "@/components/PageHeader";
+import SelectiveFieldUpdate from '@/components/SelectiveFieldUpdate';
 import * as XLSX from 'xlsx';
 
 export default function WaybillMaintenance() {
@@ -36,7 +37,7 @@ export default function WaybillMaintenance() {
   const [waybillCount, setWaybillCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping'>('standard');
+  const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping' | 'selective'>('standard');
 
   // Excel导入相关状态
   const {
@@ -207,10 +208,11 @@ export default function WaybillMaintenance() {
 
             {/* 标签页 */}
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="standard">标准导入</TabsTrigger>
                 <TabsTrigger value="template">模板导入</TabsTrigger>
                 <TabsTrigger value="mapping">模板管理</TabsTrigger>
+                <TabsTrigger value="selective">选择性更新</TabsTrigger>
               </TabsList>
 
               {/* 标准导入标签页 */}
@@ -365,6 +367,14 @@ export default function WaybillMaintenance() {
               {/* 模板管理标签页 */}
               <TabsContent value="mapping" className="space-y-6">
                 <TemplateMappingManager />
+              </TabsContent>
+
+              {/* 选择性更新标签页 */}
+              <TabsContent value="selective" className="space-y-6">
+                <SelectiveFieldUpdate 
+                  selectedProject={selectedProject}
+                  onUpdateSuccess={loadWaybillCount}
+                />
               </TabsContent>
             </Tabs>
           </CardContent>
