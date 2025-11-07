@@ -341,20 +341,21 @@ export default function DriverUserAssociation() {
                       </TableCell>
                       <TableCell>
                         <Select
-                          value={selectedFleetManagers[driver.id] || ''}
+                          value={selectedFleetManagers[driver.id] || 'none'}
                           onValueChange={(value) => {
+                            const managerId = value === 'none' ? '' : value;
                             setSelectedFleetManagers({
                               ...selectedFleetManagers,
                               [driver.id]: value
                             });
-                            handleAssignFleetManager(driver.id, value);
+                            handleAssignFleetManager(driver.id, managerId);
                           }}
                         >
                           <SelectTrigger className="w-48">
                             <SelectValue placeholder="选择车队长" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">无（不分配）</SelectItem>
+                            <SelectItem value="none">无（不分配）</SelectItem>
                             {fleetManagers.map(manager => (
                               <SelectItem key={manager.id} value={manager.id}>
                                 {manager.full_name} - {manager.email}
