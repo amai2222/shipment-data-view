@@ -43,8 +43,8 @@ DECLARE
     v_max_number INTEGER;
     v_new_number TEXT;
 BEGIN
-    -- 生成日期前缀：hbkp + YYYYMMDD
-    v_date_prefix := 'hbkp' || TO_CHAR(NOW(), 'YYYYMMDD');
+    -- 生成日期前缀：HBKP + YYYYMMDD
+    v_date_prefix := 'HBKP' || TO_CHAR(NOW(), 'YYYYMMDD');
     
     -- 查找今天最大的序号
     SELECT COALESCE(MAX(
@@ -64,7 +64,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION generate_merged_invoice_request_number IS '生成合并开票申请单编号（hbkp开头）';
+COMMENT ON FUNCTION generate_merged_invoice_request_number IS '生成合并开票申请单编号（HBKP开头）';
 
 -- ============================================================================
 -- 第四步：创建合并开票申请RPC函数
@@ -281,7 +281,7 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
-COMMENT ON FUNCTION merge_invoice_requests IS '合并多个开票申请单（生成hbkp编号，旧申请单状态变为Merged）';
+COMMENT ON FUNCTION merge_invoice_requests IS '合并多个开票申请单（生成HBKP编号，旧申请单状态变为Merged）';
 
 -- ============================================================================
 -- 验证
@@ -301,6 +301,10 @@ BEGIN
     RAISE NOTICE '  ✓ Merged 状态';
     RAISE NOTICE '  ✓ generate_merged_invoice_request_number() 函数';
     RAISE NOTICE '  ✓ merge_invoice_requests() 函数';
+    RAISE NOTICE '';
+    RAISE NOTICE '申请单号格式：';
+    RAISE NOTICE '  普通：kp20251106001';
+    RAISE NOTICE '  合并：HBKP20251106001  ← 大写';
     RAISE NOTICE '';
     RAISE NOTICE '使用方法：';
     RAISE NOTICE '  SELECT merge_invoice_requests(ARRAY[''kp001'', ''kp002'']);';

@@ -169,7 +169,7 @@ BEGIN
     RAISE NOTICE '  ✓ unmerge_invoice_request() 函数';
     RAISE NOTICE '';
     RAISE NOTICE '使用方法：';
-    RAISE NOTICE '  SELECT unmerge_invoice_request(''hbkp20251106001'');';
+    RAISE NOTICE '  SELECT unmerge_invoice_request(''HBKP20251106001'');';
     RAISE NOTICE '';
     RAISE NOTICE '功能：';
     RAISE NOTICE '  1. 验证合并申请单状态（必须是Pending）';

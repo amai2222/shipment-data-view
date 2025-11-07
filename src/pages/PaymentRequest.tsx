@@ -1108,6 +1108,9 @@ export default function PaymentRequest() {
           
           if (updateDriverError) throw updateDriverError;
           
+          // ✅ 注：司机应收改变后，数据库触发器会自动重算其他未手工修改的合作方
+          // 不需要前端手动调用 batch_recalculate_partner_costs
+          
           successCount++;
         } catch (error) {
           failedCount++;

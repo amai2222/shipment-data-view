@@ -50,10 +50,19 @@ export function useExcelImport(onImportSuccess: () => void) {
     setImportStep('preview');
     try {
       const recordsToPreview = validRows.map(rowData => {
-        const parsedLoadingWeight = parseFloat(rowData['装货数量']);
-        const parsedUnloadingWeight = parseFloat(rowData['卸货数量']);
-        const parsedCurrentCost = parseFloat(rowData['运费金额']);
-        const parsedExtraCost = parseFloat(rowData['额外费用']);
+        // 使用模糊匹配，兼容各种字段名
+        const parsedLoadingWeight = parseFloat(
+          rowData['装货数量'] || rowData['装货数量*'] || rowData['装货重量'] || rowData['装载量']
+        );
+        const parsedUnloadingWeight = parseFloat(
+          rowData['卸货数量'] || rowData['卸货数量(可选)'] || rowData['卸货重量'] || rowData['卸货重量(可选)']
+        );
+        const parsedCurrentCost = parseFloat(
+          rowData['运费金额'] || rowData['运费金额(可选)'] || rowData['运费'] || rowData['当前费用']
+        );
+        const parsedExtraCost = parseFloat(
+          rowData['额外费用'] || rowData['额外费用(可选)'] || rowData['额外'] || rowData['附加费']
+        );
 
         // 处理其他平台名称和外部运单号
         let externalTrackingNumbers = null;
@@ -90,8 +99,9 @@ export function useExcelImport(onImportSuccess: () => void) {
           unloading_weight: !isNaN(parsedUnloadingWeight) ? parsedUnloadingWeight.toString() : null,
           current_cost: !isNaN(parsedCurrentCost) ? parsedCurrentCost.toString() : '0',
           extra_cost: !isNaN(parsedExtraCost) ? parsedExtraCost.toString() : '0',
-          transport_type: rowData['运输类型']?.trim() || '实际运输',
-          remarks: rowData['备注']?.toString().trim() || null,
+          transport_type: (rowData['运输类型'] || rowData['运输类型(可选)'] || rowData['类型'])?.trim() || '实际运输',
+          cargo_type: (rowData['货物类型'] || rowData['货类'] || rowData['货物'])?.trim() || null,
+          remarks: (rowData['备注'] || rowData['备注(可选)'] || rowData['说明'] || rowData['注释'])?.toString().trim() || null,
           external_tracking_numbers: externalTrackingNumbers,
           other_platform_names: otherPlatformNames
         };
