@@ -5,42 +5,53 @@
 -- ============================================================================
 
 -- ============================================================================
--- 第一步：创建费用申请表（如果不存在）
+-- 第一步：检查并完善费用申请表结构
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS internal_driver_expense_applications (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    driver_id UUID REFERENCES internal_drivers(id),
-    driver_name TEXT NOT NULL,
-    expense_date DATE NOT NULL,
-    expense_type TEXT NOT NULL,
-    amount NUMERIC(10,2) NOT NULL,
-    description TEXT,
-    receipt_photos TEXT[],
-    status TEXT DEFAULT 'Pending',
-    notes TEXT,
-    reviewed_by UUID REFERENCES auth.users(id),
-    reviewed_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
+-- 表已存在，只添加缺失的字段
+
+-- 添加driver_name字段（如果不存在）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'internal_driver_expense_applications' 
+        AND column_name = 'driver_name'
+    ) THEN
+        ALTER TABLE internal_driver_expense_applications
+        ADD COLUMN driver_name TEXT;
+        
+        -- 从driver_id反查填充driver_name
+        UPDATE internal_driver_expense_applications ea
+        SET driver_name = d.name
+        FROM internal_drivers d
+        WHERE ea.driver_id = d.id
+        AND ea.driver_name IS NULL;
+        
+        RAISE NOTICE '✅ 已添加driver_name字段';
+    ELSE
+        RAISE NOTICE '⚠️  driver_name字段已存在';
+    END IF;
+END $$;
 
 -- 表注释
 COMMENT ON TABLE internal_driver_expense_applications IS '司机费用申请表';
 
--- 字段注释
+-- 字段注释（适配现有字段名）
 COMMENT ON COLUMN internal_driver_expense_applications.id IS '主键ID';
 COMMENT ON COLUMN internal_driver_expense_applications.driver_id IS '司机ID（关联internal_drivers表）';
 COMMENT ON COLUMN internal_driver_expense_applications.driver_name IS '司机姓名（冗余字段，方便查询）';
+COMMENT ON COLUMN internal_driver_expense_applications.application_number IS '申请单编号';
 COMMENT ON COLUMN internal_driver_expense_applications.expense_date IS '费用发生日期';
-COMMENT ON COLUMN internal_driver_expense_applications.expense_type IS '费用类型：fuel-加油费, toll-过路费, maintenance-维修费, parking-停车费, fine-罚款, meal-餐费, accommodation-住宿费, other-其他';
+COMMENT ON COLUMN internal_driver_expense_applications.expense_type IS '费用类型：fuel-加油费, charging-充电费, car_wash-洗车费, parking-停车费, toll-过路费, maintenance-维修费, fine-罚款, meal-餐费, accommodation-住宿费, other-其他';
 COMMENT ON COLUMN internal_driver_expense_applications.amount IS '费用金额（元，保留2位小数）';
 COMMENT ON COLUMN internal_driver_expense_applications.description IS '费用说明描述';
-COMMENT ON COLUMN internal_driver_expense_applications.receipt_photos IS '收据照片URL数组';
+COMMENT ON COLUMN internal_driver_expense_applications.receipt_photos IS '收据照片URL数组（JSONB格式）';
 COMMENT ON COLUMN internal_driver_expense_applications.status IS '申请状态：Pending-待审核, Approved-已通过, Rejected-已驳回';
-COMMENT ON COLUMN internal_driver_expense_applications.notes IS '审核备注（审核时填写）';
-COMMENT ON COLUMN internal_driver_expense_applications.reviewed_by IS '审核人ID（关联auth.users表）';
-COMMENT ON COLUMN internal_driver_expense_applications.reviewed_at IS '审核时间';
+COMMENT ON COLUMN internal_driver_expense_applications.review_comment IS '审核备注（审核时填写）';
+COMMENT ON COLUMN internal_driver_expense_applications.reviewer_id IS '审核人ID（关联auth.users表）';
+COMMENT ON COLUMN internal_driver_expense_applications.review_time IS '审核时间';
+COMMENT ON COLUMN internal_driver_expense_applications.payment_time IS '付款时间（费用发放时间）';
 COMMENT ON COLUMN internal_driver_expense_applications.created_at IS '申请创建时间';
 COMMENT ON COLUMN internal_driver_expense_applications.updated_at IS '最后更新时间';
 
@@ -54,6 +65,9 @@ ON internal_driver_expense_applications(status, expense_date);
 -- ============================================================================
 -- 第二步：创建提交费用申请RPC函数
 -- ============================================================================
+
+-- 先删除旧函数（如果存在）
+DROP FUNCTION IF EXISTS submit_expense_application CASCADE;
 
 CREATE OR REPLACE FUNCTION submit_expense_application(
     p_expense_date DATE,
@@ -136,6 +150,9 @@ COMMENT ON FUNCTION submit_expense_application IS '司机提交费用申请';
 -- 第三步：创建审核费用申请RPC函数
 -- ============================================================================
 
+-- 先删除旧函数（如果存在）
+DROP FUNCTION IF EXISTS review_expense_application CASCADE;
+
 CREATE OR REPLACE FUNCTION review_expense_application(
     p_application_id UUID,
     p_approved BOOLEAN,
@@ -158,12 +175,12 @@ BEGIN
     
     v_status := CASE WHEN p_approved THEN 'Approved' ELSE 'Rejected' END;
     
-    -- 更新申请状态
+    -- 更新申请状态（使用现有字段名）
     UPDATE internal_driver_expense_applications
     SET status = v_status,
-        notes = p_notes,
-        reviewed_by = auth.uid(),
-        reviewed_at = NOW(),
+        review_comment = p_notes,  -- 使用现有字段名
+        reviewer_id = auth.uid(),  -- 使用现有字段名
+        review_time = NOW(),       -- 使用现有字段名
         updated_at = NOW()
     WHERE id = p_application_id;
     
@@ -185,6 +202,9 @@ COMMENT ON FUNCTION review_expense_application IS '审核费用申请（车队�
 -- ============================================================================
 -- 第四步：创建辅助函数
 -- ============================================================================
+
+-- 先删除旧函数
+DROP FUNCTION IF EXISTS has_role(TEXT) CASCADE;
 
 -- 检查是否有车队长角色
 CREATE OR REPLACE FUNCTION has_role(p_role TEXT)

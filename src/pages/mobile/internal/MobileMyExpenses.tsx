@@ -49,6 +49,8 @@ import { zhCN } from 'date-fns/locale';
 // 费用类型配置
 const EXPENSE_TYPES = [
   { value: 'fuel', label: '🛢️ 加油费', color: 'bg-blue-100 text-blue-800' },
+  { value: 'charging', label: '⚡ 充电费', color: 'bg-emerald-100 text-emerald-800' },
+  { value: 'car_wash', label: '🚿 洗车费', color: 'bg-cyan-100 text-cyan-800' },
   { value: 'parking', label: '🅿️ 停车费', color: 'bg-green-100 text-green-800' },
   { value: 'toll', label: '🛣️ 过路费', color: 'bg-yellow-100 text-yellow-800' },
   { value: 'maintenance', label: '🔧 维修费', color: 'bg-red-100 text-red-800' },
