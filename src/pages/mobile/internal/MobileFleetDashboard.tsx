@@ -19,8 +19,11 @@ import {
   TrendingUp,
   Calendar,
   Settings,
-  Bell
+  Bell,
+  User
 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface DashboardStats {
   totalVehicles: number;
@@ -37,6 +40,7 @@ interface DashboardStats {
 export default function MobileFleetDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { profile } = useAuth();
   
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
@@ -70,17 +74,26 @@ export default function MobileFleetDashboard() {
   return (
     <MobileLayout>
       <div className="space-y-4 pb-20">
-        {/* 欢迎卡片 */}
+        {/* 欢迎卡片（带头像） */}
         <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold mb-1">车队管理</h2>
-                <p className="text-blue-100 text-sm">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16 border-2 border-white">
+                <AvatarImage src={profile?.avatar_url} />
+                <AvatarFallback className="bg-blue-700 text-white text-lg">
+                  {profile?.full_name?.substring(0, 2) || profile?.username?.substring(0, 2).toUpperCase() || 'FM'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <div className="text-sm opacity-90">车队长</div>
+                <h2 className="text-2xl font-bold mt-1">
+                  {profile?.full_name || profile?.username || '车队长'}
+                </h2>
+                <p className="text-blue-100 text-sm mt-1">
                   {new Date().toLocaleDateString('zh-CN', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
                   })}
                 </p>
               </div>

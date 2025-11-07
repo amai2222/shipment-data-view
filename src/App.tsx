@@ -117,6 +117,8 @@ const InternalDailyWaybills = lazy(() => import("./pages/internal/InternalDailyW
 const FleetManagerConfig = lazy(() => import("./pages/internal/FleetManagerConfig"));
 import RoleBasedRedirect from "./components/RoleBasedRedirect";
 import LazyLoadErrorBoundary from "./components/LazyLoadErrorBoundary";
+const MobileProfile = lazy(() => import("./pages/mobile/MobileProfile"));
+const MobileSecurity = lazy(() => import("./pages/mobile/MobileSecurity"));
 const ShipperDashboard = lazy(() => import("./pages/ShipperDashboard"));
 const PaymentAudit = lazy(() => import("./pages/PaymentAudit"));
 const InvoiceAudit = lazy(() => import("./pages/InvoiceAudit"));
@@ -714,6 +716,18 @@ const App = () => (
             <Route path="/m/settings" element={
               <ProtectedRoute requiredPermission="settings">
                 <MobileSettings />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/profile" element={
+              <ProtectedRoute>
+                <MobileProfile />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/security" element={
+              <ProtectedRoute>
+                <MobileSecurity />
               </ProtectedRoute>
             } />
 
