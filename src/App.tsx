@@ -115,6 +115,7 @@ const VehicleAssignment = lazy(() => import("./pages/internal/VehicleAssignment"
 const TaskDispatch = lazy(() => import("./pages/internal/TaskDispatch"));
 const InternalDailyWaybills = lazy(() => import("./pages/internal/InternalDailyWaybills"));
 const FleetManagerConfig = lazy(() => import("./pages/internal/FleetManagerConfig"));
+import RoleBasedRedirect from "./components/RoleBasedRedirect";
 const ShipperDashboard = lazy(() => import("./pages/ShipperDashboard"));
 const PaymentAudit = lazy(() => import("./pages/PaymentAudit"));
 const InvoiceAudit = lazy(() => import("./pages/InvoiceAudit"));
@@ -142,8 +143,8 @@ const App = () => (
             
             {/* --- 受保护的路由 --- */}
             <Route path="/" element={
-              <ProtectedRoute requiredPermission="dashboard.transport">
-                <AppLayout><TransportOverview /></AppLayout>
+              <ProtectedRoute>
+                <RoleBasedRedirect />
               </ProtectedRoute>
             } />
             

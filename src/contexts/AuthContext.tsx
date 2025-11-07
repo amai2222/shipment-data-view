@@ -175,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       
       // 强制导航到登录页
-      window.location.href = '/login';
+      window.location.href = '/auth';
     }
   };
 
