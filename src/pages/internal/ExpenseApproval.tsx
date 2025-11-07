@@ -81,11 +81,22 @@ export default function ExpenseApproval() {
   const loadApplications = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // ✅ 根据activeTab查询对应状态的申请
+      let query = supabase
         .from('internal_driver_expense_applications')
         .select('*')
-        .eq('status', activeTab)
         .order('created_at', { ascending: false });
+      
+      // 状态过滤（activeTab是小写，数据库是首字母大写）
+      if (activeTab === 'pending') {
+        query = query.eq('status', 'Pending');
+      } else if (activeTab === 'approved') {
+        query = query.eq('status', 'Approved');
+      } else if (activeTab === 'rejected') {
+        query = query.eq('status', 'Rejected');
+      }
+      
+      const { data, error } = await query;
 
       if (error) throw error;
       setApplications((data || []) as any[]);
@@ -100,6 +111,20 @@ export default function ExpenseApproval() {
     if (!selectedApp) return;
 
     try {
+      // ✅ 调用审核RPC函数
+      const { data, error } = await supabase.rpc('review_expense_application', {
+        p_application_id: selectedApp.id,
+        p_approved: approved,
+        p_notes: reviewComment || null
+      });
+      
+      if (error) throw error;
+      
+      if (!data.success) {
+        toast({ title: '审核失败', description: data.message, variant: 'destructive' });
+        return;
+      }
+      
       toast({
         title: approved ? '已通过' : '已驳回',
         description: `费用申请${approved ? '已通过' : '已驳回'}`
@@ -109,16 +134,19 @@ export default function ExpenseApproval() {
       setSelectedApp(null);
       setReviewComment('');
       loadApplications();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: '操作失败',
+        description: error.message,
         variant: 'destructive'
       });
     }
   };
 
   const stats = {
-    pending: applications.filter(a => a.status === 'pending').length,
+    pending: applications.filter(a => a.status === 'Pending').length,
+    approved: applications.filter(a => a.status === 'Approved').length,
+    rejected: applications.filter(a => a.status === 'Rejected').length,
     total: applications.reduce((sum, a) => sum + a.amount, 0)
   };
 

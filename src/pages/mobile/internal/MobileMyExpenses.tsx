@@ -168,14 +168,21 @@ export default function MobileMyExpenses() {
 
     setLoading(true);
     try {
-      // TODO: 调用 RPC 函数提交费用申请
-      // const { data, error } = await supabase.rpc('submit_expense_application', {
-      //   p_expense_date: formData.expense_date,
-      //   p_expense_type: formData.expense_type,
-      //   p_amount: parseFloat(formData.amount),
-      //   p_description: formData.description,
-      //   p_receipt_photos: formData.receipt_photos
-      // });
+      // ✅ 调用 RPC 函数提交费用申请
+      const { data, error } = await supabase.rpc('submit_expense_application', {
+        p_expense_date: formData.expense_date,
+        p_expense_type: formData.expense_type,
+        p_amount: parseFloat(formData.amount),
+        p_description: formData.description,
+        p_receipt_photos: formData.receipt_photos
+      });
+
+      if (error) throw error;
+      
+      if (!data.success) {
+        toast({ title: '提交失败', description: data.message, variant: 'destructive' });
+        return;
+      }
 
       toast({
         title: '提交成功',

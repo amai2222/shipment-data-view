@@ -82,14 +82,28 @@ export default function MobileExpenseReview() {
   const loadApplications = async () => {
     setLoading(true);
     try {
-      // TODO: 调用实际的查询函数
-      // const { data, error } = await supabase
-      //   .from('internal_driver_expense_applications')
-      //   .select('*, driver:internal_drivers(name), vehicle:internal_vehicles(license_plate)')
-      //   .eq('status', filterStatus)
-      //   .order('created_at', { ascending: false });
+      // ✅ 调用实际的查询函数
+      let query = supabase
+        .from('internal_driver_expense_applications')
+        .select('*')
+        .order('created_at', { ascending: false });
       
-      // 临时模拟数据
+      // 状态过滤
+      if (filterStatus === 'pending') {
+        query = query.eq('status', 'Pending');
+      } else if (filterStatus === 'approved') {
+        query = query.eq('status', 'Approved');
+      } else if (filterStatus === 'rejected') {
+        query = query.eq('status', 'Rejected');
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      setApplications(data || []);
+      
+      /* 临时模拟数据 - 已禁用
       setApplications([
         {
           id: '1',
@@ -149,27 +163,34 @@ export default function MobileExpenseReview() {
 
     setReviewing(true);
     try {
-      // TODO: 调用审批函数
-      // const { data, error } = await supabase.rpc('approve_expense_application', {
-      //   p_application_id: selectedApp.id,
-      //   p_approved: approved,
-      //   p_review_comment: reviewComment || null
-      // });
+      // ✅ 调用审核RPC函数
+      const { data, error } = await supabase.rpc('review_expense_application', {
+        p_application_id: selectedApp.id,
+        p_approved: approved,
+        p_notes: reviewComment || null
+      });
+      
+      if (error) throw error;
+      
+      if (!data.success) {
+        toast({ title: '审核失败', description: data.message, variant: 'destructive' });
+        return;
+      }
 
       toast({
-        title: approved ? '已通过' : '已驳回',
-        description: `费用申请${approved ? '已通过' : '已驳回'}`
+        title: approved ? '审核通过' : '已驳回',
+        description: `费用申请已${approved ? '通过' : '驳回'}`
       });
 
       setShowReviewDialog(false);
       setSelectedApp(null);
       setReviewComment('');
       loadApplications();
-    } catch (error) {
+    } catch (error: any) {
       console.error('审批失败:', error);
       toast({
         title: '审批失败',
-        description: '请稍后重试',
+        description: error.message || '请稍后重试',
         variant: 'destructive'
       });
     } finally {
