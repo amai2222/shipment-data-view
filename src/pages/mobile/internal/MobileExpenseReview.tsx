@@ -176,6 +176,7 @@ export default function MobileExpenseReview() {
       
       if (!data.success) {
         toast({ title: '审核失败', description: data.message, variant: 'destructive' });
+        setReviewing(false);
         return;
       }
 
