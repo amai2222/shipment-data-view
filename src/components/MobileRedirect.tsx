@@ -22,17 +22,35 @@ export function MobileRedirect({ children }: MobileRedirectProps) {
       return;
     }
 
-    // 对于内部车辆管理路径（/m/internal/*），不做任何重定向
+    // ✅ PC端内部车辆管理路径（/internal/*）- 永不重定向
+    if (location.pathname.startsWith('/internal/')) {
+      return;  // PC端专用，不做任何重定向
+    }
+
+    // 对于移动端内部车辆管理路径（/m/internal/*），不做任何重定向
     // 因为这些页面是专为移动端设计的，即使在PC端也应该保持移动端路径
     if (location.pathname.startsWith('/m/internal/')) {
       return;
     }
 
+    // ✅ PC端专用路径（不重定向到移动端）
+    const pcOnlyPaths = [
+      '/internal/',  // 内部车辆管理（PC端）
+      '/dashboard/',  // 看板（PC端）
+      '/business-entry',  // 业务录入（PC端）
+      '/settings/',  // 设置（PC端）
+      '/data-maintenance',  // 数据维护（PC端）
+      '/payment-request',  // 付款申请（PC端）
+      '/invoice-request',  // 开票申请（PC端）
+    ];
+    
+    const isPCOnlyPath = pcOnlyPaths.some(path => location.pathname.startsWith(path));
+
     const shouldRedirectToMobile = isMobile || isTablet;
     const isAlreadyOnMobilePath = location.pathname.startsWith('/m/');
     
-    // 如果是移动设备且不在移动端路径（且不是登录页），则重定向到移动端
-    if (shouldRedirectToMobile && !isAlreadyOnMobilePath) {
+    // 如果是移动设备且不在移动端路径，且不是PC专用路径，则重定向到移动端
+    if (shouldRedirectToMobile && !isAlreadyOnMobilePath && !isPCOnlyPath) {
       const mobilePath = `/m${location.pathname}${location.search}`;
       navigate(mobilePath, { replace: true });
       return;
