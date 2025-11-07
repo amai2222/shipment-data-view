@@ -160,12 +160,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      // toast({ title: "登出失败", description: error.message, variant: "destructive" }); // 暂时注释
-      console.error("登出失败:", error.message);
+    try {
+      // 尝试调用Supabase登出
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Supabase登出失败:", error.message);
+      }
+    } catch (error) {
+      console.error("登出异常:", error);
+    } finally {
+      // 无论Supabase登出是否成功，都清除本地状态
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+      
+      // 强制导航到登录页
+      window.location.href = '/login';
     }
-    // onAuthStateChange 会处理用户状态变化，并由 ProtectedRoute 自动导航到 /auth
   };
 
   const switchUser = async (usernameOrEmail: string, password: string) => {
