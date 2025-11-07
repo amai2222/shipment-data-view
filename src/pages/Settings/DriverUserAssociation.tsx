@@ -29,7 +29,9 @@ import {
   Unlink,
   RefreshCw,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  UserCog
 } from 'lucide-react';
 
 interface Driver {
@@ -38,6 +40,8 @@ interface Driver {
   phone: string;
   employment_status: string;
   user_id: string | null;
+  fleet_manager_id: string | null;
+  fleet_manager_name: string | null;
 }
 
 interface DriverUser {
@@ -48,13 +52,21 @@ interface DriverUser {
   created_at: string;
 }
 
+interface FleetManager {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 export default function DriverUserAssociation() {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [driverUsers, setDriverUsers] = useState<DriverUser[]>([]);
+  const [fleetManagers, setFleetManagers] = useState<FleetManager[]>([]);
   const [selectedAssociations, setSelectedAssociations] = useState<Record<string, string>>({});
+  const [selectedFleetManagers, setSelectedFleetManagers] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -64,21 +76,50 @@ export default function DriverUserAssociation() {
   const loadData = async () => {
     setLoading(true);
     try {
+      // 加载司机和用户
       const { data, error } = await supabase.rpc('get_unlinked_drivers_and_users');
       
       if (error) throw error;
       
-      setDrivers(data.unlinked_drivers || []);
+      // 加载司机列表（包含车队长信息）
+      const { data: driversData } = await supabase
+        .from('internal_drivers')
+        .select(`
+          *,
+          fleet_manager:profiles!fleet_manager_id(full_name)
+        `)
+        .order('name');
+      
+      const processedDrivers = (driversData || []).map((d: any) => ({
+        ...d,
+        fleet_manager_name: d.fleet_manager?.full_name || null
+      }));
+      
+      setDrivers(processedDrivers);
       setDriverUsers(data.driver_role_users || []);
+      
+      // 加载车队长列表
+      const { data: managersData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('role', 'fleet_manager')
+        .order('full_name');
+      
+      setFleetManagers(managersData || []);
       
       // 初始化已关联的选择
       const associations: Record<string, string> = {};
-      (data.unlinked_drivers || []).forEach((d: Driver) => {
+      const managers: Record<string, string> = {};
+      processedDrivers.forEach((d: Driver) => {
         if (d.user_id) {
           associations[d.id] = d.user_id;
         }
+        if (d.fleet_manager_id) {
+          managers[d.id] = d.fleet_manager_id;
+        }
       });
       setSelectedAssociations(associations);
+      setSelectedFleetManagers(managers);
       
     } catch (error: any) {
       console.error('加载失败:', error);
@@ -136,6 +177,63 @@ export default function DriverUserAssociation() {
       
     } catch (error: any) {
       toast({ title: '解除失败', description: error.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 删除司机档案
+  const handleDeleteDriver = async (driver: Driver) => {
+    const confirmed = window.confirm(
+      `确定要删除司机档案"${driver.name}"吗？\n\n此操作不会删除关联的用户账号、运单等数据，只删除司机档案。`
+    );
+    
+    if (!confirmed) return;
+    
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('internal_drivers')
+        .delete()
+        .eq('id', driver.id);
+      
+      if (error) throw error;
+      
+      toast({ title: '删除成功', description: `司机档案"${driver.name}"已删除` });
+      loadData();
+      
+    } catch (error: any) {
+      toast({ title: '删除失败', description: error.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 分配车队长
+  const handleAssignFleetManager = async (driverId: string, managerId: string) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('internal_drivers')
+        .update({ fleet_manager_id: managerId || null })
+        .eq('id', driverId);
+      
+      if (error) throw error;
+      
+      const driver = drivers.find(d => d.id === driverId);
+      const manager = fleetManagers.find(m => m.id === managerId);
+      
+      toast({ 
+        title: '分配成功', 
+        description: managerId 
+          ? `司机${driver?.name}已分配给车队长${manager?.full_name}`
+          : `已取消司机${driver?.name}的车队长分配`
+      });
+      
+      loadData();
+      
+    } catch (error: any) {
+      toast({ title: '分配失败', description: error.message, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -219,6 +317,7 @@ export default function DriverUserAssociation() {
                   <TableHead>司机姓名</TableHead>
                   <TableHead>电话</TableHead>
                   <TableHead>状态</TableHead>
+                  <TableHead>分配车队长</TableHead>
                   <TableHead>选择用户账号</TableHead>
                   <TableHead className="text-center">操作</TableHead>
                 </TableRow>
@@ -226,7 +325,7 @@ export default function DriverUserAssociation() {
               <TableBody>
                 {unlinkedDrivers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       所有司机都已关联账号
                     </TableCell>
                   </TableRow>
@@ -239,6 +338,30 @@ export default function DriverUserAssociation() {
                         <Badge className={driver.employment_status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
                           {driver.employment_status === 'active' ? '在职' : '离职'}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={selectedFleetManagers[driver.id] || ''}
+                          onValueChange={(value) => {
+                            setSelectedFleetManagers({
+                              ...selectedFleetManagers,
+                              [driver.id]: value
+                            });
+                            handleAssignFleetManager(driver.id, value);
+                          }}
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="选择车队长" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">无（不分配）</SelectItem>
+                            {fleetManagers.map(manager => (
+                              <SelectItem key={manager.id} value={manager.id}>
+                                {manager.full_name} - {manager.email}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <Select
@@ -263,21 +386,32 @@ export default function DriverUserAssociation() {
                         </Select>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            const userId = selectedAssociations[driver.id];
-                            if (!userId) {
-                              toast({ title: '请先选择用户账号', variant: 'destructive' });
-                              return;
-                            }
-                            handleLink(driver.id, userId);
-                          }}
-                          disabled={!selectedAssociations[driver.id] || saving}
-                        >
-                          <LinkIcon className="h-4 w-4 mr-2" />
-                          关联
-                        </Button>
+                        <div className="flex gap-1 justify-center">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const userId = selectedAssociations[driver.id];
+                              if (!userId) {
+                                toast({ title: '请先选择用户账号', variant: 'destructive' });
+                                return;
+                              }
+                              handleLink(driver.id, userId);
+                            }}
+                            disabled={!selectedAssociations[driver.id] || saving}
+                          >
+                            <LinkIcon className="h-4 w-4 mr-2" />
+                            关联
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteDriver(driver)}
+                            disabled={saving}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -301,6 +435,7 @@ export default function DriverUserAssociation() {
                 <TableRow>
                   <TableHead>司机姓名</TableHead>
                   <TableHead>司机电话</TableHead>
+                  <TableHead>所属车队长</TableHead>
                   <TableHead>关联账号</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead className="text-center">操作</TableHead>
@@ -309,7 +444,7 @@ export default function DriverUserAssociation() {
               <TableBody>
                 {linkedDrivers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       暂无已关联的司机
                     </TableCell>
                   </TableRow>
@@ -318,6 +453,16 @@ export default function DriverUserAssociation() {
                     <TableRow key={driver.id}>
                       <TableCell className="font-semibold">{driver.name}</TableCell>
                       <TableCell className="text-muted-foreground">{driver.phone}</TableCell>
+                      <TableCell>
+                        {driver.fleet_manager_name ? (
+                          <div className="flex items-center gap-2">
+                            <UserCog className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm">{driver.fleet_manager_name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">未分配</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <CheckCircle className="h-4 w-4 text-green-600" />
@@ -331,16 +476,27 @@ export default function DriverUserAssociation() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleUnlink(driver.id)}
-                          disabled={saving}
-                          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                        >
-                          <Unlink className="h-4 w-4 mr-2" />
-                          解除关联
-                        </Button>
+                        <div className="flex gap-1 justify-center">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUnlink(driver.id)}
+                            disabled={saving}
+                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                          >
+                            <Unlink className="h-4 w-4 mr-2" />
+                            解除关联
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteDriver(driver)}
+                            disabled={saving}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
