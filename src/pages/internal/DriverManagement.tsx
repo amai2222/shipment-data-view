@@ -68,9 +68,6 @@ interface DriverFormData {
   base_salary: string;
   salary_calculation_type: string;
   commission_rate: string;
-  driver_license_number: string;
-  driver_license_expire_date: string;
-  qualification_certificate_expire_date: string;
   remarks: string;
 }
 
@@ -104,9 +101,6 @@ export default function DriverManagement() {
     base_salary: '5000',
     salary_calculation_type: 'monthly',
     commission_rate: '10',
-    driver_license_number: '',
-    driver_license_expire_date: '',
-    qualification_certificate_expire_date: '',
     remarks: ''
   });
 
@@ -160,9 +154,6 @@ export default function DriverManagement() {
           base_salary: parseFloat(formData.base_salary),
           salary_calculation_type: formData.salary_calculation_type,
           commission_rate: formData.salary_calculation_type === 'monthly' ? null : parseFloat(formData.commission_rate),
-          driver_license_number: formData.driver_license_number || null,
-          driver_license_expire_date: formData.driver_license_expire_date || null,
-          qualification_certificate_expire_date: formData.qualification_certificate_expire_date || null,
           remarks: formData.remarks || null
         }])
         .select()
@@ -202,10 +193,7 @@ export default function DriverManagement() {
           employment_status: formData.employment_status,
           base_salary: parseFloat(formData.base_salary),
           salary_calculation_type: formData.salary_calculation_type,
-          commission_rate: formData.salary_calculation_type === 'monthly' ? null : parseFloat(formData.commission_rate),
-          driver_license_number: formData.driver_license_number || null,
-          driver_license_expire_date: formData.driver_license_expire_date || null,
-          qualification_certificate_expire_date: formData.qualification_certificate_expire_date || null
+          commission_rate: formData.salary_calculation_type === 'monthly' ? null : parseFloat(formData.commission_rate)
         })
         .eq('id', selectedDriver.id);
 
@@ -256,10 +244,7 @@ export default function DriverManagement() {
       base_salary: driver.base_salary.toString(),
       salary_calculation_type: driver.salary_calculation_type,
       commission_rate: (driver.commission_rate || 10).toString(),
-      driver_license_number: '',
-      driver_license_expire_date: driver.driver_license_expire_date || '',
-      qualification_certificate_expire_date: '',
-      remarks: ''
+      remarks: driver.remarks || ''
     });
     setShowEditDialog(true);
   };
@@ -417,30 +402,7 @@ export default function DriverManagement() {
       <div className="border-t pt-4">
         <h3 className="font-semibold mb-3">证件信息</h3>
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>驾驶证号</Label>
-            <Input
-              placeholder="驾驶证号码"
-              value={formData.driver_license_number}
-              onChange={e => setFormData({...formData, driver_license_number: e.target.value})}
-            />
-          </div>
-          <div>
-            <Label>驾驶证到期日期</Label>
-            <Input
-              type="date"
-              value={formData.driver_license_expire_date}
-              onChange={e => setFormData({...formData, driver_license_expire_date: e.target.value})}
-            />
-          </div>
-          <div>
-            <Label>从业资格证到期日期</Label>
-            <Input
-              type="date"
-              value={formData.qualification_certificate_expire_date}
-              onChange={e => setFormData({...formData, qualification_certificate_expire_date: e.target.value})}
-            />
-          </div>
+          {/* 证件信息在证件管理中维护 */}
         </div>
       </div>
 

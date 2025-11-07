@@ -116,6 +116,7 @@ const TaskDispatch = lazy(() => import("./pages/internal/TaskDispatch"));
 const InternalDailyWaybills = lazy(() => import("./pages/internal/InternalDailyWaybills"));
 const FleetManagerConfig = lazy(() => import("./pages/internal/FleetManagerConfig"));
 import RoleBasedRedirect from "./components/RoleBasedRedirect";
+import LazyLoadErrorBoundary from "./components/LazyLoadErrorBoundary";
 const ShipperDashboard = lazy(() => import("./pages/ShipperDashboard"));
 const PaymentAudit = lazy(() => import("./pages/PaymentAudit"));
 const InvoiceAudit = lazy(() => import("./pages/InvoiceAudit"));
@@ -136,8 +137,9 @@ const App = () => (
           <Sonner />
           <AutoMenuSync />
           <MobileRedirect>
-            <Suspense fallback={<LoadingSpinner />}>
-              <Routes>
+            <LazyLoadErrorBoundary>
+              <Suspense fallback={<LoadingSpinner />}>
+                <Routes>
             {/* --- 公开路由 --- */}
             <Route path="/auth" element={<Auth />} />
             
@@ -767,8 +769,9 @@ const App = () => (
 
             {/* --- 404路由 - 排除静态文件扩展名 --- */}
             <Route path="*" element={<NotFoundWithStaticFileCheck />} />
-          </Routes>
-            </Suspense>
+                </Routes>
+              </Suspense>
+            </LazyLoadErrorBoundary>
           </MobileRedirect>
         </TooltipProvider>
       </AuthProvider>
