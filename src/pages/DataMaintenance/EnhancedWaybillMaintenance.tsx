@@ -28,6 +28,7 @@ import { useExcelImportWithUpdate } from '@/pages/BusinessEntry/hooks/useExcelIm
 import TemplateMappingManager from '@/components/TemplateMappingManager';
 import TemplateBasedImport from '@/components/TemplateBasedImport';
 import { PageHeader } from "@/components/PageHeader";
+import SelectiveFieldUpdate from '@/components/SelectiveFieldUpdate';
 import * as XLSX from 'xlsx';
 
 // 导入增强的工具函数
@@ -55,7 +56,7 @@ export default function EnhancedWaybillMaintenance() {
   const [waybillCount, setWaybillCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping'>('standard');
+  const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping' | 'selective'>('standard');
   
   // 增强的导入状态
   const [isEnhancedImporting, setIsEnhancedImporting] = useState(false);
@@ -478,10 +479,11 @@ export default function EnhancedWaybillMaintenance() {
 
         {/* 标签页 */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="standard">标准导入</TabsTrigger>
             <TabsTrigger value="template">模板导入</TabsTrigger>
             <TabsTrigger value="mapping">模板管理</TabsTrigger>
+            <TabsTrigger value="selective">选择性更新</TabsTrigger>
           </TabsList>
 
           {/* 标准导入标签页 */}
@@ -625,6 +627,13 @@ export default function EnhancedWaybillMaintenance() {
           {/* 模板管理标签页 */}
           <TabsContent value="mapping" className="space-y-6">
             <TemplateMappingManager />
+          </TabsContent>
+
+          <TabsContent value="selective" className="space-y-6">
+            <SelectiveFieldUpdate 
+              selectedProject={selectedProject}
+              onUpdateSuccess={loadWaybillCount}
+            />
           </TabsContent>
         </Tabs>
       </div>
