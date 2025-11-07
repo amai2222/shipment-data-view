@@ -110,6 +110,11 @@ const InvoiceRequestManagement = lazy(() => import("./pages/InvoiceRequestManage
 const PermissionManagement = lazy(() => import("./pages/Settings/PermissionManagement"));
 const MenuConfig = lazy(() => import("./pages/Settings/MenuConfig"));
 const SystemBackup = lazy(() => import("./pages/Settings/SystemBackup"));
+const DriverUserAssociation = lazy(() => import("./pages/Settings/DriverUserAssociation"));
+const VehicleAssignment = lazy(() => import("./pages/internal/VehicleAssignment"));
+const TaskDispatch = lazy(() => import("./pages/internal/TaskDispatch"));
+const InternalDailyWaybills = lazy(() => import("./pages/internal/InternalDailyWaybills"));
+const FleetManagerConfig = lazy(() => import("./pages/internal/FleetManagerConfig"));
 const ShipperDashboard = lazy(() => import("./pages/ShipperDashboard"));
 const PaymentAudit = lazy(() => import("./pages/PaymentAudit"));
 const InvoiceAudit = lazy(() => import("./pages/InvoiceAudit"));
@@ -249,6 +254,36 @@ const App = () => (
                 <AppLayout><PendingTasks /></AppLayout>
               </ProtectedRoute>
             } />
+            
+            <Route path="/internal/vehicle-assignment" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <AppLayout><VehicleAssignment /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/internal/task-dispatch" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <AppLayout><TaskDispatch /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/internal/daily-waybills" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <AppLayout><InternalDailyWaybills /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/internal/fleet-config" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <AppLayout><FleetManagerConfig /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/internal/driver-association" element={
+              <ProtectedRoute requiredPermission="internal.manage_drivers">
+                <AppLayout><DriverUserAssociation /></AppLayout>
+              </ProtectedRoute>
+            } />
 
             <Route path="/internal/certificates" element={
               <ProtectedRoute requiredPermission="internal.certificates">
@@ -382,6 +417,12 @@ const App = () => (
             <Route path="/settings/role-templates" element={
               <ProtectedRoute requiredPermission="settings.role_templates">
                 <AppLayout><RoleTemplate /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings/driver-association" element={
+              <ProtectedRoute requiredPermission="settings.manage_roles">
+                <AppLayout><DriverUserAssociation /></AppLayout>
               </ProtectedRoute>
             } />
             
