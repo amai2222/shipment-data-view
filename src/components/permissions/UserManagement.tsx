@@ -89,6 +89,7 @@ export function UserManagement({
   // 表单数据
   const [createUserForm, setCreateUserForm] = useState({
     email: '',
+    username: '',
     password: '',
     full_name: '',
     role: 'viewer' as UserRole
@@ -198,6 +199,7 @@ export function UserManagement({
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: {
           email: createUserForm.email,
+          username: createUserForm.username,
           password: createUserForm.password,
           full_name: createUserForm.full_name,
           role: createUserForm.role
@@ -245,7 +247,7 @@ export function UserManagement({
       });
 
       setShowCreateUserDialog(false);
-      setCreateUserForm({ email: '', password: '', full_name: '', role: 'viewer' });
+      setCreateUserForm({ email: '', username: '', password: '', full_name: '', role: 'viewer' });
       onUserUpdate();
     } catch (error: any) {
       console.error('创建用户失败:', error);
@@ -546,7 +548,7 @@ export function UserManagement({
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="email">邮箱</Label>
+                      <Label htmlFor="email">邮箱 <span className="text-red-500">*</span></Label>
                       <Input
                         id="email"
                         type="email"
@@ -556,13 +558,25 @@ export function UserManagement({
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="password">密码</Label>
+                      <Label htmlFor="username">用户名 <span className="text-red-500">*</span></Label>
+                      <Input
+                        id="username"
+                        value={createUserForm.username}
+                        onChange={(e) => setCreateUserForm(prev => ({ ...prev, username: e.target.value }))}
+                        placeholder="用于登录的用户名（如：admin）"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        用户名用于登录，必填且唯一
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">密码 <span className="text-red-500">*</span></Label>
                       <Input
                         id="password"
                         type="password"
                         value={createUserForm.password}
                         onChange={(e) => setCreateUserForm(prev => ({ ...prev, password: e.target.value }))}
-                        placeholder="输入密码"
+                        placeholder="输入密码（至少6位）"
                       />
                     </div>
                     <div className="space-y-2">
@@ -571,7 +585,7 @@ export function UserManagement({
                         id="full_name"
                         value={createUserForm.full_name}
                         onChange={(e) => setCreateUserForm(prev => ({ ...prev, full_name: e.target.value }))}
-                        placeholder="输入姓名"
+                        placeholder="输入真实姓名"
                       />
                     </div>
                     <div className="space-y-2">
