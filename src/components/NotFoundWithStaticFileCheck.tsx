@@ -1,8 +1,15 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { LogOut } from "lucide-react";
 
 const NotFoundWithStaticFileCheck = () => {
   const location = useLocation();
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+  };
 
   useEffect(() => {
     const pathname = location.pathname;
@@ -53,6 +60,13 @@ const NotFoundWithStaticFileCheck = () => {
               className="inline-block w-full py-3 px-6 bg-secondary text-secondary-foreground font-medium rounded-lg hover:bg-muted transition-all"
             >
               返回上一页
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="inline-flex items-center justify-center w-full py-3 px-6 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition-all"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              退出登录
             </button>
           </div>
           

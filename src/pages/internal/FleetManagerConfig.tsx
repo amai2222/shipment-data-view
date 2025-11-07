@@ -84,14 +84,25 @@ export default function FleetManagerConfig() {
     setLoading(true);
     try {
       if (activeTab === 'projects') {
-        const { data } = await supabase
+        // 加载所有项目
+        const { data: allProjects } = await supabase
           .from('projects')
           .select('id, name')
           .order('name');
 
-        setProjects((data || []).map(p => ({
+        // 加载当前车队长负责的项目
+        const { data: managedProjects } = await supabase
+          .from('fleet_manager_projects')
+          .select('project_id')
+          .eq('fleet_manager_id', (await supabase.auth.getUser()).data.user?.id);
+        
+        const managedProjectIds = new Set(
+          (managedProjects || []).map(mp => mp.project_id)
+        );
+
+        setProjects((allProjects || []).map(p => ({
           ...p,
-          is_managed: false  // TODO: 从fleet_manager_projects表查询
+          is_managed: managedProjectIds.has(p.id)
         })));
       }
 
@@ -199,9 +210,42 @@ export default function FleetManagerConfig() {
                         <TableCell>
                           <Checkbox
                             checked={project.is_managed}
-                            onCheckedChange={(checked) => {
-                              // TODO: 保存到fleet_manager_projects
-                              toast({ title: '功能开发中' });
+                            onCheckedChange={async (checked) => {
+                              try {
+                                if (checked) {
+                                  // 分配项目
+                                  const { data, error } = await supabase.rpc('assign_project_to_fleet_manager', {
+                                    p_project_id: project.id
+                                  });
+                                  
+                                  if (error) throw error;
+                                  
+                                  if (!data.success) {
+                                    toast({ title: '分配失败', description: data.message, variant: 'destructive' });
+                                    return;
+                                  }
+                                  
+                                  toast({ title: '分配成功', description: `已负责项目：${project.name}` });
+                                } else {
+                                  // 取消分配
+                                  const { data, error } = await supabase.rpc('unassign_project_from_fleet_manager', {
+                                    p_project_id: project.id
+                                  });
+                                  
+                                  if (error) throw error;
+                                  
+                                  if (!data.success) {
+                                    toast({ title: '取消失败', description: data.message, variant: 'destructive' });
+                                    return;
+                                  }
+                                  
+                                  toast({ title: '取消成功', description: `已取消负责项目：${project.name}` });
+                                }
+                                
+                                loadData();
+                              } catch (error: any) {
+                                toast({ title: '操作失败', description: error.message, variant: 'destructive' });
+                              }
                             }}
                           />
                         </TableCell>

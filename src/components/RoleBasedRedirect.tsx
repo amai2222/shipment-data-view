@@ -35,11 +35,11 @@ export default function RoleBasedRedirect() {
       // 货主：跳转到货主看板
       navigate(mobile ? '/m/dashboard/shipper' : '/dashboard/shipper', { replace: true });
     } else if (role === 'admin') {
-      // 管理员：跳转到财务统计
-      navigate('/dashboard/finance', { replace: true });
+      // 管理员：跳转到运输概览
+      navigate('/dashboard/transport', { replace: true });
     } else if (role === 'finance') {
-      // 财务：跳转到财务统计
-      navigate('/dashboard/finance', { replace: true });
+      // 财务：跳转到运输概览
+      navigate('/dashboard/transport', { replace: true });
     } else {
       // 其他角色：跳转到业务录入
       navigate('/business-entry', { replace: true });
