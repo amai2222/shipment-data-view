@@ -94,7 +94,8 @@ import {
   // 车队长端
   MobileFleetDashboard,
   MobileExpenseReview,
-  MobileVehicleManagement
+  MobileVehicleManagement,
+  MobileDriverRouteConfig
 } from "./App.lazy";
 
 // 懒加载公共组件（非懒加载）

@@ -112,6 +112,7 @@ export const MobileQuickEntry = lazy(() => import('./pages/mobile/internal/Mobil
 export const MobileFleetDashboard = lazy(() => import('./pages/mobile/internal/MobileFleetDashboard'));
 export const MobileExpenseReview = lazy(() => import('./pages/mobile/internal/MobileExpenseReview'));
 export const MobileVehicleManagement = lazy(() => import('./pages/mobile/internal/MobileVehicleManagement'));
+export const MobileDriverRouteConfig = lazy(() => import('./pages/mobile/internal/MobileDriverRouteConfig'));
 
 // ============================================
 // 加载组件
