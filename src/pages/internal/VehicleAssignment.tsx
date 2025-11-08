@@ -64,7 +64,6 @@ interface AssignmentHistory {
   assigned_at: string;
   valid_from: string;
   valid_until: string | null;
-  notes: string | null;
 }
 
 export default function VehicleAssignment() {
@@ -78,7 +77,6 @@ export default function VehicleAssignment() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState('');
-  const [assignNotes, setAssignNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -95,9 +93,10 @@ export default function VehicleAssignment() {
           id,
           license_plate,
           vehicle_type,
-          vehicle_status
+          vehicle_status,
+          updated_at
         `)
-        .order('license_plate');
+        .order('updated_at', { ascending: false });  // ✅ 最近更新的在上面
 
       // 查询每辆车当前的司机分配
       const processedVehicles = await Promise.all((vehicleData || []).map(async (v: any) => {
@@ -117,7 +116,16 @@ export default function VehicleAssignment() {
         };
       }));
 
-      setVehicles(processedVehicles);
+      // ✅ 排序：已分配的在上面，然后按更新时间降序
+      const sortedVehicles = processedVehicles.sort((a, b) => {
+        // 已分配的排在未分配的前面
+        if (a.current_driver_id && !b.current_driver_id) return -1;
+        if (!a.current_driver_id && b.current_driver_id) return 1;
+        // 同类型按更新时间降序
+        return 0;
+      });
+      
+      setVehicles(sortedVehicles);
 
       // 加载司机列表
       const { data: driverData } = await supabase
@@ -146,7 +154,6 @@ export default function VehicleAssignment() {
           id,
           valid_from,
           valid_until,
-          notes,
           vehicle:internal_vehicles(license_plate),
           driver:internal_drivers(name)
         `)
@@ -159,8 +166,7 @@ export default function VehicleAssignment() {
         driver_name: h.driver?.name || '未知',
         assigned_at: h.valid_from,
         valid_from: h.valid_from,
-        valid_until: h.valid_until,
-        notes: h.notes
+        valid_until: h.valid_until
       }));
 
       setHistory(processedHistory);
@@ -197,8 +203,7 @@ export default function VehicleAssignment() {
           vehicle_id: selectedVehicle.id,
           driver_id: selectedDriverId,
           valid_from: new Date().toISOString().split('T')[0],  // 开始日期
-          valid_until: null,  // NULL表示当前有效
-          notes: assignNotes || null
+          valid_until: null  // NULL表示当前有效
         });
 
       if (assignError) throw assignError;
@@ -211,7 +216,6 @@ export default function VehicleAssignment() {
       setShowAssignDialog(false);
       setSelectedVehicle(null);
       setSelectedDriverId('');
-      setAssignNotes('');
       loadData();
 
     } catch (error: any) {
@@ -437,15 +441,6 @@ export default function VehicleAssignment() {
               </Select>
             </div>
 
-            <div>
-              <Label>备注</Label>
-              <Textarea
-                placeholder="输入分配备注..."
-                value={assignNotes}
-                onChange={e => setAssignNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
           </div>
 
           <DialogFooter>
@@ -453,7 +448,6 @@ export default function VehicleAssignment() {
               setShowAssignDialog(false);
               setSelectedVehicle(null);
               setSelectedDriverId('');
-              setAssignNotes('');
             }}>
               <X className="h-4 w-4 mr-2" />
               取消
@@ -484,7 +478,6 @@ export default function VehicleAssignment() {
                   <TableHead>司机</TableHead>
                   <TableHead>开始日期</TableHead>
                   <TableHead>结束日期</TableHead>
-                  <TableHead>备注</TableHead>
                   <TableHead>状态</TableHead>
                 </TableRow>
               </TableHeader>
@@ -498,9 +491,6 @@ export default function VehicleAssignment() {
                     </TableCell>
                     <TableCell className="text-sm">
                       {h.valid_until || '-'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {h.notes || '-'}
                     </TableCell>
                     <TableCell>
                       {!h.valid_until || new Date(h.valid_until) > new Date() ? (
