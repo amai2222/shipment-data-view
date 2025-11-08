@@ -79,12 +79,84 @@ export default function VehicleLedger() {
   const loadLedger = async () => {
     setLoading(true);
     try {
-      const mockData: LedgerRecord[] = [
-        { id: '1', vehicle_id: '1', vehicle_plate: '云F97310', date: '2025-11-05', type: 'income', category: '运费收入', amount: 2000, description: '天兴芦花项目运费', month: '2025-11' },
-        { id: '2', vehicle_id: '1', vehicle_plate: '云F97310', date: '2025-11-03', type: 'expense', category: '加油费', amount: 551, description: '2月份公司加油', month: '2025-11' },
-        { id: '3', vehicle_id: '1', vehicle_plate: '云F97310', date: '2025-11-01', type: 'income', category: '运费收入', amount: 1800, description: '铁路配送项目', month: '2025-11' }
-      ];
-      setRecords(mockData);
+      const records: LedgerRecord[] = [];
+      
+      // ✅ 1. 查询运费收入（从logistics_records）
+      const { data: incomeData, error: incomeError } = await supabase
+        .from('logistics_records')
+        .select('id, auto_number, loading_date, payable_cost, project_name, license_plate')
+        .order('loading_date', { ascending: false })
+        .limit(100);
+      
+      if (incomeError) throw incomeError;
+      
+      // 处理收入数据
+      (incomeData || []).forEach(item => {
+        if (item.payable_cost && item.payable_cost > 0) {
+          records.push({
+            id: item.id,
+            vehicle_id: item.license_plate || '',
+            vehicle_plate: item.license_plate || '未知',
+            date: item.loading_date,
+            type: 'income',
+            category: '运费收入',
+            amount: item.payable_cost,
+            description: `${item.project_name || ''} - ${item.auto_number || ''}`,
+            month: item.loading_date.slice(0, 7) // YYYY-MM
+          });
+        }
+      });
+      
+      // ✅ 2. 查询费用支出（从internal_driver_expense_applications）
+      const { data: expenseData, error: expenseError } = await supabase
+        .from('internal_driver_expense_applications')
+        .select('id, expense_date, expense_type, amount, description, driver_name')
+        .eq('status', 'approved')
+        .order('expense_date', { ascending: false })
+        .limit(100);
+      
+      if (expenseError) throw expenseError;
+      
+      // 费用类型映射
+      const expenseTypeMap: Record<string, string> = {
+        fuel: '加油费',
+        parking: '停车费',
+        toll: '过路费',
+        maintenance: '维修费',
+        fine: '罚款',
+        meal: '餐费',
+        accommodation: '住宿费',
+        other: '其他'
+      };
+      
+      // 处理支出数据
+      (expenseData || []).forEach(item => {
+        if (item.amount && item.amount > 0) {
+          records.push({
+            id: item.id,
+            vehicle_id: item.driver_name || '',
+            vehicle_plate: item.driver_name || '未知',
+            date: item.expense_date,
+            type: 'expense',
+            category: expenseTypeMap[item.expense_type] || item.expense_type,
+            amount: item.amount,
+            description: item.description || '',
+            month: item.expense_date.slice(0, 7) // YYYY-MM
+          });
+        }
+      });
+      
+      // 按日期排序
+      records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      setRecords(records);
+    } catch (error) {
+      console.error('加载流水失败:', error);
+      toast({
+        title: '加载失败',
+        description: '无法加载收支流水',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }

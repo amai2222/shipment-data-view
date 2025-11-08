@@ -57,16 +57,50 @@ export default function VehicleBalance() {
         .eq('is_active', true)
         .order('license_plate');
 
-      const balanceData: VehicleBalance[] = (vehicles || []).map((v: any, index) => ({
-        vehicle_id: v.id,
-        license_plate: v.license_plate,
-        total_income: 20000 + index * 5000,
-        total_expense: 8000 + index * 2000,
-        balance: 12000 + index * 3000,
-        driver_name: v.driver?.[0]?.driver?.name || null
-      }));
+      // ✅ 为每个车辆查询真实的收支数据
+      const balanceData: VehicleBalance[] = await Promise.all(
+        (vehicles || []).map(async (v: any) => {
+          // 查询该车辆的运费收入
+          const { data: incomeData } = await supabase
+            .from('logistics_records')
+            .select('payable_cost')
+            .eq('license_plate', v.license_plate);
+          
+          const total_income = (incomeData || []).reduce((sum, r) => sum + (r.payable_cost || 0), 0);
+          
+          // 查询该车辆司机的费用支出（通过司机姓名关联）
+          const driverName = v.driver?.[0]?.driver?.name;
+          let total_expense = 0;
+          
+          if (driverName) {
+            const { data: expenseData } = await supabase
+              .from('internal_driver_expense_applications')
+              .select('amount')
+              .eq('driver_name', driverName)
+              .eq('status', 'approved');
+            
+            total_expense = (expenseData || []).reduce((sum, r) => sum + (r.amount || 0), 0);
+          }
+          
+          return {
+            vehicle_id: v.id,
+            license_plate: v.license_plate,
+            total_income,
+            total_expense,
+            balance: total_income - total_expense,
+            driver_name: driverName || null
+          };
+        })
+      );
 
       setBalances(balanceData);
+    } catch (error) {
+      console.error('加载余额失败:', error);
+      toast({
+        title: '加载失败',
+        description: '无法加载车辆余额',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }

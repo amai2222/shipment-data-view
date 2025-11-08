@@ -65,6 +65,7 @@ export default function IncomeInput() {
 
   useEffect(() => {
     loadData();
+    loadIncomeRecords();
   }, []);
 
   const loadData = async () => {
@@ -83,8 +84,84 @@ export default function IncomeInput() {
   };
 
   const handleSubmit = async () => {
-    toast({ title: '保存成功', description: '月度收入已录入' });
-    setShowDialog(false);
+    // 验证表单
+    if (!formData.vehicle_id || !formData.year_month || !formData.income_amount) {
+      toast({ 
+        title: '请完整填写', 
+        description: '请选择车辆、月份并填写收入金额',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const amount = parseFloat(formData.income_amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ 
+        title: '金额无效', 
+        description: '请输入有效的收入金额',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // ✅ 保存月度收入到数据库
+      // 注意：这里使用 logistics_records 作为收入来源
+      // 如果需要单独的月度收入表，需要先创建表结构
+      
+      // 方案1：记录到备注日志（临时方案）
+      const { error } = await supabase
+        .from('internal_driver_expense_applications')
+        .insert({
+          driver_name: `车辆${formData.vehicle_id}`,
+          expense_date: `${formData.year_month}-01`,
+          expense_type: 'other',
+          amount: -amount, // 负数表示收入
+          description: `月度收入录入：${formData.remarks || '无备注'}`,
+          status: 'approved'
+        });
+      
+      if (error) throw error;
+      
+      toast({ title: '保存成功', description: '月度收入已录入' });
+      setShowDialog(false);
+      setFormData({
+        vehicle_id: '',
+        year_month: format(new Date(), 'yyyy-MM'),
+        project_id: '',
+        income_amount: '',
+        remarks: ''
+      });
+      
+      // 刷新记录列表
+      await loadIncomeRecords();
+    } catch (error: any) {
+      console.error('保存失败:', error);
+      toast({ 
+        title: '保存失败', 
+        description: error.message || '请稍后重试', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadIncomeRecords = async () => {
+    try {
+      // ✅ 加载已录入的收入记录
+      const { data } = await supabase
+        .from('internal_driver_expense_applications')
+        .select('*')
+        .lt('amount', 0) // 负数表示收入
+        .order('expense_date', { ascending: false })
+        .limit(50);
+      
+      setIncomeRecords(data || []);
+    } catch (error) {
+      console.error('加载记录失败:', error);
+    }
   };
 
   const paginatedRecords = incomeRecords.slice((page - 1) * pageSize, page * pageSize);

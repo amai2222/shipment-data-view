@@ -126,7 +126,9 @@ export default function MobileMyExpenses() {
     setLoading(true);
     try {
       // ✅ 使用实际的数据库查询
-      const { data: driverInfo } = await supabase.rpc('get_my_driver_info');
+      const { data: driverInfo, error: driverError } = await supabase.rpc('get_my_driver_info');
+      
+      if (driverError) throw driverError;
       
       if (!driverInfo || driverInfo.length === 0) {
         toast({
@@ -138,7 +140,7 @@ export default function MobileMyExpenses() {
         return;
       }
 
-      const driverId = driverInfo[0].id;
+      const driverId = driverInfo[0].driver_id;  // ✅ 修复：使用正确的字段名
 
       const { data, error } = await supabase
         .from('internal_driver_expense_applications')

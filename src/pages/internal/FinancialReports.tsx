@@ -1,6 +1,7 @@
 // PC端 - 财务报表（参考操作日志布局）
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,14 +21,79 @@ import {
 
 export default function FinancialReports() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [stats] = useState({
-    totalIncome: 89250,
-    totalExpense: 32680,
-    netProfit: 56570,
-    vehicleCount: 6,
-    driverCount: 5,
-    tripCount: 45
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({
+    totalIncome: 0,
+    totalExpense: 0,
+    netProfit: 0,
+    vehicleCount: 0,
+    driverCount: 0,
+    tripCount: 0
   });
+
+  useEffect(() => {
+    loadStats();
+  }, [selectedMonth]);
+
+  const loadStats = async () => {
+    setLoading(true);
+    try {
+      const [year, month] = selectedMonth.split('-');
+      const startDate = `${selectedMonth}-01`;
+      const nextMonth = new Date(parseInt(year), parseInt(month), 1);
+      const endDate = nextMonth.toISOString().slice(0, 10);
+      
+      // ✅ 1. 查询总收入（从logistics_records）
+      const { data: incomeData } = await supabase
+        .from('logistics_records')
+        .select('payable_cost')
+        .gte('loading_date', startDate)
+        .lt('loading_date', endDate);
+      
+      const totalIncome = (incomeData || []).reduce((sum, r) => sum + (r.payable_cost || 0), 0);
+      
+      // ✅ 2. 查询总支出（从internal_driver_expense_applications）
+      const { data: expenseData } = await supabase
+        .from('internal_driver_expense_applications')
+        .select('amount')
+        .eq('status', 'approved')
+        .gte('expense_date', startDate)
+        .lt('expense_date', endDate);
+      
+      const totalExpense = (expenseData || []).reduce((sum, r) => sum + (r.amount || 0), 0);
+      
+      // ✅ 3. 查询车辆数
+      const { count: vehicleCount } = await supabase
+        .from('internal_vehicles')
+        .select('id', { count: 'estimated', head: true })
+        .eq('is_active', true);
+      
+      // ✅ 4. 查询司机数
+      const { count: driverCount } = await supabase
+        .from('internal_drivers')
+        .select('id', { count: 'estimated', head: true });
+      
+      // ✅ 5. 查询本月运单数
+      const { count: tripCount } = await supabase
+        .from('logistics_records')
+        .select('id', { count: 'estimated', head: true })
+        .gte('loading_date', startDate)
+        .lt('loading_date', endDate);
+      
+      setStats({
+        totalIncome,
+        totalExpense,
+        netProfit: totalIncome - totalExpense,
+        vehicleCount: vehicleCount || 0,
+        driverCount: driverCount || 0,
+        tripCount: tripCount || 0
+      });
+    } catch (error) {
+      console.error('加载统计失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="p-4 space-y-4">
