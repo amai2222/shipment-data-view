@@ -147,6 +147,9 @@ BEGIN
 END;
 $$;
 
+-- 先删除旧触发器（如果存在）
+DROP TRIGGER IF EXISTS trigger_sync_vehicle_assignment ON internal_driver_vehicle_relations;
+
 CREATE TRIGGER trigger_sync_vehicle_assignment
     AFTER INSERT OR UPDATE ON internal_driver_vehicle_relations
     FOR EACH ROW

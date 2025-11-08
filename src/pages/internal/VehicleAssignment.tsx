@@ -62,9 +62,9 @@ interface AssignmentHistory {
   vehicle_plate: string;
   driver_name: string;
   assigned_at: string;
-  unassigned_at: string | null;
+  valid_from: string;
+  valid_until: string | null;
   notes: string | null;
-  is_active: boolean;
 }
 
 export default function VehicleAssignment() {
@@ -95,18 +95,26 @@ export default function VehicleAssignment() {
           id,
           license_plate,
           vehicle_type,
-          vehicle_status,
-          driver:internal_driver_vehicle_relations(
-            driver:internal_drivers(id, name)
-          )
+          vehicle_status
         `)
-        .eq('is_active', true)
         .order('license_plate');
 
-      const processedVehicles = (vehicleData || []).map((v: any) => ({
-        ...v,
-        current_driver_id: v.driver?.[0]?.driver?.id || null,
-        current_driver_name: v.driver?.[0]?.driver?.name || null
+      // 查询每辆车当前的司机分配
+      const processedVehicles = await Promise.all((vehicleData || []).map(async (v: any) => {
+        const { data: relation } = await supabase
+          .from('internal_driver_vehicle_relations')
+          .select('driver:internal_drivers(id, name)')
+          .eq('vehicle_id', v.id)
+          .is('valid_until', null)  // 当前有效的分配
+          .order('valid_from', { ascending: false })
+          .limit(1)
+          .single();
+        
+        return {
+          ...v,
+          current_driver_id: relation?.driver?.id || null,
+          current_driver_name: relation?.driver?.name || null
+        };
       }));
 
       setVehicles(processedVehicles);
@@ -136,24 +144,23 @@ export default function VehicleAssignment() {
         .from('internal_driver_vehicle_relations')
         .select(`
           id,
-          assigned_at,
-          unassigned_at,
+          valid_from,
+          valid_until,
           notes,
-          is_active,
           vehicle:internal_vehicles(license_plate),
           driver:internal_drivers(name)
         `)
-        .order('assigned_at', { ascending: false })
+        .order('valid_from', { ascending: false })
         .limit(50);
 
       const processedHistory = (data || []).map((h: any) => ({
         id: h.id,
         vehicle_plate: h.vehicle?.license_plate || '未知',
         driver_name: h.driver?.name || '未知',
-        assigned_at: h.assigned_at,
-        unassigned_at: h.unassigned_at,
-        notes: h.notes,
-        is_active: h.is_active
+        assigned_at: h.valid_from,
+        valid_from: h.valid_from,
+        valid_until: h.valid_until,
+        notes: h.notes
       }));
 
       setHistory(processedHistory);
@@ -170,16 +177,15 @@ export default function VehicleAssignment() {
 
     setSaving(true);
     try {
-      // 如果车辆已有司机，先解除旧关联
+      // 如果车辆已有司机，先解除旧关联（设置结束日期）
       if (selectedVehicle.current_driver_id) {
         const { error: unassignError } = await supabase
           .from('internal_driver_vehicle_relations')
           .update({
-            is_active: false,
-            unassigned_at: new Date().toISOString()
+            valid_until: new Date().toISOString().split('T')[0]  // 设置结束日期
           })
           .eq('vehicle_id', selectedVehicle.id)
-          .eq('is_active', true);
+          .is('valid_until', null);  // 只更新未结束的分配
 
         if (unassignError) throw unassignError;
       }
@@ -190,8 +196,8 @@ export default function VehicleAssignment() {
         .insert({
           vehicle_id: selectedVehicle.id,
           driver_id: selectedDriverId,
-          assigned_at: new Date().toISOString(),
-          is_active: true,
+          valid_from: new Date().toISOString().split('T')[0],  // 开始日期
+          valid_until: null,  // NULL表示当前有效
           notes: assignNotes || null
         });
 
@@ -232,11 +238,10 @@ export default function VehicleAssignment() {
       const { error } = await supabase
         .from('internal_driver_vehicle_relations')
         .update({
-          is_active: false,
-          unassigned_at: new Date().toISOString()
+          valid_until: new Date().toISOString().split('T')[0]  // 设置结束日期
         })
         .eq('vehicle_id', vehicle.id)
-        .eq('is_active', true);
+        .is('valid_until', null);  // 只更新当前有效的分配
 
       if (error) throw error;
 
@@ -477,8 +482,8 @@ export default function VehicleAssignment() {
                 <TableRow>
                   <TableHead>车牌号</TableHead>
                   <TableHead>司机</TableHead>
-                  <TableHead>分配时间</TableHead>
-                  <TableHead>解除时间</TableHead>
+                  <TableHead>开始日期</TableHead>
+                  <TableHead>结束日期</TableHead>
                   <TableHead>备注</TableHead>
                   <TableHead>状态</TableHead>
                 </TableRow>
@@ -489,16 +494,16 @@ export default function VehicleAssignment() {
                     <TableCell className="font-mono">{h.vehicle_plate}</TableCell>
                     <TableCell>{h.driver_name}</TableCell>
                     <TableCell className="text-sm">
-                      {format(new Date(h.assigned_at), 'yyyy-MM-dd HH:mm')}
+                      {h.valid_from}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {h.unassigned_at ? format(new Date(h.unassigned_at), 'yyyy-MM-dd HH:mm') : '-'}
+                      {h.valid_until || '-'}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {h.notes || '-'}
                     </TableCell>
                     <TableCell>
-                      {h.is_active ? (
+                      {!h.valid_until || new Date(h.valid_until) > new Date() ? (
                         <Badge className="bg-green-100 text-green-800">使用中</Badge>
                       ) : (
                         <Badge variant="outline">已结束</Badge>
