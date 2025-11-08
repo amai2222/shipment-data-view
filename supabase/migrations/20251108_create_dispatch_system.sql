@@ -56,11 +56,11 @@ CREATE TABLE IF NOT EXISTS public.dispatch_orders (
     CONSTRAINT valid_dispatch_status CHECK (status IN ('pending', 'accepted', 'completed', 'rejected', 'cancelled'))
 );
 
--- 索引
-CREATE INDEX idx_dispatch_orders_driver ON dispatch_orders(driver_id, status);
-CREATE INDEX idx_dispatch_orders_fleet_manager ON dispatch_orders(fleet_manager_id);
-CREATE INDEX idx_dispatch_orders_status ON dispatch_orders(status);
-CREATE INDEX idx_dispatch_orders_created_at ON dispatch_orders(created_at DESC);
+-- 索引（添加 IF NOT EXISTS 避免重复创建）
+CREATE INDEX IF NOT EXISTS idx_dispatch_orders_driver ON dispatch_orders(driver_id, status);
+CREATE INDEX IF NOT EXISTS idx_dispatch_orders_fleet_manager ON dispatch_orders(fleet_manager_id);
+CREATE INDEX IF NOT EXISTS idx_dispatch_orders_status ON dispatch_orders(status);
+CREATE INDEX IF NOT EXISTS idx_dispatch_orders_created_at ON dispatch_orders(created_at DESC);
 
 -- 表注释
 COMMENT ON TABLE dispatch_orders IS '派单表 - 车队长派单给司机';
@@ -93,8 +93,25 @@ CREATE TABLE IF NOT EXISTS public.fleet_manager_favorite_routes (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_favorite_routes_manager ON fleet_manager_favorite_routes(fleet_manager_id);
-CREATE INDEX idx_favorite_routes_use_count ON fleet_manager_favorite_routes(use_count DESC);
+-- ✅ 添加唯一约束（如果表已存在，需要单独添加）
+DO $$
+BEGIN
+    -- 检查约束是否存在
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'unique_route_per_manager'
+        AND conrelid = 'fleet_manager_favorite_routes'::regclass
+    ) THEN
+        ALTER TABLE fleet_manager_favorite_routes
+        ADD CONSTRAINT unique_route_per_manager UNIQUE (fleet_manager_id, route_name);
+        RAISE NOTICE '✅ 已添加唯一约束 unique_route_per_manager';
+    ELSE
+        RAISE NOTICE '⚠️  唯一约束 unique_route_per_manager 已存在';
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_favorite_routes_manager ON fleet_manager_favorite_routes(fleet_manager_id);
+CREATE INDEX IF NOT EXISTS idx_favorite_routes_use_count ON fleet_manager_favorite_routes(use_count DESC);
 
 COMMENT ON TABLE fleet_manager_favorite_routes IS '车队长常用线路收藏';
 
@@ -105,7 +122,11 @@ COMMENT ON TABLE fleet_manager_favorite_routes IS '车队长常用线路收藏';
 ALTER TABLE dispatch_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fleet_manager_favorite_routes ENABLE ROW LEVEL SECURITY;
 
--- 派单表 RLS 策略
+-- 派单表 RLS 策略（先删除旧策略）
+DROP POLICY IF EXISTS "dispatch_select_policy" ON dispatch_orders;
+DROP POLICY IF EXISTS "dispatch_insert_policy" ON dispatch_orders;
+DROP POLICY IF EXISTS "dispatch_update_policy" ON dispatch_orders;
+
 CREATE POLICY "dispatch_select_policy"
 ON dispatch_orders
 FOR SELECT
@@ -157,7 +178,9 @@ USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
 );
 
--- 常用线路 RLS 策略
+-- 常用线路 RLS 策略（先删除旧策略）
+DROP POLICY IF EXISTS "favorite_routes_policy" ON fleet_manager_favorite_routes;
+
 CREATE POLICY "favorite_routes_policy"
 ON fleet_manager_favorite_routes
 FOR ALL
@@ -505,7 +528,7 @@ BEGIN
     SELECT name INTO v_loading_location FROM locations WHERE id = p_loading_location_id;
     SELECT name INTO v_unloading_location FROM locations WHERE id = p_unloading_location_id;
     
-    -- 插入或更新
+    -- 插入或更新（使用唯一约束名称）
     INSERT INTO fleet_manager_favorite_routes (
         fleet_manager_id,
         route_name,
@@ -525,7 +548,7 @@ BEGIN
         v_unloading_location,
         1
     )
-    ON CONFLICT (fleet_manager_id, route_name) 
+    ON CONFLICT ON CONSTRAINT unique_route_per_manager
     DO UPDATE SET
         project_id = EXCLUDED.project_id,
         loading_location_id = EXCLUDED.loading_location_id,

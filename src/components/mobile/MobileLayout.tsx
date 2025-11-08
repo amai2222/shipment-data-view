@@ -206,15 +206,15 @@ const menuGroups = [
       },
       // 司机菜单
       {
-        name: '我的派单',
-        href: '/m/internal/my-dispatches',
-        icon: FileText,
+        name: '司机工作台',
+        href: '/m/internal/my-expenses',
+        icon: BarChart3,
         roles: ['driver']
       },
       {
-        name: '我的费用申请',
-        href: '/m/internal/my-expenses',
-        icon: DollarSign,
+        name: '我的派单',
+        href: '/m/internal/my-dispatches',
+        icon: FileText,
         roles: ['driver']
       },
       {

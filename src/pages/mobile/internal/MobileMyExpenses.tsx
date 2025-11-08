@@ -43,7 +43,9 @@ import {
   ArrowLeft,
   User,
   Truck,
-  RefreshCw
+  RefreshCw,
+  Bell,
+  ArrowRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -91,6 +93,7 @@ export default function MobileMyExpenses() {
   const [loading, setLoading] = useState(false);
   const [myVehicles, setMyVehicles] = useState<any[]>([]);
   const [applications, setApplications] = useState<ExpenseApplication[]>([]);
+  const [pendingDispatchCount, setPendingDispatchCount] = useState(0);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [selectedApp, setSelectedApp] = useState<ExpenseApplication | null>(null);
@@ -109,6 +112,7 @@ export default function MobileMyExpenses() {
   useEffect(() => {
     loadApplications();
     loadMyVehicles();
+    loadPendingDispatches();
     
     // ✅ 预加载常用页面，避免首次点击时出现"刷新"
     setTimeout(() => {
@@ -152,10 +156,37 @@ export default function MobileMyExpenses() {
     }
   }, [toast]);
 
+  // ✅ 订阅派单通知
+  const handleDispatchUpdate = useCallback((payload: any) => {
+    console.log('派单数据变更:', payload);
+    
+    // 新派单通知
+    if (payload.eventType === 'INSERT' && payload.new?.status === 'pending') {
+      toast({
+        title: '新派单通知 🔔',
+        description: `收到新的派单：${payload.new?.order_number || ''}`,
+        duration: 10000,  // 显示10秒
+      });
+      loadPendingDispatches();
+    }
+    
+    // 派单状态变更
+    if (payload.eventType === 'UPDATE') {
+      loadPendingDispatches();
+    }
+  }, [toast]);
+
   // 订阅费用申请表的实时变化
   useOptimizedRealtimeSubscription(
     'internal_driver_expense_applications',
     handleRealtimeUpdate,
+    true  // 启用实时订阅
+  );
+
+  // ✅ 订阅派单表的实时变化
+  useOptimizedRealtimeSubscription(
+    'dispatch_orders',
+    handleDispatchUpdate,
     true  // 启用实时订阅
   );
 
@@ -167,6 +198,20 @@ export default function MobileMyExpenses() {
       setMyVehicles(data || []);
     } catch (error) {
       console.error('加载车辆失败:', error);
+    }
+  };
+
+  // ✅ 加载待接单的派单数量
+  const loadPendingDispatches = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_my_dispatch_orders', {
+        p_status: 'pending'
+      });
+      
+      if (error) throw error;
+      setPendingDispatchCount(data?.length || 0);
+    } catch (error) {
+      console.error('加载派单失败:', error);
     }
   };
 
@@ -346,11 +391,11 @@ export default function MobileMyExpenses() {
   };
 
   return (
-    <MobileLayout title="我的费用申请">
+    <MobileLayout title="司机工作台">
       <div className="space-y-4 pb-20">
         {/* 顶部操作栏 */}
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold">费用申请记录</h2>
+          <h2 className="text-lg font-semibold">工作台</h2>
           <Button
             variant="outline"
             size="sm"
@@ -413,6 +458,29 @@ export default function MobileMyExpenses() {
             </CardContent>
           </Card>
         </div>
+
+        {/* 🔔 派单通知卡片（有待接单时显示） */}
+        {pendingDispatchCount > 0 && (
+          <Card 
+            className="bg-gradient-to-br from-orange-500 to-red-500 text-white border-0 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+            onClick={() => navigate('/m/internal/my-dispatches')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm animate-pulse">
+                    <Bell className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-lg">新派单通知</div>
+                    <div className="text-sm opacity-90">您有 {pendingDispatchCount} 个待接单的派单</div>
+                  </div>
+                </div>
+                <ArrowRight className="h-6 w-6" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 快捷操作按钮 - 美化版 */}
         <div className="grid grid-cols-3 gap-3">
