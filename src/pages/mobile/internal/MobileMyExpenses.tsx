@@ -109,6 +109,15 @@ export default function MobileMyExpenses() {
   useEffect(() => {
     loadApplications();
     loadMyVehicles();
+    
+    // ✅ 预加载常用页面，避免首次点击时出现"刷新"
+    setTimeout(() => {
+      import('./MobileDriverSalary');
+      import('./MobileSalaryRecords');
+      import('./MobileQuickEntry');
+      import('./MobileMyVehicles');
+    }, 1000); // 页面加载1秒后开始预加载
+    
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
