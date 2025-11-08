@@ -484,6 +484,20 @@ export default function PaymentRequest() {
 
       const sheets = Array.from(sheetMap.values());
       
+      // ✅ 对每个付款单的运单进行排序：先按日期降序，再按运单编号升序
+      sheets.forEach(sheet => {
+        sheet.records.sort((a: any, b: any) => {
+          // 主排序：日期降序（最新在前）
+          const dateA = new Date(a.record.loading_date).getTime();
+          const dateB = new Date(b.record.loading_date).getTime();
+          if (dateA !== dateB) {
+            return dateB - dateA;
+          }
+          // 次排序：运单编号升序（小的在前）
+          return a.record.auto_number.localeCompare(b.record.auto_number, 'zh-CN', { numeric: true });
+        });
+      });
+      
       const finalRecordIds = new Set<string>();
       sheets.forEach(sheet => {
         sheet.records.forEach((r: any) => finalRecordIds.add(r.record.id));
