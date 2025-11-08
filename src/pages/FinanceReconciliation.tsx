@@ -200,7 +200,19 @@ export default function FinanceReconciliation() {
           setIsRecalculating(false);
           return;
         }
-        const { error: idError } = await supabase.rpc('batch_recalculate_partner_costs', { p_record_ids: idsToRecalculate });
+        const { data: recalcResult, error: idError } = await supabase.rpc('batch_recalculate_partner_costs', { p_record_ids: idsToRecalculate });
+        
+        // ✅ 检查返回结果
+        console.log('🔄 重算结果:', recalcResult);
+        if (recalcResult) {
+          console.log('📊 重算统计:', {
+            总运单数: recalcResult.total_count,
+            成功数: recalcResult.updated_count,
+            跳过数: recalcResult.skipped_count,
+            保护手工值: recalcResult.protected_count
+          });
+        }
+        
         error = idError;
       }
       if (error) throw error;
