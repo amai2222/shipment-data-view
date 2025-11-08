@@ -36,7 +36,7 @@ BEGIN
     
     RAISE NOTICE '📌 司机应收改变：¥% → ¥%，触发自动重算', OLD.payable_cost, NEW.payable_cost;
     
-    -- ✅ 步骤1：保存手工修改的合作方成本
+    -- ✅ 步骤1：保存所有手工修改的记录
     SELECT json_agg(
         json_build_object(
             'partner_id', partner_id,
@@ -50,16 +50,16 @@ BEGIN
     AND is_manually_modified = true;
     
     IF v_manually_modified_costs IS NOT NULL THEN
-        RAISE NOTICE '✅ 保留 % 个手工修改的记录', jsonb_array_length(v_manually_modified_costs);
+        RAISE NOTICE '✅ 保护手工修改：% 个记录', jsonb_array_length(v_manually_modified_costs);
     END IF;
     
-    -- ✅ 步骤2：删除系统计算的记录
+    -- ✅ 步骤2：只删除is_manually_modified=false的记录
     DELETE FROM logistics_partner_costs
     WHERE logistics_record_id = NEW.id
     AND COALESCE(is_manually_modified, false) = false;
     
-    -- ✅ 步骤3：重新级联计算
-    v_base_amount := NEW.payable_cost;  -- 使用新的司机应收作为基础
+    -- ✅ 步骤3：重新计算（每个level都独立从payable_cost计算）
+    v_base_amount := NEW.payable_cost;  -- 所有level都从这个基础计算
     v_loading_weight := NEW.loading_weight;
     
     FOR v_project_partners IN
@@ -74,7 +74,7 @@ BEGIN
         AND chain_id = NEW.chain_id
         ORDER BY level ASC
     LOOP
-        -- 检查该合作方是否被手工修改过
+        -- 检查该合作方是否被手工修改过（已保留，跳过不插入）
         IF v_manually_modified_costs IS NOT NULL THEN
             IF EXISTS (
                 SELECT 1
@@ -82,20 +82,14 @@ BEGIN
                 WHERE (elem->>'partner_id')::UUID = v_project_partners.partner_id
                 AND (elem->>'level')::INTEGER = v_project_partners.level
             ) THEN
-                -- ✅ 跳过手工修改的，但获取其值作为下一级基础
-                SELECT payable_amount INTO v_payable_amount
-                FROM logistics_partner_costs
-                WHERE logistics_record_id = NEW.id
-                AND partner_id = v_project_partners.partner_id
-                AND level = v_project_partners.level;
-                
                 v_protected_count := v_protected_count + 1;
-                v_base_amount := v_payable_amount;
-                
-                RAISE NOTICE '⏭️  保护手工值：level=%, ¥%', v_project_partners.level, v_payable_amount;
+                RAISE NOTICE '⏭️  保护手工修改：level=%, 跳过重算', v_project_partners.level;
                 CONTINUE;
             END IF;
         END IF;
+        
+        -- ✅ 每个level都从payable_cost（司机应收）开始计算
+        v_base_amount := NEW.payable_cost;
         
         -- 按规则计算应付金额
         IF v_project_partners.calculation_method = 'profit' THEN
@@ -128,15 +122,14 @@ BEGIN
             NEW.id,
             v_project_partners.partner_id,
             v_project_partners.level,
-            v_base_amount,
+            v_base_amount,  -- 都是payable_cost
             v_payable_amount,
             v_project_partners.tax_rate,
-            false,  -- 新计算的都是false
+            false,
             auth.uid()
         );
         
         v_recalc_count := v_recalc_count + 1;
-        v_base_amount := v_payable_amount;
     END LOOP;
     
     RAISE NOTICE '✅ 自动重算完成：保护%个手工值，重算%个合作方', v_protected_count, v_recalc_count;
@@ -145,7 +138,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION auto_recalc_on_payable_cost_change IS '触发器函数：司机应收改变时自动重算合作方成本（保护手工值）';
+COMMENT ON FUNCTION auto_recalc_on_payable_cost_change IS '触发器函数：司机应收改变时自动重算合作方成本（每个level独立从payable_cost计算，保护手工值）';
 
 -- ============================================================================
 -- 创建触发器
@@ -176,13 +169,13 @@ BEGIN
     RAISE NOTICE '触发动作：';
     RAISE NOTICE '  1. 保存手工修改的合作方成本';
     RAISE NOTICE '  2. 删除系统计算的合作方成本';
-    RAISE NOTICE '  3. 重新级联计算未改的合作方';
+    RAISE NOTICE '  3. 每个level独立从payable_cost重新计算';
     RAISE NOTICE '  4. 保持手工修改的值不变';
     RAISE NOTICE '';
     RAISE NOTICE '现在：';
     RAISE NOTICE '  • 修改司机应收 → 自动重算合作方 ✅';
     RAISE NOTICE '  • 手工修改的合作方 → 自动保护 ✅';
-    RAISE NOTICE '  • 级联关系正确 ✅';
+    RAISE NOTICE '  • 每个level独立计算（不级联）✅';
     RAISE NOTICE '';
     RAISE NOTICE '========================================';
 END $$;

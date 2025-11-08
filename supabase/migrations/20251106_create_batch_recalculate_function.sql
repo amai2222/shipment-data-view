@@ -66,12 +66,7 @@ BEGIN
             CONTINUE;
         END IF;
         
-        -- ✅ 简化逻辑：只删除系统计算的记录，保留手工修改的
-        DELETE FROM logistics_partner_costs
-        WHERE logistics_record_id = v_record_id
-        AND COALESCE(is_manually_modified, false) = false;  -- ✅ 只删除系统计算的（NULL也当false处理）
-        
-        -- 获取保留的手工修改记录（用于跳过）
+        -- ✅ 步骤1：保存所有手工修改的记录
         SELECT json_agg(
             json_build_object(
                 'partner_id', partner_id,
@@ -82,11 +77,16 @@ BEGIN
         INTO v_manually_modified_costs
         FROM logistics_partner_costs
         WHERE logistics_record_id = v_record_id
-        AND is_manually_modified = true;  -- ✅ 手工改过的已保留
+        AND is_manually_modified = true;
         
         IF v_manually_modified_costs IS NOT NULL THEN
-            RAISE NOTICE '📌 保留了 % 个手工修改的记录', jsonb_array_length(v_manually_modified_costs);
+            RAISE NOTICE '📌 保护手工修改：% 个记录', jsonb_array_length(v_manually_modified_costs);
         END IF;
+        
+        -- ✅ 步骤2：只删除is_manually_modified=false的记录
+        DELETE FROM logistics_partner_costs
+        WHERE logistics_record_id = v_record_id
+        AND COALESCE(is_manually_modified, false) = false;
         
         -- 获取运单基础信息
         SELECT 
@@ -106,7 +106,7 @@ BEGIN
         
         -- （已在上面删除了系统计算的记录）
         
-        -- ✅ 关键步骤2：重新计算所有合作方成本
+        -- ✅ 关键步骤2：重新计算所有合作方成本（每个level独立从payable_cost计算）
         FOR v_project_partners IN
             SELECT 
                 partner_id,
@@ -119,16 +119,31 @@ BEGIN
             AND chain_id = v_chain_id
             ORDER BY level ASC
         LOOP
+            -- 检查该合作方是否被手工修改过（已保留，跳过不插入）
+            IF v_manually_modified_costs IS NOT NULL THEN
+                IF EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements(v_manually_modified_costs) AS elem
+                    WHERE (elem->>'partner_id')::UUID = v_project_partners.partner_id
+                    AND (elem->>'level')::INTEGER = v_project_partners.level
+                ) THEN
+                    v_protected_count := v_protected_count + 1;
+                    RAISE NOTICE '⏭️  保护手工修改：level=%, 跳过重算', v_project_partners.level;
+                    CONTINUE;
+                END IF;
+            END IF;
+            
+            -- ✅ 每个level都独立从payable_cost（司机应收）开始计算
+            v_base_amount := v_base_amount;  -- 使用payable_cost（已在外层赋值）
+            
             -- 按规则计算应付金额
             IF v_project_partners.calculation_method = 'profit' THEN
-                -- 利润法
                 IF v_loading_weight IS NOT NULL AND v_loading_weight > 0 THEN
                     v_payable_amount := v_base_amount + (COALESCE(v_project_partners.profit_rate, 0) * v_loading_weight);
                 ELSE
                     v_payable_amount := v_base_amount + COALESCE(v_project_partners.profit_rate, 0);
                 END IF;
             ELSE
-                -- 税点法
                 IF v_project_partners.tax_rate IS NOT NULL AND v_project_partners.tax_rate != 1 THEN
                     v_payable_amount := v_base_amount / (1 - v_project_partners.tax_rate);
                 ELSE
@@ -136,36 +151,7 @@ BEGIN
                 END IF;
             END IF;
             
-            -- 四舍五入到2位小数
             v_payable_amount := ROUND(v_payable_amount, 2);
-            
-            -- ✅ 简化逻辑：检查该合作方是否已存在（手工修改的）
-            IF v_manually_modified_costs IS NOT NULL THEN
-                -- 检查该partner_id + level是否在手工修改列表中
-                IF EXISTS (
-                    SELECT 1
-                    FROM jsonb_array_elements(v_manually_modified_costs) AS elem
-                    WHERE (elem->>'partner_id')::UUID = v_project_partners.partner_id
-                    AND (elem->>'level')::INTEGER = v_project_partners.level
-                ) THEN
-                    -- ✅ 该合作方是手工修改的，已存在，跳过不插入
-                    v_protected_count := v_protected_count + 1;
-                    
-                    -- ✅ 获取手工值作为下一级的基础金额
-                    SELECT payable_amount INTO v_payable_amount
-                    FROM logistics_partner_costs
-                    WHERE logistics_record_id = v_record_id
-                    AND partner_id = v_project_partners.partner_id
-                    AND level = v_project_partners.level;
-                    
-                    RAISE NOTICE '⏭️  跳过手工修改的合作方：level=%, 手工值=¥%', v_project_partners.level, v_payable_amount;
-                    
-                    -- ✅ 更新下一级的基础金额为手工值
-                    v_base_amount := v_payable_amount;
-                    
-                    CONTINUE;  -- 跳过插入
-                END IF;
-            END IF;
             
             -- 插入新的成本记录
             INSERT INTO logistics_partner_costs (
@@ -175,21 +161,20 @@ BEGIN
                 base_amount,
                 payable_amount,
                 tax_rate,
-                is_manually_modified,  -- ✅ 保持标记
+                is_manually_modified,
                 user_id
             ) VALUES (
                 v_record_id,
                 v_project_partners.partner_id,
                 v_project_partners.level,
-                v_base_amount,
+                v_base_amount,  -- 都是payable_cost
                 v_payable_amount,
                 v_project_partners.tax_rate,
-                false,  -- ✅ 新计算的都标记为false
+                false,
                 auth.uid()
             );
             
-            -- 下一级的基础金额 = 当前级的应付金额
-            v_base_amount := v_payable_amount;
+            -- ✅ 不更新v_base_amount，每个level都独立从payable_cost计算
         END LOOP;
         
         v_updated_count := v_updated_count + 1;
@@ -214,13 +199,13 @@ END;
 $$;
 
 COMMENT ON FUNCTION batch_recalculate_partner_costs IS '
-批量重算合作方成本（简化版-保护手工修改的值）
+批量重算合作方成本（保护手工修改的值）
 逻辑：
 1. 删除 is_manually_modified=false 的记录（系统计算的）
 2. 保留 is_manually_modified=true 的记录（手工修改的）
-3. 遍历所有合作方，如果已存在（手工改的）则跳过
-4. 如果不存在（被删除的）则重新计算并插入
-5. 级联计算时使用前一级的值（可能是手工值）
+3. 遍历所有合作方，如果is_manually_modified=true则跳过
+4. 每个level独立从payable_cost（司机应收）开始计算
+5. 不级联，每个level的base_amount都是payable_cost
 ';
 
 -- ============================================================================
@@ -236,12 +221,12 @@ BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '功能：批量重算合作方成本';
     RAISE NOTICE '';
-    RAISE NOTICE '保护逻辑（简化版）：';
+    RAISE NOTICE '重算逻辑：';
     RAISE NOTICE '  ✓ 删除 is_manually_modified=false 的记录';
     RAISE NOTICE '  ✓ 保留 is_manually_modified=true 的记录';
-    RAISE NOTICE '  ✓ 重新计算被删除的合作方';
-    RAISE NOTICE '  ✓ 跳过已存在的手工修改记录';
-    RAISE NOTICE '  ✓ 级联计算时使用前一级的值（可能是手工值）';
+    RAISE NOTICE '  ✓ 每个level独立从payable_cost计算';
+    RAISE NOTICE '  ✓ 跳过is_manually_modified=true的合作方';
+    RAISE NOTICE '  ✓ 不级联，每个level的base都是payable_cost';
     RAISE NOTICE '';
     RAISE NOTICE '使用：';
     RAISE NOTICE '  SELECT batch_recalculate_partner_costs(ARRAY[''uuid1'', ''uuid2'']);';
