@@ -63,7 +63,14 @@ export default function MobileMyVehicles() {
   const [loading, setLoading] = useState(false);
   const [myVehicles, setMyVehicles] = useState<Vehicle[]>([]);
   const [changeApplications, setChangeApplications] = useState<VehicleChangeApp[]>([]);
-  const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
+  const [availableVehicles, setAvailableVehicles] = useState<Array<{
+    id: string;
+    license_plate: string;
+    vehicle_type: string;
+    vehicle_brand?: string;
+    vehicle_model?: string;
+    vehicle_status: string;
+  }>>([]);
   
   const [showChangeDialog, setShowChangeDialog] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<string>('');
@@ -73,6 +80,7 @@ export default function MobileMyVehicles() {
     loadMyVehicles();
     loadChangeApplications();
     loadAvailableVehicles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 加载我的车辆
@@ -82,6 +90,11 @@ export default function MobileMyVehicles() {
       const { data, error } = await supabase.rpc('get_my_vehicles');
       
       if (error) throw error;
+      
+      // ✅ 添加调试日志
+      console.log('🚗 get_my_vehicles()返回数据:', data);
+      console.log('📊 返回记录数:', data?.length);
+      
       setMyVehicles(data || []);
     } catch (error) {
       console.error('加载失败:', error);
@@ -204,79 +217,7 @@ export default function MobileMyVehicles() {
   return (
     <MobileLayout>
       <div className="space-y-4 pb-20">
-        {/* 当前主车 */}
-        {primaryVehicle ? (
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Truck className="h-5 w-5 text-blue-600" />
-                我的主车
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-3xl font-bold text-blue-700">
-                    {primaryVehicle.license_plate}
-                  </div>
-                  <Badge className="bg-blue-600 text-white">主车</Badge>
-                </div>
-                <div className="text-sm text-blue-600">
-                  {primaryVehicle.vehicle_type || '厢式货车'}
-                </div>
-                <Button
-                  size="sm"
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                  onClick={() => setShowChangeDialog(true)}
-                >
-                  <ArrowRight className="h-4 w-4 mr-2" />
-                  申请换车
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="border-dashed">
-            <CardContent className="p-6 text-center">
-              <Truck className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-2" />
-              <p className="text-sm text-muted-foreground">暂未分配主车</p>
-              <Button
-                size="sm"
-                className="mt-3"
-                onClick={() => setShowChangeDialog(true)}
-              >
-                申请分配车辆
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 备用车列表 */}
-        {backupVehicles.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">备用车辆</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {backupVehicles.map(vehicle => (
-                <div 
-                  key={vehicle.vehicle_id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <div>
-                    <div className="font-medium">{vehicle.license_plate}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {vehicle.vehicle_type}
-                    </div>
-                  </div>
-                  <Badge variant="outline">
-                    {vehicle.relation_type === 'backup' ? '备用' : '临时'}
-                  </Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+        {/* 车辆卡片已隐藏 - 只显示申请记录和功能按钮 */}
 
         {/* 换车申请记录 */}
         <Card>
