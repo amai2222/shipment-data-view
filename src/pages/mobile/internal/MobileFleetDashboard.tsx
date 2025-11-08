@@ -68,69 +68,84 @@ export default function MobileFleetDashboard() {
       
       if (!userId) return;
 
-      // 获取车队长管理的车辆统计
-      const { data: vehicleData, error: vehicleError } = await supabase
-        .from('internal_vehicles')
-        .select('vehicle_status')
-        .eq('fleet_manager_id', userId);
-      
-      if (vehicleError) throw vehicleError;
-
-      // 获取司机统计
-      const { data: driverData, error: driverError } = await supabase
+      // ✅ 1. 获取车队长管理的司机
+      const { data: managedDrivers, error: driverError } = await supabase
         .from('internal_drivers')
-        .select('id, user_id');
+        .select('id, name, user_id')
+        .eq('fleet_manager_id', userId);
       
       if (driverError) throw driverError;
 
-      // 获取待审核的费用申请
-      const { data: expenseData, error: expenseError } = await supabase
+      const managedDriverIds = (managedDrivers || []).map(d => d.id);
+      const managedDriverNames = (managedDrivers || []).map(d => d.name);
+
+      // ✅ 2. 通过司机获取车辆统计
+      let vehicleData: any[] = [];
+      if (managedDriverIds.length > 0) {
+        const { data: vData, error: vError } = await supabase
+          .from('internal_driver_vehicle_relations')
+          .select('vehicle:internal_vehicles(id, vehicle_status)')
+          .in('driver_id', managedDriverIds)
+          .is('valid_until', null);  // 只查询当前有效的分配
+        
+        if (!vError) {
+          vehicleData = (vData || []).map((r: any) => r.vehicle).filter((v: any) => v);
+        }
+      }
+
+      // ✅ 3. 获取待审核的费用申请（只统计管理的司机的申请）
+      const { count: expenseCount } = await supabase
         .from('internal_driver_expense_applications')
-        .select('id')
-        .eq('status', 'pending');
-      
-      if (expenseError) throw expenseError;
+        .select('id', { count: 'estimated', head: true })
+        .eq('status', 'pending')
+        .in('driver_name', managedDriverNames.length > 0 ? managedDriverNames : ['无']);
 
-      // 获取待审核的换车申请
-      const { data: changeData, error: changeError } = await supabase
+      // ✅ 4. 获取待审核的换车申请
+      const { count: changeCount } = await supabase
         .from('internal_driver_vehicle_change_applications')
-        .select('id')
+        .select('id', { count: 'estimated', head: true })
         .eq('status', 'pending');
-      
-      if (changeError) throw changeError;
 
-      // 获取即将到期的证件（30天内）
+      // ✅ 5. 获取即将到期的证件（30天内，管理的车辆）
       const expireDate = new Date();
       expireDate.setDate(expireDate.getDate() + 30);
       const expireDateStr = expireDate.toISOString().split('T')[0];
       
-      const { data: expireCerts, error: expireError } = await supabase
-        .from('internal_vehicles')
-        .select('id')
-        .eq('fleet_manager_id', userId)
-        .or(`driving_license_expire_date.lte.${expireDateStr},insurance_expire_date.lte.${expireDateStr}`);
-      
-      if (expireError) throw expireError;
+      const vehicleIds = vehicleData.map((v: any) => v.id);
+      let expireCertCount = 0;
+      if (vehicleIds.length > 0) {
+        const { count } = await supabase
+          .from('internal_vehicles')
+          .select('id', { count: 'estimated', head: true })
+          .in('id', vehicleIds)
+          .or(`driving_license_expire_date.lte.${expireDateStr},insurance_expire_date.lte.${expireDateStr}`);
+        
+        expireCertCount = count || 0;
+      }
 
-      // 获取本月运单数
-      const { count: tripCount, error: tripError } = await supabase
-        .from('logistics_records')
-        .select('id', { count: 'estimated', head: true })
-        .gte('loading_date', `${currentMonth}-01`);
-      
-      if (tripError) throw tripError;
+      // ✅ 6. 获取本月运单数（管理的司机的运单）
+      let tripCount = 0;
+      if (managedDriverNames.length > 0) {
+        const { count } = await supabase
+          .from('logistics_records')
+          .select('id', { count: 'estimated', head: true })
+          .in('driver_name', managedDriverNames)
+          .gte('loading_date', `${currentMonth}-01`);
+        
+        tripCount = count || 0;
+      }
 
       // 更新统计数据
       setStats({
-        totalVehicles: vehicleData?.length || 0,
-        activeVehicles: vehicleData?.filter(v => v.vehicle_status === 'active').length || 0,
-        maintenanceVehicles: vehicleData?.filter(v => v.vehicle_status === 'maintenance').length || 0,
-        totalDrivers: driverData?.length || 0,
-        activeDrivers: driverData?.filter(d => d.user_id).length || 0,
-        pendingExpenses: expenseData?.length || 0,
-        pendingVehicleChanges: changeData?.length || 0,
-        expiringCertificates: expireCerts?.length || 0,
-        thisMonthTrips: tripCount || 0
+        totalVehicles: vehicleData.length,
+        activeVehicles: vehicleData.filter((v: any) => v.vehicle_status === 'active').length,
+        maintenanceVehicles: vehicleData.filter((v: any) => v.vehicle_status === 'maintenance').length,
+        totalDrivers: managedDrivers?.length || 0,
+        activeDrivers: managedDrivers?.filter(d => d.user_id).length || 0,
+        pendingExpenses: expenseCount || 0,
+        pendingVehicleChanges: changeCount || 0,
+        expiringCertificates: expireCertCount,
+        thisMonthTrips: tripCount
       });
     } catch (error) {
       console.error('加载失败:', error);
