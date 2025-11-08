@@ -47,60 +47,49 @@ export default function MobileDriverSalary() {
   const loadSalaryData = async () => {
     setLoading(true);
     try {
-      // ✅ 调用真实的数据库查询
+      // ✅ 使用 RPC 函数查询工资数据（绕过RLS）
       const currentMonth = format(new Date(), 'yyyy-MM');
       const lastMonth = format(new Date(new Date().setMonth(new Date().getMonth() - 1)), 'yyyy-MM');
       
-      // 获取当前司机ID
-      const { data: driverData } = await supabase
-        .from('internal_drivers')
-        .select('id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
-      
-      if (!driverData) {
-        throw new Error('未找到司机档案');
-      }
-      
       // 查询当月工资
-      const { data: currentData } = await supabase
-        .from('internal_driver_monthly_salary')
-        .select('*')
-        .eq('driver_id', driverData.id)
-        .eq('year_month', currentMonth)
-        .single();
+      const { data: currentData, error: currentError } = await supabase.rpc('get_my_salary', {
+        p_year_month: currentMonth
+      });
       
-      if (currentData) {
+      if (currentError) throw currentError;
+      
+      if (currentData && currentData.length > 0) {
+        const record = currentData[0];
         setCurrentMonthSalary({
-          month: currentData.year_month,
-          base_salary: currentData.base_salary || 0,
-          trip_count: currentData.trip_count || 0,
-          trip_commission: currentData.trip_commission || 0,
-          total_income: currentData.total_income || 0,
-          deductions: currentData.deductions || 0,
-          net_salary: currentData.net_salary || 0,
-          status: currentData.status || 'calculating'
+          month: record.year_month,
+          base_salary: record.base_salary || 0,
+          trip_count: record.trip_count || 0,
+          trip_commission: record.trip_commission || 0,
+          total_income: record.total_income || 0,
+          deductions: record.deductions || 0,
+          net_salary: record.net_salary || 0,
+          status: record.status || 'calculating'
         });
       }
       
       // 查询上月工资
-      const { data: lastData } = await supabase
-        .from('internal_driver_monthly_salary')
-        .select('*')
-        .eq('driver_id', driverData.id)
-        .eq('year_month', lastMonth)
-        .single();
+      const { data: lastData, error: lastError } = await supabase.rpc('get_my_salary', {
+        p_year_month: lastMonth
+      });
       
-      if (lastData) {
+      if (lastError) throw lastError;
+      
+      if (lastData && lastData.length > 0) {
+        const record = lastData[0];
         setLastMonthSalary({
-          month: lastData.year_month,
-          base_salary: lastData.base_salary || 0,
-          trip_count: lastData.trip_count || 0,
-          trip_commission: lastData.trip_commission || 0,
-          total_income: lastData.total_income || 0,
-          deductions: lastData.deductions || 0,
-          net_salary: lastData.net_salary || 0,
-          status: lastData.status || 'paid'
+          month: record.year_month,
+          base_salary: record.base_salary || 0,
+          trip_count: record.trip_count || 0,
+          trip_commission: record.trip_commission || 0,
+          total_income: record.total_income || 0,
+          deductions: record.deductions || 0,
+          net_salary: record.net_salary || 0,
+          status: record.status || 'calculating'
         });
       }
     } catch (error: any) {

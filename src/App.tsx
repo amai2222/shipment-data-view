@@ -142,7 +142,14 @@ const App = () => (
           <AutoMenuSync />
           <MobileRedirect>
             <LazyLoadErrorBoundary>
-              <Suspense fallback={<LoadingSpinner />}>
+              <Suspense fallback={
+                <div className="flex items-center justify-center min-h-screen">
+                  <div className="text-center space-y-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <p className="text-sm text-muted-foreground">页面加载中...</p>
+                  </div>
+                </div>
+              }>
                 <Routes>
             {/* --- 公开路由 --- */}
             <Route path="/auth" element={<Auth />} />

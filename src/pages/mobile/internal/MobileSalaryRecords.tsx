@@ -44,7 +44,7 @@ export default function MobileSalaryRecords() {
   
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState<SalaryRecord[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   useEffect(() => {
     loadSalaryRecords();
@@ -55,7 +55,7 @@ export default function MobileSalaryRecords() {
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc('get_my_salary', {
-        p_year_month: selectedMonth || null
+        p_year_month: (selectedMonth === 'all' || !selectedMonth) ? null : selectedMonth
       });
       
       if (error) throw error;
@@ -117,10 +117,10 @@ export default function MobileSalaryRecords() {
               <Label className="text-sm text-muted-foreground">查询月份：</Label>
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                 <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="最近3个月" />
+                  <SelectValue placeholder="全部月份" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">最近3个月</SelectItem>
+                  <SelectItem value="all">全部月份</SelectItem>
                   {monthOptions.map(option => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}

@@ -360,25 +360,14 @@ export function MobileLayout({ children, showBack, title }: MobileLayoutProps) {
       {/* 移动端顶部导航栏 */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center px-4">
-          {/* 左侧：返回按钮或菜单按钮 */}
-          {shouldShowBack ? (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="mr-2"
-              onClick={() => navigate(-1)}
-            >
-              <ArrowLeft className="h-5 w-5" />
-              <span className="sr-only">返回</span>
-            </Button>
-          ) : (
-            <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="mr-2">
-                  <Menu className="h-5 w-5" />
-                  <span className="sr-only">打开菜单</span>
-                </Button>
-              </SheetTrigger>
+          {/* 左侧：菜单按钮（始终显示） */}
+          <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="mr-2">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">打开菜单</span>
+              </Button>
+            </SheetTrigger>
             <SheetContent side="left" className="w-[280px] sm:w-[320px]">
               <SheetHeader>
                 <SheetTitle>物流管理系统</SheetTitle>
@@ -487,133 +476,25 @@ export function MobileLayout({ children, showBack, title }: MobileLayoutProps) {
               </div>
             </SheetContent>
           </Sheet>
-          )}
 
           {/* 中间：标题 */}
           <div className="flex-1 text-center">
             <h1 className="text-lg font-semibold">{title || '物流管理系统'}</h1>
           </div>
 
-          {/* 右侧：菜单按钮（当显示返回时） */}
-          {shouldShowBack && (
-            <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
-                  <span className="sr-only">打开菜单</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-[280px] sm:w-[320px]">
-                <SheetHeader>
-                  <SheetTitle>物流管理系统</SheetTitle>
-                </SheetHeader>
-                
-                <div className="flex flex-col h-full py-4">
-                  {/* 用户信息 */}
-                  <div className="flex items-center space-x-3 mb-6 p-3 rounded-lg bg-muted/50">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={user?.user_metadata?.avatar_url} />
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {getUserInitials(user?.user_metadata?.full_name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {user?.user_metadata?.full_name || '用户'}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {user?.email}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* 主导航 */}
-                  <ScrollArea className="flex-1">
-                    <div className="space-y-4">
-                      {filteredMenuGroups.map((group) => (
-                        <div key={group.title} className="space-y-2">
-                          {/* 分组标题 */}
-                          <div className="flex items-center space-x-2 px-3 py-2">
-                            <group.icon className="h-4 w-4 text-muted-foreground" />
-                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              {group.title}
-                            </h3>
-                          </div>
-                          
-                          {/* 分组菜单项 */}
-                          <div className="space-y-1">
-                            {group.items.map((item) => (
-                              <NavLink
-                                key={item.href}
-                                to={item.href}
-                                onClick={() => setIsMenuOpen(false)}
-                                className={({ isActive }) =>
-                                  cn(
-                                    'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm transition-colors ml-4',
-                                    isActive
-                                      ? 'bg-primary text-primary-foreground'
-                                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                                  )
-                                }
-                              >
-                                <item.icon className="h-4 w-4" />
-                                <span>{item.name}</span>
-                              </NavLink>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {filteredSettingsNavigation.length > 0 && (
-                      <>
-                        <Separator className="my-4" />
-                        <div className="space-y-1">
-                          <div className="px-3 py-2">
-                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              系统设置
-                            </h3>
-                          </div>
-                          {filteredSettingsNavigation.map((item) => (
-                            <NavLink
-                              key={item.href}
-                              to={item.href}
-                              onClick={() => setIsMenuOpen(false)}
-                              className={({ isActive }) =>
-                                cn(
-                                  'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                                  isActive
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                                )
-                              }
-                            >
-                              <item.icon className="h-4 w-4" />
-                              <span>{item.name}</span>
-                            </NavLink>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </ScrollArea>
-
-                  {/* 登出按钮 */}
-                  <div className="pt-4 border-t">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={handleLogout}
-                    >
-                      <LogOut className="h-4 w-4 mr-3" />
-                      退出登录
-                    </Button>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+          {/* 右侧：返回按钮（子页面时显示） */}
+          {shouldShowBack ? (
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">返回</span>
+            </Button>
+          ) : (
+            <div className="w-10" /> // 占位保持标题居中
           )}
-          
-          {!shouldShowBack && <div className="w-10" />} {/* 占位，保持标题居中 */}
         </div>
       </header>
 
