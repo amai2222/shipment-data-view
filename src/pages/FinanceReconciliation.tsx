@@ -204,6 +204,12 @@ export default function FinanceReconciliation() {
         
         // ✅ 检查返回结果
         console.log('🔄 重算结果:', recalcResult);
+        
+        if (recalcResult && !recalcResult.success) {
+          // 函数返回失败
+          throw new Error(recalcResult.message || '重算失败');
+        }
+        
         if (recalcResult) {
           console.log('📊 重算统计:', {
             总运单数: recalcResult.total_count,
@@ -211,13 +217,20 @@ export default function FinanceReconciliation() {
             跳过数: recalcResult.skipped_count,
             保护手工值: recalcResult.protected_count
           });
+          
+          // 显示详细结果
+          toast({ 
+            title: "重算完成", 
+            description: recalcResult.message || `成功重算 ${recalcResult.updated_count} 个合作方`,
+            duration: 5000
+          });
         }
         
         error = idError;
       }
       if (error) throw error;
-      const count = selection.mode === 'all_filtered' ? reportData?.count || '全部' : selection.selectedIds.size;
-      toast({ title: "成功", description: `已为 ${count} 条运单提交重算任务。` });
+      
+      // ✅ 已在上面显示详细结果，这里只刷新数据
       setSelection({ mode: 'none', selectedIds: new Set() });
       fetchReportData();
     } catch (error) {

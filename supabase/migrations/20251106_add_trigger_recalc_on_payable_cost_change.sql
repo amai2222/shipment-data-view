@@ -116,8 +116,7 @@ BEGIN
             base_amount,
             payable_amount,
             tax_rate,
-            is_manually_modified,
-            user_id
+            is_manually_modified
         ) VALUES (
             NEW.id,
             v_project_partners.partner_id,
@@ -125,8 +124,7 @@ BEGIN
             v_base_amount,  -- 都是payable_cost
             v_payable_amount,
             v_project_partners.tax_rate,
-            false,
-            auth.uid()
+            false
         );
         
         v_recalc_count := v_recalc_count + 1;

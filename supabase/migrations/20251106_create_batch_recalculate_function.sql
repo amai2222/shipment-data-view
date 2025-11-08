@@ -161,8 +161,7 @@ BEGIN
                 base_amount,
                 payable_amount,
                 tax_rate,
-                is_manually_modified,
-                user_id
+                is_manually_modified
             ) VALUES (
                 v_record_id,
                 v_project_partners.partner_id,
@@ -170,8 +169,7 @@ BEGIN
                 v_base_amount,  -- 都是payable_cost
                 v_payable_amount,
                 v_project_partners.tax_rate,
-                false,
-                auth.uid()
+                false
             );
             
             -- ✅ 不更新v_base_amount，每个level都独立从payable_cost计算
