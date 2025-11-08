@@ -125,40 +125,30 @@ export default function MobileMyExpenses() {
   const loadApplications = async () => {
     setLoading(true);
     try {
-      // TODO: 替换为实际的表查询
-      // const { data, error } = await supabase
-      //   .from('internal_driver_expense_applications')
-      //   .select('*')
-      //   .eq('driver_id', driverId)
-      //   .order('created_at', { ascending: false });
+      // ✅ 使用实际的数据库查询
+      const { data: driverInfo } = await supabase.rpc('get_my_driver_info');
       
-      // 临时模拟数据
-      setApplications([
-        {
-          id: '1',
-          application_number: 'FY20251104-0001',
-          expense_date: '2025-11-03',
-          expense_type: 'fuel',
-          amount: 551.00,
-          description: '2月份公司加油',
-          receipt_photos: [],
-          status: 'approved',
-          review_comment: null,
-          created_at: '2025-11-03T10:00:00'
-        },
-        {
-          id: '2',
-          application_number: 'FY20251104-0002',
-          expense_date: '2025-11-02',
-          expense_type: 'parking',
-          amount: 50.00,
-          description: '市区停车费',
-          receipt_photos: [],
-          status: 'pending',
-          review_comment: null,
-          created_at: '2025-11-02T15:00:00'
-        }
-      ]);
+      if (!driverInfo || driverInfo.length === 0) {
+        toast({
+          title: '提示',
+          description: '未找到司机档案信息',
+          variant: 'destructive'
+        });
+        setApplications([]);
+        return;
+      }
+
+      const driverId = driverInfo[0].id;
+
+      const { data, error } = await supabase
+        .from('internal_driver_expense_applications')
+        .select('*')
+        .eq('driver_id', driverId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      setApplications(data || []);
     } catch (error) {
       console.error('加载失败:', error);
       toast({
@@ -166,6 +156,7 @@ export default function MobileMyExpenses() {
         description: '无法加载费用申请记录',
         variant: 'destructive'
       });
+      setApplications([]);
     } finally {
       setLoading(false);
     }

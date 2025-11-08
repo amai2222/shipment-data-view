@@ -44,15 +44,15 @@ export default function MobileFleetDashboard() {
   
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
-    totalVehicles: 6,
-    activeVehicles: 5,
-    maintenanceVehicles: 1,
-    totalDrivers: 5,
-    activeDrivers: 4,
-    pendingExpenses: 3,
-    pendingVehicleChanges: 1,
-    expiringCertificates: 2,
-    thisMonthTrips: 45
+    totalVehicles: 0,
+    activeVehicles: 0,
+    maintenanceVehicles: 0,
+    totalDrivers: 0,
+    activeDrivers: 0,
+    pendingExpenses: 0,
+    pendingVehicleChanges: 0,
+    expiringCertificates: 0,
+    thisMonthTrips: 0
   });
 
   useEffect(() => {
@@ -62,10 +62,83 @@ export default function MobileFleetDashboard() {
   const loadStats = async () => {
     setLoading(true);
     try {
-      // TODO: 调用实际的统计函数
-      // const { data, error } = await supabase.rpc('get_fleet_dashboard_stats');
+      // ✅ 查询真实的统计数据
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      
+      if (!userId) return;
+
+      // 获取车队长管理的车辆统计
+      const { data: vehicleData, error: vehicleError } = await supabase
+        .from('internal_vehicles')
+        .select('vehicle_status')
+        .eq('fleet_manager_id', userId);
+      
+      if (vehicleError) throw vehicleError;
+
+      // 获取司机统计
+      const { data: driverData, error: driverError } = await supabase
+        .from('internal_drivers')
+        .select('id, user_id');
+      
+      if (driverError) throw driverError;
+
+      // 获取待审核的费用申请
+      const { data: expenseData, error: expenseError } = await supabase
+        .from('internal_driver_expense_applications')
+        .select('id')
+        .eq('status', 'pending');
+      
+      if (expenseError) throw expenseError;
+
+      // 获取待审核的换车申请
+      const { data: changeData, error: changeError } = await supabase
+        .from('internal_driver_vehicle_change_applications')
+        .select('id')
+        .eq('status', 'pending');
+      
+      if (changeError) throw changeError;
+
+      // 获取即将到期的证件（30天内）
+      const expireDate = new Date();
+      expireDate.setDate(expireDate.getDate() + 30);
+      const expireDateStr = expireDate.toISOString().split('T')[0];
+      
+      const { data: expireCerts, error: expireError } = await supabase
+        .from('internal_vehicles')
+        .select('id')
+        .eq('fleet_manager_id', userId)
+        .or(`driving_license_expire_date.lte.${expireDateStr},insurance_expire_date.lte.${expireDateStr}`);
+      
+      if (expireError) throw expireError;
+
+      // 获取本月运单数
+      const { count: tripCount, error: tripError } = await supabase
+        .from('logistics_records')
+        .select('id', { count: 'estimated', head: true })
+        .gte('loading_date', `${currentMonth}-01`);
+      
+      if (tripError) throw tripError;
+
+      // 更新统计数据
+      setStats({
+        totalVehicles: vehicleData?.length || 0,
+        activeVehicles: vehicleData?.filter(v => v.vehicle_status === 'active').length || 0,
+        maintenanceVehicles: vehicleData?.filter(v => v.vehicle_status === 'maintenance').length || 0,
+        totalDrivers: driverData?.length || 0,
+        activeDrivers: driverData?.filter(d => d.user_id).length || 0,
+        pendingExpenses: expenseData?.length || 0,
+        pendingVehicleChanges: changeData?.length || 0,
+        expiringCertificates: expireCerts?.length || 0,
+        thisMonthTrips: tripCount || 0
+      });
     } catch (error) {
       console.error('加载失败:', error);
+      toast({
+        title: '加载失败',
+        description: '无法加载统计数据',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }

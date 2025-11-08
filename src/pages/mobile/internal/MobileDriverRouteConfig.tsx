@@ -115,7 +115,41 @@ export default function MobileDriverRouteConfig() {
   };
 
   const loadRoutes = async () => {
-    // TODO: 加载司机项目线路配置
+    try {
+      // ✅ 加载司机项目线路配置
+      const { data, error } = await supabase
+        .from('internal_driver_project_routes')
+        .select(`
+          id,
+          is_primary_route,
+          common_loading_location_ids,
+          common_unloading_location_ids,
+          driver:internal_drivers(name),
+          project:projects(name)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // 处理数据格式
+      const processedRoutes = (data || []).map((route: any) => ({
+        id: route.id,
+        driver_name: route.driver?.name || '未知司机',
+        project_name: route.project?.name || '未知项目',
+        is_primary_route: route.is_primary_route,
+        loading_locations: route.common_loading_location_ids || [],
+        unloading_locations: route.common_unloading_location_ids || []
+      }));
+      
+      setRoutes(processedRoutes);
+    } catch (error) {
+      console.error('加载线路配置失败:', error);
+      toast({
+        title: '加载失败',
+        description: '无法加载线路配置',
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleSave = async () => {

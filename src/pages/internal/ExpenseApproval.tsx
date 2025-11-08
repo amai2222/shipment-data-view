@@ -89,13 +89,13 @@ export default function ExpenseApproval() {
         .select('*')
         .order('created_at', { ascending: false });
       
-      // 状态过滤（activeTab是小写，数据库是首字母大写）
+      // 状态过滤（✅ 修复：使用小写，与数据库约束一致）
       if (activeTab === 'pending') {
-        query = query.eq('status', 'Pending');
+        query = query.eq('status', 'pending');
       } else if (activeTab === 'approved') {
-        query = query.eq('status', 'Approved');
+        query = query.eq('status', 'approved');
       } else if (activeTab === 'rejected') {
-        query = query.eq('status', 'Rejected');
+        query = query.eq('status', 'rejected');
       }
       
       const { data, error } = await query;
@@ -146,9 +146,9 @@ export default function ExpenseApproval() {
   };
 
   const stats = {
-    pending: applications.filter(a => a.status === 'Pending').length,
-    approved: applications.filter(a => a.status === 'Approved').length,
-    rejected: applications.filter(a => a.status === 'Rejected').length,
+    pending: applications.filter(a => a.status === 'pending').length,
+    approved: applications.filter(a => a.status === 'approved').length,
+    rejected: applications.filter(a => a.status === 'rejected').length,
     total: applications.reduce((sum, a) => sum + a.amount, 0)
   };
 

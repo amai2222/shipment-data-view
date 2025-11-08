@@ -90,64 +90,20 @@ export default function MobileExpenseReview() {
         .select('*')
         .order('created_at', { ascending: false });
       
-      // 状态过滤
+      // 状态过滤（✅ 修复：使用小写，与数据库约束一致）
       if (filterStatus === 'pending') {
-        query = query.eq('status', 'Pending');
+        query = query.eq('status', 'pending');
       } else if (filterStatus === 'approved') {
-        query = query.eq('status', 'Approved');
+        query = query.eq('status', 'approved');
       } else if (filterStatus === 'rejected') {
-        query = query.eq('status', 'Rejected');
+        query = query.eq('status', 'rejected');
       }
       
       const { data, error } = await query;
       
       if (error) throw error;
       
-      setApplications(data || []);
-      
-      /* 临时模拟数据 - 已禁用
-      setApplications([
-        {
-          id: '1',
-          application_number: 'FY20251104-0001',
-          driver_name: '王师傅',
-          vehicle: '云F97310',
-          expense_date: '2025-11-03',
-          expense_type: 'fuel',
-          amount: 551.00,
-          description: '2月份公司加油',
-          receipt_photos: [],
-          status: 'pending',
-          created_at: '2025-11-03T10:00:00'
-        },
-        {
-          id: '2',
-          application_number: 'FY20251104-0002',
-          driver_name: '李师傅',
-          vehicle: '云F88520',
-          expense_date: '2025-11-02',
-          expense_type: 'parking',
-          amount: 50.00,
-          description: '市区停车费',
-          receipt_photos: [],
-          status: 'pending',
-          created_at: '2025-11-02T15:00:00'
-        },
-        {
-          id: '3',
-          application_number: 'FY20251104-0003',
-          driver_name: '张师傅',
-          vehicle: '云F66789',
-          expense_date: '2025-11-01',
-          expense_type: 'maintenance',
-          amount: 1200.00,
-          description: '更换机油和机滤',
-          receipt_photos: [],
-          status: 'pending',
-          created_at: '2025-11-01T09:00:00'
-        }
-      ]);
-      */  
+      setApplications(data || []);  
     } catch (error) {
       console.error('加载失败:', error);
       toast({
