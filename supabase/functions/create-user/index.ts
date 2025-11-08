@@ -1,5 +1,6 @@
 // supabase/functions/create-user/index.ts
 // 用于安全创建用户的 Edge Function
+// @ts-nocheck - Edge Function运行在Deno环境，本地Linter会报错但部署后正常
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
@@ -11,6 +12,7 @@ const corsHeaders = {
 
 interface CreateUserRequest {
   email: string;
+  username?: string;  // ✅ 添加username
   password: string;
   full_name: string;
   role: string;
@@ -193,6 +195,7 @@ serve(async (req) => {
       .upsert({
         id: authData.user.id,
         email: requestData.email,
+        username: requestData.username || null,  // ✅ 保存username
         full_name: requestData.full_name,
         role: requestData.role,
         phone: requestData.phone || null,

@@ -40,6 +40,7 @@ interface EnterpriseUserEditDialogProps {
 interface UserEditForm {
   full_name: string;
   email: string;
+  username?: string;  // ✅ 添加username
   role: UserRole;
   is_active: boolean;
   phone?: string;
@@ -59,6 +60,7 @@ export function EnterpriseUserEditDialog({
   const [formData, setFormData] = useState<UserEditForm>({
     full_name: '',
     email: '',
+    username: '',  // ✅ 添加username
     role: 'viewer',
     is_active: true,
     phone: '',
@@ -80,6 +82,7 @@ export function EnterpriseUserEditDialog({
       setFormData({
         full_name: user.full_name || '',
         email: user.email || '',
+        username: (user as any).username || '',  // ✅ 添加username
         role: user.role || 'viewer',
         is_active: user.is_active ?? true,
         phone: (user as any).phone || '',
@@ -131,6 +134,7 @@ export function EnterpriseUserEditDialog({
         .update({
           full_name: pendingChanges.full_name,
           email: pendingChanges.email,
+          username: pendingChanges.username || null,  // ✅ 保存username
           role: pendingChanges.role,
           is_active: pendingChanges.is_active,
           phone: pendingChanges.phone,
@@ -251,6 +255,17 @@ export function EnterpriseUserEditDialog({
                       onChange={(e) => handleFormChange('email', e.target.value)}
                       placeholder="请输入邮箱地址"
                     />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="username">用户名</Label>
+                    <Input
+                      id="username"
+                      value={formData.username || ''}
+                      onChange={(e) => handleFormChange('username', e.target.value)}
+                      placeholder="用于登录的用户名（如：admin）"
+                    />
+                    <p className="text-xs text-muted-foreground">用户名用于登录</p>
                   </div>
                 </div>
 
