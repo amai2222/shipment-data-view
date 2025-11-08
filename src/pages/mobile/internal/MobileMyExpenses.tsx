@@ -87,6 +87,7 @@ export default function MobileMyExpenses() {
   const { profile } = useAuth();
   
   const [loading, setLoading] = useState(false);
+  const [myVehicles, setMyVehicles] = useState<any[]>([]);
   const [applications, setApplications] = useState<ExpenseApplication[]>([]);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
@@ -105,7 +106,20 @@ export default function MobileMyExpenses() {
 
   useEffect(() => {
     loadApplications();
+    loadMyVehicles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 加载我的车辆
+  const loadMyVehicles = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_my_vehicles');
+      if (error) throw error;
+      setMyVehicles(data || []);
+    } catch (error) {
+      console.error('加载车辆失败:', error);
+    }
+  };
 
   // 加载费用申请列表
   const loadApplications = async () => {
@@ -381,52 +395,51 @@ export default function MobileMyExpenses() {
           </Button>
         </div>
 
-        {/* 我的车辆卡片 - 美化版 */}
-        <Card className="border-0 shadow-md overflow-hidden">
-          <div className="bg-gradient-to-r from-slate-700 to-slate-800 p-4">
-            <div className="flex items-center justify-between text-white">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                  <Truck className="h-5 w-5" />
+        {/* 我的车辆卡片 - 从数据库读取 */}
+        {myVehicles.length > 0 && (
+          <Card className="border-0 shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-slate-700 to-slate-800 p-4">
+              <div className="flex items-center justify-between text-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                    <Truck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">我的车辆</h3>
+                    <p className="text-xs text-slate-300">Vehicle Info</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold">我的车辆</h3>
-                  <p className="text-xs text-slate-300">Vehicle Info</p>
-                </div>
-              </div>
-              <Button 
-                size="sm" 
-                variant="secondary"
-                onClick={() => navigate('/m/internal/my-vehicles')}
-                className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
-              >
-                申请换车
-              </Button>
-            </div>
-          </div>
-          <CardContent className="p-4 bg-gradient-to-br from-slate-50 to-slate-100">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm">
-                <div className="w-2 h-12 bg-green-500 rounded-full"></div>
-                <div className="flex-1">
-                  <div className="text-xs text-muted-foreground">主车</div>
-                  <div className="text-lg font-bold">云F97310</div>
-                  <div className="text-xs text-muted-foreground">东风天龙</div>
-                </div>
-                <Badge className="bg-green-100 text-green-700 border-0">主车</Badge>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm">
-                <div className="w-2 h-12 bg-blue-400 rounded-full"></div>
-                <div className="flex-1">
-                  <div className="text-xs text-muted-foreground">备用车</div>
-                  <div className="text-lg font-bold">云F66789</div>
-                  <div className="text-xs text-muted-foreground">福田欧曼</div>
-                </div>
-                <Badge className="bg-blue-100 text-blue-700 border-0">备用</Badge>
+                <Button 
+                  size="sm" 
+                  variant="secondary"
+                  onClick={() => navigate('/m/internal/my-vehicles')}
+                  className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
+                >
+                  查看详情
+                </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+            <CardContent className="p-4 bg-gradient-to-br from-slate-50 to-slate-100">
+              <div className="space-y-3">
+                {myVehicles.map((vehicle, index) => (
+                  <div key={vehicle.vehicle_id} className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm">
+                    <div className={`w-2 h-12 ${index === 0 ? 'bg-green-500' : 'bg-blue-400'} rounded-full`}></div>
+                    <div className="flex-1">
+                      <div className="text-xs text-muted-foreground">{index === 0 ? '主车' : '备用车'}</div>
+                      <div className="text-lg font-bold">{vehicle.license_plate}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {vehicle.vehicle_brand || ''} {vehicle.vehicle_model || vehicle.vehicle_type || ''}
+                      </div>
+                    </div>
+                    <Badge className={index === 0 ? 'bg-green-100 text-green-700 border-0' : 'bg-blue-100 text-blue-700 border-0'}>
+                      {index === 0 ? '主车' : '备用'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 申请记录列表 - 美化版 */}
         <Card className="border-0 shadow-md">

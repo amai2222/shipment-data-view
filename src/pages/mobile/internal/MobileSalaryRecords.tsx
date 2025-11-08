@@ -47,6 +47,7 @@ export default function MobileSalaryRecords() {
 
   useEffect(() => {
     loadSalaryRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth]);
 
   const loadSalaryRecords = async () => {

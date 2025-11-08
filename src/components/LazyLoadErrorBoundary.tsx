@@ -27,8 +27,13 @@ class LazyLoadErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: any) {
     console.error('懒加载错误:', error, errorInfo);
     
-    // 自动重试（最多3次）
-    if (this.state.retryCount < 3) {
+    // 只对ChunkLoadError自动重试，其他错误不重试
+    const isChunkLoadError = error.name === 'ChunkLoadError' || 
+                            error.message.includes('Failed to fetch') ||
+                            error.message.includes('Loading chunk');
+    
+    // 自动重试（最多3次，且只针对懒加载错误）
+    if (isChunkLoadError && this.state.retryCount < 3) {
       setTimeout(() => {
         this.setState(state => ({
           hasError: false,
