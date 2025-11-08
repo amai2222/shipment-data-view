@@ -102,6 +102,7 @@ import {
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import NotFoundWithStaticFileCheck from "./components/NotFoundWithStaticFileCheck";
+import Unauthorized from "./pages/Unauthorized";
 
 // 需要单独懒加载的组件（App.lazy.tsx 中没有）
 import { lazy } from 'react';
@@ -145,6 +146,7 @@ const App = () => (
                 <Routes>
             {/* --- 公开路由 --- */}
             <Route path="/auth" element={<Auth />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
             
             {/* --- 受保护的路由 --- */}
             <Route path="/" element={
