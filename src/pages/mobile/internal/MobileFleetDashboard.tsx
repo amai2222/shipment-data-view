@@ -60,9 +60,10 @@ export default function MobileFleetDashboard() {
     
     // ✅ 预加载常用页面，避免首次点击时出现"刷新"
     setTimeout(() => {
-      import('./MobileExpenseReview');
-      import('./MobileVehicleManagement');
-      import('./MobileDriverRouteConfig');
+      import('./MobileDispatchOrder');       // 派单管理（优先）
+      import('./MobileExpenseReview');       // 费用审核
+      import('./MobileVehicleManagement');   // 车辆管理
+      import('./MobileDriverRouteConfig');   // 司机线路
     }, 1000); // 页面加载1秒后开始预加载
   }, []);
 

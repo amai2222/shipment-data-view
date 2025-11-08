@@ -112,10 +112,11 @@ export default function MobileMyExpenses() {
     
     // ✅ 预加载常用页面，避免首次点击时出现"刷新"
     setTimeout(() => {
-      import('./MobileDriverSalary');
-      import('./MobileSalaryRecords');
-      import('./MobileQuickEntry');
-      import('./MobileMyVehicles');
+      import('./MobileMyDispatches');    // 我的派单（优先）
+      import('./MobileDriverSalary');    // 我的工资
+      import('./MobileSalaryRecords');  // 工资记录
+      import('./MobileQuickEntry');     // 快速录单
+      import('./MobileMyVehicles');     // 我的车辆
     }, 1000); // 页面加载1秒后开始预加载
     
     // eslint-disable-next-line react-hooks/exhaustive-deps

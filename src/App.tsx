@@ -95,7 +95,10 @@ import {
   MobileFleetDashboard,
   MobileExpenseReview,
   MobileVehicleManagement,
-  MobileDriverRouteConfig
+  MobileDriverRouteConfig,
+  MobileDispatchOrder,
+  // 司机端
+  MobileMyDispatches
 } from "./App.lazy";
 
 // 懒加载公共组件（非懒加载）
@@ -794,6 +797,18 @@ const App = () => (
             <Route path="/m/internal/driver-route-config" element={
               <ProtectedRoute requiredPermission="internal.vehicles">
                 <MobileDriverRouteConfig />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/dispatch-order" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <MobileDispatchOrder />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/my-dispatches" element={
+              <ProtectedRoute requiredPermission="internal.my_expenses">
+                <MobileMyDispatches />
               </ProtectedRoute>
             } />
 

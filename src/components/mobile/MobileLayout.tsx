@@ -187,6 +187,12 @@ const menuGroups = [
         roles: ['fleet_manager']
       },
       {
+        name: '派单管理',
+        href: '/m/internal/dispatch-order',
+        icon: FileText,
+        roles: ['fleet_manager']
+      },
+      {
         name: '车辆管理',
         href: '/m/internal/vehicles',
         icon: Truck,
@@ -200,9 +206,15 @@ const menuGroups = [
       },
       // 司机菜单
       {
+        name: '我的派单',
+        href: '/m/internal/my-dispatches',
+        icon: FileText,
+        roles: ['driver']
+      },
+      {
         name: '我的费用申请',
         href: '/m/internal/my-expenses',
-        icon: FileText,
+        icon: DollarSign,
         roles: ['driver']
       },
       {

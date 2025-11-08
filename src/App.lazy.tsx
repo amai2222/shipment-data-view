@@ -113,6 +113,10 @@ export const MobileFleetDashboard = lazy(() => import('./pages/mobile/internal/M
 export const MobileExpenseReview = lazy(() => import('./pages/mobile/internal/MobileExpenseReview'));
 export const MobileVehicleManagement = lazy(() => import('./pages/mobile/internal/MobileVehicleManagement'));
 export const MobileDriverRouteConfig = lazy(() => import('./pages/mobile/internal/MobileDriverRouteConfig'));
+export const MobileDispatchOrder = lazy(() => import('./pages/mobile/internal/MobileDispatchOrder'));
+
+// 司机端
+export const MobileMyDispatches = lazy(() => import('./pages/mobile/internal/MobileMyDispatches'));
 
 // ============================================
 // 加载组件
