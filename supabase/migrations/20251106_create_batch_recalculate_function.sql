@@ -88,11 +88,11 @@ BEGIN
         WHERE logistics_record_id = v_record_id
         AND COALESCE(is_manually_modified, false) = false;
         
-        -- 获取运单基础信息
+        -- 获取运单基础信息（使用payable_cost作为重算基础）
         SELECT 
             chain_id,
             project_id,
-            current_cost + COALESCE(extra_cost, 0),
+            payable_cost,  -- ✅ 使用payable_cost（司机应收合计）
             loading_weight,
             unloading_weight
         INTO v_chain_id, v_project_id, v_base_amount, v_loading_weight, v_unloading_weight
