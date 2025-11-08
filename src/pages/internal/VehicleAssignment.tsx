@@ -107,7 +107,7 @@ export default function VehicleAssignment() {
           .is('valid_until', null)  // 当前有效的分配
           .order('valid_from', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();  // ✅ 允许返回0条或1条
         
         return {
           ...v,

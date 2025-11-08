@@ -110,7 +110,7 @@ export default function MobileProjectOverview() {
       // 获取物流记录统计
       const { data: todayRecords } = await supabase
         .from('logistics_records')
-        .select('loading_weight, payable_cost', { count: 'exact' })
+        .select('loading_weight, payable_cost', { count: 'estimated' })  // ✅ 估算模式，性能更好
         .gte('loading_date', startOfToday);
 
       const { data: weekRecords } = await supabase

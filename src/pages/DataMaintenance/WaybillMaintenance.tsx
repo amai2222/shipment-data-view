@@ -89,26 +89,25 @@ export default function WaybillMaintenance() {
     }
   }, [toast]);
 
-  // 加载指定项目的运单数量
+  // 加载指定项目的运单数量（延迟加载，不阻塞页面打开）
   const loadWaybillCount = useCallback(async () => {
     if (!selectedProject) {
       setWaybillCount(0);
       return;
     }
 
-    setIsLoading(true);
+    // ✅ 不阻塞UI，使用estimated模式
     try {
       const { count, error } = await supabase
         .from('logistics_records')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'estimated', head: true })  // ✅ 改为estimated，更快
         .eq('project_name', selectedProject);
 
       if (error) throw error;
       setWaybillCount(count || 0);
     } catch (error: any) {
       console.error('加载运单数量失败:', error);
-      toast({ title: "错误", description: "加载运单数量失败", variant: "destructive" });
-      setWaybillCount(0);
+      setWaybillCount(0);  // 失败不提示
     } finally {
       setIsLoading(false);
     }

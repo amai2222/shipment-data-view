@@ -980,7 +980,19 @@ export default function PaymentRequestsList() {
       
       setPartnerTotals(filteredTotals);
 
-      const detailedRecords = rawRecords.map((rec: any) => {
+      // ✅ 先对rawRecords排序：日期降序，运单编号升序
+      const sortedRawRecords = [...rawRecords].sort((a: any, b: any) => {
+        // 主排序：日期降序
+        const dateA = new Date(a.loading_date).getTime();
+        const dateB = new Date(b.loading_date).getTime();
+        if (dateA !== dateB) {
+          return dateB - dateA;
+        }
+        // 次排序：运单编号升序
+        return a.auto_number.localeCompare(b.auto_number, 'zh-CN', { numeric: true });
+      });
+
+      const detailedRecords = sortedRawRecords.map((rec: any) => {
         return {
           id: rec.id,
           auto_number: rec.auto_number,

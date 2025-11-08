@@ -232,12 +232,12 @@ export default function MobileHomeNew() {
         // 司机统计
         supabase
           .from('drivers')
-          .select('id', { count: 'exact', head: true }),
+          .select('id', { count: 'estimated', head: true }),  // ✅ 估算
         
         // 待付款统计
         supabase
           .from('payment_requests')
-          .select('id', { count: 'exact', head: true })
+          .select('id', { count: 'estimated', head: true })  // ✅ 估算模式，性能更好
           .eq('status', 'Pending'),
         
         // 本周趋势数据

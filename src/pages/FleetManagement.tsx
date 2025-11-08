@@ -168,7 +168,7 @@ export default function FleetManagement() {
       (data || []).map(async (fm) => {
         const { count } = await supabase
           .from('internal_drivers')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'estimated', head: true })  // ✅ 估算模式
           .eq('fleet_manager_id', fm.id);
         
         return {

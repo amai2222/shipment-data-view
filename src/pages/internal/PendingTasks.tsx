@@ -45,7 +45,7 @@ export default function PendingTasks() {
 
       const { count: expenseCount } = await supabase
         .from('internal_driver_expense_applications')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'estimated', head: true })  // ✅ 估算模式，更快
         .eq('status', 'pending');
 
       if (expenseCount && expenseCount > 0) {
@@ -61,7 +61,7 @@ export default function PendingTasks() {
 
       const { count: changeCount } = await supabase
         .from('internal_vehicle_change_applications')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'estimated', head: true })  // ✅ 估算模式，更快
         .eq('status', 'pending');
 
       if (changeCount && changeCount > 0) {

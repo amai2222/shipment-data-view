@@ -87,17 +87,17 @@ export default function MobileHome() {
         // 只查询今日数据，减少数据量
         supabase
           .from('logistics_records')
-          .select('loading_weight, payable_cost', { count: 'exact' })
+          .select('loading_weight, payable_cost', { count: 'estimated' })  // ✅ 估算模式，性能更好
           .gte('loading_date', startOfToday)
           .lte('loading_date', endOfToday),
         // 使用更高效的计数查询
         supabase
           .from('projects')
-          .select('id', { count: 'exact', head: true })
+          .select('id', { count: 'estimated', head: true })  // ✅ 估算模式
           .eq('project_status', '进行中'),
         supabase
           .from('payment_requests')
-          .select('id', { count: 'exact', head: true })
+          .select('id', { count: 'estimated', head: true })  // ✅ 估算模式
           .eq('status', 'Pending'),
         // 使用与桌面端相同的RPC函数，确保数据一致性
         // 使用与桌面端相同的默认日期范围（2025-01-01到现在）
