@@ -73,7 +73,7 @@ export default function MobileMyVehicles() {
   }>>([]);
   
   const [showChangeDialog, setShowChangeDialog] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<string>('');
+  const [selectedVehicle, setSelectedVehicle] = useState<string | undefined>(undefined);
   const [changeReason, setChangeReason] = useState('');
 
   useEffect(() => {

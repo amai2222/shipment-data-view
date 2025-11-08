@@ -109,7 +109,7 @@ export default function MobilePermissionManagement() {
   const [roleTemplates, setRoleTemplates] = useState<Record<string, RoleTemplate>>({});
   const [users, setUsers] = useState<User[]>([]);
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string>('');
+  const [selectedUser, setSelectedUser] = useState<string | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(true);

@@ -70,8 +70,8 @@ export default function MobileDriverRouteConfig() {
   const [routes, setRoutes] = useState<DriverRoute[]>([]);
   
   const [showDialog, setShowDialog] = useState(false);
-  const [selectedDriver, setSelectedDriver] = useState('');
-  const [selectedProject, setSelectedProject] = useState('');
+  const [selectedDriver, setSelectedDriver] = useState<string | undefined>(undefined);
+  const [selectedProject, setSelectedProject] = useState<string | undefined>(undefined);
   const [selectedLoadingLocations, setSelectedLoadingLocations] = useState<string[]>([]);
   const [selectedUnloadingLocations, setSelectedUnloadingLocations] = useState<string[]>([]);
   const [isPrimaryRoute, setIsPrimaryRoute] = useState(false);
