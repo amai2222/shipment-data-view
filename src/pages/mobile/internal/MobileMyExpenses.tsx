@@ -1,7 +1,7 @@
 // 移动端 - 我的费用申请（司机端）
 // 司机登录后的默认首页
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
+import { useOptimizedRealtimeSubscription } from '@/hooks/useMemoryLeakFix';
 import {
   Plus,
   Calendar,
@@ -41,7 +42,8 @@ import {
   Loader2,
   ArrowLeft,
   User,
-  Truck
+  Truck,
+  RefreshCw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -109,6 +111,43 @@ export default function MobileMyExpenses() {
     loadMyVehicles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ✅ 添加实时订阅 - 监听费用申请表的变化
+  const handleRealtimeUpdate = useCallback((payload: any) => {
+    console.log('费用申请数据变更:', payload);
+    
+    // 当有数据变更时，重新加载列表
+    if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+      // 延迟一点刷新，确保数据已提交
+      setTimeout(() => {
+        loadApplications();
+      }, 500);
+      
+      // 如果是审核状态变更，显示提示
+      if (payload.eventType === 'UPDATE' && payload.new?.status !== payload.old?.status) {
+        const newStatus = payload.new?.status;
+        if (newStatus === 'approved') {
+          toast({
+            title: '审核通过 ✅',
+            description: `费用申请 ${payload.new?.application_number} 已通过审核`,
+          });
+        } else if (newStatus === 'rejected') {
+          toast({
+            title: '审核未通过 ❌',
+            description: `费用申请 ${payload.new?.application_number} 已被驳回`,
+            variant: 'destructive'
+          });
+        }
+      }
+    }
+  }, [toast]);
+
+  // 订阅费用申请表的实时变化
+  useOptimizedRealtimeSubscription(
+    'internal_driver_expense_applications',
+    handleRealtimeUpdate,
+    true  // 启用实时订阅
+  );
 
   // 加载我的车辆
   const loadMyVehicles = async () => {
@@ -297,8 +336,24 @@ export default function MobileMyExpenses() {
   };
 
   return (
-    <MobileLayout>
+    <MobileLayout title="我的费用申请">
       <div className="space-y-4 pb-20">
+        {/* 顶部操作栏 */}
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold">费用申请记录</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              loadApplications();
+              toast({ title: '已刷新' });
+            }}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
         {/* 个人欢迎卡片 */}
         <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 text-white border-0 shadow-lg">
           <CardContent className="p-6">

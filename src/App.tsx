@@ -781,6 +781,12 @@ const App = () => (
               </ProtectedRoute>
             } />
 
+            <Route path="/m/internal/driver-route-config" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <MobileDriverRouteConfig />
+              </ProtectedRoute>
+            } />
+
             {/* --- 404路由 - 排除静态文件扩展名 --- */}
             <Route path="*" element={<NotFoundWithStaticFileCheck />} />
                 </Routes>

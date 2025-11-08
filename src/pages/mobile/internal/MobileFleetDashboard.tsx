@@ -325,19 +325,19 @@ export default function MobileFleetDashboard() {
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center gap-2"
-              onClick={() => navigate('/m/internal/income-input')}
+              onClick={() => navigate('/m/internal/driver-route-config')}
             >
-              <DollarSign className="h-6 w-6" />
-              <span className="text-sm">收入录入</span>
+              <Settings className="h-6 w-6" />
+              <span className="text-sm">司机线路</span>
             </Button>
 
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center gap-2"
-              onClick={() => navigate('/m/internal/ledger')}
+              onClick={() => navigate('/m/internal/vehicles')}
             >
-              <Calendar className="h-6 w-6" />
-              <span className="text-sm">收支流水</span>
+              <Truck className="h-6 w-6" />
+              <span className="text-sm">车辆管理</span>
             </Button>
           </CardContent>
         </Card>

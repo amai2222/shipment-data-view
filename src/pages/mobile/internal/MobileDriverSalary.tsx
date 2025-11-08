@@ -1,6 +1,7 @@
 // 移动端 - 司机工资查询页面
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +32,7 @@ interface SalaryRecord {
 }
 
 export default function MobileDriverSalary() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { profile } = useAuth();
   
