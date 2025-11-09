@@ -417,7 +417,7 @@ export default function CertificateManagement() {
                   <Input
                     type="date"
                     value={updateFormData.expire_date}
-                    onChange={e => setUpdateFormData({...updateFormData, expire_date: e.target.value})}
+                    onChange={e => setUpdateFormData(prev => ({...prev, expire_date: e.target.value}))}
                   />
                 </div>
 
@@ -426,7 +426,7 @@ export default function CertificateManagement() {
                   <Input
                     placeholder="输入证件号码"
                     value={updateFormData.certificate_number}
-                    onChange={e => setUpdateFormData({...updateFormData, certificate_number: e.target.value})}
+                    onChange={e => setUpdateFormData(prev => ({...prev, certificate_number: e.target.value}))}
                   />
                 </div>
 

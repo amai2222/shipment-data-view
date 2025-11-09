@@ -224,11 +224,11 @@ export default function IncomeInput() {
           <div className="space-y-4">
             <div>
               <Label>年月</Label>
-              <Input type="month" value={formData.year_month} onChange={e => setFormData({...formData, year_month: e.target.value})} />
+              <Input type="month" value={formData.year_month} onChange={e => setFormData(prev => ({...prev, year_month: e.target.value}))} />
             </div>
             <div>
               <Label>车辆</Label>
-              <Select value={formData.vehicle_id} onValueChange={v => setFormData({...formData, vehicle_id: v})}>
+              <Select value={formData.vehicle_id} onValueChange={v => setFormData(prev => ({...prev, vehicle_id: v}))}>
                 <SelectTrigger><SelectValue placeholder="选择车辆" /></SelectTrigger>
                 <SelectContent>
                   {vehicles.map(v => (
@@ -239,11 +239,11 @@ export default function IncomeInput() {
             </div>
             <div>
               <Label>收入金额（元）</Label>
-              <Input type="number" placeholder="0.00" value={formData.income_amount} onChange={e => setFormData({...formData, income_amount: e.target.value})} step="0.01" />
+              <Input type="number" placeholder="0.00" value={formData.income_amount} onChange={e => setFormData(prev => ({...prev, income_amount: e.target.value}))} step="0.01" />
             </div>
             <div>
               <Label>备注</Label>
-              <Textarea placeholder="输入备注..." value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} rows={3} />
+              <Textarea placeholder="输入备注..." value={formData.remarks} onChange={e => setFormData(prev => ({...prev, remarks: e.target.value}))} rows={3} />
             </div>
           </div>
 

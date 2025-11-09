@@ -40,7 +40,8 @@ import {
   Download,
   Eye,
   Save,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -59,6 +60,7 @@ interface Vehicle {
   insurance_expire_date: string | null;
   annual_inspection_date: string | null;
   driver_name: string | null;
+  fleet_manager_name: string | null;
 }
 
 interface VehicleFormData {
@@ -92,6 +94,8 @@ export default function VehicleManagement() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -123,10 +127,10 @@ export default function VehicleManagement() {
         .select(`
           *,
           driver:internal_driver_vehicle_relations(
-            driver:internal_drivers(name)
-          )
-        `)
-        .order('license_plate');
+            driver:internal_drivers(name, fleet_manager_id)
+          ),
+          fleet_manager:profiles!fleet_manager_id(full_name)
+        `);
 
       if (statusFilter !== 'all') {
         query = query.eq('vehicle_status', statusFilter);
@@ -136,10 +140,66 @@ export default function VehicleManagement() {
       
       if (error) throw error;
       
-      const processedData = (data || []).map((v: any) => ({
-        ...v,
-        driver_name: v.driver?.[0]?.driver?.name || null
-      }));
+      const processedData = (data || []).map((v: any) => {
+        // 优先使用车辆直接分配的车队长，如果没有则使用司机的车队长
+        const vehicleFleetManager = v.fleet_manager?.full_name || null;
+        const driverFleetManager = v.driver?.[0]?.driver?.fleet_manager_id 
+          ? null // 需要通过司机ID查询车队长名字，这里先设为null，后面会处理
+          : null;
+        
+        return {
+          ...v,
+          driver_name: v.driver?.[0]?.driver?.name || null,
+          driver_fleet_manager_id: v.driver?.[0]?.driver?.fleet_manager_id || null,
+          fleet_manager_name: vehicleFleetManager || null
+        };
+      });
+      
+      // 批量查询司机的车队长名字
+      const driverFleetManagerIds = processedData
+        .filter(v => !v.fleet_manager_name && v.driver_fleet_manager_id)
+        .map(v => v.driver_fleet_manager_id)
+        .filter((id, index, self) => self.indexOf(id) === index); // 去重
+      
+      if (driverFleetManagerIds.length > 0) {
+        const { data: fleetManagers } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', driverFleetManagerIds);
+        
+        const fleetManagerMap = new Map(
+          (fleetManagers || []).map((fm: any) => [fm.id, fm.full_name])
+        );
+        
+        // 填充司机的车队长名字
+        processedData.forEach(v => {
+          if (!v.fleet_manager_name && v.driver_fleet_manager_id) {
+            v.fleet_manager_name = fleetManagerMap.get(v.driver_fleet_manager_id) || null;
+          }
+        });
+      }
+      
+      // ✅ 排序：先按车队长名字排序，其次按驾驶员名字排序，未分配的放最下面
+      processedData.sort((a, b) => {
+        // 未分配的放最下面
+        const aHasDriver = a.driver_name !== null;
+        const bHasDriver = b.driver_name !== null;
+        if (aHasDriver !== bHasDriver) {
+          return aHasDriver ? -1 : 1;
+        }
+        
+        // 先按车队长名字排序
+        const aFleetManager = a.fleet_manager_name || '';
+        const bFleetManager = b.fleet_manager_name || '';
+        if (aFleetManager !== bFleetManager) {
+          return aFleetManager.localeCompare(bFleetManager, 'zh-CN');
+        }
+        
+        // 其次按驾驶员名字排序
+        const aDriver = a.driver_name || '';
+        const bDriver = b.driver_name || '';
+        return aDriver.localeCompare(bDriver, 'zh-CN');
+      });
       
       setVehicles(processedData);
     } catch (error) {
@@ -240,6 +300,53 @@ export default function VehicleManagement() {
     }
   };
 
+  // 删除车辆
+  const handleDeleteVehicle = async () => {
+    if (!vehicleToDelete) return;
+
+    try {
+      // 检查是否有关联的司机分配记录
+      const { data: relations, error: relationError } = await supabase
+        .from('internal_driver_vehicle_relations')
+        .select('id')
+        .eq('vehicle_id', vehicleToDelete.id)
+        .is('valid_until', null);
+
+      if (relationError) throw relationError;
+
+      if (relations && relations.length > 0) {
+        toast({
+          title: '删除失败',
+          description: '该车辆已分配给司机，请先解除分配后再删除',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('internal_vehicles')
+        .delete()
+        .eq('id', vehicleToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: '删除成功',
+        description: `车辆 ${vehicleToDelete.license_plate} 已删除`
+      });
+
+      setShowDeleteDialog(false);
+      setVehicleToDelete(null);
+      loadVehicles();
+    } catch (error: any) {
+      toast({
+        title: '删除失败',
+        description: error.message || '无法删除车辆',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       license_plate: '',
@@ -326,7 +433,7 @@ export default function VehicleManagement() {
           <Input
             placeholder="如：云F97310"
             value={formData.license_plate}
-            onChange={e => setFormData({...formData, license_plate: e.target.value})}
+            onChange={e => setFormData(prev => ({...prev, license_plate: e.target.value}))}
             required
           />
         </div>
@@ -335,7 +442,7 @@ export default function VehicleManagement() {
           <Input
             placeholder="内部编号"
             value={formData.vehicle_number}
-            onChange={e => setFormData({...formData, vehicle_number: e.target.value})}
+            onChange={e => setFormData(prev => ({...prev, vehicle_number: e.target.value}))}
           />
         </div>
       </div>
@@ -343,7 +450,7 @@ export default function VehicleManagement() {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>车型 <span className="text-red-500">*</span></Label>
-          <Select value={formData.vehicle_type} onValueChange={v => setFormData({...formData, vehicle_type: v})}>
+          <Select value={formData.vehicle_type} onValueChange={v => setFormData(prev => ({...prev, vehicle_type: v}))}>
             <SelectTrigger>
               <SelectValue placeholder="选择车型" />
             </SelectTrigger>
@@ -356,7 +463,7 @@ export default function VehicleManagement() {
         </div>
         <div>
           <Label>品牌 <span className="text-red-500">*</span></Label>
-          <Select value={formData.vehicle_brand} onValueChange={v => setFormData({...formData, vehicle_brand: v})}>
+          <Select value={formData.vehicle_brand} onValueChange={v => setFormData(prev => ({...prev, vehicle_brand: v}))}>
             <SelectTrigger>
               <SelectValue placeholder="选择品牌" />
             </SelectTrigger>
@@ -375,7 +482,7 @@ export default function VehicleManagement() {
           <Input
             placeholder="如：TX450"
             value={formData.vehicle_model}
-            onChange={e => setFormData({...formData, vehicle_model: e.target.value})}
+            onChange={e => setFormData(prev => ({...prev, vehicle_model: e.target.value}))}
           />
         </div>
         <div>
@@ -384,7 +491,7 @@ export default function VehicleManagement() {
             type="number"
             placeholder="0"
             value={formData.load_capacity}
-            onChange={e => setFormData({...formData, load_capacity: e.target.value})}
+            onChange={e => setFormData(prev => ({...prev, load_capacity: e.target.value}))}
             step="0.1"
             required
           />
@@ -397,7 +504,7 @@ export default function VehicleManagement() {
           <Input
             type="number"
             value={formData.manufacture_year}
-            onChange={e => setFormData({...formData, manufacture_year: e.target.value})}
+            onChange={e => setFormData(prev => ({...prev, manufacture_year: e.target.value}))}
             min="2000"
             max={new Date().getFullYear()}
           />
@@ -407,7 +514,7 @@ export default function VehicleManagement() {
           <Input
             type="number"
             value={formData.current_mileage}
-            onChange={e => setFormData({...formData, current_mileage: e.target.value})}
+            onChange={e => setFormData(prev => ({...prev, current_mileage: e.target.value}))}
           />
         </div>
       </div>
@@ -415,7 +522,7 @@ export default function VehicleManagement() {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>车辆状态</Label>
-          <Select value={formData.vehicle_status} onValueChange={v => setFormData({...formData, vehicle_status: v})}>
+          <Select value={formData.vehicle_status} onValueChange={v => setFormData(prev => ({...prev, vehicle_status: v}))}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -436,7 +543,7 @@ export default function VehicleManagement() {
             <Input
               type="date"
               value={formData.driving_license_expire_date}
-              onChange={e => setFormData({...formData, driving_license_expire_date: e.target.value})}
+              onChange={e => setFormData(prev => ({...prev, driving_license_expire_date: e.target.value}))}
             />
           </div>
           <div>
@@ -444,7 +551,7 @@ export default function VehicleManagement() {
             <Input
               type="date"
               value={formData.insurance_expire_date}
-              onChange={e => setFormData({...formData, insurance_expire_date: e.target.value})}
+              onChange={e => setFormData(prev => ({...prev, insurance_expire_date: e.target.value}))}
             />
           </div>
           <div>
@@ -452,7 +559,7 @@ export default function VehicleManagement() {
             <Input
               type="date"
               value={formData.annual_inspection_date}
-              onChange={e => setFormData({...formData, annual_inspection_date: e.target.value})}
+              onChange={e => setFormData(prev => ({...prev, annual_inspection_date: e.target.value}))}
             />
           </div>
         </div>
@@ -463,7 +570,7 @@ export default function VehicleManagement() {
         <Textarea
           placeholder="输入备注信息..."
           value={formData.remarks}
-          onChange={e => setFormData({...formData, remarks: e.target.value})}
+          onChange={e => setFormData(prev => ({...prev, remarks: e.target.value}))}
           rows={3}
         />
       </div>
@@ -616,6 +723,7 @@ export default function VehicleManagement() {
                   <TableHead>品牌型号</TableHead>
                   <TableHead>车型</TableHead>
                   <TableHead className="text-center">载重</TableHead>
+                  <TableHead>车队长</TableHead>
                   <TableHead>驾驶员</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead className="text-right">里程</TableHead>
@@ -626,14 +734,14 @@ export default function VehicleManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                       加载中...
                     </TableCell>
                   </TableRow>
                 ) : paginatedVehiclesData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       暂无车辆数据
                     </TableCell>
                   </TableRow>
@@ -656,6 +764,9 @@ export default function VehicleManagement() {
                         </TableCell>
                         <TableCell>{vehicle.vehicle_type}</TableCell>
                         <TableCell className="text-center font-medium">{vehicle.load_capacity}吨</TableCell>
+                        <TableCell>
+                          {vehicle.fleet_manager_name || <span className="text-muted-foreground text-sm">未分配</span>}
+                        </TableCell>
                         <TableCell>
                           {vehicle.driver_name || <span className="text-muted-foreground text-sm">未分配</span>}
                         </TableCell>
@@ -703,6 +814,17 @@ export default function VehicleManagement() {
                               onClick={() => openEditDialog(vehicle)}
                             >
                               <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                setVehicleToDelete(vehicle);
+                                setShowDeleteDialog(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -803,6 +925,34 @@ export default function VehicleManagement() {
             <Button onClick={handleEditVehicle}>
               <Save className="h-4 w-4 mr-2" />
               保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除确认对话框 */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              确认删除
+            </DialogTitle>
+            <DialogDescription>
+              确定要删除车辆 <strong>{vehicleToDelete?.license_plate}</strong> 吗？此操作不可恢复。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowDeleteDialog(false);
+              setVehicleToDelete(null);
+            }}>
+              <X className="h-4 w-4 mr-2" />
+              取消
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteVehicle}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              确认删除
             </Button>
           </DialogFooter>
         </DialogContent>

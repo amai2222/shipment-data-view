@@ -278,7 +278,7 @@ export default function FleetManagerConfig() {
                   <Input
                     placeholder="如：昆明仓库"
                     value={newLocation.name}
-                    onChange={e => setNewLocation({...newLocation, name: e.target.value})}
+                    onChange={e => setNewLocation(prev => ({...prev, name: e.target.value}))}
                   />
                 </div>
                 <div>
@@ -286,7 +286,7 @@ export default function FleetManagerConfig() {
                   <Input
                     placeholder="可选"
                     value={newLocation.address}
-                    onChange={e => setNewLocation({...newLocation, address: e.target.value})}
+                    onChange={e => setNewLocation(prev => ({...prev, address: e.target.value}))}
                   />
                 </div>
                 <div className="flex items-end">
@@ -358,7 +358,7 @@ export default function FleetManagerConfig() {
                   <Input
                     placeholder="起点"
                     value={newRoute.from}
-                    onChange={e => setNewRoute({...newRoute, from: e.target.value})}
+                    onChange={e => setNewRoute(prev => ({...prev, from: e.target.value}))}
                   />
                 </div>
                 <div>
@@ -366,7 +366,7 @@ export default function FleetManagerConfig() {
                   <Input
                     placeholder="终点"
                     value={newRoute.to}
-                    onChange={e => setNewRoute({...newRoute, to: e.target.value})}
+                    onChange={e => setNewRoute(prev => ({...prev, to: e.target.value}))}
                   />
                 </div>
                 <div>
@@ -375,7 +375,7 @@ export default function FleetManagerConfig() {
                     type="number"
                     placeholder="0"
                     value={newRoute.distance}
-                    onChange={e => setNewRoute({...newRoute, distance: e.target.value})}
+                    onChange={e => setNewRoute(prev => ({...prev, distance: e.target.value}))}
                   />
                 </div>
                 <div>
@@ -384,7 +384,7 @@ export default function FleetManagerConfig() {
                     type="number"
                     placeholder="0"
                     value={newRoute.time}
-                    onChange={e => setNewRoute({...newRoute, time: e.target.value})}
+                    onChange={e => setNewRoute(prev => ({...prev, time: e.target.value}))}
                   />
                 </div>
                 <div className="flex items-end">

@@ -1319,7 +1319,7 @@ export default function MobileInvoiceRequestManagement() {
                 id="remarks"
                 placeholder="请输入备注信息..."
                 value={editForm.remarks}
-                onChange={(e) => setEditForm({...editForm, remarks: e.target.value})}
+                onChange={(e) => setEditForm(prev => ({...prev, remarks: e.target.value}))}
                 rows={3}
               />
             </div>
@@ -1355,7 +1355,7 @@ export default function MobileInvoiceRequestManagement() {
                 id="void-reason"
                 placeholder="请输入作废原因..."
                 value={voidForm.reason}
-                onChange={(e) => setVoidForm({...voidForm, reason: e.target.value})}
+                onChange={(e) => setVoidForm(prev => ({...prev, reason: e.target.value}))}
                 rows={3}
               />
             </div>

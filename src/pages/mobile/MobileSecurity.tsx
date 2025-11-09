@@ -115,7 +115,7 @@ export default function MobileSecurity() {
                 <Input
                   type={showOldPassword ? 'text' : 'password'}
                   value={formData.oldPassword}
-                  onChange={e => setFormData({...formData, oldPassword: e.target.value})}
+                  onChange={e => setFormData(prev => ({...prev, oldPassword: e.target.value}))}
                   placeholder="输入当前密码"
                   className="pr-10"
                 />
@@ -137,7 +137,7 @@ export default function MobileSecurity() {
                 <Input
                   type={showNewPassword ? 'text' : 'password'}
                   value={formData.newPassword}
-                  onChange={e => setFormData({...formData, newPassword: e.target.value})}
+                  onChange={e => setFormData(prev => ({...prev, newPassword: e.target.value}))}
                   placeholder="输入新密码（至少6位）"
                   className="pr-10"
                 />
@@ -159,7 +159,7 @@ export default function MobileSecurity() {
                 <Input
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
-                  onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+                  onChange={e => setFormData(prev => ({...prev, confirmPassword: e.target.value}))}
                   placeholder="再次输入新密码"
                   className="pr-10"
                 />

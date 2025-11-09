@@ -300,7 +300,7 @@ export default function DriverManagement() {
           <Input
             placeholder="司机姓名"
             value={formData.name}
-            onChange={e => setFormData({...formData, name: e.target.value})}
+            onChange={e => setFormData(prev => ({...prev, name: e.target.value}))}
             required
           />
         </div>
@@ -309,7 +309,7 @@ export default function DriverManagement() {
           <Input
             placeholder="手机号"
             value={formData.phone}
-            onChange={e => setFormData({...formData, phone: e.target.value})}
+            onChange={e => setFormData(prev => ({...prev, phone: e.target.value}))}
             required
           />
         </div>
@@ -321,7 +321,7 @@ export default function DriverManagement() {
           <Input
             placeholder="18位身份证号"
             value={formData.id_card_number}
-            onChange={e => setFormData({...formData, id_card_number: e.target.value})}
+            onChange={e => setFormData(prev => ({...prev, id_card_number: e.target.value}))}
             maxLength={18}
           />
         </div>
@@ -330,7 +330,7 @@ export default function DriverManagement() {
           <Input
             type="date"
             value={formData.hire_date}
-            onChange={e => setFormData({...formData, hire_date: e.target.value})}
+            onChange={e => setFormData(prev => ({...prev, hire_date: e.target.value}))}
           />
         </div>
       </div>
@@ -338,7 +338,7 @@ export default function DriverManagement() {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>在职状态</Label>
-          <Select value={formData.employment_status} onValueChange={v => setFormData({...formData, employment_status: v})}>
+          <Select value={formData.employment_status} onValueChange={v => setFormData(prev => ({...prev, employment_status: v}))}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -356,7 +356,7 @@ export default function DriverManagement() {
         <div className="space-y-4">
           <div>
             <Label>工资制度 <span className="text-red-500">*</span></Label>
-            <Select value={formData.salary_calculation_type} onValueChange={v => setFormData({...formData, salary_calculation_type: v})}>
+            <Select value={formData.salary_calculation_type} onValueChange={v => setFormData(prev => ({...prev, salary_calculation_type: v}))}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -377,7 +377,7 @@ export default function DriverManagement() {
                 type="number"
                 placeholder="5000"
                 value={formData.base_salary}
-                onChange={e => setFormData({...formData, base_salary: e.target.value})}
+                onChange={e => setFormData(prev => ({...prev, base_salary: e.target.value}))}
                 step="100"
               />
             </div>
@@ -388,7 +388,7 @@ export default function DriverManagement() {
                   type="number"
                   placeholder="10"
                   value={formData.commission_rate}
-                  onChange={e => setFormData({...formData, commission_rate: e.target.value})}
+                  onChange={e => setFormData(prev => ({...prev, commission_rate: e.target.value}))}
                   step="1"
                   min="0"
                   max="100"
@@ -411,7 +411,7 @@ export default function DriverManagement() {
         <Textarea
           placeholder="输入备注信息..."
           value={formData.remarks}
-          onChange={e => setFormData({...formData, remarks: e.target.value})}
+          onChange={e => setFormData(prev => ({...prev, remarks: e.target.value}))}
           rows={3}
         />
       </div>

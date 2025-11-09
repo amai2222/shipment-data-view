@@ -715,7 +715,7 @@ export default function PaymentInvoiceDetail() {
               <Label>合作方</Label>
               <Select 
                 value={paymentForm.partner_id} 
-                onValueChange={(value) => setPaymentForm({...paymentForm, partner_id: value})}
+                onValueChange={(value) => setPaymentForm(prev => ({...prev, partner_id: value}))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择合作方" />
@@ -734,7 +734,7 @@ export default function PaymentInvoiceDetail() {
               <Input
                 type="number"
                 value={paymentForm.amount}
-                onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+                onChange={(e) => setPaymentForm(prev => ({...prev, amount: e.target.value}))}
                 placeholder="请输入付款金额"
               />
             </div>
@@ -743,14 +743,14 @@ export default function PaymentInvoiceDetail() {
               <Input
                 type="date"
                 value={paymentForm.date}
-                onChange={(e) => setPaymentForm({...paymentForm, date: e.target.value})}
+                onChange={(e) => setPaymentForm(prev => ({...prev, date: e.target.value}))}
               />
             </div>
             <div className="space-y-2">
               <Label>备注</Label>
               <Textarea
                 value={paymentForm.remarks}
-                onChange={(e) => setPaymentForm({...paymentForm, remarks: e.target.value})}
+                onChange={(e) => setPaymentForm(prev => ({...prev, remarks: e.target.value}))}
                 placeholder="请输入备注信息"
               />
             </div>
@@ -777,7 +777,7 @@ export default function PaymentInvoiceDetail() {
               <Label>合作方</Label>
               <Select 
                 value={invoiceForm.partner_id} 
-                onValueChange={(value) => setInvoiceForm({...invoiceForm, partner_id: value})}
+                onValueChange={(value) => setInvoiceForm(prev => ({...prev, partner_id: value}))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择合作方" />
@@ -796,7 +796,7 @@ export default function PaymentInvoiceDetail() {
               <Input
                 type="number"
                 value={invoiceForm.amount}
-                onChange={(e) => setInvoiceForm({...invoiceForm, amount: e.target.value})}
+                onChange={(e) => setInvoiceForm(prev => ({...prev, amount: e.target.value}))}
                 placeholder="请输入开票金额"
               />
             </div>
@@ -804,7 +804,7 @@ export default function PaymentInvoiceDetail() {
               <Label>发票号码</Label>
               <Input
                 value={invoiceForm.invoice_number}
-                onChange={(e) => setInvoiceForm({...invoiceForm, invoice_number: e.target.value})}
+                onChange={(e) => setInvoiceForm(prev => ({...prev, invoice_number: e.target.value}))}
                 placeholder="请输入发票号码"
               />
             </div>
@@ -813,14 +813,14 @@ export default function PaymentInvoiceDetail() {
               <Input
                 type="date"
                 value={invoiceForm.date}
-                onChange={(e) => setInvoiceForm({...invoiceForm, date: e.target.value})}
+                onChange={(e) => setInvoiceForm(prev => ({...prev, date: e.target.value}))}
               />
             </div>
             <div className="space-y-2">
               <Label>备注</Label>
               <Textarea
                 value={invoiceForm.remarks}
-                onChange={(e) => setInvoiceForm({...invoiceForm, remarks: e.target.value})}
+                onChange={(e) => setInvoiceForm(prev => ({...prev, remarks: e.target.value}))}
                 placeholder="请输入备注信息"
               />
             </div>
@@ -849,7 +849,7 @@ export default function PaymentInvoiceDetail() {
               <Label>合作方</Label>
               <Select 
                 value={paymentForm.partner_id} 
-                onValueChange={(value) => setPaymentForm({...paymentForm, partner_id: value})}
+                onValueChange={(value) => setPaymentForm(prev => ({...prev, partner_id: value}))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择合作方" />
@@ -868,7 +868,7 @@ export default function PaymentInvoiceDetail() {
               <Input
                 type="number"
                 value={paymentForm.amount}
-                onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+                onChange={(e) => setPaymentForm(prev => ({...prev, amount: e.target.value}))}
                 placeholder="请输入付款金额"
               />
             </div>
@@ -877,14 +877,14 @@ export default function PaymentInvoiceDetail() {
               <Input
                 type="date"
                 value={paymentForm.date}
-                onChange={(e) => setPaymentForm({...paymentForm, date: e.target.value})}
+                onChange={(e) => setPaymentForm(prev => ({...prev, date: e.target.value}))}
               />
             </div>
             <div className="space-y-2">
               <Label>电子银行回单编号 (可选)</Label>
               <Input
                 value={paymentForm.bank_receipt_number}
-                onChange={(e) => setPaymentForm({...paymentForm, bank_receipt_number: e.target.value})}
+                onChange={(e) => setPaymentForm(prev => ({...prev, bank_receipt_number: e.target.value}))}
                 placeholder="请输入银行回单编号"
               />
             </div>
@@ -896,7 +896,7 @@ export default function PaymentInvoiceDetail() {
                 accept="image/*"
                 onChange={(e) => {
                   const files = Array.from(e.target.files || []);
-                  setPaymentForm({...paymentForm, payment_images: files});
+                  setPaymentForm(prev => ({...prev, payment_images: files}));
                 }}
               />
               {paymentForm.payment_images && paymentForm.payment_images.length > 0 && (
@@ -912,7 +912,7 @@ export default function PaymentInvoiceDetail() {
                         type="button"
                         onClick={() => {
                           const newImages = (paymentForm.payment_images || []).filter((_, i) => i !== index);
-                          setPaymentForm({...paymentForm, payment_images: newImages});
+                          setPaymentForm(prev => ({...prev, payment_images: newImages}));
                         }}
                         className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
                       >
@@ -927,7 +927,7 @@ export default function PaymentInvoiceDetail() {
               <Label>备注</Label>
               <Textarea
                 value={paymentForm.remarks}
-                onChange={(e) => setPaymentForm({...paymentForm, remarks: e.target.value})}
+                onChange={(e) => setPaymentForm(prev => ({...prev, remarks: e.target.value}))}
                 placeholder="请输入备注信息"
               />
             </div>
@@ -956,7 +956,7 @@ export default function PaymentInvoiceDetail() {
               <Label>合作方</Label>
               <Select 
                 value={invoiceForm.partner_id} 
-                onValueChange={(value) => setInvoiceForm({...invoiceForm, partner_id: value})}
+                onValueChange={(value) => setInvoiceForm(prev => ({...prev, partner_id: value}))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择合作方" />
@@ -975,7 +975,7 @@ export default function PaymentInvoiceDetail() {
               <Input
                 type="number"
                 value={invoiceForm.amount}
-                onChange={(e) => setInvoiceForm({...invoiceForm, amount: e.target.value})}
+                onChange={(e) => setInvoiceForm(prev => ({...prev, amount: e.target.value}))}
                 placeholder="请输入开票金额"
               />
             </div>
@@ -983,7 +983,7 @@ export default function PaymentInvoiceDetail() {
               <Label>发票号码</Label>
               <Input
                 value={invoiceForm.invoice_number}
-                onChange={(e) => setInvoiceForm({...invoiceForm, invoice_number: e.target.value})}
+                onChange={(e) => setInvoiceForm(prev => ({...prev, invoice_number: e.target.value}))}
                 placeholder="请输入发票号码"
               />
             </div>
@@ -992,7 +992,7 @@ export default function PaymentInvoiceDetail() {
               <Input
                 type="date"
                 value={invoiceForm.date}
-                onChange={(e) => setInvoiceForm({...invoiceForm, date: e.target.value})}
+                onChange={(e) => setInvoiceForm(prev => ({...prev, date: e.target.value}))}
               />
             </div>
             <div className="space-y-2">
@@ -1003,7 +1003,7 @@ export default function PaymentInvoiceDetail() {
                 accept="image/*"
                 onChange={(e) => {
                   const files = Array.from(e.target.files || []);
-                  setInvoiceForm({...invoiceForm, invoice_images: files});
+                  setInvoiceForm(prev => ({...prev, invoice_images: files}));
                 }}
               />
               {invoiceForm.invoice_images && invoiceForm.invoice_images.length > 0 && (
@@ -1019,7 +1019,7 @@ export default function PaymentInvoiceDetail() {
                         type="button"
                         onClick={() => {
                           const newImages = (invoiceForm.invoice_images || []).filter((_, i) => i !== index);
-                          setInvoiceForm({...invoiceForm, invoice_images: newImages});
+                          setInvoiceForm(prev => ({...prev, invoice_images: newImages}));
                         }}
                         className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
                       >
@@ -1034,7 +1034,7 @@ export default function PaymentInvoiceDetail() {
               <Label>备注</Label>
               <Textarea
                 value={invoiceForm.remarks}
-                onChange={(e) => setInvoiceForm({...invoiceForm, remarks: e.target.value})}
+                onChange={(e) => setInvoiceForm(prev => ({...prev, remarks: e.target.value}))}
                 placeholder="请输入备注信息"
               />
             </div>

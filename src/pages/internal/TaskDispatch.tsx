@@ -172,7 +172,7 @@ export default function TaskDispatch() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>选择司机 <span className="text-red-500">*</span></Label>
-                <Select value={formData.driverId} onValueChange={v => setFormData({...formData, driverId: v})}>
+                <Select value={formData.driverId} onValueChange={v => setFormData(prev => ({...prev, driverId: v}))}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择司机" />
                   </SelectTrigger>
@@ -198,7 +198,7 @@ export default function TaskDispatch() {
                 <Input
                   type="date"
                   value={formData.loadingDate}
-                  onChange={e => setFormData({...formData, loadingDate: e.target.value})}
+                  onChange={e => setFormData(prev => ({...prev, loadingDate: e.target.value}))}
                 />
               </div>
             </div>
@@ -206,7 +206,7 @@ export default function TaskDispatch() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>装货地点 <span className="text-red-500">*</span></Label>
-                <Select value={formData.loadingLocationId} onValueChange={v => setFormData({...formData, loadingLocationId: v})}>
+                <Select value={formData.loadingLocationId} onValueChange={v => setFormData(prev => ({...prev, loadingLocationId: v}))}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择装货地点" />
                   </SelectTrigger>
@@ -222,7 +222,7 @@ export default function TaskDispatch() {
 
               <div>
                 <Label>卸货地点 <span className="text-red-500">*</span></Label>
-                <Select value={formData.unloadingLocationId} onValueChange={v => setFormData({...formData, unloadingLocationId: v})}>
+                <Select value={formData.unloadingLocationId} onValueChange={v => setFormData(prev => ({...prev, unloadingLocationId: v}))}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择卸货地点" />
                   </SelectTrigger>
@@ -244,7 +244,7 @@ export default function TaskDispatch() {
                   type="number"
                   placeholder="0"
                   value={formData.estimatedWeight}
-                  onChange={e => setFormData({...formData, estimatedWeight: e.target.value})}
+                  onChange={e => setFormData(prev => ({...prev, estimatedWeight: e.target.value}))}
                   step="0.1"
                 />
               </div>
@@ -254,7 +254,7 @@ export default function TaskDispatch() {
                 <Input
                   placeholder="如：煤炭"
                   value={formData.cargoType}
-                  onChange={e => setFormData({...formData, cargoType: e.target.value})}
+                  onChange={e => setFormData(prev => ({...prev, cargoType: e.target.value}))}
                 />
               </div>
             </div>
@@ -264,7 +264,7 @@ export default function TaskDispatch() {
               <Textarea
                 placeholder="输入任务说明..."
                 value={formData.notes}
-                onChange={e => setFormData({...formData, notes: e.target.value})}
+                onChange={e => setFormData(prev => ({...prev, notes: e.target.value}))}
                 rows={3}
               />
             </div>

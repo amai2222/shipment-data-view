@@ -131,7 +131,7 @@ export default function MobileProfile() {
               <Label>姓名</Label>
               <Input
                 value={formData.full_name}
-                onChange={e => setFormData({...formData, full_name: e.target.value})}
+                onChange={e => setFormData(prev => ({...prev, full_name: e.target.value}))}
                 placeholder="输入您的姓名"
               />
             </div>
