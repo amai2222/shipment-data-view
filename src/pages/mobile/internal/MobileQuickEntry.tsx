@@ -99,6 +99,10 @@ export default function MobileQuickEntry() {
   // 常用运单
   const [favoriteRoutes, setFavoriteRoutes] = useState<any[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string>(''); // 当前选中的线路ID
+  const [favoriteProjectId, setFavoriteProjectId] = useState<string>(''); // 常用运单选择的项目ID
+  const [favoriteChainId, setFavoriteChainId] = useState<string>(''); // 常用运单选择的合作链路ID
+  const [favoriteProjects, setFavoriteProjects] = useState<any[]>([]); // 车队长的分配项目列表
+  const [favoriteChains, setFavoriteChains] = useState<any[]>([]); // 项目的合作链路列表
   const [routeInputs, setRouteInputs] = useState<Record<string, { 
     loading_weight: string; 
     unloading_weight: string;
@@ -112,12 +116,23 @@ export default function MobileQuickEntry() {
     loadRecentWaybills();
   }, []);
 
-  // 当获取到车队长ID和司机ID后，加载常用线路
+  // 当获取到车队长ID和司机ID后，加载常用线路和项目列表
   useEffect(() => {
     if (fleetManagerId && driverId) {
       loadFavoriteRoutes();
+      loadFavoriteProjects();
     }
   }, [fleetManagerId, driverId]);
+
+  // 当选择项目后，加载该项目的合作链路
+  useEffect(() => {
+    if (favoriteProjectId) {
+      loadFavoriteChains(favoriteProjectId);
+    } else {
+      setFavoriteChains([]);
+      setFavoriteChainId('');
+    }
+  }, [favoriteProjectId]);
 
   // 当获取到车队长ID后，加载项目（如果还没有加载）
   useEffect(() => {
@@ -528,10 +543,101 @@ export default function MobileQuickEntry() {
     }
   };
 
+  // 加载车队长的分配项目（用于常用运单）
+  const loadFavoriteProjects = async () => {
+    try {
+      if (!fleetManagerId) {
+        setFavoriteProjects([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('fleet_manager_projects')
+        .select(`
+          project_id,
+          projects:project_id (
+            id,
+            name,
+            project_status
+          )
+        `)
+        .eq('fleet_manager_id', fleetManagerId);
+
+      if (error) throw error;
+
+      // 只显示进行中的项目
+      const projects = (data || [])
+        .filter((item: any) => item.projects && item.projects.project_status === '进行中')
+        .map((item: any) => ({
+          id: item.project_id,
+          name: item.projects.name
+        }));
+
+      setFavoriteProjects(projects);
+
+      // 默认选择第一个项目
+      if (projects.length > 0 && !favoriteProjectId) {
+        setFavoriteProjectId(projects[0].id);
+      }
+    } catch (error: any) {
+      console.error('❌ 加载项目列表失败:', error);
+      toast({
+        title: '加载失败',
+        description: error.message || '无法加载项目列表',
+        variant: 'destructive'
+      });
+      setFavoriteProjects([]);
+    }
+  };
+
+  // 加载项目的合作链路
+  const loadFavoriteChains = async (projectId: string) => {
+    try {
+      if (!projectId) {
+        setFavoriteChains([]);
+        setFavoriteChainId('');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('partner_chains')
+        .select('id, chain_name, is_default')
+        .eq('project_id', projectId)
+        .order('is_default', { ascending: false })
+        .order('chain_name');
+
+      if (error) throw error;
+
+      setFavoriteChains(data || []);
+
+      // 默认选择默认链路，如果没有则选择第一个
+      const defaultChain = (data || []).find((c: any) => c.is_default);
+      if (defaultChain) {
+        setFavoriteChainId(defaultChain.id);
+      } else if (data && data.length > 0) {
+        setFavoriteChainId(data[0].id);
+      } else {
+        setFavoriteChainId('');
+      }
+    } catch (error: any) {
+      console.error('❌ 加载合作链路失败:', error);
+      toast({
+        title: '加载失败',
+        description: error.message || '无法加载合作链路',
+        variant: 'destructive'
+      });
+      setFavoriteChains([]);
+      setFavoriteChainId('');
+    }
+  };
+
   // 提交常用运单
   const handleSubmitFavoriteRoute = async (routeId: string) => {
     const route = favoriteRoutes.find(r => r.id === routeId);
-    if (!route) return;
+    if (!route) {
+      console.error('❌ 未找到线路:', routeId);
+      return;
+    }
 
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD格式
     const inputs = routeInputs[routeId] || { 
@@ -541,12 +647,55 @@ export default function MobileQuickEntry() {
       unloading_date: today
     };
     
+    // 调试日志
+    console.log('🔍 提交常用运单 - 调试信息:', {
+      routeId,
+      routeName: route.route_name,
+      inputs,
+      routeInputs: routeInputs,
+      loading_weight: inputs.loading_weight,
+      loading_weight_type: typeof inputs.loading_weight,
+      loading_weight_trimmed: inputs.loading_weight?.trim(),
+      route_project_id: route.project_id,
+      route_loading_location_id: route.loading_location_id,
+      route_unloading_location_id: route.unloading_location_id
+    });
+    
     // 验证装货数量（使用trim检查，确保不是空字符串或只有空格）
     const loadingWeightStr = inputs.loading_weight?.trim() || '';
-    if (!loadingWeightStr || !route.project_id || !route.loading_location_id || !route.unloading_location_id) {
+    
+    // 分别检查每个必填字段，给出准确的错误信息
+    if (!loadingWeightStr) {
       toast({
         title: '信息不完整',
         description: '请填写装货数量',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    if (!route.project_id) {
+      toast({
+        title: '信息不完整',
+        description: '线路缺少项目信息，请联系车队长配置',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    if (!route.loading_location_id) {
+      toast({
+        title: '信息不完整',
+        description: '线路缺少装货地点信息，请联系车队长配置',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    if (!route.unloading_location_id) {
+      toast({
+        title: '信息不完整',
+        description: '线路缺少卸货地点信息，请联系车队长配置',
         variant: 'destructive'
       });
       return;
@@ -579,15 +728,29 @@ export default function MobileQuickEntry() {
       const loadingDate = inputs.loading_date || today;
       const unloadingDate = inputs.unloading_date || today;
 
+      // 使用选择的项目ID（如果选择了），否则使用线路的项目ID
+      const projectId = favoriteProjectId || route.project_id;
+      
+      if (!projectId) {
+        toast({
+          title: '信息不完整',
+          description: '请选择项目',
+          variant: 'destructive'
+        });
+        setSubmittingRouteId(null);
+        return;
+      }
+
       const { data, error } = await supabase.rpc('driver_quick_create_waybill', {
-        p_project_id: route.project_id,
+        p_project_id: projectId,
         p_loading_location_id: route.loading_location_id,
         p_unloading_location_id: route.unloading_location_id,
         p_loading_weight: loadingWeight,
         p_unloading_weight: unloadingWeight,
         p_loading_date: loadingDate,
         p_unloading_date: unloadingDate,
-        p_remarks: null
+        p_remarks: null,
+        p_chain_id: favoriteChainId || null // 传递合作链路ID（如果RPC支持）
       });
 
       if (error) throw error;
@@ -781,6 +944,63 @@ export default function MobileQuickEntry() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* 项目选择下拉框 */}
+                    <div className="space-y-2">
+                      <Label>选择项目 *</Label>
+                      <Select 
+                        value={favoriteProjectId || undefined}
+                        onValueChange={(value) => {
+                          setFavoriteProjectId(value);
+                          // 切换项目时，清空合作链路选择，会触发useEffect重新加载
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="选择项目" />
+                        </SelectTrigger>
+                        <SelectContent position="popper" className="z-50">
+                          {favoriteProjects.length === 0 ? (
+                            <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                              暂无项目，请联系车队长配置
+                            </div>
+                          ) : (
+                            favoriteProjects.map(project => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* 合作链路选择下拉框 */}
+                    {favoriteProjectId && (
+                      <div className="space-y-2">
+                        <Label>选择合作链路</Label>
+                        <Select 
+                          value={favoriteChainId || undefined}
+                          onValueChange={setFavoriteChainId}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="选择合作链路（可选）" />
+                          </SelectTrigger>
+                          <SelectContent position="popper" className="z-50">
+                            {favoriteChains.length === 0 ? (
+                              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                该项目暂无合作链路
+                              </div>
+                            ) : (
+                              favoriteChains.map(chain => (
+                                <SelectItem key={chain.id} value={chain.id}>
+                                  {chain.chain_name}{chain.is_default ? ' (默认)' : ''}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
                     {/* 线路选择下拉框 */}
                     <div className="space-y-2">
                       <Label>选择常用线路 *</Label>
