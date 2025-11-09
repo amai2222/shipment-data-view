@@ -218,6 +218,12 @@ const menuGroups = [
         roles: ['driver']
       },
       {
+        name: '行程记录',
+        href: '/m/internal/my-waybills',
+        icon: FileText,
+        roles: ['driver']
+      },
+      {
         name: '录入运单',
         href: '/m/internal/quick-entry',
         icon: Truck,
@@ -236,7 +242,7 @@ const menuGroups = [
         roles: ['driver']
       },
       {
-        name: '收入记录',
+        name: '收支明细',
         href: '/m/internal/salary-records',
         icon: Calendar,
         roles: ['driver']

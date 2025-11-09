@@ -98,7 +98,8 @@ import {
   MobileDriverRouteConfig,
   MobileDispatchOrder,
   // 司机端
-  MobileMyDispatches
+  MobileMyDispatches,
+  MobileMyWaybills
 } from "./App.lazy";
 
 // 懒加载公共组件（非懒加载）
@@ -809,6 +810,12 @@ const App = () => (
             <Route path="/m/internal/my-dispatches" element={
               <ProtectedRoute requiredPermission="internal.my_expenses">
                 <MobileMyDispatches />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/my-waybills" element={
+              <ProtectedRoute requiredPermission="internal.my_expenses">
+                <MobileMyWaybills />
               </ProtectedRoute>
             } />
 

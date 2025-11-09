@@ -117,10 +117,11 @@ export default function MobileMyExpenses() {
     // ✅ 预加载常用页面，避免首次点击时出现"刷新"
     setTimeout(() => {
       import('./MobileMyDispatches');    // 我的派单（优先）
-      import('./MobileDriverSalary');    // 我的工资
-      import('./MobileSalaryRecords');  // 工资记录
-      import('./MobileQuickEntry');     // 快速录单
-      import('./MobileMyVehicles');     // 我的车辆
+      import('./MobileMyWaybills');      // 行程记录
+      import('./MobileDriverSalary');    // 我的收入
+      import('./MobileSalaryRecords');   // 收支明细
+      import('./MobileQuickEntry');      // 快速录单
+      import('./MobileMyVehicles');      // 我的车辆
     }, 1000); // 页面加载1秒后开始预加载
     
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -498,8 +499,8 @@ export default function MobileMyExpenses() {
                   <DollarSign className="h-6 w-6 text-green-600" />
                 </div>
                 <span className="text-xs text-center">我的收入</span>
-              </div>
-              
+        </div>
+
               <div 
                 className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => navigate('/m/internal/my-vehicles')}
@@ -517,12 +518,12 @@ export default function MobileMyExpenses() {
                 <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
                   <Calendar className="h-6 w-6 text-purple-600" />
                 </div>
-                <span className="text-xs text-center">收入记录</span>
+                <span className="text-xs text-center">收支明细</span>
               </div>
-              
+          
               <div 
                 className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => setShowNewDialog(true)}
+            onClick={() => setShowNewDialog(true)}
               >
                 <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
                   <Plus className="h-6 w-6 text-orange-600" />
@@ -564,8 +565,8 @@ export default function MobileMyExpenses() {
               <Button size="sm" variant="ghost" onClick={() => setShowNewDialog(true)}>
                 <Plus className="h-4 w-4 mr-1" />
                 新建
-              </Button>
-            </div>
+          </Button>
+        </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -602,7 +603,7 @@ export default function MobileMyExpenses() {
         {/* 隐藏旧的内容 */}
         <div className="hidden">
           {/* 旧的车辆卡片等内容 */}
-          {myVehicles.length > 0 && (
+        {myVehicles.length > 0 && (
           <Card className="border-0 shadow-md overflow-hidden">
             <div className="bg-gradient-to-r from-slate-700 to-slate-800 p-4">
               <div className="flex items-center justify-between text-white">

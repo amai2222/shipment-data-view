@@ -117,6 +117,7 @@ export const MobileDispatchOrder = lazy(() => import('./pages/mobile/internal/Mo
 
 // 司机端
 export const MobileMyDispatches = lazy(() => import('./pages/mobile/internal/MobileMyDispatches'));
+export const MobileMyWaybills = lazy(() => import('./pages/mobile/internal/MobileMyWaybills'));
 
 // ============================================
 // 加载组件
