@@ -98,7 +98,13 @@ export default function MobileQuickEntry() {
 
   // 常用运单
   const [favoriteRoutes, setFavoriteRoutes] = useState<any[]>([]);
-  const [routeInputs, setRouteInputs] = useState<Record<string, { loading_weight: string; unloading_weight: string }>>({});
+  const [selectedRouteId, setSelectedRouteId] = useState<string>(''); // 当前选中的线路ID
+  const [routeInputs, setRouteInputs] = useState<Record<string, { 
+    loading_weight: string; 
+    unloading_weight: string;
+    loading_date: string;
+    unloading_date: string;
+  }>>({});
   const [submittingRouteId, setSubmittingRouteId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -494,6 +500,13 @@ export default function MobileQuickEntry() {
       console.log('✅ 加载到常用线路:', data?.length || 0, '条');
       if (data && data.length > 0) {
         console.log('📋 常用线路详情:', data);
+        
+        // 默认选择最近使用的线路（按 last_used_at 和 use_count 排序，第一个就是最近使用的）
+        if (!selectedRouteId && data.length > 0) {
+          const mostRecentRoute = data[0]; // 已经是按使用次数和最后使用时间排序的
+          setSelectedRouteId(mostRecentRoute.id);
+          console.log('✅ 默认选择最近使用的线路:', mostRecentRoute.route_name);
+        }
       } else {
         console.log('⚠️ 没有找到常用线路，可能原因：');
         console.log('  1. 车队长ID:', fleetManagerId);
@@ -520,9 +533,17 @@ export default function MobileQuickEntry() {
     const route = favoriteRoutes.find(r => r.id === routeId);
     if (!route) return;
 
-    const inputs = routeInputs[routeId] || { loading_weight: '', unloading_weight: '' };
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD格式
+    const inputs = routeInputs[routeId] || { 
+      loading_weight: '', 
+      unloading_weight: '',
+      loading_date: today,
+      unloading_date: today
+    };
     
-    if (!inputs.loading_weight || !route.project_id || !route.loading_location_id || !route.unloading_location_id) {
+    // 验证装货数量（使用trim检查，确保不是空字符串或只有空格）
+    const loadingWeightStr = inputs.loading_weight?.trim() || '';
+    if (!loadingWeightStr || !route.project_id || !route.loading_location_id || !route.unloading_location_id) {
       toast({
         title: '信息不完整',
         description: '请填写装货数量',
@@ -534,7 +555,7 @@ export default function MobileQuickEntry() {
     setSubmittingRouteId(routeId);
     try {
       // 验证装货数量是否为有效数字
-      const loadingWeight = parseFloat(inputs.loading_weight);
+      const loadingWeight = parseFloat(loadingWeightStr);
       if (isNaN(loadingWeight) || loadingWeight <= 0) {
         toast({
           title: '信息不完整',
@@ -548,11 +569,15 @@ export default function MobileQuickEntry() {
       // 处理卸货数量（可选）
       let unloadingWeight: number | null = null;
       if (inputs.unloading_weight && inputs.unloading_weight.trim() !== '') {
-        const parsed = parseFloat(inputs.unloading_weight);
+        const parsed = parseFloat(inputs.unloading_weight.trim());
         if (!isNaN(parsed) && parsed > 0) {
           unloadingWeight = parsed;
         }
       }
+
+      // 处理日期（默认今天）
+      const loadingDate = inputs.loading_date || today;
+      const unloadingDate = inputs.unloading_date || today;
 
       const { data, error } = await supabase.rpc('driver_quick_create_waybill', {
         p_project_id: route.project_id,
@@ -560,6 +585,8 @@ export default function MobileQuickEntry() {
         p_unloading_location_id: route.unloading_location_id,
         p_loading_weight: loadingWeight,
         p_unloading_weight: unloadingWeight,
+        p_loading_date: loadingDate,
+        p_unloading_date: unloadingDate,
         p_remarks: null
       });
 
@@ -571,10 +598,16 @@ export default function MobileQuickEntry() {
           description: `运单 ${data.auto_number} 已创建`
         });
         
-        // 清空该线路的输入
+        // 清空该线路的输入（保留日期为今天）
+        const today = new Date().toISOString().split('T')[0];
         setRouteInputs(prev => {
           const newInputs = { ...prev };
-          delete newInputs[routeId];
+          newInputs[routeId] = {
+            loading_weight: '',
+            unloading_weight: '',
+            loading_date: today,
+            unloading_date: today
+          };
           return newInputs;
         });
         
@@ -747,16 +780,71 @@ export default function MobileQuickEntry() {
                     <p className="text-xs mt-2">车队长配置常用线路后，将显示在这里</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {favoriteRoutes.map((route) => {
-                      const inputs = routeInputs[route.id] || { loading_weight: '', unloading_weight: '' };
-                      const isSubmitting = submittingRouteId === route.id;
+                  <div className="space-y-4">
+                    {/* 线路选择下拉框 */}
+                    <div className="space-y-2">
+                      <Label>选择常用线路 *</Label>
+                      <Select 
+                        value={selectedRouteId || undefined}
+                        onValueChange={(value) => {
+                          setSelectedRouteId(value);
+                          // 切换线路时，初始化输入框（如果还没有）
+                          const today = new Date().toISOString().split('T')[0];
+                          setRouteInputs(prev => {
+                            if (!prev[value]) {
+                              return {
+                                ...prev,
+                                [value]: {
+                                  loading_weight: '',
+                                  unloading_weight: '',
+                                  loading_date: today,
+                                  unloading_date: today
+                                }
+                              };
+                            }
+                            return prev;
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="选择常用线路" />
+                        </SelectTrigger>
+                        <SelectContent position="popper" className="z-50">
+                          {favoriteRoutes.map(route => (
+                            <SelectItem key={route.id} value={route.id}>
+                              <div className="flex items-center justify-between w-full">
+                                <span>{route.route_name}</span>
+                                {route.use_count > 0 && (
+                                  <Badge variant="secondary" className="ml-2 text-xs">
+                                    使用 {route.use_count} 次
+                                  </Badge>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* 选中线路的输入表单 */}
+                    {selectedRouteId && (() => {
+                      const route = favoriteRoutes.find(r => r.id === selectedRouteId);
+                      if (!route) return null;
+                      
+                      const today = new Date().toISOString().split('T')[0];
+                      const inputs = routeInputs[selectedRouteId] || { 
+                        loading_weight: '', 
+                        unloading_weight: '',
+                        loading_date: today,
+                        unloading_date: today
+                      };
+                      const isSubmitting = submittingRouteId === selectedRouteId;
                       
                       return (
-                        <Card key={route.id} className="border">
+                        <Card className="border">
                           <CardContent className="p-4 space-y-3">
                             {/* 线路信息 */}
-                            <div className="space-y-2">
+                            <div className="space-y-2 pb-3 border-b">
                               <div className="flex items-center justify-between">
                                 <div className="font-medium text-sm">{route.route_name}</div>
                                 {route.use_count > 0 && (
@@ -784,46 +872,107 @@ export default function MobileQuickEntry() {
                             </div>
 
                             {/* 输入框 */}
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-1">
-                                <Label className="text-xs">装货数量 *</Label>
-                                <Input
-                                  type="text"
-                                  inputMode="decimal"
-                                  placeholder="0.00"
-                                  value={inputs.loading_weight}
-                                  onChange={e => {
-                                    const limited = limitAmountInput(e.target.value);
-                                    setRouteInputs(prev => ({
-                                      ...prev,
-                                      [route.id]: {
-                                        ...(prev[route.id] || { loading_weight: '', unloading_weight: '' }),
-                                        loading_weight: limited
-                                      }
-                                    }));
-                                  }}
-                                  disabled={isSubmitting}
-                                />
+                            <div className="space-y-3">
+                              {/* 数量输入 */}
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                  <Label className="text-xs">装货数量 *</Label>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="0.00"
+                                    value={inputs.loading_weight}
+                                    onChange={e => {
+                                      const limited = limitAmountInput(e.target.value);
+                                      setRouteInputs(prev => ({
+                                        ...prev,
+                                        [selectedRouteId]: {
+                                          ...(prev[selectedRouteId] || { 
+                                            loading_weight: '', 
+                                            unloading_weight: '',
+                                            loading_date: today,
+                                            unloading_date: today
+                                          }),
+                                          loading_weight: limited
+                                        }
+                                      }));
+                                    }}
+                                    disabled={isSubmitting}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">卸货数量</Label>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="默认等于装货"
+                                    value={inputs.unloading_weight}
+                                    onChange={e => {
+                                      const limited = limitAmountInput(e.target.value);
+                                      setRouteInputs(prev => ({
+                                        ...prev,
+                                        [selectedRouteId]: {
+                                          ...(prev[selectedRouteId] || { 
+                                            loading_weight: '', 
+                                            unloading_weight: '',
+                                            loading_date: today,
+                                            unloading_date: today
+                                          }),
+                                          unloading_weight: limited
+                                        }
+                                      }));
+                                    }}
+                                    disabled={isSubmitting}
+                                  />
+                                </div>
                               </div>
-                              <div className="space-y-1">
-                                <Label className="text-xs">卸货数量</Label>
-                                <Input
-                                  type="text"
-                                  inputMode="decimal"
-                                  placeholder="默认等于装货"
-                                  value={inputs.unloading_weight}
-                                  onChange={e => {
-                                    const limited = limitAmountInput(e.target.value);
-                                    setRouteInputs(prev => ({
-                                      ...prev,
-                                      [route.id]: {
-                                        ...(prev[route.id] || { loading_weight: '', unloading_weight: '' }),
-                                        unloading_weight: limited
-                                      }
-                                    }));
-                                  }}
-                                  disabled={isSubmitting}
-                                />
+                              
+                              {/* 日期输入 */}
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                  <Label className="text-xs">装货日期 *</Label>
+                                  <Input
+                                    type="date"
+                                    value={inputs.loading_date || today}
+                                    onChange={e => {
+                                      setRouteInputs(prev => ({
+                                        ...prev,
+                                        [selectedRouteId]: {
+                                          ...(prev[selectedRouteId] || { 
+                                            loading_weight: '', 
+                                            unloading_weight: '',
+                                            loading_date: today,
+                                            unloading_date: today
+                                          }),
+                                          loading_date: e.target.value
+                                        }
+                                      }));
+                                    }}
+                                    disabled={isSubmitting}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">卸货日期 *</Label>
+                                  <Input
+                                    type="date"
+                                    value={inputs.unloading_date || today}
+                                    onChange={e => {
+                                      setRouteInputs(prev => ({
+                                        ...prev,
+                                        [selectedRouteId]: {
+                                          ...(prev[selectedRouteId] || { 
+                                            loading_weight: '', 
+                                            unloading_weight: '',
+                                            loading_date: today,
+                                            unloading_date: today
+                                          }),
+                                          unloading_date: e.target.value
+                                        }
+                                      }));
+                                    }}
+                                    disabled={isSubmitting}
+                                  />
+                                </div>
                               </div>
                             </div>
 
@@ -831,8 +980,8 @@ export default function MobileQuickEntry() {
                             <Button
                               className="w-full"
                               size="sm"
-                              onClick={() => handleSubmitFavoriteRoute(route.id)}
-                              disabled={isSubmitting || !inputs.loading_weight}
+                              onClick={() => handleSubmitFavoriteRoute(selectedRouteId)}
+                              disabled={isSubmitting || !inputs.loading_weight?.trim()}
                             >
                               {isSubmitting ? (
                                 <>
@@ -849,7 +998,7 @@ export default function MobileQuickEntry() {
                           </CardContent>
                         </Card>
                       );
-                    })}
+                    })()}
                   </div>
                 )}
               </TabsContent>
