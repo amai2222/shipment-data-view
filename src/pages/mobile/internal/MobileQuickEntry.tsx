@@ -40,6 +40,7 @@ import {
   Plus
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { limitAmountInput } from '@/utils/formatters';
 
 interface ProjectRoute {
   project_id: string;
@@ -86,6 +87,7 @@ export default function MobileQuickEntry() {
   const [driverInfo, setDriverInfo] = useState<any>(null);
   const [myVehicle, setMyVehicle] = useState<any>(null);
   const [fleetManagerId, setFleetManagerId] = useState<string | null>(null);
+  const [driverId, setDriverId] = useState<string | null>(null);
   
   // 地点管理
   const [projectLoadingLocations, setProjectLoadingLocations] = useState<any[]>([]);
@@ -104,12 +106,12 @@ export default function MobileQuickEntry() {
     loadRecentWaybills();
   }, []);
 
-  // 当获取到车队长ID后，加载常用线路
+  // 当获取到车队长ID和司机ID后，加载常用线路
   useEffect(() => {
-    if (fleetManagerId) {
+    if (fleetManagerId && driverId) {
       loadFavoriteRoutes();
     }
-  }, [fleetManagerId]);
+  }, [fleetManagerId, driverId]);
 
   // 当获取到车队长ID后，加载项目（如果还没有加载）
   useEffect(() => {
@@ -133,6 +135,11 @@ export default function MobileQuickEntry() {
       const { data: driverData } = await supabase.rpc('get_my_driver_info');
       if (driverData && driverData.length > 0) {
         setDriverInfo(driverData[0]);
+        // 获取司机ID
+        const currentDriverId = driverData[0].id;
+        if (currentDriverId) {
+          setDriverId(currentDriverId);
+        }
         // 获取车队长的ID
         const managerId = driverData[0].fleet_manager_id;
         if (managerId) {
@@ -386,17 +393,38 @@ export default function MobileQuickEntry() {
     }
   };
 
-  // 加载常用线路
+  // 加载常用线路（只加载分配给当前司机的线路）
   const loadFavoriteRoutes = async () => {
     try {
-      if (!fleetManagerId) {
-        console.log('⚠️ 没有车队长ID，无法加载常用线路');
+      if (!fleetManagerId || !driverId) {
+        console.log('⚠️ 没有车队长ID或司机ID，无法加载常用线路', { fleetManagerId, driverId });
         setFavoriteRoutes([]);
         return;
       }
 
-      console.log('🔍 开始加载常用线路，车队长ID:', fleetManagerId);
+      console.log('🔍 开始加载常用线路，车队长ID:', fleetManagerId, '司机ID:', driverId);
 
+      // 1. 先查询分配给当前司机的线路ID
+      const { data: assignedRoutes, error: assignedError } = await supabase
+        .from('fleet_manager_favorite_route_drivers')
+        .select('route_id')
+        .eq('driver_id', driverId);
+
+      if (assignedError) {
+        console.error('❌ 查询分配的线路失败:', assignedError);
+        throw assignedError;
+      }
+
+      if (!assignedRoutes || assignedRoutes.length === 0) {
+        console.log('⚠️ 没有分配给当前司机的线路');
+        setFavoriteRoutes([]);
+        return;
+      }
+
+      const routeIds = assignedRoutes.map(ar => ar.route_id);
+      console.log('📋 分配给当前司机的线路ID:', routeIds);
+
+      // 2. 查询这些线路的详细信息
       const { data, error } = await supabase
         .from('fleet_manager_favorite_routes')
         .select(`
@@ -409,13 +437,14 @@ export default function MobileQuickEntry() {
           unloading_location,
           use_count,
           last_used_at,
+          notes,
           projects:project_id (
             id,
             name
           )
         `)
+        .in('id', routeIds)
         .eq('fleet_manager_id', fleetManagerId)
-        .not('project_id', 'is', null)  // 只加载有项目关联的线路
         .order('use_count', { ascending: false })
         .order('last_used_at', { ascending: false, nullsFirst: false });
 
@@ -430,8 +459,9 @@ export default function MobileQuickEntry() {
       } else {
         console.log('⚠️ 没有找到常用线路，可能原因：');
         console.log('  1. 车队长ID:', fleetManagerId);
-        console.log('  2. 检查 fleet_manager_favorite_routes 表中是否有该车队长的数据');
-        console.log('  3. 检查数据中的 project_id 是否为 null');
+        console.log('  2. 司机ID:', driverId);
+        console.log('  3. 检查 fleet_manager_favorite_route_drivers 表中是否有分配给该司机的线路');
+        console.log('  4. 检查 fleet_manager_favorite_routes 表中是否有对应的线路数据');
       }
 
       setFavoriteRoutes(data || []);
@@ -776,11 +806,14 @@ export default function MobileQuickEntry() {
             <div className="grid gap-2">
               <Label>装货数量 *</Label>
               <Input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 value={formData.loading_weight}
-                onChange={e => setFormData(prev => ({ ...prev, loading_weight: e.target.value }))}
-                step="0.01"
+                onChange={e => {
+                  const limited = limitAmountInput(e.target.value);
+                  setFormData(prev => ({ ...prev, loading_weight: limited }));
+                }}
               />
             </div>
 
@@ -788,11 +821,14 @@ export default function MobileQuickEntry() {
             <div className="grid gap-2">
               <Label>卸货数量（可选，默认等于装货）</Label>
               <Input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="默认等于装货数量"
                 value={formData.unloading_weight}
-                onChange={e => setFormData(prev => ({ ...prev, unloading_weight: e.target.value }))}
-                step="0.01"
+                onChange={e => {
+                  const limited = limitAmountInput(e.target.value);
+                  setFormData(prev => ({ ...prev, unloading_weight: limited }));
+                }}
               />
             </div>
 
@@ -877,34 +913,40 @@ export default function MobileQuickEntry() {
                               <div className="space-y-1">
                                 <Label className="text-xs">装货数量 *</Label>
                                 <Input
-                                  type="number"
+                                  type="text"
+                                  inputMode="decimal"
                                   placeholder="0.00"
                                   value={inputs.loading_weight}
-                                  onChange={e => setRouteInputs(prev => ({
-                                    ...prev,
-                                    [route.id]: {
-                                      ...(prev[route.id] || { loading_weight: '', unloading_weight: '' }),
-                                      loading_weight: e.target.value
-                                    }
-                                  }))}
-                                  step="0.01"
+                                  onChange={e => {
+                                    const limited = limitAmountInput(e.target.value);
+                                    setRouteInputs(prev => ({
+                                      ...prev,
+                                      [route.id]: {
+                                        ...(prev[route.id] || { loading_weight: '', unloading_weight: '' }),
+                                        loading_weight: limited
+                                      }
+                                    }));
+                                  }}
                                   disabled={isSubmitting}
                                 />
                               </div>
                               <div className="space-y-1">
                                 <Label className="text-xs">卸货数量</Label>
                                 <Input
-                                  type="number"
+                                  type="text"
+                                  inputMode="decimal"
                                   placeholder="默认等于装货"
                                   value={inputs.unloading_weight}
-                                  onChange={e => setRouteInputs(prev => ({
-                                    ...prev,
-                                    [route.id]: {
-                                      ...(prev[route.id] || { loading_weight: '', unloading_weight: '' }),
-                                      unloading_weight: e.target.value
-                                    }
-                                  }))}
-                                  step="0.01"
+                                  onChange={e => {
+                                    const limited = limitAmountInput(e.target.value);
+                                    setRouteInputs(prev => ({
+                                      ...prev,
+                                      [route.id]: {
+                                        ...(prev[route.id] || { loading_weight: '', unloading_weight: '' }),
+                                        unloading_weight: limited
+                                      }
+                                    }));
+                                  }}
                                   disabled={isSubmitting}
                                 />
                               </div>
