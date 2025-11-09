@@ -329,7 +329,7 @@ export default function ShipperDashboard() {
         <div className="flex items-center gap-4">
           {/* 货主选择（非合作方角色显示） */}
           {!isPartnerRole && availableShippers.length > 0 && (
-            <Select value={selectedShipperId || ''} onValueChange={setSelectedShipperId}>
+            <Select value={selectedShipperId || undefined} onValueChange={setSelectedShipperId}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="选择货主" />
               </SelectTrigger>

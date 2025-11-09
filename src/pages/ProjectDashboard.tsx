@@ -133,7 +133,7 @@ export default function ProjectDashboard() {
                         <p className="text-sm text-slate-500 pt-1">{selectedProjectDetails.partner_name}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                        <Select value={projectId || ''} onValueChange={(newId) => navigate(`/project/${newId}`)}>
+                        <Select value={projectId || undefined} onValueChange={(newId) => navigate(`/project/${newId}`)}>
                             <SelectTrigger className="w-auto min-w-[150px] bg-white text-slate-900 border-slate-300">
                                 <SelectValue placeholder="请选择项目..." />
                             </SelectTrigger>

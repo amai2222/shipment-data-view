@@ -326,7 +326,8 @@ export default function FleetManagerConfig() {
       return;
     }
 
-    if (!newRoute.fromLocationId || !newRoute.toLocationId) {
+    if (!newRoute.fromLocationId || !newRoute.toLocationId || 
+        newRoute.fromLocationId === 'no-locations' || newRoute.toLocationId === 'no-locations') {
       toast({ title: '请选择起点和终点', variant: 'destructive' });
       return;
     }
@@ -648,7 +649,7 @@ export default function FleetManagerConfig() {
                         </SelectTrigger>
                         <SelectContent>
                           {locations.length === 0 ? (
-                            <SelectItem value="" disabled>暂无地点，请先在"常用地点"中添加</SelectItem>
+                            <SelectItem value="no-locations" disabled>暂无地点，请先在"常用地点"中添加</SelectItem>
                           ) : (
                             locations.map(location => (
                               <SelectItem key={location.id} value={location.id}>
@@ -670,7 +671,7 @@ export default function FleetManagerConfig() {
                         </SelectTrigger>
                         <SelectContent>
                           {locations.length === 0 ? (
-                            <SelectItem value="" disabled>暂无地点，请先在"常用地点"中添加</SelectItem>
+                            <SelectItem value="no-locations" disabled>暂无地点，请先在"常用地点"中添加</SelectItem>
                           ) : (
                             locations.map(location => (
                               <SelectItem key={location.id} value={location.id}>
