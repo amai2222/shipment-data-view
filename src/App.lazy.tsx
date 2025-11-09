@@ -41,6 +41,7 @@ export const FleetManagement = lazy(() => import('./pages/FleetManagement'));
 export const VehicleManagement = lazy(() => import('./pages/internal/VehicleManagement'));
 export const DriverManagement = lazy(() => import('./pages/internal/DriverManagement'));
 export const ExpenseApproval = lazy(() => import('./pages/internal/ExpenseApproval'));
+export const ExpenseWriteoff = lazy(() => import('./pages/internal/ExpenseWriteoff'));
 export const IncomeInput = lazy(() => import('./pages/internal/IncomeInput'));
 export const PendingTasks = lazy(() => import('./pages/internal/PendingTasks'));
 export const CertificateManagement = lazy(() => import('./pages/internal/CertificateManagement'));

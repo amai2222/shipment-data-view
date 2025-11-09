@@ -33,6 +33,7 @@ import {
   VehicleManagement,
   DriverManagement,
   ExpenseApproval,
+  ExpenseWriteoff,
   IncomeInput,
   PendingTasks,
   CertificateManagement,
@@ -260,6 +261,12 @@ const App = () => (
             <Route path="/internal/expense-approval" element={
               <ProtectedRoute requiredPermission="internal.expense_review">
                 <AppLayout><ExpenseApproval /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/internal/expense-writeoff" element={
+              <ProtectedRoute requiredPermission="internal.expense_review">
+                <AppLayout><ExpenseWriteoff /></AppLayout>
               </ProtectedRoute>
             } />
 
