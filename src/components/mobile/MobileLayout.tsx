@@ -27,7 +27,8 @@ import {
   TreePine,
   CheckCircle,
   Calendar,
-  ArrowLeft
+  ArrowLeft,
+  Route
 } from 'lucide-react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -202,6 +203,12 @@ const menuGroups = [
         name: '费用审核',
         href: '/m/internal/expense-review',
         icon: FileText,
+        roles: ['fleet_manager']
+      },
+      {
+        name: '常用线路配置',
+        href: '/m/internal/fleet-config',
+        icon: Route,
         roles: ['fleet_manager']
       },
       // 司机菜单

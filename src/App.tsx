@@ -99,6 +99,7 @@ import {
   MobileVehicleManagement,
   MobileDriverRouteConfig,
   MobileDispatchOrder,
+  MobileFleetManagerConfig,
   // 司机端
   MobileMyDispatches,
   MobileMyWaybills,
@@ -815,6 +816,12 @@ const App = () => (
             <Route path="/m/internal/dispatch-order" element={
               <ProtectedRoute requiredPermission="internal.vehicles">
                 <MobileDispatchOrder />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/fleet-config" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <MobileFleetManagerConfig />
               </ProtectedRoute>
             } />
 

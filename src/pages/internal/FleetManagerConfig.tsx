@@ -36,8 +36,20 @@ import {
   MapPin,
   Route,
   FolderKanban,
-  User
+  User,
+  Edit,
+  Users
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Project {
   id: string;
@@ -57,10 +69,19 @@ interface RouteConfig {
   route_name: string;
   from_location: string;
   to_location: string;
+  from_location_id: string;
+  to_location_id: string;
+  project_id: string | null;
   distance: number | null;
   estimated_time: number | null;
   notes: string | null;
   use_count: number;
+}
+
+interface Driver {
+  id: string;
+  name: string;
+  phone: string | null;
 }
 
 interface FleetManager {
@@ -92,6 +113,23 @@ export default function FleetManagerConfig() {
     notes: ''
   });
   const [addingRoute, setAddingRoute] = useState(false);
+
+  // 编辑线路
+  const [editingRoute, setEditingRoute] = useState<RouteConfig | null>(null);
+  const [editRouteForm, setEditRouteForm] = useState({
+    fromLocationId: '',
+    toLocationId: '',
+    distance: '',
+    time: '',
+    notes: ''
+  });
+  const [savingRoute, setSavingRoute] = useState(false);
+
+  // 分配线路给司机
+  const [assigningRoute, setAssigningRoute] = useState<RouteConfig | null>(null);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [selectedDriverIds, setSelectedDriverIds] = useState<string[]>([]);
+  const [assigning, setAssigning] = useState(false);
 
   // 加载车队长列表
   useEffect(() => {
@@ -394,6 +432,149 @@ export default function FleetManagerConfig() {
       });
     } finally {
       setAddingRoute(false);
+    }
+  };
+
+  // 打开编辑对话框
+  const handleEditRoute = (route: RouteConfig) => {
+    setEditingRoute(route);
+    setEditRouteForm({
+      fromLocationId: route.from_location_id,
+      toLocationId: route.to_location_id,
+      distance: route.distance?.toString() || '',
+      time: route.estimated_time?.toString() || '',
+      notes: route.notes || ''
+    });
+  };
+
+  // 保存编辑的线路
+  const handleSaveEditRoute = async () => {
+    if (!selectedFleetManagerId || !editingRoute) {
+      return;
+    }
+
+    if (!editRouteForm.fromLocationId || !editRouteForm.toLocationId || 
+        editRouteForm.fromLocationId === 'no-locations' || editRouteForm.toLocationId === 'no-locations') {
+      toast({ title: '请选择起点和终点', variant: 'destructive' });
+      return;
+    }
+
+    // 获取起点和终点的名称
+    const fromLocation = locations.find(l => l.id === editRouteForm.fromLocationId);
+    const toLocation = locations.find(l => l.id === editRouteForm.toLocationId);
+    
+    if (!fromLocation || !toLocation) {
+      toast({ title: '地点信息错误', variant: 'destructive' });
+      return;
+    }
+
+    setSavingRoute(true);
+    try {
+      const routeName = `${fromLocation.name}→${toLocation.name}`;
+      
+      // 更新线路信息
+      const { error: updateError } = await supabase
+        .from('fleet_manager_favorite_routes')
+        .update({
+          route_name: routeName,
+          loading_location_id: editRouteForm.fromLocationId,
+          unloading_location_id: editRouteForm.toLocationId,
+          loading_location: fromLocation.name,
+          unloading_location: toLocation.name,
+          notes: editRouteForm.notes || null
+        })
+        .eq('id', editingRoute.id)
+        .eq('fleet_manager_id', selectedFleetManagerId);
+
+      if (updateError) throw updateError;
+
+      toast({ title: '保存成功', description: `线路 ${routeName} 已更新` });
+      setEditingRoute(null);
+      await loadData();
+
+    } catch (error: any) {
+      console.error('保存线路失败:', error);
+      toast({ 
+        title: '保存失败', 
+        description: error.message || '请检查控制台查看详细错误信息', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setSavingRoute(false);
+    }
+  };
+
+  // 打开分配对话框
+  const handleAssignRoute = async (route: RouteConfig) => {
+    setAssigningRoute(route);
+    setSelectedDriverIds([]);
+
+    try {
+      // 加载该车队长的所有司机
+      const { data: driverData, error } = await supabase
+        .from('internal_drivers')
+        .select('id, name, phone')
+        .eq('fleet_manager_id', selectedFleetManagerId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+
+      setDrivers(driverData || []);
+
+      // 加载已分配的司机
+      const { data: assignedDrivers } = await supabase
+        .from('fleet_manager_favorite_route_drivers')
+        .select('driver_id')
+        .eq('route_id', route.id);
+
+      if (assignedDrivers) {
+        setSelectedDriverIds(assignedDrivers.map(ad => ad.driver_id));
+      }
+
+    } catch (error: any) {
+      console.error('加载司机列表失败:', error);
+      toast({ 
+        title: '加载失败', 
+        description: error.message, 
+        variant: 'destructive' 
+      });
+    }
+  };
+
+  // 保存分配
+  const handleSaveAssignRoute = async () => {
+    if (!assigningRoute) {
+      return;
+    }
+
+    setAssigning(true);
+    try {
+      const { data, error } = await supabase.rpc('assign_route_to_drivers', {
+        p_route_id: assigningRoute.id,
+        p_driver_ids: selectedDriverIds.length > 0 ? selectedDriverIds : null
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        toast({ title: '分配失败', description: data.message, variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: '分配成功', description: data.message });
+      setAssigningRoute(null);
+      setSelectedDriverIds([]);
+
+    } catch (error: any) {
+      console.error('分配线路失败:', error);
+      toast({ 
+        title: '分配失败', 
+        description: error.message || '请检查控制台查看详细错误信息', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -782,28 +963,50 @@ export default function FleetManagerConfig() {
                               <TableCell className="text-sm text-muted-foreground">{route.notes || '-'}</TableCell>
                               <TableCell className="text-center">{route.use_count}</TableCell>
                               <TableCell className="text-center">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={async () => {
-                                    try {
-                                      const { error } = await supabase
-                                        .from('fleet_manager_favorite_routes')
-                                        .delete()
-                                        .eq('id', route.id)
-                                        .eq('fleet_manager_id', selectedFleetManagerId);
-                                      
-                                      if (error) throw error;
-                                      
-                                      toast({ title: '删除成功', description: '线路已删除' });
-                                      loadData();
-                                    } catch (error: any) {
-                                      toast({ title: '删除失败', description: error.message, variant: 'destructive' });
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center justify-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleEditRoute(route)}
+                                    title="编辑"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleAssignRoute(route)}
+                                    title="分配"
+                                  >
+                                    <Users className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={async () => {
+                                      if (!confirm('确定要删除这条线路吗？')) {
+                                        return;
+                                      }
+                                      try {
+                                        const { error } = await supabase
+                                          .from('fleet_manager_favorite_routes')
+                                          .delete()
+                                          .eq('id', route.id)
+                                          .eq('fleet_manager_id', selectedFleetManagerId);
+                                        
+                                        if (error) throw error;
+                                        
+                                        toast({ title: '删除成功', description: '线路已删除' });
+                                        loadData();
+                                      } catch (error: any) {
+                                        toast({ title: '删除失败', description: error.message, variant: 'destructive' });
+                                      }
+                                    }}
+                                    title="删除"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -817,6 +1020,201 @@ export default function FleetManagerConfig() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* 编辑线路对话框 */}
+      <Dialog open={!!editingRoute} onOpenChange={(open) => !open && setEditingRoute(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>编辑线路</DialogTitle>
+            <DialogDescription>
+              修改线路的起点、终点和备注信息
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>起点</Label>
+                <Select
+                  value={editRouteForm.fromLocationId}
+                  onValueChange={(value) => setEditRouteForm(prev => ({...prev, fromLocationId: value}))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择起点" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.length === 0 ? (
+                      <SelectItem value="no-locations" disabled>暂无地点</SelectItem>
+                    ) : (
+                      locations.map(location => (
+                        <SelectItem key={location.id} value={location.id}>
+                          {location.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>终点</Label>
+                <Select
+                  value={editRouteForm.toLocationId}
+                  onValueChange={(value) => setEditRouteForm(prev => ({...prev, toLocationId: value}))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择终点" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.length === 0 ? (
+                      <SelectItem value="no-locations" disabled>暂无地点</SelectItem>
+                    ) : (
+                      locations.map(location => (
+                        <SelectItem key={location.id} value={location.id}>
+                          {location.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>距离(公里)</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={editRouteForm.distance}
+                  onChange={e => setEditRouteForm(prev => ({...prev, distance: e.target.value}))}
+                />
+              </div>
+              <div>
+                <Label>预计时长(小时)</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={editRouteForm.time}
+                  onChange={e => setEditRouteForm(prev => ({...prev, time: e.target.value}))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>备注</Label>
+              <Textarea
+                placeholder="输入备注信息（可选）"
+                value={editRouteForm.notes}
+                onChange={e => setEditRouteForm(prev => ({...prev, notes: e.target.value}))}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingRoute(null)}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleSaveEditRoute}
+              disabled={savingRoute || !editRouteForm.fromLocationId || !editRouteForm.toLocationId}
+            >
+              {savingRoute ? '保存中...' : '保存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 分配线路给司机对话框 */}
+      <Dialog open={!!assigningRoute} onOpenChange={(open) => !open && setAssigningRoute(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>分配线路给司机</DialogTitle>
+            <DialogDescription>
+              选择要分配该线路的司机（可多选）
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {assigningRoute && (
+              <div className="p-3 bg-muted rounded-md">
+                <div className="text-sm font-semibold">线路：{assigningRoute.route_name}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {assigningRoute.from_location} → {assigningRoute.to_location}
+                </div>
+              </div>
+            )}
+
+            <div className="border rounded-md max-h-[400px] overflow-y-auto">
+              {drivers.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  暂无司机数据
+                </div>
+              ) : (
+                <div className="p-2 space-y-2">
+                  {drivers.map(driver => (
+                    <div
+                      key={driver.id}
+                      className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer"
+                      onClick={() => {
+                        setSelectedDriverIds(prev => {
+                          if (prev.includes(driver.id)) {
+                            return prev.filter(id => id !== driver.id);
+                          } else {
+                            return [...prev, driver.id];
+                          }
+                        });
+                      }}
+                    >
+                      <Checkbox
+                        checked={selectedDriverIds.includes(driver.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedDriverIds(prev => {
+                            if (checked) {
+                              return [...prev, driver.id];
+                            } else {
+                              return prev.filter(id => id !== driver.id);
+                            }
+                          });
+                        }}
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">{driver.name}</div>
+                        {driver.phone && (
+                          <div className="text-sm text-muted-foreground">{driver.phone}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              已选择 {selectedDriverIds.length} 个司机
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAssigningRoute(null);
+                setSelectedDriverIds([]);
+              }}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleSaveAssignRoute}
+              disabled={assigning}
+            >
+              {assigning ? '分配中...' : `分配 (${selectedDriverIds.length})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
