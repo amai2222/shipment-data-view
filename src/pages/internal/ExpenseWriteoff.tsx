@@ -69,13 +69,29 @@ interface ExpenseApplication {
   writeoff_time: string | null;
 }
 
+interface DriverBalance {
+  fleet_manager_id: string;
+  fleet_manager_name: string;
+  driver_id: string;
+  driver_name: string;
+  balance: number;
+}
+
+interface FleetManagerGroup {
+  fleet_manager_id: string;
+  fleet_manager_name: string;
+  drivers: DriverBalance[];
+  totalBalance: number;
+}
+
 export default function ExpenseWriteoff() {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
   const [applications, setApplications] = useState<ExpenseApplication[]>([]);
   const [filteredApplications, setFilteredApplications] = useState<ExpenseApplication[]>([]);
-  const [activeTab, setActiveTab] = useState('all');
+  const [mainTab, setMainTab] = useState('writeoff');  // ✅ 主标签页：费用冲销 / 司机余额
+  const [statusFilter, setStatusFilter] = useState('all');  // ✅ 费用冲销列表的状态筛选：全部 / 待冲销 / 已冲销
   const [selectedApp, setSelectedApp] = useState<ExpenseApplication | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [page, setPage] = useState(1);
@@ -83,6 +99,11 @@ export default function ExpenseWriteoff() {
   const [searchTerm, setSearchTerm] = useState('');
   const [driverFilter, setDriverFilter] = useState<string>('all');
   const [drivers, setDrivers] = useState<{ name: string }[]>([]);
+  
+  // ✅ 司机余额相关状态
+  const [loadingBalances, setLoadingBalances] = useState(false);
+  const [fleetManagerGroups, setFleetManagerGroups] = useState<FleetManagerGroup[]>([]);
+  const [selectedFleetManager, setSelectedFleetManager] = useState<string>('all');
 
   // 统计数据
   const [stats, setStats] = useState({
@@ -94,13 +115,17 @@ export default function ExpenseWriteoff() {
   });
 
   useEffect(() => {
-    loadApplications();
-    loadDrivers();
-  }, [activeTab]);
+    if (mainTab === 'writeoff') {
+      loadApplications();
+      loadDrivers();
+    } else if (mainTab === 'balance') {
+      loadDriverBalances();
+    }
+  }, [mainTab]);
 
   useEffect(() => {
     filterApplications();
-  }, [applications, activeTab, searchTerm, driverFilter]);
+  }, [applications, statusFilter, searchTerm, driverFilter]);
 
   // 加载司机列表
   const loadDrivers = async () => {
@@ -177,9 +202,9 @@ export default function ExpenseWriteoff() {
     let filtered = [...applications];
 
     // 按状态过滤
-    if (activeTab === 'writeoffed') {
+    if (statusFilter === 'writeoffed') {
       filtered = filtered.filter(a => a.actual_amount !== null);
-    } else if (activeTab === 'pending') {
+    } else if (statusFilter === 'pending') {
       filtered = filtered.filter(a => a.actual_amount === null);
     }
 
@@ -208,12 +233,65 @@ export default function ExpenseWriteoff() {
     return app.amount - app.actual_amount;
   };
 
+  // ✅ 加载司机余额（按车队长分组）
+  const loadDriverBalances = async () => {
+    setLoadingBalances(true);
+    try {
+      const { data, error } = await supabase.rpc('get_driver_balances_by_fleet_manager');
+      
+      if (error) throw error;
+      
+      // 按车队长分组
+      const grouped = new Map<string, FleetManagerGroup>();
+      
+      (data || []).forEach((item: DriverBalance) => {
+        const key = item.fleet_manager_id || 'unassigned';
+        
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            fleet_manager_id: item.fleet_manager_id || '',
+            fleet_manager_name: item.fleet_manager_name,
+            drivers: [],
+            totalBalance: 0
+          });
+        }
+        
+        const group = grouped.get(key)!;
+        group.drivers.push(item);
+        group.totalBalance += item.balance;
+      });
+      
+      // 转换为数组并排序
+      const groups = Array.from(grouped.values()).sort((a, b) => {
+        if (a.fleet_manager_name === '未分配') return 1;
+        if (b.fleet_manager_name === '未分配') return -1;
+        return a.fleet_manager_name.localeCompare(b.fleet_manager_name);
+      });
+      
+      setFleetManagerGroups(groups);
+    } catch (error: any) {
+      console.error('加载司机余额失败:', error);
+      toast({
+        title: '加载失败',
+        description: error.message || '无法加载司机余额',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoadingBalances(false);
+    }
+  };
+
   // 分页
   const paginatedApps = filteredApplications.slice(
     (page - 1) * pageSize,
     page * pageSize
   );
   const totalPages = Math.ceil(filteredApplications.length / pageSize);
+
+  // ✅ 过滤车队长的司机余额
+  const filteredFleetManagerGroups = selectedFleetManager === 'all'
+    ? fleetManagerGroups
+    : fleetManagerGroups.filter(g => g.fleet_manager_id === selectedFleetManager);
 
   return (
     <div className="p-4 space-y-4">
@@ -223,6 +301,16 @@ export default function ExpenseWriteoff() {
         icon={Calculator}
         iconColor="text-orange-600"
       />
+
+      {/* ✅ 标签页 */}
+      <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="writeoff">费用冲销</TabsTrigger>
+          <TabsTrigger value="balance">司机余额</TabsTrigger>
+        </TabsList>
+
+        {/* ✅ 费用冲销标签页 */}
+        <TabsContent value="writeoff" className="space-y-4">
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -324,13 +412,29 @@ export default function ExpenseWriteoff() {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="all">全部</TabsTrigger>
-              <TabsTrigger value="pending">待冲销</TabsTrigger>
-              <TabsTrigger value="writeoffed">已冲销</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex gap-2">
+            <Button
+              variant={statusFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('all')}
+            >
+              全部
+            </Button>
+            <Button
+              variant={statusFilter === 'pending' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('pending')}
+            >
+              待冲销
+            </Button>
+            <Button
+              variant={statusFilter === 'writeoffed' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('writeoffed')}
+            >
+              已冲销
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -538,6 +642,122 @@ export default function ExpenseWriteoff() {
           )}
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        {/* ✅ 司机余额标签页 */}
+        <TabsContent value="balance" className="space-y-4">
+          {/* 筛选 */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>司机余额统计</CardTitle>
+                <div className="flex gap-2">
+                  <Select value={selectedFleetManager} onValueChange={setSelectedFleetManager}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="选择车队长" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部车队长</SelectItem>
+                      {fleetManagerGroups.map(g => (
+                        <SelectItem key={g.fleet_manager_id || 'unassigned'} value={g.fleet_manager_id || 'unassigned'}>
+                          {g.fleet_manager_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" onClick={loadDriverBalances}>
+                    <RefreshCw className={`h-4 w-4 ${loadingBalances ? 'animate-spin' : ''}`} />
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+
+          {/* 按车队长分组的司机余额 */}
+          {loadingBalances ? (
+            <Card>
+              <CardContent className="py-8">
+                <div className="text-center">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">加载中...</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : filteredFleetManagerGroups.length === 0 ? (
+            <Card>
+              <CardContent className="py-8">
+                <div className="text-center text-muted-foreground">
+                  <p>暂无司机余额数据</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredFleetManagerGroups.map(group => (
+              <Card key={group.fleet_manager_id || 'unassigned'}>
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">
+                      {group.fleet_manager_name}
+                      <span className="ml-2 text-sm font-normal text-muted-foreground">
+                        ({group.drivers.length} 位司机)
+                      </span>
+                    </CardTitle>
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground">总余额</div>
+                      <div className={`text-2xl font-bold ${group.totalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {group.totalBalance >= 0 ? '+' : ''}¥{group.totalBalance.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[200px]">司机姓名</TableHead>
+                          <TableHead className="text-right">费用余额</TableHead>
+                          <TableHead>状态</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {group.drivers.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
+                              该车队长下暂无司机
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          group.drivers.map(driver => (
+                            <TableRow key={driver.driver_id}>
+                              <TableCell className="font-medium">{driver.driver_name}</TableCell>
+                              <TableCell className="text-right">
+                                <span className={`font-bold text-lg ${driver.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {driver.balance >= 0 ? '+' : ''}¥{driver.balance.toFixed(2)}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                {driver.balance >= 0 ? (
+                                  <Badge className="bg-green-100 text-green-800">有结余</Badge>
+                                ) : (
+                                  <Badge className="bg-red-100 text-red-800">待补报销</Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
