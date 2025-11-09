@@ -20,7 +20,10 @@ import {
   Calendar,
   Settings,
   Bell,
-  User
+  User,
+  Calculator,
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,6 +38,12 @@ interface DashboardStats {
   pendingVehicleChanges: number;
   expiringCertificates: number;
   thisMonthTrips: number;
+}
+
+interface DriverBalance {
+  driver_id: string;
+  driver_name: string;
+  balance: number;
 }
 
 export default function MobileFleetDashboard() {
@@ -54,9 +63,15 @@ export default function MobileFleetDashboard() {
     expiringCertificates: 0,
     thisMonthTrips: 0
   });
+  
+  // ✅ 司机余额相关状态
+  const [loadingBalances, setLoadingBalances] = useState(false);
+  const [driverBalances, setDriverBalances] = useState<DriverBalance[]>([]);
+  const [totalBalance, setTotalBalance] = useState(0);
 
   useEffect(() => {
     loadStats();
+    loadDriverBalances();
     
     // ✅ 预加载常用页面，避免首次点击时出现"刷新"
     setTimeout(() => {
@@ -164,6 +179,38 @@ export default function MobileFleetDashboard() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ 加载所属司机的冲销余额
+  const loadDriverBalances = async () => {
+    setLoadingBalances(true);
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
+
+      // 调用 RPC 函数获取所有司机余额
+      const { data, error } = await supabase.rpc('get_driver_balances_by_fleet_manager');
+      
+      if (error) throw error;
+      
+      // 过滤出当前车队长管理的司机
+      const myDrivers = (data || []).filter((item: any) => 
+        item.fleet_manager_id === userId
+      );
+      
+      // 计算总余额
+      const total = myDrivers.reduce((sum: number, item: DriverBalance) => 
+        sum + (item.balance || 0), 0
+      );
+      
+      setDriverBalances(myDrivers);
+      setTotalBalance(total);
+    } catch (error: any) {
+      console.error('加载司机余额失败:', error);
+      // 不显示错误提示，避免干扰用户体验
+    } finally {
+      setLoadingBalances(false);
     }
   };
 
@@ -347,6 +394,76 @@ export default function MobileFleetDashboard() {
               <Truck className="h-6 w-6" />
               <span className="text-sm">车辆管理</span>
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* ✅ 司机冲销余额 */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Calculator className="h-5 w-5" />
+                司机冲销余额
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={loadDriverBalances}
+                disabled={loadingBalances}
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingBalances ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loadingBalances ? (
+              <div className="text-center py-4 text-muted-foreground text-sm">
+                加载中...
+              </div>
+            ) : driverBalances.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground text-sm">
+                暂无司机余额数据
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* 总余额统计 */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">总余额</span>
+                    <span className={`text-xl font-bold ${totalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {totalBalance >= 0 ? '+' : ''}¥{totalBalance.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 司机余额列表 */}
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {driverBalances.map(driver => (
+                    <div
+                      key={driver.driver_id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">{driver.driver_name}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {driver.balance >= 0 ? '有结余' : '待补报销'}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`font-bold text-lg ${driver.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {driver.balance >= 0 ? '+' : ''}¥{driver.balance.toFixed(2)}
+                        </div>
+                        <Badge 
+                          className={`mt-1 text-xs ${driver.balance >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                        >
+                          {driver.balance >= 0 ? '有结余' : '待补报销'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -294,7 +294,7 @@ export default function ExpenseWriteoff() {
     : fleetManagerGroups.filter(g => g.fleet_manager_id === selectedFleetManager);
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-6 space-y-4">
       <PageHeader
         title="费用冲销管理"
         description="查看和管理所有司机的费用冲销记录"
@@ -645,7 +645,7 @@ export default function ExpenseWriteoff() {
         </TabsContent>
 
         {/* ✅ 司机余额标签页 */}
-        <TabsContent value="balance" className="space-y-4">
+        <TabsContent value="balance" className="space-y-4 mt-4">
           {/* 筛选 */}
           <Card>
             <CardHeader>

@@ -36,11 +36,11 @@ BEGIN
         -- 计算该司机的费用余额
         -- 结余 = 申请金额 - 实际金额（如果已冲销，否则为0）
         SELECT COALESCE(SUM(
-            amount - COALESCE(actual_amount, amount)
+            e.amount - COALESCE(e.actual_amount, e.amount)
         ), 0) INTO v_balance
-        FROM internal_driver_expense_applications
-        WHERE driver_id = v_driver_record.id
-        AND status = 'approved';
+        FROM internal_driver_expense_applications e
+        WHERE e.driver_id = v_driver_record.id
+        AND e.status = 'approved';
         
         -- 返回该司机的记录
         RETURN QUERY SELECT 
