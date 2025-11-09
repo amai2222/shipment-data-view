@@ -154,13 +154,32 @@ export default function FleetManagerConfig() {
       }
 
       if (activeTab === 'locations') {
-        // 加载所有地点
-        const { data: allLocations } = await supabase
+        // 1. 获取当前车队长负责的所有项目ID
+        const { data: managedProjects, error: projectsError } = await supabase
+          .from('fleet_manager_projects')
+          .select('project_id')
+          .eq('fleet_manager_id', selectedFleetManagerId);
+
+        if (projectsError) throw projectsError;
+
+        const projectIds = (managedProjects || []).map(mp => mp.project_id);
+
+        // 2. 如果车队长没有负责任何项目，则不加载任何地点
+        if (projectIds.length === 0) {
+          setLocations([]);
+          return;
+        }
+
+        // 3. 只加载与这些项目关联的地点
+        const { data: locationData, error: locationError } = await supabase
           .from('locations')
           .select('*')
+          .in('project_id', projectIds)
           .order('name');
 
-        // 查询该车队长在常用线路中使用的地点（作为常用地点的参考）
+        if (locationError) throw locationError;
+
+        // 4. 查询该车队长在常用线路中使用的地点（作为常用地点的参考）
         const { data: favoriteRoutes } = await supabase
           .from('fleet_manager_favorite_routes')
           .select('loading_location_id, unloading_location_id')
@@ -172,7 +191,7 @@ export default function FleetManagerConfig() {
           if (route.unloading_location_id) favoriteLocationIds.add(route.unloading_location_id);
         });
 
-        setLocations((allLocations || []).map(l => ({
+        setLocations((locationData || []).map(l => ({
           ...l,
           is_favorite: favoriteLocationIds.has(l.id)
         })));
