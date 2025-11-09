@@ -32,7 +32,8 @@ import {
   Upload,
   Loader2,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Package
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -289,7 +290,7 @@ export default function MobileMyDispatches() {
   const renderOrderCard = (order: DispatchOrder, showActions: boolean = false) => (
     <Card 
       key={order.id} 
-      className="cursor-pointer hover:shadow-md transition-shadow"
+      className="cursor-pointer hover:shadow-lg transition-all border-l-4 border-l-blue-500"
       onClick={() => {
         setSelectedOrder(order);
         if (order.status === 'pending') {
@@ -299,7 +300,7 @@ export default function MobileMyDispatches() {
         }
       }}
     >
-      <CardContent className="p-4">
+      <CardContent className="p-4 bg-gradient-to-r from-white to-blue-50/30">
         <div className="flex items-start justify-between mb-3">
           <div>
             <div className="font-medium">{order.order_number}</div>
@@ -358,15 +359,26 @@ export default function MobileMyDispatches() {
   return (
     <MobileLayout title="我的派单">
       <div className="space-y-4 pb-20">
-        <Tabs defaultValue="pending" className="w-full">
+        <Tabs defaultValue="active" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="pending">
-              待接单 {pendingOrders.length > 0 && `(${pendingOrders.length})`}
+            <TabsTrigger value="active" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                进行中 {activeOrders.length > 0 && <Badge variant="secondary" className="ml-1">{activeOrders.length}</Badge>}
+              </div>
             </TabsTrigger>
-            <TabsTrigger value="active">
-              进行中 {activeOrders.length > 0 && `(${activeOrders.length})`}
+            <TabsTrigger value="pending" className="data-[state=active]:bg-orange-600 data-[state=active]:text-white">
+              <div className="flex items-center gap-1">
+                <Bell className="h-3 w-3" />
+                待接单 {pendingOrders.length > 0 && <Badge variant="destructive" className="ml-1">{pendingOrders.length}</Badge>}
+              </div>
             </TabsTrigger>
-            <TabsTrigger value="completed">已完成</TabsTrigger>
+            <TabsTrigger value="completed" className="data-[state=active]:bg-green-600 data-[state=active]:text-white">
+              <div className="flex items-center gap-1">
+                <CheckCircle className="h-3 w-3" />
+                已完成
+              </div>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="pending" className="space-y-3 mt-4">

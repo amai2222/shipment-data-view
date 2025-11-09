@@ -393,14 +393,20 @@ export default function MobileMyExpenses() {
   return (
     <MobileLayout title="司机工作台">
       <div className="space-y-4 pb-20">
-        {/* 顶部操作栏 */}
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold">工作台</h2>
+        {/* 欢迎信息 */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">你好，{profile?.full_name || '司机'}</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {format(new Date(), 'yyyy年MM月dd日 EEEE', { locale: zhCN })}
+            </p>
+          </div>
           <Button
             variant="outline"
             size="sm"
             onClick={() => {
               loadApplications();
+              loadPendingDispatches();
               toast({ title: '已刷新' });
             }}
             disabled={loading}
@@ -409,78 +415,108 @@ export default function MobileMyExpenses() {
           </Button>
         </div>
 
-        {/* 个人欢迎卡片 */}
-        <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 text-white border-0 shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                    <User className="h-6 w-6 text-white" />
+        {/* 🔔 派单任务区域（最醒目的位置） */}
+        <Card className="border-2 border-orange-200 shadow-lg">
+          <CardHeader className="pb-3 bg-gradient-to-r from-orange-50 to-red-50">
+            <CardTitle className="flex items-center gap-2 text-orange-900">
+              <FileText className="h-5 w-5" />
+              派单任务
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {/* 待接单派单 - 醒目提示 */}
+            {pendingDispatchCount > 0 && (
+              <div 
+                className="p-4 bg-gradient-to-br from-orange-500 to-red-500 text-white cursor-pointer hover:from-orange-600 hover:to-red-600 transition-all border-b-2 border-orange-600"
+                onClick={() => navigate('/m/internal/my-dispatches')}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm animate-pulse">
+                      <Bell className="h-7 w-7 text-white" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xl">🔔 新派单待接</div>
+                      <div className="text-sm opacity-90 mt-1">您有 {pendingDispatchCount} 个派单需要处理</div>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-xl font-bold">{profile?.full_name || '司机'}</h2>
-                    <p className="text-blue-100 text-sm">内部司机</p>
-                  </div>
-                </div>
-                <div className="mt-3 text-sm opacity-90">
-                  {format(new Date(), 'yyyy年MM月dd日 EEEE', { locale: zhCN })}
+                  <ArrowRight className="h-6 w-6" />
                 </div>
               </div>
-              <Truck className="h-16 w-16 opacity-30" />
+            )}
+            
+            {/* 快捷入口 */}
+            <div className="grid grid-cols-2 gap-0 divide-x">
+              <Button
+                variant="ghost"
+                className="h-20 rounded-none flex flex-col gap-2 hover:bg-blue-50"
+                onClick={() => navigate('/m/internal/my-dispatches')}
+              >
+                <FileText className="h-6 w-6 text-blue-600" />
+                <span className="text-sm font-medium">查看派单</span>
+              </Button>
+              <Button
+                variant="ghost"
+                className="h-20 rounded-none flex flex-col gap-2 hover:bg-green-50"
+                onClick={() => navigate('/m/internal/quick-entry')}
+              >
+                <Plus className="h-6 w-6 text-green-600" />
+                <span className="text-sm font-medium">手动录单</span>
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* 顶部统计卡片 - 优化版 */}
+        {/* 快捷功能卡片 */}
         <div className="grid grid-cols-3 gap-3">
-          <Card className="bg-gradient-to-br from-yellow-400 to-orange-500 border-0 shadow-md">
-            <CardContent className="p-4 text-center text-white">
-              <Clock className="h-5 w-5 mx-auto mb-2 opacity-80" />
-              <div className="text-3xl font-bold">{stats.pending}</div>
-              <div className="text-xs mt-1 opacity-90">待审核</div>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/m/internal/driver-salary')}>
+            <CardContent className="p-4 text-center">
+              <DollarSign className="h-6 w-6 mx-auto mb-2 text-green-600" />
+              <div className="text-sm font-medium">我的工资</div>
             </CardContent>
           </Card>
           
-          <Card className="bg-gradient-to-br from-green-400 to-emerald-500 border-0 shadow-md">
-            <CardContent className="p-4 text-center text-white">
-              <CheckCircle className="h-5 w-5 mx-auto mb-2 opacity-80" />
-              <div className="text-3xl font-bold">{stats.approved}</div>
-              <div className="text-xs mt-1 opacity-90">已通过</div>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/m/internal/my-vehicles')}>
+            <CardContent className="p-4 text-center">
+              <Truck className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+              <div className="text-sm font-medium">我的车辆</div>
             </CardContent>
           </Card>
           
-          <Card className="bg-gradient-to-br from-blue-400 to-cyan-500 border-0 shadow-md">
-            <CardContent className="p-4 text-center text-white">
-              <DollarSign className="h-5 w-5 mx-auto mb-2 opacity-80" />
-              <div className="text-2xl font-bold">¥{stats.thisMonth.toFixed(0)}</div>
-              <div className="text-xs mt-1 opacity-90">本月累计</div>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/m/internal/salary-records')}>
+            <CardContent className="p-4 text-center">
+              <Calendar className="h-6 w-6 mx-auto mb-2 text-purple-600" />
+              <div className="text-sm font-medium">工资记录</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* 🔔 派单通知卡片（有待接单时显示） */}
-        {pendingDispatchCount > 0 && (
-          <Card 
-            className="bg-gradient-to-br from-orange-500 to-red-500 text-white border-0 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-            onClick={() => navigate('/m/internal/my-dispatches')}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm animate-pulse">
-                    <Bell className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-lg">新派单通知</div>
-                    <div className="text-sm opacity-90">您有 {pendingDispatchCount} 个待接单的派单</div>
-                  </div>
-                </div>
-                <ArrowRight className="h-6 w-6" />
-              </div>
+        {/* 费用申请统计 */}
+        <div className="grid grid-cols-3 gap-3">
+          <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200">
+            <CardContent className="p-3 text-center">
+              <Clock className="h-4 w-4 mx-auto mb-1 text-yellow-600" />
+              <div className="text-2xl font-bold text-yellow-700">{stats.pending}</div>
+              <div className="text-xs text-yellow-600">待审核费用</div>
             </CardContent>
           </Card>
-        )}
+          
+          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+            <CardContent className="p-3 text-center">
+              <CheckCircle className="h-4 w-4 mx-auto mb-1 text-green-600" />
+              <div className="text-2xl font-bold text-green-700">{stats.approved}</div>
+              <div className="text-xs text-green-600">已通过费用</div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
+            <CardContent className="p-3 text-center">
+              <DollarSign className="h-4 w-4 mx-auto mb-1 text-blue-600" />
+              <div className="text-xl font-bold text-blue-700">¥{stats.thisMonth.toFixed(0)}</div>
+              <div className="text-xs text-blue-600">本月费用</div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* 快捷操作按钮 - 美化版 */}
         <div className="grid grid-cols-3 gap-3">
