@@ -401,7 +401,7 @@ export default function MobileMyExpenses() {
     event.target.value = '';
   };
 
-  // ✅ 拍照上传（修复：使用隐藏的 input 元素）
+  // ✅ 拍照上传（优化：支持连续拍照多张）
   const handleCameraCapture = (event: React.MouseEvent) => {
     // 阻止事件冒泡，防止触发其他操作
     event.preventDefault();
@@ -410,11 +410,13 @@ export default function MobileMyExpenses() {
     // 触发隐藏的拍照 input
     const cameraInput = document.getElementById('camera-file-input') as HTMLInputElement;
     if (cameraInput) {
+      // ✅ 重置 input，确保每次都能触发 change 事件（即使选择同一张照片）
+      cameraInput.value = '';
       cameraInput.click();
     }
   };
 
-  // ✅ 处理拍照返回的文件
+  // ✅ 处理拍照返回的文件（支持多图）
   const handleCameraFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
@@ -423,11 +425,12 @@ export default function MobileMyExpenses() {
       setSelectedFiles(prev => [...prev, ...imageFiles]);
       toast({
         title: "拍照成功",
-        description: `已添加 ${imageFiles.length} 张照片`,
+        description: `已添加 ${imageFiles.length} 张照片，可继续拍照`,
+        duration: 2000,
       });
     }
     
-    // ✅ 重置 input，允许重复拍照
+    // ✅ 重置 input，允许重复拍照（重要：确保每次拍照都能触发 change 事件）
     event.target.value = '';
   };
 
@@ -451,18 +454,20 @@ export default function MobileMyExpenses() {
     event.target.value = '';
   };
 
-  // ✅ 补充图片：拍照
+  // ✅ 补充图片：拍照（优化：支持连续拍照多张）
   const handleAdditionalCameraCapture = (event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
     
     const cameraInput = document.getElementById('additional-camera-input') as HTMLInputElement;
     if (cameraInput) {
+      // ✅ 重置 input，确保每次都能触发 change 事件
+      cameraInput.value = '';
       cameraInput.click();
     }
   };
 
-  // ✅ 补充图片：处理拍照返回的文件
+  // ✅ 补充图片：处理拍照返回的文件（支持多图）
   const handleAdditionalCameraFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
@@ -471,10 +476,12 @@ export default function MobileMyExpenses() {
       setAdditionalFiles(prev => [...prev, ...imageFiles]);
       toast({
         title: "拍照成功",
-        description: `已添加 ${imageFiles.length} 张照片`,
+        description: `已添加 ${imageFiles.length} 张照片，可继续拍照`,
+        duration: 2000,
       });
     }
     
+    // ✅ 重置 input，允许重复拍照
     event.target.value = '';
   };
 
@@ -1073,6 +1080,7 @@ export default function MobileMyExpenses() {
                       <Camera className="h-6 w-6 text-blue-600" />
                     </div>
                     <span className="text-sm">拍照</span>
+                    <span className="text-xs text-muted-foreground">可连续拍摄多张</span>
                   </Button>
                   
                   <Button
@@ -1240,14 +1248,15 @@ export default function MobileMyExpenses() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-20 flex flex-col gap-2"
+                        className="h-20 flex flex-col gap-1"
                         onClick={handleAdditionalCameraCapture}
                         disabled={uploadingAdditional}
                       >
                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
                           <Camera className="h-5 w-5 text-blue-600" />
                         </div>
-                        <span className="text-xs">拍照</span>
+                        <span className="text-xs font-medium">拍照</span>
+                        <span className="text-[10px] text-muted-foreground leading-tight">可连续拍摄</span>
                       </Button>
                       
                       <Button
