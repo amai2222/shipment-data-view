@@ -33,6 +33,9 @@ export default defineConfig(({ mode }) => ({
     ],
   },
   build: {
+    // 确保资源目录正确配置
+    assetsDir: 'assets', // 资源文件输出到 dist/assets/
+    outDir: 'dist',      // 构建输出目录
     // 优化代码分割
     rollupOptions: {
       output: {

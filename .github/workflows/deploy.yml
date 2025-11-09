@@ -37,14 +37,26 @@ jobs:
         username: ${{ secrets.GOOGLE_CLOUD_USER }}
         key: ${{ secrets.GOOGLE_CLOUD_SSH_KEY }}
         script: |
+          set -e
           cd /var/www/shipment-data-view
           git pull origin main
           npm ci --production
           npm run build
-          rm -rf /var/www/html/*
+          # 验证构建结果
+          if [ ! -d "dist/assets" ] || [ -z "$(ls -A dist/assets/*.js 2>/dev/null)" ]; then
+            echo "❌ 构建失败：assets 目录为空或没有 JS 文件"
+            exit 1
+          fi
+          # 安全地部署文件
+          mkdir -p /var/www/html/assets
           cp -r dist/* /var/www/html/
+          # 验证部署结果
+          if [ ! -f "/var/www/html/index.html" ] || [ -z "$(ls -A /var/www/html/assets/*.js 2>/dev/null)" ]; then
+            echo "❌ 部署失败：文件未正确复制"
+            exit 1
+          fi
           sudo systemctl reload nginx
-          echo "Google Cloud deployment completed"
+          echo "✅ Google Cloud deployment completed and verified"
           
     - name: Deploy to Tencent Cloud
       if: github.ref == 'refs/heads/main'
@@ -54,11 +66,23 @@ jobs:
         username: ${{ secrets.TENCENT_CLOUD_USER }}
         key: ${{ secrets.TENCENT_CLOUD_SSH_KEY }}
         script: |
+          set -e
           cd /var/www/shipment-data-view
           git pull origin main
           npm ci --production
           npm run build
-          rm -rf /var/www/html/*
+          # 验证构建结果
+          if [ ! -d "dist/assets" ] || [ -z "$(ls -A dist/assets/*.js 2>/dev/null)" ]; then
+            echo "❌ 构建失败：assets 目录为空或没有 JS 文件"
+            exit 1
+          fi
+          # 安全地部署文件
+          mkdir -p /var/www/html/assets
           cp -r dist/* /var/www/html/
+          # 验证部署结果
+          if [ ! -f "/var/www/html/index.html" ] || [ -z "$(ls -A /var/www/html/assets/*.js 2>/dev/null)" ]; then
+            echo "❌ 部署失败：文件未正确复制"
+            exit 1
+          fi
           sudo systemctl reload nginx
-          echo "Tencent Cloud deployment completed"
+          echo "✅ Tencent Cloud deployment completed and verified"
