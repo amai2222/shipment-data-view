@@ -170,16 +170,32 @@ export default function FleetManagerConfig() {
           return;
         }
 
-        // 3. 只加载与这些项目关联的地点
+        // 3. 通过 location_projects 中间表查询与这些项目关联的地点ID
+        const { data: locationProjects, error: locationProjectsError } = await supabase
+          .from('location_projects')
+          .select('location_id')
+          .in('project_id', projectIds);
+
+        if (locationProjectsError) throw locationProjectsError;
+
+        const locationIds = [...new Set((locationProjects || []).map(lp => lp.location_id))];
+
+        // 4. 如果没有任何关联的地点，则不加载
+        if (locationIds.length === 0) {
+          setLocations([]);
+          return;
+        }
+
+        // 5. 根据地点ID查询地点详情
         const { data: locationData, error: locationError } = await supabase
           .from('locations')
           .select('*')
-          .in('project_id', projectIds)
+          .in('id', locationIds)
           .order('name');
 
         if (locationError) throw locationError;
 
-        // 4. 查询该车队长在常用线路中使用的地点（作为常用地点的参考）
+        // 6. 查询该车队长在常用线路中使用的地点（作为常用地点的参考）
         const { data: favoriteRoutes } = await supabase
           .from('fleet_manager_favorite_routes')
           .select('loading_location_id, unloading_location_id')
