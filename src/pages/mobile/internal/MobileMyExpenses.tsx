@@ -102,6 +102,10 @@ export default function MobileMyExpenses() {
   const [selectedApp, setSelectedApp] = useState<ExpenseApplication | null>(null);
   const [error, setError] = useState<string | null>(null);
   
+  // ✅ 补充图片相关状态
+  const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
+  const [uploadingAdditional, setUploadingAdditional] = useState(false);
+  
   // 新申请表单
   const [formData, setFormData] = useState({
     expense_date: format(new Date(), 'yyyy-MM-dd'),
@@ -376,7 +380,7 @@ export default function MobileMyExpenses() {
   // 选择照片文件
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-  // 选择照片
+  // 选择照片（从相册）
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
@@ -389,23 +393,203 @@ export default function MobileMyExpenses() {
       });
     }
 
-    setSelectedFiles(prev => [...prev, ...imageFiles]);
+    if (imageFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...imageFiles]);
+    }
+    
+    // ✅ 重置 input，允许重复选择同一文件
+    event.target.value = '';
   };
 
-  // 拍照上传
-  const handleCameraCapture = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment'; // 优先使用后置摄像头
-    input.multiple = true;
-    input.onchange = (e) => {
-      const files = Array.from((e.target as HTMLInputElement).files || []);
-      if (files.length > 0) {
-        setSelectedFiles(prev => [...prev, ...files]);
+  // ✅ 拍照上传（修复：使用隐藏的 input 元素）
+  const handleCameraCapture = (event: React.MouseEvent) => {
+    // 阻止事件冒泡，防止触发其他操作
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // 触发隐藏的拍照 input
+    const cameraInput = document.getElementById('camera-file-input') as HTMLInputElement;
+    if (cameraInput) {
+      cameraInput.click();
+    }
+  };
+
+  // ✅ 处理拍照返回的文件
+  const handleCameraFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...imageFiles]);
+      toast({
+        title: "拍照成功",
+        description: `已添加 ${imageFiles.length} 张照片`,
+      });
+    }
+    
+    // ✅ 重置 input，允许重复拍照
+    event.target.value = '';
+  };
+
+  // ✅ 补充图片：选择照片（从相册）
+  const handleAdditionalFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length !== files.length) {
+      toast({
+        title: "提示",
+        description: "只能上传图片文件",
+        variant: "destructive",
+      });
+    }
+
+    if (imageFiles.length > 0) {
+      setAdditionalFiles(prev => [...prev, ...imageFiles]);
+    }
+    
+    event.target.value = '';
+  };
+
+  // ✅ 补充图片：拍照
+  const handleAdditionalCameraCapture = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const cameraInput = document.getElementById('additional-camera-input') as HTMLInputElement;
+    if (cameraInput) {
+      cameraInput.click();
+    }
+  };
+
+  // ✅ 补充图片：处理拍照返回的文件
+  const handleAdditionalCameraFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length > 0) {
+      setAdditionalFiles(prev => [...prev, ...imageFiles]);
+      toast({
+        title: "拍照成功",
+        description: `已添加 ${imageFiles.length} 张照片`,
+      });
+    }
+    
+    event.target.value = '';
+  };
+
+  // ✅ 删除补充图片
+  const removeAdditionalFile = (index: number) => {
+    setAdditionalFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // ✅ 上传补充图片到七牛云
+  const uploadAdditionalFilesToQiniu = async (): Promise<string[]> => {
+    if (additionalFiles.length === 0) return [];
+
+    const filesToUpload = additionalFiles.map(file => ({
+      fileName: file.name,
+      fileData: ''
+    }));
+
+    // 读取文件为 base64
+    for (let i = 0; i < additionalFiles.length; i++) {
+      const file = additionalFiles[i];
+      const reader = new FileReader();
+      await new Promise((resolve) => {
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          filesToUpload[i].fileData = base64.split(',')[1];
+          resolve(null);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // 调用七牛云上传
+    const { data, error } = await supabase.functions.invoke('qiniu-upload', {
+      body: {
+        files: filesToUpload,
+        namingParams: {
+          projectName: 'feiyong',
+          customName: `${profile?.full_name || '司机'}-${format(new Date(), 'yyyyMMdd-HHmmss')}`
+        }
       }
-    };
-    input.click();
+    });
+
+    if (error) throw error;
+    if (!data.success) throw new Error(data.error || '上传失败');
+
+    return data.urls;
+  };
+
+  // ✅ 提交补充图片
+  const handleAddAdditionalPhotos = async () => {
+    if (!selectedApp || additionalFiles.length === 0) return;
+
+    setUploadingAdditional(true);
+    try {
+      // 先上传照片到七牛云
+      const photoUrls = await uploadAdditionalFilesToQiniu();
+      
+      if (photoUrls.length === 0) {
+        toast({
+          title: '提示',
+          description: '没有可上传的照片',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // 调用 RPC 函数追加图片
+      const { data, error } = await supabase.rpc('add_expense_application_photos', {
+        p_application_id: selectedApp.id,
+        p_additional_photos: photoUrls
+      });
+
+      if (error) throw error;
+      
+      if (!data.success) {
+        toast({
+          title: '添加失败',
+          description: data.message || '无法添加图片',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      toast({
+        title: '添加成功',
+        description: `已成功添加 ${photoUrls.length} 张图片`
+      });
+
+      // 清空已选文件
+      setAdditionalFiles([]);
+      
+      // 刷新申请列表和详情
+      loadApplications();
+      
+      // 更新当前选中的申请（追加新图片）
+      if (selectedApp) {
+        const updatedPhotos = [
+          ...(Array.isArray(selectedApp.receipt_photos) ? selectedApp.receipt_photos : []),
+          ...photoUrls
+        ];
+        setSelectedApp({
+          ...selectedApp,
+          receipt_photos: updatedPhotos
+        });
+      }
+    } catch (error: any) {
+      console.error('添加图片失败:', error);
+      toast({
+        title: '添加失败',
+        description: error.message || '请稍后重试',
+        variant: 'destructive'
+      });
+    } finally {
+      setUploadingAdditional(false);
+    }
   };
 
   // 删除照片
@@ -905,14 +1089,25 @@ export default function MobileMyExpenses() {
                   </Button>
                 </div>
                 
-                {/* 隐藏的文件输入 */}
+                {/* 隐藏的文件输入 - 相册选择 */}
                 <input
                   id="photo-file-input"
-                    type="file"
-                    accept="image/*"
+                  type="file"
+                  accept="image/*"
                   multiple
                   className="hidden"
                   onChange={handleFileSelect}
+                />
+                
+                {/* ✅ 隐藏的文件输入 - 拍照（单独处理） */}
+                <input
+                  id="camera-file-input"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  multiple
+                  className="hidden"
+                  onChange={handleCameraFileSelect}
                 />
                 
                 {/* 照片预览网格 */}
@@ -1009,25 +1204,145 @@ export default function MobileMyExpenses() {
                     )}
                   </div>
                   
+                  {/* 现有凭证照片 */}
                   {selectedApp.receipt_photos.length > 0 && (
                     <div>
-                      <div className="text-sm text-muted-foreground mb-2">凭证照片</div>
+                      <div className="text-sm text-muted-foreground mb-2">凭证照片 ({selectedApp.receipt_photos.length} 张)</div>
                       <div className="grid grid-cols-3 gap-2">
                         {selectedApp.receipt_photos.map((url, index) => (
-                          <img
-                            key={index}
-                            src={url}
-                            alt={`凭证${index + 1}`}
-                            className="w-full h-20 object-cover rounded border"
-                          />
+                          <div key={index} className="relative aspect-square">
+                            <img
+                              src={url}
+                              alt={`凭证${index + 1}`}
+                              className="w-full h-full object-cover rounded border"
+                            />
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-colors rounded"
+                              title="点击查看大图"
+                            >
+                              <ImageIcon className="h-4 w-4 text-white opacity-0 hover:opacity-100" />
+                            </a>
+                          </div>
                         ))}
                       </div>
                     </div>
                   )}
+
+                  {/* ✅ 补充图片功能 */}
+                  <div className="border-t pt-4">
+                    <div className="text-sm font-medium mb-3">补充图片</div>
+                    
+                    {/* 上传按钮区域 */}
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-20 flex flex-col gap-2"
+                        onClick={handleAdditionalCameraCapture}
+                        disabled={uploadingAdditional}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <Camera className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <span className="text-xs">拍照</span>
+                      </Button>
+                      
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-20 flex flex-col gap-2"
+                        onClick={() => document.getElementById('additional-photo-input')?.click()}
+                        disabled={uploadingAdditional}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <ImagePlus className="h-5 w-5 text-green-600" />
+                        </div>
+                        <span className="text-xs">相册</span>
+                      </Button>
+                    </div>
+
+                    {/* 隐藏的文件输入 - 补充图片 */}
+                    <input
+                      id="additional-photo-input"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleAdditionalFileSelect}
+                    />
+                    
+                    <input
+                      id="additional-camera-input"
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      multiple
+                      className="hidden"
+                      onChange={handleAdditionalCameraFileSelect}
+                    />
+
+                    {/* 补充图片预览 */}
+                    {additionalFiles.length > 0 && (
+                      <div className="mb-3">
+                        <div className="text-xs text-muted-foreground mb-2">
+                          待上传 ({additionalFiles.length} 张)
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {additionalFiles.map((file, index) => (
+                            <div key={index} className="relative aspect-square">
+                              <img 
+                                src={URL.createObjectURL(file)} 
+                                alt={`补充照片${index + 1}`} 
+                                className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
+                              />
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="destructive"
+                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg"
+                                onClick={() => removeAdditionalFile(index)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 上传状态提示 */}
+                    {uploadingAdditional && (
+                      <div className="flex items-center justify-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg mb-3">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        正在上传照片到云端...
+                      </div>
+                    )}
+
+                    {/* 提交补充图片按钮 */}
+                    {additionalFiles.length > 0 && !uploadingAdditional && (
+                      <Button
+                        onClick={handleAddAdditionalPhotos}
+                        className="w-full"
+                        size="sm"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        上传 {additionalFiles.length} 张图片
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowDetailDialog(false);
+                      setAdditionalFiles([]);  // 关闭时清空补充图片
+                    }}
+                  >
                     关闭
                   </Button>
                 </DialogFooter>
