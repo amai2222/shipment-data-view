@@ -36,9 +36,13 @@ export default defineConfig(({ mode }) => ({
     // 确保资源目录正确配置
     assetsDir: 'assets', // 资源文件输出到 dist/assets/
     outDir: 'dist',      // 构建输出目录
+    // 确保 base 路径正确（相对路径，适配 Cloudflare Pages）
+    base: '/',
     // 优化代码分割
     rollupOptions: {
       output: {
+        // 确保使用 ES 模块格式，避免 CommonJS 问题
+        format: 'es',
         // 确保 chunk 文件名格式一致，避免部署时文件名不匹配
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
@@ -65,5 +69,7 @@ export default defineConfig(({ mode }) => ({
     },
     // 提高 chunk 大小警告阈值
     chunkSizeWarningLimit: 1000,
+    // 确保源映射正确（生产环境关闭以减小体积）
+    sourcemap: false,
   },
 }));
