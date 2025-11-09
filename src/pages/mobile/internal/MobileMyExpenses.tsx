@@ -49,7 +49,8 @@ import {
   Camera,
   ImagePlus,
   X,
-  MapPin
+  MapPin,
+  Calculator
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -102,6 +103,8 @@ export default function MobileMyExpenses() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [selectedApp, setSelectedApp] = useState<ExpenseApplication | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [expenseBalance, setExpenseBalance] = useState<number>(0);  // ✅ 费用余额
+  const [primaryLicensePlate, setPrimaryLicensePlate] = useState<string | null>(null);  // ✅ 主车牌号
   
   // ✅ 补充图片相关状态
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
@@ -145,6 +148,37 @@ export default function MobileMyExpenses() {
       console.error('加载派单失败:', error);
       // 不显示错误提示，避免干扰用户体验
       setPendingDispatchCount(0);
+    }
+  }, []);
+
+  // ✅ 加载费用余额
+  const loadExpenseBalance = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_driver_expense_balance');
+      if (error) throw error;
+      if (data && data.success) {
+        setExpenseBalance(data.balance || 0);
+      }
+    } catch (error: any) {
+      console.error('加载余额失败:', error);
+    }
+  }, []);
+
+  // ✅ 加载主车牌号
+  const loadPrimaryLicensePlate = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_my_vehicles');
+      if (error) throw error;
+      // 查找主车辆（is_primary = true）
+      const primaryVehicle = (data || []).find((v: any) => v.is_primary === true);
+      if (primaryVehicle) {
+        setPrimaryLicensePlate(primaryVehicle.license_plate);
+      } else if (data && data.length > 0) {
+        // 如果没有主车辆，使用第一辆车
+        setPrimaryLicensePlate(data[0].license_plate);
+      }
+    } catch (error: any) {
+      console.error('加载车牌号失败:', error);
     }
   }, []);
 
@@ -210,6 +244,8 @@ export default function MobileMyExpenses() {
       loadApplications();
       loadMyVehicles();
       loadPendingDispatches();
+      loadExpenseBalance();
+      loadPrimaryLicensePlate();
       
       // ✅ 预加载常用页面，避免首次点击时出现"刷新"
       setTimeout(() => {
@@ -704,9 +740,17 @@ export default function MobileMyExpenses() {
                 <User className="h-6 w-6" />
                   </div>
                   <div>
-                <div className="font-bold text-lg">{profile?.full_name || '司机'}</div>
+                <div className="font-bold text-lg">
+                  {profile?.full_name || '司机'}
+                  {primaryLicensePlate && (
+                    <span className="ml-2 text-sm font-normal">({primaryLicensePlate})</span>
+                  )}
+                </div>
                 <div className="text-xs text-blue-100">
                   {format(new Date(), 'MM月dd日 EEEE', { locale: zhCN })}
+                  <span className="ml-2">
+                    余额: ¥{expenseBalance.toFixed(2)}
+                  </span>
                   </div>
                 </div>
                 </div>
@@ -717,6 +761,8 @@ export default function MobileMyExpenses() {
               onClick={() => {
                 loadApplications();
                 loadPendingDispatches();
+                loadExpenseBalance();
+                loadPrimaryLicensePlate();
                 toast({ title: '已刷新' });
               }}
             >
@@ -803,7 +849,7 @@ export default function MobileMyExpenses() {
             <CardTitle className="text-base">我的服务</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-5 gap-3">
               {/* 我的行程 */}
               <div 
                 className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
@@ -846,6 +892,17 @@ export default function MobileMyExpenses() {
                   <DollarSign className="h-6 w-6 text-green-600" />
                 </div>
                 <span className="text-xs text-center">我的收入</span>
+              </div>
+
+              {/* 费用冲销 */}
+              <div 
+                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/m/internal/expense-writeoff')}
+              >
+                <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Calculator className="h-6 w-6 text-orange-600" />
+                </div>
+                <span className="text-xs text-center">费用冲销</span>
               </div>
             </div>
           </CardContent>
