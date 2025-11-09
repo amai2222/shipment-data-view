@@ -1,7 +1,7 @@
 // 移动端 - 我的费用申请（司机端）
 // 司机登录后的默认首页
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -100,6 +100,7 @@ export default function MobileMyExpenses() {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [selectedApp, setSelectedApp] = useState<ExpenseApplication | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
   // 新申请表单
   const [formData, setFormData] = useState({
@@ -111,79 +112,184 @@ export default function MobileMyExpenses() {
   });
   
   const [uploading, setUploading] = useState(false);
+  const isInitialLoad = useRef(true);  // ✅ 跟踪是否是首次加载
 
-  useEffect(() => {
-    loadApplications();
-    loadMyVehicles();
-    loadPendingDispatches();
-    
-    // ✅ 预加载常用页面，避免首次点击时出现"刷新"
-    setTimeout(() => {
-      import('./MobileMyDispatches');    // 我的派单（优先）
-      import('./MobileMyWaybills');      // 行程记录
-      import('./MobileDriverSalary');    // 我的收入
-      import('./MobileSalaryRecords');   // 收支明细
-      import('./MobileQuickEntry');      // 快速录单
-      import('./MobileMyVehicles');      // 我的车辆
-    }, 1000); // 页面加载1秒后开始预加载
-    
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // ✅ 用 useCallback 包装加载函数，避免依赖变化导致重复订阅
+  // 加载我的车辆
+  const loadMyVehicles = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_my_vehicles');
+      if (error) throw error;
+      setMyVehicles(data || []);
+    } catch (error: any) {
+      console.error('加载车辆失败:', error);
+      // 不显示错误提示，避免干扰用户体验
+    }
   }, []);
 
-  // ✅ 添加实时订阅 - 监听费用申请表的变化
-  const handleRealtimeUpdate = useCallback((payload: any) => {
-    console.log('📢 费用申请数据变更:', payload);
-    
-    // 当有数据变更时，重新加载列表
-    if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-      console.log('🔄 正在刷新费用申请列表...');
+  // ✅ 加载待接单的派单数量
+  const loadPendingDispatches = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_my_dispatch_orders', {
+        p_status: 'pending'
+      });
       
-      // 延迟一点刷新，确保数据已提交
-      setTimeout(() => {
-        loadApplications();
-        loadPendingDispatches();  // 同时刷新派单数量
-      }, 500);
+      if (error) throw error;
+      setPendingDispatchCount(data?.length || 0);
+    } catch (error: any) {
+      console.error('加载派单失败:', error);
+      // 不显示错误提示，避免干扰用户体验
+      setPendingDispatchCount(0);
+    }
+  }, []);
+
+  // ✅ 加载费用申请列表
+  const loadApplications = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const wasInitialLoad = isInitialLoad.current;
+    try {
+      // ✅ 使用实际的数据库查询
+      const { data: driverInfo, error: driverError } = await supabase.rpc('get_my_driver_info');
       
-      // 如果是审核状态变更，显示提示
-      if (payload.eventType === 'UPDATE' && payload.new?.status !== payload.old?.status) {
-        const newStatus = payload.new?.status;
-        console.log('✅ 状态变更:', payload.old?.status, '→', newStatus);
-        
-        if (newStatus === 'approved') {
+      if (driverError) throw driverError;
+      
+      if (!driverInfo || driverInfo.length === 0) {
+        setApplications([]);
+        setError('未找到司机档案信息');
+        if (wasInitialLoad) {
           toast({
-            title: '审核通过 ✅',
-            description: `费用申请 ${payload.new?.application_number} 已通过审核`,
-          });
-        } else if (newStatus === 'rejected') {
-          toast({
-            title: '审核未通过 ❌',
-            description: `费用申请 ${payload.new?.application_number} 已被驳回`,
+            title: '提示',
+            description: '未找到司机档案信息',
             variant: 'destructive'
           });
         }
+        return;
       }
+
+      const driverId = driverInfo[0].driver_id;  // ✅ 修复：使用正确的字段名
+
+      const { data, error } = await supabase
+        .from('internal_driver_expense_applications')
+        .select('*')
+        .eq('driver_id', driverId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      setApplications(data || []);
+      setError(null);
+      isInitialLoad.current = false;  // ✅ 标记首次加载完成
+    } catch (error: any) {
+      console.error('加载失败:', error);
+      setError(error.message || '无法加载费用申请记录');
+      setApplications([]);
+      // 只在首次加载失败时显示错误提示
+      if (wasInitialLoad) {
+        toast({
+          title: '加载失败',
+          description: error.message || '无法加载费用申请记录',
+          variant: 'destructive'
+        });
+      }
+      isInitialLoad.current = false;
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  // ✅ 初始化加载
+  useEffect(() => {
+    // 使用 try-catch 包裹，防止初始化失败导致组件崩溃
+    try {
+      loadApplications();
+      loadMyVehicles();
+      loadPendingDispatches();
+      
+      // ✅ 预加载常用页面，避免首次点击时出现"刷新"
+      setTimeout(() => {
+        Promise.all([
+          import('./MobileMyDispatches').catch(() => null),
+          import('./MobileMyWaybills').catch(() => null),
+          import('./MobileDriverSalary').catch(() => null),
+          import('./MobileSalaryRecords').catch(() => null),
+          import('./MobileQuickEntry').catch(() => null),
+          import('./MobileMyVehicles').catch(() => null)
+        ]).catch(() => {
+          // 预加载失败不影响主功能
+          console.warn('部分页面预加载失败，不影响使用');
+        });
+      }, 1000);
+    } catch (error: any) {
+      console.error('页面初始化失败:', error);
+      setError(error.message || '页面初始化失败');
+    }
+  }, [loadApplications, loadMyVehicles, loadPendingDispatches]);
+
+  // ✅ 添加实时订阅 - 监听费用申请表的变化
+  const handleRealtimeUpdate = useCallback((payload: any) => {
+    try {
+      console.log('📢 费用申请数据变更:', payload);
+      
+      // 当有数据变更时，重新加载列表
+      if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+        console.log('🔄 正在刷新费用申请列表...');
+        
+        // 延迟一点刷新，确保数据已提交
+        setTimeout(() => {
+          loadApplications();
+          loadPendingDispatches();  // 同时刷新派单数量
+        }, 500);
+        
+        // 如果是审核状态变更，显示提示
+        if (payload.eventType === 'UPDATE' && payload.new?.status !== payload.old?.status) {
+          const newStatus = payload.new?.status;
+          console.log('✅ 状态变更:', payload.old?.status, '→', newStatus);
+          
+          if (newStatus === 'approved') {
+            toast({
+              title: '审核通过 ✅',
+              description: `费用申请 ${payload.new?.application_number || ''} 已通过审核`,
+            });
+          } else if (newStatus === 'rejected') {
+            toast({
+              title: '审核未通过 ❌',
+              description: `费用申请 ${payload.new?.application_number || ''} 已被驳回`,
+              variant: 'destructive'
+            });
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('处理实时更新失败:', error);
+      // 不抛出错误，避免影响其他功能
     }
   }, [toast, loadApplications, loadPendingDispatches]);
 
   // ✅ 订阅派单通知
   const handleDispatchUpdate = useCallback((payload: any) => {
-    console.log('📢 派单数据变更:', payload);
-    
-    // 新派单通知
-    if (payload.eventType === 'INSERT' && payload.new?.status === 'pending') {
-      console.log('🔔 收到新派单!');
-      toast({
-        title: '新派单通知 🔔',
-        description: `收到新的派单：${payload.new?.order_number || ''}`,
-        duration: 10000,  // 显示10秒
-      });
-      loadPendingDispatches();
-    }
-    
-    // 派单状态变更
-    if (payload.eventType === 'UPDATE') {
-      console.log('🔄 派单状态变更，刷新数量');
-      loadPendingDispatches();
+    try {
+      console.log('📢 派单数据变更:', payload);
+      
+      // 新派单通知
+      if (payload.eventType === 'INSERT' && payload.new?.status === 'pending') {
+        console.log('🔔 收到新派单!');
+        toast({
+          title: '新派单通知 🔔',
+          description: `收到新的派单：${payload.new?.order_number || ''}`,
+          duration: 10000,  // 显示10秒
+        });
+        loadPendingDispatches();
+      }
+      
+      // 派单状态变更
+      if (payload.eventType === 'UPDATE') {
+        console.log('🔄 派单状态变更，刷新数量');
+        loadPendingDispatches();
+      }
+    } catch (error: any) {
+      console.error('处理派单更新失败:', error);
+      // 不抛出错误，避免影响其他功能
     }
   }, [toast, loadPendingDispatches]);
 
@@ -200,74 +306,6 @@ export default function MobileMyExpenses() {
     handleDispatchUpdate,
     true  // 启用实时订阅
   );
-
-  // 加载我的车辆
-  const loadMyVehicles = async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_my_vehicles');
-      if (error) throw error;
-      setMyVehicles(data || []);
-    } catch (error) {
-      console.error('加载车辆失败:', error);
-    }
-  };
-
-  // ✅ 加载待接单的派单数量
-  const loadPendingDispatches = async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_my_dispatch_orders', {
-        p_status: 'pending'
-      });
-      
-      if (error) throw error;
-      setPendingDispatchCount(data?.length || 0);
-    } catch (error) {
-      console.error('加载派单失败:', error);
-    }
-  };
-
-  // 加载费用申请列表
-  const loadApplications = async () => {
-    setLoading(true);
-    try {
-      // ✅ 使用实际的数据库查询
-      const { data: driverInfo, error: driverError } = await supabase.rpc('get_my_driver_info');
-      
-      if (driverError) throw driverError;
-      
-      if (!driverInfo || driverInfo.length === 0) {
-        toast({
-          title: '提示',
-          description: '未找到司机档案信息',
-          variant: 'destructive'
-        });
-        setApplications([]);
-        return;
-      }
-
-      const driverId = driverInfo[0].driver_id;  // ✅ 修复：使用正确的字段名
-
-      const { data, error } = await supabase
-        .from('internal_driver_expense_applications')
-        .select('*')
-        .eq('driver_id', driverId)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      setApplications(data || []);
-    } catch (error) {
-      console.error('加载失败:', error);
-      toast({
-        title: '加载失败',
-        description: '无法加载费用申请记录',
-        variant: 'destructive'
-      });
-      setApplications([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // 提交费用申请
   const handleSubmit = async () => {
@@ -433,6 +471,35 @@ export default function MobileMyExpenses() {
       new Date(a.expense_date).getMonth() === new Date().getMonth()
     ).reduce((sum, a) => sum + a.amount, 0)
   };
+
+  // ✅ 如果页面初始化失败，显示错误提示
+  if (error && applications.length === 0 && !loading) {
+    return (
+      <MobileLayout title="工作台" showBack={false}>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
+          <div className="text-center space-y-4 max-w-md">
+            <div className="text-6xl">⚠️</div>
+            <h2 className="text-xl font-bold">页面加载失败</h2>
+            <p className="text-muted-foreground text-sm">
+              {error}
+            </p>
+            <Button 
+              onClick={() => {
+                setError(null);
+                loadApplications();
+                loadMyVehicles();
+                loadPendingDispatches();
+              }}
+              className="mt-4"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              重试
+            </Button>
+          </div>
+        </div>
+      </MobileLayout>
+    );
+  }
 
   return (
     <MobileLayout title="工作台" showBack={false}>

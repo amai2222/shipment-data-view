@@ -12,9 +12,23 @@
 
 1. **登录** Supabase Dashboard
 2. **进入项目** 
-3. **左侧菜单** → Database → Replication
-4. **查看表** `internal_driver_expense_applications`
+3. **左侧菜单** → Database → Publications
+4. **查看表** `internal_driver_expense_applications` 和 `dispatch_orders`
 5. **确认 Realtime 已启用**
+
+### 通过 SQL 查询验证
+
+```sql
+SELECT schemaname, tablename 
+FROM pg_publication_tables 
+WHERE pubname = 'supabase_realtime'
+AND tablename IN ('internal_driver_expense_applications', 'dispatch_orders')
+ORDER BY tablename;
+```
+
+**应该看到2条记录：**
+- ✅ `internal_driver_expense_applications` - Realtime已启用
+- ✅ `dispatch_orders` - Realtime已启用
 
 ---
 
@@ -159,5 +173,6 @@ ALTER PUBLICATION supabase_realtime ADD TABLE internal_driver_monthly_salary;
 ---
 
 **最后更新：** 2025-11-09  
-**状态：** ✅ 代码已添加调试日志
+**状态：** ✅ 两个关键表已启用 Realtime  
+**配置完成：** ✅ `internal_driver_expense_applications` 和 `dispatch_orders` 已启用实时订阅
 
