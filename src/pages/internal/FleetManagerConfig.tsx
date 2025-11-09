@@ -1157,7 +1157,11 @@ export default function FleetManagerConfig() {
                     <div
                       key={driver.id}
                       className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer"
-                      onClick={() => {
+                      onClick={(e) => {
+                        // 如果点击的是Checkbox，不处理
+                        if ((e.target as HTMLElement).closest('[role="checkbox"]')) {
+                          return;
+                        }
                         setSelectedDriverIds(prev => {
                           if (prev.includes(driver.id)) {
                             return prev.filter(id => id !== driver.id);
@@ -1167,18 +1171,24 @@ export default function FleetManagerConfig() {
                         });
                       }}
                     >
-                      <Checkbox
-                        checked={selectedDriverIds.includes(driver.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedDriverIds(prev => {
-                            if (checked) {
-                              return [...prev, driver.id];
-                            } else {
-                              return prev.filter(id => id !== driver.id);
-                            }
-                          });
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
                         }}
-                      />
+                      >
+                        <Checkbox
+                          checked={selectedDriverIds.includes(driver.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedDriverIds(prev => {
+                              if (checked) {
+                                return [...prev, driver.id];
+                              } else {
+                                return prev.filter(id => id !== driver.id);
+                              }
+                            });
+                          }}
+                        />
+                      </div>
                       <div className="flex-1">
                         <div className="font-medium">{driver.name}</div>
                         {driver.phone && (
