@@ -37,7 +37,7 @@ export function useRealtimePermissions() {
       // 加载用户数据
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
-        .select('id, full_name, email, role, is_active, work_wechat_userid, work_wechat_name, phone')
+        .select('id, full_name, email, username, role, is_active, work_wechat_userid, work_wechat_name, phone')
         .order('full_name');
 
       if (usersError) {

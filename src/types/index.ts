@@ -189,6 +189,7 @@ export interface UserWithPermissions {
   id: string;
   full_name: string;
   email: string;
+  username?: string;
   role: UserRole;
   is_active: boolean;
   permissions?: {

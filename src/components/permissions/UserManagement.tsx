@@ -646,6 +646,7 @@ export function UserManagement({
                     />
                   </TableHead>
                   <TableHead>用户信息</TableHead>
+                  <TableHead>用户名</TableHead>
                   <TableHead>角色</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead>手机号</TableHead>
@@ -675,6 +676,9 @@ export function UserManagement({
                         <div className="font-medium">{user.full_name}</div>
                         <div className="text-sm text-muted-foreground">{user.email}</div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm font-mono">{(user as any).username || '-'}</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{roleNameMap[user.role] || user.role}</Badge>
