@@ -806,7 +806,7 @@ export default function MobileMyExpenses() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="grid grid-cols-3 divide-x">
+            <div className="grid grid-cols-4 divide-x">
               <div 
                 className="p-4 text-center cursor-pointer hover:bg-blue-50 transition-colors"
                 onClick={() => navigate('/m/internal/my-dispatches')}
@@ -839,6 +839,17 @@ export default function MobileMyExpenses() {
                 <div className="font-bold text-base mb-1">费用申请</div>
                 <div className="text-xs text-muted-foreground">提交费用申请</div>
               </div>
+
+              <div 
+                className="p-4 text-center cursor-pointer hover:bg-orange-50 transition-colors"
+                onClick={() => navigate('/m/internal/expense-writeoff')}
+              >
+                <div className="w-12 h-12 mx-auto rounded-full bg-orange-100 flex items-center justify-center mb-2">
+                  <Calculator className="h-6 w-6 text-orange-600" />
+                </div>
+                <div className="font-bold text-base mb-1">费用冲销</div>
+                <div className="text-xs text-muted-foreground">费用冲销管理</div>
+              </div>
             </div>
             </CardContent>
           </Card>
@@ -849,7 +860,7 @@ export default function MobileMyExpenses() {
             <CardTitle className="text-base">我的服务</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               {/* 我的行程 */}
               <div 
                 className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
@@ -892,17 +903,6 @@ export default function MobileMyExpenses() {
                   <DollarSign className="h-6 w-6 text-green-600" />
                 </div>
                 <span className="text-xs text-center">我的收入</span>
-              </div>
-
-              {/* 费用冲销 */}
-              <div 
-                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => navigate('/m/internal/expense-writeoff')}
-              >
-                <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-                  <Calculator className="h-6 w-6 text-orange-600" />
-                </div>
-                <span className="text-xs text-center">费用冲销</span>
               </div>
             </div>
           </CardContent>
