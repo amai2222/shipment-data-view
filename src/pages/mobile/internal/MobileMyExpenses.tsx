@@ -45,7 +45,10 @@ import {
   Truck,
   RefreshCw,
   Bell,
-  ArrowRight
+  ArrowRight,
+  Camera,
+  ImagePlus,
+  X
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -272,13 +275,21 @@ export default function MobileMyExpenses() {
 
     setLoading(true);
     try {
+      // ✅ 先上传照片到七牛云
+      let photoUrls: string[] = [];
+      if (selectedFiles.length > 0) {
+        setUploading(true);
+        photoUrls = await uploadFilesToQiniu();
+        setUploading(false);
+      }
+
       // ✅ 调用 RPC 函数提交费用申请
       const { data, error } = await supabase.rpc('submit_expense_application', {
         p_expense_date: formData.expense_date,
         p_expense_type: formData.expense_type,
         p_amount: parseFloat(formData.amount),
         p_description: formData.description,
-        p_receipt_photos: formData.receipt_photos
+        p_receipt_photos: photoUrls.length > 0 ? photoUrls : null
       });
 
       if (error) throw error;
@@ -301,75 +312,100 @@ export default function MobileMyExpenses() {
         description: '',
         receipt_photos: []
       });
+      setSelectedFiles([]);  // 清空已选照片
       
       loadApplications();
-    } catch (error) {
+    } catch (error: any) {
       console.error('提交失败:', error);
       toast({
         title: '提交失败',
-        description: '请稍后重试',
+        description: error.message || '请稍后重试',
         variant: 'destructive'
       });
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
-  // 上传凭证照片
-  const handleUploadReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+  // 选择照片文件
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-    setUploading(true);
-    try {
-      const file = files[0];
-      
-      // 读取文件为 Base64
+  // 选择照片
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length !== files.length) {
+      toast({
+        title: "提示",
+        description: "只能上传图片文件",
+        variant: "destructive",
+      });
+    }
+
+    setSelectedFiles(prev => [...prev, ...imageFiles]);
+  };
+
+  // 拍照上传
+  const handleCameraCapture = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // 优先使用后置摄像头
+    input.multiple = true;
+    input.onchange = (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []);
+      if (files.length > 0) {
+        setSelectedFiles(prev => [...prev, ...files]);
+      }
+    };
+    input.click();
+  };
+
+  // 删除照片
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // 上传照片到七牛云
+  const uploadFilesToQiniu = async (): Promise<string[]> => {
+    if (selectedFiles.length === 0) return [];
+
+    const filesToUpload = selectedFiles.map(file => ({
+      fileName: file.name,
+      fileData: ''
+    }));
+
+    // 读取文件为 base64
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
       const reader = new FileReader();
-      const fileData = await new Promise<string>((resolve) => {
+      await new Promise((resolve) => {
         reader.onload = () => {
           const base64 = reader.result as string;
-          resolve(base64.split(',')[1]);
+          filesToUpload[i].fileData = base64.split(',')[1]; // 去掉前缀
+          resolve(null);
         };
         reader.readAsDataURL(file);
       });
-
-      // 上传到七牛云
-      const { data, error } = await supabase.functions.invoke('qiniu-upload', {
-        body: {
-          files: [{
-            fileName: file.name,
-            fileData: fileData
-          }],
-          namingParams: {
-            projectName: 'expense',
-            customName: `费用凭证-${profile?.full_name}-${Date.now()}.${file.name.split('.').pop()}`
-          }
-        }
-      });
-
-      if (error) throw error;
-      if (!data.success) throw new Error('上传失败');
-
-      setFormData(prev => ({
-        ...prev,
-        receipt_photos: [...prev.receipt_photos, ...data.urls]
-      }));
-
-      toast({
-        title: '上传成功',
-        description: '凭证照片已上传'
-      });
-    } catch (error) {
-      console.error('上传失败:', error);
-      toast({
-        title: '上传失败',
-        description: '请重试',
-        variant: 'destructive'
-      });
-    } finally {
-      setUploading(false);
     }
+
+    // ✅ 调用七牛云上传，存储到 /feiyong 目录
+    const { data, error } = await supabase.functions.invoke('qiniu-upload', {
+      body: { 
+        files: filesToUpload,
+        namingParams: {
+          projectName: 'feiyong',  // ✅ 费用目录
+          customName: `${profile?.full_name || '司机'}-${format(new Date(), 'yyyyMMdd')}`
+        }
+      }
+    });
+
+    if (error) throw error;
+    if (!data.success) throw new Error(data.error || '上传失败');
+
+    return data.urls;
   };
 
   // 获取费用类型配置
@@ -812,27 +848,77 @@ export default function MobileMyExpenses() {
               </div>
               
               <div className="grid gap-2">
-                <Label>凭证照片</Label>
-                <div className="space-y-2">
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleUploadReceipt}
+                <Label>凭证照片（可选）</Label>
+                
+                {/* 上传按钮区域 - 符合主流APP设计 */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-24 flex flex-col gap-2"
+                    onClick={handleCameraCapture}
                     disabled={uploading}
-                  />
-                  {uploading && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      上传中...
+                  >
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                      <Camera className="h-6 w-6 text-blue-600" />
                     </div>
-                  )}
-                  {formData.receipt_photos.length > 0 && (
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                      <CheckCircle className="h-4 w-4" />
-                      已上传 {formData.receipt_photos.length} 张照片
+                    <span className="text-sm">拍照</span>
+                  </Button>
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-24 flex flex-col gap-2"
+                    onClick={() => document.getElementById('photo-file-input')?.click()}
+                    disabled={uploading}
+                  >
+                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                      <ImagePlus className="h-6 w-6 text-green-600" />
                     </div>
-                  )}
+                    <span className="text-sm">相册</span>
+                  </Button>
                 </div>
+                
+                {/* 隐藏的文件输入 */}
+                <input
+                  id="photo-file-input"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                
+                {/* 照片预览网格 */}
+                {selectedFiles.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="relative aspect-square">
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt={`照片${index + 1}`} 
+                          className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="destructive"
+                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg"
+                          onClick={() => removeSelectedFile(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {uploading && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    正在上传照片到云端...
+                  </div>
+                )}
               </div>
             </div>
             
