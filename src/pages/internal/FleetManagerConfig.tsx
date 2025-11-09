@@ -264,7 +264,7 @@ export default function FleetManagerConfig() {
           to_location: r.unloading_location,
           distance: null,
           estimated_time: null,
-          notes: null,
+          notes: r.notes || null,
           use_count: r.use_count || 0
         })));
       }
@@ -349,7 +349,9 @@ export default function FleetManagerConfig() {
         p_route_name: routeName,
         p_project_id: null,
         p_loading_location_id: newRoute.fromLocationId,
-        p_unloading_location_id: newRoute.toLocationId
+        p_unloading_location_id: newRoute.toLocationId,
+        p_notes: newRoute.notes || null,
+        p_fleet_manager_id: selectedFleetManagerId  // 传递选择的车队长ID
       });
 
       if (error) throw error;
@@ -361,10 +363,35 @@ export default function FleetManagerConfig() {
 
       toast({ title: '添加成功', description: `线路 ${routeName} 已添加` });
       setNewRoute({ fromLocationId: '', toLocationId: '', distance: '', time: '', notes: '' });
-      loadData();
+      
+      // 强制刷新线路列表（确保 activeTab 是 'routes' 时才会加载）
+      if (activeTab === 'routes') {
+        await loadData();
+      } else {
+        // 如果不在 routes 标签页，切换到 routes 标签页并加载数据
+        setActiveTab('routes');
+        // 使用 setTimeout 确保标签页切换后再加载
+        setTimeout(() => {
+          loadData();
+        }, 100);
+      }
 
     } catch (error: any) {
-      toast({ title: '添加失败', description: error.message, variant: 'destructive' });
+      console.error('❌ 添加线路失败:', error);
+      console.error('错误详情:', {
+        routeName,
+        fromLocationId: newRoute.fromLocationId,
+        toLocationId: newRoute.toLocationId,
+        selectedFleetManagerId,
+        error: error.message,
+        errorCode: error.code,
+        errorDetails: error.details
+      });
+      toast({ 
+        title: '添加失败', 
+        description: error.message || '请检查控制台查看详细错误信息', 
+        variant: 'destructive' 
+      });
     } finally {
       setAddingRoute(false);
     }
@@ -637,74 +664,86 @@ export default function FleetManagerConfig() {
                   <CardTitle>添加常跑线路</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-5 gap-4">
-                    <div>
-                      <Label>起点</Label>
-                      <Select
-                        value={newRoute.fromLocationId}
-                        onValueChange={(value) => setNewRoute(prev => ({...prev, fromLocationId: value}))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="选择起点" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {locations.length === 0 ? (
-                            <SelectItem value="no-locations" disabled>暂无地点，请先在"常用地点"中添加</SelectItem>
-                          ) : (
-                            locations.map(location => (
-                              <SelectItem key={location.id} value={location.id}>
-                                {location.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-4 gap-4">
+                      <div>
+                        <Label>起点</Label>
+                        <Select
+                          value={newRoute.fromLocationId}
+                          onValueChange={(value) => setNewRoute(prev => ({...prev, fromLocationId: value}))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="选择起点" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {locations.length === 0 ? (
+                              <SelectItem value="no-locations" disabled>暂无地点，请先在"常用地点"中添加</SelectItem>
+                            ) : (
+                              locations.map(location => (
+                                <SelectItem key={location.id} value={location.id}>
+                                  {location.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>终点</Label>
+                        <Select
+                          value={newRoute.toLocationId}
+                          onValueChange={(value) => setNewRoute(prev => ({...prev, toLocationId: value}))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="选择终点" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {locations.length === 0 ? (
+                              <SelectItem value="no-locations" disabled>暂无地点，请先在"常用地点"中添加</SelectItem>
+                            ) : (
+                              locations.map(location => (
+                                <SelectItem key={location.id} value={location.id}>
+                                  {location.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>距离(公里)</Label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={newRoute.distance}
+                          onChange={e => setNewRoute(prev => ({...prev, distance: e.target.value}))}
+                        />
+                      </div>
+                      <div>
+                        <Label>预计时长(小时)</Label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={newRoute.time}
+                          onChange={e => setNewRoute(prev => ({...prev, time: e.target.value}))}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label>终点</Label>
-                      <Select
-                        value={newRoute.toLocationId}
-                        onValueChange={(value) => setNewRoute(prev => ({...prev, toLocationId: value}))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="选择终点" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {locations.length === 0 ? (
-                            <SelectItem value="no-locations" disabled>暂无地点，请先在"常用地点"中添加</SelectItem>
-                          ) : (
-                            locations.map(location => (
-                              <SelectItem key={location.id} value={location.id}>
-                                {location.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>距离(公里)</Label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={newRoute.distance}
-                        onChange={e => setNewRoute(prev => ({...prev, distance: e.target.value}))}
-                      />
-                    </div>
-                    <div>
-                      <Label>预计时长(小时)</Label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={newRoute.time}
-                        onChange={e => setNewRoute(prev => ({...prev, time: e.target.value}))}
-                      />
-                    </div>
-                    <div className="flex items-end">
-                      <Button onClick={handleAddRoute} disabled={addingRoute || !selectedFleetManagerId}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        添加
-                      </Button>
+                    <div className="grid grid-cols-5 gap-4">
+                      <div className="col-span-4">
+                        <Label>备注</Label>
+                        <Input
+                          placeholder="输入备注信息（可选）"
+                          value={newRoute.notes}
+                          onChange={e => setNewRoute(prev => ({...prev, notes: e.target.value}))}
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <Button onClick={handleAddRoute} disabled={addingRoute || !selectedFleetManagerId} className="w-full">
+                          <Plus className="h-4 w-4 mr-2" />
+                          添加
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -729,6 +768,7 @@ export default function FleetManagerConfig() {
                             <TableHead>线路名称</TableHead>
                             <TableHead>起点</TableHead>
                             <TableHead>终点</TableHead>
+                            <TableHead>备注</TableHead>
                             <TableHead className="text-center">使用次数</TableHead>
                             <TableHead className="text-center">操作</TableHead>
                           </TableRow>
@@ -739,6 +779,7 @@ export default function FleetManagerConfig() {
                               <TableCell className="font-semibold">{route.route_name}</TableCell>
                               <TableCell>{route.from_location}</TableCell>
                               <TableCell>{route.to_location}</TableCell>
+                              <TableCell className="text-sm text-muted-foreground">{route.notes || '-'}</TableCell>
                               <TableCell className="text-center">{route.use_count}</TableCell>
                               <TableCell className="text-center">
                                 <Button

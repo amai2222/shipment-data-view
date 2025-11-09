@@ -389,7 +389,13 @@ export default function MobileQuickEntry() {
   // 加载常用线路
   const loadFavoriteRoutes = async () => {
     try {
-      if (!fleetManagerId) return;
+      if (!fleetManagerId) {
+        console.log('⚠️ 没有车队长ID，无法加载常用线路');
+        setFavoriteRoutes([]);
+        return;
+      }
+
+      console.log('🔍 开始加载常用线路，车队长ID:', fleetManagerId);
 
       const { data, error } = await supabase
         .from('fleet_manager_favorite_routes')
@@ -413,14 +419,27 @@ export default function MobileQuickEntry() {
         .order('use_count', { ascending: false })
         .order('last_used_at', { ascending: false, nullsFirst: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ 查询常用线路失败:', error);
+        throw error;
+      }
+
+      console.log('✅ 加载到常用线路:', data?.length || 0, '条');
+      if (data && data.length > 0) {
+        console.log('📋 常用线路详情:', data);
+      } else {
+        console.log('⚠️ 没有找到常用线路，可能原因：');
+        console.log('  1. 车队长ID:', fleetManagerId);
+        console.log('  2. 检查 fleet_manager_favorite_routes 表中是否有该车队长的数据');
+        console.log('  3. 检查数据中的 project_id 是否为 null');
+      }
 
       setFavoriteRoutes(data || []);
     } catch (error) {
-      console.error('加载常用线路失败:', error);
+      console.error('❌ 加载常用线路失败:', error);
       toast({
         title: '加载失败',
-        description: '无法加载常用线路',
+        description: '无法加载常用线路，请检查控制台',
         variant: 'destructive'
       });
     }
@@ -640,9 +659,13 @@ export default function MobileQuickEntry() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="new" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="new">新增运单</TabsTrigger>
-                <TabsTrigger value="favorite">常用运单</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-muted">
+                <TabsTrigger value="new" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  新增运单
+                </TabsTrigger>
+                <TabsTrigger value="favorite" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  常用运单
+                </TabsTrigger>
               </TabsList>
 
               {/* 新增运单标签页 */}
