@@ -168,7 +168,7 @@ export default function MobileFleetDashboard() {
   };
 
   return (
-    <MobileLayout>
+    <MobileLayout showBack={false}>
       <div className="space-y-4 pb-20">
         {/* 欢迎卡片（带头像） */}
         <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">

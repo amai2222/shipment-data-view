@@ -428,7 +428,7 @@ export default function MobileMyExpenses() {
   };
 
   return (
-    <MobileLayout title="工作台">
+    <MobileLayout title="工作台" showBack={false}>
       <div className="space-y-3 pb-20">
         {/* 顶部状态栏 - 类似货拉拉 */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-500 -mx-4 -mt-4 px-4 py-4 text-white">
