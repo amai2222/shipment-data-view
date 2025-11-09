@@ -134,19 +134,30 @@ export default function MobileQuickEntry() {
       // 获取司机档案
       const { data: driverData } = await supabase.rpc('get_my_driver_info');
       if (driverData && driverData.length > 0) {
-        setDriverInfo(driverData[0]);
-        // 获取司机ID
-        const currentDriverId = driverData[0].id;
+        const driver = driverData[0];
+        setDriverInfo(driver);
+        
+        // 获取司机ID（优先使用id，如果没有则使用driver_id）
+        const currentDriverId = driver.id || driver.driver_id;
         if (currentDriverId) {
+          console.log('✅ 获取到司机ID:', currentDriverId);
           setDriverId(currentDriverId);
+        } else {
+          console.error('❌ 无法获取司机ID，数据:', driver);
         }
+        
         // 获取车队长的ID
-        const managerId = driverData[0].fleet_manager_id;
+        const managerId = driver.fleet_manager_id;
         if (managerId) {
+          console.log('✅ 获取到车队长ID:', managerId);
           setFleetManagerId(managerId);
           // 立即加载项目
           loadMyRoutes(managerId);
+        } else {
+          console.warn('⚠️ 司机未分配车队长，数据:', driver);
         }
+      } else {
+        console.error('❌ 未获取到司机数据');
       }
       
       // 获取主车
@@ -445,6 +456,7 @@ export default function MobileQuickEntry() {
       console.log('📋 分配给当前司机的线路ID:', routeIds);
 
       // 2. 查询这些线路的详细信息
+      // 注意：由于RLS策略，司机只能查看分配给自己的线路，所以不需要再过滤fleet_manager_id
       const { data, error } = await supabase
         .from('fleet_manager_favorite_routes')
         .select(`
@@ -458,13 +470,13 @@ export default function MobileQuickEntry() {
           use_count,
           last_used_at,
           notes,
+          fleet_manager_id,
           projects:project_id (
             id,
             name
           )
         `)
         .in('id', routeIds)
-        .eq('fleet_manager_id', fleetManagerId)
         .order('use_count', { ascending: false })
         .order('last_used_at', { ascending: false, nullsFirst: false });
 

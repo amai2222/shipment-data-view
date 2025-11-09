@@ -118,7 +118,7 @@ DROP POLICY IF EXISTS "favorite_routes_insert_policy" ON fleet_manager_favorite_
 DROP POLICY IF EXISTS "favorite_routes_update_policy" ON fleet_manager_favorite_routes;
 DROP POLICY IF EXISTS "favorite_routes_delete_policy" ON fleet_manager_favorite_routes;
 
--- 创建新的RLS策略：允许管理员查看所有，车队长只能查看自己的
+-- 创建新的RLS策略：允许管理员查看所有，车队长只能查看自己的，司机只能查看分配给自己的
 CREATE POLICY "favorite_routes_select_policy"
 ON fleet_manager_favorite_routes
 FOR SELECT
@@ -131,6 +131,17 @@ USING (
     (
         EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'fleet_manager')
         AND fleet_manager_id = auth.uid()
+    )
+    OR
+    -- 司机只能查看分配给自己的线路
+    (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'driver')
+        AND EXISTS (
+            SELECT 1 FROM fleet_manager_favorite_route_drivers
+            INNER JOIN internal_drivers ON internal_drivers.id = fleet_manager_favorite_route_drivers.driver_id
+            WHERE fleet_manager_favorite_route_drivers.route_id = fleet_manager_favorite_routes.id
+            AND internal_drivers.user_id = auth.uid()
+        )
     )
 );
 
