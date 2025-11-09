@@ -85,8 +85,8 @@ export default function FleetManagerConfig() {
 
   // 新增线路表单
   const [newRoute, setNewRoute] = useState({
-    from: '',
-    to: '',
+    fromLocationId: '', // 起点地点ID
+    toLocationId: '',    // 终点地点ID
     distance: '',
     time: '',
     notes: ''
@@ -214,7 +214,43 @@ export default function FleetManagerConfig() {
       }
 
       if (activeTab === 'routes') {
-        // 从fleet_manager_favorite_routes表加载该车队长的常用线路
+        // 1. 先加载地点列表（用于下拉选择和显示）
+        const { data: managedProjects } = await supabase
+          .from('fleet_manager_projects')
+          .select('project_id')
+          .eq('fleet_manager_id', selectedFleetManagerId);
+
+        const projectIds = (managedProjects || []).map(mp => mp.project_id);
+        
+        if (projectIds.length > 0) {
+          const { data: locationProjects } = await supabase
+            .from('location_projects')
+            .select('location_id')
+            .in('project_id', projectIds);
+
+          const locationIds = [...new Set((locationProjects || []).map(lp => lp.location_id))];
+
+          if (locationIds.length > 0) {
+            const { data: locationData } = await supabase
+              .from('locations')
+              .select('*')
+              .in('id', locationIds)
+              .order('name');
+            
+            setLocations((locationData || []).map(l => ({
+              id: l.id,
+              name: l.name,
+              address: l.address,
+              is_favorite: false
+            })));
+          } else {
+            setLocations([]);
+          }
+        } else {
+          setLocations([]);
+        }
+
+        // 2. 从fleet_manager_favorite_routes表加载该车队长的常用线路
         const { data: favoriteRoutes } = await supabase
           .from('fleet_manager_favorite_routes')
           .select('*')
@@ -290,20 +326,29 @@ export default function FleetManagerConfig() {
       return;
     }
 
-    if (!newRoute.from || !newRoute.to) {
-      toast({ title: '请填写起点和终点', variant: 'destructive' });
+    if (!newRoute.fromLocationId || !newRoute.toLocationId) {
+      toast({ title: '请选择起点和终点', variant: 'destructive' });
+      return;
+    }
+
+    // 获取起点和终点的名称
+    const fromLocation = locations.find(l => l.id === newRoute.fromLocationId);
+    const toLocation = locations.find(l => l.id === newRoute.toLocationId);
+    
+    if (!fromLocation || !toLocation) {
+      toast({ title: '地点信息错误', variant: 'destructive' });
       return;
     }
 
     setAddingRoute(true);
     try {
-      const routeName = `${newRoute.from}→${newRoute.to}`;
+      const routeName = `${fromLocation.name}→${toLocation.name}`;
       
       const { data, error } = await supabase.rpc('save_favorite_route', {
         p_route_name: routeName,
         p_project_id: null,
-        p_loading_location_id: null,
-        p_unloading_location_id: null
+        p_loading_location_id: newRoute.fromLocationId,
+        p_unloading_location_id: newRoute.toLocationId
       });
 
       if (error) throw error;
@@ -314,7 +359,7 @@ export default function FleetManagerConfig() {
       }
 
       toast({ title: '添加成功', description: `线路 ${routeName} 已添加` });
-      setNewRoute({ from: '', to: '', distance: '', time: '', notes: '' });
+      setNewRoute({ fromLocationId: '', toLocationId: '', distance: '', time: '', notes: '' });
       loadData();
 
     } catch (error: any) {
@@ -594,19 +639,47 @@ export default function FleetManagerConfig() {
                   <div className="grid grid-cols-5 gap-4">
                     <div>
                       <Label>起点</Label>
-                      <Input
-                        placeholder="起点"
-                        value={newRoute.from}
-                        onChange={e => setNewRoute(prev => ({...prev, from: e.target.value}))}
-                      />
+                      <Select
+                        value={newRoute.fromLocationId}
+                        onValueChange={(value) => setNewRoute(prev => ({...prev, fromLocationId: value}))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="选择起点" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.length === 0 ? (
+                            <SelectItem value="" disabled>暂无地点，请先在"常用地点"中添加</SelectItem>
+                          ) : (
+                            locations.map(location => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {location.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label>终点</Label>
-                      <Input
-                        placeholder="终点"
-                        value={newRoute.to}
-                        onChange={e => setNewRoute(prev => ({...prev, to: e.target.value}))}
-                      />
+                      <Select
+                        value={newRoute.toLocationId}
+                        onValueChange={(value) => setNewRoute(prev => ({...prev, toLocationId: value}))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="选择终点" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.length === 0 ? (
+                            <SelectItem value="" disabled>暂无地点，请先在"常用地点"中添加</SelectItem>
+                          ) : (
+                            locations.map(location => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {location.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label>距离(公里)</Label>
