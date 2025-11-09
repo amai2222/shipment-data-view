@@ -41,7 +41,13 @@ ALTER TABLE fleet_manager_favorite_route_drivers ENABLE ROW LEVEL SECURITY;
 -- 第三步：创建RLS策略
 -- ============================================================================
 
--- 查看策略：管理员可以查看所有，车队长只能查看自己线路的分配
+-- 先删除可能存在的旧策略
+DROP POLICY IF EXISTS "route_drivers_select_policy" ON fleet_manager_favorite_route_drivers;
+DROP POLICY IF EXISTS "route_drivers_insert_policy" ON fleet_manager_favorite_route_drivers;
+DROP POLICY IF EXISTS "route_drivers_update_policy" ON fleet_manager_favorite_route_drivers;
+DROP POLICY IF EXISTS "route_drivers_delete_policy" ON fleet_manager_favorite_route_drivers;
+
+-- 查看策略：管理员可以查看所有，车队长只能查看自己线路的分配，司机只能查看分配给自己的线路
 CREATE POLICY "route_drivers_select_policy"
 ON fleet_manager_favorite_route_drivers
 FOR SELECT
@@ -57,6 +63,16 @@ USING (
             SELECT 1 FROM fleet_manager_favorite_routes
             WHERE fleet_manager_favorite_routes.id = fleet_manager_favorite_route_drivers.route_id
             AND fleet_manager_favorite_routes.fleet_manager_id = auth.uid()
+        )
+    )
+    OR
+    -- 司机只能查看分配给自己的线路
+    (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'driver')
+        AND EXISTS (
+            SELECT 1 FROM internal_drivers
+            WHERE internal_drivers.id = fleet_manager_favorite_route_drivers.driver_id
+            AND internal_drivers.user_id = auth.uid()
         )
     )
 );

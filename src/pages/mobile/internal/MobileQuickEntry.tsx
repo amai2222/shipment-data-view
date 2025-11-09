@@ -412,11 +412,31 @@ export default function MobileQuickEntry() {
 
       if (assignedError) {
         console.error('❌ 查询分配的线路失败:', assignedError);
-        throw assignedError;
+        console.error('错误详情:', {
+          code: assignedError.code,
+          message: assignedError.message,
+          details: assignedError.details,
+          hint: assignedError.hint
+        });
+        
+        // 如果是权限错误，提示用户
+        if (assignedError.code === '42501' || assignedError.message?.includes('permission')) {
+          toast({
+            title: '权限错误',
+            description: '无法查询分配的线路，请确认数据库迁移已执行',
+            variant: 'destructive'
+          });
+        }
+        
+        setFavoriteRoutes([]);
+        return;
       }
+
+      console.log('📋 查询到分配记录:', assignedRoutes?.length || 0, '条');
 
       if (!assignedRoutes || assignedRoutes.length === 0) {
         console.log('⚠️ 没有分配给当前司机的线路');
+        console.log('💡 提示：请在PC端"车队配置"页面，选择车队长，进入"常跑线路"标签，点击"分配"按钮为该司机分配线路');
         setFavoriteRoutes([]);
         return;
       }
@@ -450,6 +470,12 @@ export default function MobileQuickEntry() {
 
       if (error) {
         console.error('❌ 查询常用线路失败:', error);
+        console.error('错误详情:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
         throw error;
       }
 
@@ -460,18 +486,20 @@ export default function MobileQuickEntry() {
         console.log('⚠️ 没有找到常用线路，可能原因：');
         console.log('  1. 车队长ID:', fleetManagerId);
         console.log('  2. 司机ID:', driverId);
-        console.log('  3. 检查 fleet_manager_favorite_route_drivers 表中是否有分配给该司机的线路');
+        console.log('  3. 线路ID列表:', routeIds);
         console.log('  4. 检查 fleet_manager_favorite_routes 表中是否有对应的线路数据');
+        console.log('  5. 检查线路的 fleet_manager_id 是否匹配');
       }
 
       setFavoriteRoutes(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ 加载常用线路失败:', error);
       toast({
         title: '加载失败',
-        description: '无法加载常用线路，请检查控制台',
+        description: error.message || '无法加载常用线路，请检查控制台',
         variant: 'destructive'
       });
+      setFavoriteRoutes([]);
     }
   };
 
@@ -688,180 +716,15 @@ export default function MobileQuickEntry() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="new" className="w-full">
+            <Tabs defaultValue="favorite" className="w-full">
               <TabsList className="grid w-full grid-cols-2 bg-muted">
-                <TabsTrigger value="new" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  新增运单
-                </TabsTrigger>
-                <TabsTrigger value="favorite" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <TabsTrigger value="favorite" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                   常用运单
                 </TabsTrigger>
+                <TabsTrigger value="new" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                  新增运单
+                </TabsTrigger>
               </TabsList>
-
-              {/* 新增运单标签页 */}
-              <TabsContent value="new" className="space-y-4 mt-4">
-            {/* 项目选择 */}
-            <div className="grid gap-2">
-              <Label>运输项目 *</Label>
-              <Select value={formData.project_id} onValueChange={value => setFormData(prev => ({ ...prev, project_id: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择项目" />
-                </SelectTrigger>
-                <SelectContent>
-                  {myRoutes.map(route => (
-                    <SelectItem key={route.project_id} value={route.project_id}>
-                      {route.project_name}
-                      {route.is_primary_route && <Badge className="ml-2 bg-blue-600 text-white text-xs">常跑</Badge>}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 装货地 - 支持快速添加 */}
-            <div className="grid gap-2">
-              <Label className="flex items-center justify-between">
-                <span>装货地 *</span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 text-xs"
-                  onClick={() => {
-                    setAddLocationType('loading');
-                    setShowAddLocationDialog(true);
-                  }}
-                  disabled={!formData.project_id}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  添加地点
-                </Button>
-              </Label>
-              <Select 
-                value={formData.loading_location_id} 
-                onValueChange={value => setFormData(prev => ({ ...prev, loading_location_id: value }))}
-                disabled={!formData.project_id}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={formData.project_id ? "选择装货地点" : "请先选择项目"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {projectLoadingLocations.map((loc: any) => (
-                    <SelectItem key={loc.location_id} value={loc.location_id}>
-                      {loc.location_name}
-                    </SelectItem>
-                  ))}
-                  {projectLoadingLocations.length === 0 && (
-                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                      暂无装货地点，请点击"添加地点"
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 卸货地 - 支持快速添加 */}
-            <div className="grid gap-2">
-              <Label className="flex items-center justify-between">
-                <span>卸货地 *</span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 text-xs"
-                  onClick={() => {
-                    setAddLocationType('unloading');
-                    setShowAddLocationDialog(true);
-                  }}
-                  disabled={!formData.project_id}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  添加地点
-                </Button>
-              </Label>
-              <Select 
-                value={formData.unloading_location_id} 
-                onValueChange={value => setFormData(prev => ({ ...prev, unloading_location_id: value }))}
-                disabled={!formData.project_id}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={formData.project_id ? "选择卸货地点" : "请先选择项目"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {projectUnloadingLocations.map((loc: any) => (
-                    <SelectItem key={loc.location_id} value={loc.location_id}>
-                      {loc.location_name}
-                    </SelectItem>
-                  ))}
-                  {projectUnloadingLocations.length === 0 && (
-                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                      暂无卸货地点，请点击"添加地点"
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 装货数量 */}
-            <div className="grid gap-2">
-              <Label>装货数量 *</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={formData.loading_weight}
-                onChange={e => {
-                  const limited = limitAmountInput(e.target.value);
-                  setFormData(prev => ({ ...prev, loading_weight: limited }));
-                }}
-              />
-            </div>
-
-            {/* 卸货数量（可选） */}
-            <div className="grid gap-2">
-              <Label>卸货数量（可选，默认等于装货）</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="默认等于装货数量"
-                value={formData.unloading_weight}
-                onChange={e => {
-                  const limited = limitAmountInput(e.target.value);
-                  setFormData(prev => ({ ...prev, unloading_weight: limited }));
-                }}
-              />
-            </div>
-
-            {/* 备注 */}
-            <div className="grid gap-2">
-              <Label>备注</Label>
-              <Textarea
-                placeholder="输入备注信息..."
-                value={formData.remarks}
-                onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
-                rows={2}
-              />
-            </div>
-
-            {/* 提交按钮 */}
-            <Button 
-              className="w-full h-12"
-              onClick={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  提交中...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  提交运单
-                </>
-              )}
-            </Button>
-              </TabsContent>
 
               {/* 常用运单标签页 */}
               <TabsContent value="favorite" className="space-y-4 mt-4">
@@ -978,6 +841,200 @@ export default function MobileQuickEntry() {
                   </div>
                 )}
               </TabsContent>
+
+              {/* 新增运单标签页 */}
+              <TabsContent value="new" className="space-y-4 mt-4">
+            {/* 项目选择 */}
+            <div className="grid gap-2">
+              <Label>运输项目 *</Label>
+              <Select 
+                value={formData.project_id || undefined} 
+                onValueChange={value => setFormData(prev => ({ ...prev, project_id: value }))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="选择项目" />
+                </SelectTrigger>
+                <SelectContent position="popper" className="z-50">
+                  {myRoutes.length === 0 ? (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      暂无项目，请联系车队长配置
+                    </div>
+                  ) : (
+                    myRoutes.map(route => (
+                      <SelectItem key={route.project_id} value={route.project_id}>
+                        {route.project_name}
+                        {route.is_primary_route && <Badge className="ml-2 bg-blue-600 text-white text-xs">常跑</Badge>}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 装货地 - 支持快速添加 */}
+            <div className="grid gap-2">
+              <Label className="flex items-center justify-between">
+                <span>装货地 *</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-xs"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (formData.project_id) {
+                      setAddLocationType('loading');
+                      setShowAddLocationDialog(true);
+                    } else {
+                      toast({
+                        title: '提示',
+                        description: '请先选择项目',
+                        variant: 'destructive'
+                      });
+                    }
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  添加地点
+                </Button>
+              </Label>
+              <Select 
+                value={formData.loading_location_id || undefined} 
+                onValueChange={value => setFormData(prev => ({ ...prev, loading_location_id: value }))}
+                disabled={!formData.project_id}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={formData.project_id ? "选择装货地点" : "请先选择项目"} />
+                </SelectTrigger>
+                <SelectContent position="popper" className="z-50">
+                  {projectLoadingLocations.length === 0 ? (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      暂无装货地点，请点击"添加地点"
+                    </div>
+                  ) : (
+                    projectLoadingLocations.map((loc: any) => (
+                      <SelectItem key={loc.location_id} value={loc.location_id}>
+                        {loc.location_name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 卸货地 - 支持快速添加 */}
+            <div className="grid gap-2">
+              <Label className="flex items-center justify-between">
+                <span>卸货地 *</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-xs"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (formData.project_id) {
+                      setAddLocationType('unloading');
+                      setShowAddLocationDialog(true);
+                    } else {
+                      toast({
+                        title: '提示',
+                        description: '请先选择项目',
+                        variant: 'destructive'
+                      });
+                    }
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  添加地点
+                </Button>
+              </Label>
+              <Select 
+                value={formData.unloading_location_id || undefined} 
+                onValueChange={value => setFormData(prev => ({ ...prev, unloading_location_id: value }))}
+                disabled={!formData.project_id}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={formData.project_id ? "选择卸货地点" : "请先选择项目"} />
+                </SelectTrigger>
+                <SelectContent position="popper" className="z-50">
+                  {projectUnloadingLocations.length === 0 ? (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      暂无卸货地点，请点击"添加地点"
+                    </div>
+                  ) : (
+                    projectUnloadingLocations.map((loc: any) => (
+                      <SelectItem key={loc.location_id} value={loc.location_id}>
+                        {loc.location_name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 装货数量 */}
+            <div className="grid gap-2">
+              <Label>装货数量 *</Label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={formData.loading_weight}
+                onChange={e => {
+                  const limited = limitAmountInput(e.target.value);
+                  setFormData(prev => ({ ...prev, loading_weight: limited }));
+                }}
+              />
+            </div>
+
+            {/* 卸货数量（可选） */}
+            <div className="grid gap-2">
+              <Label>卸货数量（可选，默认等于装货）</Label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                placeholder="默认等于装货数量"
+                value={formData.unloading_weight}
+                onChange={e => {
+                  const limited = limitAmountInput(e.target.value);
+                  setFormData(prev => ({ ...prev, unloading_weight: limited }));
+                }}
+              />
+            </div>
+
+            {/* 备注 */}
+            <div className="grid gap-2">
+              <Label>备注</Label>
+              <Textarea
+                placeholder="输入备注信息..."
+                value={formData.remarks}
+                onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                rows={2}
+              />
+            </div>
+
+            {/* 提交按钮 */}
+            <Button 
+              className="w-full h-12"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  提交中...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  提交运单
+                </>
+              )}
+            </Button>
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
@@ -990,7 +1047,11 @@ export default function MobileQuickEntry() {
                 <Calendar className="h-5 w-5" />
                 最近7天运单
               </span>
-              <Button size="sm" variant="ghost" onClick={() => {}}>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={() => navigate('/m/internal/my-waybills')}
+              >
                 查看全部
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
@@ -1037,6 +1098,25 @@ export default function MobileQuickEntry() {
             <CardContent className="p-4 text-sm text-orange-800">
               <p className="font-medium mb-2">⚠️ 暂未配置项目线路</p>
               <p className="text-xs">请联系车队长为您配置常跑的项目和线路，配置后即可快速录入运单。</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 常用线路提示信息 */}
+        {favoriteRoutes.length === 0 && fleetManagerId && driverId && !loading && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="p-4 text-sm text-blue-800">
+              <p className="font-medium mb-2">ℹ️ 暂无常用线路</p>
+              <p className="text-xs mb-2">车队长已配置常用线路，但尚未分配给您。</p>
+              <p className="text-xs font-semibold">操作步骤：</p>
+              <ol className="text-xs list-decimal list-inside space-y-1 mt-1">
+                <li>车队长登录PC端</li>
+                <li>进入"车队配置"页面</li>
+                <li>选择对应的车队长</li>
+                <li>进入"常跑线路"标签页</li>
+                <li>点击线路的"分配"按钮（👥图标）</li>
+                <li>选择您并保存</li>
+              </ol>
             </CardContent>
           </Card>
         )}
