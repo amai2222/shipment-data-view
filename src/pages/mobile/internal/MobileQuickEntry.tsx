@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogFooter
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
@@ -84,6 +85,7 @@ export default function MobileQuickEntry() {
   // 司机信息（自动填充）
   const [driverInfo, setDriverInfo] = useState<any>(null);
   const [myVehicle, setMyVehicle] = useState<any>(null);
+  const [fleetManagerId, setFleetManagerId] = useState<string | null>(null);
   
   // 地点管理
   const [projectLoadingLocations, setProjectLoadingLocations] = useState<any[]>([]);
@@ -92,18 +94,37 @@ export default function MobileQuickEntry() {
   const [addLocationName, setAddLocationName] = useState('');
   const [addLocationType, setAddLocationType] = useState<'loading' | 'unloading'>('loading');
 
+  // 常用运单
+  const [favoriteRoutes, setFavoriteRoutes] = useState<any[]>([]);
+  const [routeInputs, setRouteInputs] = useState<Record<string, { loading_weight: string; unloading_weight: string }>>({});
+  const [submittingRouteId, setSubmittingRouteId] = useState<string | null>(null);
+
   useEffect(() => {
     loadMyInfo();
-    loadMyRoutes();
     loadRecentWaybills();
   }, []);
 
+  // 当获取到车队长ID后，加载常用线路
+  useEffect(() => {
+    if (fleetManagerId) {
+      loadFavoriteRoutes();
+    }
+  }, [fleetManagerId]);
+
+  // 当获取到车队长ID后，加载项目（如果还没有加载）
+  useEffect(() => {
+    if (fleetManagerId && myRoutes.length === 0) {
+      loadMyRoutes(fleetManagerId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fleetManagerId]);
+
   // 当选择项目后，加载该项目的地点
   useEffect(() => {
-    if (formData.project_id) {
+    if (formData.project_id && fleetManagerId) {
       loadProjectLocations(formData.project_id);
     }
-  }, [formData.project_id]);
+  }, [formData.project_id, fleetManagerId]);
 
   // 加载司机信息
   const loadMyInfo = async () => {
@@ -112,6 +133,13 @@ export default function MobileQuickEntry() {
       const { data: driverData } = await supabase.rpc('get_my_driver_info');
       if (driverData && driverData.length > 0) {
         setDriverInfo(driverData[0]);
+        // 获取车队长的ID
+        const managerId = driverData[0].fleet_manager_id;
+        if (managerId) {
+          setFleetManagerId(managerId);
+          // 立即加载项目
+          loadMyRoutes(managerId);
+        }
       }
       
       // 获取主车
@@ -125,21 +153,55 @@ export default function MobileQuickEntry() {
     }
   };
 
-  // 加载我的项目线路
-  const loadMyRoutes = async () => {
+  // 加载我的项目线路（只加载所属车队长的项目）
+  const loadMyRoutes = async (managerId?: string | null) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_my_project_routes');
+      const currentFleetManagerId = managerId || fleetManagerId;
+
+      // 如果还是没有车队长ID，提示用户
+      if (!currentFleetManagerId) {
+        toast({
+          title: '提示',
+          description: '您尚未分配车队长，请联系管理员',
+          variant: 'destructive'
+        });
+        setMyRoutes([]);
+        setLoading(false);
+        return;
+      }
+
+      // 获取车队长负责的项目
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('fleet_manager_projects')
+        .select(`
+          project_id,
+          projects:project_id (
+            id,
+            name,
+            project_status
+          )
+        `)
+        .eq('fleet_manager_id', currentFleetManagerId);
+
+      if (projectsError) throw projectsError;
+
+      // 转换为项目线路格式
+      const routes: ProjectRoute[] = (projectsData || [])
+        .filter((item: any) => item.projects && item.projects.project_status === '进行中')
+        .map((item: any) => ({
+          project_id: item.project_id,
+          project_name: item.projects.name,
+          is_primary_route: false, // 可以根据需要设置主线路
+          common_loading_locations: [],
+          common_unloading_locations: []
+        }));
+
+      setMyRoutes(routes);
       
-      if (error) throw error;
-      setMyRoutes(data || []);
-      
-      // 自动选择主线路
-      if (data && data.length > 0) {
-        const primary = data.find((r: any) => r.is_primary_route);
-        if (primary) {
-          setFormData(prev => ({ ...prev, project_id: primary.project_id }));
-        }
+      // 自动选择第一个项目
+      if (routes.length > 0) {
+        setFormData(prev => ({ ...prev, project_id: routes[0].project_id }));
       }
     } catch (error) {
       console.error('加载失败:', error);
@@ -168,18 +230,88 @@ export default function MobileQuickEntry() {
     }
   };
 
-  // 加载项目的地点列表
+  // 加载项目的地点列表（只加载车队长常用线路中的地点）
   const loadProjectLocations = async (projectId: string) => {
     try {
-      const { data, error } = await supabase.rpc('get_project_locations', {
-        p_project_id: projectId
+      if (!fleetManagerId) {
+        setProjectLoadingLocations([]);
+        setProjectUnloadingLocations([]);
+        return;
+      }
+
+      // 1. 获取该车队长在常用线路中使用的地点ID
+      const { data: favoriteRoutes, error: routesError } = await supabase
+        .from('fleet_manager_favorite_routes')
+        .select('loading_location_id, unloading_location_id')
+        .eq('fleet_manager_id', fleetManagerId);
+
+      if (routesError) throw routesError;
+
+      // 收集所有使用的地点ID
+      const locationIds = new Set<string>();
+      (favoriteRoutes || []).forEach((route: any) => {
+        if (route.loading_location_id) locationIds.add(route.loading_location_id);
+        if (route.unloading_location_id) locationIds.add(route.unloading_location_id);
       });
-      
-      if (error) throw error;
-      
-      const loadingLocs = (data || []).filter((loc: any) => loc.location_type === 'loading');
-      const unloadingLocs = (data || []).filter((loc: any) => loc.location_type === 'unloading');
-      
+
+      if (locationIds.size === 0) {
+        setProjectLoadingLocations([]);
+        setProjectUnloadingLocations([]);
+        return;
+      }
+
+      // 2. 获取这些地点的详细信息，并过滤出与当前项目关联的地点
+      const { data: locationProjects, error: locationProjectsError } = await supabase
+        .from('location_projects')
+        .select('location_id')
+        .eq('project_id', projectId)
+        .in('location_id', Array.from(locationIds));
+
+      if (locationProjectsError) throw locationProjectsError;
+
+      const projectLocationIds = new Set((locationProjects || []).map((lp: any) => lp.location_id));
+      const filteredLocationIds = Array.from(locationIds).filter(id => projectLocationIds.has(id));
+
+      if (filteredLocationIds.length === 0) {
+        setProjectLoadingLocations([]);
+        setProjectUnloadingLocations([]);
+        return;
+      }
+
+      // 3. 获取地点详情
+      const { data: locations, error: locationsError } = await supabase
+        .from('locations')
+        .select('id, name')
+        .in('id', filteredLocationIds);
+
+      if (locationsError) throw locationsError;
+
+      // 4. 根据常用线路中的使用情况分类装货地和卸货地
+      const loadingLocationIds = new Set(
+        (favoriteRoutes || [])
+          .map((r: any) => r.loading_location_id)
+          .filter(Boolean)
+      );
+      const unloadingLocationIds = new Set(
+        (favoriteRoutes || [])
+          .map((r: any) => r.unloading_location_id)
+          .filter(Boolean)
+      );
+
+      const loadingLocs = (locations || [])
+        .filter((loc: any) => loadingLocationIds.has(loc.id))
+        .map((loc: any) => ({
+          location_id: loc.id,
+          location_name: loc.name
+        }));
+
+      const unloadingLocs = (locations || [])
+        .filter((loc: any) => unloadingLocationIds.has(loc.id))
+        .map((loc: any) => ({
+          location_id: loc.id,
+          location_name: loc.name
+        }));
+
       setProjectLoadingLocations(loadingLocs);
       setProjectUnloadingLocations(unloadingLocs);
     } catch (error) {
@@ -251,6 +383,121 @@ export default function MobileQuickEntry() {
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // 加载常用线路
+  const loadFavoriteRoutes = async () => {
+    try {
+      if (!fleetManagerId) return;
+
+      const { data, error } = await supabase
+        .from('fleet_manager_favorite_routes')
+        .select(`
+          id,
+          route_name,
+          project_id,
+          loading_location_id,
+          unloading_location_id,
+          loading_location,
+          unloading_location,
+          use_count,
+          last_used_at,
+          projects:project_id (
+            id,
+            name
+          )
+        `)
+        .eq('fleet_manager_id', fleetManagerId)
+        .not('project_id', 'is', null)  // 只加载有项目关联的线路
+        .order('use_count', { ascending: false })
+        .order('last_used_at', { ascending: false, nullsFirst: false });
+
+      if (error) throw error;
+
+      setFavoriteRoutes(data || []);
+    } catch (error) {
+      console.error('加载常用线路失败:', error);
+      toast({
+        title: '加载失败',
+        description: '无法加载常用线路',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // 提交常用运单
+  const handleSubmitFavoriteRoute = async (routeId: string) => {
+    const route = favoriteRoutes.find(r => r.id === routeId);
+    if (!route) return;
+
+    const inputs = routeInputs[routeId] || { loading_weight: '', unloading_weight: '' };
+    
+    if (!inputs.loading_weight || !route.project_id || !route.loading_location_id || !route.unloading_location_id) {
+      toast({
+        title: '信息不完整',
+        description: '请填写装货数量',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setSubmittingRouteId(routeId);
+    try {
+      const { data, error } = await supabase.rpc('driver_quick_create_waybill', {
+        p_project_id: route.project_id,
+        p_loading_location_id: route.loading_location_id,
+        p_unloading_location_id: route.unloading_location_id,
+        p_loading_weight: parseFloat(inputs.loading_weight),
+        p_unloading_weight: inputs.unloading_weight ? parseFloat(inputs.unloading_weight) : null,
+        p_remarks: null
+      });
+
+      if (error) throw error;
+      
+      if (data.success) {
+        toast({
+          title: '创建成功',
+          description: `运单 ${data.auto_number} 已创建`
+        });
+        
+        // 清空该线路的输入
+        setRouteInputs(prev => {
+          const newInputs = { ...prev };
+          delete newInputs[routeId];
+          return newInputs;
+        });
+        
+        // 更新使用次数
+        await supabase
+          .from('fleet_manager_favorite_routes')
+          .update({ 
+            use_count: (route.use_count || 0) + 1,
+            last_used_at: new Date().toISOString()
+          })
+          .eq('id', routeId);
+        
+        // 重新加载常用线路（更新排序）
+        loadFavoriteRoutes();
+        
+        // 刷新最近运单
+        loadRecentWaybills();
+      } else {
+        toast({
+          title: '创建失败',
+          description: data.error || '创建运单失败',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('提交失败:', error);
+      toast({
+        title: '提交失败',
+        description: '请稍后重试',
+        variant: 'destructive'
+      });
+    } finally {
+      setSubmittingRouteId(null);
     }
   };
 
@@ -341,7 +588,7 @@ export default function MobileQuickEntry() {
           </CardContent>
         </Card>
 
-        {/* 快速录入表单 */}
+        {/* 运单录入 - 标签页 */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -349,7 +596,15 @@ export default function MobileQuickEntry() {
               新增运单
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
+            <Tabs defaultValue="new" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="new">新增运单</TabsTrigger>
+                <TabsTrigger value="favorite">常用运单</TabsTrigger>
+              </TabsList>
+
+              {/* 新增运单标签页 */}
+              <TabsContent value="new" className="space-y-4 mt-4">
             {/* 项目选择 */}
             <div className="grid gap-2">
               <Label>运输项目 *</Label>
@@ -505,6 +760,118 @@ export default function MobileQuickEntry() {
                 </>
               )}
             </Button>
+              </TabsContent>
+
+              {/* 常用运单标签页 */}
+              <TabsContent value="favorite" className="space-y-4 mt-4">
+                {favoriteRoutes.length === 0 ? (
+                  <div className="text-center py-8 text-sm text-muted-foreground">
+                    <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p>暂无常用线路</p>
+                    <p className="text-xs mt-2">车队长配置常用线路后，将显示在这里</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {favoriteRoutes.map((route) => {
+                      const inputs = routeInputs[route.id] || { loading_weight: '', unloading_weight: '' };
+                      const isSubmitting = submittingRouteId === route.id;
+                      
+                      return (
+                        <Card key={route.id} className="border">
+                          <CardContent className="p-4 space-y-3">
+                            {/* 线路信息 */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="font-medium text-sm">{route.route_name}</div>
+                                {route.use_count > 0 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    使用 {route.use_count} 次
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground space-y-1">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-green-600">装货：</span>
+                                  <span>{route.loading_location}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-red-600">卸货：</span>
+                                  <span>{route.unloading_location}</span>
+                                </div>
+                                {route.projects && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-blue-600">项目：</span>
+                                    <span>{route.projects.name}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 输入框 */}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs">装货数量 *</Label>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  value={inputs.loading_weight}
+                                  onChange={e => setRouteInputs(prev => ({
+                                    ...prev,
+                                    [route.id]: {
+                                      ...(prev[route.id] || { loading_weight: '', unloading_weight: '' }),
+                                      loading_weight: e.target.value
+                                    }
+                                  }))}
+                                  step="0.01"
+                                  disabled={isSubmitting}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">卸货数量</Label>
+                                <Input
+                                  type="number"
+                                  placeholder="默认等于装货"
+                                  value={inputs.unloading_weight}
+                                  onChange={e => setRouteInputs(prev => ({
+                                    ...prev,
+                                    [route.id]: {
+                                      ...(prev[route.id] || { loading_weight: '', unloading_weight: '' }),
+                                      unloading_weight: e.target.value
+                                    }
+                                  }))}
+                                  step="0.01"
+                                  disabled={isSubmitting}
+                                />
+                              </div>
+                            </div>
+
+                            {/* 提交按钮 */}
+                            <Button
+                              className="w-full"
+                              size="sm"
+                              onClick={() => handleSubmitFavoriteRoute(route.id)}
+                              disabled={isSubmitting || !inputs.loading_weight}
+                            >
+                              {isSubmitting ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  提交中...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  记录运单
+                                </>
+                              )}
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
