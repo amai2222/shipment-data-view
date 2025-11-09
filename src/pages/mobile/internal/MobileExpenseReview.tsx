@@ -97,6 +97,8 @@ export default function MobileExpenseReview() {
         query = query.eq('status', 'approved');
       } else if (filterStatus === 'rejected') {
         query = query.eq('status', 'rejected');
+      } else if (filterStatus === 'paid') {
+        query = query.eq('status', 'paid');
       }
       
       const { data, error } = await query;

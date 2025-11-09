@@ -96,6 +96,8 @@ export default function ExpenseApproval() {
         query = query.eq('status', 'approved');
       } else if (activeTab === 'rejected') {
         query = query.eq('status', 'rejected');
+      } else if (activeTab === 'paid') {
+        query = query.eq('status', 'paid');
       }
       
       const { data, error } = await query;
