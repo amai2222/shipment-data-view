@@ -12,6 +12,7 @@ import { AppLayout } from "./components/AppLayout";
 import { MobileRedirect } from "./components/MobileRedirect";
 import { MobileLayout } from "./components/mobile/MobileLayout";
 import { AutoMenuSync } from "./components/AutoMenuSync";
+import { GlobalErrorHandler } from "./components/GlobalErrorHandler";
 
 // --- 懒加载页面组件导入 ---
 import { Suspense } from 'react';
@@ -139,14 +140,16 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    {/* 关键改动：将 BrowserRouter 包裹在 AuthProvider 外层 */}
-    <BrowserRouter>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <AutoMenuSync />
-          <MobileRedirect>
+    {/* 全局错误处理器：捕获所有未处理的错误 */}
+    <GlobalErrorHandler>
+      {/* 关键改动：将 BrowserRouter 包裹在 AuthProvider 外层 */}
+      <BrowserRouter>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <AutoMenuSync />
+            <MobileRedirect>
             <LazyLoadErrorBoundary>
               <Suspense fallback={
                 <div className="flex items-center justify-center min-h-screen">
@@ -842,6 +845,7 @@ const App = () => (
         </TooltipProvider>
       </AuthProvider>
     </BrowserRouter>
+    </GlobalErrorHandler>
   </QueryClientProvider>
 );
 
