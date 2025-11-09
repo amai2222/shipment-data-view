@@ -391,13 +391,13 @@ export default function MobileMyExpenses() {
       });
     }
 
-    // ✅ 调用七牛云上传，存储到 /feiyong 目录
+    // ✅ 调用七牛云上传，存储到 other/siji/feiyong/ 目录
     const { data, error } = await supabase.functions.invoke('qiniu-upload', {
       body: { 
         files: filesToUpload,
         namingParams: {
-          projectName: 'feiyong',  // ✅ 费用目录
-          customName: `${profile?.full_name || '司机'}-${format(new Date(), 'yyyyMMdd')}`
+          projectName: 'feiyong',  // ✅ 触发费用上传模式
+          customName: `${profile?.full_name || '司机'}-${format(new Date(), 'yyyyMMdd-HHmmss')}`
         }
       }
     });
@@ -436,14 +436,14 @@ export default function MobileMyExpenses() {
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                 <User className="h-6 w-6" />
-              </div>
-              <div>
+                  </div>
+                  <div>
                 <div className="font-bold text-lg">{profile?.full_name || '司机'}</div>
                 <div className="text-xs text-blue-100">
                   {format(new Date(), 'MM月dd日 EEEE', { locale: zhCN })}
+                  </div>
                 </div>
-              </div>
-            </div>
+                </div>
             <Button
               variant="ghost"
               size="sm"
@@ -456,8 +456,8 @@ export default function MobileMyExpenses() {
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
-          </div>
-        </div>
+              </div>
+            </div>
 
         {/* 🔔 待接单派单提示（最重要 - 类似滴滴的接单提示） */}
         {pendingDispatchCount > 0 && (
@@ -505,7 +505,7 @@ export default function MobileMyExpenses() {
                 <div className="font-bold text-lg mb-1">派单接单</div>
                 <div className="text-xs text-muted-foreground">查看和接受派单</div>
               </div>
-              
+          
               <div 
                 className="p-6 text-center cursor-pointer hover:bg-green-50 transition-colors"
                 onClick={() => navigate('/m/internal/quick-entry')}
@@ -517,8 +517,8 @@ export default function MobileMyExpenses() {
                 <div className="text-xs text-muted-foreground">自主录入运单</div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
         {/* 我的服务 - 类似支付宝的宫格布局 */}
         <Card>
@@ -543,9 +543,9 @@ export default function MobileMyExpenses() {
               >
                 <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
                   <Truck className="h-6 w-6 text-blue-600" />
-                </div>
-                <span className="text-xs text-center">我的车辆</span>
               </div>
+                <span className="text-xs text-center">我的车辆</span>
+            </div>
               
               <div 
                 className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
@@ -553,9 +553,9 @@ export default function MobileMyExpenses() {
               >
                 <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
                   <Calendar className="h-6 w-6 text-purple-600" />
-                </div>
-                <span className="text-xs text-center">收支明细</span>
               </div>
+                <span className="text-xs text-center">收支明细</span>
+            </div>
           
               <div 
                 className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
@@ -563,9 +563,9 @@ export default function MobileMyExpenses() {
               >
                 <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
                   <Plus className="h-6 w-6 text-orange-600" />
-                </div>
-                <span className="text-xs text-center">费用申请</span>
               </div>
+                <span className="text-xs text-center">费用申请</span>
+            </div>
             </div>
           </CardContent>
         </Card>
@@ -882,8 +882,8 @@ export default function MobileMyExpenses() {
                 {/* 隐藏的文件输入 */}
                 <input
                   id="photo-file-input"
-                  type="file"
-                  accept="image/*"
+                    type="file"
+                    accept="image/*"
                   multiple
                   className="hidden"
                   onChange={handleFileSelect}
@@ -913,12 +913,12 @@ export default function MobileMyExpenses() {
                   </div>
                 )}
                 
-                {uploading && (
+                  {uploading && (
                   <div className="flex items-center justify-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     正在上传照片到云端...
-                  </div>
-                )}
+                    </div>
+                  )}
               </div>
             </div>
             

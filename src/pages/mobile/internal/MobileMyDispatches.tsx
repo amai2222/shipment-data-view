@@ -195,16 +195,16 @@ export default function MobileMyDispatches() {
           reader.readAsDataURL(file);
         });
 
-        // 调用七牛云上传（参考磅单管理的逻辑）
-        const { data, error } = await supabase.functions.invoke('upload-to-qiniu', {
+        // 调用七牛云上传
+        const { data, error } = await supabase.functions.invoke('qiniu-upload', {
           body: {
             files: [{
               fileName: file.name,
-              fileData: fileData
+              fileData: fileData.split(',')[1]  // 去掉 data:image/xxx;base64, 前缀
             }],
             namingParams: {
-              projectName: 'scale-records',  // 放到磅单目录下
-              customName: `派单磅单-${profile?.full_name}-${Date.now()}.${file.name.split('.').pop()}`
+              projectName: 'feiyong',  // ✅ 触发费用上传模式
+              customName: `派单磅单-${profile?.full_name}-${Date.now()}`
             }
           }
         });
