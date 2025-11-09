@@ -224,7 +224,7 @@ const menuGroups = [
         roles: ['driver']
       },
       {
-        name: '我的工资',
+        name: '我的收入',
         href: '/m/internal/driver-salary',
         icon: DollarSign,
         roles: ['driver']
@@ -236,7 +236,7 @@ const menuGroups = [
         roles: ['driver']
       },
       {
-        name: '工资记录',
+        name: '收入记录',
         href: '/m/internal/salary-records',
         icon: Calendar,
         roles: ['driver']

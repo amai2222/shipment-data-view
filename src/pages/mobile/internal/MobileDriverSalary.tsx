@@ -1,4 +1,4 @@
-// 移动端 - 司机工资查询页面
+// 移动端 - 司机收入查询页面
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -37,8 +37,8 @@ export default function MobileDriverSalary() {
   const { profile } = useAuth();
   
   const [loading, setLoading] = useState(false);
-  const [currentMonthSalary, setCurrentMonthSalary] = useState<SalaryRecord | null>(null);
-  const [lastMonthSalary, setLastMonthSalary] = useState<SalaryRecord | null>(null);
+  const [currentMonthIncome, setCurrentMonthIncome] = useState<SalaryRecord | null>(null);
+  const [lastMonthIncome, setLastMonthIncome] = useState<SalaryRecord | null>(null);
 
   useEffect(() => {
     loadSalaryData();
@@ -47,11 +47,11 @@ export default function MobileDriverSalary() {
   const loadSalaryData = async () => {
     setLoading(true);
     try {
-      // ✅ 使用 RPC 函数查询工资数据（绕过RLS）
+      // ✅ 使用 RPC 函数查询收入数据（绕过RLS）
       const currentMonth = format(new Date(), 'yyyy-MM');
       const lastMonth = format(new Date(new Date().setMonth(new Date().getMonth() - 1)), 'yyyy-MM');
       
-      // 查询当月工资
+      // 查询当月收入
       const { data: currentData, error: currentError } = await supabase.rpc('get_my_salary', {
         p_year_month: currentMonth
       });
@@ -60,7 +60,7 @@ export default function MobileDriverSalary() {
       
       if (currentData && currentData.length > 0) {
         const record = currentData[0];
-        setCurrentMonthSalary({
+        setCurrentMonthIncome({
           month: record.year_month,
           base_salary: record.base_salary || 0,
           trip_count: record.trip_count || 0,
@@ -72,7 +72,7 @@ export default function MobileDriverSalary() {
         });
       }
       
-      // 查询上月工资
+      // 查询上月收入
       const { data: lastData, error: lastError } = await supabase.rpc('get_my_salary', {
         p_year_month: lastMonth
       });
@@ -81,7 +81,7 @@ export default function MobileDriverSalary() {
       
       if (lastData && lastData.length > 0) {
         const record = lastData[0];
-        setLastMonthSalary({
+        setLastMonthIncome({
           month: record.year_month,
           base_salary: record.base_salary || 0,
           trip_count: record.trip_count || 0,
@@ -96,7 +96,7 @@ export default function MobileDriverSalary() {
       console.error('加载失败:', error);
       toast({
         title: '加载失败',
-        description: error.message || '无法加载工资数据',
+        description: error.message || '无法加载收入数据',
         variant: 'destructive'
       });
     } finally {
@@ -118,47 +118,47 @@ export default function MobileDriverSalary() {
   }
 
   return (
-    <MobileLayout>
+    <MobileLayout title="我的收入">
       <div className="space-y-4 pb-6">
-        {/* 当月工资卡片 */}
-        {currentMonthSalary && (
+        {/* 当月收入卡片 */}
+        {currentMonthIncome && (
           <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
             <CardHeader>
               <CardTitle className="text-white flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
-                  本月工资
+                  本月收入
                 </span>
                 <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
-                  {currentMonthSalary.status === 'paid' ? '已发放' : '核算中'}
+                  {currentMonthIncome.status === 'paid' ? '已发放' : '核算中'}
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="text-center py-4">
-                  <div className="text-sm opacity-90 mb-2">应发工资</div>
+                  <div className="text-sm opacity-90 mb-2">应发收入</div>
                   <div className="text-5xl font-bold">
-                    ¥{currentMonthSalary.net_salary.toFixed(2)}
+                    ¥{currentMonthIncome.net_salary.toFixed(2)}
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/20">
                   <div>
-                    <div className="text-sm opacity-75">基本工资</div>
-                    <div className="text-lg font-semibold">¥{currentMonthSalary.base_salary.toFixed(0)}</div>
+                    <div className="text-sm opacity-75">基本收入</div>
+                    <div className="text-lg font-semibold">¥{currentMonthIncome.base_salary.toFixed(0)}</div>
                   </div>
                   <div>
                     <div className="text-sm opacity-75">出车次数</div>
-                    <div className="text-lg font-semibold">{currentMonthSalary.trip_count} 车次</div>
+                    <div className="text-lg font-semibold">{currentMonthIncome.trip_count} 车次</div>
                   </div>
                   <div>
                     <div className="text-sm opacity-75">车次提成</div>
-                    <div className="text-lg font-semibold">¥{currentMonthSalary.trip_commission.toFixed(0)}</div>
+                    <div className="text-lg font-semibold">¥{currentMonthIncome.trip_commission.toFixed(0)}</div>
                   </div>
                   <div>
                     <div className="text-sm opacity-75">费用扣款</div>
-                    <div className="text-lg font-semibold">-¥{currentMonthSalary.deductions.toFixed(0)}</div>
+                    <div className="text-lg font-semibold">-¥{currentMonthIncome.deductions.toFixed(0)}</div>
                   </div>
                 </div>
               </div>
@@ -167,16 +167,16 @@ export default function MobileDriverSalary() {
         )}
 
         {/* 上月工资对比 */}
-        {lastMonthSalary && (
+        {lastMonthIncome && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  上月工资
+                  上月收入
                 </span>
                 <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  {lastMonthSalary.status === 'paid' ? '已发放' : '待发放'}
+                  {lastMonthIncome.status === 'paid' ? '已发放' : '待发放'}
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -185,29 +185,29 @@ export default function MobileDriverSalary() {
                 <div>
                   <div className="text-sm text-muted-foreground">应发工资</div>
                   <div className="text-2xl font-bold text-green-600">
-                    ¥{lastMonthSalary.net_salary.toFixed(2)}
+                    ¥{lastMonthIncome.net_salary.toFixed(2)}
                   </div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">出车次数</div>
-                  <div className="text-2xl font-bold">{lastMonthSalary.trip_count} 车次</div>
+                  <div className="text-2xl font-bold">{lastMonthIncome.trip_count} 车次</div>
                 </div>
               </div>
               
               {/* 环比增长 */}
-              {currentMonthSalary && (
+              {currentMonthIncome && (
                 <div className="mt-4 pt-4 border-t">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">环比上月</span>
-                    {currentMonthSalary.net_salary > lastMonthSalary.net_salary ? (
+                    {currentMonthIncome.net_salary > lastMonthIncome.net_salary ? (
                       <div className="flex items-center gap-1 text-green-600">
                         <TrendingUp className="h-4 w-4" />
-                        +¥{(currentMonthSalary.net_salary - lastMonthSalary.net_salary).toFixed(2)}
+                        +¥{(currentMonthIncome.net_salary - lastMonthIncome.net_salary).toFixed(2)}
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 text-red-600">
                         <TrendingUp className="h-4 w-4 rotate-180" />
-                        -¥{(lastMonthSalary.net_salary - currentMonthSalary.net_salary).toFixed(2)}
+                        -¥{(lastMonthIncome.net_salary - currentMonthIncome.net_salary).toFixed(2)}
                       </div>
                     )}
                   </div>

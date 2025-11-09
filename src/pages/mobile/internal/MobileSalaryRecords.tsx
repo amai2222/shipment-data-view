@@ -1,4 +1,4 @@
-// 移动端 - 工资发放记录（历史查询）
+// 移动端 - 收入发放记录（历史查询）
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,7 +64,7 @@ export default function MobileSalaryRecords() {
       console.error('加载失败:', error);
       toast({
         title: '加载失败',
-        description: '无法加载工资记录',
+        description: '无法加载收入记录',
         variant: 'destructive'
       });
     } finally {
@@ -102,7 +102,7 @@ export default function MobileSalaryRecords() {
           
           <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
             <CardContent className="p-4 text-center">
-              <div className="text-xs text-green-600 mb-1">月均工资</div>
+              <div className="text-xs text-green-600 mb-1">月均收入</div>
               <div className="text-2xl font-bold text-green-700">
                 ¥{avgSalary.toFixed(0)}
               </div>
@@ -132,12 +132,12 @@ export default function MobileSalaryRecords() {
           </CardContent>
         </Card>
 
-        {/* 工资记录列表 */}
+        {/* 收入记录列表 */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              工资明细
+              收入明细
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -147,7 +147,7 @@ export default function MobileSalaryRecords() {
               </div>
             ) : records.length === 0 ? (
               <div className="text-center py-8 text-sm text-muted-foreground">
-                暂无工资记录
+                暂无收入记录
               </div>
             ) : (
               records.map((record, index) => {
