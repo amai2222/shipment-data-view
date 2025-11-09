@@ -50,12 +50,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // const { toast } = useToast(); // 暂时注释，等Lovable应用新的package.json配置
   // const navigate = useNavigate();
 
+  // ✅ 简化逻辑：依赖Supabase的autoRefreshToken自动刷新机制
+  // Supabase会自动在token过期前刷新，只要refresh_token有效，session就不会过期
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('🔐 认证状态变更:', event, session ? '有session' : '无session');
+        
         setSession(session);
         const currentUser = session?.user ?? null;
         setUser(currentUser);
+
+        // ✅ 只处理用户主动登出事件
+        if (event === 'SIGNED_OUT') {
+          console.log('⚠️ 用户已登出，清除用户状态');
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          
+          // 如果当前不在登录页，则跳转到登录页
+          if (window.location.pathname !== '/auth') {
+            console.log('🔄 跳转到登录页');
+            window.location.href = '/auth';
+          }
+          return;
+        }
+
+        // ✅ TOKEN_REFRESHED事件：Supabase自动刷新了token，继续使用
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('✅ Token已自动刷新，session继续有效');
+          // 不执行任何操作，继续使用新的session
+        }
 
         if (currentUser) {
           setTimeout(async () => {
@@ -68,6 +94,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
               if (error) {
                 console.error('获取用户配置文件失败:', error);
+                // ✅ 如果是401错误，可能是token过期，但Supabase会自动刷新，不立即退出
+                if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
+                  console.log('⚠️ Token可能已过期，等待Supabase自动刷新...');
+                  // 不立即清除状态，等待Supabase的autoRefreshToken机制自动刷新
+                }
                 setProfile(null);
               } else if (profileData) {
                 const anyProfile = profileData as any;
