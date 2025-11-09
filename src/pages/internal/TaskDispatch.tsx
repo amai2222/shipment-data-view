@@ -39,13 +39,28 @@ interface Location {
   name: string;
 }
 
+interface FleetManager {
+  id: string;
+  full_name: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+}
+
 export default function TaskDispatch() {
   const { toast } = useToast();
   
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [fleetManagers, setFleetManagers] = useState<FleetManager[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(false);
   const [formData, setFormData] = useState({
+    fleetManagerId: '',
+    projectId: '',
     driverId: '',
     loadingLocationId: '',
     unloadingLocationId: '',
@@ -90,6 +105,15 @@ export default function TaskDispatch() {
 
       setLocations(locationData || []);
 
+      // 加载车队长列表
+      const { data: fleetManagerData } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('role', 'fleet_manager')
+        .order('full_name');
+
+      setFleetManagers(fleetManagerData || []);
+
     } catch (error: any) {
       toast({ title: '加载失败', description: error.message, variant: 'destructive' });
     } finally {
@@ -97,14 +121,66 @@ export default function TaskDispatch() {
     }
   };
 
+  // ✅ 根据车队长加载其负责的项目
+  const loadProjectsByFleetManager = async (fleetManagerId: string) => {
+    if (!fleetManagerId) {
+      setProjects([]);
+      return;
+    }
+
+    setLoadingProjects(true);
+    try {
+      // 查询该车队长负责的项目
+      const { data: managedProjects } = await supabase
+        .from('fleet_manager_projects')
+        .select('project_id, project:projects(id, name)')
+        .eq('fleet_manager_id', fleetManagerId);
+
+      const projectList = (managedProjects || [])
+        .map((mp: any) => mp.project)
+        .filter((p: any) => p) // 过滤掉null
+        .map((p: any) => ({
+          id: p.id,
+          name: p.name
+        }));
+
+      setProjects(projectList);
+
+      // 如果只有一个项目，自动选择
+      if (projectList.length === 1) {
+        setFormData(prev => ({...prev, projectId: projectList[0].id}));
+      } else {
+        // 清空项目选择
+        setFormData(prev => ({...prev, projectId: ''}));
+      }
+    } catch (error: any) {
+      console.error('加载项目失败:', error);
+      toast({ title: '加载项目失败', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  // ✅ 当车队长改变时，加载对应的项目
+  useEffect(() => {
+    if (formData.fleetManagerId) {
+      loadProjectsByFleetManager(formData.fleetManagerId);
+    } else {
+      setProjects([]);
+      setFormData(prev => ({...prev, projectId: ''}));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.fleetManagerId]);
+
   const handleDispatch = async () => {
-    if (!formData.driverId || !formData.loadingLocationId || !formData.unloadingLocationId) {
+    if (!formData.fleetManagerId || !formData.projectId || !formData.driverId || !formData.loadingLocationId || !formData.unloadingLocationId) {
       toast({ title: '请填写必填项', variant: 'destructive' });
       return;
     }
 
     setLoading(true);
     try {
+      const project = projects.find(p => p.id === formData.projectId);
       const driver = drivers.find(d => d.id === formData.driverId);
       const loadingLoc = locations.find(l => l.id === formData.loadingLocationId);
       const unloadingLoc = locations.find(l => l.id === formData.unloadingLocationId);
@@ -113,6 +189,8 @@ export default function TaskDispatch() {
       const { error } = await supabase
         .from('logistics_records')
         .insert({
+          project_id: formData.projectId,
+          project_name: project?.name || '',
           driver_id: formData.driverId,
           driver_name: driver?.name,
           driver_phone: driver?.phone,
@@ -125,8 +203,7 @@ export default function TaskDispatch() {
           remarks: formData.notes || null,
           transport_type: '内部派单',
           payment_status: 'Unpaid',
-          invoice_status: 'Uninvoiced',
-          project_name: '内部车队'  // 或根据车队长权限自动获取
+          invoice_status: 'Uninvoiced'
         });
 
       if (error) throw error;
@@ -136,8 +213,9 @@ export default function TaskDispatch() {
         description: `已向司机 ${driver?.name} 派发任务`
       });
 
-      // 重置表单
-      setFormData({
+      // 重置表单（保留车队长和项目）
+      setFormData(prev => ({
+        ...prev,
         driverId: '',
         loadingLocationId: '',
         unloadingLocationId: '',
@@ -145,7 +223,7 @@ export default function TaskDispatch() {
         estimatedWeight: '',
         cargoType: '',
         notes: ''
-      });
+      }));
 
     } catch (error: any) {
       toast({ title: '派单失败', description: error.message, variant: 'destructive' });
@@ -169,6 +247,47 @@ export default function TaskDispatch() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>选择车队长 <span className="text-red-500">*</span></Label>
+                <Select 
+                  value={formData.fleetManagerId} 
+                  onValueChange={v => setFormData(prev => ({...prev, fleetManagerId: v, projectId: '', driverId: ''}))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择车队长" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fleetManagers.map(fm => (
+                      <SelectItem key={fm.id} value={fm.id}>
+                        {fm.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>选择项目 <span className="text-red-500">*</span></Label>
+                <Select 
+                  value={formData.projectId} 
+                  onValueChange={v => setFormData(prev => ({...prev, projectId: v}))}
+                  disabled={!formData.fleetManagerId || loadingProjects}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingProjects ? "加载中..." : formData.fleetManagerId ? "选择项目" : "请先选择车队长"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map(project => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>选择司机 <span className="text-red-500">*</span></Label>
@@ -271,7 +390,7 @@ export default function TaskDispatch() {
 
             <Button
               onClick={handleDispatch}
-              disabled={loading || !formData.driverId || !formData.loadingLocationId || !formData.unloadingLocationId}
+              disabled={loading || !formData.fleetManagerId || !formData.projectId || !formData.driverId || !formData.loadingLocationId || !formData.unloadingLocationId}
               className="w-full"
             >
               {loading ? (
