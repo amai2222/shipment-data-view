@@ -48,7 +48,8 @@ import {
   ArrowRight,
   Camera,
   ImagePlus,
-  X
+  X,
+  MapPin
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -750,36 +751,47 @@ export default function MobileMyExpenses() {
           </Card>
         )}
 
-        {/* 主要任务卡片 - 类似货拉拉的订单卡片 */}
+        {/* 我的任务卡片 */}
         <Card className="shadow-md">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Truck className="h-5 w-5 text-blue-600" />
-              运输任务
+              我的任务
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="grid grid-cols-2 divide-x">
+            <div className="grid grid-cols-3 divide-x">
               <div 
-                className="p-6 text-center cursor-pointer hover:bg-blue-50 transition-colors"
+                className="p-4 text-center cursor-pointer hover:bg-blue-50 transition-colors"
                 onClick={() => navigate('/m/internal/my-dispatches')}
               >
-                <div className="w-14 h-14 mx-auto rounded-full bg-blue-100 flex items-center justify-center mb-3">
-                  <FileText className="h-7 w-7 text-blue-600" />
+                <div className="w-12 h-12 mx-auto rounded-full bg-blue-100 flex items-center justify-center mb-2">
+                  <FileText className="h-6 w-6 text-blue-600" />
                 </div>
-                <div className="font-bold text-lg mb-1">派单接单</div>
+                <div className="font-bold text-base mb-1">派单接单</div>
                 <div className="text-xs text-muted-foreground">查看和接受派单</div>
               </div>
           
               <div 
-                className="p-6 text-center cursor-pointer hover:bg-green-50 transition-colors"
+                className="p-4 text-center cursor-pointer hover:bg-green-50 transition-colors"
                 onClick={() => navigate('/m/internal/quick-entry')}
               >
-                <div className="w-14 h-14 mx-auto rounded-full bg-green-100 flex items-center justify-center mb-3">
-                  <Plus className="h-7 w-7 text-green-600" />
+                <div className="w-12 h-12 mx-auto rounded-full bg-green-100 flex items-center justify-center mb-2">
+                  <Plus className="h-6 w-6 text-green-600" />
                 </div>
-                <div className="font-bold text-lg mb-1">手动录单</div>
+                <div className="font-bold text-base mb-1">手动录单</div>
                 <div className="text-xs text-muted-foreground">自主录入运单</div>
+              </div>
+
+              <div 
+                className="p-4 text-center cursor-pointer hover:bg-orange-50 transition-colors"
+                onClick={() => setShowNewDialog(true)}
+              >
+                <div className="w-12 h-12 mx-auto rounded-full bg-orange-100 flex items-center justify-center mb-2">
+                  <FileText className="h-6 w-6 text-orange-600" />
+                </div>
+                <div className="font-bold text-base mb-1">费用申请</div>
+                <div className="text-xs text-muted-foreground">提交费用申请</div>
               </div>
             </div>
             </CardContent>
@@ -792,6 +804,40 @@ export default function MobileMyExpenses() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-4 gap-4">
+              {/* 我的行程 */}
+              <div 
+                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/m/internal/my-waybills')}
+              >
+                <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                  <MapPin className="h-6 w-6 text-indigo-600" />
+                </div>
+                <span className="text-xs text-center">我的行程</span>
+              </div>
+
+              {/* 我的车辆 */}
+              <div 
+                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/m/internal/my-vehicles')}
+              >
+                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Truck className="h-6 w-6 text-blue-600" />
+                </div>
+                <span className="text-xs text-center">我的车辆</span>
+              </div>
+              
+              {/* 收支明细 */}
+              <div 
+                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/m/internal/salary-records')}
+              >
+                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-purple-600" />
+                </div>
+                <span className="text-xs text-center">收支明细</span>
+              </div>
+          
+              {/* 我的收入 */}
               <div 
                 className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => navigate('/m/internal/driver-salary')}
@@ -800,37 +846,7 @@ export default function MobileMyExpenses() {
                   <DollarSign className="h-6 w-6 text-green-600" />
                 </div>
                 <span className="text-xs text-center">我的收入</span>
-        </div>
-
-              <div 
-                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => navigate('/m/internal/my-vehicles')}
-              >
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Truck className="h-6 w-6 text-blue-600" />
               </div>
-                <span className="text-xs text-center">我的车辆</span>
-            </div>
-              
-              <div 
-                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => navigate('/m/internal/salary-records')}
-              >
-                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-                  <Calendar className="h-6 w-6 text-purple-600" />
-              </div>
-                <span className="text-xs text-center">收支明细</span>
-            </div>
-          
-              <div 
-                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => setShowNewDialog(true)}
-          >
-                <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-                  <Plus className="h-6 w-6 text-orange-600" />
-              </div>
-                <span className="text-xs text-center">费用申请</span>
-            </div>
             </div>
           </CardContent>
         </Card>
@@ -857,49 +873,6 @@ export default function MobileMyExpenses() {
             </div>
           </CardContent>
         </Card>
-
-        {/* 最近费用申请 */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">最近费用申请</CardTitle>
-              <Button size="sm" variant="ghost" onClick={() => setShowNewDialog(true)}>
-                <Plus className="h-4 w-4 mr-1" />
-                新建
-          </Button>
-        </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {applications.slice(0, 3).map(app => (
-                <div 
-                  key={app.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                  onClick={() => {
-                    setSelectedApp(app);
-                    setShowDetailDialog(true);
-                  }}
-                >
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{EXPENSE_TYPES.find(t => t.value === app.expense_type)?.label || app.expense_type}</div>
-                    <div className="text-xs text-muted-foreground">{app.expense_date}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-blue-600">¥{app.amount}</div>
-                    <Badge variant={app.status === 'pending' ? 'default' : app.status === 'approved' ? 'secondary' : 'outline'} className="text-xs">
-                      {app.status === 'pending' ? '待审核' : app.status === 'approved' ? '已通过' : '已驳回'}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-              {applications.length === 0 && (
-                <div className="text-center py-6 text-muted-foreground text-sm">
-                  暂无费用申请记录
-              </div>
-              )}
-              </div>
-            </CardContent>
-          </Card>
 
         {/* 申请记录列表 - 美化版 */}
         <Card className="border-0 shadow-md">
