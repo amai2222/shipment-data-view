@@ -34,8 +34,14 @@ import {
   DollarSign,
   RefreshCw,
   Image as ImageIcon,
-  Eye
+  Eye,
+  Upload,
+  Camera,
+  ImagePlus,
+  X,
+  Loader2
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 
 const EXPENSE_TYPES: Record<string, { label: string; color: string }> = {
@@ -60,12 +66,14 @@ interface ExpenseApplication {
   amount: number;
   description: string;
   receipt_photos: string[];
+  payment_vouchers?: string[];  // ✅ 支付凭证
   status: string;
   created_at: string;
 }
 
 export default function ExpenseApproval() {
   const { toast } = useToast();
+  const { profile } = useAuth();
   
   const [loading, setLoading] = useState(false);
   const [applications, setApplications] = useState<ExpenseApplication[]>([]);
@@ -75,6 +83,10 @@ export default function ExpenseApproval() {
   const [reviewComment, setReviewComment] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 15;
+  
+  // ✅ 支付凭证相关状态
+  const [paymentVoucherFiles, setPaymentVoucherFiles] = useState<File[]>([]);
+  const [uploadingVouchers, setUploadingVouchers] = useState(false);
 
   useEffect(() => {
     loadApplications();
@@ -89,15 +101,13 @@ export default function ExpenseApproval() {
         .select('*')
         .order('created_at', { ascending: false });
       
-      // 状态过滤（✅ 修复：使用小写，与数据库约束一致）
+      // ✅ 状态过滤：待审核、已审核、驳回
       if (activeTab === 'pending') {
         query = query.eq('status', 'pending');
       } else if (activeTab === 'approved') {
         query = query.eq('status', 'approved');
       } else if (activeTab === 'rejected') {
         query = query.eq('status', 'rejected');
-      } else if (activeTab === 'paid') {
-        query = query.eq('status', 'paid');
       }
       
       const { data, error } = await query;
@@ -111,32 +121,187 @@ export default function ExpenseApproval() {
     }
   };
 
+  // ✅ 上传支付凭证到七牛云
+  const uploadPaymentVouchersToQiniu = async (): Promise<string[]> => {
+    if (paymentVoucherFiles.length === 0) return [];
+
+    const filesToUpload = paymentVoucherFiles.map(file => ({
+      fileName: file.name,
+      fileData: ''
+    }));
+
+    // 读取文件为 base64
+    for (let i = 0; i < paymentVoucherFiles.length; i++) {
+      const file = paymentVoucherFiles[i];
+      const reader = new FileReader();
+      await new Promise((resolve) => {
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          filesToUpload[i].fileData = base64.split(',')[1];
+          resolve(null);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // 调用七牛云上传
+    const { data, error } = await supabase.functions.invoke('qiniu-upload', {
+      body: {
+        files: filesToUpload,
+        namingParams: {
+          projectName: 'feiyong',
+          customName: `${profile?.full_name || '车队长'}-支付凭证-${format(new Date(), 'yyyyMMdd-HHmmss')}`
+        }
+      }
+    });
+
+    if (error) throw error;
+    if (!data.success) throw new Error(data.error || '上传失败');
+
+    return data.urls;
+  };
+
+  // ✅ 处理支付凭证文件选择
+  const handlePaymentVoucherSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length !== files.length) {
+      toast({
+        title: "提示",
+        description: "只能上传图片文件",
+        variant: "destructive",
+      });
+    }
+
+    if (imageFiles.length > 0) {
+      setPaymentVoucherFiles(prev => [...prev, ...imageFiles]);
+    }
+    
+    event.target.value = '';
+  };
+
+  // ✅ 删除支付凭证文件
+  const removePaymentVoucherFile = (index: number) => {
+    setPaymentVoucherFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // ✅ 添加支付凭证到已审核的记录
+  const handleAddPaymentVouchers = async () => {
+    if (!selectedApp || paymentVoucherFiles.length === 0) return;
+
+    setUploadingVouchers(true);
+    try {
+      // 先上传照片到七牛云
+      const voucherUrls = await uploadPaymentVouchersToQiniu();
+      
+      if (voucherUrls.length === 0) {
+        toast({
+          title: '提示',
+          description: '没有可上传的凭证',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // 调用 RPC 函数追加支付凭证
+      const { data, error } = await supabase.rpc('add_payment_vouchers', {
+        p_application_id: selectedApp.id,
+        p_payment_vouchers: voucherUrls
+      });
+
+      if (error) throw error;
+      
+      if (!data.success) {
+        toast({
+          title: '添加失败',
+          description: data.message || '无法添加支付凭证',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      toast({
+        title: '添加成功',
+        description: `已成功添加 ${voucherUrls.length} 张支付凭证`
+      });
+
+      // 清空已选文件
+      setPaymentVoucherFiles([]);
+      
+      // 刷新申请列表
+      loadApplications();
+      
+      // 更新当前选中的申请
+      if (selectedApp) {
+        const updatedVouchers = [
+          ...(Array.isArray(selectedApp.payment_vouchers) ? selectedApp.payment_vouchers : []),
+          ...voucherUrls
+        ];
+        setSelectedApp({
+          ...selectedApp,
+          payment_vouchers: updatedVouchers
+        });
+      }
+    } catch (error: any) {
+      console.error('添加支付凭证失败:', error);
+      toast({
+        title: '添加失败',
+        description: error.message || '请稍后重试',
+        variant: 'destructive'
+      });
+    } finally {
+      setUploadingVouchers(false);
+    }
+  };
+
   const handleReview = async (approved: boolean) => {
     if (!selectedApp) return;
 
     try {
-      // ✅ 调用审核RPC函数
-      const { data, error } = await supabase.rpc('review_expense_application', {
-        p_application_id: selectedApp.id,
-        p_approved: approved,
-        p_notes: reviewComment || null
-      });
+      // ✅ 如果有支付凭证，先上传
+      let voucherUrls: string[] = [];
+      if (paymentVoucherFiles.length > 0 && approved) {
+        setUploadingVouchers(true);
+        voucherUrls = await uploadPaymentVouchersToQiniu();
+        setUploadingVouchers(false);
+      }
+
+      // ✅ 调用审核RPC函数（如果审核通过且有支付凭证，使用带凭证的函数）
+      let result;
+      if (approved && voucherUrls.length > 0) {
+        const { data, error } = await supabase.rpc('review_expense_application_with_vouchers', {
+          p_application_id: selectedApp.id,
+          p_approved: approved,
+          p_notes: reviewComment || null,
+          p_payment_vouchers: voucherUrls
+        });
+        if (error) throw error;
+        result = data;
+      } else {
+        const { data, error } = await supabase.rpc('review_expense_application', {
+          p_application_id: selectedApp.id,
+          p_approved: approved,
+          p_notes: reviewComment || null
+        });
+        if (error) throw error;
+        result = data;
+      }
       
-      if (error) throw error;
-      
-      if (!data.success) {
-        toast({ title: '审核失败', description: data.message, variant: 'destructive' });
+      if (!result.success) {
+        toast({ title: '审核失败', description: result.message, variant: 'destructive' });
         return;
       }
       
       toast({
         title: approved ? '已通过' : '已驳回',
-        description: `费用申请${approved ? '已通过' : '已驳回'}`
+        description: `费用申请${approved ? '已通过' : '已驳回'}${voucherUrls.length > 0 ? '，支付凭证已上传' : ''}`
       });
 
       setShowReviewDialog(false);
       setSelectedApp(null);
       setReviewComment('');
+      setPaymentVoucherFiles([]);
       loadApplications();
     } catch (error: any) {
       toast({
@@ -144,6 +309,7 @@ export default function ExpenseApproval() {
         description: error.message,
         variant: 'destructive'
       });
+      setUploadingVouchers(false);
     }
   };
 
@@ -193,11 +359,10 @@ export default function ExpenseApproval() {
 
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="pending">待审核</TabsTrigger>
-              <TabsTrigger value="approved">已通过</TabsTrigger>
-              <TabsTrigger value="rejected">已驳回</TabsTrigger>
-              <TabsTrigger value="paid">已付款</TabsTrigger>
+              <TabsTrigger value="approved">已审核</TabsTrigger>
+              <TabsTrigger value="rejected">驳回</TabsTrigger>
             </TabsList>
           </Tabs>
         </CardContent>
@@ -378,6 +543,168 @@ export default function ExpenseApproval() {
                   </div>
                 )}
 
+                {/* ✅ 支付凭证显示（已审核的记录） */}
+                {selectedApp.status === 'approved' && selectedApp.payment_vouchers && selectedApp.payment_vouchers.length > 0 && (
+                  <div>
+                    <Label>支付凭证 ({selectedApp.payment_vouchers.length} 张)</Label>
+                    <div className="grid grid-cols-4 gap-3 mt-2">
+                      {selectedApp.payment_vouchers.map((url, index) => (
+                        <img
+                          key={index}
+                          src={url}
+                          alt={`支付凭证${index + 1}`}
+                          className="w-full h-32 object-cover rounded border cursor-pointer hover:shadow-lg"
+                          onClick={() => window.open(url, '_blank')}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ✅ 支付凭证上传（待审核时） */}
+                {selectedApp.status === 'pending' && (
+                  <div>
+                    <Label>支付凭证（可选，审核通过时上传）</Label>
+                    <div className="mt-2 space-y-3">
+                      {/* 上传按钮 */}
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => document.getElementById('payment-voucher-input')?.click()}
+                          disabled={uploadingVouchers}
+                        >
+                          <ImagePlus className="h-4 w-4 mr-2" />
+                          选择图片
+                        </Button>
+                        <input
+                          id="payment-voucher-input"
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={handlePaymentVoucherSelect}
+                        />
+                      </div>
+
+                      {/* 支付凭证预览 */}
+                      {paymentVoucherFiles.length > 0 && (
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-2">
+                            待上传 ({paymentVoucherFiles.length} 张)
+                          </div>
+                          <div className="grid grid-cols-4 gap-2">
+                            {paymentVoucherFiles.map((file, index) => (
+                              <div key={index} className="relative aspect-square">
+                                <img 
+                                  src={URL.createObjectURL(file)} 
+                                  alt={`支付凭证${index + 1}`} 
+                                  className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
+                                />
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="destructive"
+                                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg"
+                                  onClick={() => removePaymentVoucherFile(index)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {uploadingVouchers && (
+                        <div className="flex items-center justify-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          正在上传支付凭证到云端...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ✅ 补充支付凭证（已审核的记录） */}
+                {selectedApp.status === 'approved' && (
+                  <div className="border-t pt-4">
+                    <Label>补充支付凭证</Label>
+                    <div className="mt-2 space-y-3">
+                      {/* 上传按钮 */}
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => document.getElementById('additional-payment-voucher-input')?.click()}
+                          disabled={uploadingVouchers}
+                        >
+                          <ImagePlus className="h-4 w-4 mr-2" />
+                          选择图片
+                        </Button>
+                        <input
+                          id="additional-payment-voucher-input"
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={handlePaymentVoucherSelect}
+                        />
+                      </div>
+
+                      {/* 支付凭证预览 */}
+                      {paymentVoucherFiles.length > 0 && (
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-2">
+                            待上传 ({paymentVoucherFiles.length} 张)
+                          </div>
+                          <div className="grid grid-cols-4 gap-2">
+                            {paymentVoucherFiles.map((file, index) => (
+                              <div key={index} className="relative aspect-square">
+                                <img 
+                                  src={URL.createObjectURL(file)} 
+                                  alt={`支付凭证${index + 1}`} 
+                                  className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
+                                />
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="destructive"
+                                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg"
+                                  onClick={() => removePaymentVoucherFile(index)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {uploadingVouchers && (
+                        <div className="flex items-center justify-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          正在上传支付凭证到云端...
+                        </div>
+                      )}
+
+                      {/* 提交补充支付凭证按钮 */}
+                      {paymentVoucherFiles.length > 0 && !uploadingVouchers && (
+                        <Button
+                          onClick={handleAddPaymentVouchers}
+                          className="w-full"
+                          size="sm"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          上传 {paymentVoucherFiles.length} 张支付凭证
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {selectedApp.status === 'pending' && (
                   <div>
                     <Label>审批意见（可选）</Label>
@@ -399,6 +726,7 @@ export default function ExpenseApproval() {
                       variant="outline"
                       className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
                       onClick={() => handleReview(false)}
+                      disabled={uploadingVouchers}
                     >
                       <XCircle className="h-4 w-4 mr-2" />
                       驳回
@@ -406,11 +734,35 @@ export default function ExpenseApproval() {
                     <Button
                       className="flex-1 bg-green-600 hover:bg-green-700"
                       onClick={() => handleReview(true)}
+                      disabled={uploadingVouchers}
                     >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      通过
+                      {uploadingVouchers ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          上传中...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          通过
+                        </>
+                      )}
                     </Button>
                   </div>
+                </DialogFooter>
+              )}
+
+              {selectedApp.status !== 'pending' && (
+                <DialogFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowReviewDialog(false);
+                      setPaymentVoucherFiles([]);
+                    }}
+                  >
+                    关闭
+                  </Button>
                 </DialogFooter>
               )}
             </>
