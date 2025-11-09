@@ -132,18 +132,23 @@ export default function MobileMyExpenses() {
 
   // ✅ 添加实时订阅 - 监听费用申请表的变化
   const handleRealtimeUpdate = useCallback((payload: any) => {
-    console.log('费用申请数据变更:', payload);
+    console.log('📢 费用申请数据变更:', payload);
     
     // 当有数据变更时，重新加载列表
     if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+      console.log('🔄 正在刷新费用申请列表...');
+      
       // 延迟一点刷新，确保数据已提交
       setTimeout(() => {
         loadApplications();
+        loadPendingDispatches();  // 同时刷新派单数量
       }, 500);
       
       // 如果是审核状态变更，显示提示
       if (payload.eventType === 'UPDATE' && payload.new?.status !== payload.old?.status) {
         const newStatus = payload.new?.status;
+        console.log('✅ 状态变更:', payload.old?.status, '→', newStatus);
+        
         if (newStatus === 'approved') {
           toast({
             title: '审核通过 ✅',
@@ -158,14 +163,15 @@ export default function MobileMyExpenses() {
         }
       }
     }
-  }, [toast]);
+  }, [toast, loadApplications, loadPendingDispatches]);
 
   // ✅ 订阅派单通知
   const handleDispatchUpdate = useCallback((payload: any) => {
-    console.log('派单数据变更:', payload);
+    console.log('📢 派单数据变更:', payload);
     
     // 新派单通知
     if (payload.eventType === 'INSERT' && payload.new?.status === 'pending') {
+      console.log('🔔 收到新派单!');
       toast({
         title: '新派单通知 🔔',
         description: `收到新的派单：${payload.new?.order_number || ''}`,
@@ -176,9 +182,10 @@ export default function MobileMyExpenses() {
     
     // 派单状态变更
     if (payload.eventType === 'UPDATE') {
+      console.log('🔄 派单状态变更，刷新数量');
       loadPendingDispatches();
     }
-  }, [toast]);
+  }, [toast, loadPendingDispatches]);
 
   // 订阅费用申请表的实时变化
   useOptimizedRealtimeSubscription(
@@ -392,17 +399,17 @@ export default function MobileMyExpenses() {
     }
 
     // ✅ 调用七牛云上传，存储到 other/siji/feiyong/ 目录
-    const { data, error } = await supabase.functions.invoke('qiniu-upload', {
-      body: { 
+      const { data, error } = await supabase.functions.invoke('qiniu-upload', {
+        body: {
         files: filesToUpload,
-        namingParams: {
+          namingParams: {
           projectName: 'feiyong',  // ✅ 触发费用上传模式
           customName: `${profile?.full_name || '司机'}-${format(new Date(), 'yyyyMMdd-HHmmss')}`
+          }
         }
-      }
-    });
+      });
 
-    if (error) throw error;
+      if (error) throw error;
     if (!data.success) throw new Error(data.error || '上传失败');
 
     return data.urls;
@@ -519,7 +526,7 @@ export default function MobileMyExpenses() {
             </div>
             </CardContent>
           </Card>
-
+          
         {/* 我的服务 - 类似支付宝的宫格布局 */}
         <Card>
           <CardHeader className="pb-3">
@@ -560,7 +567,7 @@ export default function MobileMyExpenses() {
               <div 
                 className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => setShowNewDialog(true)}
-              >
+          >
                 <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
                   <Plus className="h-6 w-6 text-orange-600" />
               </div>
@@ -630,11 +637,11 @@ export default function MobileMyExpenses() {
               {applications.length === 0 && (
                 <div className="text-center py-6 text-muted-foreground text-sm">
                   暂无费用申请记录
-                </div>
+              </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
 
         {/* 申请记录列表 - 美化版 */}
         <Card className="border-0 shadow-md">
