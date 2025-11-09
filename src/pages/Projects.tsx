@@ -233,6 +233,13 @@ export default function Projects() {
       const original = originalChains.find(o => o.dbId === chain.dbId);
       if (!original) return true; // 新增的链路
       
+      // ✅ 比较链路基本信息（计费方式、名称、描述、默认状态）
+      const chainInfoChanged = 
+        chain.billingTypeId !== original.billingTypeId ||
+        chain.chainName !== original.chainName ||
+        chain.description !== original.description ||
+        chain.isDefault !== original.isDefault;
+      
       // 比较合作方配置
       const currentPartners = JSON.stringify(
         chain.partners.map(p => ({
@@ -254,7 +261,10 @@ export default function Projects() {
         })).sort((a, b) => a.level - b.level)
       );
       
-      return currentPartners !== originalPartners;
+      const partnersChanged = currentPartners !== originalPartners;
+      
+      // ✅ 如果链路信息或合作方配置有变更，则返回true
+      return chainInfoChanged || partnersChanged;
     });
   };
 
