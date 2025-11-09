@@ -48,6 +48,16 @@ const jsMatches = [
   ...(indexContent.match(/src=([^\s>]+\.js)/g) || [])
 ];
 
+// 额外检查：列出 assets 目录中的所有 JS 文件，确保没有遗漏
+const allJsFiles = fs.readdirSync(assetsDir).filter(f => f.endsWith('.js'));
+console.log(`\n📦 assets 目录中的所有 JS 文件 (${allJsFiles.length} 个):`);
+allJsFiles.forEach(file => {
+  const filePath = path.join(assetsDir, file);
+  const stats = fs.statSync(filePath);
+  const size = (stats.size / 1024).toFixed(2);
+  console.log(`   ✅ ${file} (${size} KB)`);
+});
+
 const jsFiles = jsMatches.map(match => {
   // 提取 src 属性值
   let src = match.replace(/src=["']?/, '').replace(/["']?$/, '');

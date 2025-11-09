@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { limitAmountInput } from '@/utils/formatters';
 
 // 费用类型配置
 const EXPENSE_TYPES: Record<string, { label: string; color: string }> = {
@@ -337,12 +338,14 @@ export default function MobileExpenseWriteoff() {
                   <div className="grid gap-2">
                     <Label>实际消费金额（元）*</Label>
                     <Input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="0.00"
                       value={actualAmount}
-                      onChange={e => setActualAmount(e.target.value)}
-                      step="0.01"
-                      min="0"
+                      onChange={e => {
+                        const limitedValue = limitAmountInput(e.target.value);
+                        setActualAmount(limitedValue);
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
                       请输入实际消费金额，系统将自动计算结余

@@ -14,6 +14,7 @@ import { Upload, Plus, FileText, Calendar, Building, DollarSign, List, Eye, Arro
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { format } from 'date-fns';
+import { limitAmountInput } from '@/utils/formatters';
 
 interface Contract {
   id: string;
@@ -414,11 +415,14 @@ export default function MobileContractManagement() {
                   <Label htmlFor="contract_amount">合同金额</Label>
                   <Input
                     id="contract_amount"
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="输入合同金额"
                     value={formData.contract_amount}
-                    onChange={(e) => setFormData(prev => ({ ...prev, contract_amount: e.target.value }))}
+                    onChange={(e) => {
+                      const limitedValue = limitAmountInput(e.target.value);
+                      setFormData(prev => ({ ...prev, contract_amount: limitedValue }));
+                    }}
                   />
                 </div>
 

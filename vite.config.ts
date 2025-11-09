@@ -39,6 +39,10 @@ export default defineConfig(({ mode }) => ({
     // 优化代码分割
     rollupOptions: {
       output: {
+        // 确保 chunk 文件名格式一致，避免部署时文件名不匹配
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
         manualChunks: {
           // 将大型库单独打包
           'xlsx-vendor': ['xlsx'],

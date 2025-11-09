@@ -444,12 +444,33 @@ export default function MobileQuickEntry() {
 
     setSubmittingRouteId(routeId);
     try {
+      // 验证装货数量是否为有效数字
+      const loadingWeight = parseFloat(inputs.loading_weight);
+      if (isNaN(loadingWeight) || loadingWeight <= 0) {
+        toast({
+          title: '信息不完整',
+          description: '请输入有效的装货数量',
+          variant: 'destructive'
+        });
+        setSubmittingRouteId(null);
+        return;
+      }
+
+      // 处理卸货数量（可选）
+      let unloadingWeight: number | null = null;
+      if (inputs.unloading_weight && inputs.unloading_weight.trim() !== '') {
+        const parsed = parseFloat(inputs.unloading_weight);
+        if (!isNaN(parsed) && parsed > 0) {
+          unloadingWeight = parsed;
+        }
+      }
+
       const { data, error } = await supabase.rpc('driver_quick_create_waybill', {
         p_project_id: route.project_id,
         p_loading_location_id: route.loading_location_id,
         p_unloading_location_id: route.unloading_location_id,
-        p_loading_weight: parseFloat(inputs.loading_weight),
-        p_unloading_weight: inputs.unloading_weight ? parseFloat(inputs.unloading_weight) : null,
+        p_loading_weight: loadingWeight,
+        p_unloading_weight: unloadingWeight,
         p_remarks: null
       });
 
@@ -514,12 +535,33 @@ export default function MobileQuickEntry() {
 
     setSubmitting(true);
     try {
+      // 验证装货数量是否为有效数字
+      const loadingWeight = parseFloat(formData.loading_weight);
+      if (isNaN(loadingWeight) || loadingWeight <= 0) {
+        toast({
+          title: '信息不完整',
+          description: '请输入有效的装货数量',
+          variant: 'destructive'
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // 处理卸货数量（可选）
+      let unloadingWeight: number | null = null;
+      if (formData.unloading_weight && formData.unloading_weight.trim() !== '') {
+        const parsed = parseFloat(formData.unloading_weight);
+        if (!isNaN(parsed) && parsed > 0) {
+          unloadingWeight = parsed;
+        }
+      }
+
       const { data, error } = await supabase.rpc('driver_quick_create_waybill', {
         p_project_id: formData.project_id,
         p_loading_location_id: formData.loading_location_id,
         p_unloading_location_id: formData.unloading_location_id,
-        p_loading_weight: parseFloat(formData.loading_weight),
-        p_unloading_weight: formData.unloading_weight ? parseFloat(formData.unloading_weight) : null,
+        p_loading_weight: loadingWeight,
+        p_unloading_weight: unloadingWeight,
         p_remarks: formData.remarks || null
       });
 

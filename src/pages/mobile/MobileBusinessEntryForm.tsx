@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ExternalTrackingNumber } from '@/types';
+import { limitAmountInput } from '@/utils/formatters';
 
 interface Driver {
   id: string;
@@ -635,11 +636,13 @@ export default function MobileBusinessEntryForm() {
             <Label htmlFor="currentCost">运费(元) *</Label>
             <Input
               id="currentCost"
-              type="number"
-              step="0.01"
-              min="0"
+              type="text"
+              inputMode="decimal"
               value={formData.currentCost}
-              onChange={(e) => setFormData(prev => ({ ...prev, currentCost: e.target.value }))}
+              onChange={(e) => {
+                const limitedValue = limitAmountInput(e.target.value);
+                setFormData(prev => ({ ...prev, currentCost: limitedValue }));
+              }}
               placeholder="输入运费"
             />
           </div>
@@ -648,10 +651,13 @@ export default function MobileBusinessEntryForm() {
             <Label htmlFor="extraCost">额外费(元)</Label>
             <Input
               id="extraCost"
-              type="number"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               value={formData.extraCost}
-              onChange={(e) => setFormData(prev => ({ ...prev, extraCost: e.target.value }))}
+              onChange={(e) => {
+                const limitedValue = limitAmountInput(e.target.value, true); // 允许负数
+                setFormData(prev => ({ ...prev, extraCost: limitedValue }));
+              }}
               placeholder="输入额外费用，支持负数"
             />
           </div>

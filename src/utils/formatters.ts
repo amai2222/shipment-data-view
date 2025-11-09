@@ -204,3 +204,53 @@ export function getBillingTypeConfig(billingTypeId: number | null | undefined) {
       return { name: '计重', unit: '吨' };
   }
 }
+
+/**
+ * 限制金额输入为最多2位小数的数字
+ * @param value 输入值
+ * @param allowNegative 是否允许负数（默认false）
+ * @returns 处理后的值（最多2位小数）
+ */
+export function limitAmountInput(value: string, allowNegative: boolean = false): string {
+  // 如果为空，直接返回
+  if (value === '' || value === null || value === undefined) {
+    return '';
+  }
+
+  // 转换为字符串
+  let str = String(value);
+
+  // 移除所有非数字和小数点的字符
+  // 如果允许负数，保留开头的负号
+  if (allowNegative) {
+    // 允许开头的负号
+    str = str.replace(/[^\d.-]/g, '');
+    // 确保负号只在开头
+    if (str.includes('-')) {
+      const parts = str.split('-');
+      if (parts[0] === '') {
+        // 负号在开头
+        str = '-' + parts.slice(1).join('').replace(/[^\d.]/g, '');
+      } else {
+        // 负号不在开头，移除所有负号
+        str = str.replace(/-/g, '');
+      }
+    }
+  } else {
+    // 不允许负数，移除所有非数字和小数点
+    str = str.replace(/[^\d.]/g, '');
+  }
+
+  // 处理多个小数点的情况，只保留第一个
+  const parts = str.split('.');
+  if (parts.length > 2) {
+    str = parts[0] + '.' + parts.slice(1).join('');
+  }
+
+  // 限制小数点后最多2位
+  if (parts.length === 2 && parts[1].length > 2) {
+    str = parts[0] + '.' + parts[1].substring(0, 2);
+  }
+
+  return str;
+}
