@@ -1,6 +1,7 @@
 // 移动端 - 我的行程记录（司机运单列表）
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +33,7 @@ interface Waybill {
 }
 
 export default function MobileMyWaybills() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
@@ -64,15 +66,6 @@ export default function MobileMyWaybills() {
     }
   };
 
-  const getPaymentStatusBadge = (status: string) => {
-    const config: Record<string, { label: string; className: string }> = {
-      Unpaid: { label: '未付款', className: 'bg-red-100 text-red-800' },
-      Processing: { label: '处理中', className: 'bg-yellow-100 text-yellow-800' },
-      Paid: { label: '已付款', className: 'bg-green-100 text-green-800' }
-    };
-    const cfg = config[status] || { label: status, className: 'bg-gray-100 text-gray-800' };
-    return <Badge className={cfg.className}>{cfg.label}</Badge>;
-  };
 
   const totalWeight = waybills.reduce((sum, w) => sum + (w.loading_weight || 0), 0);
   const totalTrips = waybills.length;
@@ -116,47 +109,72 @@ export default function MobileMyWaybills() {
             </Card>
           ) : (
             waybills.map(waybill => (
-              <Card key={waybill.id} className="shadow-sm hover:shadow-md transition-shadow border-l-4 border-l-blue-500">
+              <Card 
+                key={waybill.id} 
+                className="border-0 shadow-sm hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden bg-gradient-to-br from-white to-gray-50/50 active:scale-[0.98] cursor-pointer"
+                onClick={() => navigate(`/m/internal/waybill/${waybill.id}`)}
+              >
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-bold text-base mb-1">{waybill.auto_number}</div>
-                      <div className="text-xs text-muted-foreground">
+                  {/* 运单编号和时间 */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="font-semibold text-base text-gray-900 mb-1">{waybill.auto_number}</div>
+                      <div className="text-xs text-gray-500">
                         {format(new Date(waybill.created_at), 'yyyy-MM-dd HH:mm')}
                       </div>
                     </div>
-                    {getPaymentStatusBadge(waybill.payment_status)}
                   </div>
                   
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Package className="h-4 w-4" />
-                      <span>项目：{waybill.project_name}</span>
-                    </div>
-                    
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                      <div className="flex-1">
-                        <div className="font-medium">{waybill.loading_location}</div>
-                        <div className="text-xs text-muted-foreground my-1">↓</div>
-                        <div className="font-medium">{waybill.unloading_location}</div>
+                  {/* 项目信息 */}
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+                    <Package className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm text-gray-700">{waybill.project_name}</span>
+                  </div>
+                  
+                  {/* 路线信息 - 参考货拉拉设计 */}
+                  <div className="space-y-3 mb-4">
+                    {/* 起点 */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-center mt-0.5">
+                        <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-sm flex items-center justify-center">
+                          <div className="w-2 h-2 rounded-full bg-white"></div>
+                        </div>
+                        <div className="w-0.5 h-12 bg-gradient-to-b from-blue-500 via-blue-400 to-green-500 my-1"></div>
+                      </div>
+                      <div className="flex-1 pt-0.5">
+                        <div className="text-xs text-gray-500 mb-1">起点</div>
+                        <div className="font-medium text-base text-gray-900 leading-tight">{waybill.loading_location}</div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-4 pt-2 border-t">
-                      <div className="flex items-center gap-1">
-                        <Weight className="h-4 w-4 text-green-600" />
-                        <span className="text-green-700 font-semibold">{waybill.loading_weight}吨</span>
+                    {/* 终点 */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow-sm mt-0.5 flex items-center justify-center">
+                        <div className="w-2 h-2 rounded-full bg-white"></div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs text-gray-500 mb-1">终点</div>
+                        <div className="font-medium text-base text-gray-900 leading-tight">{waybill.unloading_location}</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* 底部信息栏 */}
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <div className="flex items-center gap-5">
+                      <div className="flex items-center gap-1.5">
+                        <Weight className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-semibold text-gray-800">{waybill.loading_weight}吨</span>
                       </div>
                       {waybill.unloading_weight && (
-                        <div className="flex items-center gap-1">
-                          <Weight className="h-4 w-4 text-blue-600" />
-                          <span className="text-blue-700 font-semibold">{waybill.unloading_weight}吨</span>
+                        <div className="flex items-center gap-1.5">
+                          <Weight className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-semibold text-gray-800">{waybill.unloading_weight}吨</span>
                         </div>
                       )}
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         <Calendar className="h-4 w-4 text-purple-600" />
-                        <span className="text-purple-700">{format(new Date(waybill.loading_date), 'MM-dd')}</span>
+                        <span className="text-sm text-gray-600">{format(new Date(waybill.loading_date), 'MM-dd')}</span>
                       </div>
                     </div>
                   </div>
