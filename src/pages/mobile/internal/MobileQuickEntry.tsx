@@ -1059,6 +1059,18 @@ export default function MobileQuickEntry() {
         }
       }
 
+      // 从选中的线路获取装货地和卸货地（在executeSubmit中重新查找，因为selectedRoute是handleSubmit的局部变量）
+      const selectedRoute = favoriteRoutes.find((r: any) => r.id === formData.route_id);
+      if (!selectedRoute || !selectedRoute.loading_location_id || !selectedRoute.unloading_location_id) {
+        toast({
+          title: '信息不完整',
+          description: '线路信息不完整，请重新选择线路',
+          variant: 'destructive'
+        });
+        setSubmitting(false);
+        return;
+      }
+
       // 使用手工建单函数，使用选中的线路信息
       const { data, error } = await supabase.rpc('driver_manual_create_waybill', {
         p_project_id: formData.project_id,
