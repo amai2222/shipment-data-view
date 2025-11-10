@@ -87,10 +87,12 @@ interface ExpenseApplication {
   expense_date: string;
   expense_type: string;
   amount: number;
+  actual_amount: number | null;  // 实际消费金额（冲销时填写）
   description: string;
   receipt_photos: string[];
   status: string;
   review_comment: string | null;
+  writeoff_time: string | null;  // 冲销时间
   created_at: string;
 }
 
@@ -140,6 +142,7 @@ export default function MobileMyExpenses() {
   
   const [uploading, setUploading] = useState(false);
   const isInitialLoad = useRef(true);  // ✅ 跟踪是否是首次加载
+  const scrollPositionRef = useRef<number>(0);  // ✅ 保存滚动位置
 
   // ✅ 用 useCallback 包装加载函数，避免依赖变化导致重复订阅
   // 加载我的车辆
@@ -309,6 +312,31 @@ export default function MobileMyExpenses() {
       setError(error.message || '页面初始化失败');
     }
   }, [loadApplications, loadMyVehicles, loadPendingDispatches]);
+
+  // ✅ 监听标签切换，防止页面滚动
+  useEffect(() => {
+    // 在标签切换后，恢复滚动位置
+    const restoreScroll = () => {
+      if (scrollPositionRef.current > 0) {
+        window.scrollTo({
+          top: scrollPositionRef.current,
+          behavior: 'instant'
+        });
+      }
+    };
+    
+    // 立即恢复
+    restoreScroll();
+    
+    // 延迟恢复（确保DOM更新完成）
+    const timer1 = setTimeout(restoreScroll, 0);
+    const timer2 = setTimeout(restoreScroll, 10);
+    
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [activeTab]);
 
   // ✅ 添加实时订阅 - 监听费用申请表的变化
   const handleRealtimeUpdate = useCallback((payload: any) => {
@@ -988,6 +1016,9 @@ export default function MobileMyExpenses() {
             <Tabs 
               value={activeTab} 
               onValueChange={(value) => {
+                // 保存当前滚动位置
+                scrollPositionRef.current = window.scrollY || window.pageYOffset || 0;
+                
                 // 切换标签时加载对应数据
                 if (value === 'expenses' && activeTab !== 'expenses') {
                   setActiveTab(value);
@@ -998,6 +1029,22 @@ export default function MobileMyExpenses() {
                 } else {
                   setActiveTab(value);
                 }
+                
+                // 立即恢复滚动位置，防止页面移位
+                setTimeout(() => {
+                  window.scrollTo({
+                    top: scrollPositionRef.current,
+                    behavior: 'instant'  // 使用 instant 避免动画导致的滚动
+                  });
+                }, 0);
+                
+                // 双重保险：在下一帧也恢复一次
+                requestAnimationFrame(() => {
+                  window.scrollTo({
+                    top: scrollPositionRef.current,
+                    behavior: 'instant'
+                  });
+                });
               }} 
               className="w-full"
             >
@@ -1052,60 +1099,91 @@ export default function MobileMyExpenses() {
                     const typeConfig = getExpenseTypeConfig(app.expense_type);
                     const statusConfig = getStatusConfig(app.status);
                     const StatusIcon = statusConfig.icon;
+                    const isWriteoff = app.writeoff_time !== null;  // 是否已冲销
+                    const balance = app.actual_amount !== null 
+                      ? app.amount - app.actual_amount 
+                      : null;  // 结余（申请金额 - 实际金额）
                     
                     return (
                       <Card 
                         key={app.id} 
-                        className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-0 shadow-sm bg-gradient-to-br from-white to-gray-50"
+                        className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.01] border border-gray-100 shadow-sm bg-white"
                         onClick={() => {
                           setSelectedApp(app);
                           setShowDetailDialog(true);
                         }}
                       >
-                        <CardContent className="p-4 relative overflow-hidden">
-                          {/* 装饰性背景图案 */}
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-50 to-transparent rounded-full -mr-16 -mt-16 opacity-50"></div>
-                          
-                          <div className="flex items-start justify-between relative z-10">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-3">
-                                <Badge className={`${typeConfig.color} shadow-sm`}>
-                                  {typeConfig.label}
-                                </Badge>
-                                <Badge className={`${statusConfig.color} shadow-sm`}>
-                                  <StatusIcon className="h-3 w-3 mr-1" />
-                                  {statusConfig.label}
-                                </Badge>
-                              </div>
-                              
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <Calendar className="h-3 w-3" />
-                                  {format(new Date(app.expense_date), 'yyyy年MM月dd日', { locale: zhCN })}
-                                </div>
-                                
-                                {app.description && (
-                                  <p className="text-sm text-muted-foreground line-clamp-1">
-                                    {app.description}
-                                  </p>
-                                )}
-                                
-                                <div className="text-xs text-muted-foreground">
-                                  申请单号：{app.application_number}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="text-right ml-4">
-                              <div className="text-2xl font-bold text-primary">
+                        <CardContent className="p-4">
+                          {/* 顶部：费用类型标签（左对齐） */}
+                          <div className="flex items-center justify-between mb-3">
+                            <Badge className={`${typeConfig.color} shadow-sm text-xs font-medium`}>
+                              {typeConfig.label}
+                            </Badge>
+                            <div className="text-right">
+                              <div className="text-xl font-bold text-primary">
                                 ¥{app.amount.toFixed(2)}
                               </div>
                               {app.receipt_photos.length > 0 && (
-                                <div className="text-xs text-muted-foreground mt-1 flex items-center justify-end gap-1">
+                                <div className="text-xs text-muted-foreground mt-0.5 flex items-center justify-end gap-1">
                                   <ImageIcon className="h-3 w-3" />
                                   {app.receipt_photos.length}张凭证
                                 </div>
                               )}
+                            </div>
+                          </div>
+
+                          {/* 中间：状态标签（居中显示） */}
+                          <div className="flex items-center justify-center gap-2 mb-3 py-2 border-y border-gray-100">
+                            <Badge className={`${statusConfig.color} shadow-sm text-xs font-medium`}>
+                              <StatusIcon className="h-3 w-3 mr-1" />
+                              {statusConfig.label}
+                            </Badge>
+                            {isWriteoff && (
+                              <Badge className="bg-red-100 text-red-800 shadow-sm text-xs font-medium">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                已冲销
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* 底部：详细信息 */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {format(new Date(app.expense_date), 'yyyy年MM月dd日', { locale: zhCN })}
+                            </div>
+                            
+                            {isWriteoff && app.actual_amount !== null && (
+                              <div className="space-y-1.5 bg-gray-50 rounded-lg p-2.5 text-xs">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-muted-foreground">申请金额:</span>
+                                  <span className="font-medium">¥{app.amount.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-muted-foreground">实际金额:</span>
+                                  <span className="font-medium">¥{app.actual_amount.toFixed(2)}</span>
+                                </div>
+                                {balance !== null && (
+                                  <div className="flex justify-between items-center pt-1 border-t border-gray-200">
+                                    <span className="text-muted-foreground">
+                                      {balance > 0 ? '结余:' : balance < 0 ? '待补:' : '结余:'}
+                                    </span>
+                                    <span className={`font-bold ${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                      {balance > 0 ? '+' : ''}¥{Math.abs(balance).toFixed(2)}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {app.description && (
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {app.description}
+                              </p>
+                            )}
+                            
+                            <div className="text-xs text-muted-foreground">
+                              申请单号：{app.application_number}
                             </div>
                           </div>
                         </CardContent>
