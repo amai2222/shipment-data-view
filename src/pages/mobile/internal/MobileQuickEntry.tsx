@@ -119,6 +119,12 @@ export default function MobileQuickEntry() {
     unloading_date: string;
   }>>({});
   const [submittingRouteId, setSubmittingRouteId] = useState<string | null>(null);
+  
+  // 二次确认对话框
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [confirmDialogTitle, setConfirmDialogTitle] = useState('');
+  const [confirmDialogDescription, setConfirmDialogDescription] = useState('');
 
   useEffect(() => {
     loadMyInfo();
@@ -756,8 +762,57 @@ export default function MobileQuickEntry() {
     }
   };
 
-  // 提交常用运单
-  const handleSubmitFavoriteRoute = async (routeId: string) => {
+  // 显示确认对话框并执行操作
+  const handleConfirmAction = (action: () => void, title: string, description: string) => {
+    setPendingAction(() => action);
+    setConfirmDialogTitle(title);
+    setConfirmDialogDescription(description);
+    setShowConfirmDialog(true);
+  };
+
+  // 确认后执行操作
+  const handleConfirmSubmit = () => {
+    if (pendingAction) {
+      pendingAction();
+    }
+    setShowConfirmDialog(false);
+    setPendingAction(null);
+  };
+
+  // 提交常用运单（包装函数，显示确认对话框）
+  const handleSubmitFavoriteRoute = (routeId: string) => {
+    const route = favoriteRoutes.find(r => r.id === routeId);
+    if (!route) {
+      console.error('❌ 未找到线路:', routeId);
+      return;
+    }
+    
+    const inputs = routeInputs[routeId] || { 
+      loading_weight: '', 
+      unloading_weight: '',
+      loading_date: new Date().toISOString().split('T')[0],
+      unloading_date: new Date().toISOString().split('T')[0]
+    };
+    
+    // 先做基本验证
+    if (!inputs.loading_weight?.trim()) {
+      toast({
+        title: '信息不完整',
+        description: '请填写装货数量',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    handleConfirmAction(
+      () => executeSubmitFavoriteRoute(routeId),
+      '确认记录运单',
+      `确定要记录运单吗？\n线路：${route.route_name}\n装货数量：${inputs.loading_weight}`
+    );
+  };
+
+  // 提交常用运单（实际执行函数）
+  const executeSubmitFavoriteRoute = async (routeId: string) => {
     const route = favoriteRoutes.find(r => r.id === routeId);
     if (!route) {
       console.error('❌ 未找到线路:', routeId);
@@ -939,9 +994,9 @@ export default function MobileQuickEntry() {
     }
   };
 
-  // 提交运单（手工建单）
-  const handleSubmit = async () => {
-    // 验证必填项
+  // 提交运单（手工建单，包装函数，显示确认对话框）
+  const handleSubmit = () => {
+    // 先做基本验证
     if (!formData.project_id || !formData.loading_weight) {
       toast({
         title: '信息不完整',
@@ -971,7 +1026,16 @@ export default function MobileQuickEntry() {
       });
       return;
     }
+    
+    handleConfirmAction(
+      () => executeSubmit(),
+      '确认提交运单',
+      `确定要提交运单吗？\n线路：${selectedRoute.route_name}\n装货数量：${formData.loading_weight}`
+    );
+  };
 
+  // 提交运单（手工建单，实际执行函数）
+  const executeSubmit = async () => {
     setSubmitting(true);
     try {
       // 验证装货数量是否为有效数字
@@ -1752,6 +1816,32 @@ export default function MobileQuickEntry() {
               <Button onClick={handleAddRoute} disabled={submitting}>
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 确认添加
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 二次确认对话框 */}
+        <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{confirmDialogTitle}</DialogTitle>
+              <DialogDescription className="whitespace-pre-line">
+                {confirmDialogDescription}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowConfirmDialog(false);
+                  setPendingAction(null);
+                }}
+              >
+                取消
+              </Button>
+              <Button onClick={handleConfirmSubmit}>
+                确认
               </Button>
             </DialogFooter>
           </DialogContent>
