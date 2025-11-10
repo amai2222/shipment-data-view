@@ -99,6 +99,11 @@ export default function FleetManagerConfig() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [routes, setRoutes] = useState<RouteConfig[]>([]);
   const [activeTab, setActiveTab] = useState('projects');
+  
+  // 负责项目标签页：选中的项目（用于显示该项目的常用线路）
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [projectRoutes, setProjectRoutes] = useState<RouteConfig[]>([]); // 选中项目的常用线路
+  const [allManagerRoutes, setAllManagerRoutes] = useState<RouteConfig[]>([]); // 车队长的所有常用线路
 
   // 新增地点表单
   const [newLocation, setNewLocation] = useState({ name: '', address: '' });
@@ -159,6 +164,12 @@ export default function FleetManagerConfig() {
       setLocations([]);
       setRoutes([]);
     }
+    
+    // 切换标签页时，清空选中项目
+    if (activeTab !== 'projects') {
+      setSelectedProjectId('');
+      setProjectRoutes([]);
+    }
   }, [activeTab, selectedFleetManagerId]);
 
   const loadData = async () => {
@@ -188,6 +199,27 @@ export default function FleetManagerConfig() {
         setProjects((allProjects || []).map(p => ({
           ...p,
           is_managed: managedProjectIds.has(p.id)
+        })));
+
+        // 加载车队长的所有常用线路（用于分配线路给项目）
+        const { data: allRoutes } = await supabase
+          .from('fleet_manager_favorite_routes')
+          .select('*')
+          .eq('fleet_manager_id', selectedFleetManagerId)
+          .order('use_count', { ascending: false });
+
+        setAllManagerRoutes((allRoutes || []).map((r: any) => ({
+          id: r.id,
+          route_name: r.route_name,
+          from_location: r.loading_location,
+          to_location: r.unloading_location,
+          from_location_id: r.loading_location_id,
+          to_location_id: r.unloading_location_id,
+          project_id: r.project_id,
+          distance: null,
+          estimated_time: null,
+          notes: r.notes || null,
+          use_count: r.use_count || 0
         })));
       }
 
@@ -504,7 +536,124 @@ export default function FleetManagerConfig() {
     }
   };
 
-  // 打开分配对话框
+  // 加载选中项目的常用线路
+  const loadProjectRoutes = async (projectId: string) => {
+    if (!selectedFleetManagerId || !projectId) {
+      setProjectRoutes([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('fleet_manager_favorite_routes')
+        .select('*')
+        .eq('fleet_manager_id', selectedFleetManagerId)
+        .eq('project_id', projectId)
+        .order('use_count', { ascending: false });
+
+      if (error) throw error;
+
+      setProjectRoutes((data || []).map((r: any) => ({
+        id: r.id,
+        route_name: r.route_name,
+        from_location: r.loading_location,
+        to_location: r.unloading_location,
+        from_location_id: r.loading_location_id,
+        to_location_id: r.unloading_location_id,
+        project_id: r.project_id,
+        distance: null,
+        estimated_time: null,
+        notes: r.notes || null,
+        use_count: r.use_count || 0
+      })));
+    } catch (error: any) {
+      console.error('加载项目线路失败:', error);
+      toast({
+        title: '加载失败',
+        description: error.message,
+        variant: 'destructive'
+      });
+      setProjectRoutes([]);
+    }
+  };
+
+  // 分配线路给项目
+  const handleAssignRouteToProject = async (routeId: string, projectId: string) => {
+    if (!selectedFleetManagerId) {
+      toast({ title: '请先选择车队长', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('fleet_manager_favorite_routes')
+        .update({ project_id: projectId })
+        .eq('id', routeId)
+        .eq('fleet_manager_id', selectedFleetManagerId);
+
+      if (error) throw error;
+
+      const route = allManagerRoutes.find(r => r.id === routeId);
+      toast({
+        title: '分配成功',
+        description: `线路"${route?.route_name}"已分配给项目`
+      });
+
+      // 刷新项目线路列表
+      if (selectedProjectId === projectId) {
+        await loadProjectRoutes(projectId);
+      }
+      // 刷新所有线路列表
+      await loadData();
+    } catch (error: any) {
+      console.error('分配线路失败:', error);
+      toast({
+        title: '分配失败',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // 取消线路的项目分配
+  const handleUnassignRouteFromProject = async (routeId: string) => {
+    if (!selectedFleetManagerId) {
+      toast({ title: '请先选择车队长', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('fleet_manager_favorite_routes')
+        .update({ project_id: null })
+        .eq('id', routeId)
+        .eq('fleet_manager_id', selectedFleetManagerId);
+
+      if (error) throw error;
+
+      const route = allManagerRoutes.find(r => r.id === routeId);
+      toast({
+        title: '取消成功',
+        description: `线路"${route?.route_name}"已取消项目分配`
+      });
+
+      // 刷新项目线路列表
+      if (selectedProjectId) {
+        await loadProjectRoutes(selectedProjectId);
+      }
+      // 刷新所有线路列表
+      await loadData();
+    } catch (error: any) {
+      console.error('取消分配失败:', error);
+      toast({
+        title: '取消失败',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // 打开分配对话框（分配给司机）
   const handleAssignRoute = async (route: RouteConfig) => {
     setAssigningRoute(route);
     setSelectedDriverIds([]);
@@ -604,6 +753,9 @@ export default function FleetManagerConfig() {
                 setProjects([]);
                 setLocations([]);
                 setRoutes([]);
+                setSelectedProjectId('');
+                setProjectRoutes([]);
+                setAllManagerRoutes([]);
               }}
             >
               <SelectTrigger className="w-[300px]">
@@ -622,16 +774,16 @@ export default function FleetManagerConfig() {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="projects">
+        <TabsList className="grid w-full grid-cols-3 bg-muted">
+          <TabsTrigger value="projects" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <FolderKanban className="h-4 w-4 mr-2" />
             负责项目
           </TabsTrigger>
-          <TabsTrigger value="locations">
+          <TabsTrigger value="locations" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <MapPin className="h-4 w-4 mr-2" />
             常用地点
           </TabsTrigger>
-          <TabsTrigger value="routes">
+          <TabsTrigger value="routes" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <Route className="h-4 w-4 mr-2" />
             常跑线路
           </TabsTrigger>
@@ -645,87 +797,215 @@ export default function FleetManagerConfig() {
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>管理的项目</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="text-center py-8 text-muted-foreground">加载中...</div>
-                ) : (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12"></TableHead>
-                          <TableHead>项目名称</TableHead>
-                          <TableHead>状态</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {projects.length === 0 ? (
+            <div className="grid grid-cols-2 gap-4">
+              {/* 左侧：项目列表 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>分配项目给车队长</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="text-center py-8 text-muted-foreground">加载中...</div>
+                  ) : (
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
                           <TableRow>
-                            <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                              暂无项目数据
-                            </TableCell>
+                            <TableHead className="w-12"></TableHead>
+                            <TableHead>项目名称</TableHead>
+                            <TableHead>状态</TableHead>
                           </TableRow>
-                        ) : (
-                          projects.map(project => (
-                            <TableRow key={project.id}>
-                              <TableCell>
-                                <Checkbox
-                                  checked={project.is_managed}
-                                  onCheckedChange={async (checked) => {
-                                    try {
-                                      if (checked) {
-                                        // 分配项目给选择的车队长
-                                        const { error: insertError } = await supabase
-                                          .from('fleet_manager_projects')
-                                          .insert({
-                                            fleet_manager_id: selectedFleetManagerId,
-                                            project_id: project.id
-                                          });
-                                        
-                                        if (insertError) throw insertError;
-                                        
-                                        toast({ title: '分配成功', description: `已负责项目：${project.name}` });
-                                      } else {
-                                        // 取消分配
-                                        const { error: deleteError } = await supabase
-                                          .from('fleet_manager_projects')
-                                          .delete()
-                                          .eq('fleet_manager_id', selectedFleetManagerId)
-                                          .eq('project_id', project.id);
-                                        
-                                        if (deleteError) throw deleteError;
-                                        
-                                        toast({ title: '取消成功', description: `已取消负责项目：${project.name}` });
-                                      }
-                                      
-                                      loadData();
-                                    } catch (error: any) {
-                                      toast({ title: '操作失败', description: error.message, variant: 'destructive' });
-                                    }
-                                  }}
-                                />
-                              </TableCell>
-                              <TableCell className="font-semibold">{project.name}</TableCell>
-                              <TableCell>
-                                {project.is_managed ? (
-                                  <Badge className="bg-green-100 text-green-800">负责中</Badge>
-                                ) : (
-                                  <Badge variant="outline">未负责</Badge>
-                                )}
+                        </TableHeader>
+                        <TableBody>
+                          {projects.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                                暂无项目数据
                               </TableCell>
                             </TableRow>
-                          ))
+                          ) : (
+                            projects.map(project => (
+                              <TableRow 
+                                key={project.id}
+                                className={selectedProjectId === project.id ? 'bg-blue-50' : 'cursor-pointer'}
+                                onClick={() => {
+                                  if (project.is_managed) {
+                                    setSelectedProjectId(project.id);
+                                    loadProjectRoutes(project.id);
+                                  }
+                                }}
+                              >
+                                <TableCell onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox
+                                    checked={project.is_managed}
+                                    onCheckedChange={async (checked) => {
+                                      try {
+                                        if (checked) {
+                                          // 分配项目给选择的车队长
+                                          const { error: insertError } = await supabase
+                                            .from('fleet_manager_projects')
+                                            .insert({
+                                              fleet_manager_id: selectedFleetManagerId,
+                                              project_id: project.id
+                                            });
+                                          
+                                          if (insertError) throw insertError;
+                                          
+                                          toast({ title: '分配成功', description: `已负责项目：${project.name}` });
+                                          // 自动选中并加载线路
+                                          setSelectedProjectId(project.id);
+                                          await loadProjectRoutes(project.id);
+                                        } else {
+                                          // 取消分配
+                                          const { error: deleteError } = await supabase
+                                            .from('fleet_manager_projects')
+                                            .delete()
+                                            .eq('fleet_manager_id', selectedFleetManagerId)
+                                            .eq('project_id', project.id);
+                                          
+                                          if (deleteError) throw deleteError;
+                                          
+                                          toast({ title: '取消成功', description: `已取消负责项目：${project.name}` });
+                                          // 如果取消的是当前选中的项目，清空选中状态
+                                          if (selectedProjectId === project.id) {
+                                            setSelectedProjectId('');
+                                            setProjectRoutes([]);
+                                          }
+                                        }
+                                        
+                                        loadData();
+                                      } catch (error: any) {
+                                        toast({ title: '操作失败', description: error.message, variant: 'destructive' });
+                                      }
+                                    }}
+                                  />
+                                </TableCell>
+                                <TableCell className="font-semibold">{project.name}</TableCell>
+                                <TableCell>
+                                  {project.is_managed ? (
+                                    <Badge className="bg-green-100 text-green-800">负责中</Badge>
+                                  ) : (
+                                    <Badge variant="outline">未负责</Badge>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 右侧：选中项目的常用线路 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {selectedProjectId ? (
+                      <>
+                        项目线路：{projects.find(p => p.id === selectedProjectId)?.name || '未知项目'}
+                      </>
+                    ) : (
+                      '分配常用线路给项目'
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!selectedProjectId ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p className="mb-2">请先选择一个负责的项目</p>
+                      <p className="text-sm">点击左侧项目列表中的"负责中"项目，查看和管理该项目的常用线路</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* 已分配给该项目的线路 */}
+                      <div>
+                        <Label className="text-sm font-semibold mb-2 block">已分配的线路</Label>
+                        {projectRoutes.length === 0 ? (
+                          <div className="text-sm text-muted-foreground py-4 text-center border rounded">
+                            该项目暂无分配的线路
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {projectRoutes.map(route => (
+                              <div
+                                key={route.id}
+                                className="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
+                              >
+                                <div className="flex-1">
+                                  <div className="font-medium">{route.route_name}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {route.from_location} → {route.to_location}
+                                  </div>
+                                  {route.use_count > 0 && (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      使用 {route.use_count} 次
+                                    </div>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleUnassignRouteFromProject(route.id)}
+                                >
+                                  取消分配
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
                         )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      </div>
+
+                      {/* 可分配的线路（未分配给任何项目或分配给其他项目的线路） */}
+                      <div>
+                        <Label className="text-sm font-semibold mb-2 block">可分配的线路</Label>
+                        {allManagerRoutes.filter(r => r.project_id !== selectedProjectId).length === 0 ? (
+                          <div className="text-sm text-muted-foreground py-4 text-center border rounded">
+                            暂无其他可分配的线路
+                          </div>
+                        ) : (
+                          <div className="space-y-2 max-h-96 overflow-y-auto">
+                            {allManagerRoutes
+                              .filter(r => r.project_id !== selectedProjectId)
+                              .map(route => (
+                                <div
+                                  key={route.id}
+                                  className="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
+                                >
+                                  <div className="flex-1">
+                                    <div className="font-medium">{route.route_name}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {route.from_location} → {route.to_location}
+                                    </div>
+                                    {route.project_id && (
+                                      <div className="text-xs text-orange-600 mt-1">
+                                        已分配给其他项目
+                                      </div>
+                                    )}
+                                    {route.use_count > 0 && (
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        使用 {route.use_count} 次
+                                      </div>
+                                    )}
+                                  </div>
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => handleAssignRouteToProject(route.id, selectedProjectId)}
+                                  >
+                                    分配给项目
+                                  </Button>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           )}
         </TabsContent>
 
