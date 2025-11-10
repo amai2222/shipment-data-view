@@ -13,7 +13,6 @@ import { MobileRedirect } from "./components/MobileRedirect";
 import { MobileLayout } from "./components/mobile/MobileLayout";
 import { AutoMenuSync } from "./components/AutoMenuSync";
 import { GlobalErrorHandler } from "./components/GlobalErrorHandler";
-import ChunkLoadErrorBoundary from "./components/ChunkLoadErrorBoundary";
 
 // --- 懒加载页面组件导入 ---
 import { Suspense } from 'react';
@@ -142,7 +141,6 @@ const MobileProjectDashboard = lazy(() => import("./pages/mobile/MobileProjectDa
 const queryClient = new QueryClient();
 
 const App = () => (
-  <ChunkLoadErrorBoundary>
     <QueryClientProvider client={queryClient}>
     {/* 全局错误处理器：捕获所有未处理的错误 */}
     <GlobalErrorHandler>
@@ -863,7 +861,6 @@ const App = () => (
     </BrowserRouter>
     </GlobalErrorHandler>
   </QueryClientProvider>
-  </ChunkLoadErrorBoundary>
 );
 
 export default App;
