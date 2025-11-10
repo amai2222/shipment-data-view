@@ -284,7 +284,7 @@ export default function Projects() {
         console.error(`❌ 链路 "${chain.chainName}" 没有合作方`);
         toast({ 
           title: `链路 "${chain.chainName}" 缺少合作方`, 
-          description: "每个链路至少需要一个合作方，请点击"添加合作方"按钮并从下拉框中选择", 
+          description: "每个链路至少需要一个合作方，请点击【添加合作方】按钮并从下拉框中选择", 
           variant: "destructive" 
         });
         return;
@@ -670,11 +670,11 @@ export default function Projects() {
                                 </div>
                               ))}
                             </div>
-                          ) : ( <div className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded">暂无合作方，点击"添加合作方"开始配置</div> )}
+                          ) : ( <div className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded">暂无合作方，点击【添加合作方】开始配置</div> )}
                         </div>
                       ))}
                     </div>
-                  ) : ( <div className="text-sm text-muted-foreground text-center py-8 border border-dashed rounded">暂无合作链路，点击"添加链路"开始配置多种合作方案</div> )}
+                  ) : ( <div className="text-sm text-muted-foreground text-center py-8 border border-dashed rounded">暂无合作链路，点击【添加链路】开始配置多种合作方案</div> )}
                 </div>
                 <div className="flex justify-end space-x-2"><Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>取消</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />{editingProject ? "更新中..." : "添加中..."}</>) : (editingProject ? "更新" : "添加")}</Button></div>
               </form>
@@ -896,7 +896,7 @@ export default function Projects() {
             {projects.length === 0 && (
               <div className="text-center py-12">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">暂无项目，点击"新增项目"开始创建</p>
+                <p className="text-muted-foreground">暂无项目，点击【新增项目】开始创建</p>
               </div>
             )}
           </div>
