@@ -65,6 +65,11 @@ interface FavoriteRoute {
   use_count: number;
 }
 
+interface Location {
+  id: string;
+  name: string;
+}
+
 interface DispatchOrder {
   id: string;
   order_number: string;
@@ -83,12 +88,21 @@ export default function MobileDispatchOrder() {
   const [loading, setLoading] = useState(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);  // 地点列表
   const [favoriteRoutes, setFavoriteRoutes] = useState<FavoriteRoute[]>([]);
   const [recentOrders, setRecentOrders] = useState<DispatchOrder[]>([]);
   
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showSaveRouteDialog, setShowSaveRouteDialog] = useState(false);
+  const [showAddRouteDialog, setShowAddRouteDialog] = useState(false);  // 添加新线路对话框
   const [newRouteName, setNewRouteName] = useState('');
+  
+  // 添加新线路表单
+  const [newRoute, setNewRoute] = useState({
+    loading_location_id: '',
+    unloading_location_id: '',
+    notes: ''
+  });
   
   // 派单表单
   const [formData, setFormData] = useState({
@@ -189,6 +203,14 @@ export default function MobileDispatchOrder() {
       
       setProjects(projectData || []);
 
+      // 加载地点列表（用于添加新线路）
+      const { data: locationData } = await supabase
+        .from('locations')
+        .select('id, name')
+        .order('name');
+      
+      setLocations(locationData || []);
+
       // 加载常用线路（不按项目过滤，显示所有）
       const { data: routeData } = await supabase
         .from('fleet_manager_favorite_routes')
@@ -254,6 +276,103 @@ export default function MobileDispatchOrder() {
       title: '已应用线路',
       description: `${route.route_name}`
     });
+  };
+
+  // 添加新线路
+  const handleAddRoute = async () => {
+    if (!formData.project_id) {
+      toast({
+        title: '请先选择项目',
+        description: '添加线路前需要先选择项目',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!newRoute.loading_location_id || !newRoute.unloading_location_id) {
+      toast({
+        title: '请完整填写',
+        description: '请选择装货地和卸货地',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 获取地点名称
+      const loadingLoc = locations.find(l => l.id === newRoute.loading_location_id);
+      const unloadingLoc = locations.find(l => l.id === newRoute.unloading_location_id);
+      
+      if (!loadingLoc || !unloadingLoc) {
+        toast({
+          title: '地点信息错误',
+          description: '请重新选择地点',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      const routeName = `${loadingLoc.name}→${unloadingLoc.name}`;
+      
+      const { data, error } = await supabase.rpc('save_favorite_route', {
+        p_route_name: routeName,
+        p_project_id: formData.project_id,
+        p_loading_location_id: newRoute.loading_location_id,
+        p_unloading_location_id: newRoute.unloading_location_id,
+        p_notes: newRoute.notes || null
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.message);
+
+      toast({
+        title: '添加成功',
+        description: `线路"${routeName}"已添加`
+      });
+
+      // 重新加载线路列表
+      if (formData.project_id) {
+        await loadRoutesByProject(formData.project_id);
+      } else {
+        await loadAllRoutes();
+      }
+
+      // 自动选中新添加的线路
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (userId) {
+        const { data: newRouteData } = await supabase
+          .from('fleet_manager_favorite_routes')
+          .select('id')
+          .eq('fleet_manager_id', userId)
+          .eq('project_id', formData.project_id)
+          .eq('loading_location_id', newRoute.loading_location_id)
+          .eq('unloading_location_id', newRoute.unloading_location_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (newRouteData) {
+          setFormData(prev => ({ ...prev, route_id: newRouteData.id }));
+        }
+      }
+
+      // 重置表单
+      setShowAddRouteDialog(false);
+      setNewRoute({
+        loading_location_id: '',
+        unloading_location_id: '',
+        notes: ''
+      });
+    } catch (error: any) {
+      toast({
+        title: '添加失败',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // 保存为常用线路
@@ -545,7 +664,29 @@ export default function MobileDispatchOrder() {
 
               {/* 选择线路 */}
               <div className="grid gap-2">
-                <Label>选择线路 *</Label>
+                <div className="flex items-center justify-between">
+                  <Label>选择线路 *</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (!formData.project_id) {
+                        toast({
+                          title: '请先选择项目',
+                          description: '添加线路前需要先选择项目',
+                          variant: 'destructive'
+                        });
+                        return;
+                      }
+                      setShowAddRouteDialog(true);
+                    }}
+                    className="h-7 text-xs"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    添加新线路
+                  </Button>
+                </div>
                 <Select 
                   value={formData.route_id} 
                   onValueChange={(value) => setFormData(prev => ({ ...prev, route_id: value }))}
@@ -557,7 +698,7 @@ export default function MobileDispatchOrder() {
                   <SelectContent>
                     {favoriteRoutes.length === 0 ? (
                       <div className="p-2 text-sm text-muted-foreground text-center">
-                        {formData.project_id ? '该项目暂无线路，请先添加线路' : '请先选择项目'}
+                        {formData.project_id ? '该项目暂无线路，请点击"添加新线路"' : '请先选择项目'}
                       </div>
                     ) : (
                       favoriteRoutes.map(route => (
@@ -670,6 +811,123 @@ export default function MobileDispatchOrder() {
               <Button onClick={handleSaveRoute}>
                 <Save className="h-4 w-4 mr-1" />
                 保存
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 添加新线路对话框 */}
+        <Dialog open={showAddRouteDialog} onOpenChange={setShowAddRouteDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>添加新线路</DialogTitle>
+              <DialogDescription>
+                选择装货地和卸货地，系统将自动创建线路并关联到当前项目
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <Label>装货地 *</Label>
+                <Select 
+                  value={newRoute.loading_location_id} 
+                  onValueChange={(value) => setNewRoute(prev => ({ ...prev, loading_location_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择装货地" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        暂无地点，请先在地点管理中添加地点
+                      </div>
+                    ) : (
+                      locations.map(loc => (
+                        <SelectItem key={loc.id} value={loc.id}>
+                          {loc.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>卸货地 *</Label>
+                <Select 
+                  value={newRoute.unloading_location_id} 
+                  onValueChange={(value) => setNewRoute(prev => ({ ...prev, unloading_location_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择卸货地" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        暂无地点，请先在地点管理中添加地点
+                      </div>
+                    ) : (
+                      locations.map(loc => (
+                        <SelectItem key={loc.id} value={loc.id}>
+                          {loc.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>备注（可选）</Label>
+                <Textarea
+                  placeholder="输入线路备注信息..."
+                  value={newRoute.notes}
+                  onChange={(e) => setNewRoute(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">自动处理</p>
+                    <ul className="text-xs mt-1 text-blue-600 list-disc list-inside space-y-0.5">
+                      <li>线路将自动关联到当前选择的项目</li>
+                      <li>该线路将设为您的常用线路</li>
+                      <li>添加成功后会自动选中新线路</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowAddRouteDialog(false);
+                  setNewRoute({
+                    loading_location_id: '',
+                    unloading_location_id: '',
+                    notes: ''
+                  });
+                }}
+              >
+                取消
+              </Button>
+              <Button onClick={handleAddRoute} disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    添加中...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    确认添加
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
