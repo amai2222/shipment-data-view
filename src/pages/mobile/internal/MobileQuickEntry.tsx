@@ -38,7 +38,10 @@ import {
   CheckCircle,
   ChevronRight,
   Plus,
-  Weight
+  Weight,
+  Route,
+  Link,
+  FolderKanban
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { limitAmountInput } from '@/utils/formatters';
@@ -1168,20 +1171,29 @@ export default function MobileQuickEntry() {
         </Card>
 
         {/* 运单录入 - 标签页 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="h-5 w-5" />
+        <Card className="shadow-lg border-0 overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white pb-4">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <Package className="h-6 w-6" />
               新增运单
             </CardTitle>
+            <p className="text-xs text-blue-100 mt-1">快速创建运单记录</p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4">
             <Tabs defaultValue="favorite" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-muted">
-                <TabsTrigger value="favorite" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <TabsList className="grid w-full grid-cols-2 bg-gray-100 h-11 rounded-lg p-1">
+                <TabsTrigger 
+                  value="favorite" 
+                  className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-md font-medium transition-all"
+                >
+                  <Route className="h-4 w-4 mr-1.5" />
                   常用运单
                 </TabsTrigger>
-                <TabsTrigger value="new" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                <TabsTrigger 
+                  value="new" 
+                  className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-md font-medium transition-all"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
                   新增运单
                 </TabsTrigger>
               </TabsList>
@@ -1228,12 +1240,15 @@ export default function MobileQuickEntry() {
                     {/* 合作链路选择下拉框 */}
                     {favoriteProjectId && (
                       <div className="space-y-2">
-                        <Label>选择合作链路</Label>
+                        <Label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                          <Link className="h-4 w-4 text-blue-600" />
+                          选择合作链路
+                        </Label>
                         <Select 
                           value={favoriteChainId || undefined}
                           onValueChange={setFavoriteChainId}
                         >
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger className="w-full h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500">
                             <SelectValue placeholder="选择合作链路（可选）" />
                           </SelectTrigger>
                           <SelectContent position="popper" className="z-50">
@@ -1255,7 +1270,10 @@ export default function MobileQuickEntry() {
 
                     {/* 线路选择下拉框 */}
                     <div className="space-y-2">
-                      <Label>选择常用线路 *</Label>
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                        <Route className="h-4 w-4 text-blue-600" />
+                        选择常用线路 *
+                      </Label>
                       <Select 
                         value={selectedRouteId || undefined}
                         onValueChange={(value) => {
@@ -1278,7 +1296,7 @@ export default function MobileQuickEntry() {
                           });
                         }}
                       >
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500">
                           <SelectValue placeholder="选择常用线路" />
                         </SelectTrigger>
                         <SelectContent position="popper" className="z-50">
@@ -1306,14 +1324,35 @@ export default function MobileQuickEntry() {
                       const isSubmitting = submittingRouteId === selectedRouteId;
                       
                       return (
-                        <Card className="border">
-                          <CardContent className="p-4 space-y-3">
+                        <Card className="border-0 shadow-md bg-gradient-to-br from-white to-blue-50/30">
+                          <CardContent className="p-5 space-y-4">
+                            {/* 线路信息展示 */}
+                            <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Route className="h-4 w-4 text-blue-600" />
+                                <span className="font-semibold text-blue-900 text-sm">{route.route_name}</span>
+                              </div>
+                              <div className="text-xs text-blue-700 space-y-1">
+                                <div className="flex items-center gap-1.5">
+                                  <MapPin className="h-3 w-3" />
+                                  <span>装货地：{route.loading_location}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <MapPin className="h-3 w-3" />
+                                  <span>卸货地：{route.unloading_location}</span>
+                                </div>
+                              </div>
+                            </div>
+
                             {/* 输入框 */}
-                            <div className="space-y-3">
+                            <div className="space-y-4">
                               {/* 数量输入 */}
                               <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                  <Label className="text-xs">装货数量 *</Label>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                                    <Weight className="h-4 w-4 text-blue-600" />
+                                    装货数量 *
+                                  </Label>
                                   <Input
                                     type="text"
                                     inputMode="decimal"
@@ -1335,10 +1374,14 @@ export default function MobileQuickEntry() {
                                       }));
                                     }}
                                     disabled={isSubmitting}
+                                    className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                                   />
                                 </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs">卸货数量</Label>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                                    <Weight className="h-4 w-4 text-gray-400" />
+                                    卸货数量
+                                  </Label>
                                   <Input
                                     type="text"
                                     inputMode="decimal"
@@ -1360,14 +1403,18 @@ export default function MobileQuickEntry() {
                                       }));
                                     }}
                                     disabled={isSubmitting}
+                                    className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                                   />
                                 </div>
                               </div>
                               
                               {/* 日期输入 */}
                               <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                  <Label className="text-xs">装货日期 *</Label>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                                    <Calendar className="h-4 w-4 text-blue-600" />
+                                    装货日期 *
+                                  </Label>
                                   <Input
                                     type="date"
                                     value={inputs.loading_date || today}
@@ -1386,10 +1433,14 @@ export default function MobileQuickEntry() {
                                       }));
                                     }}
                                     disabled={isSubmitting}
+                                    className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                                   />
                                 </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs">卸货日期 *</Label>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                                    <Calendar className="h-4 w-4 text-blue-600" />
+                                    卸货日期 *
+                                  </Label>
                                   <Input
                                     type="date"
                                     value={inputs.unloading_date || today}
@@ -1408,6 +1459,7 @@ export default function MobileQuickEntry() {
                                       }));
                                     }}
                                     disabled={isSubmitting}
+                                    className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                                   />
                                 </div>
                               </div>
@@ -1415,19 +1467,19 @@ export default function MobileQuickEntry() {
 
                             {/* 提交按钮 */}
                             <Button
-                              className="w-full"
-                              size="sm"
+                              className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold shadow-lg shadow-blue-500/30"
+                              size="lg"
                               onClick={() => handleSubmitFavoriteRoute(selectedRouteId)}
                               disabled={isSubmitting || !inputs.loading_weight?.trim()}
                             >
                               {isSubmitting ? (
                                 <>
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
                                   提交中...
                                 </>
                               ) : (
                                 <>
-                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  <CheckCircle className="h-5 w-5 mr-2" />
                                   记录运单
                                 </>
                               )}
@@ -1442,170 +1494,193 @@ export default function MobileQuickEntry() {
 
               {/* 新增运单标签页 */}
               <TabsContent value="new" className="space-y-4 mt-4">
-            {/* 项目选择 */}
-            <div className="grid gap-2">
-              <Label>运输项目 *</Label>
-              <Select 
-                value={formData.project_id || undefined} 
-                onValueChange={value => setFormData(prev => ({ ...prev, project_id: value, route_id: '' }))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="选择项目" />
-                </SelectTrigger>
-                <SelectContent position="popper" className="z-50">
-                  {myRoutes.length === 0 ? (
-                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                      暂无项目，请联系车队长配置
-                    </div>
-                  ) : (
-                    myRoutes.map(route => (
-                      <SelectItem key={route.project_id} value={route.project_id}>
-                        {route.project_name}
-                        {route.is_primary_route && <Badge className="ml-2 bg-blue-600 text-white text-xs">常跑</Badge>}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 添加线路按钮 */}
-            <div className="flex justify-center">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (formData.project_id) {
-                    setShowAddRouteDialog(true);
-                  } else {
-                    toast({
-                      title: '提示',
-                      description: '请先选择项目',
-                      variant: 'destructive'
-                    });
-                  }
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                添加线路
-              </Button>
-            </div>
-
-            {/* 常用线路列表 */}
-            {formData.project_id && (
-              <div className="grid gap-2">
-                <Label>选择线路 *</Label>
-                <Select 
-                  value={formData.route_id || undefined} 
-                  onValueChange={value => setFormData(prev => ({ ...prev, route_id: value }))}
-                  disabled={!formData.project_id}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="选择常用线路" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" className="z-50">
-                    {favoriteRoutes.filter((r: any) => r.project_id === formData.project_id).length === 0 ? (
-                      <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                        暂无线路，请点击"添加线路"
-                      </div>
-                    ) : (
-                      favoriteRoutes
-                        .filter((r: any) => r.project_id === formData.project_id)
-                        .map((route: any) => (
-                          <SelectItem key={route.id} value={route.id}>
-                            {route.route_name}
+                {/* 项目选择 */}
+                <div className="grid gap-2">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                    <FolderKanban className="h-4 w-4 text-blue-600" />
+                    运输项目 *
+                  </Label>
+                  <Select 
+                    value={formData.project_id || undefined} 
+                    onValueChange={value => setFormData(prev => ({ ...prev, project_id: value, route_id: '' }))}
+                  >
+                    <SelectTrigger className="w-full h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500">
+                      <SelectValue placeholder="选择项目" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" className="z-50">
+                      {myRoutes.length === 0 ? (
+                        <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                          暂无项目，请联系车队长配置
+                        </div>
+                      ) : (
+                        myRoutes.map(route => (
+                          <SelectItem key={route.project_id} value={route.project_id}>
+                            {route.project_name}
+                            {route.is_primary_route && <Badge className="ml-2 bg-blue-600 text-white text-xs">常跑</Badge>}
                           </SelectItem>
                         ))
-                    )}
-                  </SelectContent>
-                </Select>
-                
-                {/* 显示选中的线路信息 */}
-                {formData.route_id && (() => {
-                  const selectedRoute = favoriteRoutes.find((r: any) => r.id === formData.route_id);
-                  if (selectedRoute) {
-                    return (
-                      <Card className="bg-blue-50 border-blue-200">
-                        <CardContent className="p-3">
-                          <div className="text-sm">
-                            <div className="font-medium text-blue-900 mb-1">{selectedRoute.route_name}</div>
-                            <div className="text-blue-700 space-y-0.5">
-                              <div>装货地：{selectedRoute.loading_location}</div>
-                              <div>卸货地：{selectedRoute.unloading_location}</div>
-                            </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 添加线路按钮 */}
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="w-full h-11 border-2 border-dashed border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (formData.project_id) {
+                        setShowAddRouteDialog(true);
+                      } else {
+                        toast({
+                          title: '提示',
+                          description: '请先选择项目',
+                          variant: 'destructive'
+                        });
+                      }
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    添加线路
+                  </Button>
+                </div>
+
+                {/* 常用线路列表 */}
+                {formData.project_id && (
+                  <div className="grid gap-2">
+                    <Label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                      <Route className="h-4 w-4 text-blue-600" />
+                      选择线路 *
+                    </Label>
+                    <Select 
+                      value={formData.route_id || undefined} 
+                      onValueChange={value => setFormData(prev => ({ ...prev, route_id: value }))}
+                      disabled={!formData.project_id}
+                    >
+                      <SelectTrigger className="w-full h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500">
+                        <SelectValue placeholder="选择常用线路" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" className="z-50">
+                        {favoriteRoutes.filter((r: any) => r.project_id === formData.project_id).length === 0 ? (
+                          <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                            暂无线路，请点击"添加线路"
                           </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  }
-                  return null;
-                })()}
-              </div>
-            )}
+                        ) : (
+                          favoriteRoutes
+                            .filter((r: any) => r.project_id === formData.project_id)
+                            .map((route: any) => (
+                              <SelectItem key={route.id} value={route.id}>
+                                {route.route_name}
+                              </SelectItem>
+                            ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    
+                    {/* 显示选中的线路信息 */}
+                    {formData.route_id && (() => {
+                      const selectedRoute = favoriteRoutes.find((r: any) => r.id === formData.route_id);
+                      if (selectedRoute) {
+                        return (
+                          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-sm">
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Route className="h-4 w-4 text-blue-600" />
+                                <span className="font-semibold text-blue-900 text-sm">{selectedRoute.route_name}</span>
+                              </div>
+                              <div className="text-xs text-blue-700 space-y-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <MapPin className="h-3.5 w-3.5" />
+                                  <span>装货地：{selectedRoute.loading_location}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <MapPin className="h-3.5 w-3.5" />
+                                  <span>卸货地：{selectedRoute.unloading_location}</span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
 
-            {/* 装货数量 */}
-            <div className="grid gap-2">
-              <Label>装货数量 *</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={formData.loading_weight}
-                onChange={e => {
-                  const limited = limitAmountInput(e.target.value);
-                  setFormData(prev => ({ ...prev, loading_weight: limited }));
-                }}
-              />
-            </div>
+                {/* 装货数量 */}
+                <div className="grid gap-2">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                    <Weight className="h-4 w-4 text-blue-600" />
+                    装货数量 *
+                  </Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={formData.loading_weight}
+                    onChange={e => {
+                      const limited = limitAmountInput(e.target.value);
+                      setFormData(prev => ({ ...prev, loading_weight: limited }));
+                    }}
+                    className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
 
-            {/* 卸货数量（可选） */}
-            <div className="grid gap-2">
-              <Label>卸货数量（可选，默认等于装货）</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="默认等于装货数量"
-                value={formData.unloading_weight}
-                onChange={e => {
-                  const limited = limitAmountInput(e.target.value);
-                  setFormData(prev => ({ ...prev, unloading_weight: limited }));
-                }}
-              />
-            </div>
+                {/* 卸货数量（可选） */}
+                <div className="grid gap-2">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                    <Weight className="h-4 w-4 text-gray-400" />
+                    卸货数量（可选，默认等于装货）
+                  </Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="默认等于装货数量"
+                    value={formData.unloading_weight}
+                    onChange={e => {
+                      const limited = limitAmountInput(e.target.value);
+                      setFormData(prev => ({ ...prev, unloading_weight: limited }));
+                    }}
+                    className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
 
-            {/* 备注 */}
-            <div className="grid gap-2">
-              <Label>备注</Label>
-              <Textarea
-                placeholder="输入备注信息..."
-                value={formData.remarks}
-                onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
-                rows={2}
-              />
-            </div>
+                {/* 备注 */}
+                <div className="grid gap-2">
+                  <Label className="text-sm font-semibold text-gray-700">备注</Label>
+                  <Textarea
+                    placeholder="输入备注信息..."
+                    value={formData.remarks}
+                    onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                    rows={3}
+                    className="border-gray-200 focus:border-blue-500 focus:ring-blue-500 resize-none"
+                  />
+                </div>
 
-            {/* 提交按钮 */}
-            <Button 
-              className="w-full h-12"
-              onClick={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  提交中...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  提交运单
-                </>
-              )}
-            </Button>
+                {/* 提交按钮 */}
+                <Button 
+                  className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold shadow-lg shadow-blue-500/30"
+                  size="lg"
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                      提交中...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-5 w-5 mr-2" />
+                      提交运单
+                    </>
+                  )}
+                </Button>
               </TabsContent>
             </Tabs>
           </CardContent>
