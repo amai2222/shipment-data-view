@@ -381,6 +381,21 @@ export default function MobileMyDispatches() {
             </TabsTrigger>
           </TabsList>
 
+          <TabsContent value="active" className="space-y-3 mt-4">
+            {loading ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+              </div>
+            ) : activeOrders.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>暂无进行中的派单</p>
+              </div>
+            ) : (
+              activeOrders.map(order => renderOrderCard(order))
+            )}
+          </TabsContent>
+
           <TabsContent value="pending" className="space-y-3 mt-4">
             {loading ? (
               <div className="text-center py-8">
@@ -393,17 +408,6 @@ export default function MobileMyDispatches() {
               </div>
             ) : (
               pendingOrders.map(order => renderOrderCard(order, true))
-            )}
-          </TabsContent>
-
-          <TabsContent value="active" className="space-y-3 mt-4">
-            {activeOrders.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>暂无进行中的派单</p>
-              </div>
-            ) : (
-              activeOrders.map(order => renderOrderCard(order))
             )}
           </TabsContent>
 
