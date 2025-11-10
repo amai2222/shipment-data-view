@@ -150,12 +150,22 @@ export default function MobileQuickEntry() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fleetManagerId]);
 
-  // 当选择项目后，加载常用线路（过滤出该项目的线路）
+  // 当选择项目后，加载常用线路（过滤出该项目的线路）- 用于"新增运单"标签页
   useEffect(() => {
     if (formData.project_id && fleetManagerId && driverId) {
       loadFavoriteRoutes(formData.project_id);
     }
   }, [formData.project_id, fleetManagerId, driverId]);
+
+  // 当在"常用运单"标签页选择项目后，加载常用线路
+  // 或者在组件加载时（fleetManagerId 和 driverId 就绪后）加载所有常用线路
+  useEffect(() => {
+    if (fleetManagerId && driverId) {
+      // 如果选择了项目，只加载该项目的线路；否则加载所有分配给该司机的线路
+      loadFavoriteRoutes(favoriteProjectId || undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [favoriteProjectId, fleetManagerId, driverId]);
 
   // 当选择线路时，自动填充装货地和卸货地
   useEffect(() => {

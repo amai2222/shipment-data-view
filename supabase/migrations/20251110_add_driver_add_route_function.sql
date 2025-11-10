@@ -90,7 +90,7 @@ BEGIN
         ON CONFLICT DO NOTHING;
     END IF;
 
-    -- 6. 创建常用线路（如果不存在）
+    -- 6. 创建或更新常用线路
     v_route_name := p_loading_location_name || '→' || p_unloading_location_name;
     
     INSERT INTO fleet_manager_favorite_routes (
@@ -100,7 +100,8 @@ BEGIN
         loading_location_id,
         unloading_location_id,
         loading_location,
-        unloading_location
+        unloading_location,
+        use_count
     ) VALUES (
         v_fleet_manager_id,
         v_route_name,
@@ -108,9 +109,31 @@ BEGIN
         v_loading_location_id,
         v_unloading_location_id,
         p_loading_location_name,
-        p_unloading_location_name
+        p_unloading_location_name,
+        1 -- 初始使用次数
     )
-    ON CONFLICT ON CONSTRAINT unique_route_per_manager DO NOTHING;
+    ON CONFLICT ON CONSTRAINT unique_route_per_manager DO UPDATE SET
+        project_id = EXCLUDED.project_id,
+        loading_location_id = EXCLUDED.loading_location_id,
+        unloading_location_id = EXCLUDED.unloading_location_id,
+        loading_location = EXCLUDED.loading_location,
+        unloading_location = EXCLUDED.unloading_location,
+        updated_at = NOW();
+
+    -- 7. 将新创建/更新的线路分配给当前司机
+    INSERT INTO fleet_manager_favorite_route_drivers (
+        route_id,
+        driver_id,
+        fleet_manager_id
+    )
+    SELECT 
+        id,
+        v_driver_id,
+        v_fleet_manager_id
+    FROM fleet_manager_favorite_routes
+    WHERE fleet_manager_id = v_fleet_manager_id
+      AND route_name = v_route_name
+    ON CONFLICT ON CONSTRAINT unique_route_driver DO NOTHING;
 
     RETURN jsonb_build_object(
         'success', true,
