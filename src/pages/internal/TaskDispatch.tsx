@@ -34,11 +34,6 @@ interface Driver {
   current_vehicle_plate: string | null;
 }
 
-interface Location {
-  id: string;
-  name: string;
-}
-
 interface FleetManager {
   id: string;
   full_name: string;
@@ -49,23 +44,34 @@ interface Project {
   name: string;
 }
 
+interface FavoriteRoute {
+  id: string;
+  route_name: string;
+  project_id: string;
+  loading_location_id: string;
+  unloading_location_id: string;
+  loading_location: string;
+  unloading_location: string;
+  use_count: number;
+}
+
 export default function TaskDispatch() {
   const { toast } = useToast();
   
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [fleetManagers, setFleetManagers] = useState<FleetManager[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [favoriteRoutes, setFavoriteRoutes] = useState<FavoriteRoute[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [formData, setFormData] = useState({
     fleetManagerId: '',
     projectId: '',
     driverId: '',
-    loadingLocationId: '',
-    unloadingLocationId: '',
+    routeId: '',  // 线路ID
     loadingDate: new Date().toISOString().split('T')[0],
     estimatedWeight: '',
+    currentCost: '0',  // 运费，默认0
     cargoType: '',
     notes: ''
   });
@@ -96,14 +102,6 @@ export default function TaskDispatch() {
       }));
 
       setDrivers(processedDrivers);
-
-      // 加载地点
-      const { data: locationData } = await supabase
-        .from('locations')
-        .select('id, name')
-        .order('name');
-
-      setLocations(locationData || []);
 
       // 加载车队长列表
       const { data: fleetManagerData } = await supabase
@@ -167,63 +165,110 @@ export default function TaskDispatch() {
       loadProjectsByFleetManager(formData.fleetManagerId);
     } else {
       setProjects([]);
-      setFormData(prev => ({...prev, projectId: ''}));
+      setFormData(prev => ({...prev, projectId: '', routeId: ''}));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.fleetManagerId]);
 
+  // 当选择项目时，加载该项目的线路
+  useEffect(() => {
+    if (formData.projectId && formData.fleetManagerId) {
+      loadRoutesByProject(formData.projectId, formData.fleetManagerId);
+    } else {
+      setFavoriteRoutes([]);
+      setFormData(prev => ({...prev, routeId: ''}));
+    }
+  }, [formData.projectId, formData.fleetManagerId]);
+
+  // 当选择线路时，自动填充项目（如果线路有项目ID）
+  useEffect(() => {
+    if (formData.routeId && favoriteRoutes.length > 0) {
+      const selectedRoute = favoriteRoutes.find(r => r.id === formData.routeId);
+      if (selectedRoute && selectedRoute.project_id && !formData.projectId) {
+        setFormData(prev => ({ ...prev, projectId: selectedRoute.project_id }));
+      }
+    }
+  }, [formData.routeId, favoriteRoutes]);
+
+  // 加载指定项目的线路
+  const loadRoutesByProject = async (projectId: string, fleetManagerId: string) => {
+    try {
+      const { data: routeData } = await supabase
+        .from('fleet_manager_favorite_routes')
+        .select('*')
+        .eq('fleet_manager_id', fleetManagerId)
+        .eq('project_id', projectId)
+        .order('use_count', { ascending: false })
+        .limit(50);
+      
+      setFavoriteRoutes(routeData || []);
+    } catch (error: any) {
+      console.error('加载线路失败:', error);
+      toast({ title: '加载线路失败', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const handleDispatch = async () => {
-    if (!formData.fleetManagerId || !formData.projectId || !formData.driverId || !formData.loadingLocationId || !formData.unloadingLocationId) {
-      toast({ title: '请填写必填项', variant: 'destructive' });
+    if (!formData.fleetManagerId || !formData.projectId || !formData.driverId || !formData.routeId) {
+      toast({ title: '请填写必填项', description: '请选择车队长、项目、司机和线路', variant: 'destructive' });
+      return;
+    }
+
+    // 从选中的线路获取地点信息
+    const selectedRoute = favoriteRoutes.find(r => r.id === formData.routeId);
+    if (!selectedRoute || !selectedRoute.loading_location_id || !selectedRoute.unloading_location_id) {
+      toast({ title: '线路信息不完整', description: '请重新选择线路', variant: 'destructive' });
       return;
     }
 
     setLoading(true);
     try {
-      const project = projects.find(p => p.id === formData.projectId);
-      const driver = drivers.find(d => d.id === formData.driverId);
-      const loadingLoc = locations.find(l => l.id === formData.loadingLocationId);
-      const unloadingLoc = locations.find(l => l.id === formData.unloadingLocationId);
-
-      // 创建运单任务（插入到logistics_records表）
-      const { error } = await supabase
-        .from('logistics_records')
-        .insert({
-          project_id: formData.projectId,
-          project_name: project?.name || '',
-          driver_id: formData.driverId,
-          driver_name: driver?.name,
-          driver_phone: driver?.phone,
-          license_plate: driver?.current_vehicle_plate,
-          loading_location: loadingLoc?.name,
-          unloading_location: unloadingLoc?.name,
-          loading_date: formData.loadingDate,
-          loading_weight: formData.estimatedWeight ? parseFloat(formData.estimatedWeight) : null,
-          cargo_type: formData.cargoType || null,
-          remarks: formData.notes || null,
-          transport_type: '内部派单',
-          payment_status: 'Unpaid',
-          invoice_status: 'Uninvoiced'
-        });
+      // 使用 create_dispatch_order RPC函数创建派单
+      const { data, error } = await supabase.rpc('create_dispatch_order', {
+        p_project_id: formData.projectId,
+        p_driver_id: formData.driverId,
+        p_loading_location_id: selectedRoute.loading_location_id,
+        p_unloading_location_id: selectedRoute.unloading_location_id,
+        p_expected_loading_date: formData.loadingDate || null,
+        p_expected_weight: formData.estimatedWeight ? parseFloat(formData.estimatedWeight) : null,
+        p_current_cost: parseFloat(formData.currentCost) || 0,  // 传递运费
+        p_remarks: formData.notes || null
+      });
 
       if (error) throw error;
+      if (!data.success) throw new Error(data.message);
 
+      // 更新线路使用次数
+      await supabase
+        .from('fleet_manager_favorite_routes')
+        .update({ 
+          use_count: (selectedRoute.use_count || 0) + 1,
+          last_used_at: new Date().toISOString()
+        })
+        .eq('id', formData.routeId);
+
+      const driver = drivers.find(d => d.id === formData.driverId);
       toast({
-        title: '派单成功',
-        description: `已向司机 ${driver?.name} 派发任务`
+        title: '派单成功 ✅',
+        description: `派单编号：${data.order_number}，已向司机 ${driver?.name} 派发任务`
       });
 
       // 重置表单（保留车队长和项目）
       setFormData(prev => ({
         ...prev,
         driverId: '',
-        loadingLocationId: '',
-        unloadingLocationId: '',
+        routeId: '',
         loadingDate: new Date().toISOString().split('T')[0],
         estimatedWeight: '',
+        currentCost: '0',
         cargoType: '',
         notes: ''
       }));
+
+      // 重新加载线路列表（更新使用次数）
+      if (formData.projectId && formData.fleetManagerId) {
+        loadRoutesByProject(formData.projectId, formData.fleetManagerId);
+      }
 
     } catch (error: any) {
       toast({ title: '派单失败', description: error.message, variant: 'destructive' });
@@ -324,35 +369,51 @@ export default function TaskDispatch() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>装货地点 <span className="text-red-500">*</span></Label>
-                <Select value={formData.loadingLocationId} onValueChange={v => setFormData(prev => ({...prev, loadingLocationId: v}))}>
+                <Label>选择线路 <span className="text-red-500">*</span></Label>
+                <Select 
+                  value={formData.routeId} 
+                  onValueChange={v => setFormData(prev => ({...prev, routeId: v}))}
+                  disabled={!formData.projectId || favoriteRoutes.length === 0}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="选择装货地点" />
+                    <SelectValue placeholder={!formData.projectId ? "请先选择项目" : favoriteRoutes.length === 0 ? "该项目暂无线路" : "选择线路"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {locations.map(loc => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </SelectItem>
-                    ))}
+                    {favoriteRoutes.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        {formData.projectId ? '该项目暂无线路，请先添加线路' : '请先选择项目'}
+                      </div>
+                    ) : (
+                      favoriteRoutes.map(route => (
+                        <SelectItem key={route.id} value={route.id}>
+                          {route.route_name} ({route.loading_location} → {route.unloading_location})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
+                {formData.routeId && (() => {
+                  const selectedRoute = favoriteRoutes.find(r => r.id === formData.routeId);
+                  return selectedRoute ? (
+                    <div className="text-xs text-muted-foreground mt-1 p-2 bg-muted rounded">
+                      <div>装货地: {selectedRoute.loading_location}</div>
+                      <div>卸货地: {selectedRoute.unloading_location}</div>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               <div>
-                <Label>卸货地点 <span className="text-red-500">*</span></Label>
-                <Select value={formData.unloadingLocationId} onValueChange={v => setFormData(prev => ({...prev, unloadingLocationId: v}))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择卸货地点" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map(loc => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>运费设置（元）</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="运费金额"
+                  value={formData.currentCost}
+                  onChange={e => setFormData(prev => ({...prev, currentCost: e.target.value}))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">默认运费为0，可手动输入实际运费</p>
               </div>
             </div>
 
@@ -390,7 +451,7 @@ export default function TaskDispatch() {
 
             <Button
               onClick={handleDispatch}
-              disabled={loading || !formData.fleetManagerId || !formData.projectId || !formData.driverId || !formData.loadingLocationId || !formData.unloadingLocationId}
+              disabled={loading || !formData.fleetManagerId || !formData.projectId || !formData.driverId || !formData.routeId}
               className="w-full"
             >
               {loading ? (

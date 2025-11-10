@@ -54,11 +54,6 @@ interface Project {
   name: string;
 }
 
-interface Location {
-  id: string;
-  name: string;
-}
-
 interface FavoriteRoute {
   id: string;
   route_name: string;
@@ -88,8 +83,6 @@ export default function MobileDispatchOrder() {
   const [loading, setLoading] = useState(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [loadingLocations, setLoadingLocations] = useState<Location[]>([]);
-  const [unloadingLocations, setUnloadingLocations] = useState<Location[]>([]);
   const [favoriteRoutes, setFavoriteRoutes] = useState<FavoriteRoute[]>([]);
   const [recentOrders, setRecentOrders] = useState<DispatchOrder[]>([]);
   
@@ -101,10 +94,10 @@ export default function MobileDispatchOrder() {
   const [formData, setFormData] = useState({
     driver_id: undefined as string | undefined,
     project_id: undefined as string | undefined,
-    loading_location_id: undefined as string | undefined,
-    unloading_location_id: undefined as string | undefined,
+    route_id: undefined as string | undefined,  // 线路ID
     expected_loading_date: format(new Date(), 'yyyy-MM-dd'),
     expected_weight: '',
+    current_cost: '0',  // 运费，默认0
     remarks: ''
   });
 
@@ -112,6 +105,65 @@ export default function MobileDispatchOrder() {
     loadData();
     loadRecentOrders();
   }, []);
+
+  // 当选择项目时，加载该项目的线路
+  useEffect(() => {
+    if (formData.project_id) {
+      loadRoutesByProject(formData.project_id);
+    } else {
+      // 如果没有选择项目，显示所有线路
+      loadAllRoutes();
+    }
+  }, [formData.project_id]);
+
+  // 当选择线路时，自动填充项目（如果线路有项目ID）
+  useEffect(() => {
+    if (formData.route_id && favoriteRoutes.length > 0) {
+      const selectedRoute = favoriteRoutes.find(r => r.id === formData.route_id);
+      if (selectedRoute && selectedRoute.project_id && !formData.project_id) {
+        setFormData(prev => ({ ...prev, project_id: selectedRoute.project_id }));
+      }
+    }
+  }, [formData.route_id, favoriteRoutes]);
+
+  // 加载指定项目的线路
+  const loadRoutesByProject = async (projectId: string) => {
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
+
+      const { data: routeData } = await supabase
+        .from('fleet_manager_favorite_routes')
+        .select('*')
+        .eq('fleet_manager_id', userId)
+        .eq('project_id', projectId)
+        .order('use_count', { ascending: false })
+        .limit(20);
+      
+      setFavoriteRoutes(routeData || []);
+    } catch (error) {
+      console.error('加载线路失败:', error);
+    }
+  };
+
+  // 加载所有线路
+  const loadAllRoutes = async () => {
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
+
+      const { data: routeData } = await supabase
+        .from('fleet_manager_favorite_routes')
+        .select('*')
+        .eq('fleet_manager_id', userId)
+        .order('use_count', { ascending: false })
+        .limit(20);
+      
+      setFavoriteRoutes(routeData || []);
+    } catch (error) {
+      console.error('加载线路失败:', error);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -137,22 +189,13 @@ export default function MobileDispatchOrder() {
       
       setProjects(projectData || []);
 
-      // 加载地点
-      const { data: locationData } = await supabase
-        .from('locations')
-        .select('id, name')
-        .order('name');
-      
-      setLoadingLocations(locationData || []);
-      setUnloadingLocations(locationData || []);
-
-      // 加载常用线路
+      // 加载常用线路（不按项目过滤，显示所有）
       const { data: routeData } = await supabase
         .from('fleet_manager_favorite_routes')
         .select('*')
         .eq('fleet_manager_id', userId)
         .order('use_count', { ascending: false })
-        .limit(10);
+        .limit(20);
       
       setFavoriteRoutes(routeData || []);
 
@@ -204,8 +247,7 @@ export default function MobileDispatchOrder() {
     setFormData(prev => ({
       ...prev,
       project_id: route.project_id,
-      loading_location_id: route.loading_location_id,
-      unloading_location_id: route.unloading_location_id
+      route_id: route.id
     }));
     
     toast({
@@ -216,10 +258,21 @@ export default function MobileDispatchOrder() {
 
   // 保存为常用线路
   const handleSaveRoute = async () => {
-    if (!newRouteName || !formData.loading_location_id || !formData.unloading_location_id) {
+    if (!newRouteName || !formData.route_id) {
       toast({
         title: '请完整填写',
-        description: '请输入线路名称并选择装卸地点',
+        description: '请输入线路名称并选择线路',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // 从选中的线路获取地点信息
+    const selectedRoute = favoriteRoutes.find(r => r.id === formData.route_id);
+    if (!selectedRoute || !selectedRoute.loading_location_id || !selectedRoute.unloading_location_id) {
+      toast({
+        title: '线路信息不完整',
+        description: '请重新选择线路',
         variant: 'destructive'
       });
       return;
@@ -229,8 +282,8 @@ export default function MobileDispatchOrder() {
       const { data, error } = await supabase.rpc('save_favorite_route', {
         p_route_name: newRouteName,
         p_project_id: formData.project_id,
-        p_loading_location_id: formData.loading_location_id,
-        p_unloading_location_id: formData.unloading_location_id
+        p_loading_location_id: selectedRoute.loading_location_id,
+        p_unloading_location_id: selectedRoute.unloading_location_id
       });
 
       if (error) throw error;
@@ -243,7 +296,12 @@ export default function MobileDispatchOrder() {
 
       setShowSaveRouteDialog(false);
       setNewRouteName('');
-      loadData(); // 刷新线路列表
+      // 重新加载线路列表
+      if (formData.project_id) {
+        loadRoutesByProject(formData.project_id);
+      } else {
+        loadAllRoutes();
+      }
     } catch (error: any) {
       toast({
         title: '保存失败',
@@ -255,11 +313,21 @@ export default function MobileDispatchOrder() {
 
   // 提交派单
   const handleSubmit = async () => {
-    if (!formData.driver_id || !formData.project_id || 
-        !formData.loading_location_id || !formData.unloading_location_id) {
+    if (!formData.driver_id || !formData.project_id || !formData.route_id) {
       toast({
         title: '请完整填写',
-        description: '请选择司机、项目和装卸地点',
+        description: '请选择司机、项目和线路',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // 从选中的线路获取地点信息
+    const selectedRoute = favoriteRoutes.find(r => r.id === formData.route_id);
+    if (!selectedRoute || !selectedRoute.loading_location_id || !selectedRoute.unloading_location_id) {
+      toast({
+        title: '线路信息不完整',
+        description: '请重新选择线路',
         variant: 'destructive'
       });
       return;
@@ -270,15 +338,25 @@ export default function MobileDispatchOrder() {
       const { data, error } = await supabase.rpc('create_dispatch_order', {
         p_project_id: formData.project_id,
         p_driver_id: formData.driver_id,
-        p_loading_location_id: formData.loading_location_id,
-        p_unloading_location_id: formData.unloading_location_id,
+        p_loading_location_id: selectedRoute.loading_location_id,
+        p_unloading_location_id: selectedRoute.unloading_location_id,
         p_expected_loading_date: formData.expected_loading_date || null,
         p_expected_weight: formData.expected_weight ? parseFloat(formData.expected_weight) : null,
+        p_current_cost: parseFloat(formData.current_cost) || 0,  // 传递运费
         p_remarks: formData.remarks || null
       });
 
       if (error) throw error;
       if (!data.success) throw new Error(data.message);
+
+      // 更新线路使用次数
+      await supabase
+        .from('fleet_manager_favorite_routes')
+        .update({ 
+          use_count: (selectedRoute.use_count || 0) + 1,
+          last_used_at: new Date().toISOString()
+        })
+        .eq('id', formData.route_id);
 
       toast({
         title: '派单成功 ✅',
@@ -288,6 +366,12 @@ export default function MobileDispatchOrder() {
       setShowNewDialog(false);
       resetForm();
       loadRecentOrders();
+      // 重新加载线路列表（更新使用次数）
+      if (formData.project_id) {
+        loadRoutesByProject(formData.project_id);
+      } else {
+        loadAllRoutes();
+      }
     } catch (error: any) {
       toast({
         title: '派单失败',
@@ -303,10 +387,10 @@ export default function MobileDispatchOrder() {
     setFormData({
       driver_id: undefined,
       project_id: undefined,
-      loading_location_id: undefined,
-      unloading_location_id: undefined,
+      route_id: undefined,
       expected_loading_date: format(new Date(), 'yyyy-MM-dd'),
       expected_weight: '',
+      current_cost: '0',
       remarks: ''
     });
   };
@@ -445,7 +529,7 @@ export default function MobileDispatchOrder() {
               {/* 选择项目 */}
               <div className="grid gap-2">
                 <Label>选择项目 *</Label>
-                <Select value={formData.project_id} onValueChange={(value) => setFormData(prev => ({ ...prev, project_id: value }))}>
+                <Select value={formData.project_id} onValueChange={(value) => setFormData(prev => ({ ...prev, project_id: value, route_id: undefined }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择项目" />
                   </SelectTrigger>
@@ -459,38 +543,54 @@ export default function MobileDispatchOrder() {
                 </Select>
               </div>
 
-              {/* 装货地点 */}
+              {/* 选择线路 */}
               <div className="grid gap-2">
-                <Label>装货地点 *</Label>
-                <Select value={formData.loading_location_id} onValueChange={(value) => setFormData(prev => ({ ...prev, loading_location_id: value }))}>
+                <Label>选择线路 *</Label>
+                <Select 
+                  value={formData.route_id} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, route_id: value }))}
+                  disabled={!formData.project_id && favoriteRoutes.length === 0}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="选择装货地点" />
+                    <SelectValue placeholder={formData.project_id ? "选择线路" : "请先选择项目"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {loadingLocations.map(loc => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </SelectItem>
-                    ))}
+                    {favoriteRoutes.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        {formData.project_id ? '该项目暂无线路，请先添加线路' : '请先选择项目'}
+                      </div>
+                    ) : (
+                      favoriteRoutes.map(route => (
+                        <SelectItem key={route.id} value={route.id}>
+                          {route.route_name} ({route.loading_location} → {route.unloading_location})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
+                {formData.route_id && (() => {
+                  const selectedRoute = favoriteRoutes.find(r => r.id === formData.route_id);
+                  return selectedRoute ? (
+                    <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
+                      <div>装货地: {selectedRoute.loading_location}</div>
+                      <div>卸货地: {selectedRoute.unloading_location}</div>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
-              {/* 卸货地点 */}
+              {/* 运费设置 */}
               <div className="grid gap-2">
-                <Label>卸货地点 *</Label>
-                <Select value={formData.unloading_location_id} onValueChange={(value) => setFormData(prev => ({ ...prev, unloading_location_id: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择卸货地点" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {unloadingLocations.map(loc => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>运费设置（元）</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="运费金额"
+                  value={formData.current_cost}
+                  onChange={(e) => setFormData(prev => ({ ...prev, current_cost: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">默认运费为0，可手动输入实际运费</p>
               </div>
 
               {/* 预期装货日期 */}
@@ -531,7 +631,7 @@ export default function MobileDispatchOrder() {
               <Button
                 variant="outline"
                 onClick={() => setShowSaveRouteDialog(true)}
-                disabled={!formData.loading_location_id || !formData.unloading_location_id}
+                disabled={!formData.route_id}
               >
                 <Star className="h-4 w-4 mr-1" />
                 保存线路
