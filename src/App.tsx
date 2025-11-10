@@ -863,6 +863,7 @@ const App = () => (
     </BrowserRouter>
     </GlobalErrorHandler>
   </QueryClientProvider>
+  </ChunkLoadErrorBoundary>
 );
 
 export default App;
