@@ -24,6 +24,7 @@ import {
   DialogTitle,
   DialogFooter
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
@@ -50,7 +51,9 @@ import {
   ImagePlus,
   X,
   MapPin,
-  Calculator
+  Calculator,
+  Package,
+  Weight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -91,6 +94,18 @@ interface ExpenseApplication {
   created_at: string;
 }
 
+interface Waybill {
+  id: string;
+  auto_number: string;
+  project_name: string;
+  loading_location: string;
+  unloading_location: string;
+  loading_date: string;
+  loading_weight: number;
+  unloading_weight: number | null;
+  created_at: string;
+}
+
 export default function MobileMyExpenses() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -98,6 +113,9 @@ export default function MobileMyExpenses() {
   
   const [loading, setLoading] = useState(false);
   const [myVehicles, setMyVehicles] = useState<any[]>([]);
+  const [waybills, setWaybills] = useState<Waybill[]>([]);
+  const [loadingWaybills, setLoadingWaybills] = useState(false);
+  const [activeTab, setActiveTab] = useState('expenses');
   const [applications, setApplications] = useState<ExpenseApplication[]>([]);
   const [pendingDispatchCount, setPendingDispatchCount] = useState(0);
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -932,103 +950,210 @@ export default function MobileMyExpenses() {
           </CardContent>
         </Card>
 
-        {/* 申请记录列表 - 美化版 */}
+        {/* 申请记录和运单记录 - 标签页 */}
         <Card className="border-0 shadow-md">
-          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b">
+          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
                 <FileText className="h-4 w-4 text-indigo-600" />
               </div>
-              <span className="font-semibold text-gray-800">我的申请记录</span>
-              <Badge variant="secondary" className="ml-auto">
-                {applications.length} 条
-              </Badge>
+              <span className="font-semibold text-gray-800">我的记录</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 pt-4">
-            {loading ? (
-              <div className="text-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mt-2">加载中...</p>
-              </div>
-            ) : applications.length === 0 ? (
-              <div className="text-center py-8">
-                <FileText className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
-                <p className="text-sm text-muted-foreground mt-2">暂无费用申请</p>
-                <Button 
-                  variant="link" 
-                  onClick={() => setShowNewDialog(true)}
-                  className="mt-2"
+          <CardContent className="p-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-gray-100 h-11 rounded-none p-1 mx-4 mt-4">
+                <TabsTrigger 
+                  value="expenses" 
+                  className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-md font-medium transition-all"
+                  onClick={() => {
+                    if (activeTab !== 'expenses') {
+                      loadApplications();
+                    }
+                  }}
                 >
-                  点击新增
-                </Button>
-              </div>
-            ) : (
-              applications.map(app => {
-                const typeConfig = getExpenseTypeConfig(app.expense_type);
-                const statusConfig = getStatusConfig(app.status);
-                const StatusIcon = statusConfig.icon;
-                
-                return (
-                  <Card 
-                    key={app.id} 
-                    className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-0 shadow-sm bg-gradient-to-br from-white to-gray-50"
-                    onClick={() => {
-                      setSelectedApp(app);
-                      setShowDetailDialog(true);
-                    }}
-                  >
-                    <CardContent className="p-4 relative overflow-hidden">
-                      {/* 装饰性背景图案 */}
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-50 to-transparent rounded-full -mr-16 -mt-16 opacity-50"></div>
-                      
-                      <div className="flex items-start justify-between relative z-10">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Badge className={`${typeConfig.color} shadow-sm`}>
-                              {typeConfig.label}
-                            </Badge>
-                            <Badge className={`${statusConfig.color} shadow-sm`}>
-                              <StatusIcon className="h-3 w-3 mr-1" />
-                              {statusConfig.label}
-                            </Badge>
+                  <FileText className="h-4 w-4 mr-1.5" />
+                  申请记录
+                  {applications.length > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 text-xs">
+                      {applications.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="waybills" 
+                  className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-md font-medium transition-all"
+                  onClick={() => {
+                    if (activeTab !== 'waybills') {
+                      loadWaybills();
+                    }
+                  }}
+                >
+                  <Package className="h-4 w-4 mr-1.5" />
+                  运单记录
+                  {waybills.length > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 text-xs">
+                      {waybills.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+
+              {/* 申请记录标签页 */}
+              <TabsContent value="expenses" className="space-y-3 pt-4 px-4 pb-4 mt-0">
+                {loading ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mt-2">加载中...</p>
+                  </div>
+                ) : applications.length === 0 ? (
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+                    <p className="text-sm text-muted-foreground mt-2">暂无费用申请</p>
+                    <Button 
+                      variant="link" 
+                      onClick={() => setShowNewDialog(true)}
+                      className="mt-2"
+                    >
+                      点击新增
+                    </Button>
+                  </div>
+                ) : (
+                  applications.map(app => {
+                    const typeConfig = getExpenseTypeConfig(app.expense_type);
+                    const statusConfig = getStatusConfig(app.status);
+                    const StatusIcon = statusConfig.icon;
+                    
+                    return (
+                      <Card 
+                        key={app.id} 
+                        className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-0 shadow-sm bg-gradient-to-br from-white to-gray-50"
+                        onClick={() => {
+                          setSelectedApp(app);
+                          setShowDetailDialog(true);
+                        }}
+                      >
+                        <CardContent className="p-4 relative overflow-hidden">
+                          {/* 装饰性背景图案 */}
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-50 to-transparent rounded-full -mr-16 -mt-16 opacity-50"></div>
+                          
+                          <div className="flex items-start justify-between relative z-10">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Badge className={`${typeConfig.color} shadow-sm`}>
+                                  {typeConfig.label}
+                                </Badge>
+                                <Badge className={`${statusConfig.color} shadow-sm`}>
+                                  <StatusIcon className="h-3 w-3 mr-1" />
+                                  {statusConfig.label}
+                                </Badge>
+                              </div>
+                              
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  {format(new Date(app.expense_date), 'yyyy年MM月dd日', { locale: zhCN })}
+                                </div>
+                                
+                                {app.description && (
+                                  <p className="text-sm text-muted-foreground line-clamp-1">
+                                    {app.description}
+                                  </p>
+                                )}
+                                
+                                <div className="text-xs text-muted-foreground">
+                                  申请单号：{app.application_number}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="text-right ml-4">
+                              <div className="text-2xl font-bold text-primary">
+                                ¥{app.amount.toFixed(2)}
+                              </div>
+                              {app.receipt_photos.length > 0 && (
+                                <div className="text-xs text-muted-foreground mt-1 flex items-center justify-end gap-1">
+                                  <ImageIcon className="h-3 w-3" />
+                                  {app.receipt_photos.length}张凭证
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
+              </TabsContent>
+
+              {/* 运单记录标签页 */}
+              <TabsContent value="waybills" className="space-y-3 pt-4 px-4 pb-4 mt-0">
+                {loadingWaybills ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mt-2">加载中...</p>
+                  </div>
+                ) : waybills.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Package className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+                    <p className="text-sm text-muted-foreground mt-2">暂无运单记录</p>
+                  </div>
+                ) : (
+                  waybills.map(waybill => (
+                    <Card 
+                      key={waybill.id} 
+                      className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-0 shadow-sm bg-gradient-to-br from-white to-gray-50"
+                      onClick={() => navigate(`/m/internal/waybill/${waybill.id}`)}
+                    >
+                      <CardContent className="p-4 relative overflow-hidden">
+                        {/* 装饰性背景图案 */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-50 to-transparent rounded-full -mr-16 -mt-16 opacity-50"></div>
+                        
+                        <div className="flex items-start justify-between relative z-10">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Badge className="bg-blue-100 text-blue-800 shadow-sm">
+                                <Package className="h-3 w-3 mr-1" />
+                                {waybill.auto_number}
+                              </Badge>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                {format(new Date(waybill.loading_date), 'yyyy年MM月dd日', { locale: zhCN })}
+                              </div>
+                              
+                              <div className="space-y-1.5">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <MapPin className="h-3 w-3 text-blue-600" />
+                                  <span className="text-gray-700">{waybill.loading_location}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <MapPin className="h-3 w-3 text-green-600" />
+                                  <span className="text-gray-700">{waybill.unloading_location}</span>
+                                </div>
+                              </div>
+                              
+                              <div className="text-xs text-muted-foreground">
+                                项目：{waybill.project_name}
+                              </div>
+                            </div>
                           </div>
                           
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              {format(new Date(app.expense_date), 'yyyy年MM月dd日', { locale: zhCN })}
-                            </div>
-                            
-                            {app.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-1">
-                                {app.description}
-                              </p>
-                            )}
-                            
-                            <div className="text-xs text-muted-foreground">
-                              申请单号：{app.application_number}
+                          <div className="text-right ml-4">
+                            <div className="flex items-center gap-1 text-lg font-bold text-green-600">
+                              <Weight className="h-4 w-4" />
+                              {waybill.loading_weight.toFixed(2)}吨
                             </div>
                           </div>
                         </div>
-                        
-                        <div className="text-right ml-4">
-                          <div className="text-2xl font-bold text-primary">
-                            ¥{app.amount.toFixed(2)}
-                          </div>
-                          {app.receipt_photos.length > 0 && (
-                            <div className="text-xs text-muted-foreground mt-1 flex items-center justify-end gap-1">
-                              <ImageIcon className="h-3 w-3" />
-                              {app.receipt_photos.length}张凭证
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
