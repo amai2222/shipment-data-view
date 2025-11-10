@@ -121,6 +121,7 @@ export const MobileFleetManagerConfig = lazy(() => import('./pages/mobile/intern
 export const MobileMyDispatches = lazy(() => import('./pages/mobile/internal/MobileMyDispatches'));
 export const MobileMyWaybills = lazy(() => import('./pages/mobile/internal/MobileMyWaybills'));
 export const MobileExpenseWriteoff = lazy(() => import('./pages/mobile/internal/MobileExpenseWriteoff'));
+export const MobileInternalWaybillDetail = lazy(() => import('./pages/mobile/internal/MobileInternalWaybillDetail'));
 
 // ============================================
 // 加载组件
