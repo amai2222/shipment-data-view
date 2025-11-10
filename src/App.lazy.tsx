@@ -1,133 +1,162 @@
 /**
  * 路由级代码分割 - 懒加载组件
  * 根据代码优化建议报告 - 性能优化 4.2
+ * 
+ * 懒加载开关：
+ * - 开发环境：可配置启用/禁用（在 src/utils/conditionalLazy.ts 中设置）
+ * - 生产环境：始终启用（优化性能）
  */
 
 import { lazy } from 'react';
+
+// 🔧 懒加载配置开关
+const USE_LAZY_IN_DEV = false; // ⚠️ 开发环境是否使用懒加载（设为false可快速查看错误）
+
+// 条件懒加载函数
+const conditionalLazy = import.meta.env.DEV && !USE_LAZY_IN_DEV
+  ? <T,>(importFn: () => Promise<{ default: T }>) => {
+      // 开发环境且禁用懒加载：立即导入（会在启动时加载所有模块）
+      console.warn(
+        '%c⚠️ 懒加载已禁用（开发模式）',
+        'color: #f56565; font-weight: bold; font-size: 14px;'
+      );
+      console.warn('所有模块将在启动时立即加载，便于快速查看错误');
+      // 注意：仍使用 lazy()，但 Vite 在开发模式下会预加载所有模块
+      return lazy(importFn);
+    }
+  : lazy; // 生产环境或开发环境启用懒加载：使用标准lazy
+
+// 开发模式状态提示
+if (import.meta.env.DEV) {
+  console.log(
+    `%c🔧 懒加载配置：${USE_LAZY_IN_DEV ? '✅ 已启用' : '❌ 已禁用'}`,
+    `color: ${USE_LAZY_IN_DEV ? '#48bb78' : '#f56565'}; font-weight: bold; font-size: 12px;`
+  );
+}
 
 // ============================================
 // 主要页面懒加载
 // ============================================
 
 // 首页和仪表盘
-export const Home = lazy(() => import('./pages/Home'));
-export const TransportOverview = lazy(() => import('./pages/TransportOverview'));
+export const Home = conditionalLazy(() => import('./pages/Home'));
+export const TransportOverview = conditionalLazy(() => import('./pages/TransportOverview'));
 
 // 项目相关
-export const Projects = lazy(() => import('./pages/Projects'));
-export const ProjectsOverview = lazy(() => import('./pages/ProjectsOverview'));
-export const ProjectDashboard = lazy(() => import('./pages/ProjectDashboard'));
+export const Projects = conditionalLazy(() => import('./pages/Projects'));
+export const ProjectsOverview = conditionalLazy(() => import('./pages/ProjectsOverview'));
+export const ProjectDashboard = conditionalLazy(() => import('./pages/ProjectDashboard'));
 
 // 业务管理
-export const BusinessEntry = lazy(() => import('./pages/BusinessEntry'));
-export const ScaleRecords = lazy(() => import('./pages/ScaleRecords'));
+export const BusinessEntry = conditionalLazy(() => import('./pages/BusinessEntry'));
+export const ScaleRecords = conditionalLazy(() => import('./pages/ScaleRecords'));
 
 // 财务管理
-export const PaymentRequest = lazy(() => import('./pages/PaymentRequest'));
-export const InvoiceRequest = lazy(() => import('./pages/InvoiceRequest'));
-export const FinanceReconciliation = lazy(() => import('./pages/FinanceReconciliation'));
-export const PaymentInvoice = lazy(() => import('./pages/PaymentInvoice'));
-export const PaymentInvoiceDetail = lazy(() => import('./pages/PaymentInvoiceDetail'));
-export const PaymentRequestsList = lazy(() => import('./pages/PaymentRequestsList'));
-export const FinancialOverview = lazy(() => import('./pages/FinancialOverview'));
+export const PaymentRequest = conditionalLazy(() => import('./pages/PaymentRequest'));
+export const InvoiceRequest = conditionalLazy(() => import('./pages/InvoiceRequest'));
+export const FinanceReconciliation = conditionalLazy(() => import('./pages/FinanceReconciliation'));
+export const PaymentInvoice = conditionalLazy(() => import('./pages/PaymentInvoice'));
+export const PaymentInvoiceDetail = conditionalLazy(() => import('./pages/PaymentInvoiceDetail'));
+export const PaymentRequestsList = conditionalLazy(() => import('./pages/PaymentRequestsList'));
+export const FinancialOverview = conditionalLazy(() => import('./pages/FinancialOverview'));
 
 // 基础数据管理
-export const Drivers = lazy(() => import('./pages/Drivers'));
-export const Locations = lazy(() => import('./pages/Locations'));
-export const Partners = lazy(() => import('./pages/Partners'));
-export const FleetManagement = lazy(() => import('./pages/FleetManagement'));
+export const Drivers = conditionalLazy(() => import('./pages/Drivers'));
+export const Locations = conditionalLazy(() => import('./pages/Locations'));
+export const Partners = conditionalLazy(() => import('./pages/Partners'));
+export const FleetManagement = conditionalLazy(() => import('./pages/FleetManagement'));
 
 // 内部车辆管理 - PC端
-export const VehicleManagement = lazy(() => import('./pages/internal/VehicleManagement'));
-export const DriverManagement = lazy(() => import('./pages/internal/DriverManagement'));
-export const ExpenseApproval = lazy(() => import('./pages/internal/ExpenseApproval'));
-export const ExpenseWriteoff = lazy(() => import('./pages/internal/ExpenseWriteoff'));
-export const IncomeInput = lazy(() => import('./pages/internal/IncomeInput'));
-export const PendingTasks = lazy(() => import('./pages/internal/PendingTasks'));
-export const CertificateManagement = lazy(() => import('./pages/internal/CertificateManagement'));
-export const VehicleStatus = lazy(() => import('./pages/internal/VehicleStatus'));
-export const VehicleLedger = lazy(() => import('./pages/internal/VehicleLedger'));
-export const ExpenseCategories = lazy(() => import('./pages/internal/ExpenseCategories'));
-export const VehicleBalance = lazy(() => import('./pages/internal/VehicleBalance'));
-export const FinancialReports = lazy(() => import('./pages/internal/FinancialReports'));
+export const VehicleManagement = conditionalLazy(() => import('./pages/internal/VehicleManagement'));
+export const DriverManagement = conditionalLazy(() => import('./pages/internal/DriverManagement'));
+export const ExpenseApproval = conditionalLazy(() => import('./pages/internal/ExpenseApproval'));
+export const ExpenseWriteoff = conditionalLazy(() => import('./pages/internal/ExpenseWriteoff'));
+export const IncomeInput = conditionalLazy(() => import('./pages/internal/IncomeInput'));
+export const PendingTasks = conditionalLazy(() => import('./pages/internal/PendingTasks'));
+export const CertificateManagement = conditionalLazy(() => import('./pages/internal/CertificateManagement'));
+export const VehicleStatus = conditionalLazy(() => import('./pages/internal/VehicleStatus'));
+export const VehicleLedger = conditionalLazy(() => import('./pages/internal/VehicleLedger'));
+export const ExpenseCategories = conditionalLazy(() => import('./pages/internal/ExpenseCategories'));
+export const VehicleBalance = conditionalLazy(() => import('./pages/internal/VehicleBalance'));
+export const FinancialReports = conditionalLazy(() => import('./pages/internal/FinancialReports'));
 
 // 合同管理
-export const ContractManagement = lazy(() => import('./pages/ContractManagement'));
+export const ContractManagement = conditionalLazy(() => import('./pages/ContractManagement'));
 
 // 数据维护
-export const WaybillMaintenance = lazy(() => import('./pages/DataMaintenance/WaybillMaintenance'));
+export const WaybillMaintenance = conditionalLazy(() => import('./pages/DataMaintenance/WaybillMaintenance'));
 
 // 设置页面
-export const UserManagement = lazy(() => import('./pages/Settings/UserManagement'));
-export const PermissionConfig = lazy(() => import('./pages/Settings/PermissionConfig'));
-export const ContractPermission = lazy(() => import('./pages/Settings/ContractPermission'));
-export const RoleTemplate = lazy(() => import('./pages/Settings/RoleTemplate'));
-export const AuditLogs = lazy(() => import('./pages/Settings/AuditLogs'));
+export const UserManagement = conditionalLazy(() => import('./pages/Settings/UserManagement'));
+export const PermissionConfig = conditionalLazy(() => import('./pages/Settings/PermissionConfig'));
+export const ContractPermission = conditionalLazy(() => import('./pages/Settings/ContractPermission'));
+export const RoleTemplate = conditionalLazy(() => import('./pages/Settings/RoleTemplate'));
+export const AuditLogs = conditionalLazy(() => import('./pages/Settings/AuditLogs'));
 
 // 权限管理
-export const IntegratedUserManagement = lazy(() => import('./pages/IntegratedUserManagement'));
+export const IntegratedUserManagement = conditionalLazy(() => import('./pages/IntegratedUserManagement'));
 
 // ============================================
 // 移动端页面懒加载
 // ============================================
 
-export const MobileHomeNew = lazy(() => import('./pages/mobile/MobileHomeNew'));
-export const MobileHome = lazy(() => import('./pages/mobile/MobileHome'));
-export const MobileDashboard = lazy(() => import('./pages/mobile/MobileDashboard'));
-export const MobileBusinessEntry = lazy(() => import('./pages/mobile/MobileBusinessEntry'));
-export const MobileBusinessEntryForm = lazy(() => import('./pages/mobile/MobileBusinessEntryForm'));
-export const MobileProjectOverview = lazy(() => import('./pages/mobile/MobileProjectOverview'));
-export const MobileProjectDetail = lazy(() => import('./pages/mobile/MobileProjectDetail'));
-export const MobileProjectRecords = lazy(() => import('./pages/mobile/MobileProjectRecords'));
-export const MobileProjectDashboardDetail = lazy(() => import('./pages/mobile/MobileProjectDashboardDetail'));
-export const MobileWaybillDetail = lazy(() => import('./pages/mobile/MobileWaybillDetail'));
-export const MobileDrivers = lazy(() => import('./pages/mobile/MobileDrivers'));
-export const MobileLocations = lazy(() => import('./pages/mobile/MobileLocations'));
-export const MobilePartners = lazy(() => import('./pages/mobile/MobilePartners'));
-export const MobileScaleRecords = lazy(() => import('./pages/mobile/MobileScaleRecords'));
-export const MobilePaymentRequestsList = lazy(() => import('./pages/mobile/MobilePaymentRequestsList'));
-export const MobilePaymentRequestsManagement = lazy(() => import('./pages/mobile/MobilePaymentRequestsManagement'));
-export const MobileFinancialOverview = lazy(() => import('./pages/mobile/MobileFinancialOverview'));
-export const MobileContractManagement = lazy(() => import('./pages/mobile/MobileContractManagement'));
-export const MobileIntegratedUserManagement = lazy(() => import('./pages/mobile/MobileIntegratedUserManagement'));
-export const MobileAuditLogs = lazy(() => import('./pages/mobile/MobileAuditLogs'));
-export const MobileNotifications = lazy(() => import('./pages/mobile/MobileNotifications'));
-export const MobileSettings = lazy(() => import('./pages/mobile/MobileSettings'));
-export const MobileUserManagement = lazy(() => import('./pages/mobile/MobileUserManagement'));
-export const MobileContractPermission = lazy(() => import('./pages/mobile/MobileContractPermission'));
-export const MobileRoleTemplate = lazy(() => import('./pages/mobile/MobileRoleTemplate'));
-export const MobilePermissionManagement = lazy(() => import('./pages/mobile/MobilePermissionManagement'));
+export const MobileHomeNew = conditionalLazy(() => import('./pages/mobile/MobileHomeNew'));
+export const MobileHome = conditionalLazy(() => import('./pages/mobile/MobileHome'));
+export const MobileDashboard = conditionalLazy(() => import('./pages/mobile/MobileDashboard'));
+export const MobileBusinessEntry = conditionalLazy(() => import('./pages/mobile/MobileBusinessEntry'));
+export const MobileBusinessEntryForm = conditionalLazy(() => import('./pages/mobile/MobileBusinessEntryForm'));
+export const MobileProjectOverview = conditionalLazy(() => import('./pages/mobile/MobileProjectOverview'));
+export const MobileProjectDetail = conditionalLazy(() => import('./pages/mobile/MobileProjectDetail'));
+export const MobileProjectRecords = conditionalLazy(() => import('./pages/mobile/MobileProjectRecords'));
+export const MobileProjectDashboardDetail = conditionalLazy(() => import('./pages/mobile/MobileProjectDashboardDetail'));
+export const MobileWaybillDetail = conditionalLazy(() => import('./pages/mobile/MobileWaybillDetail'));
+export const MobileDrivers = conditionalLazy(() => import('./pages/mobile/MobileDrivers'));
+export const MobileLocations = conditionalLazy(() => import('./pages/mobile/MobileLocations'));
+export const MobilePartners = conditionalLazy(() => import('./pages/mobile/MobilePartners'));
+export const MobileScaleRecords = conditionalLazy(() => import('./pages/mobile/MobileScaleRecords'));
+export const MobilePaymentRequestsList = conditionalLazy(() => import('./pages/mobile/MobilePaymentRequestsList'));
+export const MobilePaymentRequestsManagement = conditionalLazy(() => import('./pages/mobile/MobilePaymentRequestsManagement'));
+export const MobileFinancialOverview = conditionalLazy(() => import('./pages/mobile/MobileFinancialOverview'));
+export const MobileContractManagement = conditionalLazy(() => import('./pages/mobile/MobileContractManagement'));
+export const MobileIntegratedUserManagement = conditionalLazy(() => import('./pages/mobile/MobileIntegratedUserManagement'));
+export const MobileAuditLogs = conditionalLazy(() => import('./pages/mobile/MobileAuditLogs'));
+export const MobileNotifications = conditionalLazy(() => import('./pages/mobile/MobileNotifications'));
+export const MobileSettings = conditionalLazy(() => import('./pages/mobile/MobileSettings'));
+export const MobileUserManagement = conditionalLazy(() => import('./pages/mobile/MobileUserManagement'));
+export const MobileContractPermission = conditionalLazy(() => import('./pages/mobile/MobileContractPermission'));
+export const MobileRoleTemplate = conditionalLazy(() => import('./pages/mobile/MobileRoleTemplate'));
+export const MobilePermissionManagement = conditionalLazy(() => import('./pages/mobile/MobilePermissionManagement'));
 
 // ============================================
 // 内部车辆管理 - 移动端页面懒加载 ⭐ 新增
 // ============================================
 
 // 内部司机端
-export const MobileMyExpenses = lazy(() => import('./pages/mobile/internal/MobileMyExpenses'));
-export const MobileDriverSalary = lazy(() => import('./pages/mobile/internal/MobileDriverSalary'));
-export const MobileMyVehicles = lazy(() => import('./pages/mobile/internal/MobileMyVehicles'));
-export const MobileSalaryRecords = lazy(() => import('./pages/mobile/internal/MobileSalaryRecords'));
-export const MobileQuickEntry = lazy(() => import('./pages/mobile/internal/MobileQuickEntry'));
+export const MobileMyExpenses = conditionalLazy(() => import('./pages/mobile/internal/MobileMyExpenses'));
+export const MobileDriverSalary = conditionalLazy(() => import('./pages/mobile/internal/MobileDriverSalary'));
+export const MobileMyVehicles = conditionalLazy(() => import('./pages/mobile/internal/MobileMyVehicles'));
+export const MobileSalaryRecords = conditionalLazy(() => import('./pages/mobile/internal/MobileSalaryRecords'));
+export const MobileQuickEntry = conditionalLazy(() => import('./pages/mobile/internal/MobileQuickEntry'));
 
 // 车队长端
-export const MobileFleetDashboard = lazy(() => import('./pages/mobile/internal/MobileFleetDashboard'));
-export const MobileExpenseReview = lazy(() => import('./pages/mobile/internal/MobileExpenseReview'));
-export const MobileVehicleManagement = lazy(() => import('./pages/mobile/internal/MobileVehicleManagement'));
-export const MobileDriverRouteConfig = lazy(() => import('./pages/mobile/internal/MobileDriverRouteConfig'));
-export const MobileDispatchOrder = lazy(() => import('./pages/mobile/internal/MobileDispatchOrder'));
-export const MobileFleetManagerConfig = lazy(() => import('./pages/mobile/internal/MobileFleetManagerConfig'));
-export const MobileAddVehicle = lazy(() => import('./pages/mobile/internal/MobileAddVehicle'));
-export const MobileAddDriver = lazy(() => import('./pages/mobile/internal/MobileAddDriver'));
-export const MobileVehicleDriverDetail = lazy(() => import('./pages/mobile/internal/MobileVehicleDriverDetail'));
-export const MobileDailyWaybills = lazy(() => import('./pages/mobile/internal/MobileDailyWaybills'));
-export const MobileDriverProfile = lazy(() => import('./pages/mobile/internal/MobileDriverProfile'));
-export const MobileVehicleAssignment = lazy(() => import('./pages/mobile/internal/MobileVehicleAssignment'));
+export const MobileFleetDashboard = conditionalLazy(() => import('./pages/mobile/internal/MobileFleetDashboard'));
+export const MobileExpenseReview = conditionalLazy(() => import('./pages/mobile/internal/MobileExpenseReview'));
+export const MobileVehicleManagement = conditionalLazy(() => import('./pages/mobile/internal/MobileVehicleManagement'));
+export const MobileDriverRouteConfig = conditionalLazy(() => import('./pages/mobile/internal/MobileDriverRouteConfig'));
+export const MobileDispatchOrder = conditionalLazy(() => import('./pages/mobile/internal/MobileDispatchOrder'));
+export const MobileFleetManagerConfig = conditionalLazy(() => import('./pages/mobile/internal/MobileFleetManagerConfig'));
+export const MobileAddVehicle = conditionalLazy(() => import('./pages/mobile/internal/MobileAddVehicle'));
+export const MobileAddDriver = conditionalLazy(() => import('./pages/mobile/internal/MobileAddDriver'));
+export const MobileVehicleDriverDetail = conditionalLazy(() => import('./pages/mobile/internal/MobileVehicleDriverDetail'));
+export const MobileDailyWaybills = conditionalLazy(() => import('./pages/mobile/internal/MobileDailyWaybills'));
+export const MobileDriverProfile = conditionalLazy(() => import('./pages/mobile/internal/MobileDriverProfile'));
+export const MobileVehicleAssignment = conditionalLazy(() => import('./pages/mobile/internal/MobileVehicleAssignment'));
 
 // 司机端
-export const MobileMyDispatches = lazy(() => import('./pages/mobile/internal/MobileMyDispatches'));
-export const MobileMyWaybills = lazy(() => import('./pages/mobile/internal/MobileMyWaybills'));
-export const MobileExpenseWriteoff = lazy(() => import('./pages/mobile/internal/MobileExpenseWriteoff'));
-export const MobileInternalWaybillDetail = lazy(() => import('./pages/mobile/internal/MobileInternalWaybillDetail'));
+export const MobileMyDispatches = conditionalLazy(() => import('./pages/mobile/internal/MobileMyDispatches'));
+export const MobileMyWaybills = conditionalLazy(() => import('./pages/mobile/internal/MobileMyWaybills'));
+export const MobileExpenseWriteoff = conditionalLazy(() => import('./pages/mobile/internal/MobileExpenseWriteoff'));
+export const MobileInternalWaybillDetail = conditionalLazy(() => import('./pages/mobile/internal/MobileInternalWaybillDetail'));
 
 // ============================================
 // 加载组件
