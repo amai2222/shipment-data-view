@@ -201,6 +201,30 @@ export default function MobileMyExpenses() {
     }
   }, []);
 
+  // ✅ 加载运单记录列表
+  const loadWaybills = useCallback(async () => {
+    setLoadingWaybills(true);
+    try {
+      const { data, error } = await supabase.rpc('get_my_waybills', {
+        p_days: 30,
+        p_limit: 50
+      });
+      
+      if (error) throw error;
+      setWaybills(data || []);
+    } catch (error: any) {
+      console.error('加载运单失败:', error);
+      toast({
+        title: '加载失败',
+        description: '无法加载运单记录',
+        variant: 'destructive'
+      });
+      setWaybills([]);
+    } finally {
+      setLoadingWaybills(false);
+    }
+  }, [toast]);
+
   // ✅ 加载费用申请列表
   const loadApplications = useCallback(async () => {
     setLoading(true);
@@ -961,16 +985,26 @@ export default function MobileMyExpenses() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs 
+              value={activeTab} 
+              onValueChange={(value) => {
+                // 切换标签时加载对应数据
+                if (value === 'expenses' && activeTab !== 'expenses') {
+                  setActiveTab(value);
+                  loadApplications();
+                } else if (value === 'waybills' && activeTab !== 'waybills') {
+                  setActiveTab(value);
+                  loadWaybills();
+                } else {
+                  setActiveTab(value);
+                }
+              }} 
+              className="w-full"
+            >
               <TabsList className="grid w-full grid-cols-2 bg-gray-100 h-11 rounded-none p-1 mx-4 mt-4">
                 <TabsTrigger 
                   value="expenses" 
                   className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-md font-medium transition-all"
-                  onClick={() => {
-                    if (activeTab !== 'expenses') {
-                      loadApplications();
-                    }
-                  }}
                 >
                   <FileText className="h-4 w-4 mr-1.5" />
                   申请记录
@@ -983,11 +1017,6 @@ export default function MobileMyExpenses() {
                 <TabsTrigger 
                   value="waybills" 
                   className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-md font-medium transition-all"
-                  onClick={() => {
-                    if (activeTab !== 'waybills') {
-                      loadWaybills();
-                    }
-                  }}
                 >
                   <Package className="h-4 w-4 mr-1.5" />
                   运单记录
