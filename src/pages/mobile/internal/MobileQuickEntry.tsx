@@ -656,7 +656,9 @@ export default function MobileQuickEntry() {
       loading_weight: inputs.loading_weight,
       loading_weight_type: typeof inputs.loading_weight,
       loading_weight_trimmed: inputs.loading_weight?.trim(),
+      favoriteProjectId,
       route_project_id: route.project_id,
+      final_project_id: favoriteProjectId || route.project_id,
       route_loading_location_id: route.loading_location_id,
       route_unloading_location_id: route.unloading_location_id
     });
@@ -674,10 +676,13 @@ export default function MobileQuickEntry() {
       return;
     }
     
-    if (!route.project_id) {
+    // 使用选择的项目ID（如果选择了），否则使用线路的项目ID
+    const projectId = favoriteProjectId || route.project_id;
+    
+    if (!projectId) {
       toast({
         title: '信息不完整',
-        description: '线路缺少项目信息，请联系车队长配置',
+        description: '请选择项目',
         variant: 'destructive'
       });
       return;
@@ -1063,34 +1068,6 @@ export default function MobileQuickEntry() {
                       return (
                         <Card className="border">
                           <CardContent className="p-4 space-y-3">
-                            {/* 线路信息 */}
-                            <div className="space-y-2 pb-3 border-b">
-                              <div className="flex items-center justify-between">
-                                <div className="font-medium text-sm">{route.route_name}</div>
-                                {route.use_count > 0 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    使用 {route.use_count} 次
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="text-xs text-muted-foreground space-y-1">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-green-600">装货：</span>
-                                  <span>{route.loading_location}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-red-600">卸货：</span>
-                                  <span>{route.unloading_location}</span>
-                                </div>
-                                {route.projects && (
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-blue-600">项目：</span>
-                                    <span>{route.projects.name}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
                             {/* 输入框 */}
                             <div className="space-y-3">
                               {/* 数量输入 */}
