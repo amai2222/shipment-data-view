@@ -581,6 +581,8 @@ export default function MobileMyDispatches() {
                             size="icon"
                             variant="destructive"
                             className="absolute top-1 right-1 h-6 w-6"
+                            aria-label="删除照片"
+                            title="删除照片"
                             onClick={(e) => {
                               e.stopPropagation();
                               setCompleteForm(prev => ({

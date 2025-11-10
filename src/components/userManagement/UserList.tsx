@@ -133,12 +133,19 @@ export function UserList({
                       variant="outline"
                       size="sm"
                       onClick={() => onEditUser(user)}
+                      aria-label={`编辑用户 ${user.full_name}`}
+                      title={`编辑用户 ${user.full_name}`}
                     >
                       <Edit className="h-3 w-3" />
                     </Button>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          aria-label={`删除用户 ${user.full_name}`}
+                          title={`删除用户 ${user.full_name}`}
+                        >
                           <Trash2 className="h-3 w-3 text-red-500" />
                         </Button>
                       </DialogTrigger>

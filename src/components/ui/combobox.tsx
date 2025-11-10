@@ -85,7 +85,7 @@ export function Combobox({
         <Button
           variant="outline"
           role="combobox"
-          aria-expanded={open}
+          aria-label={selectedOption ? `${selectedOption.label}` : placeholder}
           className={cn("w-full justify-between", className)}
           disabled={disabled}
         >

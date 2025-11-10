@@ -1399,6 +1399,8 @@ export default function MobileMyExpenses() {
                           size="icon"
                           variant="destructive"
                           className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg"
+                          aria-label="删除费用申请"
+                          title="删除费用申请"
                           onClick={() => removeSelectedFile(index)}
                         >
                           <X className="h-4 w-4" />
@@ -1578,6 +1580,8 @@ export default function MobileMyExpenses() {
                                 size="icon"
                                 variant="destructive"
                                 className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg"
+                                aria-label="删除附加文件"
+                                title="删除附加文件"
                                 onClick={() => removeAdditionalFile(index)}
                               >
                                 <X className="h-4 w-4" />

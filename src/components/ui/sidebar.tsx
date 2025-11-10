@@ -270,6 +270,8 @@ const SidebarTrigger = React.forwardRef<
       variant="ghost"
       size="icon"
       className={cn("h-7 w-7", className)}
+      aria-label="切换侧边栏"
+      title="切换侧边栏"
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()

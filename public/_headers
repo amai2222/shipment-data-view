@@ -31,7 +31,7 @@
   Cache-Control: no-cache, no-store, must-revalidate
   X-Content-Type-Options: nosniff
 
-# 根路径
-/
-  Cache-Control: no-cache, no-store, must-revalidate
+# 根路径和所有其他路径
+/*
   X-Content-Type-Options: nosniff
+  Cache-Control: no-cache, no-store, must-revalidate

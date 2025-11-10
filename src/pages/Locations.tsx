@@ -494,7 +494,13 @@ export default function Locations() {
                           description={`您确定要删除地点 "${location.name}" 吗？`}
                           onConfirm={() => handleDelete(location.id)}
                         >
-                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-destructive hover:text-destructive"
+                            aria-label={`删除地点 ${location.name}`}
+                            title={`删除地点 ${location.name}`}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </ConfirmDialog>

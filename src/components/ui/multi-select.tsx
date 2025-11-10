@@ -42,7 +42,7 @@ export function MultiSelect({ options, selected, onChange, className, placeholde
         <Button
           variant="outline"
           role="combobox"
-          aria-expanded={open}
+          aria-label={selected.length > 0 ? selectedLabels : placeholder}
           className={cn("w-[200px] justify-between h-9 text-sm font-normal", className)}
         >
           <span className="truncate">

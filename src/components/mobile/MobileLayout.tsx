@@ -513,6 +513,8 @@ export function MobileLayout({ children, showBack, title }: MobileLayoutProps) {
               variant="ghost" 
               size="icon"
               onClick={() => navigate(-1)}
+              aria-label="返回"
+              title="返回"
             >
               <ArrowLeft className="h-5 w-5" />
               <span className="sr-only">返回</span>

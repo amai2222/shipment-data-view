@@ -837,6 +837,8 @@ export default function Projects() {
                           size="sm" 
                           className="hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-colors"
                           onClick={(e) => { e.stopPropagation(); handleEdit(project); }}
+                          aria-label={`编辑项目 ${project.name}`}
+                          title={`编辑项目 ${project.name}`}
                          >
                            <Edit className="h-4 w-4" />
                          </Button>
@@ -845,7 +847,14 @@ export default function Projects() {
                            description={`您确定要删除项目 "${project.name}" 吗？`}
                            onConfirm={() => handleDelete(project.id, project.name)}
                          >
-                          <Button variant="ghost" size="icon" className="text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors" onClick={(e) => e.stopPropagation()}>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors" 
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`删除项目 ${project.name}`}
+                            title={`删除项目 ${project.name}`}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                          </ConfirmDialog>

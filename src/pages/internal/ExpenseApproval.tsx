@@ -607,6 +607,8 @@ export default function ExpenseApproval() {
                                   size="icon"
                                   variant="destructive"
                                   className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg"
+                                  aria-label={`删除付款凭证 ${index + 1}`}
+                                  title={`删除付款凭证 ${index + 1}`}
                                   onClick={() => removePaymentVoucherFile(index)}
                                 >
                                   <X className="h-4 w-4" />
@@ -673,6 +675,8 @@ export default function ExpenseApproval() {
                                   size="icon"
                                   variant="destructive"
                                   className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg"
+                                  aria-label={`删除付款凭证 ${index + 1}`}
+                                  title={`删除付款凭证 ${index + 1}`}
                                   onClick={() => removePaymentVoucherFile(index)}
                                 >
                                   <X className="h-4 w-4" />

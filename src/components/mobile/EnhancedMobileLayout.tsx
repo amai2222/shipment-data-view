@@ -273,7 +273,13 @@ export function EnhancedMobileLayout({
           <div className="flex h-14 items-center px-4">
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="mr-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="mr-2"
+                  aria-label="打开菜单"
+                  title="打开菜单"
+                >
                   <Menu className="h-5 w-5" />
                   <span className="sr-only">打开菜单</span>
                 </Button>
@@ -393,7 +399,13 @@ export function EnhancedMobileLayout({
 
             <div className="flex items-center space-x-2">
               {headerActions}
-              <Button variant="ghost" size="icon" onClick={() => navigate('/m/notifications')}>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => navigate('/m/notifications')}
+                aria-label="通知"
+                title="通知"
+              >
                 <Bell className="h-5 w-5" />
               </Button>
             </div>

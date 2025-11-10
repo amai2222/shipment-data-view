@@ -131,7 +131,7 @@ export function DriverComboInput({
           <Button
             variant="outline"
             role="combobox"
-            aria-expanded={open}
+            aria-label={selectedDriver ? `${selectedDriver.name}${selectedDriver.license_plate ? ` - ${selectedDriver.license_plate}` : ''}` : placeholder}
             className="w-full justify-between"
             disabled={disabled}
           >

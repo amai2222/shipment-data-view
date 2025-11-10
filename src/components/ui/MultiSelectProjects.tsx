@@ -52,7 +52,7 @@ export function MultiSelectProjects({
         <Button
           variant="outline"
           role="combobox"
-          aria-expanded={open}
+          aria-label={selected.length > 0 ? `已选择${selected.length}个项目` : placeholder}
           className={cn("w-full justify-between h-auto min-h-[38px]", className)}
           onClick={() => setOpen(!open)}
         >

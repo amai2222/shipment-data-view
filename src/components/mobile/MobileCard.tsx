@@ -71,6 +71,8 @@ export function MobileCard({
                     size="sm" 
                     className="h-8 w-8 p-0"
                     onClick={(e) => e.stopPropagation()}
+                    aria-label="更多操作"
+                    title="更多操作"
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>

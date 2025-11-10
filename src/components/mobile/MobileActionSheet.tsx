@@ -110,6 +110,8 @@ export function SimpleMobileActionSheet({
                 variant="ghost"
                 size="icon"
                 className="absolute right-4 top-4"
+                aria-label="关闭"
+                title="关闭"
               >
                 <X className="h-5 w-5" />
               </Button>

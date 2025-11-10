@@ -77,6 +77,8 @@ export function FilterField(props: FilterFieldProps) {
               size="sm"
               className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
               onClick={props.onBatchInputClick}
+              aria-label="批量输入"
+              title="批量输入"
             >
               <span className="text-lg">+</span>
             </Button>
@@ -88,16 +90,19 @@ export function FilterField(props: FilterFieldProps) {
 
   // 渲染下拉框
   if (props.type === 'select') {
+    const selectId = `filter-select-${label.replace(/\s+/g, '-').toLowerCase()}`;
     return (
       <div className={`flex-1 min-w-[140px] space-y-2 ${className}`}>
-        <Label className="text-sm font-medium flex items-center gap-1">
+        <Label htmlFor={selectId} className="text-sm font-medium flex items-center gap-1">
           {icon}
           {label}
         </Label>
         <select
+          id={selectId}
           value={props.value}
           onChange={(e) => props.onChange(e.target.value)}
           disabled={props.disabled}
+          aria-label={label}
           className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm h-10 disabled:opacity-50"
         >
           {props.options.map(opt => (

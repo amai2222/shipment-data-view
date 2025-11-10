@@ -78,6 +78,8 @@ export function MobileHeader({
             size="icon"
             onClick={handleBack}
             className="mr-2"
+            aria-label="返回"
+            title="返回"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -98,6 +100,8 @@ export function MobileHeader({
               variant="ghost"
               size="icon"
               onClick={onSearch}
+              aria-label="搜索"
+              title="搜索"
             >
               <Search className="h-5 w-5" />
             </Button>
@@ -108,6 +112,8 @@ export function MobileHeader({
               variant="ghost"
               size="icon"
               onClick={onShare}
+              aria-label="分享"
+              title="分享"
             >
               <Share2 className="h-5 w-5" />
             </Button>
@@ -116,7 +122,12 @@ export function MobileHeader({
           {actions.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  aria-label="更多操作"
+                  title="更多操作"
+                >
                   <MoreVertical className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
