@@ -77,18 +77,15 @@ export default function MobileQuickEntry() {
   // 表单数据
   const [formData, setFormData] = useState({
     project_id: '',
+    route_id: '',  // 选中的线路ID
     loading_location_id: '',
     unloading_location_id: '',
-    loading_location: '',  // 装货地址文本（手工输入）
-    unloading_location: '',  // 卸货地址文本（手工输入）
+    loading_location: '',  // 装货地址文本（手工输入，保留用于手工建单）
+    unloading_location: '',  // 卸货地址文本（手工输入，保留用于手工建单）
     loading_weight: '',
     unloading_weight: '',
     remarks: ''
   });
-  
-  // 地址输入模式：'select' 选择已有地点，'input' 手工输入
-  const [loadingLocationMode, setLoadingLocationMode] = useState<'select' | 'input'>('select');
-  const [unloadingLocationMode, setUnloadingLocationMode] = useState<'select' | 'input'>('select');
   
   // 司机信息（自动填充）
   const [driverInfo, setDriverInfo] = useState<any>(null);
@@ -128,10 +125,9 @@ export default function MobileQuickEntry() {
     loadRecentWaybills();
   }, []);
 
-  // 当获取到车队长ID和司机ID后，加载常用线路和项目列表
+  // 当获取到车队长ID和司机ID后，加载项目列表
   useEffect(() => {
     if (fleetManagerId && driverId) {
-      loadFavoriteRoutes();
       loadFavoriteProjects();
     }
   }, [fleetManagerId, driverId]);
@@ -154,12 +150,27 @@ export default function MobileQuickEntry() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fleetManagerId]);
 
-  // 当选择项目后，加载该项目的地点
+  // 当选择项目后，加载常用线路（过滤出该项目的线路）
   useEffect(() => {
-    if (formData.project_id && fleetManagerId) {
-      loadProjectLocations(formData.project_id);
+    if (formData.project_id && fleetManagerId && driverId) {
+      loadFavoriteRoutes(formData.project_id);
     }
-  }, [formData.project_id, fleetManagerId]);
+  }, [formData.project_id, fleetManagerId, driverId]);
+
+  // 当选择线路时，自动填充装货地和卸货地
+  useEffect(() => {
+    if (formData.route_id && favoriteRoutes.length > 0) {
+      const selectedRoute = favoriteRoutes.find(r => r.id === formData.route_id);
+      if (selectedRoute) {
+        setFormData(prev => ({
+          ...prev,
+          loading_location_id: selectedRoute.loading_location_id,
+          unloading_location_id: selectedRoute.unloading_location_id,
+          project_id: selectedRoute.project_id || prev.project_id  // 如果线路有项目ID，也更新项目
+        }));
+      }
+    }
+  }, [formData.route_id, favoriteRoutes]);
 
   // 加载司机信息
   const loadMyInfo = async () => {
@@ -406,14 +417,9 @@ export default function MobileQuickEntry() {
           description: `地点"${addLocationName}"已添加`
         });
 
-        // 刷新地点列表
-        loadProjectLocations(formData.project_id);
-
-        // 自动选中新添加的地点
-        if (addLocationType === 'loading') {
-          setFormData(prev => ({ ...prev, loading_location_id: data.location_id }));
-        } else {
-          setFormData(prev => ({ ...prev, unloading_location_id: data.location_id }));
+        // 刷新常用线路列表（新添加的地点会出现在线路中）
+        if (fleetManagerId && driverId && formData.project_id) {
+          loadFavoriteRoutes(formData.project_id);
         }
 
         setShowAddLocationDialog(false);
@@ -479,20 +485,31 @@ export default function MobileQuickEntry() {
           description: `线路"${data.route_name}"已添加并设为常用线路`
         });
 
-        // 刷新地点列表
-        loadProjectLocations(formData.project_id);
-        
         // 刷新常用线路列表
-        if (fleetManagerId && driverId) {
-          loadFavoriteRoutes();
+        if (fleetManagerId && driverId && formData.project_id) {
+          await loadFavoriteRoutes(formData.project_id);
+          
+          // 自动选中新添加的线路
+          // 通过查找刚添加的线路（根据装货地和卸货地ID）
+          const updatedRoutes = await supabase
+            .from('fleet_manager_favorite_routes')
+            .select('id, loading_location_id, unloading_location_id')
+            .eq('fleet_manager_id', fleetManagerId)
+            .eq('loading_location_id', data.loading_location_id)
+            .eq('unloading_location_id', data.unloading_location_id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          
+          if (updatedRoutes.data && updatedRoutes.data.length > 0) {
+            const newRouteId = updatedRoutes.data[0].id;
+            setFormData(prev => ({ 
+              ...prev, 
+              route_id: newRouteId,
+              loading_location_id: data.loading_location_id,
+              unloading_location_id: data.unloading_location_id
+            }));
+          }
         }
-
-        // 自动选中新添加的装货地和卸货地
-        setFormData(prev => ({ 
-          ...prev, 
-          loading_location_id: data.loading_location_id,
-          unloading_location_id: data.unloading_location_id
-        }));
 
         setShowAddRouteDialog(false);
         setNewRouteLoadingLocation('');
@@ -516,8 +533,8 @@ export default function MobileQuickEntry() {
     }
   };
 
-  // 加载常用线路（只加载分配给当前司机的线路）
-  const loadFavoriteRoutes = async () => {
+  // 加载常用线路（只加载分配给当前司机的线路，可选按项目过滤）
+  const loadFavoriteRoutes = async (projectId?: string) => {
     try {
       if (!fleetManagerId || !driverId) {
         console.log('⚠️ 没有车队长ID或司机ID，无法加载常用线路', { fleetManagerId, driverId });
@@ -525,7 +542,7 @@ export default function MobileQuickEntry() {
         return;
       }
 
-      console.log('🔍 开始加载常用线路，车队长ID:', fleetManagerId, '司机ID:', driverId);
+      console.log('🔍 开始加载常用线路，车队长ID:', fleetManagerId, '司机ID:', driverId, '项目ID:', projectId);
 
       // 1. 先查询分配给当前司机的线路ID
       const { data: assignedRoutes, error: assignedError } = await supabase
@@ -569,7 +586,7 @@ export default function MobileQuickEntry() {
 
       // 2. 查询这些线路的详细信息
       // 注意：由于RLS策略，司机只能查看分配给自己的线路，所以不需要再过滤fleet_manager_id
-      const { data, error } = await supabase
+      let query = supabase
         .from('fleet_manager_favorite_routes')
         .select(`
           id,
@@ -588,7 +605,14 @@ export default function MobileQuickEntry() {
             name
           )
         `)
-        .in('id', routeIds)
+        .in('id', routeIds);
+      
+      // 如果指定了项目ID，只加载该项目的线路
+      if (projectId) {
+        query = query.eq('project_id', projectId);
+      }
+      
+      const { data, error } = await query
         .order('use_count', { ascending: false })
         .order('last_used_at', { ascending: false, nullsFirst: false });
 
@@ -880,7 +904,9 @@ export default function MobileQuickEntry() {
           .eq('id', routeId);
         
         // 重新加载常用线路（更新排序）
-        loadFavoriteRoutes();
+        if (favoriteProjectId) {
+          loadFavoriteRoutes(favoriteProjectId);
+        }
         
         // 刷新最近运单
         loadRecentWaybills();
@@ -915,16 +941,22 @@ export default function MobileQuickEntry() {
       return;
     }
     
-    // 验证地址：要么选择地点ID，要么输入地址文本
-    const hasLoadingLocation = (loadingLocationMode === 'select' && formData.loading_location_id) || 
-                                (loadingLocationMode === 'input' && formData.loading_location?.trim());
-    const hasUnloadingLocation = (unloadingLocationMode === 'select' && formData.unloading_location_id) || 
-                                 (unloadingLocationMode === 'input' && formData.unloading_location?.trim());
-    
-    if (!hasLoadingLocation || !hasUnloadingLocation) {
+    // 验证线路：必须选择线路
+    if (!formData.route_id) {
       toast({
         title: '信息不完整',
-        description: '请填写装货地和卸货地',
+        description: '请选择线路',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    // 从选中的线路获取装货地和卸货地
+    const selectedRoute = favoriteRoutes.find((r: any) => r.id === formData.route_id);
+    if (!selectedRoute || !selectedRoute.loading_location_id || !selectedRoute.unloading_location_id) {
+      toast({
+        title: '信息不完整',
+        description: '线路信息不完整，请重新选择',
         variant: 'destructive'
       });
       return;
@@ -953,13 +985,13 @@ export default function MobileQuickEntry() {
         }
       }
 
-      // 使用手工建单函数，支持地址文本输入或选择已有地点
+      // 使用手工建单函数，使用选中的线路信息
       const { data, error } = await supabase.rpc('driver_manual_create_waybill', {
         p_project_id: formData.project_id,
-        p_loading_location: loadingLocationMode === 'input' ? formData.loading_location : '',  // 如果手工输入，传递文本
-        p_unloading_location: unloadingLocationMode === 'input' ? formData.unloading_location : '',  // 如果手工输入，传递文本
-        p_loading_location_id: loadingLocationMode === 'select' ? formData.loading_location_id : null,  // 如果选择地点，传递ID
-        p_unloading_location_id: unloadingLocationMode === 'select' ? formData.unloading_location_id : null,  // 如果选择地点，传递ID
+        p_loading_location: '',  // 使用线路中的地点，不需要文本输入
+        p_unloading_location: '',  // 使用线路中的地点，不需要文本输入
+        p_loading_location_id: selectedRoute.loading_location_id,  // 从线路获取
+        p_unloading_location_id: selectedRoute.unloading_location_id,  // 从线路获取
         p_loading_weight: loadingWeight,
         p_unloading_weight: unloadingWeight,
         p_remarks: formData.remarks || null
@@ -973,21 +1005,34 @@ export default function MobileQuickEntry() {
           description: `运单 ${data.auto_number} 已创建`
         });
         
-        // 重置表单
+        // 更新线路使用次数
+        if (formData.route_id) {
+          await supabase
+            .from('fleet_manager_favorite_routes')
+            .update({ 
+              use_count: (selectedRoute.use_count || 0) + 1,
+              last_used_at: new Date().toISOString()
+            })
+            .eq('id', formData.route_id);
+          
+          // 重新加载常用线路（更新排序）
+          if (formData.project_id) {
+            loadFavoriteRoutes(formData.project_id);
+          }
+        }
+        
+        // 重置表单（保留项目和线路选择）
         setFormData({
           project_id: formData.project_id, // 保留项目选择
-          loading_location_id: '',
-          unloading_location_id: '',
+          route_id: formData.route_id, // 保留线路选择
+          loading_location_id: selectedRoute.loading_location_id, // 保留线路的装货地
+          unloading_location_id: selectedRoute.unloading_location_id, // 保留线路的卸货地
           loading_location: '',
           unloading_location: '',
           loading_weight: '',
           unloading_weight: '',
           remarks: ''
         });
-        
-        // 重置输入模式
-        setLoadingLocationMode('select');
-        setUnloadingLocationMode('select');
         
         loadRecentWaybills();
       } else {
@@ -1153,14 +1198,7 @@ export default function MobileQuickEntry() {
                         <SelectContent position="popper" className="z-50">
                           {favoriteRoutes.map(route => (
                             <SelectItem key={route.id} value={route.id}>
-                              <div className="flex items-center justify-between w-full">
-                                <span>{route.route_name}</span>
-                                {route.use_count > 0 && (
-                                  <Badge variant="secondary" className="ml-2 text-xs">
-                                    使用 {route.use_count} 次
-                                  </Badge>
-                                )}
-                              </div>
+                              {route.route_name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1323,7 +1361,7 @@ export default function MobileQuickEntry() {
               <Label>运输项目 *</Label>
               <Select 
                 value={formData.project_id || undefined} 
-                onValueChange={value => setFormData(prev => ({ ...prev, project_id: value }))}
+                onValueChange={value => setFormData(prev => ({ ...prev, project_id: value, route_id: '' }))}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="选择项目" />
@@ -1343,73 +1381,6 @@ export default function MobileQuickEntry() {
                   )}
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* 装货地 - 支持选择或手工输入 */}
-            <div className="grid gap-2">
-              <Label className="flex items-center justify-between">
-                <span>装货地 *</span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={loadingLocationMode === 'select' ? 'default' : 'ghost'}
-                    className="h-6 text-xs"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setLoadingLocationMode('select');
-                      setFormData(prev => ({ ...prev, loading_location: '' }));
-                    }}
-                  >
-                    选择
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={loadingLocationMode === 'input' ? 'default' : 'ghost'}
-                    className="h-6 text-xs"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setLoadingLocationMode('input');
-                      setFormData(prev => ({ ...prev, loading_location_id: '' }));
-                    }}
-                  >
-                    输入
-                  </Button>
-                </div>
-              </Label>
-              {loadingLocationMode === 'select' ? (
-                <Select 
-                  value={formData.loading_location_id || undefined} 
-                  onValueChange={value => setFormData(prev => ({ ...prev, loading_location_id: value }))}
-                  disabled={!formData.project_id}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={formData.project_id ? "选择装货地点" : "请先选择项目"} />
-                  </SelectTrigger>
-                  <SelectContent position="popper" className="z-50">
-                    {projectLoadingLocations.length === 0 ? (
-                      <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                        暂无装货地点，请点击"添加线路"
-                      </div>
-                    ) : (
-                      projectLoadingLocations.map((loc: any) => (
-                        <SelectItem key={loc.location_id} value={loc.location_id}>
-                          {loc.location_name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  placeholder="输入装货地址"
-                  value={formData.loading_location}
-                  onChange={e => setFormData(prev => ({ ...prev, loading_location: e.target.value }))}
-                />
-              )}
             </div>
 
             {/* 添加线路按钮 */}
@@ -1438,72 +1409,57 @@ export default function MobileQuickEntry() {
               </Button>
             </div>
 
-            {/* 卸货地 - 支持选择或手工输入 */}
-            <div className="grid gap-2">
-              <Label className="flex items-center justify-between">
-                <span>卸货地 *</span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={unloadingLocationMode === 'select' ? 'default' : 'ghost'}
-                    className="h-6 text-xs"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setUnloadingLocationMode('select');
-                      setFormData(prev => ({ ...prev, unloading_location: '' }));
-                    }}
-                  >
-                    选择
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={unloadingLocationMode === 'input' ? 'default' : 'ghost'}
-                    className="h-6 text-xs"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setUnloadingLocationMode('input');
-                      setFormData(prev => ({ ...prev, unloading_location_id: '' }));
-                    }}
-                  >
-                    输入
-                  </Button>
-                </div>
-              </Label>
-              {unloadingLocationMode === 'select' ? (
+            {/* 常用线路列表 */}
+            {formData.project_id && (
+              <div className="grid gap-2">
+                <Label>选择线路 *</Label>
                 <Select 
-                  value={formData.unloading_location_id || undefined} 
-                  onValueChange={value => setFormData(prev => ({ ...prev, unloading_location_id: value }))}
+                  value={formData.route_id || undefined} 
+                  onValueChange={value => setFormData(prev => ({ ...prev, route_id: value }))}
                   disabled={!formData.project_id}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder={formData.project_id ? "选择卸货地点" : "请先选择项目"} />
+                    <SelectValue placeholder="选择常用线路" />
                   </SelectTrigger>
                   <SelectContent position="popper" className="z-50">
-                    {projectUnloadingLocations.length === 0 ? (
+                    {favoriteRoutes.filter((r: any) => r.project_id === formData.project_id).length === 0 ? (
                       <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                        暂无卸货地点，请点击"添加线路"
+                        暂无线路，请点击"添加线路"
                       </div>
                     ) : (
-                      projectUnloadingLocations.map((loc: any) => (
-                        <SelectItem key={loc.location_id} value={loc.location_id}>
-                          {loc.location_name}
-                        </SelectItem>
-                      ))
+                      favoriteRoutes
+                        .filter((r: any) => r.project_id === formData.project_id)
+                        .map((route: any) => (
+                          <SelectItem key={route.id} value={route.id}>
+                            {route.route_name}
+                          </SelectItem>
+                        ))
                     )}
                   </SelectContent>
                 </Select>
-              ) : (
-                <Input
-                  placeholder="输入卸货地址"
-                  value={formData.unloading_location}
-                  onChange={e => setFormData(prev => ({ ...prev, unloading_location: e.target.value }))}
-                />
-              )}
-            </div>
+                
+                {/* 显示选中的线路信息 */}
+                {formData.route_id && (() => {
+                  const selectedRoute = favoriteRoutes.find((r: any) => r.id === formData.route_id);
+                  if (selectedRoute) {
+                    return (
+                      <Card className="bg-blue-50 border-blue-200">
+                        <CardContent className="p-3">
+                          <div className="text-sm">
+                            <div className="font-medium text-blue-900 mb-1">{selectedRoute.route_name}</div>
+                            <div className="text-blue-700 space-y-0.5">
+                              <div>装货地：{selectedRoute.loading_location}</div>
+                              <div>卸货地：{selectedRoute.unloading_location}</div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            )}
 
             {/* 装货数量 */}
             <div className="grid gap-2">
