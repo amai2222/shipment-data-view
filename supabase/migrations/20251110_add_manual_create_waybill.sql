@@ -1,22 +1,16 @@
 -- ============================================================================
--- 为driver_quick_create_waybill函数添加chain_id参数支持
+-- 创建手工建单函数（支持地址文本输入或选择已有地点）
 -- 创建时间：2025-11-10
--- 功能：支持指定合作链路ID，从合作链路获取billing_type_id
+-- 功能：司机手工创建运单，支持直接输入地址文本或选择已有地点
 -- ============================================================================
 
--- 先删除旧函数（所有可能的重载）
-DROP FUNCTION IF EXISTS driver_quick_create_waybill(UUID, UUID, UUID, NUMERIC, NUMERIC, TEXT);
-DROP FUNCTION IF EXISTS driver_quick_create_waybill(UUID, UUID, UUID, NUMERIC, NUMERIC, DATE, DATE, TEXT);
-DROP FUNCTION IF EXISTS driver_quick_create_waybill(UUID, UUID, UUID, NUMERIC, NUMERIC, DATE, DATE, TEXT, UUID);
-DROP FUNCTION IF EXISTS public.driver_quick_create_waybill(UUID, UUID, UUID, NUMERIC, NUMERIC, TEXT);
-DROP FUNCTION IF EXISTS public.driver_quick_create_waybill(UUID, UUID, UUID, NUMERIC, NUMERIC, DATE, DATE, TEXT);
-DROP FUNCTION IF EXISTS public.driver_quick_create_waybill(UUID, UUID, UUID, NUMERIC, NUMERIC, DATE, DATE, TEXT, UUID);
-
--- 重新创建函数，添加chain_id参数
-CREATE OR REPLACE FUNCTION driver_quick_create_waybill(
+-- 创建手工建单函数
+CREATE OR REPLACE FUNCTION driver_manual_create_waybill(
     p_project_id UUID,
-    p_loading_location_id UUID,
-    p_unloading_location_id UUID,
+    p_loading_location TEXT,  -- 装货地址（可以是文本或从ID查询）
+    p_unloading_location TEXT,  -- 卸货地址（可以是文本或从ID查询）
+    p_loading_location_id UUID DEFAULT NULL,  -- 装货地点ID（可选，如果提供则从locations表查询名称）
+    p_unloading_location_id UUID DEFAULT NULL,  -- 卸货地点ID（可选，如果提供则从locations表查询名称）
     p_loading_weight NUMERIC,
     p_unloading_weight NUMERIC DEFAULT NULL,
     p_loading_date DATE DEFAULT CURRENT_DATE,
@@ -42,6 +36,7 @@ DECLARE
     v_chain_id UUID;
     v_billing_type_id BIGINT := 1;  -- 默认值为1，确保不为NULL
     v_temp_license_plate TEXT;  -- 临时变量用于获取车牌号
+    v_location_name TEXT;  -- 临时变量用于查询地点名称
 BEGIN
     -- 1. 获取当前司机ID
     v_driver_id := get_current_driver_id();
@@ -182,15 +177,51 @@ BEGIN
     -- 确保billing_type_id不为NULL（双重保险）
     v_billing_type_id := COALESCE(v_billing_type_id, 1);
     
-    -- 6. 获取地点名称
-    SELECT name INTO v_loading_location
-    FROM locations WHERE id = p_loading_location_id;
+    -- 6. 处理装货和卸货地址
+    -- 如果提供了location_id，优先从locations表查询名称
+    -- 否则使用直接传入的地址文本
     
-    SELECT name INTO v_unloading_location
-    FROM locations WHERE id = p_unloading_location_id;
+    -- 6.1 处理装货地址
+    IF p_loading_location_id IS NOT NULL THEN
+        SELECT name INTO v_location_name
+        FROM locations
+        WHERE id = p_loading_location_id;
+        
+        IF v_location_name IS NOT NULL THEN
+            v_loading_location := v_location_name;
+        ELSE
+            -- 如果ID对应的地点不存在，使用传入的文本
+            v_loading_location := COALESCE(p_loading_location, '');
+        END IF;
+    ELSE
+        -- 没有提供ID，直接使用传入的文本
+        v_loading_location := COALESCE(p_loading_location, '');
+    END IF;
     
-    IF v_loading_location IS NULL OR v_unloading_location IS NULL THEN
-        RETURN jsonb_build_object('success', false, 'error', '地点不存在');
+    -- 6.2 处理卸货地址
+    IF p_unloading_location_id IS NOT NULL THEN
+        SELECT name INTO v_location_name
+        FROM locations
+        WHERE id = p_unloading_location_id;
+        
+        IF v_location_name IS NOT NULL THEN
+            v_unloading_location := v_location_name;
+        ELSE
+            -- 如果ID对应的地点不存在，使用传入的文本
+            v_unloading_location := COALESCE(p_unloading_location, '');
+        END IF;
+    ELSE
+        -- 没有提供ID，直接使用传入的文本
+        v_unloading_location := COALESCE(p_unloading_location, '');
+    END IF;
+    
+    -- 验证地址不为空
+    IF v_loading_location IS NULL OR v_loading_location = '' THEN
+        RETURN jsonb_build_object('success', false, 'error', '请填写装货地址');
+    END IF;
+    
+    IF v_unloading_location IS NULL OR v_unloading_location = '' THEN
+        RETURN jsonb_build_object('success', false, 'error', '请填写卸货地址');
     END IF;
     
     -- 7. 生成运单编号
@@ -236,8 +267,8 @@ BEGIN
         v_vehicle_info.license_plate,
         v_loading_location,
         v_unloading_location,
-        ARRAY[p_loading_location_id],
-        ARRAY[p_unloading_location_id],
+        CASE WHEN p_loading_location_id IS NOT NULL THEN ARRAY[p_loading_location_id] ELSE ARRAY[]::UUID[] END,  -- 如果有ID则使用，否则为空数组
+        CASE WHEN p_unloading_location_id IS NOT NULL THEN ARRAY[p_unloading_location_id] ELSE ARRAY[]::UUID[] END,  -- 如果有ID则使用，否则为空数组
         (p_loading_date::text || ' 00:00:00')::timestamp with time zone,  -- 将DATE转换为timestamp with time zone
         (COALESCE(p_unloading_date, p_loading_date)::text || ' 00:00:00')::timestamp with time zone,  -- 将DATE转换为timestamp with time zone
         p_loading_weight,
@@ -270,8 +301,9 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION driver_quick_create_waybill IS '内部司机快速创建运单（支持指定装货和卸货日期、合作链路ID，从合作链路获取billing_type_id）';
+COMMENT ON FUNCTION driver_manual_create_waybill IS '司机手工创建运单（支持直接输入地址文本或选择已有地点，支持指定装货和卸货日期、合作链路ID）';
 
 -- 授予执行权限
-GRANT EXECUTE ON FUNCTION driver_quick_create_waybill TO authenticated;
-GRANT EXECUTE ON FUNCTION driver_quick_create_waybill TO anon;
+GRANT EXECUTE ON FUNCTION driver_manual_create_waybill TO authenticated;
+GRANT EXECUTE ON FUNCTION driver_manual_create_waybill TO anon;
+

@@ -1,0 +1,22 @@
+# Cloudflare Pages 响应头配置
+# 确保静态资源使用正确的 MIME 类型
+
+# JavaScript 文件（优先匹配 assets 目录）
+/assets/*.js
+  Content-Type: application/javascript
+  Cache-Control: public, max-age=31536000, immutable
+
+# CSS 文件
+/assets/*.css
+  Content-Type: text/css
+  Cache-Control: public, max-age=31536000, immutable
+
+# 其他静态资源
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML 文件（不缓存）
+/*.html
+  Content-Type: text/html
+  Cache-Control: no-cache, no-store, must-revalidate
+

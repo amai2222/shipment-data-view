@@ -78,10 +78,16 @@ export default function MobileQuickEntry() {
     project_id: '',
     loading_location_id: '',
     unloading_location_id: '',
+    loading_location: '',  // 装货地址文本（手工输入）
+    unloading_location: '',  // 卸货地址文本（手工输入）
     loading_weight: '',
     unloading_weight: '',
     remarks: ''
   });
+  
+  // 地址输入模式：'select' 选择已有地点，'input' 手工输入
+  const [loadingLocationMode, setLoadingLocationMode] = useState<'select' | 'input'>('select');
+  const [unloadingLocationMode, setUnloadingLocationMode] = useState<'select' | 'input'>('select');
   
   // 司机信息（自动填充）
   const [driverInfo, setDriverInfo] = useState<any>(null);
@@ -812,12 +818,28 @@ export default function MobileQuickEntry() {
     }
   };
 
-  // 提交运单
+  // 提交运单（手工建单）
   const handleSubmit = async () => {
-    if (!formData.project_id || !formData.loading_location_id || !formData.unloading_location_id || !formData.loading_weight) {
+    // 验证必填项
+    if (!formData.project_id || !formData.loading_weight) {
       toast({
         title: '信息不完整',
-        description: '请填写所有必填项',
+        description: '请填写项目和装货数量',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    // 验证地址：要么选择地点ID，要么输入地址文本
+    const hasLoadingLocation = (loadingLocationMode === 'select' && formData.loading_location_id) || 
+                                (loadingLocationMode === 'input' && formData.loading_location?.trim());
+    const hasUnloadingLocation = (unloadingLocationMode === 'select' && formData.unloading_location_id) || 
+                                 (unloadingLocationMode === 'input' && formData.unloading_location?.trim());
+    
+    if (!hasLoadingLocation || !hasUnloadingLocation) {
+      toast({
+        title: '信息不完整',
+        description: '请填写装货地和卸货地',
         variant: 'destructive'
       });
       return;
@@ -846,10 +868,13 @@ export default function MobileQuickEntry() {
         }
       }
 
-      const { data, error } = await supabase.rpc('driver_quick_create_waybill', {
+      // 使用手工建单函数，支持地址文本输入或选择已有地点
+      const { data, error } = await supabase.rpc('driver_manual_create_waybill', {
         p_project_id: formData.project_id,
-        p_loading_location_id: formData.loading_location_id,
-        p_unloading_location_id: formData.unloading_location_id,
+        p_loading_location: loadingLocationMode === 'input' ? formData.loading_location : '',  // 如果手工输入，传递文本
+        p_unloading_location: unloadingLocationMode === 'input' ? formData.unloading_location : '',  // 如果手工输入，传递文本
+        p_loading_location_id: loadingLocationMode === 'select' ? formData.loading_location_id : null,  // 如果选择地点，传递ID
+        p_unloading_location_id: unloadingLocationMode === 'select' ? formData.unloading_location_id : null,  // 如果选择地点，传递ID
         p_loading_weight: loadingWeight,
         p_unloading_weight: unloadingWeight,
         p_remarks: formData.remarks || null
@@ -868,10 +893,16 @@ export default function MobileQuickEntry() {
           project_id: formData.project_id, // 保留项目选择
           loading_location_id: '',
           unloading_location_id: '',
+          loading_location: '',
+          unloading_location: '',
           loading_weight: '',
           unloading_weight: '',
           remarks: ''
         });
+        
+        // 重置输入模式
+        setLoadingLocationMode('select');
+        setUnloadingLocationMode('select');
         
         loadRecentWaybills();
       } else {
@@ -1229,108 +1260,188 @@ export default function MobileQuickEntry() {
               </Select>
             </div>
 
-            {/* 装货地 - 支持快速添加 */}
+            {/* 装货地 - 支持选择或手工输入 */}
             <div className="grid gap-2">
               <Label className="flex items-center justify-between">
                 <span>装货地 *</span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 text-xs"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (formData.project_id) {
-                      setAddLocationType('loading');
-                      setShowAddLocationDialog(true);
-                    } else {
-                      toast({
-                        title: '提示',
-                        description: '请先选择项目',
-                        variant: 'destructive'
-                      });
-                    }
-                  }}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  添加地点
-                </Button>
-              </Label>
-              <Select 
-                value={formData.loading_location_id || undefined} 
-                onValueChange={value => setFormData(prev => ({ ...prev, loading_location_id: value }))}
-                disabled={!formData.project_id}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={formData.project_id ? "选择装货地点" : "请先选择项目"} />
-                </SelectTrigger>
-                <SelectContent position="popper" className="z-50">
-                  {projectLoadingLocations.length === 0 ? (
-                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                      暂无装货地点，请点击"添加地点"
-                    </div>
-                  ) : (
-                    projectLoadingLocations.map((loc: any) => (
-                      <SelectItem key={loc.location_id} value={loc.location_id}>
-                        {loc.location_name}
-                      </SelectItem>
-                    ))
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={loadingLocationMode === 'select' ? 'default' : 'ghost'}
+                    className="h-6 text-xs"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setLoadingLocationMode('select');
+                      setFormData(prev => ({ ...prev, loading_location: '' }));
+                    }}
+                  >
+                    选择
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={loadingLocationMode === 'input' ? 'default' : 'ghost'}
+                    className="h-6 text-xs"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setLoadingLocationMode('input');
+                      setFormData(prev => ({ ...prev, loading_location_id: '' }));
+                    }}
+                  >
+                    输入
+                  </Button>
+                  {loadingLocationMode === 'select' && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-xs"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (formData.project_id) {
+                          setAddLocationType('loading');
+                          setShowAddLocationDialog(true);
+                        } else {
+                          toast({
+                            title: '提示',
+                            description: '请先选择项目',
+                            variant: 'destructive'
+                          });
+                        }
+                      }}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      添加
+                    </Button>
                   )}
-                </SelectContent>
-              </Select>
+                </div>
+              </Label>
+              {loadingLocationMode === 'select' ? (
+                <Select 
+                  value={formData.loading_location_id || undefined} 
+                  onValueChange={value => setFormData(prev => ({ ...prev, loading_location_id: value }))}
+                  disabled={!formData.project_id}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={formData.project_id ? "选择装货地点" : "请先选择项目"} />
+                  </SelectTrigger>
+                  <SelectContent position="popper" className="z-50">
+                    {projectLoadingLocations.length === 0 ? (
+                      <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                        暂无装货地点，请点击"添加"
+                      </div>
+                    ) : (
+                      projectLoadingLocations.map((loc: any) => (
+                        <SelectItem key={loc.location_id} value={loc.location_id}>
+                          {loc.location_name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  placeholder="输入装货地址"
+                  value={formData.loading_location}
+                  onChange={e => setFormData(prev => ({ ...prev, loading_location: e.target.value }))}
+                />
+              )}
             </div>
 
-            {/* 卸货地 - 支持快速添加 */}
+            {/* 卸货地 - 支持选择或手工输入 */}
             <div className="grid gap-2">
               <Label className="flex items-center justify-between">
                 <span>卸货地 *</span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 text-xs"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (formData.project_id) {
-                      setAddLocationType('unloading');
-                      setShowAddLocationDialog(true);
-                    } else {
-                      toast({
-                        title: '提示',
-                        description: '请先选择项目',
-                        variant: 'destructive'
-                      });
-                    }
-                  }}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  添加地点
-                </Button>
-              </Label>
-              <Select 
-                value={formData.unloading_location_id || undefined} 
-                onValueChange={value => setFormData(prev => ({ ...prev, unloading_location_id: value }))}
-                disabled={!formData.project_id}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={formData.project_id ? "选择卸货地点" : "请先选择项目"} />
-                </SelectTrigger>
-                <SelectContent position="popper" className="z-50">
-                  {projectUnloadingLocations.length === 0 ? (
-                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                      暂无卸货地点，请点击"添加地点"
-                    </div>
-                  ) : (
-                    projectUnloadingLocations.map((loc: any) => (
-                      <SelectItem key={loc.location_id} value={loc.location_id}>
-                        {loc.location_name}
-                      </SelectItem>
-                    ))
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={unloadingLocationMode === 'select' ? 'default' : 'ghost'}
+                    className="h-6 text-xs"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setUnloadingLocationMode('select');
+                      setFormData(prev => ({ ...prev, unloading_location: '' }));
+                    }}
+                  >
+                    选择
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={unloadingLocationMode === 'input' ? 'default' : 'ghost'}
+                    className="h-6 text-xs"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setUnloadingLocationMode('input');
+                      setFormData(prev => ({ ...prev, unloading_location_id: '' }));
+                    }}
+                  >
+                    输入
+                  </Button>
+                  {unloadingLocationMode === 'select' && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-xs"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (formData.project_id) {
+                          setAddLocationType('unloading');
+                          setShowAddLocationDialog(true);
+                        } else {
+                          toast({
+                            title: '提示',
+                            description: '请先选择项目',
+                            variant: 'destructive'
+                          });
+                        }
+                      }}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      添加
+                    </Button>
                   )}
-                </SelectContent>
-              </Select>
+                </div>
+              </Label>
+              {unloadingLocationMode === 'select' ? (
+                <Select 
+                  value={formData.unloading_location_id || undefined} 
+                  onValueChange={value => setFormData(prev => ({ ...prev, unloading_location_id: value }))}
+                  disabled={!formData.project_id}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={formData.project_id ? "选择卸货地点" : "请先选择项目"} />
+                  </SelectTrigger>
+                  <SelectContent position="popper" className="z-50">
+                    {projectUnloadingLocations.length === 0 ? (
+                      <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                        暂无卸货地点，请点击"添加"
+                      </div>
+                    ) : (
+                      projectUnloadingLocations.map((loc: any) => (
+                        <SelectItem key={loc.location_id} value={loc.location_id}>
+                          {loc.location_name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  placeholder="输入卸货地址"
+                  value={formData.unloading_location}
+                  onChange={e => setFormData(prev => ({ ...prev, unloading_location: e.target.value }))}
+                />
+              )}
             </div>
 
             {/* 装货数量 */}
