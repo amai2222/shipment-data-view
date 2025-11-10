@@ -98,6 +98,12 @@ import {
   MobileExpenseReview,
   MobileVehicleManagement,
   MobileDriverRouteConfig,
+  MobileAddVehicle,
+  MobileAddDriver,
+  MobileVehicleDriverDetail,
+  MobileDailyWaybills,
+  MobileDriverProfile,
+  MobileVehicleAssignment,
   MobileDispatchOrder,
   MobileFleetManagerConfig,
   // 司机端
@@ -847,6 +853,42 @@ const App = () => (
             <Route path="/m/internal/expense-writeoff" element={
               <ProtectedRoute requiredPermission="internal.my_expenses">
                 <MobileExpenseWriteoff />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/add-vehicle" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <MobileAddVehicle />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/add-driver" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <MobileAddDriver />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/vehicle-driver-detail" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <MobileVehicleDriverDetail />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/daily-waybills" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <MobileDailyWaybills />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/drivers" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <MobileDriverProfile />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/vehicle-assignment" element={
+              <ProtectedRoute requiredPermission="internal.vehicles">
+                <MobileVehicleAssignment />
               </ProtectedRoute>
             } />
 

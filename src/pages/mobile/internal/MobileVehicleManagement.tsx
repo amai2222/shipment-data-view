@@ -1,6 +1,7 @@
 // 移动端 - 车辆档案管理（车队长）
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Truck,
   Plus,
@@ -38,7 +40,9 @@ interface Vehicle {
 }
 
 export default function MobileVehicleManagement() {
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [loading, setLoading] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -55,10 +59,11 @@ export default function MobileVehicleManagement() {
         .from('internal_vehicles')
         .select(`
           *,
-          driver:internal_driver_vehicle_relations!inner(
+          driver:internal_driver_vehicle_relations(
             driver:internal_drivers(name)
           )
         `)
+        .eq('fleet_manager_id', user?.id || '')
         .order('license_plate');
       
       if (error) throw error;
@@ -163,7 +168,7 @@ export default function MobileVehicleManagement() {
               className="pl-10"
             />
           </div>
-          <Button>
+          <Button onClick={() => navigate('/m/internal/add-vehicle')}>
             <Plus className="h-4 w-4" />
           </Button>
         </div>

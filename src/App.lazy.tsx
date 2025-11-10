@@ -116,6 +116,12 @@ export const MobileVehicleManagement = lazy(() => import('./pages/mobile/interna
 export const MobileDriverRouteConfig = lazy(() => import('./pages/mobile/internal/MobileDriverRouteConfig'));
 export const MobileDispatchOrder = lazy(() => import('./pages/mobile/internal/MobileDispatchOrder'));
 export const MobileFleetManagerConfig = lazy(() => import('./pages/mobile/internal/MobileFleetManagerConfig'));
+export const MobileAddVehicle = lazy(() => import('./pages/mobile/internal/MobileAddVehicle'));
+export const MobileAddDriver = lazy(() => import('./pages/mobile/internal/MobileAddDriver'));
+export const MobileVehicleDriverDetail = lazy(() => import('./pages/mobile/internal/MobileVehicleDriverDetail'));
+export const MobileDailyWaybills = lazy(() => import('./pages/mobile/internal/MobileDailyWaybills'));
+export const MobileDriverProfile = lazy(() => import('./pages/mobile/internal/MobileDriverProfile'));
+export const MobileVehicleAssignment = lazy(() => import('./pages/mobile/internal/MobileVehicleAssignment'));
 
 // 司机端
 export const MobileMyDispatches = lazy(() => import('./pages/mobile/internal/MobileMyDispatches'));

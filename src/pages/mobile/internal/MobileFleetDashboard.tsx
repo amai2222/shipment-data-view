@@ -360,22 +360,103 @@ export default function MobileFleetDashboard() {
           <CardContent className="grid grid-cols-2 gap-3">
             <Button
               variant="outline"
-              className="h-24 flex flex-col items-center justify-center gap-2"
-              onClick={() => navigate('/m/internal/vehicles')}
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
+              onClick={() => navigate('/m/internal/add-vehicle')}
             >
               <Truck className="h-6 w-6" />
-              <span className="text-sm">车辆管理</span>
+              <span className="text-sm">添加车辆</span>
             </Button>
 
             <Button
               variant="outline"
-              className="h-24 flex flex-col items-center justify-center gap-2"
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
+              onClick={() => navigate('/m/internal/add-driver')}
+            >
+              <Users className="h-6 w-6" />
+              <span className="text-sm">添加司机</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
+              onClick={() => navigate('/m/internal/vehicle-driver-detail')}
+            >
+              <FileText className="h-6 w-6" />
+              <span className="text-sm">车辆司机明细</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
+              onClick={() => navigate('/m/internal/vehicles')}
+            >
+              <Truck className="h-6 w-6" />
+              <span className="text-sm">车辆档案</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
+              onClick={() => navigate('/m/internal/drivers')}
+            >
+              <Users className="h-6 w-6" />
+              <span className="text-sm">司机档案</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
+              onClick={() => navigate('/m/internal/vehicle-assignment')}
+            >
+              <User className="h-6 w-6" />
+              <span className="text-sm">车辆分配</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
+              onClick={() => navigate('/m/internal/daily-waybills')}
+            >
+              <Calendar className="h-6 w-6" />
+              <span className="text-sm">每日运单</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
+              onClick={() => navigate('/m/internal/expense-writeoff')}
+            >
+              <Calculator className="h-6 w-6" />
+              <span className="text-sm">司机冲销</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
+              onClick={() => navigate('/m/internal/fleet-config')}
+            >
+              <Settings className="h-6 w-6" />
+              <span className="text-sm">车队配置</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
+              onClick={() => navigate('/m/internal/dispatch-order')}
+            >
+              <FileText className="h-6 w-6" />
+              <span className="text-sm">派单管理</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
               onClick={() => navigate('/m/internal/expense-review')}
             >
               <FileText className="h-6 w-6" />
               <span className="text-sm">费用审核</span>
               {stats.pendingExpenses > 0 && (
-                <Badge className="absolute top-2 right-2 bg-red-500">
+                <Badge className="absolute top-2 right-2 bg-red-500 text-xs">
                   {stats.pendingExpenses}
                 </Badge>
               )}
@@ -383,20 +464,11 @@ export default function MobileFleetDashboard() {
 
             <Button
               variant="outline"
-              className="h-24 flex flex-col items-center justify-center gap-2"
+              className="h-24 flex flex-col items-center justify-center gap-2 relative"
               onClick={() => navigate('/m/internal/driver-route-config')}
             >
               <Settings className="h-6 w-6" />
               <span className="text-sm">司机线路</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center gap-2"
-              onClick={() => navigate('/m/internal/vehicles')}
-            >
-              <Truck className="h-6 w-6" />
-              <span className="text-sm">车辆管理</span>
             </Button>
           </CardContent>
         </Card>
