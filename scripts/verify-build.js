@@ -9,6 +9,17 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 确保 _headers 文件被复制到 dist 目录
+const publicHeadersPath = path.join(__dirname, '..', 'public', '_headers');
+const distHeadersPath = path.join(__dirname, '..', 'dist', '_headers');
+
+if (fs.existsSync(publicHeadersPath)) {
+  if (!fs.existsSync(distHeadersPath)) {
+    fs.copyFileSync(publicHeadersPath, distHeadersPath);
+    console.log('✅ 已复制 _headers 文件到 dist 目录');
+  }
+}
+
 const distDir = path.join(__dirname, '..', 'dist');
 const assetsDir = path.join(distDir, 'assets');
 
@@ -38,14 +49,17 @@ console.log('✅ assets 目录存在');
 // 读取 index.html，提取所有引用的 JS 文件
 const indexContent = fs.readFileSync(indexHtml, 'utf-8');
 
-// 匹配多种格式的 script 标签
+// 匹配多种格式的 script 标签和 link preload
 // 1. <script type="module" src="/assets/xxx.js">
 // 2. <script src="/assets/xxx.js">
-// 3. 动态导入的模块路径（在错误消息中）
+// 3. <link rel="modulepreload" href="/assets/xxx.js">
+// 4. 动态导入的模块路径（在错误消息中）
 const jsMatches = [
   ...(indexContent.match(/src="([^"]+\.js)"/g) || []),
   ...(indexContent.match(/src='([^']+\.js)'/g) || []),
-  ...(indexContent.match(/src=([^\s>]+\.js)/g) || [])
+  ...(indexContent.match(/src=([^\s>]+\.js)/g) || []),
+  ...(indexContent.match(/href="([^"]+\.js)"/g) || []),  // modulepreload
+  ...(indexContent.match(/href='([^']+\.js)'/g) || [])   // modulepreload
 ];
 
 // 额外检查：列出 assets 目录中的所有 JS 文件，确保没有遗漏
@@ -59,16 +73,20 @@ allJsFiles.forEach(file => {
 });
 
 const jsFiles = jsMatches.map(match => {
-  // 提取 src 属性值
-  let src = match.replace(/src=["']?/, '').replace(/["']?$/, '');
+  // 提取 src 或 href 属性值
+  let filePath = match
+    .replace(/src=["']?/, '')
+    .replace(/href=["']?/, '')
+    .replace(/["']?$/, '')
+    .trim();
   
   // 处理相对路径和绝对路径
-  if (src.startsWith('/')) {
-    return path.join(distDir, src.substring(1));
-  } else if (src.startsWith('./')) {
-    return path.join(distDir, src.substring(2));
-  } else if (!src.startsWith('http')) {
-    return path.join(distDir, src);
+  if (filePath.startsWith('/')) {
+    return path.join(distDir, filePath.substring(1));
+  } else if (filePath.startsWith('./')) {
+    return path.join(distDir, filePath.substring(2));
+  } else if (!filePath.startsWith('http')) {
+    return path.join(distDir, filePath);
   }
   // 如果是绝对 URL，跳过（可能是 CDN）
   return null;
@@ -112,8 +130,10 @@ if (jsAssetFiles.length === 0) {
 
 // 验证所有引用的文件都在 assets 目录中
 const missingFiles = [];
+const referencedFiles = new Set();
 for (const jsFile of jsFiles) {
   const fileName = path.basename(jsFile);
+  referencedFiles.add(fileName);
   if (!assetFiles.includes(fileName)) {
     missingFiles.push(fileName);
   }
@@ -123,6 +143,18 @@ if (missingFiles.length > 0) {
   console.error(`\n❌ 以下文件在 index.html 中被引用但不存在:`);
   missingFiles.forEach(file => console.error(`   - ${file}`));
   allFilesExist = false;
+}
+
+// 检查是否有 assets 目录中的文件没有被引用（可能是动态导入的）
+const unreferencedFiles = jsAssetFiles.filter(file => !referencedFiles.has(file));
+if (unreferencedFiles.length > 0) {
+  console.log(`\n📋 发现 ${unreferencedFiles.length} 个未在 index.html 中直接引用的 JS 文件（可能是动态导入）:`);
+  unreferencedFiles.forEach(file => {
+    const filePath = path.join(assetsDir, file);
+    const stats = fs.statSync(filePath);
+    const size = (stats.size / 1024).toFixed(2);
+    console.log(`   ℹ️  ${file} (${size} KB) - 动态导入模块`);
+  });
 }
 
 // 检查是否有 CSS 文件
@@ -155,12 +187,63 @@ console.log('   📁 assets 目录位置: dist/assets/');
 console.log('   ✅ Cloudflare Pages 会部署整个 dist 目录（包括所有子目录）');
 console.log('   ✅ assets 目录会被自动包含在部署中');
 
+// 生成完整的文件清单（用于部署验证）
+console.log('\n📋 生成完整的 assets 文件清单...');
+const assetsManifest = {
+  timestamp: new Date().toISOString(),
+  totalFiles: assetFiles.length,
+  jsFiles: jsAssetFiles.map(file => {
+    const filePath = path.join(assetsDir, file);
+    const stats = fs.statSync(filePath);
+    return {
+      name: file,
+      size: stats.size,
+      sizeKB: (stats.size / 1024).toFixed(2)
+    };
+  }),
+  cssFiles: cssFiles.map(file => {
+    const filePath = path.join(assetsDir, file);
+    const stats = fs.statSync(filePath);
+    return {
+      name: file,
+      size: stats.size,
+      sizeKB: (stats.size / 1024).toFixed(2)
+    };
+  }),
+  otherFiles: assetFiles.filter(f => !f.endsWith('.js') && !f.endsWith('.css')).map(file => {
+    const filePath = path.join(assetsDir, file);
+    const stats = fs.statSync(filePath);
+    return {
+      name: file,
+      size: stats.size,
+      sizeKB: (stats.size / 1024).toFixed(2)
+    };
+  })
+};
+
+// 保存清单到 dist 目录（用于部署后验证）
+const manifestPath = path.join(distDir, 'assets-manifest.json');
+fs.writeFileSync(manifestPath, JSON.stringify(assetsManifest, null, 2), 'utf-8');
+console.log(`   ✅ 已生成 assets-manifest.json (${assetsManifest.jsFiles.length} 个 JS 文件)`);
+
+// 验证总结
+console.log('\n📊 验证总结:');
+console.log(`   📦 总文件数: ${assetFiles.length}`);
+console.log(`   📄 JavaScript 文件: ${jsAssetFiles.length}`);
+console.log(`   🎨 CSS 文件: ${cssFiles.length}`);
+console.log(`   📝 在 index.html 中引用的文件: ${referencedFiles.size}`);
+console.log(`   🔄 动态导入的文件: ${unreferencedFiles.length}`);
+
 if (allFilesExist && missingFiles.length === 0 && structureValid) {
   console.log('\n✅ 构建验证通过！所有文件都存在，目录结构正确。');
+  console.log('✅ 所有 /assets/*.js 文件已生成并验证！');
   console.log('✅ 可以安全部署到 Cloudflare Pages！');
   process.exit(0);
 } else {
   console.error('\n❌ 构建验证失败！请检查构建过程。');
+  if (missingFiles.length > 0) {
+    console.error(`❌ 缺失 ${missingFiles.length} 个文件，请检查构建配置！`);
+  }
   process.exit(1);
 }
 

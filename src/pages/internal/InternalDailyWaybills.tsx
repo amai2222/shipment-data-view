@@ -84,14 +84,37 @@ export default function InternalDailyWaybills() {
   const loadWaybills = async () => {
     setLoading(true);
     try {
+      // 第一步：获取所有内部司机的 driver_id
+      const { data: internalDrivers, error: driversError } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('driver_type', 'internal');
+
+      if (driversError) throw driversError;
+
+      const internalDriverIds = (internalDrivers || []).map(d => d.id);
+
+      if (internalDriverIds.length === 0) {
+        setWaybills([]);
+        return;
+      }
+
+      // 第二步：查询这些内部司机的运单
+      // 注意：loading_date 是 timestamp with time zone，需要转换为 DATE 进行比较
+      // 使用 gte 和 lt 来匹配当天的所有记录
+      const selectedDateStart = `${selectedDate}T00:00:00`;
+      const selectedDateEnd = `${selectedDate}T23:59:59`;
+      
       let query = supabase
         .from('logistics_records')
         .select('*')
-        .eq('loading_date', selectedDate)
-        .in('license_plate', vehicles)  // 只显示内部车辆
+        .in('driver_id', internalDriverIds)  // 只显示内部司机的运单
+        .gte('loading_date', selectedDateStart)
+        .lte('loading_date', selectedDateEnd)
         .order('auto_number');
 
-      if (vehicleFilter !== 'all') {
+      // 如果选择了特定车辆，再过滤车牌号
+      if (vehicleFilter !== 'all' && vehicles.length > 0) {
         query = query.eq('license_plate', vehicleFilter);
       }
 
@@ -102,6 +125,7 @@ export default function InternalDailyWaybills() {
       setWaybills(data || []);
 
     } catch (error: any) {
+      console.error('加载运单失败:', error);
       toast({ title: '加载失败', description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
