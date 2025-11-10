@@ -124,10 +124,14 @@ export default function MobileFleetDashboard() {
         .in('driver_name', managedDriverNames.length > 0 ? managedDriverNames : ['无']);
 
       // ✅ 4. 获取待审核的换车申请
-      const { count: changeCount } = await supabase
+      const { count: changeCount, error: changeError } = await supabase
         .from('internal_driver_vehicle_change_applications')
         .select('id', { count: 'estimated', head: true })
         .eq('status', 'pending');
+      
+      if (changeError) {
+        console.error('获取换车申请失败:', changeError);
+      }
 
       // ✅ 5. 获取即将到期的证件（30天内，管理的车辆）
       const expireDate = new Date();

@@ -1,15 +1,17 @@
 # Cloudflare Pages 响应头配置
 # 确保静态资源使用正确的 MIME 类型和缓存策略
 
-# JavaScript 文件
+# JavaScript 文件 - 使用更精确的匹配
 /assets/*.js
   Content-Type: application/javascript; charset=utf-8
   Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
 
 # CSS 文件
 /assets/*.css
   Content-Type: text/css; charset=utf-8
   Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
 
 # 字体文件
 /assets/fonts/*
@@ -19,11 +21,17 @@
 /assets/images/*
   Cache-Control: public, max-age=31536000, immutable
 
+# 所有assets目录下的文件
+/assets/*
+  X-Content-Type-Options: nosniff
+
 # HTML 文件（不缓存，确保总是获取最新版本）
 /*.html
+  Content-Type: text/html; charset=utf-8
   Cache-Control: no-cache, no-store, must-revalidate
   X-Content-Type-Options: nosniff
 
 # 根路径
 /
   Cache-Control: no-cache, no-store, must-revalidate
+  X-Content-Type-Options: nosniff

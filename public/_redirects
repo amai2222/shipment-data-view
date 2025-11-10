@@ -8,12 +8,26 @@
 # 4. 静态资源（/assets/*）如果存在，会自动返回，不会被重定向
 
 # ✅ 明确排除静态资源，确保不会被重定向
-/assets/*    200
+# 使用更精确的匹配模式，避免被SPA路由规则覆盖
+/assets/*.js    200
+/assets/*.css    200
+/assets/*.png    200
+/assets/*.jpg    200
+/assets/*.jpeg    200
+/assets/*.svg    200
+/assets/*.gif    200
+/assets/*.woff    200
+/assets/*.woff2    200
+/assets/*.ttf    200
+/assets/*.eot    200
+/assets/images/*    200
+/assets/fonts/*    200
 
 # ✅ 排除其他静态资源路径
 /favicon.ico    200
 /robots.txt     200
 /sitemap.xml    200
+/manifest.json    200
 
 # SPA 路由支持：将所有不存在的路由重定向到 index.html
 # 注意：这个规则只匹配不存在的文件，静态资源不会被重定向
