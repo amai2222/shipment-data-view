@@ -1,10 +1,11 @@
 // 内部司机移动端运单详情页面
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
@@ -27,7 +28,10 @@ import {
   Upload,
   X,
   Loader2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ZoomIn,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -92,6 +96,22 @@ export default function MobileInternalWaybillDetail() {
   const [saving, setSaving] = useState(false);
   const [scaleRecordId, setScaleRecordId] = useState<string | null>(null);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
+  
+  // 图片预览状态
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [allImages, setAllImages] = useState<string[]>([]);
+  
+  // 用于存储创建的Object URL，以便清理
+  const objectUrlsRef = useRef<string[]>([]);
+  
+  // 清理Object URL
+  useEffect(() => {
+    return () => {
+      objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+      objectUrlsRef.current = [];
+    };
+  }, []);
 
   // 获取运单详情
   const { data: waybill, isLoading, error } = useQuery<WaybillDetail>({
@@ -110,7 +130,7 @@ export default function MobileInternalWaybillDetail() {
 
       if (error) throw error;
       
-      // 查找关联的磅单记录
+      // 查找关联的磅单记录（动态加载）
       if (data.auto_number) {
         const { data: scaleRecord } = await supabase
           .from('scale_records')
@@ -120,7 +140,23 @@ export default function MobileInternalWaybillDetail() {
         
         if (scaleRecord) {
           setScaleRecordId(scaleRecord.id);
-          setExistingImageUrls(scaleRecord.image_urls || []);
+          // 处理 image_urls（可能是数组或JSONB对象）
+          let imageUrls: string[] = [];
+          if (Array.isArray(scaleRecord.image_urls)) {
+            imageUrls = scaleRecord.image_urls;
+          } else if (typeof scaleRecord.image_urls === 'object' && scaleRecord.image_urls !== null) {
+            // 如果是JSONB对象，尝试提取数组
+            const urls = (scaleRecord.image_urls as any).urls || Object.values(scaleRecord.image_urls);
+            imageUrls = Array.isArray(urls) ? urls : [];
+          }
+          setExistingImageUrls(imageUrls);
+          // 更新所有图片列表（用于预览）
+          setAllImages(imageUrls);
+        } else {
+          // 如果没有磅单记录，清空状态
+          setScaleRecordId(null);
+          setExistingImageUrls([]);
+          setAllImages([]);
         }
       }
       
@@ -151,11 +187,24 @@ export default function MobileInternalWaybillDetail() {
     }
   };
 
-  // 选择文件
+  // 选择文件（支持多图）
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      setSelectedFiles(prev => [...prev, ...Array.from(files)]);
+      const newFiles = Array.from(files);
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+      
+      // 为每个新文件创建Object URL
+      newFiles.forEach(file => {
+        const url = URL.createObjectURL(file);
+        objectUrlsRef.current.push(url);
+      });
+      
+      // 立即显示预览（选择后显示在下方）
+      toast({
+        title: '已选择照片',
+        description: `已选择 ${newFiles.length} 张照片，请查看下方预览`
+      });
     }
     // 重置input
     event.target.value = '';
@@ -163,6 +212,13 @@ export default function MobileInternalWaybillDetail() {
 
   // 删除选中的文件
   const removeFile = (index: number) => {
+    // 清理对应的Object URL
+    const urlToRemove = objectUrlsRef.current[index];
+    if (urlToRemove && urlToRemove !== '') {
+      URL.revokeObjectURL(urlToRemove);
+    }
+    // 从数组中移除
+    objectUrlsRef.current.splice(index, 1);
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -270,9 +326,13 @@ export default function MobileInternalWaybillDetail() {
         }
       }
 
-      // 清空选中的文件
+      // 清空选中的文件并清理Object URL
+      objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+      objectUrlsRef.current = [];
       setSelectedFiles([]);
       setExistingImageUrls(imageUrls);
+      // 更新所有图片列表（用于预览）
+      setAllImages(imageUrls);
 
       // 刷新数据
       queryClient.invalidateQueries({ queryKey: ['internalWaybillDetail', waybillId] });
@@ -539,63 +599,126 @@ export default function MobileInternalWaybillDetail() {
               />
             </div>
 
-            {/* 已存在的照片 */}
+            {/* 已存在的照片（动态显示） */}
             {existingImageUrls.length > 0 && (
               <div className="space-y-2">
                 <div className="text-sm text-muted-foreground">已有照片：</div>
                 <div className="grid grid-cols-3 gap-2">
                   {existingImageUrls.map((url, index) => (
-                    <div key={index} className="relative aspect-square">
+                    <div 
+                      key={`existing-${index}`} 
+                      className="relative aspect-square group cursor-pointer"
+                      onClick={() => {
+                        setPreviewImage(url);
+                        setPreviewIndex(index);
+                        setAllImages(existingImageUrls);
+                      }}
+                    >
                       <img 
                         src={url} 
                         alt={`磅单${index + 1}`} 
-                        className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
+                        className="w-full h-full object-cover rounded-lg border-2 border-gray-200 transition-transform group-hover:scale-105"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/placeholder.svg';
+                        }}
                       />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                        <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* 新选择的文件预览 */}
+            {/* 新选择的文件预览（选择后立即显示在下方） */}
             {selectedFiles.length > 0 && (
               <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">待上传照片：</div>
+                <div className="text-sm text-muted-foreground">
+                  待上传照片：<span className="text-primary font-medium">{selectedFiles.length}</span> 张
+                </div>
                 <div className="grid grid-cols-3 gap-2">
-                  {selectedFiles.map((file, index) => (
-                    <div key={index} className="relative aspect-square">
-                      <img 
-                        src={URL.createObjectURL(file)} 
-                        alt={`新照片${index + 1}`} 
-                        className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
-                      />
-                      <Button
-                        size="icon"
-                        variant="destructive"
-                        className="absolute top-1 right-1 h-6 w-6 rounded-full shadow-lg"
-                        aria-label={`删除照片 ${index + 1}`}
-                        title={`删除照片 ${index + 1}`}
-                        onClick={() => removeFile(index)}
+                  {selectedFiles.map((file, index) => {
+                    // 获取对应的Object URL（通过文件对象查找）
+                    let previewUrl = objectUrlsRef.current.find((url, idx) => {
+                      // 通过索引匹配（假设顺序一致）
+                      return idx === index;
+                    });
+                    
+                    // 如果没有找到，创建新的Object URL
+                    if (!previewUrl) {
+                      previewUrl = URL.createObjectURL(file);
+                      // 确保数组有足够的长度
+                      while (objectUrlsRef.current.length <= index) {
+                        objectUrlsRef.current.push('');
+                      }
+                      objectUrlsRef.current[index] = previewUrl;
+                    }
+                    
+                    return (
+                      <div 
+                        key={`selected-${index}`} 
+                        className="relative aspect-square group cursor-pointer"
+                        onClick={() => {
+                          // 点击预览：显示所有图片（已有+待上传）
+                          const allPreviewImages = [
+                            ...existingImageUrls,
+                            ...objectUrlsRef.current.slice(0, selectedFiles.length).filter(url => url && url !== '')
+                          ];
+                          setAllImages(allPreviewImages);
+                          setPreviewImage(previewUrl);
+                          setPreviewIndex(existingImageUrls.length + index);
+                        }}
                       >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                        <img 
+                          src={previewUrl} 
+                          alt={`新照片${index + 1}`} 
+                          className="w-full h-full object-cover rounded-lg border-2 border-blue-300"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                          <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                        <Button
+                          size="icon"
+                          variant="destructive"
+                          className="absolute top-1 right-1 h-6 w-6 rounded-full shadow-lg z-10"
+                          aria-label={`删除照片 ${index + 1}`}
+                          title={`删除照片 ${index + 1}`}
+                          onClick={(e) => {
+                            e.stopPropagation(); // 阻止触发预览
+                            removeFile(index);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
                 
-                {/* 保存按钮 */}
+                {/* 保存按钮（有了图片，保存磅单才好用） */}
                 <Button
                   className="w-full"
                   onClick={handleSaveScaleRecord}
                   disabled={saving || uploading}
+                  size="lg"
                 >
                   {saving ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       保存中...
                     </>
+                  ) : uploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      上传中...
+                    </>
                   ) : (
-                    '保存磅单照片'
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      保存磅单照片 ({selectedFiles.length} 张)
+                    </>
                   )}
                 </Button>
               </div>
@@ -634,6 +757,108 @@ export default function MobileInternalWaybillDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {/* 图片预览对话框（点击放大查看） */}
+        <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+          <DialogContent className="max-w-[95vw] w-full h-[90vh] max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col bg-black/95">
+            <DialogHeader className="px-4 py-3 flex-shrink-0 bg-black/50">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-white text-base">
+                  磅单照片 {previewIndex + 1} / {allImages.length}
+                </DialogTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setPreviewImage(null)}
+                  className="text-white hover:bg-white/20"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+            </DialogHeader>
+
+            {/* 图片显示区域 */}
+            <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+              {previewImage && (
+                <>
+                  <img
+                    src={previewImage}
+                    alt={`磅单照片 ${previewIndex + 1}`}
+                    className="max-w-full max-h-full object-contain"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/placeholder.svg';
+                    }}
+                  />
+                  
+                  {/* 上一张按钮 */}
+                  {allImages.length > 1 && previewIndex > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white h-12 w-12 rounded-full"
+                      onClick={() => {
+                        const newIndex = previewIndex - 1;
+                        setPreviewIndex(newIndex);
+                        setPreviewImage(allImages[newIndex]);
+                      }}
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </Button>
+                  )}
+
+                  {/* 下一张按钮 */}
+                  {allImages.length > 1 && previewIndex < allImages.length - 1 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white h-12 w-12 rounded-full"
+                      onClick={() => {
+                        const newIndex = previewIndex + 1;
+                        setPreviewIndex(newIndex);
+                        setPreviewImage(allImages[newIndex]);
+                      }}
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* 缩略图导航（多图时显示） */}
+            {allImages.length > 1 && (
+              <div className="px-4 py-3 flex-shrink-0 bg-black/50 border-t border-white/10">
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {allImages.map((url, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setPreviewIndex(index);
+                        setPreviewImage(url);
+                      }}
+                      className={`flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden transition-all ${
+                        index === previewIndex
+                          ? 'border-white scale-110'
+                          : 'border-white/30 opacity-60'
+                      }`}
+                    >
+                      <img
+                        src={url}
+                        alt={`缩略图 ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/placeholder.svg';
+                        }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </MobileLayout>
   );

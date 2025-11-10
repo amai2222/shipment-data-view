@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>清除缓存 - 物流跟踪系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .step {
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        .step-title {
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        .step-content {
+            color: #4a5568;
+            line-height: 1.6;
+        }
+        .kbd {
+            background: #edf2f7;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            color: #2d3748;
+            display: inline-block;
+            margin: 0 2px;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-block;
+            text-decoration: none;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .warning {
+            background: #fff5f5;
+            border-left: 4px solid #f56565;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .success {
+            background: #f0fff4;
+            border-left: 4px solid #48bb78;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .icon {
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🔄</div>
+        <h1>清除浏览器缓存</h1>
+        <p class="subtitle">解决页面加载错误和懒加载失败问题</p>
+
+        <div class="step">
+            <div class="step-title">方法一：硬刷新（最快）⭐</div>
+            <div class="step-content">
+                <p><strong>Windows/Linux：</strong></p>
+                <p>按下 <span class="kbd">Ctrl</span> + <span class="kbd">Shift</span> + <span class="kbd">R</span></p>
+                <p>或 <span class="kbd">Ctrl</span> + <span class="kbd">F5</span></p>
+                <br>
+                <p><strong>Mac：</strong></p>
+                <p>按下 <span class="kbd">Cmd</span> + <span class="kbd">Shift</span> + <span class="kbd">R</span></p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-title">方法二：开发者工具清除</div>
+            <div class="step-content">
+                <ol style="padding-left: 20px; line-height: 2;">
+                    <li>按 <span class="kbd">F12</span> 打开开发者工具</li>
+                    <li>右键点击浏览器的刷新按钮</li>
+                    <li>选择"清空缓存并硬性重新加载"</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-title">方法三：浏览器设置清除</div>
+            <div class="step-content">
+                <ol style="padding-left: 20px; line-height: 2;">
+                    <li>设置 → 隐私和安全 → 清除浏览数据</li>
+                    <li>勾选"缓存的图片和文件"</li>
+                    <li>时间范围选择"全部时间"</li>
+                    <li>点击"清除数据"</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ 如果错误持续出现：</strong>
+            <ul style="padding-left: 20px; margin-top: 10px; line-height: 1.8;">
+                <li>禁用浏览器扩展（扩展可能干扰页面加载）</li>
+                <li>使用无痕模式测试（Ctrl+Shift+N）</li>
+                <li>尝试其他浏览器</li>
+                <li>等待10-15分钟后重试（CDN缓存更新）</li>
+            </ul>
+        </div>
+
+        <div class="success">
+            <strong>✅ 系统已配置：</strong>
+            <ul style="padding-left: 20px; margin-top: 10px; line-height: 1.8;">
+                <li>自动重试机制（懒加载失败时自动重试）</li>
+                <li>错误日志记录（自动记录到数据库）</li>
+                <li>资源路径验证（构建时自动检查）</li>
+                <li>正确的缓存策略和MIME类型</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center;">
+            <button class="btn" onclick="location.href='/'">
+                返回首页
+            </button>
+            <button class="btn" onclick="clearCacheAndReload()" style="margin-left: 10px;">
+                清除缓存并刷新
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function clearCacheAndReload() {
+            // 清除Service Worker缓存
+            if ('caches' in window) {
+                caches.keys().then(function(names) {
+                    for (let name of names) {
+                        caches.delete(name);
+                    }
+                });
+            }
+            
+            // 注销Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for(let registration of registrations) {
+                        registration.unregister();
+                    }
+                });
+            }
+            
+            // 延迟后硬刷新
+            setTimeout(function() {
+                location.reload(true);
+            }, 500);
+        }
+        
+        // 显示浏览器信息
+        console.log('%c🔧 清除缓存提示', 'color: #667eea; font-size: 16px; font-weight: bold;');
+        console.log('浏览器：', navigator.userAgent);
+        console.log('如果页面仍有问题，请使用硬刷新：');
+        console.log('Windows/Linux: Ctrl+Shift+R');
+        console.log('Mac: Cmd+Shift+R');
+    </script>
+</body>
+</html>
+

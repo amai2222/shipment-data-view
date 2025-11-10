@@ -70,7 +70,7 @@ export default function MobileFleetManagerConfig() {
   // 添加线路对话框
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newRoute, setNewRoute] = useState({
-    projectId: '',
+    projectId: 'none',
     fromLocationId: '',
     toLocationId: '',
     notes: ''
@@ -227,7 +227,7 @@ export default function MobileFleetManagerConfig() {
       
       const { data, error } = await supabase.rpc('save_favorite_route', {
         p_route_name: routeName,
-        p_project_id: newRoute.projectId || null,
+        p_project_id: (newRoute.projectId && newRoute.projectId !== 'none') ? newRoute.projectId : null,
         p_loading_location_id: newRoute.fromLocationId,
         p_unloading_location_id: newRoute.toLocationId,
         p_notes: newRoute.notes || null,
@@ -242,7 +242,7 @@ export default function MobileFleetManagerConfig() {
       }
 
       toast({ title: '添加成功', description: `线路 ${routeName} 已添加` });
-      setNewRoute({ projectId: '', fromLocationId: '', toLocationId: '', notes: '' });
+      setNewRoute({ projectId: 'none', fromLocationId: '', toLocationId: '', notes: '' });
       setShowAddDialog(false);
       await loadData();
 
@@ -399,7 +399,7 @@ export default function MobileFleetManagerConfig() {
                     <SelectValue placeholder="选择项目（可选）" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">不关联项目</SelectItem>
+                    <SelectItem value="none">不关联项目</SelectItem>
                     {projects.map(project => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
@@ -471,7 +471,7 @@ export default function MobileFleetManagerConfig() {
                 variant="outline"
                 onClick={() => {
                   setShowAddDialog(false);
-                  setNewRoute({ projectId: '', fromLocationId: '', toLocationId: '', notes: '' });
+                  setNewRoute({ projectId: 'none', fromLocationId: '', toLocationId: '', notes: '' });
                 }}
               >
                 取消
