@@ -1,7 +1,8 @@
 ﻿// 移动端通知页面
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useOptimizedRealtimeSubscription } from '@/hooks/useMemoryLeakFix';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -97,6 +98,42 @@ export default function MobileNotifications() {
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
   });
+
+  // ✅ 实时订阅通知变化
+  const handleNotificationUpdate = useCallback((payload: any) => {
+    try {
+      console.log('📢 通知数据变更:', payload);
+      
+      // 新通知到达
+      if (payload.eventType === 'INSERT' && payload.new?.user_id === user?.id) {
+        console.log('🔔 收到新通知!');
+        toast({
+          title: payload.new?.title || '新通知',
+          description: payload.new?.message || '您有一条新通知',
+          duration: 5000,
+        });
+        
+        // 刷新通知列表和未读数量
+        queryClient.invalidateQueries({ queryKey: ['user-notifications'] });
+        queryClient.invalidateQueries({ queryKey: ['unread-notification-count'] });
+      }
+      
+      // 通知更新（如标记已读）
+      if (payload.eventType === 'UPDATE' && payload.new?.user_id === user?.id) {
+        queryClient.invalidateQueries({ queryKey: ['user-notifications'] });
+        queryClient.invalidateQueries({ queryKey: ['unread-notification-count'] });
+      }
+    } catch (error: any) {
+      console.error('处理通知更新失败:', error);
+    }
+  }, [toast, queryClient, user?.id]);
+
+  // 订阅通知表的实时变化
+  useOptimizedRealtimeSubscription(
+    'notifications',
+    handleNotificationUpdate,
+    !!user?.id  // 只在有用户时启用
+  );
 
   // 获取通知图标
   const getNotificationIcon = (type: Notification['type']) => {
