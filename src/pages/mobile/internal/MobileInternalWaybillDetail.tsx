@@ -1,4 +1,5 @@
 // 内部司机移动端运单详情页面
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   User,
@@ -22,7 +23,11 @@ import {
   Building2,
   Hash,
   MessageSquare,
-  Route
+  Route,
+  Upload,
+  X,
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -68,10 +73,25 @@ const billingTypeConfig = {
   3: { name: '计体积', unit: '立方', icon: Package }
 };
 
+interface NamingParams {
+  date: string;
+  licensePlate: string;
+  tripNumber: number;
+  projectName: string;
+}
+
 export default function MobileInternalWaybillDetail() {
   const { waybillId } = useParams<{ waybillId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // 磅单照片状态
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [scaleRecordId, setScaleRecordId] = useState<string | null>(null);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
 
   // 获取运单详情
   const { data: waybill, isLoading, error } = useQuery<WaybillDetail>({
@@ -89,6 +109,21 @@ export default function MobileInternalWaybillDetail() {
         .single();
 
       if (error) throw error;
+      
+      // 查找关联的磅单记录
+      if (data.auto_number) {
+        const { data: scaleRecord } = await supabase
+          .from('scale_records')
+          .select('id, image_urls')
+          .eq('logistics_number', data.auto_number)
+          .maybeSingle();
+        
+        if (scaleRecord) {
+          setScaleRecordId(scaleRecord.id);
+          setExistingImageUrls(scaleRecord.image_urls || []);
+        }
+      }
+      
       return data;
     },
     enabled: !!waybillId,
@@ -113,6 +148,148 @@ export default function MobileInternalWaybillDetail() {
     } catch (error) {
       console.warn('日期格式化失败:', dateString, error);
       return dateString.includes('T') ? dateString.split('T')[0] : dateString;
+    }
+  };
+
+  // 选择文件
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...Array.from(files)]);
+    }
+    // 重置input
+    event.target.value = '';
+  };
+
+  // 删除选中的文件
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // 上传文件到七牛云
+  const uploadFiles = async (namingParams: NamingParams): Promise<string[]> => {
+    if (selectedFiles.length === 0) return [];
+
+    const filesToUpload = selectedFiles.map(file => ({
+      fileName: file.name,
+      fileData: ''
+    }));
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      const reader = new FileReader();
+      await new Promise((resolve) => {
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          filesToUpload[i].fileData = base64.split(',')[1];
+          resolve(null);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const { data, error } = await supabase.functions.invoke('qiniu-upload', {
+      body: { 
+        files: filesToUpload,
+        namingParams: namingParams 
+      }
+    });
+
+    if (error) throw error;
+    if (!data.success) throw new Error(data.error || 'Upload failed');
+
+    return data.urls;
+  };
+
+  // 保存磅单记录
+  const handleSaveScaleRecord = async () => {
+    if (!waybill) return;
+
+    if (selectedFiles.length === 0 && existingImageUrls.length === 0) {
+      toast({
+        title: '提示',
+        description: '请先上传磅单照片',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      let imageUrls = [...existingImageUrls];
+      
+      // 如果有新上传的文件，上传它们
+      if (selectedFiles.length > 0) {
+        setUploading(true);
+        try {
+          const loadingDate = waybill.loading_date.split('T')[0];
+          const newImageUrls = await uploadFiles({
+            date: loadingDate,
+            licensePlate: waybill.license_plate,
+            tripNumber: 1, // 运单通常只有一次
+            projectName: waybill.project_name
+          });
+          imageUrls = [...existingImageUrls, ...newImageUrls];
+        } finally {
+          setUploading(false);
+        }
+      }
+
+      const recordData = {
+        project_id: waybill.project_id,
+        project_name: waybill.project_name,
+        loading_date: waybill.loading_date.split('T')[0],
+        trip_number: 1,
+        valid_quantity: waybill.loading_weight || null,
+        billing_type_id: waybill.billing_type_id,
+        image_urls: imageUrls,
+        license_plate: waybill.license_plate,
+        driver_name: waybill.driver_name,
+        logistics_number: waybill.auto_number, // 关联运单编号
+      };
+
+      if (scaleRecordId) {
+        // 更新现有记录
+        const { error } = await supabase
+          .from('scale_records')
+          .update(recordData)
+          .eq('id', scaleRecordId);
+
+        if (error) throw error;
+      } else {
+        // 创建新记录
+        const { data: newRecord, error } = await supabase
+          .from('scale_records')
+          .insert(recordData)
+          .select('id')
+          .single();
+
+        if (error) throw error;
+        if (newRecord) {
+          setScaleRecordId(newRecord.id);
+        }
+      }
+
+      // 清空选中的文件
+      setSelectedFiles([]);
+      setExistingImageUrls(imageUrls);
+
+      // 刷新数据
+      queryClient.invalidateQueries({ queryKey: ['internalWaybillDetail', waybillId] });
+
+      toast({
+        title: '保存成功',
+        description: '磅单照片已保存'
+      });
+    } catch (error: any) {
+      console.error('保存磅单失败:', error);
+      toast({
+        title: '保存失败',
+        description: error.message || '请重试',
+        variant: 'destructive'
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -325,6 +502,111 @@ export default function MobileInternalWaybillDetail() {
                 <div className="font-medium text-base">{waybill.license_plate}</div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* 磅单照片 */}
+        <Card className="mx-4">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ImageIcon className="h-5 w-5" />
+              磅单照片
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 上传按钮 */}
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => document.getElementById('scale-photo-input')?.click()}
+                disabled={uploading || saving}
+              >
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                {uploading ? '上传中...' : '选择磅单照片'}
+              </Button>
+              <input
+                id="scale-photo-input"
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+            </div>
+
+            {/* 已存在的照片 */}
+            {existingImageUrls.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">已有照片：</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {existingImageUrls.map((url, index) => (
+                    <div key={index} className="relative aspect-square">
+                      <img 
+                        src={url} 
+                        alt={`磅单${index + 1}`} 
+                        className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 新选择的文件预览 */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">待上传照片：</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="relative aspect-square">
+                      <img 
+                        src={URL.createObjectURL(file)} 
+                        alt={`新照片${index + 1}`} 
+                        className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
+                      />
+                      <Button
+                        size="icon"
+                        variant="destructive"
+                        className="absolute top-1 right-1 h-6 w-6 rounded-full shadow-lg"
+                        aria-label={`删除照片 ${index + 1}`}
+                        title={`删除照片 ${index + 1}`}
+                        onClick={() => removeFile(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* 保存按钮 */}
+                <Button
+                  className="w-full"
+                  onClick={handleSaveScaleRecord}
+                  disabled={saving || uploading}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      保存中...
+                    </>
+                  ) : (
+                    '保存磅单照片'
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* 空状态提示 */}
+            {existingImageUrls.length === 0 && selectedFiles.length === 0 && (
+              <div className="text-center py-4 text-sm text-muted-foreground">
+                暂无磅单照片，点击上方按钮上传
+              </div>
+            )}
           </CardContent>
         </Card>
 
