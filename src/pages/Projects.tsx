@@ -275,18 +275,43 @@ export default function Projects() {
       toast({ title: "请填写所有基本信息字段", variant: "destructive" });
       return;
     }
+    // 验证链路配置
+    console.log('🔍 开始验证链路配置，总链路数:', selectedChains.length);
     for (const chain of selectedChains) {
+      console.log(`🔍 验证链路: "${chain.chainName}", 合作方数量: ${chain.partners.length}`);
+      
       if (chain.partners.length === 0) {
-        toast({ title: `链路 "${chain.chainName}" 缺少合作方`, description: "每个链路至少需要一个合作方", variant: "destructive" });
+        console.error(`❌ 链路 "${chain.chainName}" 没有合作方`);
+        toast({ 
+          title: `链路 "${chain.chainName}" 缺少合作方`, 
+          description: "每个链路至少需要一个合作方，请点击"添加合作方"按钮并从下拉框中选择", 
+          variant: "destructive" 
+        });
         return;
       }
-      for (const partner of chain.partners) {
-        if (!partner.partnerId) {
-          toast({ title: `链路 "${chain.chainName}" 中有未选择的合作方`, variant: "destructive" });
+      
+      for (let i = 0; i < chain.partners.length; i++) {
+        const partner = chain.partners[i];
+        console.log(`  🔍 验证合作方 ${i + 1}:`, {
+          partnerId: partner.partnerId,
+          partnerName: partner.partnerName,
+          isEmpty: !partner.partnerId || partner.partnerId.trim() === ''
+        });
+        
+        if (!partner.partnerId || partner.partnerId.trim() === '') {
+          console.error(`  ❌ 合作方 ${i + 1} 的 partnerId 为空！`);
+          toast({ 
+            title: `链路 "${chain.chainName}" 中有未选择的合作方`, 
+            description: `第 ${i + 1} 个合作方未选择，请点击合作方输入框，从下拉列表中选择具体的合作方`, 
+            variant: "destructive" 
+          });
           return;
         }
+        console.log(`  ✅ 合作方 ${i + 1} 验证通过`);
       }
+      console.log(`✅ 链路 "${chain.chainName}" 验证通过`);
     }
+    console.log('✅ 所有链路配置验证通过');
 
     try {
       setIsSubmitting(true);
@@ -316,32 +341,54 @@ export default function Projects() {
           .filter(o => o.dbId && !selectedChains.find(c => c.dbId === o.dbId))
           .map(o => o.dbId);
         
-        const changedChainsPayload = changedChains.map((chain, index) => ({
-          id: chain.dbId,
-          chain_name: chain.chainName || `链路${index + 1}`,
-          description: chain.description || '',
-          is_default: chain.isDefault !== undefined ? chain.isDefault : false,
-          billing_type_id: chain.billingTypeId ?? 1,
-          partners: chain.partners.map(p => ({
-            id: p.dbId,
-            partner_id: p.partnerId,
-            level: Number(p.level),
-            tax_rate: Number(p.taxRate) || 0,
-            calculation_method: p.calculationMethod || 'tax',
-            profit_rate: Number(p.profitRate) || 0
-          }))
-        }));
+        const changedChainsPayload = changedChains.map((chain, index) => {
+          console.log(`🔍 处理链路 ${index + 1}:`, chain);
+          const payload = {
+            id: chain.dbId,
+            chain_name: chain.chainName || `链路${index + 1}`,
+            description: chain.description || '',
+            is_default: chain.isDefault !== undefined ? chain.isDefault : false,
+            billing_type_id: chain.billingTypeId ?? 1,
+            partners: chain.partners.map((p, pIndex) => {
+              console.log(`  🔍 合作方 ${pIndex + 1}:`, p);
+              if (!p.partnerId || p.partnerId.trim() === '') {
+                console.error(`  ❌ 合作方 ${pIndex + 1} 的 partnerId 为空！`, p);
+              }
+              return {
+                id: p.dbId,
+                partner_id: p.partnerId,
+                level: Number(p.level),
+                tax_rate: Number(p.taxRate) || 0,
+                calculation_method: p.calculationMethod || 'tax',
+                profit_rate: Number(p.profitRate) || 0
+              };
+            })
+          };
+          console.log(`✅ 链路 ${index + 1} payload:`, payload);
+          return payload;
+        });
         
         // 只在有变更时才调用更新函数
         if (changedChains.length > 0 || deletedChainIds.length > 0) {
-          const { error } = await supabase.rpc('update_project_chains_incremental', {
+          console.log('🔍 准备调用 update_project_chains_incremental RPC');
+          console.log('📦 项目ID:', projectId);
+          console.log('📦 项目数据:', projectPayloadForDb);
+          console.log('📦 变更的链路:', changedChainsPayload);
+          console.log('📦 删除的链路ID:', deletedChainIds);
+          
+          const { data, error } = await supabase.rpc('update_project_chains_incremental', {
             p_project_id: projectId,
             p_project_data: projectPayloadForDb,
             p_changed_chains: changedChainsPayload,
             p_deleted_chain_ids: deletedChainIds
           });
           
-          if (error) throw error;
+          if (error) {
+            console.error('❌ RPC调用失败:', error);
+            console.error('❌ 错误详情:', JSON.stringify(error, null, 2));
+            throw error;
+          }
+          console.log('✅ RPC调用成功:', data);
           toast({ 
             title: "项目更新成功", 
             description: `已更新 ${changedChains.length} 条链路，删除 ${deletedChainIds.length} 条链路` 
@@ -391,8 +438,21 @@ export default function Projects() {
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
-      console.error('通过 RPC 保存项目时出错:', error);
-      toast({ title: "操作失败", description: "保存项目时发生错误，请检查控制台日志。", variant: "destructive" });
+      console.error('❌ 通过 RPC 保存项目时出错:', error);
+      console.error('❌ 错误对象:', JSON.stringify(error, null, 2));
+      
+      let errorMessage = "保存项目时发生错误";
+      if (error && typeof error === 'object') {
+        if ('message' in error) errorMessage = (error as any).message;
+        if ('hint' in error) errorMessage += ` (提示: ${(error as any).hint})`;
+        if ('details' in error) errorMessage += ` (详情: ${(error as any).details})`;
+      }
+      
+      toast({ 
+        title: "操作失败", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     } finally {
       setIsSubmitting(false);
     }
