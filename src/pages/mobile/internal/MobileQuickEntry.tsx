@@ -102,6 +102,11 @@ export default function MobileQuickEntry() {
   const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
   const [addLocationName, setAddLocationName] = useState('');
   const [addLocationType, setAddLocationType] = useState<'loading' | 'unloading'>('loading');
+  
+  // 添加线路对话框
+  const [showAddRouteDialog, setShowAddRouteDialog] = useState(false);
+  const [newRouteLoadingLocation, setNewRouteLoadingLocation] = useState('');
+  const [newRouteUnloadingLocation, setNewRouteUnloadingLocation] = useState('');
 
   // 常用运单
   const [favoriteRoutes, setFavoriteRoutes] = useState<any[]>([]);
@@ -367,7 +372,7 @@ export default function MobileQuickEntry() {
     }
   };
 
-  // 快速添加地点
+  // 快速添加地点（保留用于兼容，但不再使用）
   const handleAddLocation = async () => {
     if (!addLocationName.trim()) {
       toast({
@@ -422,6 +427,85 @@ export default function MobileQuickEntry() {
       }
     } catch (error) {
       console.error('添加地点失败:', error);
+      toast({
+        title: '添加失败',
+        description: '请稍后重试',
+        variant: 'destructive'
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 添加线路（装货地+卸货地）
+  const handleAddRoute = async () => {
+    if (!newRouteLoadingLocation.trim()) {
+      toast({
+        title: '请输入装货地',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!newRouteUnloadingLocation.trim()) {
+      toast({
+        title: '请输入卸货地',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!formData.project_id) {
+      toast({
+        title: '请先选择项目',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase.rpc('driver_add_route', {
+        p_loading_location_name: newRouteLoadingLocation.trim(),
+        p_unloading_location_name: newRouteUnloadingLocation.trim(),
+        p_project_id: formData.project_id
+      });
+
+      if (error) throw error;
+      
+      if (data.success) {
+        toast({
+          title: '添加成功',
+          description: `线路"${data.route_name}"已添加并设为常用线路`
+        });
+
+        // 刷新地点列表
+        loadProjectLocations(formData.project_id);
+        
+        // 刷新常用线路列表
+        if (fleetManagerId && driverId) {
+          loadFavoriteRoutes();
+        }
+
+        // 自动选中新添加的装货地和卸货地
+        setFormData(prev => ({ 
+          ...prev, 
+          loading_location_id: data.loading_location_id,
+          unloading_location_id: data.unloading_location_id
+        }));
+
+        setShowAddRouteDialog(false);
+        setNewRouteLoadingLocation('');
+        setNewRouteUnloadingLocation('');
+      } else {
+        toast({
+          title: '添加失败',
+          description: data.error,
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('添加线路失败:', error);
       toast({
         title: '添加失败',
         description: '请稍后重试',
@@ -1294,31 +1378,6 @@ export default function MobileQuickEntry() {
                   >
                     输入
                   </Button>
-                  {loadingLocationMode === 'select' && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 text-xs"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (formData.project_id) {
-                          setAddLocationType('loading');
-                          setShowAddLocationDialog(true);
-                        } else {
-                          toast({
-                            title: '提示',
-                            description: '请先选择项目',
-                            variant: 'destructive'
-                          });
-                        }
-                      }}
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      添加
-                    </Button>
-                  )}
                 </div>
               </Label>
               {loadingLocationMode === 'select' ? (
@@ -1333,7 +1392,7 @@ export default function MobileQuickEntry() {
                   <SelectContent position="popper" className="z-50">
                     {projectLoadingLocations.length === 0 ? (
                       <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                        暂无装货地点，请点击"添加"
+                        暂无装货地点，请点击"添加线路"
                       </div>
                     ) : (
                       projectLoadingLocations.map((loc: any) => (
@@ -1351,6 +1410,32 @@ export default function MobileQuickEntry() {
                   onChange={e => setFormData(prev => ({ ...prev, loading_location: e.target.value }))}
                 />
               )}
+            </div>
+
+            {/* 添加线路按钮 */}
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (formData.project_id) {
+                    setShowAddRouteDialog(true);
+                  } else {
+                    toast({
+                      title: '提示',
+                      description: '请先选择项目',
+                      variant: 'destructive'
+                    });
+                  }
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                添加线路
+              </Button>
             </div>
 
             {/* 卸货地 - 支持选择或手工输入 */}
@@ -1386,31 +1471,6 @@ export default function MobileQuickEntry() {
                   >
                     输入
                   </Button>
-                  {unloadingLocationMode === 'select' && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 text-xs"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (formData.project_id) {
-                          setAddLocationType('unloading');
-                          setShowAddLocationDialog(true);
-                        } else {
-                          toast({
-                            title: '提示',
-                            description: '请先选择项目',
-                            variant: 'destructive'
-                          });
-                        }
-                      }}
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      添加
-                    </Button>
-                  )}
                 </div>
               </Label>
               {unloadingLocationMode === 'select' ? (
@@ -1425,7 +1485,7 @@ export default function MobileQuickEntry() {
                   <SelectContent position="popper" className="z-50">
                     {projectUnloadingLocations.length === 0 ? (
                       <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                        暂无卸货地点，请点击"添加"
+                        暂无卸货地点，请点击"添加线路"
                       </div>
                     ) : (
                       projectUnloadingLocations.map((loc: any) => (
@@ -1663,6 +1723,67 @@ export default function MobileQuickEntry() {
                 取消
               </Button>
               <Button onClick={handleAddLocation} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                确认添加
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 添加线路对话框 */}
+        <Dialog open={showAddRouteDialog} onOpenChange={setShowAddRouteDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>添加线路</DialogTitle>
+              <DialogDescription>
+                输入装货地和卸货地，系统将自动添加到地点库、关联项目并设为常用线路
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <Label>装货地 *</Label>
+                <Input
+                  placeholder="输入装货地点名称..."
+                  value={newRouteLoadingLocation}
+                  onChange={e => setNewRouteLoadingLocation(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>卸货地 *</Label>
+                <Input
+                  placeholder="输入卸货地点名称..."
+                  value={newRouteUnloadingLocation}
+                  onChange={e => setNewRouteUnloadingLocation(e.target.value)}
+                />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">自动处理</p>
+                    <ul className="text-xs mt-1 text-blue-600 list-disc list-inside space-y-0.5">
+                      <li>装货地和卸货地将自动添加到地点库</li>
+                      <li>自动关联到当前项目</li>
+                      <li>该线路将设为车队长的常用线路</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setShowAddRouteDialog(false);
+                setNewRouteLoadingLocation('');
+                setNewRouteUnloadingLocation('');
+              }}>
+                取消
+              </Button>
+              <Button onClick={handleAddRoute} disabled={submitting}>
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 确认添加
               </Button>
