@@ -8,7 +8,7 @@ import { logErrorToDatabase, extractChunkLoadErrorInfo, extractReactErrorInfo } 
 
 // 🔧 配置开关：是否启用自动3次刷新保护机制
 // 设置为 false 可以临时停用自动刷新，方便调试查看真实错误
-const ENABLE_AUTO_RETRY = false; // ⚠️ 临时停用，需要时改为 true
+const ENABLE_AUTO_RETRY = true; // ✅ 启用自动重试（错误会自动记录到数据库）
 
 interface Props {
   children: ReactNode;

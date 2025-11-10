@@ -133,6 +133,8 @@ AS $$
 DECLARE
     v_driver_id UUID;
     v_driver_name TEXT;
+    v_driver_phone TEXT;  -- 🔧 司机电话
+    v_drivers_table_id UUID;  -- 🔧 drivers 表中的ID
     v_order RECORD;
     v_auto_number TEXT;
     v_logistics_id UUID;
@@ -140,18 +142,38 @@ DECLARE
     v_license_plate TEXT;
     v_current_cost NUMERIC;  -- 🔧 从派单获取运费
 BEGIN
-    -- 获取司机信息
-    SELECT id, name INTO v_driver_id, v_driver_name
-    FROM internal_drivers
-    WHERE id = get_current_driver_id();
+    -- 获取当前司机ID
+    v_driver_id := get_current_driver_id();
     
     IF v_driver_id IS NULL THEN
         RETURN json_build_object(
             'success', false,
-            'message', '未找到司机档案'
+            'message', '未找到对应的司机档案，请确认您已正确登录司机账号'
         );
     END IF;
+
+    -- 获取司机完整信息（包含电话）
+    SELECT id, name, phone INTO v_driver_id, v_driver_name, v_driver_phone
+    FROM internal_drivers
+    WHERE id = v_driver_id;
     
+    -- 🔧 如果查询没有找到记录，说明ID不匹配
+    IF NOT FOUND OR v_driver_name IS NULL THEN
+        RETURN json_build_object(
+            'success', false,
+            'message', format('司机档案查询失败（ID: %s），请联系管理员检查账号关联', v_driver_id)
+        );
+    END IF;
+
+    -- 🔧 验证司机电话不能为空（虽然表定义是 NOT NULL，但添加双重检查）
+    IF v_driver_phone IS NULL OR v_driver_phone = '' OR TRIM(v_driver_phone) = '' THEN
+        RETURN json_build_object(
+            'success', false,
+            'message', format('司机"%s"的电话信息不完整（当前电话：%s），请联系管理员完善司机档案', 
+                            v_driver_name, COALESCE(v_driver_phone, 'NULL'))
+        );
+    END IF;
+
     -- 验证装货重量必填
     IF p_loading_weight IS NULL OR p_loading_weight <= 0 THEN
         RETURN json_build_object(
@@ -179,13 +201,38 @@ BEGIN
     FROM projects
     WHERE id = v_order.project_id;
     
-    -- 获取司机车牌
+    -- 获取司机车牌（🔧 在创建 drivers 记录之前获取）
     SELECT v.license_plate INTO v_license_plate
     FROM internal_driver_vehicle_relations dvr
     JOIN internal_vehicles v ON dvr.vehicle_id = v.id
     WHERE dvr.driver_id = v_driver_id
       AND dvr.valid_until IS NULL
     LIMIT 1;
+
+    -- 🔧 在 drivers 表中查找或创建对应记录（在获取车牌号之后）
+    SELECT id INTO v_drivers_table_id
+    FROM drivers
+    WHERE name = v_driver_name
+      AND phone = v_driver_phone
+      AND driver_type = 'internal'
+    LIMIT 1;
+
+    -- 如果 drivers 表中没有，尝试创建
+    IF v_drivers_table_id IS NULL THEN
+        INSERT INTO drivers (name, phone, license_plate, driver_type, created_at, updated_at)
+        VALUES (v_driver_name, v_driver_phone, COALESCE(v_license_plate, ''), 'internal', NOW(), NOW())
+        ON CONFLICT DO NOTHING
+        RETURNING id INTO v_drivers_table_id;
+        
+        -- 如果还是 NULL，再次查询
+        IF v_drivers_table_id IS NULL THEN
+            SELECT id INTO v_drivers_table_id
+            FROM drivers
+            WHERE name = v_driver_name
+              AND phone = v_driver_phone
+            LIMIT 1;
+        END IF;
+    END IF;
     
     -- 🔧 从派单获取运费（如果派单中有设置）
     v_current_cost := COALESCE(v_order.expected_cost, 0);
@@ -198,16 +245,21 @@ BEGIN
                          WHERE created_at::DATE = CURRENT_DATE
                      )::TEXT, 4, '0');
     
-    -- 创建运单记录（🔧 使用派单中的运费）
+    -- 创建运单记录（🔧 使用派单中的运费，包含完整的司机信息）
     INSERT INTO logistics_records (
         auto_number,
         project_id,
         project_name,
+        driver_id,      -- 🔧 司机ID（drivers表）
         driver_name,
+        driver_phone,   -- 🔧 司机电话（必需字段）
         license_plate,
         loading_location,
         unloading_location,
+        loading_location_ids,  -- 🔧 从派单获取
+        unloading_location_ids,  -- 🔧 从派单获取
         loading_date,
+        unloading_date,  -- 🔧 如果有卸货日期
         loading_weight,
         unloading_weight,
         current_cost,  -- 🔧 使用派单中的运费
@@ -218,16 +270,22 @@ BEGIN
         invoice_status,
         payment_status,
         cargo_type,    -- 🔧 从项目获取
-        user_id         -- 🔧 当前用户
+        user_id,        -- 🔧 当前用户
+        created_by_user_id  -- 🔧 创建用户ID
     ) VALUES (
         v_auto_number,
         v_order.project_id,
         v_project_info.name,
+        v_drivers_table_id,  -- 🔧 司机ID
         v_driver_name,
-        v_license_plate,
+        v_driver_phone,  -- 🔧 司机电话
+        COALESCE(v_license_plate, ''),
         v_order.loading_location,
         v_order.unloading_location,
+        CASE WHEN v_order.loading_location_id IS NOT NULL THEN ARRAY[v_order.loading_location_id] ELSE NULL END,
+        CASE WHEN v_order.unloading_location_id IS NOT NULL THEN ARRAY[v_order.unloading_location_id] ELSE NULL END,
         COALESCE(v_order.actual_loading_date, CURRENT_DATE),
+        NULL,  -- 卸货日期，司机完成时可能还没有
         p_loading_weight,
         p_unloading_weight,
         v_current_cost,  -- 🔧 使用派单中的运费
@@ -238,7 +296,8 @@ BEGIN
         'Uninvoiced',
         'Unpaid',
         (SELECT cargo_type FROM projects WHERE id = v_order.project_id),  -- 🔧 从项目获取
-        auth.uid()      -- 🔧 当前用户
+        auth.uid(),     -- 🔧 当前用户
+        auth.uid()      -- 🔧 创建用户ID
     )
     RETURNING id INTO v_logistics_id;
     

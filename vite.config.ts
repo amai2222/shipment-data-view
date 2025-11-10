@@ -40,33 +40,27 @@ export default defineConfig(({ mode }) => ({
     base: '/',
     // 使用内容哈希确保文件名稳定性
     cssCodeSplit: true,
+    // ✅ 确保所有资源都使用绝对路径（相对于 base）
+    assetsInlineLimit: 4096, // 小于 4KB 的资源内联
     // 优化代码分割
     rollupOptions: {
       output: {
         // 确保使用 ES 模块格式，避免 CommonJS 问题
         format: 'es',
-        // ✅ 使用内容哈希（contenthash）而非随机哈希（hash）
-        // 相同内容 = 相同哈希值，避免不必要的文件名变化
-        chunkFileNames: (chunkInfo) => {
-          // 为 vendor 包使用固定名称，便于缓存
-          const vendorChunks = ['xlsx-vendor', 'recharts-vendor', 'react-vendor', 'tanstack-vendor', 'supabase-vendor', 'ui-vendor'];
-          if (vendorChunks.includes(chunkInfo.name)) {
-            return 'assets/[name].[hash].js';
-          }
-          // 其他chunk使用内容哈希
-          return 'assets/[name]-[hash].js';
-        },
-        entryFileNames: 'assets/[name]-[hash].js',
+        // ✅ 使用固定长度的哈希（8位），确保文件名可预测且稳定
+        // ✅ 所有 chunk 使用统一的命名格式
+        chunkFileNames: 'assets/[name]-[hash:8].js',
+        entryFileNames: 'assets/[name]-[hash:8].js',
         assetFileNames: (assetInfo) => {
-          // 根据文件类型分类存储
-          const info = assetInfo.name.split('.');
-          const ext = info[info.length - 1];
+          // 根据文件类型分类存储，使用固定长度哈希
+          const info = assetInfo.name?.split('.') || [];
+          const ext = info[info.length - 1] || 'unknown';
           if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext)) {
-            return 'assets/images/[name]-[hash].[ext]';
+            return 'assets/images/[name]-[hash:8].[ext]';
           } else if (/woff2?|ttf|eot/i.test(ext)) {
-            return 'assets/fonts/[name]-[hash].[ext]';
+            return 'assets/fonts/[name]-[hash:8].[ext]';
           }
-          return 'assets/[name]-[hash].[ext]';
+          return 'assets/[name]-[hash:8].[ext]';
         },
         // 手动代码分割：将大型库单独打包
         manualChunks: {

@@ -1,6 +1,10 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import { setupResourceLoadMonitor } from './utils/resourceLoader'
+
+// ✅ 启动资源加载监控（自动记录错误到数据库）
+setupResourceLoadMonitor();
 
 // 全局错误处理器
 window.addEventListener('error', (event) => {
