@@ -44,9 +44,10 @@ export default defineConfig(({ mode }) => ({
         // 确保使用 ES 模块格式，避免 CommonJS 问题
         format: 'es',
         // 确保 chunk 文件名格式一致，避免部署时文件名不匹配
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]',
+        // 使用固定的 hash 长度（8位），确保文件名可预测
+        chunkFileNames: 'assets/[name]-[hash:8].js',
+        entryFileNames: 'assets/[name]-[hash:8].js',
+        assetFileNames: 'assets/[name]-[hash:8].[ext]',
         manualChunks: {
           // 将大型库单独打包
           'xlsx-vendor': ['xlsx'],
