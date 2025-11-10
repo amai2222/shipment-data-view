@@ -1704,70 +1704,40 @@ export default function MobileQuickEntry() {
               </Button>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="p-0">
             {recentWaybills.length === 0 ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">
+              <div className="text-center py-8 text-sm text-muted-foreground">
                 暂无运单记录
               </div>
             ) : (
-              recentWaybills.map(waybill => (
-                <Card 
-                  key={waybill.id} 
-                  className="border-0 shadow-sm hover:shadow-md transition-shadow rounded-xl overflow-hidden bg-gradient-to-br from-white to-gray-50/50"
-                  onClick={() => navigate(`/m/internal/waybill/${waybill.id}`)}
-                >
-                  <CardContent className="p-4">
-                    {/* 运单编号和时间 */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="font-semibold text-base text-gray-900">{waybill.auto_number}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {format(new Date(waybill.created_at), 'MM-dd HH:mm')}
-                        </div>
-                      </div>
+              <div className="divide-y divide-gray-100">
+                {/* 表头 */}
+                <div className="grid grid-cols-3 gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200">
+                  <div className="text-xs font-semibold text-gray-600">运单号</div>
+                  <div className="text-xs font-semibold text-gray-600">日期</div>
+                  <div className="text-xs font-semibold text-gray-600">线路</div>
+                </div>
+                {/* 列表项 */}
+                {recentWaybills.map(waybill => (
+                  <div
+                    key={waybill.id}
+                    className="grid grid-cols-3 gap-2 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/m/internal/waybill/${waybill.id}`)}
+                  >
+                    <div className="flex items-center">
+                      <span className="text-sm font-medium text-gray-900 truncate">{waybill.auto_number}</span>
                     </div>
-                    
-                    {/* 路线信息 - 参考货拉拉设计 */}
-                    <div className="space-y-2 mb-3">
-                      {/* 起点 */}
-                      <div className="flex items-start gap-2">
-                        <div className="flex flex-col items-center mt-0.5">
-                          <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white shadow-sm"></div>
-                          <div className="w-0.5 h-8 bg-gradient-to-b from-blue-500 to-green-500 my-0.5"></div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-xs text-gray-500 mb-0.5">起点</div>
-                          <div className="font-medium text-sm text-gray-900">{waybill.loading_location}</div>
-                        </div>
-                      </div>
-                      
-                      {/* 终点 */}
-                      <div className="flex items-start gap-2">
-                        <div className="w-3 h-3 rounded-full bg-green-500 border-2 border-white shadow-sm mt-0.5"></div>
-                        <div className="flex-1">
-                          <div className="text-xs text-gray-500 mb-0.5">终点</div>
-                          <div className="font-medium text-sm text-gray-900">{waybill.unloading_location}</div>
-                        </div>
-                      </div>
+                    <div className="flex items-center">
+                      <span className="text-sm text-gray-600">{format(new Date(waybill.created_at), 'MM-dd')}</span>
                     </div>
-                    
-                    {/* 底部信息栏 */}
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1.5">
-                          <Weight className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm font-medium text-gray-700">{waybill.loading_weight}吨</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="h-4 w-4 text-purple-600" />
-                          <span className="text-sm text-gray-600">{format(new Date(waybill.loading_date), 'MM-dd')}</span>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    <div className="flex items-center">
+                      <span className="text-sm text-gray-600 truncate">
+                        {waybill.loading_location}→{waybill.unloading_location}
+                      </span>
                     </div>
-                  </CardContent>
-                </Card>
-              ))
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
