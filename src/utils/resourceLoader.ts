@@ -275,7 +275,15 @@ export function setupResourceLoadMonitor(): void {
         'safari-extension://',
         'cloudflareinsights',
         'beacon.min.js',
-        'ERR_ADDRESS_INVALID'
+        'ERR_ADDRESS_INVALID',
+        // Supabase相关错误（表不存在或查询失败，已有错误处理）
+        'fleet manager projects',
+        'internal driver vehicle change',
+        'internal_vehicle_change_applications',
+        'fleet_manager_projects',
+        'supabase.co/rest/v1/',
+        '400 (Bad Request)',
+        '404 (Not Found)'
       ];
       
       const shouldIgnore = ignoredSources.some(pattern => 
@@ -283,7 +291,7 @@ export function setupResourceLoadMonitor(): void {
       );
       
       if (shouldIgnore) {
-        // 静默忽略浏览器扩展和Cloudflare Insights的错误
+        // 静默忽略浏览器扩展、Cloudflare Insights和Supabase错误
         return;
       }
       

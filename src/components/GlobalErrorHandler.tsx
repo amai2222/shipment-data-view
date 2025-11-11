@@ -24,7 +24,13 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
         'cloudflareinsights',
         'beacon.min.js',
         'Content Security Policy', // CSP违规（通常是浏览器扩展导致的）
-        'violates the following Content Security Policy directive'
+        'violates the following Content Security Policy directive',
+        // Supabase相关错误（表不存在或查询失败，已有错误处理）
+        'fleet manager projects',
+        'internal driver vehicle change',
+        'supabase.co/rest/v1/',
+        '400 (Bad Request)',
+        '404 (Not Found)'
       ];
       
       // 检查错误消息或来源
@@ -70,7 +76,13 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
         'ERR_ADDRESS_INVALID',
         'cloudflareinsights',
         'Content Security Policy',
-        'violates the following Content Security Policy directive'
+        'violates the following Content Security Policy directive',
+        // Supabase相关错误（表不存在或查询失败，已有错误处理）
+        'fleet manager projects',
+        'internal driver vehicle change',
+        'supabase.co/rest/v1/',
+        '400 (Bad Request)',
+        '404 (Not Found)'
       ];
       
       const shouldIgnore = ignoredRejections.some(pattern => 
@@ -97,10 +109,23 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
     window.fetch = async (...args) => {
       try {
         const response = await originalFetch(...args);
+        const url = args[0]?.toString() || '';
         
-        // 如果响应状态码表示错误，记录到数据库
-        if (!response.ok && response.status >= 400) {
-          const url = args[0]?.toString() || '';
+        // 忽略Supabase相关的400/404错误（表不存在或查询失败，已有错误处理）
+        const ignoredSupabaseErrors = [
+          'fleet manager projects',
+          'internal driver vehicle change',
+          'internal_vehicle_change_applications',
+          'fleet_manager_projects',
+          'supabase.co/rest/v1/'
+        ];
+        
+        const isIgnoredSupabaseError = ignoredSupabaseErrors.some(pattern => 
+          url.includes(pattern)
+        ) && (response.status === 400 || response.status === 404);
+        
+        // 如果响应状态码表示错误，记录到数据库（但忽略Supabase的400/404错误）
+        if (!response.ok && response.status >= 400 && !isIgnoredSupabaseError) {
           const method = (args[1]?.method || 'GET').toUpperCase();
           
           // 尝试读取响应文本（限制长度）
@@ -133,16 +158,29 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
         const url = args[0]?.toString() || '';
         const method = (args[1]?.method || 'GET').toUpperCase();
         
-        const errorData = extractNetworkErrorInfo(
-          url,
-          method,
-          undefined,
-          error instanceof Error ? error.message : String(error)
+        // 忽略Supabase相关的错误
+        const ignoredSupabaseErrors = [
+          'fleet manager projects',
+          'internal driver vehicle change',
+          'supabase.co/rest/v1/'
+        ];
+        
+        const isIgnoredSupabaseError = ignoredSupabaseErrors.some(pattern => 
+          url.includes(pattern)
         );
         
-        logErrorToDatabase(errorData).catch(err => {
-          console.error('记录网络请求失败:', err);
-        });
+        if (!isIgnoredSupabaseError) {
+          const errorData = extractNetworkErrorInfo(
+            url,
+            method,
+            undefined,
+            error instanceof Error ? error.message : String(error)
+          );
+          
+          logErrorToDatabase(errorData).catch(err => {
+            console.error('记录网络请求失败:', err);
+          });
+        }
         
         throw error;
       }

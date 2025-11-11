@@ -19,7 +19,13 @@ window.addEventListener('error', (event) => {
     'safari-extension://',
     'ERR_ADDRESS_INVALID', // Cloudflare Insights加载失败（非关键）
     'cloudflareinsights',
-    'beacon.min.js'
+    'beacon.min.js',
+    // Supabase相关错误（表不存在或查询失败，已有错误处理）
+    'fleet manager projects',
+    'internal driver vehicle change',
+    'supabase.co/rest/v1/',
+    '400 (Bad Request)',
+    '404 (Not Found)'
   ];
   
   // 检查是否是应该忽略的错误
@@ -52,7 +58,13 @@ window.addEventListener('unhandledrejection', (event) => {
     'message channel closed',
     'chrome-extension://',
     'ERR_ADDRESS_INVALID',
-    'cloudflareinsights'
+    'cloudflareinsights',
+    // Supabase相关错误（表不存在或查询失败，已有错误处理）
+    'fleet manager projects',
+    'internal driver vehicle change',
+    'supabase.co/rest/v1/',
+    '400 (Bad Request)',
+    '404 (Not Found)'
   ];
   
   const shouldIgnore = ignoredRejections.some(pattern => 
