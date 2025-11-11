@@ -29,6 +29,8 @@ const routeMap: Record<string, string> = {
   '/settings/contract-permissions': '合同权限',
   '/settings/role-templates': '角色模板',
   '/settings/audit-logs': '操作日志',
+  '/settings': '设置',
+  '/settings/backup': '系统备份',
 };
 
 // 生成面包屑导航

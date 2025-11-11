@@ -32,6 +32,17 @@ export default function SystemBackup() {
     logistics_records: true,
     logistics_partner_costs: true,
     
+    // 内部车辆管理系统（新增）
+    internal_drivers: true,
+    internal_vehicles: true,
+    internal_driver_vehicle_relations: true,
+    fleet_manager_projects: true,
+    fleet_manager_favorite_routes: true,
+    fleet_manager_favorite_route_drivers: true,
+    dispatch_orders: true,
+    internal_driver_expense_applications: true,
+    internal_vehicle_change_applications: true,
+    
     // 项目和合作方
     projects: true,
     partners: true,
@@ -252,6 +263,20 @@ BEGIN;
       ]
     },
     {
+      title: '内部车辆管理系统',
+      tables: [
+        { key: 'internal_drivers', label: '内部司机', description: '内部司机档案' },
+        { key: 'internal_vehicles', label: '内部车辆', description: '内部车辆档案' },
+        { key: 'internal_driver_vehicle_relations', label: '司机车辆关系', description: '司机与车辆绑定关系' },
+        { key: 'fleet_manager_projects', label: '车队长项目', description: '车队长负责的项目' },
+        { key: 'fleet_manager_favorite_routes', label: '常用线路', description: '车队长常用线路' },
+        { key: 'fleet_manager_favorite_route_drivers', label: '线路分配', description: '常用线路分配给司机' },
+        { key: 'dispatch_orders', label: '派单', description: '车队长派单记录' },
+        { key: 'internal_driver_expense_applications', label: '司机费用申请', description: '司机费用相关申请' },
+        { key: 'internal_vehicle_change_applications', label: '车辆变更申请', description: '车辆变更审批记录' }
+      ]
+    },
+    {
       title: '项目和合作方',
       tables: [
         { key: 'projects', label: '项目信息', description: '项目基础数据' },
@@ -297,7 +322,7 @@ BEGIN;
   const totalCount = Object.keys(selectedTables).length;
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
