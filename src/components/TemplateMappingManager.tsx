@@ -208,8 +208,9 @@ export default function TemplateMappingManager() {
       setFixedMappings((data || []).map(m => ({
         id: m.id,
         template_id: m.template_id,
-        target_field: m.mapping_type || '',
-        fixed_value: m.database_value || '',
+        // 字段名存储在 database_value 中，固定值存储在 excel_value 中
+        target_field: m.database_value || '',
+        fixed_value: m.excel_value || '',
         description: ''
       })));
     } catch (error: any) {
