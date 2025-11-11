@@ -275,19 +275,18 @@ export default function MobileFleetDashboard() {
     }
   ];
 
-  // 折叠状态管理
-  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  // 折叠状态管理（互斥：只允许展开一个）
+  const [expandedGroups, setExpandedGroups] = useState<number | null>(null);
 
-  // 切换折叠状态
+  // 切换折叠状态（互斥逻辑：点击新卡片时自动收起其他卡片）
   const toggleGroup = (index: number) => {
     setExpandedGroups(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(index)) {
-        newSet.delete(index);
-      } else {
-        newSet.add(index);
+      // 如果点击的是已展开的卡片，则收起
+      if (prev === index) {
+        return null;
       }
-      return newSet;
+      // 否则展开新卡片（自动收起之前的）
+      return index;
     });
   };
 
@@ -434,7 +433,7 @@ export default function MobileFleetDashboard() {
           {/* 4个大卡片横向一排 */}
           <div className="grid grid-cols-4 gap-3">
             {functionGroups.map((group, groupIndex) => {
-              const isExpanded = expandedGroups.has(groupIndex);
+              const isExpanded = expandedGroups === groupIndex;
               return (
                 <Card key={groupIndex} className="shadow-md rounded-xl border-0 bg-white overflow-visible hover:shadow-lg transition-shadow relative">
                   {/* 卡片标题（可点击展开/折叠） */}
@@ -470,27 +469,16 @@ export default function MobileFleetDashboard() {
             })}
           </div>
           
-          {/* 展开的内容（显示在下方，全宽） */}
-          {expandedGroups.size > 0 && (
+          {/* 展开的内容（显示在下方，全宽，不显示标题） */}
+          {expandedGroups !== null && (
             <div className="w-full">
               {functionGroups.map((group, groupIndex) => {
-                const isExpanded = expandedGroups.has(groupIndex);
+                const isExpanded = expandedGroups === groupIndex;
                 if (!isExpanded) return null;
                 
                 return (
                   <Card key={groupIndex} className="shadow-lg rounded-xl border-0 bg-white animate-in slide-in-from-top-2 duration-200">
                     <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center", group.color)}>
-                          <group.icon className="h-4 w-4 text-white" />
-                        </div>
-                        <span className="font-bold text-base text-gray-800">{group.title}</span>
-                        {group.items.some(item => item.badge && item.badge > 0) && (
-                          <Badge className="bg-red-500 text-white text-xs h-5 px-2 font-semibold">
-                            {group.items.find(item => item.badge && item.badge > 0)?.badge}
-                          </Badge>
-                        )}
-                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         {group.items.map((item, itemIndex) => {
                           const IconComponent = item.icon;
