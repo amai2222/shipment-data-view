@@ -194,9 +194,13 @@ export default function MobileDispatchOrder() {
       // 加载分配给该车队长的项目
       const { data: managedProjects, error: projectsError } = await supabase
         .from('fleet_manager_projects')
-        .select('project_id, projects:project_id (id, name)')
-        .eq('fleet_manager_id', userId)
-        .eq('status', '进行中');
+        .select('project_id, projects:project_id (id, name, project_status)')
+        .eq('fleet_manager_id', userId);
+      
+      // 过滤出状态为"进行中"的项目
+      const activeProjects = (managedProjects || []).filter((mp: any) => 
+        mp.projects && mp.projects.project_status === '进行中'
+      );
       
       if (projectsError) {
         console.error('加载项目失败:', projectsError);
@@ -207,8 +211,8 @@ export default function MobileDispatchOrder() {
         });
       } else {
         const projectList: Project[] = [];
-        if (managedProjects) {
-          managedProjects.forEach((mp: any) => {
+        if (activeProjects) {
+          activeProjects.forEach((mp: any) => {
             if (mp.projects) {
               projectList.push({
                 id: mp.projects.id,
