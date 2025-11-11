@@ -467,8 +467,8 @@ export default function EnhancedWaybillMaintenance() {
         icon={Database}
         iconColor="text-green-600"
       />
-      
-      <div className="mx-auto max-w-7xl">
+
+      <div className="grid gap-6">
         <Alert className="border-blue-200 bg-blue-50">
           <Database className="h-4 w-4" />
           <AlertTitle>增强版功能</AlertTitle>

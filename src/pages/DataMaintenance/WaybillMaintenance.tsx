@@ -192,8 +192,8 @@ export default function WaybillMaintenance() {
         icon={Database}
         iconColor="text-blue-600"
       />
-      
-      <div className="mx-auto max-w-7xl">
+
+      <div className="grid gap-6">
         <Card className="shadow-sm">
           <CardContent className="p-6 space-y-6">
             {/* 权限提示 */}
