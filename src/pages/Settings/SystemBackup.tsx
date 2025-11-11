@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/PageHeader';
 
 export default function SystemBackup() {
   const [backing, setBacking] = useState(false);
@@ -323,22 +324,17 @@ BEGIN;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Database className="h-8 w-8 text-primary" />
-            系统备份
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            将数据库数据备份到本地，支持 JSON 和 SQL 格式
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title="系统备份"
+        description="将数据库数据备份到本地，支持 JSON 和 SQL 格式"
+        icon={Database}
+        iconColor="text-primary"
+        actions={(
           <Badge variant="outline" className="text-sm">
             已选择 {selectedCount} / {totalCount} 个表
           </Badge>
-        </div>
-      </div>
+        )}
+      />
 
       {/* 主体左右布局 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
