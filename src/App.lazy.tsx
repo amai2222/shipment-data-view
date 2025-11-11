@@ -15,14 +15,40 @@ const USE_LAZY_IN_DEV = false; // ⚠️ 开发环境是否使用懒加载（设
 // 条件懒加载函数
 const conditionalLazy = import.meta.env.DEV && !USE_LAZY_IN_DEV
   ? <T,>(importFn: () => Promise<{ default: T }>) => {
-      // 开发环境且禁用懒加载：立即导入（会在启动时加载所有模块）
+      // 开发环境且禁用懒加载：立即同步导入，不使用 lazy()
+      // 这样可以完全避免懒加载相关的错误
       console.warn(
         '%c⚠️ 懒加载已禁用（开发模式）',
         'color: #f56565; font-weight: bold; font-size: 14px;'
       );
       console.warn('所有模块将在启动时立即加载，便于快速查看错误');
-      // 注意：仍使用 lazy()，但 Vite 在开发模式下会预加载所有模块
-      return lazy(importFn);
+      
+      // 创建一个立即解析的 Promise，然后同步返回组件
+      // 注意：这会导致所有模块在启动时加载，但可以避免懒加载错误
+      let resolvedComponent: T | null = null;
+      let loadingPromise: Promise<T> | null = null;
+      
+      // 立即开始加载
+      loadingPromise = importFn().then(module => {
+        resolvedComponent = module.default;
+        return module.default;
+      }).catch(err => {
+        console.error('立即导入组件失败:', err);
+        throw err;
+      });
+      
+      // 返回一个包装组件，在组件渲染时等待加载完成
+      return ((props: any) => {
+        if (!resolvedComponent && loadingPromise) {
+          // 如果还没加载完成，抛出 Promise 让 Suspense 处理
+          throw loadingPromise;
+        }
+        if (!resolvedComponent) {
+          return <div>加载中...</div>;
+        }
+        const Component = resolvedComponent as React.ComponentType<any>;
+        return <Component {...props} />;
+      }) as T;
     }
   : lazy; // 生产环境或开发环境启用懒加载：使用标准lazy
 

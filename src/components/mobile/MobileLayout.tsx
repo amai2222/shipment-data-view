@@ -335,7 +335,7 @@ const settingsNavigation = [
 
 export function MobileLayout({ children, showBack, title }: MobileLayoutProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const { hasRole, hasMenuAccess } = useUnifiedPermissions();
   const navigate = useNavigate();
   const location = useLocation();
@@ -353,6 +353,11 @@ export function MobileLayout({ children, showBack, title }: MobileLayoutProps) {
 
   const getUserInitials = (name?: string) => {
     if (!name) return 'U';
+    // 处理中文姓名：取前两个字符
+    if (/[\u4e00-\u9fa5]/.test(name)) {
+      return name.substring(0, 2).toUpperCase();
+    }
+    // 处理英文姓名：取每个单词的首字母
     const names = name.split(' ');
     return names.map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
@@ -402,17 +407,17 @@ export function MobileLayout({ children, showBack, title }: MobileLayoutProps) {
                 {/* 用户信息 */}
                 <div className="flex items-center space-x-3 mb-6 p-3 rounded-lg bg-muted/50">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={user?.user_metadata?.avatar_url} />
+                    <AvatarImage src={profile?.avatar_url} />
                     <AvatarFallback className="bg-primary text-primary-foreground">
-                      {getUserInitials(user?.user_metadata?.full_name)}
+                      {getUserInitials(profile?.full_name || profile?.username)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {user?.user_metadata?.full_name || '用户'}
+                      {profile?.full_name || profile?.username || '用户'}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {user?.email}
+                      {profile?.email || user?.email}
                     </p>
                   </div>
                 </div>

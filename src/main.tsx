@@ -20,6 +20,12 @@ window.addEventListener('error', (event) => {
     'ERR_ADDRESS_INVALID', // Cloudflare Insights加载失败（非关键）
     'cloudflareinsights',
     'beacon.min.js',
+    'static.cloudflareinsights.com',
+    'Content Security Policy',
+    'violates the following Content Security Policy directive',
+    'Executing inline script violates',
+    'Either the \'unsafe-inline\' keyword',
+    'tab.js', // 浏览器扩展脚本
     // Supabase相关错误（表不存在或查询失败，已有错误处理）
     'fleet manager projects',
     'internal driver vehicle change',
@@ -57,8 +63,16 @@ window.addEventListener('unhandledrejection', (event) => {
     'A listener indicated an asynchronous response',
     'message channel closed',
     'chrome-extension://',
+    'moz-extension://',
+    'safari-extension://',
     'ERR_ADDRESS_INVALID',
     'cloudflareinsights',
+    'beacon.min.js',
+    'static.cloudflareinsights.com',
+    'Content Security Policy',
+    'violates the following Content Security Policy directive',
+    'Executing inline script violates',
+    'tab.js', // 浏览器扩展脚本
     // Supabase相关错误（表不存在或查询失败，已有错误处理）
     'fleet manager projects',
     'internal driver vehicle change',

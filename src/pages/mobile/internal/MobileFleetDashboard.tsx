@@ -32,9 +32,10 @@ import {
   MapPin,
   Shield
 } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { zhCN } from 'date-fns/locale';
 
 interface DashboardStats {
   totalVehicles: number;
@@ -293,63 +294,108 @@ export default function MobileFleetDashboard() {
   return (
     <MobileLayout showBack={false}>
       <div className="space-y-4 pb-20 bg-gray-50 min-h-screen">
-        {/* 欢迎卡片（货拉拉风格 - 蓝色渐变） */}
-        <Card className="bg-gradient-to-br from-[#1890FF] to-[#096DD9] text-white border-0 shadow-lg rounded-2xl mx-4 mt-4">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16 border-4 border-white shadow-md">
-                <AvatarImage src={profile?.avatar_url} />
-                <AvatarFallback className="bg-white/20 text-white text-lg font-bold">
-                  {profile?.full_name?.substring(0, 2) || profile?.username?.substring(0, 2).toUpperCase() || 'FM'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="text-sm opacity-90 mb-1">车队长</div>
-                <h2 className="text-2xl font-bold">
+        {/* 顶部状态栏 - 参考司机端UI */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-500 -mx-4 -mt-4 px-4 py-4 text-white">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                <User className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="font-bold text-lg">
                   {profile?.full_name || profile?.username || '车队长'}
-                </h2>
-                <p className="text-white/80 text-sm mt-1">
-                  {new Date().toLocaleDateString('zh-CN', { 
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </p>
+                </div>
+                <div className="text-xs text-blue-100">
+                  {format(new Date(), 'MM月dd日 EEEE', { locale: zhCN })}
+                </div>
               </div>
-              <Truck className="h-14 w-14 opacity-30" />
             </div>
-          </CardContent>
-        </Card>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-white/20"
+              onClick={() => {
+                loadStats();
+                loadDriverBalances();
+                toast({ title: '已刷新' });
+              }}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
 
-        {/* 数据统计卡片（货拉拉风格） */}
+        {/* 快捷操作按钮（任务派单和费用审核） */}
         <div className="grid grid-cols-2 gap-3 px-4">
-          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 shadow-sm rounded-xl">
-            <CardContent className="p-4 text-center">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-green-100 flex items-center justify-center">
-                <Truck className="h-6 w-6 text-green-600" />
+          <Button
+            variant="outline"
+            className="h-auto py-3 bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 hover:from-orange-100 hover:to-amber-100 rounded-xl"
+            onClick={() => navigate('/m/internal/dispatch-order')}
+          >
+            <div className="flex flex-col items-center gap-2 w-full">
+              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                <ClipboardList className="h-5 w-5 text-orange-600" />
               </div>
-              <div className="text-3xl font-bold text-green-700">{stats.activeVehicles}</div>
-              <div className="text-sm text-green-600 mt-1 font-medium">在用车辆</div>
+              <span className="text-sm font-medium text-orange-700">任务派单</span>
+            </div>
+          </Button>
+
+          <Button
+            variant="outline"
+            className="h-auto py-3 bg-gradient-to-br from-red-50 to-pink-50 border-red-200 hover:from-red-100 hover:to-pink-100 rounded-xl"
+            onClick={() => navigate('/m/internal/expense-review')}
+          >
+            <div className="flex flex-col items-center gap-2 w-full">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center relative">
+                <FileText className="h-5 w-5 text-red-600" />
+                {stats.pendingExpenses > 0 && (
+                  <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs h-5 w-5 p-0 flex items-center justify-center rounded-full">
+                    {stats.pendingExpenses}
+                  </Badge>
+                )}
+              </div>
+              <span className="text-sm font-medium text-red-700">费用审核</span>
+            </div>
+          </Button>
+        </div>
+
+        {/* 数据统计卡片（缩小版，可点击） */}
+        <div className="grid grid-cols-2 gap-3 px-4">
+          <Button
+            variant="ghost"
+            className="h-auto p-0 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:from-green-100 hover:to-emerald-100 rounded-xl"
+            onClick={() => navigate('/m/internal/vehicles')}
+          >
+            <CardContent className="p-3 text-center w-full">
+              <div className="w-10 h-10 mx-auto mb-1.5 rounded-full bg-green-100 flex items-center justify-center">
+                <Truck className="h-5 w-5 text-green-600" />
+              </div>
+              <div className="text-2xl font-bold text-green-700">{stats.activeVehicles}</div>
+              <div className="text-xs text-green-600 mt-0.5 font-medium">在用车辆</div>
               {stats.maintenanceVehicles > 0 && (
-                <div className="text-xs text-orange-600 mt-1">
+                <div className="text-[10px] text-orange-600 mt-0.5">
                   {stats.maintenanceVehicles}辆维修中
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Button>
 
-          <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200 shadow-sm rounded-xl">
-            <CardContent className="p-4 text-center">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-blue-100 flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600" />
+          <Button
+            variant="ghost"
+            className="h-auto p-0 bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200 hover:from-blue-100 hover:to-cyan-100 rounded-xl"
+            onClick={() => navigate('/m/internal/drivers')}
+          >
+            <CardContent className="p-3 text-center w-full">
+              <div className="w-10 h-10 mx-auto mb-1.5 rounded-full bg-blue-100 flex items-center justify-center">
+                <Users className="h-5 w-5 text-blue-600" />
               </div>
-              <div className="text-3xl font-bold text-blue-700">{stats.activeDrivers}</div>
-              <div className="text-sm text-blue-600 mt-1 font-medium">在职司机</div>
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-2xl font-bold text-blue-700">{stats.activeDrivers}</div>
+              <div className="text-xs text-blue-600 mt-0.5 font-medium">在职司机</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">
                 共{stats.totalDrivers}人
               </div>
             </CardContent>
-          </Card>
+          </Button>
         </div>
 
         {/* 待办事项（货拉拉风格） */}

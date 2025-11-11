@@ -275,7 +275,13 @@ export function setupResourceLoadMonitor(): void {
         'safari-extension://',
         'cloudflareinsights',
         'beacon.min.js',
+        'static.cloudflareinsights.com',
         'ERR_ADDRESS_INVALID',
+        'Content Security Policy',
+        'violates the following Content Security Policy directive',
+        'Executing inline script violates',
+        'Either the \'unsafe-inline\' keyword',
+        'tab.js', // 浏览器扩展脚本
         // Supabase相关错误（表不存在或查询失败，已有错误处理）
         'fleet manager projects',
         'internal driver vehicle change',
