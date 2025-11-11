@@ -192,37 +192,44 @@ export default function MobileDispatchOrder() {
       setDrivers(driverData || []);
 
       // 加载分配给该车队长的项目
+      // 注意：fleet_manager_projects 表没有 status 字段，需要通过关联 projects 表获取 project_status
       const { data: managedProjects, error: projectsError } = await supabase
         .from('fleet_manager_projects')
         .select('project_id, projects:project_id (id, name, project_status)')
         .eq('fleet_manager_id', userId);
+      
+      if (projectsError) {
+        console.error('加载项目失败:', projectsError);
+        // 如果是列不存在的错误，提供更详细的提示
+        if (projectsError.message?.includes('status') || projectsError.code === '42703') {
+          console.error('数据库架构错误：fleet_manager_projects 表没有 status 字段，应使用 projects.project_status');
+        }
+        toast({
+          title: '加载失败',
+          description: projectsError.message || '无法加载项目列表，请刷新页面重试',
+          variant: 'destructive'
+        });
+        setProjects([]);
+        return;
+      }
       
       // 过滤出状态为"进行中"的项目
       const activeProjects = (managedProjects || []).filter((mp: any) => 
         mp.projects && mp.projects.project_status === '进行中'
       );
       
-      if (projectsError) {
-        console.error('加载项目失败:', projectsError);
-        toast({
-          title: '加载失败',
-          description: '无法加载项目列表',
-          variant: 'destructive'
+      const projectList: Project[] = [];
+      if (activeProjects) {
+        activeProjects.forEach((mp: any) => {
+          if (mp.projects) {
+            projectList.push({
+              id: mp.projects.id,
+              name: mp.projects.name
+            });
+          }
         });
-      } else {
-        const projectList: Project[] = [];
-        if (activeProjects) {
-          activeProjects.forEach((mp: any) => {
-            if (mp.projects) {
-              projectList.push({
-                id: mp.projects.id,
-                name: mp.projects.name
-              });
-            }
-          });
-        }
-        setProjects(projectList);
       }
+      setProjects(projectList);
 
       // 加载地点列表（用于添加新线路）
       const { data: locationData } = await supabase

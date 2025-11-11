@@ -47,18 +47,26 @@
         const ignoredPatterns = [
           'ERR_ADDRESS_INVALID',
           'net::ERR_ADDRESS_INVALID',
+          'ERR_NAME_NOT_RESOLVED',
+          'ERR_CONNECTION_REFUSED',
+          'ERR_FAILED',
           'cloudflareinsights',
           'beacon.min.js',
           'static.cloudflareinsights.com',
+          'cloudflare',
           'chrome-extension://',
           'moz-extension://',
           'safari-extension://',
+          'extension://',
           'Content Security Policy',
+          'CSP',
           'violates the following Content Security Policy directive',
           'Executing inline script violates',
           'Either the \'unsafe-inline\' keyword',
           'The action has been blocked',
           'tab.js', // 浏览器扩展脚本
+          'content.js',
+          'background.js',
           'wasm-unsafe-eval',
           'inline-speculation-rules',
           'fleet manager projects',
@@ -75,7 +83,11 @@
           // 浏览器扩展异步消息错误
           'A listener indicated an asynchronous response',
           'message channel closed',
-          'asynchronous response by returning true'
+          'asynchronous response by returning true',
+          // 网络相关
+          'NetworkError',
+          'Failed to fetch',
+          'Load failed'
         ];
         
         // 检查是否应该忽略错误
@@ -108,14 +120,19 @@
         window.addEventListener('error', function(event) {
           const errorMessage = event.message || '';
           const errorSource = event.filename || event.target?.src || event.target?.href || '';
+          const errorTarget = event.target;
           
           // 检查是否是资源加载错误（script、link、img等）
-          if (event.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'LINK' || event.target.tagName === 'IMG')) {
-            const src = event.target.src || event.target.href || '';
+          if (errorTarget && (errorTarget.tagName === 'SCRIPT' || errorTarget.tagName === 'LINK' || errorTarget.tagName === 'IMG')) {
+            const src = errorTarget.src || errorTarget.href || '';
             if (shouldIgnoreError(errorMessage, src)) {
               event.preventDefault();
               event.stopPropagation();
               event.stopImmediatePropagation();
+              // 阻止错误冒泡到控制台
+              if (errorTarget.onerror) {
+                errorTarget.onerror = null;
+              }
               return false;
             }
           }
@@ -129,6 +146,20 @@
           }
         }, true); // 使用捕获阶段，更早拦截
         
+        // 额外拦截：监听资源加载错误（更早阶段）
+        document.addEventListener('error', function(event) {
+          const target = event.target;
+          if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK' || target.tagName === 'IMG')) {
+            const src = target.src || target.href || '';
+            if (shouldIgnoreError('', src)) {
+              event.preventDefault();
+              event.stopPropagation();
+              event.stopImmediatePropagation();
+              return false;
+            }
+          }
+        }, true);
+        
         // 拦截unhandledrejection
         window.addEventListener('unhandledrejection', function(event) {
           const reason = event.reason?.message || event.reason?.toString() || '';
@@ -139,6 +170,31 @@
           }
         }, true);
         
+        // 拦截XMLHttpRequest（更早拦截网络请求）
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        const originalXHRSend = XMLHttpRequest.prototype.send;
+        XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+          this._url = url;
+          if (shouldIgnoreError('', url)) {
+            // 标记为忽略的请求
+            this._shouldIgnore = true;
+          }
+          return originalXHROpen.apply(this, [method, url, ...rest]);
+        };
+        XMLHttpRequest.prototype.send = function(...args) {
+          if (this._shouldIgnore) {
+            // 对于应该忽略的请求，静默处理错误
+            this.addEventListener('error', function(e) {
+              e.stopPropagation();
+              e.preventDefault();
+            }, true);
+            this.addEventListener('loadend', function() {
+              // 静默处理
+            }, true);
+          }
+          return originalXHRSend.apply(this, args);
+        };
+        
         // 拦截fetch请求（阻止网络错误显示在控制台）
         const originalFetch = window.fetch;
         window.fetch = function(...args) {
@@ -147,26 +203,20 @@
           // 如果是应该忽略的URL，静默处理
           if (shouldIgnoreError('', url)) {
             return originalFetch.apply(this, args).catch(error => {
-              // 静默忽略错误，不抛出
-              return Promise.reject(error);
+              // 完全静默忽略错误，不抛出，不记录
+              // 返回一个已拒绝但被忽略的Promise
+              return Promise.resolve(new Response(null, { 
+                status: 0, 
+                statusText: 'Ignored',
+                ok: false 
+              }));
             });
           }
           
           return originalFetch.apply(this, args);
         };
         
-        // 拦截XMLHttpRequest（某些库可能使用XHR）
-        const originalXHROpen = XMLHttpRequest.prototype.open;
-        XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-          if (shouldIgnoreError('', url)) {
-            // 对于应该忽略的请求，添加错误处理
-            this.addEventListener('error', function(e) {
-              e.preventDefault();
-              e.stopPropagation();
-            }, true);
-          }
-          return originalXHROpen.apply(this, [method, url, ...rest]);
-        };
+        // XMLHttpRequest 拦截已在上面完成，这里不再重复
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
