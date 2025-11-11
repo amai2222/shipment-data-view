@@ -468,7 +468,8 @@ export default function TemplateBasedImport() {
     setIsImporting(true);
     setImportProgress(0);
     setImportStep('processing');
-    setIsPreviewDialogOpen(false);
+    // 保持预览对话框打开，显示导入进度
+    // setIsPreviewDialogOpen(false);
 
     try {
       // 准备导入数据 - 根据选择的模式组合记录
@@ -493,7 +494,7 @@ export default function TemplateBasedImport() {
           variant: "default"
         });
         setImportStep('confirmation');
-        setIsPreviewDialogOpen(true);
+        // 保持对话框打开
         setIsImporting(false);
         return;
       }
@@ -653,6 +654,8 @@ export default function TemplateBasedImport() {
       });
 
       setImportStep('completed');
+      // 先关闭预览对话框，再打开结果对话框
+      setIsPreviewDialogOpen(false);
       setIsResultDialogOpen(true);
       
       if (Number(result.success_count) > 0) {
@@ -675,6 +678,8 @@ export default function TemplateBasedImport() {
 
     } catch (error: unknown) {
       console.error('导入失败:', error);
+      // 导入失败时，回到确认步骤，保持对话框打开
+      setImportStep('confirmation');
       toast({ 
         title: "导入失败", 
         description: error instanceof Error ? error.message : "导入过程中发生错误", 
