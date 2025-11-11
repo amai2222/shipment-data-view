@@ -185,7 +185,7 @@ export default function WaybillMaintenance() {
   }, [loadWaybillCount]);
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="space-y-6 p-4 md:p-6">
       <PageHeader
         title="运单维护"
         description="运单数据的导入、删除和维护管理"

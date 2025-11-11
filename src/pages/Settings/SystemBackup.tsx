@@ -323,7 +323,7 @@ BEGIN;
   const totalCount = Object.keys(selectedTables).length;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <PageHeader
         title="系统备份"
         description="将数据库数据备份到本地，支持 JSON 和 SQL 格式"

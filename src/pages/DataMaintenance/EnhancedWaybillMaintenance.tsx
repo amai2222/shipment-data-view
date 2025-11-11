@@ -460,7 +460,7 @@ export default function EnhancedWaybillMaintenance() {
   }, [loadWaybillCount]);
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="space-y-6 p-4 md:p-6">
       <PageHeader
         title="运单维护（增强版）"
         description="专业的运单数据导入和维护管理 - 支持多种日期格式、详细日志和实时进度"
