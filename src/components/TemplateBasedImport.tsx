@@ -627,6 +627,16 @@ export default function TemplateBasedImport() {
         return record;
       });
       
+      // 性能优化：如果记录数超过200条，提示用户分批导入
+      if (importData.length > 200) {
+        toast({
+          title: "数据量较大",
+          description: `本次导入 ${importData.length} 条记录，建议分批导入（每次不超过200条）以提高性能。`,
+          variant: "default"
+        });
+        // 继续执行，但记录警告
+      }
+      
       // 调用支持更新模式的 RPC 函数
       interface BatchImportResult {
         success_count: number;
@@ -643,21 +653,51 @@ export default function TemplateBasedImport() {
         errors?: ImportError[]; // 兼容旧格式
       }
       
-      const { data, error } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records_with_update', {
+      // 性能优化：使用优化后的 batch_import_logistics_records_with_update 函数
+      // 该函数已优化：使用批量查询和JSONB存储加速重复检查，保留完整的重复检查功能
+      // 创建模式：p_update_mode=false（检查重复但不更新，跳过重复记录）
+      // 更新模式：p_update_mode=true（检查重复并更新现有记录）
+      const { data: rpcData, error: rpcError } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records_with_update', {
         p_records: importData,
         p_update_mode: importMode === 'update'
       });
-
+      
+      let result: BatchImportResult | null = null;
+      let error: unknown = null;
+      
+      if (rpcError) {
+        error = rpcError;
+      } else {
+        result = rpcData;
+      }
+      
       if (error) {
         console.error('RPC调用错误:', error);
-        throw new Error(`数据库调用失败: ${error.message || JSON.stringify(error)}`);
+        // 提取详细的错误信息
+        let errorMessage = "数据库调用失败";
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'object' && error !== null) {
+          // 尝试从 Supabase 错误对象中提取信息
+          const supabaseError = error as { message?: string; details?: string; hint?: string; code?: string };
+          if (supabaseError.message) {
+            errorMessage = supabaseError.message;
+          } else if (supabaseError.details) {
+            errorMessage = supabaseError.details;
+          } else if (supabaseError.hint) {
+            errorMessage = supabaseError.hint;
+          }
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        }
+        throw new Error(`数据库调用失败: ${errorMessage}`);
       }
 
-      if (!data) {
+      if (!result) {
         throw new Error('数据库未返回结果');
       }
 
-      const result = data;
+      const data = result;
       const insertedCount = Number(result.inserted_count) || 0;
       const updatedCount = Number(result.updated_count) || 0;
       
