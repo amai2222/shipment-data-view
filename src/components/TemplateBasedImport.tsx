@@ -29,7 +29,8 @@ import {
   CheckCircle, 
   XCircle,
   RefreshCw,
-  Settings
+  Settings,
+  AlertCircle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -91,10 +92,17 @@ interface FixedMapping {
   description: string;
 }
 
+interface ImportError {
+  row?: number;
+  message?: string;
+  field?: string;
+  [key: string]: unknown;
+}
+
 interface ImportResult {
   success_count: number;
   error_count: number;
-  errors: any[];
+  errors: ImportError[];
 }
 
 export default function TemplateBasedImport() {
@@ -110,7 +118,11 @@ export default function TemplateBasedImport() {
   const [importProgress, setImportProgress] = useState(0);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
-  const [previewData, setPreviewData] = useState<any[]>([]);
+  interface PreviewDataItem {
+    row_index: number;
+    data: Record<string, unknown>;
+  }
+  const [previewData, setPreviewData] = useState<PreviewDataItem[]>([]);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
 
   // 加载模板列表
@@ -278,10 +290,11 @@ export default function TemplateBasedImport() {
               record[mapping.target_field] = parseFloat(String(value)) || 0;
             } else if (mapping.field_type === 'date' && value) {
               // 日期处理
-              const dateValue = value as any;
-              if (Object.prototype.toString.call(dateValue) === '[object Date]') {
+              // 检查是否为 Date 对象
+              if (Object.prototype.toString.call(value) === '[object Date]') {
+                const dateValue = value as unknown as Date;
                 record[mapping.target_field] = dateValue.toISOString().split('T')[0];
-              } else if (typeof dateValue === 'string') {
+              } else if (typeof value === 'string') {
                 // 尝试解析日期字符串
                 const date = new Date(value);
                 if (!isNaN(date.getTime())) {
@@ -289,9 +302,11 @@ export default function TemplateBasedImport() {
                 } else {
                   record[mapping.target_field] = value;
                 }
+              } else {
+                record[mapping.target_field] = String(value);
               }
             } else if (mapping.field_type === 'boolean') {
-              record[mapping.target_field] = Boolean(value) ? 'true' : 'false';
+              record[mapping.target_field] = value ? 'true' : 'false';
             } else {
               record[mapping.target_field] = String(value || '');
             }
@@ -416,13 +431,19 @@ export default function TemplateBasedImport() {
       // 2. 自动生成运单编号（调用 generate_auto_number）
       // 3. 保存到数据库（logistics_records 表）
       // 4. 触发数据库触发器（自动处理关联数据）
-      const { data, error } = await supabase.rpc('batch_import_logistics_records', {
-        p_records: importData as any
-      } as any);
+      interface BatchImportResult {
+        success_count: number;
+        error_count: number;
+        errors?: ImportError[];
+      }
+      
+      const { data, error } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records', {
+        p_records: importData
+      });
 
       if (error) throw error;
 
-      const result = data as any;
+      const result = data;
       setImportResult({
         success_count: Number(result.success_count) || 0,
         error_count: Number(result.error_count) || 0,
@@ -505,6 +526,7 @@ export default function TemplateBasedImport() {
 
   useEffect(() => {
     loadTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -708,42 +730,92 @@ export default function TemplateBasedImport() {
 
       {/* 预览对话框 */}
       <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+        <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>数据预览</DialogTitle>
             <DialogDescription>
               预览转换后的数据，确认无误后点击导入
             </DialogDescription>
           </DialogHeader>
-          <div className="overflow-auto max-h-[60vh]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>行号</TableHead>
-                  {fieldMappings.map((mapping) => (
-                    <TableHead key={mapping.id}>
-                      {mapping.source_field} → {mapping.target_field}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {previewData.slice(0, 10).map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.row_index}</TableCell>
-                    {fieldMappings.map((mapping) => (
-                      <TableCell key={mapping.id}>
-                        {item.data[mapping.target_field] || '-'}
-                      </TableCell>
-                    ))}
+          {/* 可横向滚动的表格容器 */}
+          <div className="overflow-auto max-h-[60vh] border rounded-md">
+            <div className="overflow-x-auto min-w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky left-0 bg-background z-10 min-w-[60px]">行号</TableHead>
+                    {/* 字段映射列 */}
+                    {fieldMappings.map((mapping) => {
+                      const fieldInfo = SYSTEM_FIELDS.find(f => f.key === mapping.target_field);
+                      const fieldLabel = fieldInfo?.label || mapping.target_field;
+                      return (
+                        <TableHead key={mapping.id} className="min-w-[150px] whitespace-nowrap">
+                          {fieldLabel} ({mapping.source_field})
+                        </TableHead>
+                      );
+                    })}
+                    {/* 固定值映射列 */}
+                    {fixedMappings.map((mapping) => {
+                      const fieldInfo = SYSTEM_FIELDS.find(f => f.key === mapping.target_field);
+                      const fieldLabel = fieldInfo?.label || mapping.target_field;
+                      return (
+                        <TableHead key={`fixed-${mapping.id}`} className="bg-blue-50 min-w-[150px] whitespace-nowrap">
+                          {fieldLabel} <span className="text-xs text-blue-600">(固定值)</span>
+                        </TableHead>
+                      );
+                    })}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {previewData.slice(0, 10).map((item, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="sticky left-0 bg-background z-10 font-medium">{item.row_index}</TableCell>
+                      {/* 字段映射数据 */}
+                      {fieldMappings.map((mapping) => (
+                        <TableCell key={mapping.id} className="min-w-[150px]">
+                          {item.data[mapping.target_field] !== undefined && item.data[mapping.target_field] !== null
+                            ? String(item.data[mapping.target_field])
+                            : '-'}
+                        </TableCell>
+                      ))}
+                      {/* 固定值映射数据 */}
+                      {fixedMappings.map((mapping) => (
+                        <TableCell key={`fixed-${mapping.id}`} className="bg-blue-50 font-semibold text-blue-600 min-w-[150px]">
+                          {mapping.fixed_value}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          {/* 固定值映射说明和记录数提示 */}
+          <div className="mt-4 space-y-2">
             {previewData.length > 10 && (
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-sm text-muted-foreground">
                 显示前10条记录，共 {previewData.length} 条记录
               </p>
+            )}
+            {/* 固定值映射说明 */}
+            {fixedMappings.length > 0 && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>固定值映射说明：</strong>
+                  {fixedMappings.map((mapping, idx) => {
+                    const fieldInfo = SYSTEM_FIELDS.find(f => f.key === mapping.target_field);
+                    const fieldLabel = fieldInfo?.label || mapping.target_field;
+                    return (
+                      <span key={mapping.id}>
+                        {idx > 0 && '、'}
+                        {fieldLabel} = {mapping.fixed_value}
+                      </span>
+                    );
+                  })}
+                  （这些字段使用固定值，不从Excel读取）
+                </AlertDescription>
+              </Alert>
             )}
           </div>
           <DialogFooter>
