@@ -325,28 +325,30 @@ export default function MobileFleetDashboard() {
           </div>
         </div>
 
-        {/* 快捷操作按钮（任务派单和费用审核） */}
-        <div className="grid grid-cols-2 gap-3 px-4">
+        {/* 快捷操作和统计卡片（4个按钮一排，统一风格） */}
+        <div className="grid grid-cols-4 gap-3 px-4">
+          {/* 任务派单 */}
           <Button
-            variant="outline"
-            className="h-auto py-3 bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 hover:from-orange-100 hover:to-amber-100 rounded-xl"
+            variant="ghost"
+            className="h-auto p-0 bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 hover:from-orange-100 hover:to-amber-100 rounded-xl"
             onClick={() => navigate('/m/internal/dispatch-order')}
           >
-            <div className="flex flex-col items-center gap-2 w-full">
-              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+            <CardContent className="p-3 text-center w-full">
+              <div className="w-10 h-10 mx-auto mb-1.5 rounded-full bg-orange-100 flex items-center justify-center">
                 <ClipboardList className="h-5 w-5 text-orange-600" />
               </div>
-              <span className="text-sm font-medium text-orange-700">任务派单</span>
-            </div>
+              <div className="text-xs text-orange-600 mt-0.5 font-medium">任务派单</div>
+            </CardContent>
           </Button>
 
+          {/* 费用审核 */}
           <Button
-            variant="outline"
-            className="h-auto py-3 bg-gradient-to-br from-red-50 to-pink-50 border-red-200 hover:from-red-100 hover:to-pink-100 rounded-xl"
+            variant="ghost"
+            className="h-auto p-0 bg-gradient-to-br from-red-50 to-pink-50 border-red-200 hover:from-red-100 hover:to-pink-100 rounded-xl"
             onClick={() => navigate('/m/internal/expense-review')}
           >
-            <div className="flex flex-col items-center gap-2 w-full">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center relative">
+            <CardContent className="p-3 text-center w-full">
+              <div className="w-10 h-10 mx-auto mb-1.5 rounded-full bg-red-100 flex items-center justify-center relative">
                 <FileText className="h-5 w-5 text-red-600" />
                 {stats.pendingExpenses > 0 && (
                   <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs h-5 w-5 p-0 flex items-center justify-center rounded-full">
@@ -354,13 +356,11 @@ export default function MobileFleetDashboard() {
                   </Badge>
                 )}
               </div>
-              <span className="text-sm font-medium text-red-700">费用审核</span>
-            </div>
+              <div className="text-xs text-red-600 mt-0.5 font-medium">费用审核</div>
+            </CardContent>
           </Button>
-        </div>
 
-        {/* 数据统计卡片（缩小版，可点击） */}
-        <div className="grid grid-cols-2 gap-3 px-4">
+          {/* 在用车辆 */}
           <Button
             variant="ghost"
             className="h-auto p-0 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:from-green-100 hover:to-emerald-100 rounded-xl"
@@ -380,6 +380,7 @@ export default function MobileFleetDashboard() {
             </CardContent>
           </Button>
 
+          {/* 在职司机 */}
           <Button
             variant="ghost"
             className="h-auto p-0 bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200 hover:from-blue-100 hover:to-cyan-100 rounded-xl"
@@ -391,9 +392,6 @@ export default function MobileFleetDashboard() {
               </div>
               <div className="text-2xl font-bold text-blue-700">{stats.activeDrivers}</div>
               <div className="text-xs text-blue-600 mt-0.5 font-medium">在职司机</div>
-              <div className="text-[10px] text-gray-500 mt-0.5">
-                共{stats.totalDrivers}人
-              </div>
             </CardContent>
           </Button>
         </div>
