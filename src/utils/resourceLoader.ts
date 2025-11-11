@@ -265,7 +265,27 @@ export function setupResourceLoadMonitor(): void {
   window.addEventListener('error', (event) => {
     if (event.target && (event.target as any).tagName) {
       const tagName = (event.target as any).tagName;
-      const src = (event.target as any).src || (event.target as any).href;
+      const src = (event.target as any).src || (event.target as any).href || '';
+      const errorMessage = event.error?.message || event.message || '';
+      
+      // 忽略浏览器扩展和Cloudflare Insights的错误
+      const ignoredSources = [
+        'chrome-extension://',
+        'moz-extension://',
+        'safari-extension://',
+        'cloudflareinsights',
+        'beacon.min.js',
+        'ERR_ADDRESS_INVALID'
+      ];
+      
+      const shouldIgnore = ignoredSources.some(pattern => 
+        src.includes(pattern) || errorMessage.includes(pattern)
+      );
+      
+      if (shouldIgnore) {
+        // 静默忽略浏览器扩展和Cloudflare Insights的错误
+        return;
+      }
       
       if ((tagName === 'SCRIPT' || tagName === 'LINK') && src) {
         const error = event.error || new Error(`资源加载失败: ${src}`);

@@ -8,14 +8,33 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     // 1. 捕获全局JavaScript错误
     const handleError = (event: ErrorEvent) => {
+      const errorMessage = event.error?.message || event.message || '';
+      const errorSource = event.filename || '';
+      
       // 忽略一些常见的、不影响功能的错误
       const ignoredErrors = [
         'ResizeObserver loop limit exceeded',
         'Non-Error promise rejection captured',
-        'Script error' // 跨域脚本错误，通常无法获取详细信息
+        'Script error', // 跨域脚本错误，通常无法获取详细信息
+        'A listener indicated an asynchronous response by returning true, but the message channel closed',
+        'chrome-extension://',
+        'moz-extension://',
+        'safari-extension://',
+        'ERR_ADDRESS_INVALID', // Cloudflare Insights加载失败（非关键）
+        'cloudflareinsights',
+        'beacon.min.js',
+        'Content Security Policy', // CSP违规（通常是浏览器扩展导致的）
+        'violates the following Content Security Policy directive'
       ];
       
-      if (ignoredErrors.some(msg => event.message?.includes(msg))) {
+      // 检查错误消息或来源
+      const shouldIgnore = ignoredErrors.some(pattern => 
+        errorMessage.includes(pattern) || errorSource.includes(pattern)
+      );
+      
+      if (shouldIgnore) {
+        // 静默忽略，不输出到控制台
+        event.preventDefault();
         return;
       }
       
@@ -41,6 +60,29 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
 
     // 2. 捕获未处理的Promise拒绝
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason?.message || event.reason?.toString() || '';
+      
+      // 忽略浏览器扩展导致的Promise拒绝
+      const ignoredRejections = [
+        'A listener indicated an asynchronous response',
+        'message channel closed',
+        'chrome-extension://',
+        'ERR_ADDRESS_INVALID',
+        'cloudflareinsights',
+        'Content Security Policy',
+        'violates the following Content Security Policy directive'
+      ];
+      
+      const shouldIgnore = ignoredRejections.some(pattern => 
+        reason.includes(pattern)
+      );
+      
+      if (shouldIgnore) {
+        // 静默忽略
+        event.preventDefault();
+        return;
+      }
+      
       console.error('未处理的Promise拒绝:', event.reason);
       
       // 记录错误到数据库
@@ -48,9 +90,6 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
       logErrorToDatabase(errorData).catch(err => {
         console.error('记录Promise拒绝失败:', err);
       });
-      
-      // 可选：阻止默认行为（在控制台显示错误）
-      // event.preventDefault();
     };
 
     // 3. 捕获网络请求错误（通过fetch拦截）

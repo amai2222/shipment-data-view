@@ -7,15 +7,15 @@
     <meta name="description" content="高效的物流业务跟踪与统计分析系统" />
     <meta name="author" content="物流业务跟踪系统" />
     
-    <!-- 内容安全策略 (CSP) - 开发环境放宽限制 -->
+    <!-- 内容安全策略 (CSP) - 开发环境放宽限制，允许浏览器扩展 -->
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
-                   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.gpteng.co https://static.cloudflareinsights.com; 
-                   style-src 'self' 'unsafe-inline'; 
-                   img-src 'self' data: https: blob:; 
-                   font-src 'self' data:; 
-                   connect-src 'self' https://mnwzvtvyauyxwowjjsmf.supabase.co wss://mnwzvtvyauyxwowjjsmf.supabase.co https://static.cloudflareinsights.com https:; 
-                   frame-src 'self'; 
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.gpteng.co https://static.cloudflareinsights.com chrome-extension: moz-extension: safari-extension:; 
+                   style-src 'self' 'unsafe-inline' chrome-extension: moz-extension: safari-extension:; 
+                   img-src 'self' data: https: blob: chrome-extension: moz-extension: safari-extension:; 
+                   font-src 'self' data: chrome-extension: moz-extension: safari-extension:; 
+                   connect-src 'self' https://mnwzvtvyauyxwowjjsmf.supabase.co wss://mnwzvtvyauyxwowjjsmf.supabase.co https://static.cloudflareinsights.com https: chrome-extension: moz-extension: safari-extension:; 
+                   frame-src 'self' chrome-extension: moz-extension: safari-extension:; 
                    object-src 'none'; 
                    base-uri 'self';">
     
