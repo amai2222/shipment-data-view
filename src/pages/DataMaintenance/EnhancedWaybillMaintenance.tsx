@@ -469,6 +469,7 @@ export default function EnhancedWaybillMaintenance() {
       />
 
       <div className="grid gap-6">
+        <div className="bg-card rounded-lg border p-6 space-y-6">
         <Alert className="border-blue-200 bg-blue-50">
           <Database className="h-4 w-4" />
           <AlertTitle>增强版功能</AlertTitle>
@@ -636,6 +637,7 @@ export default function EnhancedWaybillMaintenance() {
             />
           </TabsContent>
         </Tabs>
+        </div>
       </div>
       
       {/* 增强导入对话框 */}
