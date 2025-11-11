@@ -43,7 +43,7 @@
     <script>
       // 提前注册错误处理器（在React加载前）
       (function() {
-        // 忽略的错误模式
+        // 忽略的错误模式（浏览器扩展、Cloudflare Insights等非关键错误）
         const ignoredPatterns = [
           'ERR_ADDRESS_INVALID',
           'cloudflareinsights',
@@ -56,7 +56,10 @@
           'violates the following Content Security Policy directive',
           'Executing inline script violates',
           'Either the \'unsafe-inline\' keyword',
+          'The action has been blocked',
           'tab.js', // 浏览器扩展脚本
+          'wasm-unsafe-eval',
+          'inline-speculation-rules',
           'fleet manager projects',
           'internal driver vehicle change',
           'supabase.co/rest/v1/'

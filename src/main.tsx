@@ -25,7 +25,10 @@ window.addEventListener('error', (event) => {
     'violates the following Content Security Policy directive',
     'Executing inline script violates',
     'Either the \'unsafe-inline\' keyword',
+    'The action has been blocked',
     'tab.js', // 浏览器扩展脚本
+    'wasm-unsafe-eval',
+    'inline-speculation-rules',
     // Supabase相关错误（表不存在或查询失败，已有错误处理）
     'fleet manager projects',
     'internal driver vehicle change',
@@ -72,7 +75,11 @@ window.addEventListener('unhandledrejection', (event) => {
     'Content Security Policy',
     'violates the following Content Security Policy directive',
     'Executing inline script violates',
+    'Either the \'unsafe-inline\' keyword',
+    'The action has been blocked',
     'tab.js', // 浏览器扩展脚本
+    'wasm-unsafe-eval',
+    'inline-speculation-rules',
     // Supabase相关错误（表不存在或查询失败，已有错误处理）
     'fleet manager projects',
     'internal driver vehicle change',
