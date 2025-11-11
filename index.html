@@ -43,7 +43,7 @@
     <script>
       // 提前注册错误处理器（在React加载前）
       (function() {
-        // 忽略的错误模式（浏览器扩展、Cloudflare Insights等非关键错误）
+        // 忽略的错误模式（浏览器扩展、Cloudflare Insights、懒加载缓存错误等非关键错误）
         const ignoredPatterns = [
           'ERR_ADDRESS_INVALID',
           'net::ERR_ADDRESS_INVALID',
@@ -63,7 +63,19 @@
           'inline-speculation-rules',
           'fleet manager projects',
           'internal driver vehicle change',
-          'supabase.co/rest/v1/'
+          'supabase.co/rest/v1/',
+          // 懒加载缓存错误
+          'SyntaxError: Unexpected token \'<\'',
+          'Unexpected token \'<\'',
+          '懒加载错误',
+          'Lazy load error',
+          'ChunkLoadError',
+          'Failed to fetch dynamically imported module',
+          'Loading chunk',
+          // 浏览器扩展异步消息错误
+          'A listener indicated an asynchronous response',
+          'message channel closed',
+          'asynchronous response by returning true'
         ];
         
         // 检查是否应该忽略错误

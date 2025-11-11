@@ -39,13 +39,34 @@ class LazyLoadErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     this.lastError = error;
-    console.error('懒加载错误:', error, errorInfo);
-    console.error('错误详情:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      errorInfo
-    });
+    
+    // 检查是否是应该忽略的错误（缓存问题、浏览器扩展等）
+    const errorMessage = error.message || '';
+    const errorName = error.name || '';
+    const ignoredPatterns = [
+      'SyntaxError: Unexpected token \'<\'',
+      'Unexpected token \'<\'',
+      'A listener indicated an asynchronous response',
+      'message channel closed',
+      'chrome-extension://',
+      'moz-extension://',
+      'safari-extension://'
+    ];
+    
+    const shouldIgnore = ignoredPatterns.some(pattern => 
+      errorMessage.includes(pattern) || errorName.includes(pattern)
+    );
+    
+    // 只输出非忽略的错误
+    if (!shouldIgnore) {
+      console.error('懒加载错误:', error, errorInfo);
+      console.error('错误详情:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        errorInfo
+      });
+    }
     
     // 📝 记录错误到数据库
     const isChunkLoadError = error.name === 'ChunkLoadError' || 
