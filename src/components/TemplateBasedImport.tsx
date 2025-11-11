@@ -286,7 +286,23 @@ export default function TemplateBasedImport() {
             }
             
             // 数据类型转换
-            if (mapping.field_type === 'number' && value !== null && value !== undefined) {
+            if (mapping.target_field === 'external_tracking_numbers' || mapping.target_field === 'other_platform_names') {
+              // 数组字段处理：将字符串转换为字符串数组
+              if (value === null || value === undefined || value === '') {
+                record[mapping.target_field] = [];
+              } else if (Array.isArray(value)) {
+                // 如果已经是数组，确保所有元素都是字符串
+                record[mapping.target_field] = value.map(v => String(v).trim()).filter(v => v);
+              } else {
+                // 字符串转数组：支持逗号分隔
+                const strValue = String(value).trim();
+                if (strValue) {
+                  record[mapping.target_field] = strValue.split(',').map(v => v.trim()).filter(v => v);
+                } else {
+                  record[mapping.target_field] = [];
+                }
+              }
+            } else if (mapping.field_type === 'number' && value !== null && value !== undefined) {
               record[mapping.target_field] = parseFloat(String(value)) || 0;
             } else if (mapping.field_type === 'date' && value) {
               // 日期处理
@@ -318,7 +334,15 @@ export default function TemplateBasedImport() {
 
         // 应用固定值映射
         fixedMappings.forEach(mapping => {
-          record[mapping.target_field] = mapping.fixed_value;
+          // 如果是数组字段，需要将固定值转换为数组
+          if (mapping.target_field === 'external_tracking_numbers' || mapping.target_field === 'other_platform_names') {
+            const strValue = String(mapping.fixed_value).trim();
+            record[mapping.target_field] = strValue 
+              ? strValue.split(',').map(v => v.trim()).filter(v => v)
+              : [];
+          } else {
+            record[mapping.target_field] = mapping.fixed_value;
+          }
         });
 
         return {
@@ -414,11 +438,38 @@ export default function TemplateBasedImport() {
           record.transport_type = '实际运输';
         }
         
-        // 确保数组字段格式正确
-        if (record.external_tracking_numbers && !Array.isArray(record.external_tracking_numbers)) {
+        // 确保数组字段格式正确（必须是字符串数组）
+        if (record.external_tracking_numbers !== undefined && record.external_tracking_numbers !== null) {
+          if (!Array.isArray(record.external_tracking_numbers)) {
+            // 如果不是数组，尝试转换为数组
+            const strValue = String(record.external_tracking_numbers).trim();
+            record.external_tracking_numbers = strValue 
+              ? strValue.split(',').map(v => v.trim()).filter(v => v)
+              : [];
+          } else {
+            // 确保数组中的元素都是字符串
+            record.external_tracking_numbers = record.external_tracking_numbers
+              .map(v => String(v).trim())
+              .filter(v => v);
+          }
+        } else {
           record.external_tracking_numbers = [];
         }
-        if (record.other_platform_names && !Array.isArray(record.other_platform_names)) {
+        
+        if (record.other_platform_names !== undefined && record.other_platform_names !== null) {
+          if (!Array.isArray(record.other_platform_names)) {
+            // 如果不是数组，尝试转换为数组
+            const strValue = String(record.other_platform_names).trim();
+            record.other_platform_names = strValue 
+              ? strValue.split(',').map(v => v.trim()).filter(v => v)
+              : [];
+          } else {
+            // 确保数组中的元素都是字符串
+            record.other_platform_names = record.other_platform_names
+              .map(v => String(v).trim())
+              .filter(v => v);
+          }
+        } else {
           record.other_platform_names = [];
         }
         
