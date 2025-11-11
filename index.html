@@ -46,6 +46,7 @@
         // 忽略的错误模式（浏览器扩展、Cloudflare Insights等非关键错误）
         const ignoredPatterns = [
           'ERR_ADDRESS_INVALID',
+          'net::ERR_ADDRESS_INVALID',
           'cloudflareinsights',
           'beacon.min.js',
           'static.cloudflareinsights.com',
@@ -65,43 +66,95 @@
           'supabase.co/rest/v1/'
         ];
         
-        // 拦截console.error
+        // 检查是否应该忽略错误
+        function shouldIgnoreError(message, source) {
+          const fullMessage = (message || '') + ' ' + (source || '');
+          return ignoredPatterns.some(pattern => 
+            fullMessage.includes(pattern)
+          );
+        }
+        
+        // 拦截console.error（包括网络错误）
         const originalError = console.error;
         console.error = function(...args) {
           const message = args.join(' ');
-          const shouldIgnore = ignoredPatterns.some(pattern => 
-            message.includes(pattern)
-          );
-          if (!shouldIgnore) {
+          if (!shouldIgnoreError(message, '')) {
             originalError.apply(console, args);
           }
         };
         
-        // 拦截window.error事件
+        // 拦截console.warn（网络错误有时也会显示为警告）
+        const originalWarn = console.warn;
+        console.warn = function(...args) {
+          const message = args.join(' ');
+          if (!shouldIgnoreError(message, '')) {
+            originalWarn.apply(console, args);
+          }
+        };
+        
+        // 拦截window.error事件（包括资源加载错误）
         window.addEventListener('error', function(event) {
           const errorMessage = event.message || '';
-          const errorSource = event.filename || '';
-          const shouldIgnore = ignoredPatterns.some(pattern => 
-            errorMessage.includes(pattern) || errorSource.includes(pattern)
-          );
-          if (shouldIgnore) {
+          const errorSource = event.filename || event.target?.src || event.target?.href || '';
+          
+          // 检查是否是资源加载错误（script、link、img等）
+          if (event.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'LINK' || event.target.tagName === 'IMG')) {
+            const src = event.target.src || event.target.href || '';
+            if (shouldIgnoreError(errorMessage, src)) {
+              event.preventDefault();
+              event.stopPropagation();
+              event.stopImmediatePropagation();
+              return false;
+            }
+          }
+          
+          // 检查普通JavaScript错误
+          if (shouldIgnoreError(errorMessage, errorSource)) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            return false;
+          }
+        }, true); // 使用捕获阶段，更早拦截
+        
+        // 拦截unhandledrejection
+        window.addEventListener('unhandledrejection', function(event) {
+          const reason = event.reason?.message || event.reason?.toString() || '';
+          if (shouldIgnoreError(reason, '')) {
             event.preventDefault();
             event.stopPropagation();
             return false;
           }
         }, true);
         
-        // 拦截unhandledrejection
-        window.addEventListener('unhandledrejection', function(event) {
-          const reason = event.reason?.message || event.reason?.toString() || '';
-          const shouldIgnore = ignoredPatterns.some(pattern => 
-            reason.includes(pattern)
-          );
-          if (shouldIgnore) {
-            event.preventDefault();
-            return false;
+        // 拦截fetch请求（阻止网络错误显示在控制台）
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+          const url = args[0]?.toString() || '';
+          
+          // 如果是应该忽略的URL，静默处理
+          if (shouldIgnoreError('', url)) {
+            return originalFetch.apply(this, args).catch(error => {
+              // 静默忽略错误，不抛出
+              return Promise.reject(error);
+            });
           }
-        }, true);
+          
+          return originalFetch.apply(this, args);
+        };
+        
+        // 拦截XMLHttpRequest（某些库可能使用XHR）
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+          if (shouldIgnoreError('', url)) {
+            // 对于应该忽略的请求，添加错误处理
+            this.addEventListener('error', function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }, true);
+          }
+          return originalXHROpen.apply(this, [method, url, ...rest]);
+        };
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
