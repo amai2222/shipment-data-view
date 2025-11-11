@@ -14,13 +14,20 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
   // 处理Excel数字日期格式
   if (typeof excelDate === 'number' && excelDate > 0) {
     try {
-      // Excel日期从1900年1月1日开始计算，需要减去25569天
-      const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+      // Excel日期序列号：1900年1月1日为1，但Excel错误地认为1900是闰年
+      // 所以需要减去2天来修正
+      const excelEpoch = new Date(1900, 0, 1);
+      const date = new Date(excelEpoch.getTime() + (excelDate - 2) * 24 * 60 * 60 * 1000);
       if (isNaN(date.getTime())) {
         console.warn('Excel数字日期转换失败:', excelDate);
         return null;
       }
-      const result = date.toISOString().split('T')[0];
+      // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+      // 这样Excel中的日期会被理解为中国时区的日期
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const result = `${year}-${month}-${day}`;
       console.log('Excel数字日期解析成功:', result);
       return result;
     } catch (error) {
@@ -32,7 +39,16 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
   // 处理Date对象
   if (excelDate instanceof Date) {
     try {
-      const result = excelDate.toISOString().split('T')[0];
+      if (isNaN(excelDate.getTime())) {
+        console.warn('无效的Date对象');
+        return null;
+      }
+      // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+      // 这样Excel中的日期会被理解为中国时区的日期
+      const year = excelDate.getFullYear();
+      const month = String(excelDate.getMonth() + 1).padStart(2, '0');
+      const day = String(excelDate.getDate()).padStart(2, '0');
+      const result = `${year}-${month}-${day}`;
       console.log('Date对象解析成功:', result);
       return result;
     } catch (error) {
