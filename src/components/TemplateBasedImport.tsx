@@ -503,18 +503,20 @@ export default function TemplateBasedImport() {
 
     try {
       // 准备导入数据 - 根据选择的模式组合记录
-      const recordsToImport = [
-        // 新记录始终导入
-        ...importPreview.new_records.map(item => item.record),
-        // 仅在更新模式下导入"被勾选"的重复记录（作为更新）
-        ...(importMode === 'update'
-          ? importPreview.update_records
-              .filter((_, index) => approvedDuplicates.has(index))
-              .map(item => item.record)
-          : [])
-      ];
+      // 注意：预览阶段已经验重，执行时不需要再次验重
+      // 创建模式：直接插入新记录
+      // 更新模式：直接更新已找到的重复记录
+      const newRecordsToInsert = importPreview.new_records.map(item => item.record);
+      const recordsToUpdate = importMode === 'update'
+        ? importPreview.update_records
+            .filter((_, index) => approvedDuplicates.has(index))
+            .map(item => ({
+              id: item.existing_record_id,
+              data: item.record
+            }))
+        : [];
 
-      if (recordsToImport.length === 0) {
+      if (newRecordsToInsert.length === 0 && recordsToUpdate.length === 0) {
         const message = importMode === 'update' && importPreview.update_records.length > 0
           ? "没有勾选任何重复记录进行更新，请勾选要更新的记录或切换到创建模式。"
           : "没有需要导入的记录。";
@@ -529,8 +531,8 @@ export default function TemplateBasedImport() {
         return;
       }
 
-      // 格式化数据 - 确保字段格式与标准导入完全一致
-      const importData = recordsToImport.map(record => {
+      // 格式化新记录数据 - 确保字段格式与标准导入完全一致
+      const formattedNewRecords = newRecordsToInsert.map(record => {
         
         // 确保日期格式正确（YYYY-MM-DD）
         // 确保日期格式正确（已经是YYYY-MM-DD格式，不需要转换）
@@ -657,17 +659,85 @@ export default function TemplateBasedImport() {
         return record;
       });
       
-      // 性能优化：如果记录数超过200条，提示用户分批导入
-      if (importData.length > 200) {
-        toast({
-          title: "数据量较大",
-          description: `本次导入 ${importData.length} 条记录，建议分批导入（每次不超过200条）以提高性能。`,
-          variant: "default"
-        });
-        // 继续执行，但记录警告
-      }
+      // 格式化更新记录数据 - 复用新记录的格式化逻辑
+      const formattedUpdateRecords = recordsToUpdate.map(updateItem => {
+        const record = { ...updateItem.data };
+        
+        // 复用新记录的格式化逻辑
+        // 确保日期格式正确（YYYY-MM-DD）
+        if (record.loading_date) {
+          const loadingDateStr = String(record.loading_date);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(loadingDateStr)) {
+            const loadingDate = new Date(loadingDateStr);
+            if (!isNaN(loadingDate.getTime())) {
+              const year = loadingDate.getFullYear();
+              const month = String(loadingDate.getMonth() + 1).padStart(2, '0');
+              const day = String(loadingDate.getDate()).padStart(2, '0');
+              record.loading_date = `${year}-${month}-${day}`;
+            }
+          }
+        }
+        
+        if (record.unloading_date) {
+          const unloadingDateStr = String(record.unloading_date);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(unloadingDateStr)) {
+            const unloadingDate = new Date(unloadingDateStr);
+            if (!isNaN(unloadingDate.getTime())) {
+              const year = unloadingDate.getFullYear();
+              const month = String(unloadingDate.getMonth() + 1).padStart(2, '0');
+              const day = String(unloadingDate.getDate()).padStart(2, '0');
+              record.unloading_date = `${year}-${month}-${day}`;
+            }
+          }
+        }
+        
+        // 确保数字字段为数字类型
+        if (record.loading_weight !== undefined && record.loading_weight !== null) {
+          record.loading_weight = parseFloat(String(record.loading_weight)) || 0;
+        }
+        if (record.unloading_weight !== undefined && record.unloading_weight !== null) {
+          record.unloading_weight = parseFloat(String(record.unloading_weight)) || null;
+        }
+        if (record.current_cost !== undefined && record.current_cost !== null) {
+          record.current_cost = parseFloat(String(record.current_cost)) || 0;
+        }
+        if (record.extra_cost !== undefined && record.extra_cost !== null) {
+          record.extra_cost = parseFloat(String(record.extra_cost)) || 0;
+        }
+        
+        // 处理数组字段
+        if (record.external_tracking_numbers !== undefined && record.external_tracking_numbers !== null) {
+          if (!Array.isArray(record.external_tracking_numbers)) {
+            const strValue = String(record.external_tracking_numbers).trim();
+            const arr = strValue ? strValue.split(',').map((v: string) => v.trim()).filter((v: string) => v) : [];
+            record.external_tracking_numbers = arr.length > 0 ? arr : undefined;
+          } else {
+            const arr = record.external_tracking_numbers.map((v: unknown) => String(v).trim()).filter((v: string) => v);
+            record.external_tracking_numbers = arr.length > 0 ? arr : undefined;
+          }
+        }
+        
+        if (record.other_platform_names !== undefined && record.other_platform_names !== null) {
+          if (!Array.isArray(record.other_platform_names)) {
+            const strValue = String(record.other_platform_names).trim();
+            const arr = strValue ? strValue.split(',').map((v: string) => v.trim()).filter((v: string) => v) : [];
+            record.other_platform_names = arr.length > 0 ? arr : undefined;
+          } else {
+            const arr = record.other_platform_names.map((v: unknown) => String(v).trim()).filter((v: string) => v);
+            record.other_platform_names = arr.length > 0 ? arr : undefined;
+          }
+        }
+        
+        return {
+          id: updateItem.id,
+          data: record
+        };
+      });
+
+      // 注意：预览阶段已经验重，执行时不需要再次验重
+      // 创建模式：只插入新记录（new_records），自动跳过重复记录（update_records）
+      // 更新模式：插入新记录（new_records）+ 更新重复记录（update_records，只更新不一样的字段）
       
-      // 调用支持更新模式的 RPC 函数
       interface BatchImportResult {
         success_count: number;
         error_count: number;
@@ -683,102 +753,57 @@ export default function TemplateBasedImport() {
         errors?: ImportError[]; // 兼容旧格式
       }
       
-      // 性能优化：使用优化后的 batch_import_logistics_records_with_update 函数
-      // 该函数已优化：使用批量查询和JSONB存储加速重复检查，保留完整的重复检查功能
-      // 创建模式：p_update_mode=false（检查重复但不更新，跳过重复记录）
-      // 更新模式：p_update_mode=true（检查重复并更新现有记录）
-      
-      let result: BatchImportResult | null = null;
+      let insertResult: BatchImportResult | null = null;
+      let updateResult: { success_count: number; error_count: number; error_details: Array<{ record_id?: string; error_message?: string }> } | null = null;
       let error: unknown = null;
       
-      // 分批处理：如果数据量超过100条，自动分批导入以避免超时
-      const BATCH_SIZE = 100;
-      if (importData.length > BATCH_SIZE) {
-        toast({
-          title: "数据量较大",
-          description: `本次导入 ${importData.length} 条记录，将自动分批处理（每批 ${BATCH_SIZE} 条）`,
-          variant: "default"
-        });
-        
-        let totalSuccess = 0;
-        let totalError = 0;
-        const allErrorDetails: ImportError[] = [];
-        
-        // 分批处理
-        for (let i = 0; i < importData.length; i += BATCH_SIZE) {
-          const batch = importData.slice(i, i + BATCH_SIZE);
-          const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
-          const totalBatches = Math.ceil(importData.length / BATCH_SIZE);
+      // 1. 创建模式：只插入新记录，自动跳过重复记录（update_records）
+      // 更新模式：也插入新记录
+      if (formattedNewRecords.length > 0) {
+        try {
+          const { data: insertData, error: insertError } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records', {
+            p_records: formattedNewRecords
+          });
           
-          setImportProgress(Math.floor((i / importData.length) * 100));
-          
-          try {
-            const { data: batchResult, error: batchError } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records_with_update', {
-              p_records: batch,
-              p_update_mode: importMode === 'update'
-            });
-            
-            if (batchError) {
-              throw batchError;
-            }
-            
-            if (batchResult) {
-              totalSuccess += batchResult.success_count || 0;
-              totalError += batchResult.error_count || 0;
-              if (Array.isArray(batchResult.error_details)) {
-                // 调整错误记录的索引
-                batchResult.error_details.forEach((err) => {
-                  if (err.record_index) {
-                    err.record_index = err.record_index + i;
-                  }
-                });
-                allErrorDetails.push(...batchResult.error_details.map((err, idx) => ({
-                  row: err.record_index ?? (i + idx + 1),
-                  message: err.error_message || '未知错误',
-                  record_index: err.record_index ?? (i + idx),
-                  error_message: err.error_message || '未知错误',
-                  record_data: err.record_data || {}
-                })));
-              }
-            }
-          } catch (batchErr: unknown) {
-            totalError += batch.length;
-            const errorMessage = batchErr instanceof Error ? batchErr.message : String(batchErr);
-            allErrorDetails.push({
-              row: i + 1,
-              message: `批次 ${batchNumber}/${totalBatches} 导入失败: ${errorMessage}`,
-              record_index: i,
-              error_message: errorMessage,
-              record_data: {}
-            });
+          if (insertError) {
+            throw insertError;
           }
-        }
-        
-        // 构造最终结果
-        result = {
-          success_count: totalSuccess,
-          error_count: totalError,
-          inserted_count: totalSuccess,
-          updated_count: 0,
-          error_details: allErrorDetails.map(err => ({
-            record_index: (err.record_index ?? err.row) as number | undefined,
-            error_message: (err.error_message || err.message || '未知错误') as string,
-            record_data: (err.record_data || {}) as Record<string, unknown>
-          }))
-        };
-      } else {
-        // 数据量较小，直接导入
-        const { data: rpcData, error: rpcError } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records_with_update', {
-          p_records: importData,
-          p_update_mode: importMode === 'update'
-        });
-        
-        if (rpcError) {
-          error = rpcError;
-        } else {
-          result = rpcData;
+          
+          insertResult = insertData;
+        } catch (insertErr: unknown) {
+          error = insertErr;
         }
       }
+      
+      // 2. 更新模式：更新已找到的重复记录，只更新不一样的字段
+      // 注意：只有在更新模式下才会执行此步骤
+      if (importMode === 'update' && formattedUpdateRecords.length > 0 && !error) {
+        try {
+          const { data: updateData, error: updateError } = await supabase.rpc('batch_update_logistics_records', {
+            p_updates: formattedUpdateRecords
+          });
+          
+          if (updateError) {
+            throw updateError;
+          }
+          
+          updateResult = updateData;
+        } catch (updateErr: unknown) {
+          error = updateErr;
+        }
+      }
+      
+      // 合并结果
+      const result: BatchImportResult = {
+        success_count: (insertResult?.success_count || 0) + (updateResult?.success_count || 0),
+        error_count: (insertResult?.error_count || 0) + (updateResult?.error_count || 0),
+        inserted_count: insertResult?.success_count || 0,
+        updated_count: updateResult?.success_count || 0,
+        error_details: [
+          ...(insertResult?.error_details || []),
+          ...(updateResult?.error_details || [])
+        ]
+      };
       
       if (error) {
         console.error('RPC调用错误:', error);

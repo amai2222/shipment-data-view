@@ -490,90 +490,35 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
       }
 
       // 一次性批量更新所有记录（使用数据库函数）
-      // 如果数据量很大，分批处理以避免超时
+      // 注意：预览阶段已经验重并找到了匹配的运单，这里直接更新即可，不需要再次验重
+      // 不需要分批，因为只是简单的 UPDATE 操作，性能足够
       if (updates.length > 0) {
-        const BATCH_SIZE = 100; // 每批最多100条记录
+        const { data: result, error: batchError } = await supabase.rpc('batch_update_logistics_records', {
+          p_updates: updates
+        });
         
-        if (updates.length > BATCH_SIZE) {
-          // 分批处理
-          for (let i = 0; i < updates.length; i += BATCH_SIZE) {
-            const batch = updates.slice(i, i + BATCH_SIZE);
-            const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
-            const totalBatches = Math.ceil(updates.length / BATCH_SIZE);
-            
-            try {
-              const { data: batchResult, error: batchError } = await supabase.rpc('batch_update_logistics_records', {
-                p_updates: batch
-              });
-              
-              if (batchError) {
-                throw new Error(`批次 ${batchNumber}/${totalBatches} 更新失败: ${batchError.message || JSON.stringify(batchError)}`);
-              }
-              
-              if (batchResult) {
-                successCount += batchResult.success_count || 0;
-                const batchFailedCount = batchResult.error_count || 0;
-                failedCount += batchFailedCount;
-                
-                // 处理批量更新返回的错误详情
-                if (Array.isArray(batchResult.error_details) && batchResult.error_details.length > 0) {
-                  batchResult.error_details.forEach((err: { record_id?: string; error_message?: string }) => {
-                    if (err.record_id) {
-                      const item = matchedItems.find(i => i.existingRecord.id === err.record_id);
-                      if (item) {
-                        failedItems.push({
-                          autoNumber: item.auto_number,
-                          error: err.error_message || '更新失败'
-                        });
-                      }
-                    }
-                  });
-                }
-              }
-            } catch (batchErr: unknown) {
-              const errorMessage = batchErr instanceof Error ? batchErr.message : String(batchErr);
-              // 将整个批次标记为失败
-              batch.forEach(update => {
-                const item = matchedItems.find(i => i.existingRecord.id === update.id);
+        if (batchError) {
+          throw new Error(`批量更新失败: ${batchError.message || JSON.stringify(batchError)}`);
+        }
+        
+        if (result) {
+          successCount = result.success_count || 0;
+          const batchFailedCount = result.error_count || 0;
+          failedCount += batchFailedCount;
+          
+          // 处理批量更新返回的错误详情
+          if (Array.isArray(result.error_details) && result.error_details.length > 0) {
+            result.error_details.forEach((err: { record_id?: string; error_message?: string }) => {
+              if (err.record_id) {
+                const item = matchedItems.find(i => i.existingRecord.id === err.record_id);
                 if (item) {
                   failedItems.push({
                     autoNumber: item.auto_number,
-                    error: `批次 ${batchNumber}/${totalBatches} 失败: ${errorMessage}`
+                    error: err.error_message || '更新失败'
                   });
-                  failedCount++;
                 }
-              });
-            }
-          }
-        } else {
-          // 数据量较小，直接批量更新
-          const { data: result, error: batchError } = await supabase.rpc('batch_update_logistics_records', {
-            p_updates: updates
-          });
-          
-          if (batchError) {
-            throw new Error(`批量更新失败: ${batchError.message || JSON.stringify(batchError)}`);
-          }
-          
-          if (result) {
-            successCount = result.success_count || 0;
-            const batchFailedCount = result.error_count || 0;
-            failedCount += batchFailedCount;
-            
-            // 处理批量更新返回的错误详情
-            if (Array.isArray(result.error_details) && result.error_details.length > 0) {
-              result.error_details.forEach((err: { record_id?: string; error_message?: string }) => {
-                if (err.record_id) {
-                  const item = matchedItems.find(i => i.existingRecord.id === err.record_id);
-                  if (item) {
-                    failedItems.push({
-                      autoNumber: item.auto_number,
-                      error: err.error_message || '更新失败'
-                    });
-                  }
-                }
-              });
-            }
+              }
+            });
           }
         }
       }
