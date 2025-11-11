@@ -122,6 +122,21 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
         const response = await originalFetch(...args);
         const url = args[0]?.toString() || '';
         
+        // 忽略Cloudflare Insights和浏览器扩展相关的错误
+        const ignoredNetworkErrors = [
+          'cloudflareinsights',
+          'beacon.min.js',
+          'static.cloudflareinsights.com',
+          'chrome-extension://',
+          'moz-extension://',
+          'safari-extension://',
+          'tab.js'
+        ];
+        
+        const isIgnoredNetworkError = ignoredNetworkErrors.some(pattern => 
+          url.includes(pattern)
+        );
+        
         // 忽略Supabase相关的400/404错误（表不存在或查询失败，已有错误处理）
         const ignoredSupabaseErrors = [
           'fleet manager projects',
@@ -135,8 +150,13 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
           url.includes(pattern)
         ) && (response.status === 400 || response.status === 404);
         
-        // 如果响应状态码表示错误，记录到数据库（但忽略Supabase的400/404错误）
-        if (!response.ok && response.status >= 400 && !isIgnoredSupabaseError) {
+        // 如果是应该忽略的网络错误，直接返回，不记录
+        if (isIgnoredNetworkError) {
+          return response;
+        }
+        
+        // 如果响应状态码表示错误，记录到数据库（但忽略Cloudflare Insights和Supabase的400/404错误）
+        if (!response.ok && response.status >= 400 && !isIgnoredNetworkError && !isIgnoredSupabaseError) {
           const method = (args[1]?.method || 'GET').toUpperCase();
           
           // 尝试读取响应文本（限制长度）
@@ -169,6 +189,22 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
         const url = args[0]?.toString() || '';
         const method = (args[1]?.method || 'GET').toUpperCase();
         
+        // 忽略Cloudflare Insights和浏览器扩展相关的错误
+        const ignoredNetworkErrors = [
+          'cloudflareinsights',
+          'beacon.min.js',
+          'static.cloudflareinsights.com',
+          'ERR_ADDRESS_INVALID',
+          'chrome-extension://',
+          'moz-extension://',
+          'safari-extension://',
+          'tab.js'
+        ];
+        
+        const isIgnoredNetworkError = ignoredNetworkErrors.some(pattern => 
+          url.includes(pattern) || (error as any)?.message?.includes(pattern)
+        );
+        
         // 忽略Supabase相关的错误
         const ignoredSupabaseErrors = [
           'fleet manager projects',
@@ -179,6 +215,12 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
         const isIgnoredSupabaseError = ignoredSupabaseErrors.some(pattern => 
           url.includes(pattern)
         );
+        
+        // 如果是应该忽略的网络错误，直接抛出，不记录
+        if (isIgnoredNetworkError || isIgnoredSupabaseError) {
+          // 静默忽略，不输出到控制台
+          throw error; // 重新抛出，但不记录
+        }
         
         if (!isIgnoredSupabaseError) {
           const errorData = extractNetworkErrorInfo(

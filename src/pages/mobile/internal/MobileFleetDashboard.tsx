@@ -43,6 +43,7 @@ interface DashboardStats {
   maintenanceVehicles: number;
   totalDrivers: number;
   activeDrivers: number;
+  pendingDispatches: number;  // 待派单任务数量
   pendingExpenses: number;
   pendingVehicleChanges: number;
   expiringCertificates: number;
@@ -67,6 +68,7 @@ export default function MobileFleetDashboard() {
     maintenanceVehicles: 0,
     totalDrivers: 0,
     activeDrivers: 0,
+    pendingDispatches: 0,
     pendingExpenses: 0,
     pendingVehicleChanges: 0,
     expiringCertificates: 0,
@@ -125,14 +127,21 @@ export default function MobileFleetDashboard() {
         }
       }
 
-      // ✅ 3. 获取待审核的费用申请（只统计管理的司机的申请）
+      // ✅ 3. 获取待派单任务数量（status = 'pending' 的派单）
+      const { count: dispatchCount } = await supabase
+        .from('dispatch_orders')
+        .select('id', { count: 'estimated', head: true })
+        .eq('fleet_manager_id', userId)
+        .eq('status', 'pending');
+
+      // ✅ 4. 获取待审核的费用申请（只统计管理的司机的申请）
       const { count: expenseCount } = await supabase
         .from('internal_driver_expense_applications')
         .select('id', { count: 'estimated', head: true })
         .eq('status', 'pending')
         .in('driver_name', managedDriverNames.length > 0 ? managedDriverNames : ['无']);
 
-      // ✅ 4. 获取待审核的换车申请（只统计管理的司机的申请）
+      // ✅ 5. 获取待审核的换车申请（只统计管理的司机的申请）
       let changeCount = 0;
       if (managedDriverIds.length > 0) {
         const { count, error: changeError } = await supabase
@@ -148,7 +157,7 @@ export default function MobileFleetDashboard() {
         }
       }
 
-      // ✅ 5. 获取即将到期的证件（30天内，管理的车辆）
+      // ✅ 6. 获取即将到期的证件（30天内，管理的车辆）
       const expireDate = new Date();
       expireDate.setDate(expireDate.getDate() + 30);
       const expireDateStr = expireDate.toISOString().split('T')[0];
@@ -165,7 +174,7 @@ export default function MobileFleetDashboard() {
         expireCertCount = count || 0;
       }
 
-      // ✅ 6. 获取本月运单数（管理的司机的运单）
+      // ✅ 7. 获取本月运单数（管理的司机的运单）
       let tripCount = 0;
       if (managedDriverNames.length > 0) {
         const { count } = await supabase
@@ -184,6 +193,7 @@ export default function MobileFleetDashboard() {
         maintenanceVehicles: vehicleData.filter((v: any) => v.vehicle_status === 'maintenance').length,
         totalDrivers: managedDrivers?.length || 0,
         activeDrivers: managedDrivers?.filter(d => d.user_id).length || 0,
+        pendingDispatches: dispatchCount || 0,
         pendingExpenses: expenseCount || 0,
         pendingVehicleChanges: changeCount,
         expiringCertificates: expireCertCount,
@@ -337,6 +347,7 @@ export default function MobileFleetDashboard() {
               <div className="w-10 h-10 mx-auto mb-1.5 rounded-full bg-orange-100 flex items-center justify-center">
                 <ClipboardList className="h-5 w-5 text-orange-600" />
               </div>
+              <div className="text-2xl font-bold text-orange-700">{stats.pendingDispatches}</div>
               <div className="text-xs text-orange-600 mt-0.5 font-medium">任务派单</div>
             </CardContent>
           </Button>
@@ -348,14 +359,10 @@ export default function MobileFleetDashboard() {
             onClick={() => navigate('/m/internal/expense-review')}
           >
             <CardContent className="p-3 text-center w-full">
-              <div className="w-10 h-10 mx-auto mb-1.5 rounded-full bg-red-100 flex items-center justify-center relative">
+              <div className="w-10 h-10 mx-auto mb-1.5 rounded-full bg-red-100 flex items-center justify-center">
                 <FileText className="h-5 w-5 text-red-600" />
-                {stats.pendingExpenses > 0 && (
-                  <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs h-5 w-5 p-0 flex items-center justify-center rounded-full">
-                    {stats.pendingExpenses}
-                  </Badge>
-                )}
               </div>
+              <div className="text-2xl font-bold text-red-700">{stats.pendingExpenses}</div>
               <div className="text-xs text-red-600 mt-0.5 font-medium">费用审核</div>
             </CardContent>
           </Button>
