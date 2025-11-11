@@ -232,7 +232,7 @@ export default function MobileFleetDashboard() {
     }
   };
 
-  // 功能分组配置（货拉拉风格）
+  // 功能分组配置（货拉拉风格 - 可折叠卡片）
   const functionGroups = [
     {
       title: '车辆管理',
@@ -272,16 +272,24 @@ export default function MobileFleetDashboard() {
         { name: '费用审核', icon: FileText, path: '/m/internal/expense-review', badge: stats.pendingExpenses > 0 ? stats.pendingExpenses : null },
         { name: '司机冲销', icon: Calculator, path: '/m/internal/expense-writeoff', badge: null },
       ]
-    },
-    {
-      title: '系统设置',
-      icon: Settings,
-      color: 'from-gray-500 to-gray-600',
-      items: [
-        { name: '车队配置', icon: Settings, path: '/m/internal/fleet-config', badge: null },
-      ]
     }
   ];
+
+  // 折叠状态管理
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+
+  // 切换折叠状态
+  const toggleGroup = (index: number) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
 
   return (
     <MobileLayout showBack={false}>
@@ -421,48 +429,105 @@ export default function MobileFleetDashboard() {
           </Card>
         )}
 
-        {/* 功能分组（货拉拉风格 - 卡片分组） */}
-        {functionGroups.map((group, groupIndex) => (
-          <Card key={groupIndex} className="mx-4 shadow-sm rounded-xl border-0 bg-white">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2 text-gray-800">
-                <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center", group.color)}>
-                  <group.icon className="h-4 w-4 text-white" />
-                </div>
-                {group.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-2 gap-3">
-                {group.items.map((item, itemIndex) => {
-                  const IconComponent = item.icon;
-                  return (
-                    <Button
-                      key={itemIndex}
-                      variant="outline"
-                      className={cn(
-                        "h-20 flex flex-col items-center justify-center gap-2 relative",
-                        "hover:bg-gray-50 active:scale-95 transition-all",
-                        "border-gray-200 rounded-xl"
-                      )}
-                      onClick={() => navigate(item.path)}
-                    >
-                      <div className={cn("w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center", group.color)}>
-                        <IconComponent className="h-5 w-5 text-white" />
+        {/* 功能分组（货拉拉风格 - 可折叠卡片，横向一排） */}
+        <div className="px-4 space-y-3">
+          {/* 4个大卡片横向一排 */}
+          <div className="grid grid-cols-4 gap-3">
+            {functionGroups.map((group, groupIndex) => {
+              const isExpanded = expandedGroups.has(groupIndex);
+              return (
+                <Card key={groupIndex} className="shadow-md rounded-xl border-0 bg-white overflow-visible hover:shadow-lg transition-shadow relative">
+                  {/* 卡片标题（可点击展开/折叠） */}
+                  <button
+                    onClick={() => toggleGroup(groupIndex)}
+                    className="w-full text-left"
+                    aria-label={`${isExpanded ? '折叠' : '展开'}${group.title}`}
+                  >
+                    <CardHeader className="pb-3 pt-3 px-2 hover:bg-gray-50/50 transition-colors active:bg-gray-100">
+                      <CardTitle className="text-xs flex flex-col items-center gap-2 text-gray-800">
+                        <div className={cn("w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-md", group.color)}>
+                          <group.icon className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="flex flex-col items-center gap-1 w-full">
+                          <span className="font-bold text-xs text-center leading-tight">{group.title}</span>
+                          {group.items.some(item => item.badge && item.badge > 0) && (
+                            <Badge className="bg-red-500 text-white text-[10px] h-4 px-1 font-semibold">
+                              {group.items.find(item => item.badge && item.badge > 0)?.badge}
+                            </Badge>
+                          )}
+                        </div>
+                        <ChevronRight 
+                          className={cn(
+                            "h-3 w-3 text-gray-400 transition-transform duration-300 mt-1",
+                            isExpanded && "rotate-90"
+                          )} 
+                        />
+                      </CardTitle>
+                    </CardHeader>
+                  </button>
+                </Card>
+              );
+            })}
+          </div>
+          
+          {/* 展开的内容（显示在下方，全宽） */}
+          {expandedGroups.size > 0 && (
+            <div className="w-full">
+              {functionGroups.map((group, groupIndex) => {
+                const isExpanded = expandedGroups.has(groupIndex);
+                if (!isExpanded) return null;
+                
+                return (
+                  <Card key={groupIndex} className="shadow-lg rounded-xl border-0 bg-white animate-in slide-in-from-top-2 duration-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center", group.color)}>
+                          <group.icon className="h-4 w-4 text-white" />
+                        </div>
+                        <span className="font-bold text-base text-gray-800">{group.title}</span>
+                        {group.items.some(item => item.badge && item.badge > 0) && (
+                          <Badge className="bg-red-500 text-white text-xs h-5 px-2 font-semibold">
+                            {group.items.find(item => item.badge && item.badge > 0)?.badge}
+                          </Badge>
+                        )}
                       </div>
-                      <span className="text-xs font-medium text-gray-700">{item.name}</span>
-                      {item.badge && item.badge > 0 && (
-                        <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs h-5 w-5 p-0 flex items-center justify-center rounded-full">
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </Button>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                      <div className="grid grid-cols-2 gap-3">
+                        {group.items.map((item, itemIndex) => {
+                          const IconComponent = item.icon;
+                          return (
+                            <Button
+                              key={itemIndex}
+                              variant="outline"
+                              className={cn(
+                                "h-20 flex flex-col items-center justify-center gap-2 relative",
+                                "hover:bg-gray-50 active:scale-95 transition-all",
+                                "border-gray-200 rounded-xl"
+                              )}
+                              onClick={() => {
+                                navigate(item.path);
+                                toggleGroup(groupIndex); // 点击后自动折叠
+                              }}
+                            >
+                              <div className={cn("w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center", group.color)}>
+                                <IconComponent className="h-5 w-5 text-white" />
+                              </div>
+                              <span className="text-xs font-medium text-gray-700">{item.name}</span>
+                              {item.badge && item.badge > 0 && (
+                                <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs h-5 w-5 p-0 flex items-center justify-center rounded-full">
+                                  {item.badge}
+                                </Badge>
+                              )}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* 司机冲销余额（货拉拉风格） */}
         <Card className="mx-4 shadow-sm rounded-xl border-0 bg-white">
