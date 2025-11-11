@@ -106,11 +106,21 @@ export default function MobileFleetManagerConfig() {
     setLoading(true);
     try {
       // 1. 加载车队长管理的项目
-      const { data: managedProjects } = await supabase
+      const { data: managedProjects, error: projectsError } = await supabase
         .from('fleet_manager_projects')
         .select('project_id, projects:project_id (id, name)')
         .eq('fleet_manager_id', fleetManagerId)
         .eq('status', '进行中');
+      
+      if (projectsError) {
+        console.error('加载项目失败:', projectsError);
+        toast({
+          title: '加载失败',
+          description: '无法加载项目列表',
+          variant: 'destructive'
+        });
+        return;
+      }
 
       const projectList: Project[] = [];
       const projectIds: string[] = [];
