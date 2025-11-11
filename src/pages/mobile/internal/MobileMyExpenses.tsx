@@ -1113,78 +1113,44 @@ export default function MobileMyExpenses() {
                           setShowDetailDialog(true);
                         }}
                       >
-                        <CardContent className="p-4">
-                          {/* 顶部：费用类型标签（左对齐） */}
-                          <div className="flex items-center justify-between mb-3">
-                            <Badge className={`${typeConfig.color} shadow-sm text-xs font-medium`}>
-                              {typeConfig.label}
-                            </Badge>
-                            <div className="text-right">
-                              <div className="text-xl font-bold text-primary">
-                                ¥{app.amount.toFixed(2)}
-                              </div>
-                              {app.receipt_photos.length > 0 && (
-                                <div className="text-xs text-muted-foreground mt-0.5 flex items-center justify-end gap-1">
-                                  <ImageIcon className="h-3 w-3" />
-                                  {app.receipt_photos.length}张凭证
-                                </div>
+                        <CardContent className="p-3.5">
+                          {/* 第一行：费用类型 + 状态 + 金额 */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <Badge className={`${typeConfig.color} shadow-sm text-xs font-medium px-2 py-0.5 flex-shrink-0`}>
+                                {typeConfig.label}
+                              </Badge>
+                              <Badge className={`${statusConfig.color} shadow-sm text-xs font-medium px-2 py-0.5 flex-shrink-0`}>
+                                <StatusIcon className="h-3 w-3 mr-0.5" />
+                                {statusConfig.label}
+                              </Badge>
+                              {isWriteoff && (
+                                <Badge className="bg-red-100 text-red-800 shadow-sm text-xs font-medium px-2 py-0.5 flex-shrink-0">
+                                  <CheckCircle className="h-3 w-3 mr-0.5" />
+                                  已冲销
+                                </Badge>
                               )}
                             </div>
-                          </div>
-
-                          {/* 中间：状态标签（居中显示） */}
-                          <div className="flex items-center justify-center gap-2 mb-3 py-2 border-y border-gray-100">
-                            <Badge className={`${statusConfig.color} shadow-sm text-xs font-medium`}>
-                              <StatusIcon className="h-3 w-3 mr-1" />
-                              {statusConfig.label}
-                            </Badge>
-                            {isWriteoff && (
-                              <Badge className="bg-red-100 text-red-800 shadow-sm text-xs font-medium">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                已冲销
-                              </Badge>
-                            )}
-                          </div>
-
-                          {/* 底部：详细信息 */}
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Calendar className="h-3.5 w-3.5" />
-                              {format(new Date(app.expense_date), 'yyyy年MM月dd日', { locale: zhCN })}
+                            <div className="text-right flex-shrink-0 ml-2">
+                              <div className="text-lg font-bold text-primary leading-tight">
+                                ¥{app.amount.toFixed(2)}
+                              </div>
                             </div>
-                            
-                            {isWriteoff && app.actual_amount !== null && (
-                              <div className="space-y-1.5 bg-gray-50 rounded-lg p-2.5 text-xs">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-muted-foreground">申请金额:</span>
-                                  <span className="font-medium">¥{app.amount.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-muted-foreground">实际金额:</span>
-                                  <span className="font-medium">¥{app.actual_amount.toFixed(2)}</span>
-                                </div>
-                                {balance !== null && (
-                                  <div className="flex justify-between items-center pt-1 border-t border-gray-200">
-                                    <span className="text-muted-foreground">
-                                      {balance > 0 ? '结余:' : balance < 0 ? '待补:' : '结余:'}
-                                    </span>
-                                    <span className={`font-bold ${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                                      {balance > 0 ? '+' : ''}¥{Math.abs(balance).toFixed(2)}
-                                    </span>
-                                  </div>
-                                )}
+                          </div>
+
+                          {/* 第二行（小字）：日期 + 空白 + 凭证数 */}
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              <span>{format(new Date(app.expense_date), 'yyyy年MM月dd日', { locale: zhCN })}</span>
+                            </div>
+                            <div className="flex-1"></div>
+                            {app.receipt_photos.length > 0 && (
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <ImageIcon className="h-3 w-3" />
+                                <span>{app.receipt_photos.length}张凭证</span>
                               </div>
                             )}
-                            
-                            {app.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-2">
-                                {app.description}
-                              </p>
-                            )}
-                            
-                            <div className="text-xs text-muted-foreground">
-                              申请单号：{app.application_number}
-                            </div>
                           </div>
                         </CardContent>
                       </Card>
