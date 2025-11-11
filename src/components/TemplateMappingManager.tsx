@@ -61,6 +61,7 @@ interface FieldMapping {
   default_value: string;
   transformation_rule: string;
   sort_order: number;
+  value_mappings?: Record<string, string>; // 值转换规则：{ "正常": "成丰6", "default": "不合规" }
 }
 
 interface FixedMapping {
@@ -134,8 +135,14 @@ export default function TemplateMappingManager() {
     field_type: 'text',
     is_required: false,
     default_value: '',
-    display_order: 0
+    display_order: 0,
+    value_mappings: {} as Record<string, string> // 值转换规则
   });
+  
+  // 值转换规则编辑状态
+  const [valueMappingRows, setValueMappingRows] = useState<Array<{ key: string; value: string }>>([
+    { key: '', value: '' }
+  ]);
 
   const [fixedForm, setFixedForm] = useState({
     excel_value: '',
@@ -185,17 +192,24 @@ export default function TemplateMappingManager() {
         .order('display_order'); // 修复：使用 display_order 而不是 sort_order
 
       if (error) throw error;
-      setFieldMappings((data || []).map(m => ({
-        id: m.id,
-        template_id: m.template_id,
-        source_field: m.excel_column || '',
-        target_field: m.database_field || '',
-        field_type: m.field_type || 'string',
-        is_required: m.is_required || false,
-        default_value: m.default_value || '',
-        transformation_rule: '',
-        sort_order: m.display_order || 0
-      })));
+      setFieldMappings((data || []).map(m => {
+        // 从 validation_rules 中读取值转换规则
+        const validationRules = m.validation_rules || {};
+        const valueMappings = validationRules.value_mappings || {};
+        
+        return {
+          id: m.id,
+          template_id: m.template_id,
+          source_field: m.excel_column || '',
+          target_field: m.database_field || '',
+          field_type: m.field_type || 'string',
+          is_required: m.is_required || false,
+          default_value: m.default_value || '',
+          transformation_rule: '',
+          sort_order: m.display_order || 0,
+          value_mappings: valueMappings
+        };
+      }));
     } catch (error: any) {
       console.error('加载字段映射失败:', error);
       toast({ 
@@ -289,6 +303,18 @@ export default function TemplateMappingManager() {
     }
 
     try {
+      // 构建值转换规则
+      const valueMappings: Record<string, string> = {};
+      valueMappingRows.forEach(row => {
+        if (row.key && row.value) {
+          valueMappings[row.key] = row.value;
+        }
+      });
+      
+      const validationRules = Object.keys(valueMappings).length > 0 
+        ? { value_mappings: valueMappings }
+        : {};
+
       const { error } = await relaxedSupabase
         .from('import_field_mappings')
         .upsert({
@@ -299,7 +325,8 @@ export default function TemplateMappingManager() {
           field_type: fieldForm.field_type,
           is_required: fieldForm.is_required,
           default_value: fieldForm.default_value,
-          display_order: fieldForm.display_order
+          display_order: fieldForm.display_order,
+          validation_rules: validationRules
         });
 
       if (error) throw error;
@@ -307,6 +334,7 @@ export default function TemplateMappingManager() {
       toast({ title: "成功", description: "字段映射保存成功" });
       setEditingField(null);
       resetFieldForm();
+      setValueMappingRows([{ key: '', value: '' }]);
       loadFieldMappings(selectedTemplate.id);
     } catch (error: any) {
       console.error('保存字段映射失败:', error);
@@ -407,8 +435,10 @@ export default function TemplateMappingManager() {
       field_type: 'text',
       is_required: false,
       default_value: '',
-      display_order: 0
+      display_order: 0,
+      value_mappings: {}
     });
+    setValueMappingRows([{ key: '', value: '' }]);
   };
 
   const resetFixedForm = () => {
@@ -430,8 +460,20 @@ export default function TemplateMappingManager() {
       field_type: mapping.field_type,
       is_required: mapping.is_required,
       default_value: mapping.default_value || '',
-      display_order: mapping.sort_order
+      display_order: mapping.sort_order,
+      value_mappings: mapping.value_mappings || {}
     });
+    
+    // 加载值转换规则
+    if (mapping.value_mappings && Object.keys(mapping.value_mappings).length > 0) {
+      const rows = Object.entries(mapping.value_mappings).map(([key, value]) => ({
+        key,
+        value
+      }));
+      setValueMappingRows(rows.length > 0 ? rows : [{ key: '', value: '' }]);
+    } else {
+      setValueMappingRows([{ key: '', value: '' }]);
+    }
   };
 
   // 编辑固定映射
@@ -575,8 +617,8 @@ export default function TemplateMappingManager() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>源字段</TableHead>
                     <TableHead>目标字段</TableHead>
+                    <TableHead>Excel字段</TableHead>
                     <TableHead>类型</TableHead>
                     <TableHead>必填</TableHead>
                     <TableHead>操作</TableHead>
@@ -585,9 +627,11 @@ export default function TemplateMappingManager() {
                 <TableBody>
                   {fieldMappings.map((mapping) => (
                     <TableRow key={mapping.id}>
-                      <TableCell className="font-medium">{mapping.source_field}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium">
                         {SYSTEM_FIELDS.find(f => f.key === mapping.target_field)?.label || mapping.target_field}
+                      </TableCell>
+                      <TableCell>
+                        {mapping.source_field}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">{mapping.field_type}</Badge>
@@ -777,19 +821,17 @@ export default function TemplateMappingManager() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="source_field">源字段（Excel中的字段名）</Label>
-              <Input
-                id="source_field"
-                value={fieldForm.excel_column}
-                onChange={(e) => setFieldForm(prev => ({ ...prev, excel_column: e.target.value }))}
-                placeholder="如：运输单号"
-              />
-            </div>
-            <div>
               <Label htmlFor="target_field">目标字段</Label>
               <Select
                 value={fieldForm.database_field}
-                onValueChange={(value) => setFieldForm(prev => ({ ...prev, database_field: value }))}
+                onValueChange={(value) => {
+                  // 检查选择的字段是否为必填字段，如果是则自动开启必填开关
+                  const selectedField = SYSTEM_FIELDS.find(f => f.key === value);
+                  setFieldForm(prev => ({ 
+                    database_field: value,
+                    is_required: selectedField?.required || prev.is_required
+                  }));
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择目标字段" />
@@ -802,6 +844,15 @@ export default function TemplateMappingManager() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label htmlFor="source_field">Excel字段</Label>
+              <Input
+                id="source_field"
+                value={fieldForm.excel_column}
+                onChange={(e) => setFieldForm(prev => ({ ...prev, excel_column: e.target.value }))}
+                placeholder="如：运输单号"
+              />
             </div>
             <div>
               <Label htmlFor="field_type">字段类型</Label>
@@ -838,9 +889,80 @@ export default function TemplateMappingManager() {
               />
               <Label htmlFor="is_required">必填字段</Label>
             </div>
+            
+            {/* 值转换规则 */}
+            <div className="space-y-2">
+              <Label>值转换规则（可选）</Label>
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  配置Excel值与数据库值的转换关系。例如：Excel中的"正常"转换为"成丰6"，其他值转换为"不合规"
+                </AlertDescription>
+              </Alert>
+              <div className="space-y-2 border rounded-md p-3">
+                <div className="grid grid-cols-2 gap-2 text-xs font-medium text-gray-600 mb-2">
+                  <div>Excel值</div>
+                  <div>转换为</div>
+                </div>
+                {valueMappingRows.map((row, index) => (
+                  <div key={index} className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Excel中的值，如：正常"
+                      value={row.key}
+                      onChange={(e) => {
+                        const newRows = [...valueMappingRows];
+                        newRows[index].key = e.target.value;
+                        setValueMappingRows(newRows);
+                      }}
+                      className="text-sm"
+                    />
+                    <div className="flex gap-1">
+                      <Input
+                        placeholder="转换后的值，如：成丰6"
+                        value={row.value}
+                        onChange={(e) => {
+                          const newRows = [...valueMappingRows];
+                          newRows[index].value = e.target.value;
+                          setValueMappingRows(newRows);
+                        }}
+                        className="text-sm flex-1"
+                      />
+                      {valueMappingRows.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setValueMappingRows(valueMappingRows.filter((_, i) => i !== index));
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setValueMappingRows([...valueMappingRows, { key: '', value: '' }])}
+                  className="w-full"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  添加转换规则
+                </Button>
+              </div>
+              <div className="text-xs text-gray-500">
+                <strong>说明：</strong>如果Excel值不在转换规则中，将使用原值。如需设置默认转换，添加一个空Excel值（留空）的规则。
+              </div>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingField(null)}>
+            <Button variant="outline" onClick={() => {
+              setEditingField(null);
+              resetFieldForm();
+            }}>
               取消
             </Button>
             <Button onClick={handleSaveFieldMapping}>

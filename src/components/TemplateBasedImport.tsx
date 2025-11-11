@@ -35,6 +35,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 
+// 系统字段定义（用于显示中文名称）
+const SYSTEM_FIELDS = [
+  { key: 'project_name', label: '项目名称', required: true },
+  { key: 'chain_name', label: '合作链路', required: false },
+  { key: 'driver_name', label: '司机姓名', required: true },
+  { key: 'license_plate', label: '车牌号', required: true },
+  { key: 'driver_phone', label: '司机电话', required: false },
+  { key: 'loading_location', label: '装货地点', required: true },
+  { key: 'unloading_location', label: '卸货地点', required: true },
+  { key: 'loading_date', label: '装货日期', required: true },
+  { key: 'unloading_date', label: '卸货日期', required: false },
+  { key: 'loading_weight', label: '装货数量', required: true },
+  { key: 'unloading_weight', label: '卸货数量', required: false },
+  { key: 'current_cost', label: '运费金额', required: false },
+  { key: 'extra_cost', label: '额外费用', required: false },
+  { key: 'transport_type', label: '运输类型', required: false },
+  { key: 'remarks', label: '备注', required: false },
+  { key: 'other_platform_names', label: '其他平台名称', required: false },
+  { key: 'other_platform_waybills', label: '其他平台运单号', required: false }
+];
+
 interface ImportTemplate {
   id: string;
   name: string;
@@ -59,6 +80,7 @@ interface FieldMapping {
   default_value: string;
   transformation_rule: string;
   sort_order: number;
+  value_mappings?: Record<string, string>; // 值转换规则
 }
 
 interface FixedMapping {
@@ -125,7 +147,7 @@ export default function TemplateBasedImport() {
           .from('import_field_mappings')
           .select('*')
           .eq('template_id', templateId)
-          .order('sort_order'),
+          .order('display_order'), // 修复：使用 display_order 而不是 sort_order
         supabase
           .from('import_fixed_mappings')
           .select('*')
@@ -135,27 +157,40 @@ export default function TemplateBasedImport() {
       if (fieldMappingsResult.error) throw fieldMappingsResult.error;
       if (fixedMappingsResult.error) throw fixedMappingsResult.error;
 
-      setFieldMappings((fieldMappingsResult.data || []).map(m => ({
-        id: m.id,
-        template_id: m.template_id,
-        source_field: m.excel_column || '',
-        target_field: m.database_field || '',
-        field_type: m.field_type || 'string',
-        is_required: m.is_required || false,
-        default_value: m.default_value || '',
-        transformation_rule: '',
-        sort_order: m.display_order || 0
-      })));
+      setFieldMappings((fieldMappingsResult.data || []).map(m => {
+        // 从 validation_rules 中读取值转换规则
+        const validationRules = m.validation_rules || {};
+        const valueMappings = validationRules.value_mappings || {};
+        
+        return {
+          id: m.id,
+          template_id: m.template_id,
+          source_field: m.excel_column || '',
+          target_field: m.database_field || '',
+          field_type: m.field_type || 'string',
+          is_required: m.is_required || false,
+          default_value: m.default_value || '',
+          transformation_rule: '',
+          sort_order: m.display_order || 0,
+          value_mappings: valueMappings
+        };
+      }));
       setFixedMappings((fixedMappingsResult.data || []).map(m => ({
         id: m.id,
         template_id: m.template_id,
-        target_field: m.mapping_type || '',
-        fixed_value: m.database_value || '',
+        // 修复：字段名存储在 database_value 中，固定值存储在 excel_value 中
+        target_field: m.database_value || '',
+        fixed_value: m.excel_value || '',
         description: ''
       })));
     } catch (error: unknown) {
       console.error('加载模板映射失败:', error);
-      toast({ title: "错误", description: "加载模板映射失败", variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      toast({ 
+        title: "错误", 
+        description: `加载模板映射失败: ${errorMessage}`,
+        variant: "destructive" 
+      });
     }
   };
 
@@ -225,6 +260,19 @@ export default function TemplateBasedImport() {
           if (sourceIndex >= 0 && sourceIndex < row.length) {
             let value = row[sourceIndex];
             
+            // 应用值转换规则（如果存在）
+            if (mapping.value_mappings && value !== null && value !== undefined) {
+              const valueStr = String(value).trim();
+              // 先查找精确匹配
+              if (mapping.value_mappings[valueStr]) {
+                value = mapping.value_mappings[valueStr];
+              } else if (mapping.value_mappings['default']) {
+                // 如果没有精确匹配，使用默认值
+                value = mapping.value_mappings['default'];
+              }
+              // 如果没有匹配的规则，保持原值
+            }
+            
             // 数据类型转换
             if (mapping.field_type === 'number' && value !== null && value !== undefined) {
               record[mapping.target_field] = parseFloat(String(value)) || 0;
@@ -282,6 +330,9 @@ export default function TemplateBasedImport() {
   };
 
   // 执行导入
+  // 注意：此函数与标准导入使用完全相同的逻辑
+  // - 使用相同的 RPC 函数 batch_import_logistics_records
+  // - 该函数内部包含：验重、自动运单编号、保存数据库、触发器等所有逻辑
   const executeImport = async () => {
     if (previewData.length === 0) {
       toast({ title: "错误", description: "没有可导入的数据", variant: "destructive" });
@@ -293,10 +344,78 @@ export default function TemplateBasedImport() {
     setIsPreviewDialogOpen(false);
 
     try {
-      // 准备导入数据
-      const importData = previewData.map(item => item.data);
+      // 准备导入数据 - 确保字段格式与标准导入完全一致
+      // batch_import_logistics_records 函数期望的字段格式：
+      // - project_name, chain_name, driver_name, license_plate, driver_phone
+      // - loading_location, unloading_location
+      // - loading_date, unloading_date (日期字符串，格式：YYYY-MM-DD)
+      // - loading_weight, unloading_weight (数字)
+      // - current_cost, extra_cost (数字，可为空)
+      // - transport_type (字符串，默认'实际运输')
+      // - remarks (字符串，可为空)
+      // - external_tracking_numbers (字符串数组，可为空)
+      // - other_platform_names (字符串数组，可为空)
+      const importData = previewData.map(item => {
+        const record = item.data;
+        
+        // 确保日期格式正确（YYYY-MM-DD）
+        if (record.loading_date) {
+          const loadingDate = new Date(record.loading_date as string);
+          if (!isNaN(loadingDate.getTime())) {
+            record.loading_date = loadingDate.toISOString().split('T')[0];
+          }
+        }
+        
+        if (record.unloading_date) {
+          const unloadingDate = new Date(record.unloading_date as string);
+          if (!isNaN(unloadingDate.getTime())) {
+            record.unloading_date = unloadingDate.toISOString().split('T')[0];
+          }
+        } else if (record.loading_date) {
+          // 如果没有卸货日期，使用装货日期
+          record.unloading_date = record.loading_date;
+        }
+        
+        // 确保数字字段为数字类型
+        if (record.loading_weight !== undefined && record.loading_weight !== null) {
+          record.loading_weight = parseFloat(String(record.loading_weight)) || 0;
+        }
+        if (record.unloading_weight !== undefined && record.unloading_weight !== null) {
+          record.unloading_weight = parseFloat(String(record.unloading_weight)) || null;
+        }
+        if (record.current_cost !== undefined && record.current_cost !== null) {
+          record.current_cost = parseFloat(String(record.current_cost)) || 0;
+        } else {
+          record.current_cost = 0;
+        }
+        if (record.extra_cost !== undefined && record.extra_cost !== null) {
+          record.extra_cost = parseFloat(String(record.extra_cost)) || 0;
+        } else {
+          record.extra_cost = 0;
+        }
+        
+        // 确保 transport_type 有默认值
+        if (!record.transport_type) {
+          record.transport_type = '实际运输';
+        }
+        
+        // 确保数组字段格式正确
+        if (record.external_tracking_numbers && !Array.isArray(record.external_tracking_numbers)) {
+          record.external_tracking_numbers = [];
+        }
+        if (record.other_platform_names && !Array.isArray(record.other_platform_names)) {
+          record.other_platform_names = [];
+        }
+        
+        return record;
+      });
       
-      // 调用导入函数
+      // 调用与标准导入相同的 RPC 函数
+      // 该函数内部包含：
+      // 1. 验重逻辑（基于8个关键字段）
+      // 2. 自动生成运单编号（调用 generate_auto_number）
+      // 3. 保存到数据库（logistics_records 表）
+      // 4. 触发数据库触发器（自动处理关联数据）
       const { data, error } = await supabase.rpc('batch_import_logistics_records', {
         p_records: importData as any
       } as any);
@@ -425,21 +544,113 @@ export default function TemplateBasedImport() {
             </div>
 
             {selectedTemplate && (
-              <Alert>
-                <CheckCircle className="h-4 w-4" />
-                <AlertDescription>
-                  已选择模板: {templates.find(t => t.id === selectedTemplate)?.name}
-                  <br />
-                  平台: {templates.find(t => t.id === selectedTemplate)?.platform_name}
-                  <br />
-                  字段映射: {fieldMappings.length} 个字段
-                  <br />
-                  <span className="text-blue-600 font-medium">
-                    📌 Excel表头在第{templates.find(t => t.id === selectedTemplate)?.header_row || 1}行，
-                    数据从第{templates.find(t => t.id === selectedTemplate)?.data_start_row || 2}行开始读取
-                  </span>
-                </AlertDescription>
-              </Alert>
+              <div className="space-y-4">
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-2">
+                      <div>
+                        <strong>已选择模板:</strong> {templates.find(t => t.id === selectedTemplate)?.name}
+                      </div>
+                      <div>
+                        <strong>平台:</strong> {templates.find(t => t.id === selectedTemplate)?.platform_name}
+                      </div>
+                      <div>
+                        <strong>字段映射:</strong> {fieldMappings.length} 个字段
+                      </div>
+                      <div className="text-blue-600 font-medium">
+                        📌 Excel表头在第{templates.find(t => t.id === selectedTemplate)?.header_row || 1}行，
+                        数据从第{templates.find(t => t.id === selectedTemplate)?.data_start_row || 2}行开始读取
+                      </div>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+
+                {/* 字段映射详情 */}
+                {fieldMappings.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">字段映射关系</CardTitle>
+                      <CardDescription className="text-xs">
+                        显示数据库字段与Excel字段的对应关系
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {fieldMappings.map((mapping) => {
+                          const fieldInfo = SYSTEM_FIELDS.find(f => f.key === mapping.target_field);
+                          const fieldLabel = fieldInfo?.label || mapping.target_field;
+                          const isRequired = fieldInfo?.required || mapping.is_required;
+                          
+                          return (
+                            <div 
+                              key={mapping.id} 
+                              className="flex items-center justify-between p-2 border rounded-md hover:bg-gray-50"
+                            >
+                              <div className="flex items-center gap-2 flex-1">
+                                <div className={`font-medium ${isRequired ? 'text-red-600' : 'text-gray-700'}`}>
+                                  {fieldLabel}
+                                  {isRequired && <span className="text-red-500 ml-1">*</span>}
+                                </div>
+                                <span className="text-xs text-gray-400">
+                                  ({mapping.target_field})
+                                </span>
+                                <span className="text-gray-400">→</span>
+                                <div className="text-sm text-gray-600">
+                                  {mapping.source_field}
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="text-xs">
+                                {mapping.field_type}
+                              </Badge>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* 固定值映射 */}
+                {fixedMappings.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">固定值映射</CardTitle>
+                      <CardDescription className="text-xs">
+                        这些字段将使用固定值，不从Excel读取
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {fixedMappings.map((mapping) => {
+                          const fieldInfo = SYSTEM_FIELDS.find(f => f.key === mapping.target_field);
+                          const fieldLabel = fieldInfo?.label || mapping.target_field;
+                          
+                          return (
+                            <div 
+                              key={mapping.id} 
+                              className="flex items-center justify-between p-2 border rounded-md bg-blue-50"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="font-medium text-gray-700">
+                                  {fieldLabel}
+                                </div>
+                                <span className="text-xs text-gray-400">
+                                  ({mapping.target_field})
+                                </span>
+                                <span className="text-gray-400">=</span>
+                                <div className="text-sm font-semibold text-blue-600">
+                                  {mapping.fixed_value}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             )}
           </div>
 
