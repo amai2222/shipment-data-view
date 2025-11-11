@@ -71,9 +71,9 @@ interface FixedMapping {
   description: string;
 }
 
-// 系统字段定义
+// 系统字段定义（用于字段映射）
+// 注意：运单号（auto_number）是自动生成的，不应该从Excel导入，所以不包含在字段映射选项中
 const SYSTEM_FIELDS = [
-  { key: 'auto_number', label: '运单号', type: 'text', required: true },
   { key: 'project_name', label: '项目名称', type: 'text', required: true },
   { key: 'chain_name', label: '合作链路', type: 'text', required: false },
   { key: 'driver_name', label: '司机姓名', type: 'text', required: true },
@@ -91,6 +91,12 @@ const SYSTEM_FIELDS = [
   { key: 'remarks', label: '备注', type: 'text', required: false },
   { key: 'other_platform_names', label: '其他平台名称', type: 'text', required: false },
   { key: 'other_platform_waybills', label: '其他平台运单号', type: 'text', required: false }
+];
+
+// 所有系统字段（包括运单号，用于固定值映射等其他场景）
+const ALL_SYSTEM_FIELDS = [
+  { key: 'auto_number', label: '运单号', type: 'text', required: true },
+  ...SYSTEM_FIELDS
 ];
 
 const FIELD_TYPES = [
@@ -176,7 +182,7 @@ export default function TemplateMappingManager() {
         .from('import_field_mappings')
         .select('*')
         .eq('template_id', templateId)
-        .order('sort_order');
+        .order('display_order'); // 修复：使用 display_order 而不是 sort_order
 
       if (error) throw error;
       setFieldMappings((data || []).map(m => ({
@@ -192,7 +198,11 @@ export default function TemplateMappingManager() {
       })));
     } catch (error: any) {
       console.error('加载字段映射失败:', error);
-      toast({ title: "错误", description: "加载字段映射失败", variant: "destructive" });
+      toast({ 
+        title: "错误", 
+        description: `加载字段映射失败: ${error.message || '未知错误'}`,
+        variant: "destructive" 
+      });
     }
   };
 
