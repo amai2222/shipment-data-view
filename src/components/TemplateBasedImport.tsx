@@ -633,7 +633,14 @@ export default function TemplateBasedImport() {
         error_count: number;
         inserted_count?: number;
         updated_count?: number;
-        errors?: ImportError[];
+        inserted_ids?: string[];
+        updated_ids?: string[];
+        error_details?: Array<{
+          record_index?: number;
+          error_message?: string;
+          record_data?: Record<string, unknown>;
+        }>;
+        errors?: ImportError[]; // 兼容旧格式
       }
       
       const { data, error } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records_with_update', {
@@ -641,16 +648,39 @@ export default function TemplateBasedImport() {
         p_update_mode: importMode === 'update'
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('RPC调用错误:', error);
+        throw new Error(`数据库调用失败: ${error.message || JSON.stringify(error)}`);
+      }
+
+      if (!data) {
+        throw new Error('数据库未返回结果');
+      }
 
       const result = data;
       const insertedCount = Number(result.inserted_count) || 0;
       const updatedCount = Number(result.updated_count) || 0;
       
+      // 处理错误信息：优先使用 error_details，如果没有则使用 errors
+      const errorList: ImportError[] = [];
+      if (Array.isArray(result.error_details) && result.error_details.length > 0) {
+        result.error_details.forEach((err, index) => {
+          errorList.push({
+            row: err.record_index ?? index + 1,
+            message: err.error_message || '未知错误',
+            record_index: err.record_index ?? index,
+            error_message: err.error_message || '未知错误',
+            record_data: err.record_data || {}
+          });
+        });
+      } else if (Array.isArray(result.errors) && result.errors.length > 0) {
+        errorList.push(...result.errors);
+      }
+      
       setImportResult({
         success_count: Number(result.success_count) || 0,
         error_count: Number(result.error_count) || 0,
-        errors: Array.isArray(result.errors) ? result.errors : []
+        errors: errorList
       });
 
       setImportStep('completed');
@@ -680,9 +710,28 @@ export default function TemplateBasedImport() {
       console.error('导入失败:', error);
       // 导入失败时，回到确认步骤，保持对话框打开
       setImportStep('confirmation');
+      
+      // 提取详细的错误信息
+      let errorMessage = "导入过程中发生错误";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        // 尝试从 Supabase 错误对象中提取信息
+        const supabaseError = error as { message?: string; details?: string; hint?: string; code?: string };
+        if (supabaseError.message) {
+          errorMessage = supabaseError.message;
+        } else if (supabaseError.details) {
+          errorMessage = supabaseError.details;
+        } else if (supabaseError.hint) {
+          errorMessage = supabaseError.hint;
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       toast({ 
         title: "导入失败", 
-        description: error instanceof Error ? error.message : "导入过程中发生错误", 
+        description: errorMessage, 
         variant: "destructive" 
       });
     } finally {
