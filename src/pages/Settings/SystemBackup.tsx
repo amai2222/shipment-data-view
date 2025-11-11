@@ -340,104 +340,92 @@ BEGIN;
         </div>
       </div>
 
-      {/* 备份操作区 */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileDown className="h-5 w-5 text-blue-600" />
-              JSON 格式备份
-            </CardTitle>
-            <CardDescription>
-              备份为 JSON 文件，适合数据分析和跨平台使用
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button 
-              onClick={handleBackupToLocal}
-              disabled={backing || selectedCount === 0}
-              className="w-full"
-              size="lg"
-            >
-              {backing ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  {backupProgress}
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4 mr-2" />
-                  下载 JSON 备份
-                </>
-              )}
-            </Button>
-            {selectedCount === 0 && (
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                请至少选择一个表
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      {/* 主体左右布局 */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* 左侧主体 */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* 备份操作区 */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileDown className="h-5 w-5 text-blue-600" />
+                  JSON 格式备份
+                </CardTitle>
+                <CardDescription>
+                  备份为 JSON 文件，适合数据分析和跨平台使用
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  onClick={handleBackupToLocal}
+                  disabled={backing || selectedCount === 0}
+                  className="w-full"
+                  size="lg"
+                >
+                  {backing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      {backupProgress}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      下载 JSON 备份
+                    </>
+                  )}
+                </Button>
+                {selectedCount === 0 && (
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    请至少选择一个表
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <HardDrive className="h-5 w-5 text-green-600" />
-              SQL 格式备份
-            </CardTitle>
-            <CardDescription>
-              备份为 SQL 脚本，可直接导入数据库
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button 
-              onClick={handleBackupToSQL}
-              disabled={backing || selectedCount === 0}
-              className="w-full"
-              size="lg"
-              variant="outline"
-            >
-              {backing ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  {backupProgress}
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4 mr-2" />
-                  下载 SQL 备份
-                </>
-              )}
-            </Button>
-            {selectedCount === 0 && (
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                请至少选择一个表
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 使用说明 */}
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          <div className="space-y-1">
-            <p className="font-semibold">备份说明：</p>
-            <ul className="text-sm space-y-1 list-disc list-inside ml-2">
-              <li><strong>JSON格式</strong>：适合数据分析、迁移到其他系统、人工查看</li>
-              <li><strong>SQL格式</strong>：适合直接导入PostgreSQL数据库、数据恢复</li>
-              <li>建议定期备份（每天/每周），保存在安全的位置</li>
-              <li>备份文件名包含时间戳，不会覆盖旧备份</li>
-            </ul>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <HardDrive className="h-5 w-5 text-green-600" />
+                  SQL 格式备份
+                </CardTitle>
+                <CardDescription>
+                  备份为 SQL 脚本，可直接导入数据库
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  onClick={handleBackupToSQL}
+                  disabled={backing || selectedCount === 0}
+                  className="w-full"
+                  size="lg"
+                  variant="outline"
+                >
+                  {backing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      {backupProgress}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      下载 SQL 备份
+                    </>
+                  )}
+                </Button>
+                {selectedCount === 0 && (
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    请至少选择一个表
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        </AlertDescription>
-      </Alert>
 
-      {/* 表选择 */}
-      <div className="grid gap-4">
-        {tableGroups.map(group => (
-          <Card key={group.title}>
+          {/* 表选择 */}
+          <div className="grid gap-4">
+            {tableGroups.map(group => (
+              <Card key={group.title}>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center justify-between">
                 {group.title}
@@ -502,84 +490,116 @@ BEGIN;
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
-
-      {/* 快捷操作 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">快捷备份</CardTitle>
-          <CardDescription>常用的备份组合</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSelectedTables({
-                  logistics_records: true,
-                  logistics_partner_costs: true,
-                  projects: true,
-                  partners: true,
-                  project_partners: true,
-                  partner_chains: true,
-                  payment_requests: true,
-                  invoice_requests: true,
-                  payment_records: true,
-                  invoice_records: true,
-                  drivers: true,
-                  locations: true,
-                  profiles: false,
-                  user_permissions: false,
-                  role_permission_templates: false,
-                  menu_config: false,
-                  contracts: false
-                });
-              }}
-            >
-              仅业务数据
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSelectedTables({
-                  logistics_records: false,
-                  logistics_partner_costs: false,
-                  projects: true,
-                  partners: true,
-                  project_partners: true,
-                  partner_chains: true,
-                  payment_requests: false,
-                  invoice_requests: false,
-                  payment_records: false,
-                  invoice_records: false,
-                  drivers: true,
-                  locations: true,
-                  profiles: true,
-                  user_permissions: true,
-                  role_permission_templates: true,
-                  menu_config: true,
-                  contracts: false
-                });
-              }}
-            >
-              仅配置数据
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                const updates: any = {};
-                Object.keys(selectedTables).forEach(key => {
-                  updates[key] = true;
-                });
-                setSelectedTables(updates as any);
-              }}
-            >
-              全部数据
-            </Button>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+
+          {/* 快捷操作 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">快捷备份</CardTitle>
+              <CardDescription>常用的备份组合</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedTables({
+                      logistics_records: true,
+                      logistics_partner_costs: true,
+                      projects: true,
+                      partners: true,
+                      project_partners: true,
+                      partner_chains: true,
+                      payment_requests: true,
+                      invoice_requests: true,
+                      payment_records: true,
+                      invoice_records: true,
+                      drivers: true,
+                      locations: true,
+                      profiles: false,
+                      user_permissions: false,
+                      role_permission_templates: false,
+                      menu_config: false,
+                      contracts: false
+                    });
+                  }}
+                >
+                  仅业务数据
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedTables({
+                      logistics_records: false,
+                      logistics_partner_costs: false,
+                      projects: true,
+                      partners: true,
+                      project_partners: true,
+                      partner_chains: true,
+                      payment_requests: false,
+                      invoice_requests: false,
+                      payment_records: false,
+                      invoice_records: false,
+                      drivers: true,
+                      locations: true,
+                      profiles: true,
+                      user_permissions: true,
+                      role_permission_templates: true,
+                      menu_config: true,
+                      contracts: false
+                    });
+                  }}
+                >
+                  仅配置数据
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const updates: any = {};
+                    Object.keys(selectedTables).forEach(key => {
+                      updates[key] = true;
+                    });
+                    setSelectedTables(updates as any);
+                  }}
+                >
+                  全部数据
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 右侧说明/最近记录 */}
+        <aside className="lg:col-span-4 space-y-6">
+          {/* 使用说明 */}
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="space-y-1">
+                <p className="font-semibold">备份说明：</p>
+                <ul className="text-sm space-y-1 list-disc list-inside ml-2">
+                  <li><strong>JSON格式</strong>：适合数据分析、迁移到其他系统、人工查看</li>
+                  <li><strong>SQL格式</strong>：适合直接导入PostgreSQL数据库、数据恢复</li>
+                  <li>建议定期备份（每天/每周），保存在安全的位置</li>
+                  <li>备份文件名包含时间戳，不会覆盖旧备份</li>
+                </ul>
+              </div>
+            </AlertDescription>
+          </Alert>
+
+          {/* 预留：最近备份记录/计划任务 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">最近备份记录</CardTitle>
+              <CardDescription>后续可接入日志表或本地记录</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">暂无记录</p>
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
 
       {/* 备份历史提示 */}
       <Alert className="border-green-500 bg-green-50">
