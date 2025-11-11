@@ -17,7 +17,9 @@ import {
   AlertTriangle,
   Info,
   Loader2,
-  Download
+  Download,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -65,6 +67,68 @@ const IDENTIFICATION_FIELDS = [
   '装货数量*'
 ];
 
+// 字段值提取函数（支持模糊匹配）
+const extractFieldValue = (rowData: any, fieldKey: string): any => {
+  const field = UPDATABLE_FIELDS.find(f => f.key === fieldKey);
+  if (!field) return null;
+
+  switch (fieldKey) {
+    case 'unloading_weight':
+      return rowData['卸货数量'] || rowData['卸货数量(可选)'] || rowData['卸货重量'] || null;
+    case 'unloading_date':
+      return rowData['卸货日期'] || rowData['卸货日期(可选)'] || null;
+    case 'current_cost':
+      return rowData['运费金额'] || rowData['运费金额(可选)'] || rowData['运费'] || null;
+    case 'extra_cost':
+      return rowData['额外费用'] || rowData['额外费用(可选)'] || null;
+    case 'remarks':
+      return rowData['备注'] || rowData['备注(可选)'] || rowData['说明'] || null;
+    case 'cargo_type':
+      return rowData['货物类型'] || rowData['货类'] || null;
+    case 'license_plate':
+      return rowData['车牌号'] || rowData['车牌号*'] || rowData['车牌'] || null;
+    case 'driver_phone':
+      return rowData['司机电话'] || rowData['司机电话(可选)'] || null;
+    case 'transport_type':
+      return rowData['运输类型'] || rowData['运输类型(可选)'] || rowData['类型'] || null;
+    case 'chain_name':
+      return rowData['合作链路'] || rowData['合作链路(可选)'] || rowData['链路'] || null;
+    case 'other_platform_names':
+      return rowData['其他平台名称'] || rowData['其他平台名称(可选)'] || rowData['平台名称'] || null;
+    case 'external_tracking_numbers':
+      return rowData['其他平台运单号'] || rowData['其他平台运单号(可选)'] || rowData['外部运单号'] || null;
+    default:
+      return null;
+  }
+};
+
+// 格式化字段值显示
+const formatFieldValue = (value: any, fieldKey: string): string => {
+  if (value === null || value === undefined || value === '') {
+    return '—';
+  }
+  
+  if (fieldKey === 'unloading_date' || fieldKey === 'loading_date') {
+    if (typeof value === 'string') return value;
+    if (value instanceof Date) return value.toLocaleDateString('zh-CN');
+    return String(value);
+  }
+  
+  if (fieldKey === 'other_platform_names' && Array.isArray(value)) {
+    return value.join(', ');
+  }
+  
+  if (fieldKey === 'external_tracking_numbers' && Array.isArray(value)) {
+    return value.join(', ');
+  }
+  
+  if (typeof value === 'number') {
+    return value.toLocaleString('zh-CN');
+  }
+  
+  return String(value);
+};
+
 export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess }: SelectiveFieldUpdateProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,6 +140,14 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [matchedCount, setMatchedCount] = useState(0);
   const [unmatchedCount, setUnmatchedCount] = useState(0);
+  const [expandedPreview, setExpandedPreview] = useState<Set<number>>(new Set());
+  const [updateResult, setUpdateResult] = useState<{
+    successCount: number;
+    failedCount: number;
+    skippedCount: number;
+    failedItems: Array<{ autoNumber: string; error: string }>;
+    updatedFields: Set<string>;
+  } | null>(null);
 
   const toggleField = (fieldKey: string) => {
     const next = new Set(selectedFields);
@@ -140,12 +212,44 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
           .limit(1);
 
         if (existingRecords && existingRecords.length > 0) {
+          const existingRecord = existingRecords[0];
+          // 计算字段更新对比
+          const fieldChanges: Array<{
+            fieldKey: string;
+            fieldLabel: string;
+            oldValue: any;
+            newValue: any;
+            willUpdate: boolean;
+          }> = [];
+
+          // 遍历所有可更新字段
+          UPDATABLE_FIELDS.forEach(field => {
+            const newValue = extractFieldValue(rowData, field.key);
+            // 获取原值（从数据库记录中）
+            let oldValue = existingRecord[field.key];
+            if (field.key === 'chain_name') {
+              // 合作链路需要特殊处理，可能需要从chain_id查找
+              oldValue = existingRecord.chain_id ? existingRecord.chain_name || existingRecord.chain_id : null;
+            }
+            const isSelected = selectedFields.has(field.key);
+            const hasNewValue = newValue !== null && newValue !== undefined && newValue !== '';
+
+            fieldChanges.push({
+              fieldKey: field.key,
+              fieldLabel: field.label,
+              oldValue: oldValue, // 总是显示原值
+              newValue: isSelected && hasNewValue ? newValue : null, // 只有选中且有新值才显示
+              willUpdate: isSelected && hasNewValue && String(oldValue) !== String(newValue)
+            });
+          });
+
           matched++;
           preview.push({
             status: 'matched',
-            auto_number: existingRecords[0].auto_number,
+            auto_number: existingRecord.auto_number,
             rowData: rowData,
-            existingRecord: existingRecords[0]
+            existingRecord: existingRecord,
+            fieldChanges: fieldChanges
           });
         } else {
           unmatched++;
@@ -184,6 +288,9 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
     setIsProcessing(true);
     let successCount = 0;
     let failedCount = 0;
+    let skippedCount = 0;
+    const failedItems: Array<{ autoNumber: string; error: string }> = [];
+    const updatedFields = new Set<string>();
 
     try {
       for (const item of previewData) {
@@ -197,6 +304,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             const value = item.rowData['卸货数量'] || item.rowData['卸货数量(可选)'] || item.rowData['卸货重量'];
             if (value != null && value !== '') {
               updateData.unloading_weight = parseFloat(value);
+              updatedFields.add('unloading_weight');
             }
           }
 
@@ -204,6 +312,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             const value = item.rowData['卸货日期'] || item.rowData['卸货日期(可选)'];
             if (value) {
               updateData.unloading_date = value;
+              updatedFields.add('unloading_date');
             }
           }
 
@@ -211,6 +320,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             const value = item.rowData['运费金额'] || item.rowData['运费金额(可选)'] || item.rowData['运费'];
             if (value != null && value !== '') {
               updateData.current_cost = parseFloat(value);
+              updatedFields.add('current_cost');
             }
           }
 
@@ -218,6 +328,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             const value = item.rowData['额外费用'] || item.rowData['额外费用(可选)'];
             if (value != null && value !== '') {
               updateData.extra_cost = parseFloat(value);
+              updatedFields.add('extra_cost');
             }
           }
 
@@ -225,6 +336,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             const value = item.rowData['备注'] || item.rowData['备注(可选)'] || item.rowData['说明'];
             if (value) {
               updateData.remarks = value;
+              updatedFields.add('remarks');
             }
           }
 
@@ -232,6 +344,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             const value = item.rowData['货物类型'] || item.rowData['货类'];
             if (value) {
               updateData.cargo_type = value;
+              updatedFields.add('cargo_type');
             }
           }
 
@@ -239,6 +352,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             const value = item.rowData['车牌号'] || item.rowData['车牌号*'] || item.rowData['车牌'];
             if (value) {
               updateData.license_plate = value;
+              updatedFields.add('license_plate');
             }
           }
 
@@ -246,6 +360,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             const value = item.rowData['司机电话'] || item.rowData['司机电话(可选)'];
             if (value) {
               updateData.driver_phone = value;
+              updatedFields.add('driver_phone');
             }
           }
 
@@ -254,6 +369,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             if (value) {
               const platforms = value.split(',').map((p: string) => p.trim());
               updateData.other_platform_names = platforms;
+              updatedFields.add('other_platform_names');
             }
           }
 
@@ -263,6 +379,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
               // 解析格式：运单1|运单2,运单3|运单4
               const platforms = value.split(',').map((p: string) => p.trim());
               updateData.external_tracking_numbers = platforms;
+              updatedFields.add('external_tracking_numbers');
             }
           }
 
@@ -270,6 +387,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             const value = item.rowData['运输类型'] || item.rowData['运输类型(可选)'] || item.rowData['类型'];
             if (value) {
               updateData.transport_type = value;
+              updatedFields.add('transport_type');
             }
           }
 
@@ -277,15 +395,22 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             const value = item.rowData['合作链路'] || item.rowData['合作链路(可选)'] || item.rowData['链路'];
             if (value) {
               // 需要查找链路ID
-              const { data: chainData } = await supabase
+              const { data: chainData, error: chainError } = await supabase
                 .from('partner_chains')
                 .select('id')
                 .eq('project_name', selectedProject)
                 .eq('chain_name', value)
                 .single();
               
+              if (chainError) {
+                throw new Error(`查找合作链路失败：${chainError.message}`);
+              }
+              
               if (chainData) {
                 updateData.chain_id = chainData.id;
+                updatedFields.add('chain_name');
+              } else {
+                throw new Error(`未找到合作链路"${value}"`);
               }
             }
           }
@@ -299,33 +424,82 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
               .update(updateData)
               .eq('id', item.existingRecord.id);
 
-            if (error) throw error;
+            if (error) {
+              throw new Error(error.message || '数据库更新失败');
+            }
             successCount++;
           } else {
             // Excel中该运单的选中字段都为空，跳过
+            skippedCount++;
             continue;
           }
 
         } catch (error: any) {
           failedCount++;
+          const errorMessage = error?.message || error?.toString() || '未知错误';
+          failedItems.push({
+            autoNumber: item.auto_number,
+            error: errorMessage
+          });
           console.error('更新失败:', item.auto_number, error);
         }
       }
 
-      toast({
-        title: '更新完成',
-        description: `成功更新 ${successCount} 条运单，失败 ${failedCount} 条`
+      // 保存更新结果
+      setUpdateResult({
+        successCount,
+        failedCount,
+        skippedCount,
+        failedItems,
+        updatedFields
       });
+
+      // 显示详细的成功/失败提示
+      if (failedCount === 0 && skippedCount === 0) {
+        toast({
+          title: '✅ 更新成功',
+          description: `成功更新 ${successCount} 条运单，共更新 ${updatedFields.size} 个字段`,
+          duration: 5000
+        });
+      } else if (failedCount === 0) {
+        toast({
+          title: '✅ 更新完成',
+          description: `成功更新 ${successCount} 条运单，跳过 ${skippedCount} 条（Excel中字段为空），共更新 ${updatedFields.size} 个字段`,
+          duration: 5000
+        });
+      } else {
+        toast({
+          title: '⚠️ 更新部分完成',
+          description: `成功 ${successCount} 条，失败 ${failedCount} 条，跳过 ${skippedCount} 条。请查看下方详细报告。`,
+          variant: 'destructive',
+          duration: 7000
+        });
+      }
 
       if (successCount > 0) {
         onUpdateSuccess();
-        setPreviewData([]);
-        setMatchedCount(0);
-        setUnmatchedCount(0);
+        // 不清空预览数据，让用户查看结果
       }
 
     } catch (error: any) {
-      toast({ title: '批量更新失败', description: error.message, variant: 'destructive' });
+      toast({ 
+        title: '❌ 批量更新失败', 
+        description: error.message || '更新过程中发生未知错误', 
+        variant: 'destructive',
+        duration: 7000
+      });
+      setUpdateResult({
+        successCount: 0,
+        failedCount: matchedCount,
+        skippedCount: 0,
+        failedItems: previewData
+          .filter(item => item.status === 'matched')
+          .map(item => ({
+            autoNumber: item.auto_number,
+            error: error.message || '未知错误'
+          })),
+        updatedFields: new Set()
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -468,22 +642,153 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
                 </Badge>
               </div>
 
-              <div className="border rounded-md p-4 max-h-64 overflow-y-auto">
-                <h4 className="font-semibold mb-2">匹配预览（前10条）</h4>
-                <div className="space-y-2 text-sm">
-                  {previewData.slice(0, 10).map((item, index) => (
-                    <div key={index} className={`p-2 rounded ${item.status === 'matched' ? 'bg-green-50' : 'bg-yellow-50'}`}>
-                      {item.status === 'matched' ? (
-                        <span className="text-green-800">
-                          ✓ {item.auto_number} - 将更新选中的字段
-                        </span>
-                      ) : (
-                        <span className="text-yellow-800">
-                          ⚠ 未找到匹配运单（司机：{item.rowData['司机姓名'] || item.rowData['司机']}）
-                        </span>
-                      )}
-                    </div>
-                  ))}
+              <div className="border rounded-md p-4 max-h-[600px] overflow-y-auto">
+                <h4 className="font-semibold mb-3">更新预览（共 {previewData.length} 条）</h4>
+                <div className="space-y-3">
+                  {previewData.map((item, index) => {
+                    const isExpanded = expandedPreview.has(index);
+                    const isMatched = item.status === 'matched';
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        className={`border rounded-lg overflow-hidden ${
+                          isMatched ? 'border-green-200 bg-green-50/50' : 'border-yellow-200 bg-yellow-50/50'
+                        }`}
+                      >
+                        {/* 运单头部 */}
+                        <div 
+                          className={`p-3 cursor-pointer hover:bg-opacity-80 transition-colors ${
+                            isMatched ? 'bg-green-100' : 'bg-yellow-100'
+                          }`}
+                          onClick={() => {
+                            if (!isMatched) return;
+                            const next = new Set(expandedPreview);
+                            if (next.has(index)) {
+                              next.delete(index);
+                            } else {
+                              next.add(index);
+                            }
+                            setExpandedPreview(next);
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {isMatched ? (
+                                <>
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                  <span className="font-semibold text-green-800">
+                                    {item.auto_number}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {item.fieldChanges?.filter(f => f.willUpdate).length || 0} 个字段将更新
+                                  </Badge>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                                  <span className="text-yellow-800">
+                                    未找到匹配运单
+                                  </span>
+                                  <span className="text-xs text-yellow-600 ml-2">
+                                    （司机：{item.rowData['司机姓名'] || item.rowData['司机姓名*'] || item.rowData['司机']}）
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                            {isMatched && (
+                              <div className="flex items-center gap-2">
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 字段更新详情 */}
+                        {isMatched && isExpanded && item.fieldChanges && (
+                          <div className="p-4 bg-white border-t">
+                            <div className="space-y-3">
+                              <div className="text-xs font-semibold text-gray-600 mb-2">
+                                字段更新对比（仅显示勾选的字段）
+                              </div>
+                              <div className="grid grid-cols-1 gap-2">
+                                {item.fieldChanges
+                                  .filter(f => selectedFields.has(f.fieldKey))
+                                  .map((change, idx) => {
+                                    const field = UPDATABLE_FIELDS.find(f => f.key === change.fieldKey);
+                                    const hasNewValue = change.newValue !== null && change.newValue !== undefined && change.newValue !== '';
+                                    const isChanged = hasNewValue && String(change.oldValue) !== String(change.newValue);
+                                    
+                                    return (
+                                      <div 
+                                        key={idx} 
+                                        className={`p-3 rounded-md border ${
+                                          isChanged ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
+                                        }`}
+                                      >
+                                        <div className="flex items-start justify-between">
+                                          <div className="flex-1">
+                                            <div className="font-medium text-sm text-gray-700 mb-1">
+                                              {change.fieldLabel}
+                                              <span className="text-xs text-gray-500 ml-1">
+                                                ({change.fieldKey})
+                                              </span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                              <div>
+                                                <div className="text-gray-500 mb-1">原值：</div>
+                                                <div className={`font-mono ${
+                                                  isChanged ? 'text-orange-600' : 'text-gray-700'
+                                                }`}>
+                                                  {formatFieldValue(change.oldValue, change.fieldKey)}
+                                                </div>
+                                              </div>
+                                              <div>
+                                                <div className="text-gray-500 mb-1">新值：</div>
+                                                <div className={`font-mono ${
+                                                  hasNewValue 
+                                                    ? (isChanged ? 'text-green-600 font-semibold' : 'text-gray-700')
+                                                    : 'text-gray-400'
+                                                }`}>
+                                                  {hasNewValue 
+                                                    ? formatFieldValue(change.newValue, change.fieldKey)
+                                                    : '（Excel中为空，保持原值）'
+                                                  }
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          {isChanged && (
+                                            <Badge className="ml-2 bg-green-100 text-green-700 border-green-300">
+                                              将更新
+                                            </Badge>
+                                          )}
+                                          {!hasNewValue && (
+                                            <Badge variant="outline" className="ml-2">
+                                              保持原值
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                              {item.fieldChanges.filter(f => selectedFields.has(f.fieldKey) && f.newValue === null).length > 0 && (
+                                <div className="mt-3 p-2 bg-gray-100 rounded text-xs text-gray-600">
+                                  <Info className="h-3 w-3 inline mr-1" />
+                                  提示：未勾选的字段将保持数据库原值不变
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -499,6 +804,122 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
                 )}
               </Button>
             </div>
+          )}
+
+          {/* 更新结果报告 */}
+          {updateResult && (
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  {updateResult.failedCount === 0 ? '✅ 更新结果' : '⚠️ 更新结果'}
+                </CardTitle>
+                <CardDescription>
+                  更新操作已完成，详情如下
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* 统计摘要 */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="text-2xl font-bold text-green-600">{updateResult.successCount}</div>
+                    <div className="text-sm text-green-700">成功更新</div>
+                  </div>
+                  <div className={`p-3 rounded-lg border ${
+                    updateResult.failedCount > 0 
+                      ? 'bg-red-50 border-red-200' 
+                      : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <div className={`text-2xl font-bold ${
+                      updateResult.failedCount > 0 ? 'text-red-600' : 'text-gray-600'
+                    }`}>
+                      {updateResult.failedCount}
+                    </div>
+                    <div className={`text-sm ${
+                      updateResult.failedCount > 0 ? 'text-red-700' : 'text-gray-700'
+                    }`}>
+                      更新失败
+                    </div>
+                  </div>
+                  <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="text-2xl font-bold text-yellow-600">{updateResult.skippedCount}</div>
+                    <div className="text-sm text-yellow-700">跳过（字段为空）</div>
+                  </div>
+                </div>
+
+                {/* 更新的字段列表 */}
+                {updateResult.updatedFields.size > 0 && (
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-sm font-semibold text-blue-700 mb-2">已更新的字段：</div>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from(updateResult.updatedFields).map(fieldKey => {
+                        const field = UPDATABLE_FIELDS.find(f => f.key === fieldKey);
+                        return (
+                          <Badge key={fieldKey} variant="outline" className="bg-white">
+                            {field?.label || fieldKey}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 失败详情 */}
+                {updateResult.failedItems.length > 0 && (
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="text-sm font-semibold text-red-700 mb-3 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      失败运单详情（{updateResult.failedItems.length} 条）
+                    </div>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {updateResult.failedItems.map((item, idx) => (
+                        <div key={idx} className="p-2 bg-white rounded border border-red-200">
+                          <div className="font-medium text-sm text-red-800 mb-1">
+                            运单号：{item.autoNumber}
+                          </div>
+                          <div className="text-xs text-red-600 font-mono">
+                            错误：{item.error}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 操作按钮 */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setUpdateResult(null);
+                      setPreviewData([]);
+                      setMatchedCount(0);
+                      setUnmatchedCount(0);
+                      setExpandedPreview(new Set());
+                    }}
+                    className="flex-1"
+                  >
+                    关闭报告
+                  </Button>
+                  {updateResult.successCount > 0 && (
+                    <Button
+                      onClick={() => {
+                        setUpdateResult(null);
+                        setPreviewData([]);
+                        setMatchedCount(0);
+                        setUnmatchedCount(0);
+                        setExpandedPreview(new Set());
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = '';
+                        }
+                      }}
+                      className="flex-1"
+                    >
+                      继续更新
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           )}
         </CardContent>
       </Card>
