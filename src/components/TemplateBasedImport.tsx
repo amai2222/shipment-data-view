@@ -438,39 +438,67 @@ export default function TemplateBasedImport() {
           record.transport_type = '实际运输';
         }
         
-        // 确保数组字段格式正确（必须是字符串数组）
+        // 处理数组字段：如果为空则不传递，避免类型转换错误
+        // 数据库函数期望 text[] 类型，但通过 RPC 传递时会被序列化为 JSONB
+        // 如果数组为空，不传递该字段，让数据库函数使用默认值
         if (record.external_tracking_numbers !== undefined && record.external_tracking_numbers !== null) {
           if (!Array.isArray(record.external_tracking_numbers)) {
             // 如果不是数组，尝试转换为数组
             const strValue = String(record.external_tracking_numbers).trim();
-            record.external_tracking_numbers = strValue 
+            const arr = strValue 
               ? strValue.split(',').map(v => v.trim()).filter(v => v)
               : [];
+            if (arr.length > 0) {
+              record.external_tracking_numbers = arr;
+            } else {
+              // 如果数组为空，删除该字段，不传递给数据库
+              delete record.external_tracking_numbers;
+            }
           } else {
             // 确保数组中的元素都是字符串
-            record.external_tracking_numbers = record.external_tracking_numbers
+            const arr = record.external_tracking_numbers
               .map(v => String(v).trim())
               .filter(v => v);
+            if (arr.length > 0) {
+              record.external_tracking_numbers = arr;
+            } else {
+              // 如果数组为空，删除该字段
+              delete record.external_tracking_numbers;
+            }
           }
         } else {
-          record.external_tracking_numbers = [];
+          // 如果字段不存在或为 null，不传递该字段
+          delete record.external_tracking_numbers;
         }
         
         if (record.other_platform_names !== undefined && record.other_platform_names !== null) {
           if (!Array.isArray(record.other_platform_names)) {
             // 如果不是数组，尝试转换为数组
             const strValue = String(record.other_platform_names).trim();
-            record.other_platform_names = strValue 
+            const arr = strValue 
               ? strValue.split(',').map(v => v.trim()).filter(v => v)
               : [];
+            if (arr.length > 0) {
+              record.other_platform_names = arr;
+            } else {
+              // 如果数组为空，删除该字段
+              delete record.other_platform_names;
+            }
           } else {
             // 确保数组中的元素都是字符串
-            record.other_platform_names = record.other_platform_names
+            const arr = record.other_platform_names
               .map(v => String(v).trim())
               .filter(v => v);
+            if (arr.length > 0) {
+              record.other_platform_names = arr;
+            } else {
+              // 如果数组为空，删除该字段
+              delete record.other_platform_names;
+            }
           }
         } else {
-          record.other_platform_names = [];
+          // 如果字段不存在或为 null，不传递该字段
+          delete record.other_platform_names;
         }
         
         return record;
