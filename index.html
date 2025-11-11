@@ -39,6 +39,62 @@
 
   <body>
     <div id="root"></div>
+    <!-- 提前注册错误处理器，在页面加载前捕获错误 -->
+    <script>
+      // 提前注册错误处理器（在React加载前）
+      (function() {
+        // 忽略的错误模式
+        const ignoredPatterns = [
+          'ERR_ADDRESS_INVALID',
+          'cloudflareinsights',
+          'beacon.min.js',
+          'chrome-extension://',
+          'Content Security Policy',
+          'violates the following Content Security Policy directive',
+          'fleet manager projects',
+          'internal driver vehicle change',
+          'supabase.co/rest/v1/'
+        ];
+        
+        // 拦截console.error
+        const originalError = console.error;
+        console.error = function(...args) {
+          const message = args.join(' ');
+          const shouldIgnore = ignoredPatterns.some(pattern => 
+            message.includes(pattern)
+          );
+          if (!shouldIgnore) {
+            originalError.apply(console, args);
+          }
+        };
+        
+        // 拦截window.error事件
+        window.addEventListener('error', function(event) {
+          const errorMessage = event.message || '';
+          const errorSource = event.filename || '';
+          const shouldIgnore = ignoredPatterns.some(pattern => 
+            errorMessage.includes(pattern) || errorSource.includes(pattern)
+          );
+          if (shouldIgnore) {
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
+          }
+        }, true);
+        
+        // 拦截unhandledrejection
+        window.addEventListener('unhandledrejection', function(event) {
+          const reason = event.reason?.message || event.reason?.toString() || '';
+          const shouldIgnore = ignoredPatterns.some(pattern => 
+            reason.includes(pattern)
+          );
+          if (shouldIgnore) {
+            event.preventDefault();
+            return false;
+          }
+        }, true);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
