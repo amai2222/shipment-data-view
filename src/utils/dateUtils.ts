@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
 /**
- * 将数据库的UTC时间转换为中国时区的日期字符串
+ * 将数据库的UTC时间转换为中国时区的日期字符串（用于前端显示）
  * @param dateValue 数据库UTC时间值（可能是string、Date或null）
  * @param formatStr 格式化字符串，默认 'yyyy-MM-dd'
  * @returns 格式化后的中国时区日期字符串
@@ -27,6 +27,70 @@ export function formatChinaDate(
     return format(date, formatStr, { locale: zhCN });
   } catch (error) {
     console.error('日期格式化错误:', error);
+    return '';
+  }
+}
+
+/**
+ * 将数据库的UTC时间转换为中国时区的日期字符串（用于导出Excel/CSV）
+ * 确保导出的日期显示为中国时区
+ * @param dateValue 数据库UTC时间值（可能是string、Date或null）
+ * @param formatStr 格式化字符串，默认 'yyyy-MM-dd'
+ * @returns 格式化后的中国时区日期字符串
+ */
+export function formatChinaDateForExport(
+  dateValue: string | Date | null | undefined,
+  formatStr: string = 'yyyy-MM-dd'
+): string {
+  if (!dateValue) return '';
+  
+  try {
+    // 处理Date对象
+    let date: Date;
+    if (dateValue instanceof Date) {
+      date = dateValue;
+    } else if (typeof dateValue === 'string') {
+      // 如果是ISO格式（包含T），解析为UTC时间
+      if (dateValue.includes('T')) {
+        date = new Date(dateValue);
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+        // 纯日期字符串，假设是UTC日期（数据库返回的timestamptz格式化后可能是这样）
+        // 转换为UTC时间：'2025-11-02' -> '2025-11-02T00:00:00.000Z'
+        date = new Date(dateValue + 'T00:00:00.000Z');
+      } else {
+        // 其他格式，尝试直接解析
+        date = new Date(dateValue);
+      }
+    } else {
+      return '';
+    }
+    
+    if (isNaN(date.getTime())) return '';
+    
+    // 将UTC时间转换为中国时区（加8小时）
+    const chinaDate = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+    
+    // 根据格式字符串格式化
+    if (formatStr.includes('HH:mm:ss') || formatStr.includes('HH:mm')) {
+      // 包含时间的格式
+      const year = chinaDate.getUTCFullYear();
+      const month = String(chinaDate.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(chinaDate.getUTCDate()).padStart(2, '0');
+      const hours = String(chinaDate.getUTCHours()).padStart(2, '0');
+      const minutes = String(chinaDate.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(chinaDate.getUTCSeconds()).padStart(2, '0');
+      
+      if (formatStr.includes('HH:mm:ss')) {
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+      } else {
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
+      }
+    } else {
+      // 只包含日期的格式，使用date-fns格式化
+      return format(chinaDate, formatStr, { locale: zhCN });
+    }
+  } catch (error) {
+    console.error('导出日期格式化错误:', error);
     return '';
   }
 }
@@ -65,7 +129,7 @@ export function getChinaToday(formatStr: string = 'yyyy-MM-dd'): string {
  * @param dateValue Excel中的日期值
  * @returns 中国时区的日期字符串（YYYY-MM-DD格式）
  */
-export function parseExcelDateToChina(dateValue: any): string {
+export function parseExcelDateToChina(dateValue: unknown): string {
   if (!dateValue) throw new Error('日期值为空');
   
   // 如果已经是Date对象，直接处理
@@ -103,7 +167,7 @@ export function parseExcelDateToChina(dateValue: any): string {
   }
   
   // 处理标准格式（如：2025/9/9, 2025-09-09, 2025.9.9）
-  const standardMatch = dateStr.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+  const standardMatch = dateStr.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/);
   if (standardMatch) {
     const year = parseInt(standardMatch[1]);
     const month = parseInt(standardMatch[2]);
@@ -113,7 +177,7 @@ export function parseExcelDateToChina(dateValue: any): string {
   }
   
   // 处理简化格式（如：9/9, 9-9, 9.9）
-  const simpleMatch = dateStr.match(/^(\d{1,2})[\/\-\.](\d{1,2})$/);
+  const simpleMatch = dateStr.match(/^(\d{1,2})[/\-.](\d{1,2})$/);
   if (simpleMatch) {
     const month = parseInt(simpleMatch[1]);
     const day = parseInt(simpleMatch[2]);
@@ -123,7 +187,8 @@ export function parseExcelDateToChina(dateValue: any): string {
   
   // 处理其他可能的格式
   try {
-    const date = new Date(dateValue);
+    const dateValueStr = String(dateValue);
+    const date = new Date(dateValueStr);
     if (isNaN(date.getTime())) {
       throw new Error('无效的日期格式');
     }

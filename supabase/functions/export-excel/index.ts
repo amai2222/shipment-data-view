@@ -34,7 +34,8 @@ serve(async (req)=>{
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
     if (!anonKey) throw new Error("Missing anon key");
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-    const { data: canView, error: permError } = await userClient.rpc('is_finance_or_admin' as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: canView, error: permError } = await userClient.rpc<boolean>('is_finance_or_admin');
     if (permError) throw new Error(`Permission check failed: ${(permError instanceof Error ? permError.message : String(permError))}`);
     if (!canView) {
       return new Response(JSON.stringify({ error: 'Forbidden: finance or admin only' }), {
@@ -56,13 +57,68 @@ serve(async (req)=>{
     const ids = requestData?.logistics_record_ids || [];
     if (ids.length === 0) throw new Error("No logistics records found for this request.");
 
-    const { data: v2Data, error: rpcError } = await userClient.rpc('get_payment_request_data_v2' as any, {
+    interface PaymentRequestDataV2 {
+      records: Array<{
+        id: string;
+        auto_number: string;
+        project_name: string;
+        chain_name?: string;
+        driver_name: string;
+        license_plate?: string;
+        driver_phone?: string;
+        loading_location: string;
+        unloading_location: string;
+        loading_date: string;
+        unloading_date?: string;
+        loading_weight?: number;
+        unloading_weight?: number;
+        current_cost?: number;
+        extra_cost?: number;
+        payable_cost?: number;
+        cargo_type?: string;
+        transport_type?: string;
+        remarks?: string;
+        partner_costs?: Array<{
+          partner_id: string;
+          partner_name?: string;
+          full_name?: string;
+          bank_account?: string;
+          bank_name?: string;
+          branch_name?: string;
+          payable_amount: number;
+        }>;
+      }>;
+    }
+    
+    const { data: v2Data, error: rpcError } = await userClient.rpc<PaymentRequestDataV2>('get_payment_request_data_v2', {
       p_record_ids: ids,
     });
     if (rpcError) throw new Error(`RPC get_payment_request_data_v2 failed: ${(rpcError instanceof Error ? rpcError.message : String(rpcError))}`);
-    const records: any[] = Array.isArray((v2Data as any)?.records) ? (v2Data as any).records : [];
+    const records = Array.isArray(v2Data?.records) ? v2Data.records : [];
 
-    const sheetMap = new Map<string, any>();
+    interface SheetData {
+      paying_partner_id: string;
+      paying_partner_full_name: string;
+      paying_partner_bank_account: string;
+      paying_partner_bank_name: string;
+      paying_partner_branch_name: string;
+      record_count: number;
+      total_payable: number;
+      project_name: string;
+      records: Array<{ record: typeof records[0]; payable_amount: number }>;
+      footer?: {
+        remarks?: string;
+        info_specialist?: string;
+        info_audit?: string;
+        biz_lead?: string;
+        reviewer?: string;
+        biz_manager?: string;
+        biz_general_manager?: string;
+        finance_audit?: string;
+      };
+    }
+    
+    const sheetMap = new Map<string, SheetData>();
     for (const rec of records) {
       const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
       for (const cost of costs) {
@@ -70,10 +126,10 @@ serve(async (req)=>{
         if (!sheetMap.has(key)) {
           sheetMap.set(key, {
             paying_partner_id: key,
-            paying_partner_full_name: cost.full_name || cost.partner_name,
+            paying_partner_full_name: cost.full_name || cost.partner_name || '',
             paying_partner_bank_account: cost.bank_account || '',
-            paying_partner_bank_name: (cost as any).bank_name || '',
-            paying_partner_branch_name: (cost as any).branch_name || '',
+            paying_partner_bank_name: cost.bank_name || '',
+            paying_partner_branch_name: cost.branch_name || '',
             record_count: 0,
             total_payable: 0,
             project_name: rec.project_name,
@@ -81,11 +137,13 @@ serve(async (req)=>{
           });
         }
         const sheet = sheetMap.get(key);
-        if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
+        if (sheet && !sheet.records.some((r) => r.record.id === rec.id)) {
           sheet.record_count += 1;
         }
-        sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
-        sheet.total_payable += Number(cost.payable_amount || 0);
+        if (sheet) {
+          sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
+          sheet.total_payable += Number(cost.payable_amount || 0);
+        }
       }
     }
     const sheetData = { sheets: Array.from(sheetMap.values()) };
@@ -96,7 +154,8 @@ serve(async (req)=>{
     if (!templateBuffer) throw new Error("Template not found or is empty.");
 
     const finalWb = XLSX.utils.book_new();
-    const setCell = (ws, addr, v, tOverride)=>{
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const setCell = (ws: any, addr: string, v: string | number | null | undefined, tOverride?: string): void => {
       ws[addr] = {
         t: tOverride ?? (typeof v === "number" ? "n" : "s"),
         v
@@ -115,22 +174,44 @@ serve(async (req)=>{
       adminClient.from("project_partners").select("project_id, partner_id, level, chain_id, partner_chains(chain_name)"),
       adminClient.from("partners").select("id, name, full_name").in("id", partnerIds)
     ]);
-    const projectsByName = new Map((projectsRes.data || []).map((p)=>[
+    interface ProjectData {
+      id: string;
+      name: string;
+    }
+    
+    interface PartnerData {
+      id: string;
+      name: string;
+      full_name?: string;
+    }
+    
+    interface ProjectPartnerData {
+      project_id: string;
+      partner_id: string;
+      level?: number;
+      chain_id?: string;
+      partner_chains?: { chain_name?: string } | null;
+    }
+    
+    const projectsByName = new Map<string, string>((projectsRes.data as ProjectData[] || []).map((p) => [
         p.name,
         p.id
       ]));
-    const partnersById = new Map((partnersRes.data || []).map((p)=>[
+    const partnersById = new Map<string, PartnerData>((partnersRes.data as PartnerData[] || []).map((p) => [
         p.id,
         p
       ]));
-    const projectPartnersByProjectId = (projectPartnersRes.data || []).reduce((acc, pp)=>{
-      if (!acc.has(pp.project_id)) acc.set(pp.project_id, []);
-      acc.get(pp.project_id).push({
-        ...pp,
-        chain_name: pp.partner_chains?.chain_name
-      });
-      return acc;
-    }, new Map());
+    const projectPartnersByProjectId = ((projectPartnersRes.data as ProjectPartnerData[] || []).reduce((acc, pp) => {
+        if (!acc.has(pp.project_id)) acc.set(pp.project_id, []);
+        const arr = acc.get(pp.project_id);
+        if (arr) {
+          arr.push({
+            ...pp,
+            chain_name: (pp.partner_chains as { chain_name?: string } | null)?.chain_name
+          });
+        }
+        return acc;
+      }, new Map<string, Array<ProjectPartnerData & { chain_name?: string }>>()));
     const DEFAULT_PARENT = "中科智运（云南）供应链科技有限公司";
 
     for (const [index, sheet] of sheetData.sheets.entries()){
@@ -192,7 +273,9 @@ serve(async (req)=>{
           const parentInfo = partnersInChain.find((p)=>p.level === parentLevel);
           if (parentInfo) {
             const parentPartner = partnersById.get(parentInfo.partner_id);
-            parentTitle = parentPartner?.full_name || parentPartner?.name || DEFAULT_PARENT;
+            if (parentPartner) {
+              parentTitle = parentPartner.full_name || parentPartner.name || DEFAULT_PARENT;
+            }
           }
         }
       }
@@ -204,10 +287,43 @@ serve(async (req)=>{
       
       const startRow = 4;
       let currentRow = startRow;
-      const payingPartnerName = sheet.paying_partner_full_name || sheet.paying_partner_name || "";
+      const payingPartnerName = sheet.paying_partner_full_name || "";
       const bankAccount = sheet.paying_partner_bank_account || "";
       const bankName = sheet.paying_partner_bank_name || "";
       const branchName = sheet.paying_partner_branch_name || "";
+      // 将UTC日期转换为中国时区日期字符串（用于导出）
+      const formatChinaDateForExport = (dateValue: string | null | undefined): string => {
+        if (!dateValue) return '';
+        
+        try {
+          // 如果已经是日期字符串格式（YYYY-MM-DD），假设是UTC日期，转换为中国时区
+          if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+            // UTC日期转换为中国时区：'2025-11-02' (UTC) -> '2025-11-03' (中国时区)
+            const date = new Date(dateValue + 'T00:00:00.000Z');
+            const chinaDate = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+            const year = chinaDate.getUTCFullYear();
+            const month = String(chinaDate.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(chinaDate.getUTCDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          }
+          
+          // 如果是ISO格式（包含T和Z），解析为UTC然后转换为中国时区
+          if (typeof dateValue === 'string' && dateValue.includes('T')) {
+            const date = new Date(dateValue);
+            const chinaDate = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+            const year = chinaDate.getUTCFullYear();
+            const month = String(chinaDate.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(chinaDate.getUTCDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          }
+          
+          return dateValue;
+        } catch (error) {
+          console.error('日期格式化错误:', error);
+          return dateValue || '';
+        }
+      };
+      
       for (const item of sorted){
         const rec = item.record;
         let finalUnloadingDate = rec.unloading_date;
@@ -215,8 +331,8 @@ serve(async (req)=>{
           finalUnloadingDate = rec.loading_date;
         }
         setCell(ws, `A${currentRow}`, rec.auto_number || "");
-        setCell(ws, `B${currentRow}`, rec.loading_date || "");
-        setCell(ws, `C${currentRow}`, finalUnloadingDate || "");
+        setCell(ws, `B${currentRow}`, formatChinaDateForExport(rec.loading_date) || "");
+        setCell(ws, `C${currentRow}`, formatChinaDateForExport(finalUnloadingDate) || "");
         setCell(ws, `D${currentRow}`, rec.loading_location || "");
         setCell(ws, `E${currentRow}`, rec.unloading_location || "");
         setCell(ws, `F${currentRow}`, rec.cargo_type || "普货");

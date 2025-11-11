@@ -4,23 +4,49 @@ import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+// 解析Excel日期为中国时区的日期字符串（YYYY-MM-DD格式）
+// Excel中的日期应该被理解为中国时区的日期，然后发送到后端转换为UTC存储
 const parseExcelDate = (excelDate: any): string | null => {
   if (excelDate === null || excelDate === undefined || excelDate === '') return null;
+  
+  let date: Date | null = null;
+  
+  // 处理Excel数字日期序列号
   if (typeof excelDate === 'number' && excelDate > 0) {
-    const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+    // Excel日期序列号：1900年1月1日为1，但Excel错误地认为1900是闰年
+    // 所以需要减去2天来修正
+    const excelEpoch = new Date(1900, 0, 1);
+    date = new Date(excelEpoch.getTime() + (excelDate - 2) * 24 * 60 * 60 * 1000);
     if (isNaN(date.getTime())) return null;
-    return date.toISOString().split('T')[0];
   }
-  if (excelDate instanceof Date) { return excelDate.toISOString().split('T')[0]; }
-  if (typeof excelDate === 'string') {
+  // 处理Date对象
+  else if (excelDate instanceof Date) {
+    date = excelDate;
+    if (isNaN(date.getTime())) return null;
+  }
+  // 处理字符串
+  else if (typeof excelDate === 'string') {
     const dateStr = excelDate.split(' ')[0];
+    // 如果已经是YYYY-MM-DD格式，直接返回
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    // 处理YYYY/MM/DD格式
     if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr)) {
       const parts = dateStr.split('/');
       return `${parts[0]}-${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')}`;
     }
+    // 尝试解析其他格式
+    date = new Date(dateStr);
+    if (isNaN(date.getTime())) return null;
+  } else {
+    return null;
   }
-  return null;
+  
+  // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+  // 这样Excel中的日期会被理解为中国时区的日期
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 export interface ImportPreviewResultWithUpdate {

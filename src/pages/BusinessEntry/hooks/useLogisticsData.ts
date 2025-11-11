@@ -4,7 +4,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogisticsRecord } from '../types';
+import { LogisticsRecord, PaginationState } from '../types';
 
 interface LogisticsResponse {
   records: LogisticsRecord[];
@@ -71,7 +71,9 @@ export function useLogisticsData() {
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilters, setActiveFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
-  const [pagination, setPagination] = useState({ 
+  const [pagination, setPagination] = useState<PaginationState>({ 
+    page: 1,
+    size: PAGE_SIZE,
     currentPage: 1, 
     totalPages: 1, 
     totalCount: 0, 
@@ -114,15 +116,18 @@ export function useLogisticsData() {
       setRecords(responseData.records || []);
       setTotalSummary(responseData.summary || INITIAL_SUMMARY);
       setPagination(prev => ({ 
-        ...prev, 
+        ...prev,
+        page: page,
+        size: pageSize,
         currentPage: page,
         totalPages: Math.ceil((responseData.totalCount || 0) / pageSize) || 1,
         totalCount: responseData.totalCount || 0,
         pageSize: pageSize
       }));
 
-    } catch (error: any) {
-      toast({ title: "错误", description: `加载运单记录失败: ${error.message}`, variant: "destructive" });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '加载运单记录失败';
+      toast({ title: "错误", description: `加载运单记录失败: ${errorMessage}`, variant: "destructive" });
       setRecords([]);
       setTotalSummary(INITIAL_SUMMARY);
     } finally {
@@ -142,12 +147,22 @@ export function useLogisticsData() {
       setSortDirection('desc');
     }
     // 排序时重置到第一页
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    setPagination((prev: PaginationState) => ({ 
+      ...prev, 
+      page: 1, 
+      size: prev.size,
+      currentPage: 1,
+      totalPages: prev.totalPages,
+      totalCount: prev.totalCount,
+      pageSize: prev.pageSize
+    }));
   }, [sortField]);
 
   const handlePageSizeChange = useCallback((newPageSize: number) => {
     setPagination(prev => ({ 
-      ...prev, 
+      ...prev,
+      page: 1,
+      size: newPageSize,
       pageSize: newPageSize,
       currentPage: 1, // 改变页面大小时重置到第一页
       totalPages: Math.ceil(prev.totalCount / newPageSize) || 1

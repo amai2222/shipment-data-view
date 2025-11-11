@@ -27,7 +27,7 @@ export interface LogisticsRecord {
   payable_cost: number | null;  // 司机应收金额
   license_plate: string | null;
   driver_phone: string | null;
-  transport_type: string | null;
+  transport_type: '实际运输' | '退货' | string | null;
   extra_cost: number | null;
   remarks: string | null;
   loading_weighbridge_image_url?: string | null; // 装货磅单图片URL

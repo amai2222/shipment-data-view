@@ -54,7 +54,15 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
   }, [selectedRecords, onSelectionChange]);
   
   const handlePageChange = (newPage: number) => {
-    setPagination(p => ({ ...p, currentPage: newPage }));
+    setPagination((p: PaginationState) => ({ 
+      ...p, 
+      page: newPage, 
+      size: p.size,
+      currentPage: newPage,
+      totalPages: p.totalPages,
+      totalCount: p.totalCount,
+      pageSize: p.pageSize
+    }));
   };
 
   // 批量选择处理函数

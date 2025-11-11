@@ -327,18 +327,39 @@ export default function TemplateBasedImport() {
             } else if (mapping.field_type === 'number' && value !== null && value !== undefined) {
               record[mapping.target_field] = parseFloat(String(value)) || 0;
             } else if (mapping.field_type === 'date' && value) {
-              // 日期处理
+              // 日期处理：解析Excel日期为中国时区的日期字符串（YYYY-MM-DD格式）
+              // Excel中的日期应该被理解为中国时区的日期，然后发送到后端转换为UTC存储
+              let date: Date | null = null;
+              
               // 检查是否为 Date 对象
               if (Object.prototype.toString.call(value) === '[object Date]') {
-                const dateValue = value as unknown as Date;
-                record[mapping.target_field] = dateValue.toISOString().split('T')[0];
-              } else if (typeof value === 'string') {
-                // 尝试解析日期字符串
-                const date = new Date(value);
-                if (!isNaN(date.getTime())) {
-                  record[mapping.target_field] = date.toISOString().split('T')[0];
+                date = value as unknown as Date;
+                if (isNaN(date.getTime())) {
+                  record[mapping.target_field] = String(value);
                 } else {
-                  record[mapping.target_field] = value;
+                  // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  record[mapping.target_field] = `${year}-${month}-${day}`;
+                }
+              } else if (typeof value === 'string') {
+                const dateStr = value.split(' ')[0];
+                // 如果已经是YYYY-MM-DD格式，直接使用
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                  record[mapping.target_field] = dateStr;
+                } else {
+                  // 尝试解析日期字符串
+                  date = new Date(value);
+                  if (!isNaN(date.getTime())) {
+                    // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    record[mapping.target_field] = `${year}-${month}-${day}`;
+                  } else {
+                    record[mapping.target_field] = value;
+                  }
                 }
               } else {
                 record[mapping.target_field] = String(value);
@@ -481,17 +502,35 @@ export default function TemplateBasedImport() {
       const importData = recordsToImport.map(record => {
         
         // 确保日期格式正确（YYYY-MM-DD）
+        // 确保日期格式正确（已经是YYYY-MM-DD格式，不需要转换）
+        // 如果日期字段不是标准格式，尝试解析并格式化为YYYY-MM-DD
         if (record.loading_date) {
-          const loadingDate = new Date(record.loading_date as string);
-          if (!isNaN(loadingDate.getTime())) {
-            record.loading_date = loadingDate.toISOString().split('T')[0];
+          const loadingDateStr = String(record.loading_date);
+          // 如果已经是YYYY-MM-DD格式，直接使用
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(loadingDateStr)) {
+            const loadingDate = new Date(loadingDateStr);
+            if (!isNaN(loadingDate.getTime())) {
+              // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+              const year = loadingDate.getFullYear();
+              const month = String(loadingDate.getMonth() + 1).padStart(2, '0');
+              const day = String(loadingDate.getDate()).padStart(2, '0');
+              record.loading_date = `${year}-${month}-${day}`;
+            }
           }
         }
         
         if (record.unloading_date) {
-          const unloadingDate = new Date(record.unloading_date as string);
-          if (!isNaN(unloadingDate.getTime())) {
-            record.unloading_date = unloadingDate.toISOString().split('T')[0];
+          const unloadingDateStr = String(record.unloading_date);
+          // 如果已经是YYYY-MM-DD格式，直接使用
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(unloadingDateStr)) {
+            const unloadingDate = new Date(unloadingDateStr);
+            if (!isNaN(unloadingDate.getTime())) {
+              // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+              const year = unloadingDate.getFullYear();
+              const month = String(unloadingDate.getMonth() + 1).padStart(2, '0');
+              const day = String(unloadingDate.getDate()).padStart(2, '0');
+              record.unloading_date = `${year}-${month}-${day}`;
+            }
           }
         } else if (record.loading_date) {
           // 如果没有卸货日期，使用装货日期

@@ -1,6 +1,10 @@
--- 修复 batch_import_logistics_records 函数中的数组字段类型转换错误
--- 问题：变量声明为 jsonb，但数据库字段是 text[] 类型
--- 修复：将 JSONB 数组转换为 text[] 数组
+-- 修复 batch_import_logistics_records 函数的日期时区处理
+-- 确保前端发送的中国时区日期字符串（YYYY-MM-DD）正确转换为UTC存储
+-- 
+-- 修复逻辑：
+-- 1. 前端发送：'2025-11-03'（中国时区的日期字符串）
+-- 2. 后端转换：'2025-11-03 00:00:00+08:00'（明确指定中国时区）
+-- 3. PostgreSQL自动转换为UTC存储：'2025-11-02 16:00:00+00:00'
 
 CREATE OR REPLACE FUNCTION public.batch_import_logistics_records(p_records jsonb)
 RETURNS jsonb
@@ -21,7 +25,6 @@ DECLARE
     v_unloading_date_formatted text;
     v_new_record_id uuid;
     v_driver_payable numeric;
-    -- 修复：将变量类型改为 text[]，而不是 jsonb
     v_external_tracking_numbers text[];
     v_other_platform_names text[];
     v_error_message text;
@@ -140,7 +143,9 @@ BEGIN
             v_driver_payable := COALESCE((record_data->>'current_cost')::numeric, 0) + 
                               COALESCE((record_data->>'extra_cost')::numeric, 0);
             
-            -- 7. 插入物流记录（现在 v_external_tracking_numbers 和 v_other_platform_names 是 text[] 类型，可以直接插入）
+            -- 7. 插入物流记录
+            -- 将日期字符串（中国时区）明确转换为timestamptz，PostgreSQL自动转换为UTC存储
+            -- 例如：'2025-11-03' -> '2025-11-03 00:00:00+08:00' -> '2025-11-02 16:00:00+00:00' (UTC)
             INSERT INTO public.logistics_records (
                 auto_number,
                 project_id,
@@ -173,8 +178,6 @@ BEGIN
                 (record_data->>'driver_name')::text,
                 (record_data->>'loading_location')::text,
                 (record_data->>'unloading_location')::text,
-                -- 将日期字符串（中国时区）明确转换为timestamptz，PostgreSQL自动转换为UTC存储
-                -- 例如：'2025-11-03' -> '2025-11-03 00:00:00+08:00' -> '2025-11-02 16:00:00+00:00' (UTC)
                 (v_loading_date_formatted || ' 00:00:00+08:00')::timestamptz,
                 (v_unloading_date_formatted || ' 00:00:00+08:00')::timestamptz,
                 NULLIF(record_data->>'loading_weight', '')::numeric,
@@ -218,6 +221,5 @@ BEGIN
 END;
 $$;
 
--- 为函数添加注释
-COMMENT ON FUNCTION public.batch_import_logistics_records(jsonb) IS '批量导入运单记录，支持外部运单号和其他平台名称等可选字段（已修复数组字段类型转换）';
+COMMENT ON FUNCTION public.batch_import_logistics_records IS '批量导入物流记录，正确处理日期时区：前端发送中国时区日期字符串，后端转换为UTC存储';
 

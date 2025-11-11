@@ -11,23 +11,56 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ImportPreviewResult, ImportFailure } from '../types';
 
-const parseExcelDate = (excelDate: any): string | null => {
+// Excel行数据类型
+interface ExcelRowData {
+  [key: string]: string | number | null | undefined;
+  loading_date_parsed?: string;
+  unloading_date_parsed?: string;
+}
+
+// 解析Excel日期为中国时区的日期字符串（YYYY-MM-DD格式）
+// Excel中的日期应该被理解为中国时区的日期，然后发送到后端转换为UTC存储
+const parseExcelDate = (excelDate: unknown): string | null => {
   if (excelDate === null || excelDate === undefined || excelDate === '') return null;
+  
+  let date: Date | null = null;
+  
+  // 处理Excel数字日期序列号
   if (typeof excelDate === 'number' && excelDate > 0) {
-    const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+    // Excel日期序列号：1900年1月1日为1，但Excel错误地认为1900是闰年
+    // 所以需要减去2天来修正
+    const excelEpoch = new Date(1900, 0, 1);
+    date = new Date(excelEpoch.getTime() + (excelDate - 2) * 24 * 60 * 60 * 1000);
     if (isNaN(date.getTime())) return null;
-    return date.toISOString().split('T')[0];
   }
-  if (excelDate instanceof Date) { return excelDate.toISOString().split('T')[0]; }
-  if (typeof excelDate === 'string') {
+  // 处理Date对象
+  else if (excelDate instanceof Date) {
+    date = excelDate;
+    if (isNaN(date.getTime())) return null;
+  }
+  // 处理字符串
+  else if (typeof excelDate === 'string') {
     const dateStr = excelDate.split(' ')[0];
+    // 如果已经是YYYY-MM-DD格式，直接返回
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    // 处理YYYY/MM/DD格式
     if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr)) {
       const parts = dateStr.split('/');
       return `${parts[0]}-${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')}`;
     }
+    // 尝试解析其他格式
+    date = new Date(dateStr);
+    if (isNaN(date.getTime())) return null;
+  } else {
+    return null;
   }
-  return null;
+  
+  // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+  // 这样Excel中的日期会被理解为中国时区的日期
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 export function useExcelImport(onImportSuccess: () => void) {
@@ -46,22 +79,22 @@ export function useExcelImport(onImportSuccess: () => void) {
     setImportPreview(null); setApprovedDuplicates(new Set()); setDuplicateActions(new Map()); setImportLogs([]);
   }, []);
 
-  const getImportPreview = async (validRows: any[]) => {
+  const getImportPreview = async (validRows: ExcelRowData[]) => {
     setImportStep('preview');
     try {
       const recordsToPreview = validRows.map(rowData => {
         // 使用模糊匹配，兼容各种字段名
         const parsedLoadingWeight = parseFloat(
-          rowData['装货数量'] || rowData['装货数量*'] || rowData['装货重量'] || rowData['装载量']
+          String(rowData['装货数量'] || rowData['装货数量*'] || rowData['装货重量'] || rowData['装载量'] || '')
         );
         const parsedUnloadingWeight = parseFloat(
-          rowData['卸货数量'] || rowData['卸货数量(可选)'] || rowData['卸货重量'] || rowData['卸货重量(可选)']
+          String(rowData['卸货数量'] || rowData['卸货数量(可选)'] || rowData['卸货重量'] || rowData['卸货重量(可选)'] || '')
         );
         const parsedCurrentCost = parseFloat(
-          rowData['运费金额'] || rowData['运费金额(可选)'] || rowData['运费'] || rowData['当前费用']
+          String(rowData['运费金额'] || rowData['运费金额(可选)'] || rowData['运费'] || rowData['当前费用'] || '')
         );
         const parsedExtraCost = parseFloat(
-          rowData['额外费用'] || rowData['额外费用(可选)'] || rowData['额外'] || rowData['附加费']
+          String(rowData['额外费用'] || rowData['额外费用(可选)'] || rowData['额外'] || rowData['附加费'] || '')
         );
 
         // 处理其他平台名称和外部运单号
@@ -86,30 +119,30 @@ export function useExcelImport(onImportSuccess: () => void) {
         }
 
         return {
-          project_name: rowData['项目名称']?.trim(),
-          chain_name: rowData['合作链路']?.trim() || null,
-          driver_name: rowData['司机姓名']?.trim(),
-          license_plate: rowData['车牌号']?.toString().trim() || null,
-          driver_phone: rowData['司机电话']?.toString().trim() || null,
-          loading_location: rowData['装货地点']?.trim(),
-          unloading_location: rowData['卸货地点']?.trim(),
+          project_name: String(rowData['项目名称'] || '').trim(),
+          chain_name: String(rowData['合作链路'] || '').trim() || null,
+          driver_name: String(rowData['司机姓名'] || '').trim(),
+          license_plate: String(rowData['车牌号'] || '').trim() || null,
+          driver_phone: String(rowData['司机电话'] || '').trim() || null,
+          loading_location: String(rowData['装货地点'] || '').trim(),
+          unloading_location: String(rowData['卸货地点'] || '').trim(),
           loading_date: rowData.loading_date_parsed,
           unloading_date: rowData.unloading_date_parsed,
           loading_weight: !isNaN(parsedLoadingWeight) ? parsedLoadingWeight.toString() : null,
           unloading_weight: !isNaN(parsedUnloadingWeight) ? parsedUnloadingWeight.toString() : null,
           current_cost: !isNaN(parsedCurrentCost) ? parsedCurrentCost.toString() : '0',
           extra_cost: !isNaN(parsedExtraCost) ? parsedExtraCost.toString() : '0',
-          transport_type: (rowData['运输类型'] || rowData['运输类型(可选)'] || rowData['类型'])?.trim() || '实际运输',
-          cargo_type: (rowData['货物类型'] || rowData['货类'] || rowData['货物'])?.trim() || null,
-          remarks: (rowData['备注'] || rowData['备注(可选)'] || rowData['说明'] || rowData['注释'])?.toString().trim() || null,
+          transport_type: String(rowData['运输类型'] || rowData['运输类型(可选)'] || rowData['类型'] || '').trim() || '实际运输',
+          cargo_type: String(rowData['货物类型'] || rowData['货类'] || rowData['货物'] || '').trim() || null,
+          remarks: String(rowData['备注'] || rowData['备注(可选)'] || rowData['说明'] || rowData['注释'] || '').trim() || null,
           external_tracking_numbers: externalTrackingNumbers,
           other_platform_names: otherPlatformNames
         };
       });
 
-      const { data: previewResult, error } = await (supabase.rpc as any)('preview_import_with_duplicates_check', { 
+      const { data: previewResult, error } = await supabase.rpc<ImportPreviewResult>('preview_import_with_duplicates_check', { 
         p_records: recordsToPreview 
-      } as any);
+      });
       
       if (error) throw error;
 
@@ -123,8 +156,9 @@ export function useExcelImport(onImportSuccess: () => void) {
       setApprovedDuplicates(new Set());
       setDuplicateActions(new Map());
       setImportStep('confirmation');
-    } catch (error: any) {
-      toast({ title: "预览失败", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '预览失败';
+      toast({ title: "预览失败", description: errorMessage, variant: "destructive" });
       closeImportModal();
     }
   };
@@ -159,8 +193,8 @@ export function useExcelImport(onImportSuccess: () => void) {
 
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
-        const cleanedJsonData = jsonData.map((row: any) => {
-          const cleanedRow: { [key: string]: any } = {};
+        const cleanedJsonData = jsonData.map((row: Record<string, unknown>) => {
+          const cleanedRow: Record<string, unknown> = {};
           for (const key in row) {
             if (Object.prototype.hasOwnProperty.call(row, key)) {
               cleanedRow[key.trim()] = row[key];
@@ -168,7 +202,7 @@ export function useExcelImport(onImportSuccess: () => void) {
           }
           
           // 处理多地点：将地点字符串按|分割并清理
-          if (cleanedRow['装货地点']) {
+          if (cleanedRow['装货地点'] && typeof cleanedRow['装货地点'] === 'string') {
             cleanedRow['装货地点'] = cleanedRow['装货地点']
               .split('|')
               .map((loc: string) => loc.trim())
@@ -176,7 +210,7 @@ export function useExcelImport(onImportSuccess: () => void) {
               .join('|');
           }
           
-          if (cleanedRow['卸货地点']) {
+          if (cleanedRow['卸货地点'] && typeof cleanedRow['卸货地点'] === 'string') {
             cleanedRow['卸货地点'] = cleanedRow['卸货地点']
               .split('|')
               .map((loc: string) => loc.trim())
@@ -189,19 +223,24 @@ export function useExcelImport(onImportSuccess: () => void) {
 
         setIsImportModalOpen(true);
         setImportStep('preprocessing');
-        const validRows: any[] = [];
-        cleanedJsonData.forEach((row: any) => {
+        const validRows: ExcelRowData[] = [];
+        cleanedJsonData.forEach((row: Record<string, unknown>) => {
           const loadingDate = parseExcelDate(row['装货日期']);
           if (loadingDate) {
-            validRows.push({ ...row, loading_date_parsed: loadingDate, unloading_date_parsed: row['卸货日期'] ? parseExcelDate(row['卸货日期']) : loadingDate });
+            validRows.push({ 
+              ...row as ExcelRowData, 
+              loading_date_parsed: loadingDate, 
+              unloading_date_parsed: row['卸货日期'] ? parseExcelDate(row['卸货日期']) : loadingDate 
+            });
           }
         });
         if (validRows.length === 0) {
-          throw new Error("文件中没有找到任何包含有效“装货日期”的行。");
+          throw new Error("文件中没有找到任何包含有效装货日期的行。");
         }
         await getImportPreview(validRows);
-      } catch (error: any) {
-        toast({ title: "文件格式错误", description: `${error.message}`, variant: "destructive" });
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : '文件格式错误';
+        toast({ title: "文件格式错误", description: errorMessage, variant: "destructive" });
         closeImportModal();
       } finally {
         if (event.target) event.target.value = '';
@@ -237,14 +276,19 @@ export function useExcelImport(onImportSuccess: () => void) {
     addLog(`其中新记录 ${importPreview.new_records.length} 条，强制导入重复记录 ${approvedDuplicates.size} 条`);
 
     try {
-      const { data: result, error } = await (supabase.rpc as any)('import_logistics_data', { 
+      interface ImportResult {
+        success_count: number;
+        failures: ImportFailure[];
+      }
+      
+      const { data: result, error } = await supabase.rpc<ImportResult>('import_logistics_data', { 
         p_records: finalRecordsToImport 
-      } as any);
+      });
       
       if (error) throw error;
       
-      if (result && typeof result === 'object' && 'success_count' in (result as any) && 'failures' in (result as any)) {
-        const safeResult = (result as unknown) as { success_count: number; failures: ImportFailure[] };
+      if (result && typeof result === 'object' && 'success_count' in result && 'failures' in result) {
+        const safeResult = result as ImportResult;
         const failure_count = safeResult.failures.length;
 
         addLog(`导入完成！成功: ${safeResult.success_count}, 失败: ${failure_count}`);
@@ -297,11 +341,12 @@ export function useExcelImport(onImportSuccess: () => void) {
       } else {
         throw new Error('导入结果格式与预期不符，收到了非法的响应。');
       }
-    } catch (error: any) {
-      addLog(`发生致命错误: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      addLog(`发生致命错误: ${errorMessage}`);
       toast({ 
         title: "导入失败", 
-        description: `发生致命错误: ${error.message}`, 
+        description: `发生致命错误: ${errorMessage}`, 
         variant: "destructive" 
       });
     }
