@@ -657,18 +657,97 @@ export default function TemplateBasedImport() {
       // 该函数已优化：使用批量查询和JSONB存储加速重复检查，保留完整的重复检查功能
       // 创建模式：p_update_mode=false（检查重复但不更新，跳过重复记录）
       // 更新模式：p_update_mode=true（检查重复并更新现有记录）
-      const { data: rpcData, error: rpcError } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records_with_update', {
-        p_records: importData,
-        p_update_mode: importMode === 'update'
-      });
       
       let result: BatchImportResult | null = null;
       let error: unknown = null;
       
-      if (rpcError) {
-        error = rpcError;
+      // 分批处理：如果数据量超过100条，自动分批导入以避免超时
+      const BATCH_SIZE = 100;
+      if (importData.length > BATCH_SIZE) {
+        toast({
+          title: "数据量较大",
+          description: `本次导入 ${importData.length} 条记录，将自动分批处理（每批 ${BATCH_SIZE} 条）`,
+          variant: "default"
+        });
+        
+        let totalSuccess = 0;
+        let totalError = 0;
+        const allErrorDetails: ImportError[] = [];
+        
+        // 分批处理
+        for (let i = 0; i < importData.length; i += BATCH_SIZE) {
+          const batch = importData.slice(i, i + BATCH_SIZE);
+          const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+          const totalBatches = Math.ceil(importData.length / BATCH_SIZE);
+          
+          setImportProgress(Math.floor((i / importData.length) * 100));
+          
+          try {
+            const { data: batchResult, error: batchError } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records_with_update', {
+              p_records: batch,
+              p_update_mode: importMode === 'update'
+            });
+            
+            if (batchError) {
+              throw batchError;
+            }
+            
+            if (batchResult) {
+              totalSuccess += batchResult.success_count || 0;
+              totalError += batchResult.error_count || 0;
+              if (Array.isArray(batchResult.error_details)) {
+                // 调整错误记录的索引
+                batchResult.error_details.forEach((err) => {
+                  if (err.record_index) {
+                    err.record_index = err.record_index + i;
+                  }
+                });
+                allErrorDetails.push(...batchResult.error_details.map((err, idx) => ({
+                  row: err.record_index ?? (i + idx + 1),
+                  message: err.error_message || '未知错误',
+                  record_index: err.record_index ?? (i + idx),
+                  error_message: err.error_message || '未知错误',
+                  record_data: err.record_data || {}
+                })));
+              }
+            }
+          } catch (batchErr: unknown) {
+            totalError += batch.length;
+            const errorMessage = batchErr instanceof Error ? batchErr.message : String(batchErr);
+            allErrorDetails.push({
+              row: i + 1,
+              message: `批次 ${batchNumber}/${totalBatches} 导入失败: ${errorMessage}`,
+              record_index: i,
+              error_message: errorMessage,
+              record_data: {}
+            });
+          }
+        }
+        
+        // 构造最终结果
+        result = {
+          success_count: totalSuccess,
+          error_count: totalError,
+          inserted_count: totalSuccess,
+          updated_count: 0,
+          error_details: allErrorDetails.map(err => ({
+            record_index: (err.record_index ?? err.row) as number | undefined,
+            error_message: (err.error_message || err.message || '未知错误') as string,
+            record_data: (err.record_data || {}) as Record<string, unknown>
+          }))
+        };
       } else {
-        result = rpcData;
+        // 数据量较小，直接导入
+        const { data: rpcData, error: rpcError } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records_with_update', {
+          p_records: importData,
+          p_update_mode: importMode === 'update'
+        });
+        
+        if (rpcError) {
+          error = rpcError;
+        } else {
+          result = rpcData;
+        }
       }
       
       if (error) {

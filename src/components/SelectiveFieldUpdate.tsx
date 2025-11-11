@@ -293,155 +293,223 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
     const updatedFields = new Set<string>();
 
     try {
-      for (const item of previewData) {
-        if (item.status !== 'matched') continue;
-
-        try {
-          // 构建更新数据（只更新选中的字段）
-          const updateData: any = {};
-
-          if (selectedFields.has('unloading_weight')) {
-            const value = item.rowData['卸货数量'] || item.rowData['卸货数量(可选)'] || item.rowData['卸货重量'];
-            if (value != null && value !== '') {
-              updateData.unloading_weight = parseFloat(value);
-              updatedFields.add('unloading_weight');
-            }
+      // 性能优化：批量处理，避免逐条更新导致超时
+      // 先批量获取所有需要的合作链路ID
+      const chainNames = new Set<string>();
+      const matchedItems = previewData.filter(item => item.status === 'matched');
+      
+      for (const item of matchedItems) {
+        if (selectedFields.has('chain_name')) {
+          const value = item.rowData['合作链路'] || item.rowData['合作链路(可选)'] || item.rowData['链路'];
+          if (value) {
+            chainNames.add(value);
           }
+        }
+      }
 
-          if (selectedFields.has('unloading_date')) {
-            const value = item.rowData['卸货日期'] || item.rowData['卸货日期(可选)'];
-            if (value) {
-              updateData.unloading_date = value;
-              updatedFields.add('unloading_date');
-            }
-          }
+      // 批量查询所有合作链路ID
+      const chainIdMap = new Map<string, string>();
+      if (chainNames.size > 0) {
+        const { data: chainsData, error: chainsError } = await supabase
+          .from('partner_chains')
+          .select('id, chain_name')
+          .eq('project_name', selectedProject)
+          .in('chain_name', Array.from(chainNames));
+        
+        if (chainsError) {
+          throw new Error(`批量查询合作链路失败：${chainsError.message}`);
+        }
+        
+        if (chainsData) {
+          chainsData.forEach(chain => {
+            chainIdMap.set(chain.chain_name, chain.id);
+          });
+        }
+      }
 
-          if (selectedFields.has('current_cost')) {
-            const value = item.rowData['运费金额'] || item.rowData['运费金额(可选)'] || item.rowData['运费'];
-            if (value != null && value !== '') {
-              updateData.current_cost = parseFloat(value);
-              updatedFields.add('current_cost');
-            }
-          }
+      // 分批处理：每批50条记录，避免单次更新过多导致超时
+      const BATCH_SIZE = 50;
+      const batches: typeof matchedItems[] = [];
+      
+      for (let i = 0; i < matchedItems.length; i += BATCH_SIZE) {
+        batches.push(matchedItems.slice(i, i + BATCH_SIZE));
+      }
 
-          if (selectedFields.has('extra_cost')) {
-            const value = item.rowData['额外费用'] || item.rowData['额外费用(可选)'];
-            if (value != null && value !== '') {
-              updateData.extra_cost = parseFloat(value);
-              updatedFields.add('extra_cost');
-            }
-          }
+      // 逐批处理
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        
+        // 构建批量更新数据
+        const updates: Array<{ id: string; data: Record<string, unknown> }> = [];
+        
+        for (const item of batch) {
+          try {
+            // 构建更新数据（只更新选中的字段）
+            const updateData: Record<string, unknown> = {};
 
-          if (selectedFields.has('remarks')) {
-            const value = item.rowData['备注'] || item.rowData['备注(可选)'] || item.rowData['说明'];
-            if (value) {
-              updateData.remarks = value;
-              updatedFields.add('remarks');
-            }
-          }
-
-          if (selectedFields.has('cargo_type')) {
-            const value = item.rowData['货物类型'] || item.rowData['货类'];
-            if (value) {
-              updateData.cargo_type = value;
-              updatedFields.add('cargo_type');
-            }
-          }
-
-          if (selectedFields.has('license_plate')) {
-            const value = item.rowData['车牌号'] || item.rowData['车牌号*'] || item.rowData['车牌'];
-            if (value) {
-              updateData.license_plate = value;
-              updatedFields.add('license_plate');
-            }
-          }
-
-          if (selectedFields.has('driver_phone')) {
-            const value = item.rowData['司机电话'] || item.rowData['司机电话(可选)'];
-            if (value) {
-              updateData.driver_phone = value;
-              updatedFields.add('driver_phone');
-            }
-          }
-
-          if (selectedFields.has('other_platform_names')) {
-            const value = item.rowData['其他平台名称'] || item.rowData['其他平台名称(可选)'] || item.rowData['平台名称'];
-            if (value) {
-              const platforms = value.split(',').map((p: string) => p.trim());
-              updateData.other_platform_names = platforms;
-              updatedFields.add('other_platform_names');
-            }
-          }
-
-          if (selectedFields.has('external_tracking_numbers')) {
-            const value = item.rowData['其他平台运单号'] || item.rowData['其他平台运单号(可选)'] || item.rowData['外部运单号'];
-            if (value) {
-              // 解析格式：运单1|运单2,运单3|运单4
-              const platforms = value.split(',').map((p: string) => p.trim());
-              updateData.external_tracking_numbers = platforms;
-              updatedFields.add('external_tracking_numbers');
-            }
-          }
-
-          if (selectedFields.has('transport_type')) {
-            const value = item.rowData['运输类型'] || item.rowData['运输类型(可选)'] || item.rowData['类型'];
-            if (value) {
-              updateData.transport_type = value;
-              updatedFields.add('transport_type');
-            }
-          }
-
-          if (selectedFields.has('chain_name')) {
-            const value = item.rowData['合作链路'] || item.rowData['合作链路(可选)'] || item.rowData['链路'];
-            if (value) {
-              // 需要查找链路ID
-              const { data: chainData, error: chainError } = await supabase
-                .from('partner_chains')
-                .select('id')
-                .eq('project_name', selectedProject)
-                .eq('chain_name', value)
-                .single();
-              
-              if (chainError) {
-                throw new Error(`查找合作链路失败：${chainError.message}`);
-              }
-              
-              if (chainData) {
-                updateData.chain_id = chainData.id;
-                updatedFields.add('chain_name');
-              } else {
-                throw new Error(`未找到合作链路"${value}"`);
+            if (selectedFields.has('unloading_weight')) {
+              const value = item.rowData['卸货数量'] || item.rowData['卸货数量(可选)'] || item.rowData['卸货重量'];
+              if (value != null && value !== '') {
+                updateData.unloading_weight = parseFloat(String(value));
+                updatedFields.add('unloading_weight');
               }
             }
+
+            if (selectedFields.has('unloading_date')) {
+              const value = item.rowData['卸货日期'] || item.rowData['卸货日期(可选)'];
+              if (value) {
+                updateData.unloading_date = value;
+                updatedFields.add('unloading_date');
+              }
+            }
+
+            if (selectedFields.has('current_cost')) {
+              const value = item.rowData['运费金额'] || item.rowData['运费金额(可选)'] || item.rowData['运费'];
+              if (value != null && value !== '') {
+                updateData.current_cost = parseFloat(String(value));
+                updatedFields.add('current_cost');
+              }
+            }
+
+            if (selectedFields.has('extra_cost')) {
+              const value = item.rowData['额外费用'] || item.rowData['额外费用(可选)'];
+              if (value != null && value !== '') {
+                updateData.extra_cost = parseFloat(String(value));
+                updatedFields.add('extra_cost');
+              }
+            }
+
+            if (selectedFields.has('remarks')) {
+              const value = item.rowData['备注'] || item.rowData['备注(可选)'] || item.rowData['说明'];
+              if (value) {
+                updateData.remarks = value;
+                updatedFields.add('remarks');
+              }
+            }
+
+            if (selectedFields.has('cargo_type')) {
+              const value = item.rowData['货物类型'] || item.rowData['货类'];
+              if (value) {
+                updateData.cargo_type = value;
+                updatedFields.add('cargo_type');
+              }
+            }
+
+            if (selectedFields.has('license_plate')) {
+              const value = item.rowData['车牌号'] || item.rowData['车牌号*'] || item.rowData['车牌'];
+              if (value) {
+                updateData.license_plate = value;
+                updatedFields.add('license_plate');
+              }
+            }
+
+            if (selectedFields.has('driver_phone')) {
+              const value = item.rowData['司机电话'] || item.rowData['司机电话(可选)'];
+              if (value) {
+                updateData.driver_phone = value;
+                updatedFields.add('driver_phone');
+              }
+            }
+
+            if (selectedFields.has('other_platform_names')) {
+              const value = item.rowData['其他平台名称'] || item.rowData['其他平台名称(可选)'] || item.rowData['平台名称'];
+              if (value) {
+                const platforms = String(value).split(',').map((p: string) => p.trim()).filter(p => p);
+                updateData.other_platform_names = platforms;
+                updatedFields.add('other_platform_names');
+              }
+            }
+
+            if (selectedFields.has('external_tracking_numbers')) {
+              const value = item.rowData['其他平台运单号'] || item.rowData['其他平台运单号(可选)'] || item.rowData['外部运单号'];
+              if (value) {
+                const platforms = String(value).split(',').map((p: string) => p.trim()).filter(p => p);
+                updateData.external_tracking_numbers = platforms;
+                updatedFields.add('external_tracking_numbers');
+              }
+            }
+
+            if (selectedFields.has('transport_type')) {
+              const value = item.rowData['运输类型'] || item.rowData['运输类型(可选)'] || item.rowData['类型'];
+              if (value) {
+                updateData.transport_type = value;
+                updatedFields.add('transport_type');
+              }
+            }
+
+            if (selectedFields.has('chain_name')) {
+              const value = item.rowData['合作链路'] || item.rowData['合作链路(可选)'] || item.rowData['链路'];
+              if (value) {
+                const chainId = chainIdMap.get(value);
+                if (chainId) {
+                  updateData.chain_id = chainId;
+                  updatedFields.add('chain_name');
+                } else {
+                  throw new Error(`未找到合作链路"${value}"`);
+                }
+              }
+            }
+
+            // 如果有要更新的数据，添加到批量更新列表
+            if (Object.keys(updateData).length > 0) {
+              updateData.updated_at = new Date().toISOString();
+              updates.push({
+                id: item.existingRecord.id,
+                data: updateData
+              });
+            } else {
+              // Excel中该运单的选中字段都为空，跳过
+              skippedCount++;
+            }
+
+          } catch (error: unknown) {
+            failedCount++;
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            failedItems.push({
+              autoNumber: item.auto_number,
+              error: errorMessage
+            });
+            console.error('更新失败:', item.auto_number, error);
           }
+        }
 
-          // 如果有要更新的数据，执行更新
-          if (Object.keys(updateData).length > 0) {
-            updateData.updated_at = new Date().toISOString();
-
+        // 批量执行更新（使用Promise.all并行更新，但限制并发数）
+        if (updates.length > 0) {
+          // 使用Supabase的批量更新：通过RPC或逐条更新（但使用Promise.all加速）
+          // 注意：Supabase不支持真正的批量更新，所以我们使用Promise.all并行执行
+          const updatePromises = updates.map(async (update) => {
             const { error } = await supabase
               .from('logistics_records')
-              .update(updateData)
-              .eq('id', item.existingRecord.id);
-
+              .update(update.data)
+              .eq('id', update.id);
+            
             if (error) {
               throw new Error(error.message || '数据库更新失败');
             }
-            successCount++;
-          } else {
-            // Excel中该运单的选中字段都为空，跳过
-            skippedCount++;
-            continue;
-          }
-
-        } catch (error: any) {
-          failedCount++;
-          const errorMessage = error?.message || error?.toString() || '未知错误';
-          failedItems.push({
-            autoNumber: item.auto_number,
-            error: errorMessage
+            return true;
           });
-          console.error('更新失败:', item.auto_number, error);
+
+          // 等待所有更新完成
+          const results = await Promise.allSettled(updatePromises);
+          
+          results.forEach((result, index) => {
+            if (result.status === 'fulfilled') {
+              successCount++;
+            } else {
+              failedCount++;
+              // 找到对应的更新项
+              const updateItem = updates[index];
+              if (updateItem) {
+                const item = batch.find(i => i.existingRecord.id === updateItem.id);
+                if (item) {
+                  failedItems.push({
+                    autoNumber: item.auto_number,
+                    error: result.reason instanceof Error ? result.reason.message : String(result.reason) || '未知错误'
+                  });
+                }
+              }
+            }
+          });
         }
       }
 

@@ -112,32 +112,42 @@ BEGIN
             AND pr.chain_name IS NOT NULL AND TRIM(pr.chain_name) != ''
     ),
     -- 步骤3: 批量检查重复记录（关键优化：一次性查询所有重复）
+    -- 使用 EXISTS 子查询优化性能，避免复杂的 LEFT JOIN
     duplicate_checks AS (
         SELECT 
             pac.record_index,
-            lr.id AS existing_record_id,
-            lr.auto_number AS existing_auto_number
+            (SELECT lr.id FROM public.logistics_records lr 
+             WHERE lr.project_name = pac.project_name
+             AND (lr.chain_id = pac.chain_id OR (lr.chain_id IS NULL AND pac.chain_id IS NULL))
+             AND lr.driver_name = pac.driver_name
+             AND lr.license_plate = pac.license_plate
+             AND lr.loading_location = pac.loading_location
+             AND lr.unloading_location = pac.unloading_location
+             AND (lr.loading_date AT TIME ZONE 'UTC')::date = ((pac.loading_date_str || ' 00:00:00+08:00')::timestamptz AT TIME ZONE 'UTC')::date
+             AND lr.loading_weight = pac.loading_weight
+             LIMIT 1) AS existing_record_id,
+            (SELECT lr.auto_number FROM public.logistics_records lr 
+             WHERE lr.project_name = pac.project_name
+             AND (lr.chain_id = pac.chain_id OR (lr.chain_id IS NULL AND pac.chain_id IS NULL))
+             AND lr.driver_name = pac.driver_name
+             AND lr.license_plate = pac.license_plate
+             AND lr.loading_location = pac.loading_location
+             AND lr.unloading_location = pac.unloading_location
+             AND (lr.loading_date AT TIME ZONE 'UTC')::date = ((pac.loading_date_str || ' 00:00:00+08:00')::timestamptz AT TIME ZONE 'UTC')::date
+             AND lr.loading_weight = pac.loading_weight
+             LIMIT 1) AS existing_auto_number
         FROM projects_and_chains pac
-        LEFT JOIN public.logistics_records lr ON 
-            lr.project_name = pac.project_name
-            AND (lr.chain_id = pac.chain_id OR (lr.chain_id IS NULL AND pac.chain_id IS NULL))
-            AND lr.driver_name = pac.driver_name
-            AND lr.license_plate = pac.license_plate
-            AND lr.loading_location = pac.loading_location
-            AND lr.unloading_location = pac.unloading_location
-            AND (lr.loading_date AT TIME ZONE 'UTC')::date = ((pac.loading_date_str || ' 00:00:00+08:00')::timestamptz AT TIME ZONE 'UTC')::date
-            AND lr.loading_weight = pac.loading_weight
     )
     -- 步骤4: 将批量查询结果转换为JSONB对象，方便后续查找
     SELECT jsonb_object_agg(
-        record_index::text,
+        dc.record_index::text,
         jsonb_build_object(
-            'existing_record_id', existing_record_id,
-            'existing_auto_number', existing_auto_number
+            'existing_record_id', dc.existing_record_id,
+            'existing_auto_number', dc.existing_auto_number
         )
     ) INTO v_duplicate_check_results
-    FROM duplicate_checks
-    WHERE existing_record_id IS NOT NULL;
+    FROM duplicate_checks dc
+    WHERE dc.existing_record_id IS NOT NULL;
     
     -- 如果没有任何重复记录，初始化为空对象
     IF v_duplicate_check_results IS NULL THEN
