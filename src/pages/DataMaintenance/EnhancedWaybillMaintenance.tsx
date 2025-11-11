@@ -481,10 +481,30 @@ export default function EnhancedWaybillMaintenance() {
         {/* 标签页 */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="standard">标准导入</TabsTrigger>
-            <TabsTrigger value="template">模板导入</TabsTrigger>
-            <TabsTrigger value="mapping">模板管理</TabsTrigger>
-            <TabsTrigger value="selective">选择性更新</TabsTrigger>
+            <TabsTrigger 
+              value="standard"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            >
+              标准导入
+            </TabsTrigger>
+            <TabsTrigger 
+              value="template"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            >
+              模板导入
+            </TabsTrigger>
+            <TabsTrigger 
+              value="mapping"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            >
+              模板管理
+            </TabsTrigger>
+            <TabsTrigger 
+              value="selective"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            >
+              选择性更新
+            </TabsTrigger>
           </TabsList>
 
           {/* 标准导入标签页 */}

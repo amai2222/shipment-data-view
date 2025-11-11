@@ -400,6 +400,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
                   <div className="flex-1">
                     <Label htmlFor={`field-${field.key}`} className="cursor-pointer">
                       {field.label}
+                      <span className="text-xs text-muted-foreground ml-1">-{field.key}</span>
                     </Label>
                     <p className="text-xs text-muted-foreground">{field.description}</p>
                   </div>
@@ -515,6 +516,169 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
           </ol>
         </AlertDescription>
       </Alert>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>支持的模糊语法</CardTitle>
+          <CardDescription>Excel列名支持以下多种写法，系统会自动识别（按优先级顺序匹配）</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-semibold text-sm mb-3 text-gray-700 border-b pb-2">定位字段（必填，用于查找运单）：</h4>
+              <div className="space-y-3 text-sm">
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">项目名称：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">项目名称</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">项目名称*</code> （带星号）</div>
+                    <div>• <code className="bg-white px-1 rounded">项目</code> （简化写法）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">司机姓名：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">司机姓名</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">司机姓名*</code> （带星号）</div>
+                    <div>• <code className="bg-white px-1 rounded">司机</code> （简化写法）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">装货地点：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">装货地点</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">装货地点*</code> （带星号）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">卸货地点：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">卸货地点</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">卸货地点*</code> （带星号）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">装货日期：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">装货日期</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">装货日期*</code> （带星号）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">装货数量：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">装货数量</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">装货数量*</code> （带星号）</div>
+                    <div>• <code className="bg-white px-1 rounded">装货重量</code> （同义词）</div>
+                    <div>• <code className="bg-white px-1 rounded">装货重量*</code> （同义词带星号）</div>
+                    <div>• <code className="bg-white px-1 rounded">装货吨数</code> （同义词）</div>
+                    <div>• <code className="bg-white px-1 rounded">装货吨数*</code> （同义词带星号）</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h4 className="font-semibold text-sm mb-3 text-gray-700 border-b pb-2">可更新字段（可选，勾选后才会更新）：</h4>
+              <div className="space-y-3 text-sm">
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">卸货数量 (unloading_weight)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">卸货数量</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">卸货数量(可选)</code> （带可选标记）</div>
+                    <div>• <code className="bg-white px-1 rounded">卸货重量</code> （同义词）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">卸货日期 (unloading_date)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">卸货日期</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">卸货日期(可选)</code> （带可选标记）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">运费金额 (current_cost)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">运费金额</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">运费金额(可选)</code> （带可选标记）</div>
+                    <div>• <code className="bg-white px-1 rounded">运费</code> （简化写法）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">额外费用 (extra_cost)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">额外费用</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">额外费用(可选)</code> （带可选标记）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">备注 (remarks)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">备注</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">备注(可选)</code> （带可选标记）</div>
+                    <div>• <code className="bg-white px-1 rounded">说明</code> （同义词）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">货物类型 (cargo_type)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">货物类型</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">货类</code> （简化写法）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">车牌号 (license_plate)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">车牌号</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">车牌号*</code> （带星号）</div>
+                    <div>• <code className="bg-white px-1 rounded">车牌</code> （简化写法）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">司机电话 (driver_phone)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">司机电话</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">司机电话(可选)</code> （带可选标记）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">运输类型 (transport_type)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">运输类型</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">运输类型(可选)</code> （带可选标记）</div>
+                    <div>• <code className="bg-white px-1 rounded">类型</code> （简化写法）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">合作链路 (chain_name)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">合作链路</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">合作链路(可选)</code> （带可选标记）</div>
+                    <div>• <code className="bg-white px-1 rounded">链路</code> （简化写法）</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">其他平台名称 (other_platform_names)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">其他平台名称</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">其他平台名称(可选)</code> （带可选标记）</div>
+                    <div>• <code className="bg-white px-1 rounded">平台名称</code> （简化写法）</div>
+                    <div className="text-xs text-orange-600 mt-1">⚠️ 多个平台用逗号分隔，如：平台A,平台B</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <strong className="text-blue-600 block mb-1">其他平台运单号 (external_tracking_numbers)：</strong>
+                  <div className="text-muted-foreground ml-2 space-y-1">
+                    <div>• <code className="bg-white px-1 rounded">其他平台运单号</code> （标准写法）</div>
+                    <div>• <code className="bg-white px-1 rounded">其他平台运单号(可选)</code> （带可选标记）</div>
+                    <div>• <code className="bg-white px-1 rounded">外部运单号</code> （简化写法）</div>
+                    <div className="text-xs text-orange-600 mt-1">⚠️ 格式：运单1|运单2,运单3|运单4（逗号和竖线分隔）</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
