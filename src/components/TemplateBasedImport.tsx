@@ -157,11 +157,24 @@ export default function TemplateBasedImport() {
         .order('name');
 
       if (error) throw error;
-      setTemplates((data || []).map(t => {
+      setTemplates((data || []).map((t: {
+        id: string;
+        name: string;
+        description: string;
+        platform_type?: string;
+        is_active: boolean;
+        template_config?: {
+          header_row?: number;
+          data_start_row?: number;
+        };
+      }) => {
         const config = t.template_config || {};
         return {
-          ...t,
+          id: t.id,
+          name: t.name,
+          description: t.description,
           platform_name: t.platform_type || 'unknown',
+          is_active: t.is_active,
           header_row: config.header_row || 1,
           data_start_row: config.data_start_row || 2,
           template_config: config
@@ -191,7 +204,19 @@ export default function TemplateBasedImport() {
       if (fieldMappingsResult.error) throw fieldMappingsResult.error;
       if (fixedMappingsResult.error) throw fixedMappingsResult.error;
 
-      setFieldMappings((fieldMappingsResult.data || []).map(m => {
+      setFieldMappings((fieldMappingsResult.data || []).map((m: {
+        id: string;
+        template_id: string;
+        excel_column?: string;
+        database_field?: string;
+        field_type?: string;
+        is_required?: boolean;
+        default_value?: string;
+        display_order?: number;
+        validation_rules?: {
+          value_mappings?: Record<string, string>;
+        };
+      }) => {
         // 从 validation_rules 中读取值转换规则
         const validationRules = m.validation_rules || {};
         const valueMappings = validationRules.value_mappings || {};
@@ -209,7 +234,12 @@ export default function TemplateBasedImport() {
           value_mappings: valueMappings
         };
       }));
-      setFixedMappings((fixedMappingsResult.data || []).map(m => ({
+      setFixedMappings((fixedMappingsResult.data || []).map((m: {
+        id: string;
+        template_id: string;
+        database_value?: string;
+        excel_value?: string;
+      }) => ({
         id: m.id,
         template_id: m.template_id,
         // 修复：字段名存储在 database_value 中，固定值存储在 excel_value 中
@@ -268,7 +298,7 @@ export default function TemplateBasedImport() {
       const worksheet = workbook.Sheets[sheetName];
       
       // 读取所有数据（从第1行开始）
-      const allData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
+      const allData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as Array<Array<unknown>>;
 
       if (allData.length < dataStartRow) {
         toast({ 
