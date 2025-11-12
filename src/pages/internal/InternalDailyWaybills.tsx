@@ -102,15 +102,18 @@ export default function InternalDailyWaybills() {
       // 第二步：查询这些内部司机的运单
       // 注意：loading_date 是 timestamp with time zone，需要转换为 DATE 进行比较
       // 使用 gte 和 lt 来匹配当天的所有记录
-      const selectedDateStart = `${selectedDate}T00:00:00`;
-      const selectedDateEnd = `${selectedDate}T23:59:59`;
+      // 将中国时区的日期转换为 UTC 日期范围
+      const chinaDateStart = new Date(`${selectedDate}T00:00:00+08:00`);
+      const chinaDateEnd = new Date(`${selectedDate}T23:59:59+08:00`);
+      const utcDateStart = chinaDateStart.toISOString();
+      const utcDateEnd = chinaDateEnd.toISOString();
       
       let query = supabase
         .from('logistics_records')
         .select('*')
         .in('driver_id', internalDriverIds)  // 只显示内部司机的运单
-        .gte('loading_date', selectedDateStart)
-        .lte('loading_date', selectedDateEnd)
+        .gte('loading_date', utcDateStart)
+        .lte('loading_date', utcDateEnd)
         .order('auto_number');
 
       // 如果选择了特定车辆，再过滤车牌号

@@ -46,7 +46,15 @@ const getDefaultDateRange = () => {
   const today = new Date();
   // 默认开始日期设为2025-01-01
   const startDate = new Date('2025-01-01');
-  const formatISODate = (date: Date) => date.toISOString().split('T')[0];
+  // 将中国时区的日期转换为 UTC 日期
+  const formatISODate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    const chinaDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
+    const chinaDate = new Date(chinaDateStr);
+    return chinaDate.toISOString().split('T')[0];
+  };
   return { startDate: formatISODate(startDate), endDate: formatISODate(today) };
 };
 
@@ -86,9 +94,16 @@ export default function Home() {
     else setIsSearching(true);
     
     try {
+      // 将日期输入框中的日期（中国时区）转换为 UTC 日期
+      const convertDateInputToUTC = (dateStr: string): string => {
+        if (!dateStr) return '';
+        const chinaDate = new Date(`${dateStr}T00:00:00+08:00`);
+        return chinaDate.toISOString().split('T')[0];
+      };
+      
       const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types', {
-        p_start_date: filterInputs.startDate,
-        p_end_date: filterInputs.endDate,
+        p_start_date: filterInputs.startDate ? convertDateInputToUTC(filterInputs.startDate) : null,
+        p_end_date: filterInputs.endDate ? convertDateInputToUTC(filterInputs.endDate) : null,
         p_project_id: filterInputs.projectId === 'all' ? null : filterInputs.projectId,
       });
       if (error) throw error;
@@ -107,8 +122,14 @@ export default function Home() {
     setDialogPagination(prev => ({ ...prev, currentPage: page }));
     try {
       const projectId = dialogFilter.projectId === 'all' ? undefined : dialogFilter.projectId;
-      const startDate = dialogFilter.date ? dialogFilter.date : filterInputs.startDate;
-      const endDate = dialogFilter.date ? dialogFilter.date : filterInputs.endDate;
+      // 将日期输入框中的日期（中国时区）转换为 UTC 日期
+      const convertDateInputToUTC = (dateStr: string): string => {
+        if (!dateStr) return '';
+        const chinaDate = new Date(`${dateStr}T00:00:00+08:00`);
+        return chinaDate.toISOString().split('T')[0];
+      };
+      const startDate = dialogFilter.date ? dialogFilter.date : (filterInputs.startDate ? convertDateInputToUTC(filterInputs.startDate) : undefined);
+      const endDate = dialogFilter.date ? dialogFilter.date : (filterInputs.endDate ? convertDateInputToUTC(filterInputs.endDate) : undefined);
       const offset = (page - 1) * dialogPagination.pageSize;
       const typeId = dialogFilter.billingTypeId ? parseInt(dialogFilter.billingTypeId, 10) : undefined;
 

@@ -27,6 +27,7 @@ import { PaymentApproval } from '@/components/PaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
@@ -117,7 +118,7 @@ export default function PaymentRequestsList() {
         p_request_id: filters.requestId || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
-        p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
+        p_loading_date: filters.loadingDate ? convertChinaDateToUTCDate(filters.loadingDate) : null,
         p_status: filters.status || null,
         p_project_id: filters.projectId || null,
         p_limit: pageSize,

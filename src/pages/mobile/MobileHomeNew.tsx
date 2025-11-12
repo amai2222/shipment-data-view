@@ -59,6 +59,7 @@ import {
 } from 'recharts';
 import { format, startOfDay, endOfDay, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 
 // 类型定义
 interface DashboardStats {
@@ -205,9 +206,13 @@ export default function MobileHomeNew() {
     queryKey: ['mobileHomeStats'],
     queryFn: async () => {
       const today = new Date();
-      const startOfToday = format(startOfDay(today), 'yyyy-MM-dd HH:mm:ss');
-      const endOfToday = format(endOfDay(today), 'yyyy-MM-dd HH:mm:ss');
-      const startOfThisWeek = format(startOfWeek(today), 'yyyy-MM-dd');
+      // 将中国时区的今天转换为 UTC 日期范围
+      const chinaTodayStr = format(today, 'yyyy-MM-dd');
+      const chinaStartOfToday = new Date(`${chinaTodayStr}T00:00:00+08:00`);
+      const chinaEndOfToday = new Date(`${chinaTodayStr}T23:59:59+08:00`);
+      const utcStartOfToday = chinaStartOfToday.toISOString();
+      const utcEndOfToday = chinaEndOfToday.toISOString();
+      const startOfThisWeek = convertChinaDateToUTCDate(startOfWeek(today));
 
       // 并行获取各种统计数据
       const [
@@ -221,8 +226,8 @@ export default function MobileHomeNew() {
         supabase
           .from('logistics_records')
           .select('loading_weight, payable_cost')
-          .gte('loading_date', startOfToday)
-          .lte('loading_date', endOfToday),
+          .gte('loading_date', utcStartOfToday)
+          .lte('loading_date', utcEndOfToday),
         
         // 项目统计
         supabase
@@ -295,8 +300,8 @@ export default function MobileHomeNew() {
           .from('logistics_records')
           .select('loading_weight')
           .eq('project_id', project.id)
-          .gte('loading_date', startOfToday)
-          .lte('loading_date', endOfToday);
+          .gte('loading_date', utcStartOfToday)
+          .lte('loading_date', utcEndOfToday);
 
         const todayProjectWeight = projectRecords?.reduce((sum, r) => sum + (r.loading_weight || 0), 0) || 0;
         

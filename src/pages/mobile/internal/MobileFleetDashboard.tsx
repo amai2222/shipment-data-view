@@ -36,6 +36,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 
 interface DashboardStats {
   totalVehicles: number;
@@ -181,7 +182,7 @@ export default function MobileFleetDashboard() {
           .from('logistics_records')
           .select('id', { count: 'estimated', head: true })
           .in('driver_name', managedDriverNames)
-          .gte('loading_date', `${currentMonth}-01`);
+          .gte('loading_date', convertChinaDateToUTCDate(new Date(`${currentMonth}-01`)));
         
         tripCount = count || 0;
       }

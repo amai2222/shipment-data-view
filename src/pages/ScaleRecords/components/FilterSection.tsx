@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Search, Plus } from 'lucide-react';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 
 interface Project {
   id: string;
@@ -47,8 +48,9 @@ export function FilterSection({
 }: FilterSectionProps) {
   const handleDateRangeChange = (dateRange: any) => {
     onFiltersChange({
-      startDate: dateRange?.from ? dateRange.from.toISOString().split('T')[0] : '',
-      endDate: dateRange?.to ? dateRange.to.toISOString().split('T')[0] : ''
+      // 将中国时区的日期转换为 UTC 日期，确保筛选正确
+      startDate: dateRange?.from ? convertChinaDateToUTCDate(dateRange.from) : '',
+      endDate: dateRange?.to ? convertChinaDateToUTCDate(dateRange.to) : ''
     });
   };
 

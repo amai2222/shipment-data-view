@@ -65,11 +65,32 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     onFiltersChange({ ...filters, [field]: value });
   };
 
+  // 将中国时区的日期转换为 UTC 日期（用于数据库筛选）
+  // 例如：前端选择 2025-11-10（中国时间）
+  // 中国时间 2025-11-10 00:00:00+08 = UTC 2025-11-09 16:00:00+00
+  // 所以应该传递 UTC 日期 2025-11-09 给后端
+  const convertChinaDateToUTCDate = (date: Date): string => {
+    // 获取用户选择的日期（年、月、日）
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    
+    // 创建中国时区的日期字符串并解析（明确指定 +08:00 时区）
+    // 例如：'2025-11-10T00:00:00+08:00' 会被解析为 UTC 时间 2025-11-09 16:00:00
+    const chinaDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
+    const chinaDate = new Date(chinaDateStr);
+    
+    // 返回 UTC 日期字符串（YYYY-MM-DD）
+    // 由于 Date 对象内部存储的是 UTC 时间戳，toISOString() 会返回 UTC 时间
+    return chinaDate.toISOString().split('T')[0];
+  };
+
   const handleDateChange = (dateRange: DateRange | undefined) => {
     onFiltersChange({
       ...filters,
-      startDate: dateRange?.from ? dateRange.from.toISOString().split('T')[0] : '',
-      endDate: dateRange?.to ? dateRange.to.toISOString().split('T')[0] : '',
+      // 将中国时区的日期转换为 UTC 日期，确保筛选正确
+      startDate: dateRange?.from ? convertChinaDateToUTCDate(dateRange.from) : '',
+      endDate: dateRange?.to ? convertChinaDateToUTCDate(dateRange.to) : '',
     });
   };
 

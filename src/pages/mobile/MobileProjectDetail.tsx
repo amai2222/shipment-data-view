@@ -54,6 +54,7 @@ import {
 } from 'recharts';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 
 // 类型定义
 interface Project {
@@ -148,13 +149,14 @@ export default function MobileProjectDetail() {
         .eq('project_id', projectId)
         .order('loading_date', { ascending: false });
 
-      // 获取今日数据
-      const today = format(new Date(), 'yyyy-MM-dd');
+      // 获取今日数据（将中国时区的今天转换为 UTC 日期）
+      const today = new Date();
+      const utcToday = convertChinaDateToUTCDate(today);
       const { data: todayRecords } = await supabase
         .from('logistics_records')
         .select('*')
         .eq('project_id', projectId)
-        .gte('loading_date', today);
+        .gte('loading_date', utcToday);
 
       // 计算基础统计
       const totalRecords = records?.length || 0;

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 
 interface Waybill {
   id: string;
@@ -94,15 +95,18 @@ export default function MobileDailyWaybills() {
         return;
       }
 
-      const selectedDateStart = `${selectedDate}T00:00:00`;
-      const selectedDateEnd = `${selectedDate}T23:59:59`;
+      // 将中国时区的日期转换为 UTC 日期范围
+      const chinaDateStart = new Date(`${selectedDate}T00:00:00+08:00`);
+      const chinaDateEnd = new Date(`${selectedDate}T23:59:59+08:00`);
+      const utcDateStart = chinaDateStart.toISOString();
+      const utcDateEnd = chinaDateEnd.toISOString();
       
       let query = supabase
         .from('logistics_records')
         .select('*')
         .in('driver_id', managedDriverIds)
-        .gte('loading_date', selectedDateStart)
-        .lte('loading_date', selectedDateEnd)
+        .gte('loading_date', utcDateStart)
+        .lte('loading_date', utcDateEnd)
         .order('auto_number');
 
       if (vehicleFilter !== 'all' && vehicles.length > 0) {

@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 
 // 类型定义
 interface LogisticsRecord {
@@ -142,7 +143,9 @@ export default function MobileProjectRecords() {
             startDate = new Date(0);
         }
         
-        query = query.gte('loading_date', startDate.toISOString());
+        // 将中国时区的日期转换为 UTC 日期
+        const utcStartDate = convertChinaDateToUTCDate(startDate);
+        query = query.gte('loading_date', utcStartDate);
       }
 
       const { data, error } = await query;

@@ -15,6 +15,7 @@ import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useFilterState } from '@/hooks/useFilterState';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 import { ScaleRecordForm } from './components/ScaleRecordForm';
 import { ImageViewer } from './components/ImageViewer';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
@@ -238,7 +239,12 @@ export default function ScaleRecords() {
   };
 
   const handleDateRangeChange = (dateRange: DateRange | undefined) => {
-    setUiFilters(prev => ({ ...prev, startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' }));
+    setUiFilters(prev => ({ 
+      ...prev, 
+      // 将中国时区的日期转换为 UTC 日期，确保筛选正确
+      startDate: dateRange?.from ? convertChinaDateToUTCDate(dateRange.from) : '', 
+      endDate: dateRange?.to ? convertChinaDateToUTCDate(dateRange.to) : '' 
+    }));
   };
 
   const handleSelectRecord = (recordId: string) => {

@@ -32,6 +32,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { useFilterState } from "@/hooks/useFilterState";
+import { convertChinaDateToUTCDate } from "@/utils/dateUtils";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -344,7 +345,14 @@ export default function PaymentRequest() {
   };
 
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
-  const handleDateChange = (dateRange: DateRange | undefined) => { setUiFilters(prev => ({ ...prev, startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '', endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '' })); };
+  const handleDateChange = (dateRange: DateRange | undefined) => { 
+    setUiFilters(prev => ({ 
+      ...prev, 
+      // 将中国时区的日期转换为 UTC 日期，确保筛选正确
+      startDate: dateRange?.from ? convertChinaDateToUTCDate(dateRange.from) : '', 
+      endDate: dateRange?.to ? convertChinaDateToUTCDate(dateRange.to) : '' 
+    })); 
+  };
   
   // 批量输入对话框处理
   const openBatchDialog = (type: 'driver' | 'license' | 'phone' | 'waybill') => { setBatchDialog({ isOpen: true, type }); };

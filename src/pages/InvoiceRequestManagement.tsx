@@ -29,6 +29,7 @@ import {
 } from '@/components/common';
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 import { zhCN } from 'date-fns/locale';
 import { LogisticsFormDialog } from "@/pages/BusinessEntry/components/LogisticsFormDialog";
@@ -248,7 +249,7 @@ export default function InvoiceRequestManagement() {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
-        p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
+        p_loading_date: filters.loadingDate ? convertChinaDateToUTCDate(filters.loadingDate) : null,
         p_status: filters.status || null,
         p_project_id: filters.projectId || null,
         p_license_plate: filters.licensePlate || null,

@@ -20,6 +20,7 @@ const RotateCcw = ({ className }: { className?: string }) => <span className={cl
 import { MobilePaymentApproval } from '@/components/mobile/MobilePaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { MobileCard } from '@/components/mobile/MobileCard';
 import { MobilePullToRefresh } from '@/components/mobile/MobilePullToRefresh';
@@ -116,7 +117,7 @@ export default function MobilePaymentRequestsList() {
         p_request_id: filters.requestId || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
-        p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
+        p_loading_date: filters.loadingDate ? convertChinaDateToUTCDate(filters.loadingDate) : null,
         p_status: filters.status || null,
         p_limit: pageSize,
         p_offset: (currentPage - 1) * pageSize

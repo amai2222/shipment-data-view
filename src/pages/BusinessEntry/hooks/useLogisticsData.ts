@@ -92,6 +92,7 @@ export function useLogisticsData() {
   ) => {
     setLoading(true);
     try {
+      // 注意：filters.startDate 和 filters.endDate 已经是 UTC 日期格式（在 FilterBar 中已转换）
       const { data, error } = await (supabase.rpc as any)('get_logistics_summary_and_records_enhanced', {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,

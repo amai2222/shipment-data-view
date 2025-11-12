@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 
 // 类型定义
 interface Project {
@@ -97,10 +98,11 @@ export default function MobileProjectOverview() {
     queryKey: ['mobileProjectOverviewStats'],
     queryFn: async () => {
       const now = new Date();
-      const startOfToday = format(now, 'yyyy-MM-dd');
-      const startOfWeek = format(subDays(now, 7), 'yyyy-MM-dd');
-      const startOfThisMonth = format(startOfMonth(now), 'yyyy-MM-dd');
-      const startOfLastMonth = format(startOfMonth(subDays(now, 30)), 'yyyy-MM-dd');
+      // 将中国时区的日期转换为 UTC 日期
+      const startOfToday = convertChinaDateToUTCDate(now);
+      const startOfWeek = convertChinaDateToUTCDate(subDays(now, 7));
+      const startOfThisMonth = convertChinaDateToUTCDate(startOfMonth(now));
+      const startOfLastMonth = convertChinaDateToUTCDate(startOfMonth(subDays(now, 30)));
 
       // 获取项目统计
       const { data: projects } = await supabase

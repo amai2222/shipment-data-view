@@ -21,6 +21,7 @@ import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 
 interface DashboardStats {
   totalRecords: number;
@@ -73,8 +74,12 @@ export default function MobileHome() {
     queryKey: ['mobileHomeStats'],
     queryFn: async () => {
       const today = new Date();
-      const startOfToday = startOfDay(today).toISOString();
-      const endOfToday = endOfDay(today).toISOString();
+      // 将中国时区的今天转换为 UTC 日期范围
+      const chinaTodayStr = format(today, 'yyyy-MM-dd');
+      const chinaStartOfToday = new Date(`${chinaTodayStr}T00:00:00+08:00`);
+      const chinaEndOfToday = new Date(`${chinaTodayStr}T23:59:59+08:00`);
+      const utcStartOfToday = chinaStartOfToday.toISOString();
+      const utcEndOfToday = chinaEndOfToday.toISOString();
 
       // 优化：使用更简单的查询，减少数据库负载
       const [
@@ -88,8 +93,8 @@ export default function MobileHome() {
         supabase
           .from('logistics_records')
           .select('loading_weight, payable_cost', { count: 'estimated' })  // ✅ 估算模式，性能更好
-          .gte('loading_date', startOfToday)
-          .lte('loading_date', endOfToday),
+          .gte('loading_date', utcStartOfToday)
+          .lte('loading_date', utcEndOfToday),
         // 使用更高效的计数查询
         supabase
           .from('projects')

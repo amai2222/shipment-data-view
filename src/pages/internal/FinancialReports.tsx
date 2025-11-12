@@ -45,16 +45,19 @@ export default function FinancialReports() {
     setLoading(true);
     try {
       const [year, month] = selectedMonth.split('-');
-      const startDate = `${selectedMonth}-01`;
+      // 将中国时区的日期转换为 UTC 日期
+      const chinaStartDate = new Date(`${selectedMonth}-01T00:00:00+08:00`);
       const nextMonth = new Date(parseInt(year), parseInt(month), 1);
-      const endDate = nextMonth.toISOString().slice(0, 10);
+      const chinaEndDate = new Date(`${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01T00:00:00+08:00`);
+      const utcStartDate = chinaStartDate.toISOString();
+      const utcEndDate = chinaEndDate.toISOString();
       
       // ✅ 1. 查询总收入（从logistics_records）
       const { data: incomeData } = await supabase
         .from('logistics_records')
         .select('payable_cost')
-        .gte('loading_date', startDate)
-        .lt('loading_date', endDate);
+        .gte('loading_date', utcStartDate)
+        .lt('loading_date', utcEndDate);
       
       const totalIncome = (incomeData || []).reduce((sum, r) => sum + (r.payable_cost || 0), 0);
       
@@ -103,8 +106,8 @@ export default function FinancialReports() {
       const { count: tripCount } = await supabase
         .from('logistics_records')
         .select('id', { count: 'estimated', head: true })
-        .gte('loading_date', startDate)
-        .lt('loading_date', endDate);
+        .gte('loading_date', utcStartDate)
+        .lt('loading_date', utcEndDate);
       
       setStats({
         totalIncome,
