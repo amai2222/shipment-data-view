@@ -222,14 +222,14 @@ export default function TemplateBasedImport() {
         const valueMappings = validationRules.value_mappings || {};
         
         return {
-          id: m.id,
-          template_id: m.template_id,
-          source_field: m.excel_column || '',
-          target_field: m.database_field || '',
-          field_type: m.field_type || 'string',
-          is_required: m.is_required || false,
-          default_value: m.default_value || '',
-          transformation_rule: '',
+        id: m.id,
+        template_id: m.template_id,
+        source_field: m.excel_column || '',
+        target_field: m.database_field || '',
+        field_type: m.field_type || 'string',
+        is_required: m.is_required || false,
+        default_value: m.default_value || '',
+        transformation_rule: '',
           sort_order: m.display_order || 0,
           value_mappings: valueMappings
         };
@@ -384,18 +384,18 @@ export default function TemplateBasedImport() {
                 if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
                   record[mapping.target_field] = dateStr;
                 } else {
-                  // 尝试解析日期字符串
+                // 尝试解析日期字符串
                   date = new Date(value);
-                  if (!isNaN(date.getTime())) {
+                if (!isNaN(date.getTime())) {
                     // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
                     // Excel数据已经是中国时区，直接按中国时区格式化即可
                     const year = date.getFullYear();
                     const month = String(date.getMonth() + 1).padStart(2, '0');
                     const day = String(date.getDate()).padStart(2, '0');
                     record[mapping.target_field] = `${year}-${month}-${day}`;
-                  } else {
-                    record[mapping.target_field] = value;
-                  }
+                } else {
+                  record[mapping.target_field] = value;
+                }
                 }
               } else {
                 record[mapping.target_field] = String(value);
@@ -420,7 +420,7 @@ export default function TemplateBasedImport() {
               ? strValue.split(',').map(v => v.trim()).filter(v => v)
               : [];
           } else {
-            record[mapping.target_field] = mapping.fixed_value;
+          record[mapping.target_field] = mapping.fixed_value;
           }
         });
 
@@ -1083,9 +1083,9 @@ export default function TemplateBasedImport() {
 
             {selectedTemplate && (
               <div className="space-y-4">
-                <Alert>
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription>
+              <Alert>
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>
                     <div className="space-y-2">
                       <div>
                         <strong>已选择模板:</strong> {templates.find(t => t.id === selectedTemplate)?.name}
@@ -1097,12 +1097,12 @@ export default function TemplateBasedImport() {
                         <strong>字段映射:</strong> {fieldMappings.length} 个字段
                       </div>
                       <div className="text-blue-600 font-medium">
-                        📌 Excel表头在第{templates.find(t => t.id === selectedTemplate)?.header_row || 1}行，
-                        数据从第{templates.find(t => t.id === selectedTemplate)?.data_start_row || 2}行开始读取
+                    📌 Excel表头在第{templates.find(t => t.id === selectedTemplate)?.header_row || 1}行，
+                    数据从第{templates.find(t => t.id === selectedTemplate)?.data_start_row || 2}行开始读取
                       </div>
                     </div>
-                  </AlertDescription>
-                </Alert>
+                </AlertDescription>
+              </Alert>
 
                 {/* 字段映射详情 */}
                 {fieldMappings.length > 0 && (
@@ -1445,9 +1445,9 @@ export default function TemplateBasedImport() {
               {/* 可横向滚动的表格容器 */}
               <div className="overflow-auto max-h-[60vh] border rounded-md">
                 <div className="overflow-x-auto min-w-full">
-              <Table>
-                <TableHeader>
-                  <TableRow>
+            <Table>
+              <TableHeader>
+                <TableRow>
                     <TableHead className="sticky left-0 bg-background z-10 min-w-[60px]">行号</TableHead>
                     {/* 字段映射列 */}
                     {fieldMappings.map((mapping) => {
@@ -1456,7 +1456,7 @@ export default function TemplateBasedImport() {
                       return (
                         <TableHead key={mapping.id} className="min-w-[150px] whitespace-nowrap">
                           {fieldLabel} ({mapping.source_field})
-                        </TableHead>
+                    </TableHead>
                       );
                     })}
                     {/* 固定值映射列 */}
@@ -1469,14 +1469,14 @@ export default function TemplateBasedImport() {
                         </TableHead>
                       );
                     })}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {previewData.slice(0, 10).map((item, index) => (
-                    <TableRow key={index}>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {previewData.slice(0, 10).map((item, index) => (
+                  <TableRow key={index}>
                       <TableCell className="sticky left-0 bg-background z-10 font-medium">{item.row_index}</TableCell>
                       {/* 字段映射数据 */}
-                      {fieldMappings.map((mapping) => (
+                    {fieldMappings.map((mapping) => (
                         <TableCell key={mapping.id} className="min-w-[150px]">
                           {item.data[mapping.target_field] !== undefined && item.data[mapping.target_field] !== null
                             ? String(item.data[mapping.target_field])
@@ -1487,12 +1487,12 @@ export default function TemplateBasedImport() {
                       {fixedMappings.map((mapping) => (
                         <TableCell key={`fixed-${mapping.id}`} className="bg-blue-50 font-semibold text-blue-600 min-w-[150px]">
                           {mapping.fixed_value}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
                 </div>
               </div>
               {/* 固定值映射说明和记录数提示 */}
@@ -1522,7 +1522,7 @@ export default function TemplateBasedImport() {
                 </AlertDescription>
               </Alert>
             )}
-              </div>
+          </div>
             </div>
           )}
 
@@ -1530,9 +1530,9 @@ export default function TemplateBasedImport() {
           <DialogFooter>
             {importStep === 'confirmation' && (
               <>
-                <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
-                  取消
-                </Button>
+            <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
+              取消
+            </Button>
                 <Button 
                   onClick={executeImport} 
                   disabled={isImporting || (importMode === 'update' && approvedDuplicates.size === 0 && importPreview?.update_records.length > 0)}
@@ -1545,7 +1545,7 @@ export default function TemplateBasedImport() {
                   ) : (
                     '确认导入'
                   )}
-                </Button>
+            </Button>
               </>
             )}
             {importStep === 'processing' && (

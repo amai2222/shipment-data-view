@@ -3,8 +3,13 @@
  * 用于将后端返回的UTC日期范围转换为前端显示的中国时区日期范围
  */
 
+import { format } from 'date-fns';
+
 /**
  * 将UTC日期字符串转换为中国时区日期字符串
+ * 使用 format 和 Date 对象的本地时区（浏览器时区，中国 UTC+8）进行格式化
+ * 与详情页的日期显示逻辑一致
+ * 
  * @param utcDateStr UTC日期字符串（YYYY-MM-DD格式）
  * @returns 中国时区日期字符串（YYYY-MM-DD格式）
  */
@@ -15,16 +20,10 @@ export function convertUTCDateStringToChinaDateString(utcDateStr: string): strin
   // 例如："2025-10-28" -> "2025-10-28T00:00:00.000Z"
   const utcDate = new Date(utcDateStr + 'T00:00:00.000Z');
   
-  // 转换为中国时区（加8小时）
-  const chinaTime = utcDate.getTime() + 8 * 60 * 60 * 1000;
-  const chinaDate = new Date(chinaTime);
-  
-  // 提取中国时区的年、月、日
-  const year = chinaDate.getUTCFullYear();
-  const month = String(chinaDate.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(chinaDate.getUTCDate()).padStart(2, '0');
-  
-  return `${year}-${month}-${day}`;
+  // ✅ 使用 format 函数，它会自动使用 Date 对象的本地时区（浏览器时区，中国 UTC+8）进行格式化
+  // 例如：UTC "2025-10-28 00:00:00" -> 中国时区 "2025-10-28 08:00:00" -> 格式化为 "2025-10-28"
+  // 如果 UTC 时间是 "2025-10-28 16:00:00"（即中国时间 2025-10-29 00:00:00），format 会显示 "2025-10-29"
+  return format(utcDate, 'yyyy-MM-dd');
 }
 
 /**

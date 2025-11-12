@@ -107,6 +107,9 @@ export function convertSingleDateToDateRange(date: Date): { startDate: string; e
 
 /**
  * 将 UTC 日期字符串转换为中国时区的 Date 对象（用于显示）
+ * 使用本地时区方法（getFullYear, getMonth, getDate）而不是 UTC 方法
+ * 与 format 函数的时区处理逻辑一致
+ * 
  * 例如：UTC 日期 "2025-11-01" 转换为中国时区的 Date 对象，显示为 2025-11-02
  * @param utcDateStr UTC 日期字符串（YYYY-MM-DD格式）
  * @returns 中国时区的 Date 对象
@@ -124,9 +127,9 @@ export function convertUTCDateToChinaDate(utcDateStr: string): Date {
   const chinaTime = utcDate.getTime() + 8 * 60 * 60 * 1000;
   const chinaDate = new Date(chinaTime);
   
-  // 返回一个代表中国时区日期的 Date 对象
-  // 使用本地时区的年、月、日来创建新的 Date 对象
-  return new Date(chinaDate.getUTCFullYear(), chinaDate.getUTCMonth(), chinaDate.getUTCDate());
+  // ✅ 修复：使用本地时区的年、月、日来创建新的 Date 对象
+  // 而不是使用 UTC 方法（getUTCFullYear 等）
+  return new Date(chinaDate.getFullYear(), chinaDate.getMonth(), chinaDate.getDate());
 }
 
 /**
