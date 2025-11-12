@@ -202,7 +202,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
   
   // 模板映射相关状态
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; platform_name: string }>>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('__none__'); // 使用特殊值代替空字符串
   const [templateMappings, setTemplateMappings] = useState<TemplateFieldMapping[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   interface PreviewDataItem {
@@ -256,17 +256,26 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
   useEffect(() => {
     const loadTemplates = async () => {
       try {
+        setIsLoadingTemplates(true);
         const { data, error } = await supabase
           .from('import_templates')
           .select('id, name, platform_name')
           .eq('is_active', true)
           .order('name');
 
-        if (error) throw error;
+        if (error) {
+          console.error('加载模板列表失败:', error);
+          // 不显示错误提示，因为模板是可选的
+          setTemplates([]);
+          return;
+        }
         setTemplates(data || []);
       } catch (error: unknown) {
         console.error('加载模板列表失败:', error);
+        setTemplates([]);
         // 不显示错误提示，因为模板是可选的
+      } finally {
+        setIsLoadingTemplates(false);
       }
     };
 
@@ -275,7 +284,8 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
 
   // 加载模板映射
   const loadTemplateMappings = async (templateId: string) => {
-    if (!templateId) {
+    // 检查是否是"不使用模板"的特殊值
+    if (!templateId || templateId === '__none__') {
       setTemplateMappings([]);
       return;
     }
@@ -383,7 +393,9 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
 
           // 遍历所有可更新字段
           UPDATABLE_FIELDS.forEach(field => {
-            const newValue = extractFieldValue(rowData, field.key, templateMappings.length > 0 ? templateMappings : undefined);
+            // 只有在选择了模板且模板映射已加载时才使用模板映射
+            const useTemplateMappings = selectedTemplateId && selectedTemplateId !== '__none__' && templateMappings.length > 0;
+            const newValue = extractFieldValue(rowData, field.key, useTemplateMappings ? templateMappings : undefined);
             // 获取原值（从数据库记录中）
             let oldValue = existingRecord[field.key];
             if (field.key === 'chain_name') {
@@ -502,7 +514,9 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
 
           // 使用统一的字段提取逻辑（支持模板映射）
           const getFieldValue = (fieldKey: string): unknown => {
-            return extractFieldValue(item.rowData, fieldKey, templateMappings.length > 0 ? templateMappings : undefined);
+            // 只有在选择了模板且模板映射已加载时才使用模板映射
+            const useTemplateMappings = selectedTemplateId && selectedTemplateId !== '__none__' && templateMappings.length > 0;
+            return extractFieldValue(item.rowData, fieldKey, useTemplateMappings ? templateMappings : undefined);
           };
 
           if (selectedFields.has('unloading_weight')) {
@@ -854,37 +868,37 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <Label htmlFor="template-select">选择模板</Label>
-              <Select
-                value={selectedTemplateId}
-                onValueChange={handleTemplateChange}
-                disabled={isLoadingTemplates}
-              >
-                <SelectTrigger id="template-select" className="mt-1">
-                  <SelectValue placeholder={isLoadingTemplates ? "加载中..." : "不使用模板（使用默认字段匹配）"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">不使用模板（使用默认字段匹配）</SelectItem>
-                  {templates.length === 0 ? (
-                    <SelectItem value="no-templates" disabled>
-                      暂无可用模板（可在"模板管理"中创建）
-                    </SelectItem>
-                  ) : (
-                    templates.map(template => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.name} {template.platform_name ? `(${template.platform_name})` : ''}
+                <Select
+                  value={selectedTemplateId}
+                  onValueChange={handleTemplateChange}
+                  disabled={isLoadingTemplates}
+                >
+                  <SelectTrigger id="template-select" className="mt-1">
+                    <SelectValue placeholder={isLoadingTemplates ? "加载中..." : "不使用模板（使用默认字段匹配）"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">不使用模板（使用默认字段匹配）</SelectItem>
+                    {templates.length === 0 && !isLoadingTemplates ? (
+                      <SelectItem value="__no_templates__" disabled>
+                        暂无可用模板（可在"模板管理"中创建）
                       </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+                    ) : (
+                      templates.map(template => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name} {template.platform_name ? `(${template.platform_name})` : ''}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
             </div>
-            {selectedTemplateId && templateMappings.length > 0 && (
+            {selectedTemplateId && selectedTemplateId !== '__none__' && templateMappings.length > 0 && (
               <Badge variant="outline" className="mt-6">
                 {templateMappings.length} 个字段映射已加载
               </Badge>
             )}
           </div>
-          {selectedTemplateId && templateMappings.length === 0 && !isLoadingTemplates && (
+          {selectedTemplateId && selectedTemplateId !== '__none__' && templateMappings.length === 0 && !isLoadingTemplates && (
             <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
@@ -892,7 +906,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
               </AlertDescription>
             </Alert>
           )}
-          {!selectedTemplateId && templates.length === 0 && (
+          {selectedTemplateId === '__none__' && templates.length === 0 && !isLoadingTemplates && (
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
@@ -907,7 +921,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
         <CardHeader>
           <CardTitle>第3步：上传Excel文件</CardTitle>
           <CardDescription>
-            包含定位字段和要更新的字段值{selectedTemplateId && templateMappings.length > 0 && '（将使用模板映射）'}
+            包含定位字段和要更新的字段值{selectedTemplateId && selectedTemplateId !== '__none__' && templateMappings.length > 0 && '（将使用模板映射）'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
