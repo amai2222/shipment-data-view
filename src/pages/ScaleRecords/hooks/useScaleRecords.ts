@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
+import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 
 interface ScaleRecord {
   id: string;
@@ -48,11 +49,19 @@ export function useScaleRecords() {
       if (filters.projectId && filters.projectId !== 'all') {
         query = query.eq('project_id', filters.projectId);
       }
+      // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
+      // filters.startDate 和 filters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
       if (filters.startDate) {
-        query = query.gte('loading_date', filters.startDate);
+        const [year, month, day] = filters.startDate.split('-').map(Number);
+        const chinaDate = new Date(year, month - 1, day);
+        const utcStartDate = convertChinaDateToUTCDate(chinaDate);
+        query = query.gte('loading_date', utcStartDate);
       }
       if (filters.endDate) {
-        query = query.lte('loading_date', filters.endDate);
+        const [year, month, day] = filters.endDate.split('-').map(Number);
+        const chinaDate = new Date(year, month - 1, day);
+        const utcEndDate = convertChinaDateToUTCDate(chinaDate);
+        query = query.lte('loading_date', utcEndDate);
       }
       if (filters.licensePlate) {
         query = query.ilike('license_plate', `%${filters.licensePlate}%`);

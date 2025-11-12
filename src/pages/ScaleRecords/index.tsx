@@ -93,10 +93,21 @@ export default function ScaleRecords() {
       const from = (currentPage - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
+      // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
+      // activeFilters.startDate 和 activeFilters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
+      const convertChinaDateToUTC = (dateStr: string): string => {
+        if (!dateStr) return '';
+        const [year, month, day] = dateStr.split('-').map(Number);
+        // 创建中国时区的日期字符串并解析（明确指定 +08:00 时区）
+        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
+        const chinaDateObj = new Date(chinaDateStr);
+        return chinaDateObj.toISOString().split('T')[0];
+      };
+      
       let query = supabase.from('scale_records').select('*', { count: 'exact' }).order('loading_date', { ascending: false }).order('trip_number', { ascending: false });
       if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId);
-      if (activeFilters.startDate) query = query.gte('loading_date', activeFilters.startDate);
-      if (activeFilters.endDate) query = query.lte('loading_date', activeFilters.endDate);
+      if (activeFilters.startDate) query = query.gte('loading_date', convertChinaDateToUTC(activeFilters.startDate));
+      if (activeFilters.endDate) query = query.lte('loading_date', convertChinaDateToUTC(activeFilters.endDate));
       if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
       
       const { data, error, count } = await query.range(from, to);
@@ -303,10 +314,21 @@ export default function ScaleRecords() {
   const handleSelectAllMatching = async () => {
     setIsSelectingAll(true);
     try {
+      // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
+      // activeFilters.startDate 和 activeFilters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
+      const convertChinaDateToUTC = (dateStr: string): string => {
+        if (!dateStr) return '';
+        const [year, month, day] = dateStr.split('-').map(Number);
+        // 创建中国时区的日期字符串并解析（明确指定 +08:00 时区）
+        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
+        const chinaDateObj = new Date(chinaDateStr);
+        return chinaDateObj.toISOString().split('T')[0];
+      };
+      
       let query = supabase.from('scale_records').select('id');
       if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId);
-      if (activeFilters.startDate) query = query.gte('loading_date', activeFilters.startDate);
-      if (activeFilters.endDate) query = query.lte('loading_date', activeFilters.endDate);
+      if (activeFilters.startDate) query = query.gte('loading_date', convertChinaDateToUTC(activeFilters.startDate));
+      if (activeFilters.endDate) query = query.lte('loading_date', convertChinaDateToUTC(activeFilters.endDate));
       if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
       
       const { data, error } = await query;

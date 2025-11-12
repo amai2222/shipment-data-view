@@ -31,6 +31,42 @@ export function convertChinaDateToUTCDate(date: Date): string {
 }
 
 /**
+ * 将 UTC 日期字符串转换为中国时区的 Date 对象（用于显示）
+ * 例如：UTC 日期 "2025-11-01" 转换为中国时区的 Date 对象，显示为 2025-11-02
+ * @param utcDateStr UTC 日期字符串（YYYY-MM-DD格式）
+ * @returns 中国时区的 Date 对象
+ */
+export function convertUTCDateToChinaDate(utcDateStr: string): Date {
+  if (!utcDateStr) {
+    return new Date();
+  }
+  
+  // 将 UTC 日期字符串解析为 UTC 时间
+  // 例如："2025-11-01" -> "2025-11-01T00:00:00.000Z"
+  const utcDate = new Date(utcDateStr + 'T00:00:00.000Z');
+  
+  // 转换为中国时区（加8小时）
+  const chinaTime = utcDate.getTime() + 8 * 60 * 60 * 1000;
+  const chinaDate = new Date(chinaTime);
+  
+  // 返回一个代表中国时区日期的 Date 对象
+  // 使用本地时区的年、月、日来创建新的 Date 对象
+  return new Date(chinaDate.getUTCFullYear(), chinaDate.getUTCMonth(), chinaDate.getUTCDate());
+}
+
+/**
+ * 格式化中国时区的日期为字符串（用于显示）
+ * @param date Date 对象（代表中国时区的日期）
+ * @returns 日期字符串（YYYY-MM-DD格式）
+ */
+export function formatChinaDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * 将数据库的UTC时间转换为中国时区的日期字符串（用于前端显示）
  * @param dateValue 数据库UTC时间值（可能是string、Date或null）
  * @param formatStr 格式化字符串，默认 'yyyy-MM-dd'

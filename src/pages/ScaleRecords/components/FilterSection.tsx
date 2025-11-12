@@ -46,11 +46,20 @@ export function FilterSection({
   onBulkLink,
   isBulkLinking
 }: FilterSectionProps) {
+  // 格式化中国时区的日期为字符串（用于存储和显示）
+  const formatChinaDateString = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const handleDateRangeChange = (dateRange: any) => {
+    // 存储中国时区的日期字符串（用于显示）
+    // 传递给后端时会转换为 UTC 日期
     onFiltersChange({
-      // 将中国时区的日期转换为 UTC 日期，确保筛选正确
-      startDate: dateRange?.from ? convertChinaDateToUTCDate(dateRange.from) : '',
-      endDate: dateRange?.to ? convertChinaDateToUTCDate(dateRange.to) : ''
+      startDate: dateRange?.from ? formatChinaDateString(dateRange.from) : '',
+      endDate: dateRange?.to ? formatChinaDateString(dateRange.to) : ''
     });
   };
 
@@ -79,8 +88,15 @@ export function FilterSection({
           <Label htmlFor="date-range">日期范围</Label>
           <DateRangePicker 
             date={{ 
-              from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, 
-              to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined, 
+              from: uiFilters.startDate ? (() => {
+                // 解析中国时区日期字符串为 Date 对象
+                const [year, month, day] = uiFilters.startDate.split('-').map(Number);
+                return new Date(year, month - 1, day);
+              })() : undefined, 
+              to: uiFilters.endDate ? (() => {
+                const [year, month, day] = uiFilters.endDate.split('-').map(Number);
+                return new Date(year, month - 1, day);
+              })() : undefined, 
             }} 
             setDate={handleDateRangeChange} 
           />

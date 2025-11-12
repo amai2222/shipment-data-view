@@ -85,12 +85,21 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     return chinaDate.toISOString().split('T')[0];
   };
 
+  // 格式化中国时区的日期为字符串（用于存储和显示）
+  const formatChinaDateString = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const handleDateChange = (dateRange: DateRange | undefined) => {
+    // 存储中国时区的日期字符串（用于显示）
+    // 传递给后端时会转换为 UTC 日期
     onFiltersChange({
       ...filters,
-      // 将中国时区的日期转换为 UTC 日期，确保筛选正确
-      startDate: dateRange?.from ? convertChinaDateToUTCDate(dateRange.from) : '',
-      endDate: dateRange?.to ? convertChinaDateToUTCDate(dateRange.to) : '',
+      startDate: dateRange?.from ? formatChinaDateString(dateRange.from) : '',
+      endDate: dateRange?.to ? formatChinaDateString(dateRange.to) : '',
     });
   };
 
@@ -290,10 +299,20 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     }
   };
 
+  // 将存储的中国时区日期字符串转换为 Date 对象（用于显示）
+  // filters.startDate 和 filters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
+  // 需要将其转换为代表中国时区日期的 Date 对象
   const dateRangeValue: DateRange | undefined = (filters.startDate || filters.endDate)
     ? {
-        from: filters.startDate ? new Date(filters.startDate) : undefined,
-        to: filters.endDate ? new Date(filters.endDate) : undefined,
+        from: filters.startDate ? (() => {
+          // 解析中国时区日期字符串为 Date 对象
+          const [year, month, day] = filters.startDate.split('-').map(Number);
+          return new Date(year, month - 1, day);
+        })() : undefined,
+        to: filters.endDate ? (() => {
+          const [year, month, day] = filters.endDate.split('-').map(Number);
+          return new Date(year, month - 1, day);
+        })() : undefined,
       }
     : undefined;
 

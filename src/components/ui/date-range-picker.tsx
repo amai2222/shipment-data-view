@@ -25,16 +25,11 @@ interface DateRangePickerProps extends React.HTMLAttributes<HTMLDivElement> {
   disabled?: boolean;
 }
 
-// [时区修复函数] 将本地时区的Date对象，转换为代表其UTC日期的新Date对象。
-const toUTCDate = (date: Date): Date => {
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-};
-
-// [时区修复函数] 使用UTC年、月、日来格式化日期，忽略本地时区。
-const formatInUTC = (date: Date): string => {
-  const year = date.getUTCFullYear();
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-  const day = date.getUTCDate().toString().padStart(2, '0');
+// [时区修复函数] 格式化日期为中国时区显示（使用本地时区的年、月、日）
+const formatInChina = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
@@ -72,13 +67,13 @@ export function DateRangePicker({
       case "6m": fromDate = subMonths(today, 6); break;
       case "1y": fromDate = subYears(today, 1); break;
     }
-    // 对于预设，直接应用时区修正并更新父组件
-    setParentDate({ from: toUTCDate(fromDate), to: toUTCDate(today) });
+    // 对于预设，直接使用中国时区的日期（不转换）
+    setParentDate({ from: fromDate, to: today });
     setOpen(false);
   };
 
   // ★★★ 交互逻辑优化 ★★★
-  // 移除了“二次点击同一天则清空”的逻辑，使其变为“确认选择”
+  // 移除了"二次点击同一天则清空"的逻辑，使其变为"确认选择"
   const handleDateSelect = (range: DateRange | undefined) => {
     // 步骤 1: 始终使用传入的 range 更新本地状态，以确保日历UI实时响应用户的点击
     setLocalDate(range);
@@ -86,8 +81,8 @@ export function DateRangePicker({
     // 步骤 2: 检查范围是否已完整选择（即 from 和 to 都有值）
     // 无论是选择了一个时间段，还是通过两次点击同一天选择单日，此条件都会满足
     if (range?.from && range.to) {
-      // 步骤 3: 将最终确定的日期（已修正时区）传递给父组件
-      setParentDate({ from: toUTCDate(range.from), to: toUTCDate(range.to) });
+      // 步骤 3: 直接使用中国时区的日期传递给父组件（不转换）
+      setParentDate({ from: range.from, to: range.to });
       // 步骤 4: 关闭弹窗，完成选择流程
       setOpen(false);
     }
@@ -97,8 +92,8 @@ export function DateRangePicker({
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) { // 当弹窗将要关闭时
       if (localDate?.from && !localDate.to) {
-        // 将单个日期设为单日范围，并应用时区修正
-        setParentDate({ from: toUTCDate(localDate.from), to: toUTCDate(localDate.from) });
+        // 将单个日期设为单日范围（使用中国时区，不转换）
+        setParentDate({ from: localDate.from, to: localDate.from });
       }
     }
     setOpen(isOpen);
@@ -119,15 +114,15 @@ export function DateRangePicker({
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {parentDate?.from && parentDate?.to ? (
-              formatInUTC(parentDate.from) !== formatInUTC(parentDate.to) ? (
+              formatInChina(parentDate.from) !== formatInChina(parentDate.to) ? (
                 <>
-                  {formatInUTC(parentDate.from)} - {formatInUTC(parentDate.to)}
+                  {formatInChina(parentDate.from)} - {formatInChina(parentDate.to)}
                 </>
               ) : (
-                formatInUTC(parentDate.from)
+                formatInChina(parentDate.from)
               )
             ) : parentDate?.from ? (
-              formatInUTC(parentDate.from)
+              formatInChina(parentDate.from)
             ) : (
               <span>选择日期范围</span>
             )}

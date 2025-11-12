@@ -98,11 +98,22 @@ export default function MobileScaleRecords() {
       if (filters.projectId) {
         query = query.eq('project_id', filters.projectId);
       }
+      // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
+      // filters.startDate 和 filters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
+      const convertChinaDateToUTC = (dateStr: string): string => {
+        if (!dateStr) return '';
+        const [year, month, day] = dateStr.split('-').map(Number);
+        // 创建中国时区的日期字符串并解析（明确指定 +08:00 时区）
+        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
+        const chinaDateObj = new Date(chinaDateStr);
+        return chinaDateObj.toISOString().split('T')[0];
+      };
+      
       if (filters.startDate) {
-        query = query.gte('loading_date', filters.startDate);
+        query = query.gte('loading_date', convertChinaDateToUTC(filters.startDate));
       }
       if (filters.endDate) {
-        query = query.lte('loading_date', filters.endDate);
+        query = query.lte('loading_date', convertChinaDateToUTC(filters.endDate));
       }
       if (filters.licensePlate) {
         query = query.ilike('license_plate', `%${filters.licensePlate}%`);
