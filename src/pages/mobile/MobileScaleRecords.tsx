@@ -99,32 +99,25 @@ export default function MobileScaleRecords() {
         query = query.eq('project_id', filters.projectId);
       }
       // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
-      // filters.startDate 和 filters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
-      const convertChinaDateToUTC = (dateStr: string): string => {
-        if (!dateStr) return '';
-        const [year, month, day] = dateStr.split('-').map(Number);
-        // 创建中国时区的日期字符串并解析（明确指定 +08:00 时区）
-        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
-        const chinaDateObj = new Date(chinaDateStr);
-        return chinaDateObj.toISOString().split('T')[0];
-      };
-      
-      // 结束日期需要加1天，确保包含结束日当天的所有数据
-      const convertChinaEndDateToUTC = (dateStr: string): string => {
-        if (!dateStr) return '';
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
-        const chinaDateObj = new Date(chinaDateStr);
-        const nextDay = new Date(chinaDateObj);
-        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-        return nextDay.toISOString().split('T')[0];
-      };
-      
+      // filters.startDate 和 filters.endDate 存储的是中国时区的日期字符串（如 "2025-10-05"）
       if (filters.startDate) {
-        query = query.gte('loading_date', convertChinaDateToUTC(filters.startDate));
+        const [year, month, day] = filters.startDate.split('-').map(Number);
+        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
+        const chinaDateObj = new Date(chinaDateStr);
+        const utcStartDate = chinaDateObj.toISOString().split('T')[0];
+        query = query.gte('loading_date', utcStartDate);
       }
+      // ✅ 修复：结束日期需要加1天，确保包含结束日当天的所有数据
+      // 例如：用户选择 2025-10-06 -> 传递 2025-10-07 给后端
+      // 后端使用 <= '2025-10-07'::date 时，会包含中国时间 2025-10-06 的所有数据
       if (filters.endDate) {
-        query = query.lte('loading_date', convertChinaEndDateToUTC(filters.endDate));
+        const [year, month, day] = filters.endDate.split('-').map(Number);
+        const nextDayDate = new Date(year, month - 1, day + 1);
+        const nextYear = nextDayDate.getFullYear();
+        const nextMonth = nextDayDate.getMonth();
+        const nextDay = nextDayDate.getDate();
+        const utcEndDate = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+        query = query.lte('loading_date', utcEndDate);
       }
       if (filters.licensePlate) {
         query = query.ilike('license_plate', `%${filters.licensePlate}%`);

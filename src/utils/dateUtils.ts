@@ -71,10 +71,17 @@ export function convertChinaEndDateToUTCDate(date: Date): string {
 
 /**
  * 将单日查询转换为日期范围（用于单日筛选）
- * 例如：用户选择 2025-11-10（中国时间）作为单日查询
- * 需要查询这一天的所有数据，所以转换为日期范围：开始日期=2025-11-09（UTC），结束日期=2025-11-11（UTC，加1天）
+ * 例如：用户选择 2025-10-06（中国时间）作为单日查询
+ * 需要查询这一天的所有数据，所以转换为日期范围
  * @param date 用户选择的中国时区单日
  * @returns 包含 startDate 和 endDate 的对象（UTC 日期字符串）
+ * 
+ * 逻辑说明：
+ * 1. 用户选择 2025-10-06（中国时区）
+ * 2. startDate: 转换为 UTC 开始日期 "2025-10-05"
+ * 3. endDate: 在中国时区加1天 = 2025-10-07，作为 UTC 日期字符串传递
+ * 4. 后端使用 loading_date >= '2025-10-05'::date AND loading_date <= '2025-10-07'::date
+ * 5. 结果：包含中国时间 2025-10-06 的所有数据 ✓
  */
 export function convertSingleDateToDateRange(date: Date): { startDate: string; endDate: string } {
   // 获取用户选择的日期（年、月、日）
@@ -82,17 +89,18 @@ export function convertSingleDateToDateRange(date: Date): { startDate: string; e
   const month = date.getMonth();
   const day = date.getDate();
   
-  // 创建中国时区的日期字符串并解析（明确指定 +08:00 时区）
+  // 开始日期：转换为 UTC 日期
   const chinaDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
   const chinaDate = new Date(chinaDateStr);
-  
-  // 开始日期：转换为 UTC 日期
   const startDate = chinaDate.toISOString().split('T')[0];
   
-  // 结束日期：加1天，确保包含当天的所有数据
-  const nextDay = new Date(chinaDate);
-  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-  const endDate = nextDay.toISOString().split('T')[0];
+  // ✅ 修复：结束日期需要在中国时区加1天，然后作为UTC日期字符串传递
+  // 与 convertChinaEndDateToUTCDate 逻辑一致
+  const nextDayDate = new Date(year, month, day + 1);
+  const nextYear = nextDayDate.getFullYear();
+  const nextMonth = nextDayDate.getMonth();
+  const nextDay = nextDayDate.getDate();
+  const endDate = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
   
   return { startDate, endDate };
 }
