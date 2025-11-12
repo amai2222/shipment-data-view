@@ -5,7 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 // 解析Excel日期为中国时区的日期字符串（YYYY-MM-DD格式）
-// Excel中的日期应该被理解为中国时区的日期，然后发送到后端转换为UTC存储
+// 说明：
+// 1. Excel的原始数据已经是中国时区的日期
+// 2. 此函数只需要处理Excel的各种日期格式，按中国时区标准进行格式化
+// 3. 返回YYYY-MM-DD格式的字符串，代表中国时区的日期
+// 4. 后端会将此日期字符串转换为UTC存储
 const parseExcelDate = (excelDate: any): string | null => {
   if (excelDate === null || excelDate === undefined || excelDate === '') return null;
   
@@ -42,7 +46,7 @@ const parseExcelDate = (excelDate: any): string | null => {
   }
   
   // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
-  // 这样Excel中的日期会被理解为中国时区的日期
+  // Excel数据已经是中国时区，直接按中国时区格式化即可
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');

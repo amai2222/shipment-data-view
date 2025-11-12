@@ -358,7 +358,11 @@ export default function TemplateBasedImport() {
               record[mapping.target_field] = parseFloat(String(value)) || 0;
             } else if (mapping.field_type === 'date' && value) {
               // 日期处理：解析Excel日期为中国时区的日期字符串（YYYY-MM-DD格式）
-              // Excel中的日期应该被理解为中国时区的日期，然后发送到后端转换为UTC存储
+              // 说明：
+              // 1. Excel的原始数据已经是中国时区的日期
+              // 2. 此函数只需要处理Excel的各种日期格式，按中国时区标准进行格式化
+              // 3. 返回YYYY-MM-DD格式的字符串，代表中国时区的日期
+              // 4. 后端会将此日期字符串转换为UTC存储
               let date: Date | null = null;
               
               // 检查是否为 Date 对象
@@ -368,6 +372,7 @@ export default function TemplateBasedImport() {
                   record[mapping.target_field] = String(value);
                 } else {
                   // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+                  // Excel数据已经是中国时区，直接按中国时区格式化即可
                   const year = date.getFullYear();
                   const month = String(date.getMonth() + 1).padStart(2, '0');
                   const day = String(date.getDate()).padStart(2, '0');
@@ -383,6 +388,7 @@ export default function TemplateBasedImport() {
                   date = new Date(value);
                   if (!isNaN(date.getTime())) {
                     // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+                    // Excel数据已经是中国时区，直接按中国时区格式化即可
                     const year = date.getFullYear();
                     const month = String(date.getMonth() + 1).padStart(2, '0');
                     const day = String(date.getDate()).padStart(2, '0');
@@ -544,6 +550,7 @@ export default function TemplateBasedImport() {
             const loadingDate = new Date(loadingDateStr);
             if (!isNaN(loadingDate.getTime())) {
               // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+              // Excel数据已经是中国时区，直接按中国时区格式化即可
               const year = loadingDate.getFullYear();
               const month = String(loadingDate.getMonth() + 1).padStart(2, '0');
               const day = String(loadingDate.getDate()).padStart(2, '0');
@@ -559,6 +566,7 @@ export default function TemplateBasedImport() {
             const unloadingDate = new Date(unloadingDateStr);
             if (!isNaN(unloadingDate.getTime())) {
               // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
+              // Excel数据已经是中国时区，直接按中国时区格式化即可
               const year = unloadingDate.getFullYear();
               const month = String(unloadingDate.getMonth() + 1).padStart(2, '0');
               const day = String(unloadingDate.getDate()).padStart(2, '0');
