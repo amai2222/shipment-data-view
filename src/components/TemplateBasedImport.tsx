@@ -41,6 +41,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
+// 导入日期解析工具函数（符合主流规范：Excel数据是中国时区，解析为YYYY-MM-DD格式，后端转换为UTC存储）
+import { parseExcelDateEnhanced } from '@/utils/enhancedDateUtils';
 
 // 系统字段定义（用于显示中文名称）
 const SYSTEM_FIELDS = [
@@ -540,38 +542,23 @@ export default function TemplateBasedImport() {
       // 格式化新记录数据 - 确保字段格式与标准导入完全一致
       const formattedNewRecords = newRecordsToInsert.map(record => {
         
-        // 确保日期格式正确（YYYY-MM-DD）
-        // 确保日期格式正确（已经是YYYY-MM-DD格式，不需要转换）
-        // 如果日期字段不是标准格式，尝试解析并格式化为YYYY-MM-DD
+        // 使用日期解析函数处理Excel日期（支持数字序列号、Date对象、各种字符串格式）
+        // 返回YYYY-MM-DD格式的字符串（中国时区），后端会自动转换为UTC存储
         if (record.loading_date) {
-          const loadingDateStr = String(record.loading_date);
-          // 如果已经是YYYY-MM-DD格式，直接使用
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(loadingDateStr)) {
-            const loadingDate = new Date(loadingDateStr);
-            if (!isNaN(loadingDate.getTime())) {
-              // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
-              // Excel数据已经是中国时区，直接按中国时区格式化即可
-              const year = loadingDate.getFullYear();
-              const month = String(loadingDate.getMonth() + 1).padStart(2, '0');
-              const day = String(loadingDate.getDate()).padStart(2, '0');
-              record.loading_date = `${year}-${month}-${day}`;
-            }
+          const parsedDate = parseExcelDateEnhanced(record.loading_date);
+          if (parsedDate) {
+            record.loading_date = parsedDate;
+          } else {
+            throw new Error(`装货日期格式不正确: ${record.loading_date}`);
           }
         }
         
         if (record.unloading_date) {
-          const unloadingDateStr = String(record.unloading_date);
-          // 如果已经是YYYY-MM-DD格式，直接使用
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(unloadingDateStr)) {
-            const unloadingDate = new Date(unloadingDateStr);
-            if (!isNaN(unloadingDate.getTime())) {
-              // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
-              // Excel数据已经是中国时区，直接按中国时区格式化即可
-              const year = unloadingDate.getFullYear();
-              const month = String(unloadingDate.getMonth() + 1).padStart(2, '0');
-              const day = String(unloadingDate.getDate()).padStart(2, '0');
-              record.unloading_date = `${year}-${month}-${day}`;
-            }
+          const parsedDate = parseExcelDateEnhanced(record.unloading_date);
+          if (parsedDate) {
+            record.unloading_date = parsedDate;
+          } else {
+            throw new Error(`卸货日期格式不正确: ${record.unloading_date}`);
           }
         } else if (record.loading_date) {
           // 如果没有卸货日期，使用装货日期
@@ -671,31 +658,23 @@ export default function TemplateBasedImport() {
       const formattedUpdateRecords = recordsToUpdate.map(updateItem => {
         const record = { ...updateItem.data };
         
-        // 复用新记录的格式化逻辑
-        // 确保日期格式正确（YYYY-MM-DD）
+        // 使用日期解析函数处理Excel日期（支持数字序列号、Date对象、各种字符串格式）
+        // 返回YYYY-MM-DD格式的字符串（中国时区），后端会自动转换为UTC存储
         if (record.loading_date) {
-          const loadingDateStr = String(record.loading_date);
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(loadingDateStr)) {
-            const loadingDate = new Date(loadingDateStr);
-            if (!isNaN(loadingDate.getTime())) {
-              const year = loadingDate.getFullYear();
-              const month = String(loadingDate.getMonth() + 1).padStart(2, '0');
-              const day = String(loadingDate.getDate()).padStart(2, '0');
-              record.loading_date = `${year}-${month}-${day}`;
-            }
+          const parsedDate = parseExcelDateEnhanced(record.loading_date);
+          if (parsedDate) {
+            record.loading_date = parsedDate;
+          } else {
+            throw new Error(`装货日期格式不正确: ${record.loading_date}`);
           }
         }
         
         if (record.unloading_date) {
-          const unloadingDateStr = String(record.unloading_date);
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(unloadingDateStr)) {
-            const unloadingDate = new Date(unloadingDateStr);
-            if (!isNaN(unloadingDate.getTime())) {
-              const year = unloadingDate.getFullYear();
-              const month = String(unloadingDate.getMonth() + 1).padStart(2, '0');
-              const day = String(unloadingDate.getDate()).padStart(2, '0');
-              record.unloading_date = `${year}-${month}-${day}`;
-            }
+          const parsedDate = parseExcelDateEnhanced(record.unloading_date);
+          if (parsedDate) {
+            record.unloading_date = parsedDate;
+          } else {
+            throw new Error(`卸货日期格式不正确: ${record.unloading_date}`);
           }
         }
         

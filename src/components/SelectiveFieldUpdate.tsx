@@ -22,6 +22,8 @@ import {
   ChevronRight
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+// 导入日期解析工具函数（符合主流规范：Excel数据是中国时区，解析为YYYY-MM-DD格式，后端转换为UTC存储）
+import { parseExcelDateEnhanced } from '@/utils/enhancedDateUtils';
 
 interface SelectiveFieldUpdateProps {
   selectedProject: string;
@@ -113,7 +115,13 @@ const formatFieldValue = (value: unknown, fieldKey: string): string => {
     return '—';
   }
   
+  // 日期字段：使用日期解析函数处理Excel日期格式（数字序列号、Date对象、各种字符串格式）
   if (fieldKey === 'unloading_date' || fieldKey === 'loading_date') {
+    const parsedDate = parseExcelDateEnhanced(value);
+    if (parsedDate) {
+      return parsedDate; // 返回YYYY-MM-DD格式
+    }
+    // 如果解析失败，尝试其他方式显示
     if (typeof value === 'string') return value;
     if (value instanceof Date) return value.toLocaleDateString('zh-CN');
     return String(value);
@@ -375,8 +383,15 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
           if (selectedFields.has('unloading_date')) {
             const value = item.rowData['卸货日期'] || item.rowData['卸货日期(可选)'];
             if (value) {
-              updateData.unloading_date = value;
-              updatedFields.add('unloading_date');
+              // 使用日期解析函数处理Excel日期（支持数字序列号、Date对象、各种字符串格式）
+              // 返回YYYY-MM-DD格式的字符串（中国时区），后端会自动转换为UTC存储
+              const parsedDate = parseExcelDateEnhanced(value);
+              if (parsedDate) {
+                updateData.unloading_date = parsedDate;
+                updatedFields.add('unloading_date');
+              } else {
+                throw new Error(`卸货日期格式不正确: ${value}`);
+              }
             }
           }
 
