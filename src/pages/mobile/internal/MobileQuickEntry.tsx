@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { limitAmountInput } from '@/utils/formatters';
+import { formatChinaDateString } from '@/utils/dateUtils';
 
 interface ProjectRoute {
   project_id: string;
@@ -793,8 +794,9 @@ export default function MobileQuickEntry() {
     const inputs = routeInputs[routeId] || { 
       loading_weight: '', 
       unloading_weight: '',
-      loading_date: new Date().toISOString().split('T')[0],
-      unloading_date: new Date().toISOString().split('T')[0]
+      // 使用中国时区的今天日期
+      loading_date: formatChinaDateString(new Date()),
+      unloading_date: formatChinaDateString(new Date())
     };
     
     // 先做基本验证
@@ -822,7 +824,8 @@ export default function MobileQuickEntry() {
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD格式
+        // 使用中国时区的今天日期
+        const today = formatChinaDateString(new Date());
     const inputs = routeInputs[routeId] || { 
       loading_weight: '', 
       unloading_weight: '',
@@ -950,7 +953,8 @@ export default function MobileQuickEntry() {
         });
         
         // 清空该线路的输入（保留日期为今天）
-        const today = new Date().toISOString().split('T')[0];
+        // 使用中国时区的今天日期
+        const today = formatChinaDateString(new Date());
         setRouteInputs(prev => {
           const newInputs = { ...prev };
           newInputs[routeId] = {
@@ -1279,7 +1283,8 @@ export default function MobileQuickEntry() {
                         onValueChange={(value) => {
                           setSelectedRouteId(value);
                           // 切换线路时，初始化输入框（如果还没有）
-                          const today = new Date().toISOString().split('T')[0];
+                          // 使用中国时区的今天日期
+                          const today = formatChinaDateString(new Date());
                           setRouteInputs(prev => {
                             if (!prev[value]) {
                               return {
@@ -1314,7 +1319,8 @@ export default function MobileQuickEntry() {
                       const route = favoriteRoutes.find(r => r.id === selectedRouteId);
                       if (!route) return null;
                       
-                      const today = new Date().toISOString().split('T')[0];
+                      // 使用中国时区的今天日期
+                      const today = formatChinaDateString(new Date());
                       const inputs = routeInputs[selectedRouteId] || { 
                         loading_weight: '', 
                         unloading_weight: '',

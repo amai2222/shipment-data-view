@@ -109,11 +109,22 @@ export default function MobileScaleRecords() {
         return chinaDateObj.toISOString().split('T')[0];
       };
       
+      // 结束日期需要加1天，确保包含结束日当天的所有数据
+      const convertChinaEndDateToUTC = (dateStr: string): string => {
+        if (!dateStr) return '';
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
+        const chinaDateObj = new Date(chinaDateStr);
+        const nextDay = new Date(chinaDateObj);
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        return nextDay.toISOString().split('T')[0];
+      };
+      
       if (filters.startDate) {
         query = query.gte('loading_date', convertChinaDateToUTC(filters.startDate));
       }
       if (filters.endDate) {
-        query = query.lte('loading_date', convertChinaDateToUTC(filters.endDate));
+        query = query.lte('loading_date', convertChinaEndDateToUTC(filters.endDate));
       }
       if (filters.licensePlate) {
         query = query.ilike('license_plate', `%${filters.licensePlate}%`);

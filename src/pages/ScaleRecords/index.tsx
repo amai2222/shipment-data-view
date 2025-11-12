@@ -104,10 +104,21 @@ export default function ScaleRecords() {
         return chinaDateObj.toISOString().split('T')[0];
       };
       
+      // 结束日期需要加1天，确保包含结束日当天的所有数据
+      const convertChinaEndDateToUTC = (dateStr: string): string => {
+        if (!dateStr) return '';
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
+        const chinaDateObj = new Date(chinaDateStr);
+        const nextDay = new Date(chinaDateObj);
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        return nextDay.toISOString().split('T')[0];
+      };
+      
       let query = supabase.from('scale_records').select('*', { count: 'exact' }).order('loading_date', { ascending: false }).order('trip_number', { ascending: false });
       if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId);
       if (activeFilters.startDate) query = query.gte('loading_date', convertChinaDateToUTC(activeFilters.startDate));
-      if (activeFilters.endDate) query = query.lte('loading_date', convertChinaDateToUTC(activeFilters.endDate));
+      if (activeFilters.endDate) query = query.lte('loading_date', convertChinaEndDateToUTC(activeFilters.endDate));
       if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
       
       const { data, error, count } = await query.range(from, to);
@@ -325,10 +336,21 @@ export default function ScaleRecords() {
         return chinaDateObj.toISOString().split('T')[0];
       };
       
+      // 结束日期需要加1天，确保包含结束日当天的所有数据
+      const convertChinaEndDateToUTC = (dateStr: string): string => {
+        if (!dateStr) return '';
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
+        const chinaDateObj = new Date(chinaDateStr);
+        const nextDay = new Date(chinaDateObj);
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        return nextDay.toISOString().split('T')[0];
+      };
+      
       let query = supabase.from('scale_records').select('id');
       if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId);
       if (activeFilters.startDate) query = query.gte('loading_date', convertChinaDateToUTC(activeFilters.startDate));
-      if (activeFilters.endDate) query = query.lte('loading_date', convertChinaDateToUTC(activeFilters.endDate));
+      if (activeFilters.endDate) query = query.lte('loading_date', convertChinaEndDateToUTC(activeFilters.endDate));
       if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
       
       const { data, error } = await query;

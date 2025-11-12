@@ -28,7 +28,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
-import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
+import { convertChinaDateToUTCDate, convertSingleDateToDateRange } from '@/utils/dateUtils';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
@@ -200,7 +200,11 @@ export default function InvoiceAudit() {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
-        p_loading_date: filters.loadingDate ? convertChinaDateToUTCDate(filters.loadingDate) : null,
+        // 单日查询：将单日转换为日期范围，确保包含当天的所有数据
+        p_loading_date: filters.loadingDate ? (() => {
+          const { startDate } = convertSingleDateToDateRange(filters.loadingDate);
+          return startDate;
+        })() : null,
         p_status: filters.status || null,
         p_project_id: filters.projectId || null,
         p_license_plate: filters.licensePlate || null,      // ✅ 添加车牌号筛选

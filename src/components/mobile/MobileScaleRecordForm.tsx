@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, X, Camera, Image as ImageIcon } from 'lucide-react';
+import { formatChinaDateString } from '@/utils/dateUtils';
 
 interface Project {
   id: string;
@@ -39,7 +40,8 @@ interface NamingParams {
 export function MobileScaleRecordForm({ projects, onSuccess, onCancel }: MobileScaleRecordFormProps) {
   const [formData, setFormData] = useState({
     projectId: '',
-    loadingDate: new Date().toISOString().split('T')[0],
+    // 使用中国时区的今天日期
+    loadingDate: formatChinaDateString(new Date()),
     licensePlate: '',
     driverName: '',
     tripNumber: 1,

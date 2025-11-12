@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
-import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
+import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate } from '@/utils/dateUtils';
 
 interface ScaleRecord {
   id: string;
@@ -57,10 +57,11 @@ export function useScaleRecords() {
         const utcStartDate = convertChinaDateToUTCDate(chinaDate);
         query = query.gte('loading_date', utcStartDate);
       }
+      // 结束日期需要加1天，确保包含结束日当天的所有数据
       if (filters.endDate) {
         const [year, month, day] = filters.endDate.split('-').map(Number);
         const chinaDate = new Date(year, month - 1, day);
-        const utcEndDate = convertChinaDateToUTCDate(chinaDate);
+        const utcEndDate = convertChinaEndDateToUTCDate(chinaDate);
         query = query.lte('loading_date', utcEndDate);
       }
       if (filters.licensePlate) {

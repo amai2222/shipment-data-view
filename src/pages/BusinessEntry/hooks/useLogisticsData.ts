@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogisticsRecord, PaginationState } from '../types';
-import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
+import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate } from '@/utils/dateUtils';
 
 interface LogisticsResponse {
   records: LogisticsRecord[];
@@ -101,10 +101,11 @@ export function useLogisticsData() {
         const chinaDate = new Date(year, month - 1, day);
         return convertChinaDateToUTCDate(chinaDate);
       })() : null;
+      // 结束日期需要加1天，确保包含结束日当天的所有数据
       const utcEndDate = filters.endDate ? (() => {
         const [year, month, day] = filters.endDate.split('-').map(Number);
         const chinaDate = new Date(year, month - 1, day);
-        return convertChinaDateToUTCDate(chinaDate);
+        return convertChinaEndDateToUTCDate(chinaDate);
       })() : null;
       
       const { data, error } = await (supabase.rpc as any)('get_logistics_summary_and_records_enhanced', {

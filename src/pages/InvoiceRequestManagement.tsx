@@ -249,7 +249,13 @@ export default function InvoiceRequestManagement() {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
-        p_loading_date: filters.loadingDate ? convertChinaDateToUTCDate(filters.loadingDate) : null,
+        // 单日查询：将单日转换为日期范围，确保包含当天的所有数据
+        // 由于后端使用 lr.loading_date = p_loading_date 精确匹配，我们需要传递开始日期
+        // 但为了包含当天的所有数据，我们传递开始日期（UTC）
+        p_loading_date: filters.loadingDate ? (() => {
+          const { startDate } = convertSingleDateToDateRange(filters.loadingDate);
+          return startDate;
+        })() : null,
         p_status: filters.status || null,
         p_project_id: filters.projectId || null,
         p_license_plate: filters.licensePlate || null,

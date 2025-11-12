@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
+import { convertChinaDateToUTCDate, formatChinaDateString } from '@/utils/dateUtils';
 
 interface Waybill {
   id: string;
@@ -46,7 +46,8 @@ export default function MobileDailyWaybills() {
   
   const [loading, setLoading] = useState(false);
   const [waybills, setWaybills] = useState<Waybill[]>([]);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  // 使用中国时区的今天日期初始化
+  const [selectedDate, setSelectedDate] = useState(formatChinaDateString(new Date()));
   const [vehicleFilter, setVehicleFilter] = useState('all');
   const [vehicles, setVehicles] = useState<string[]>([]);
 

@@ -31,6 +31,60 @@ export function convertChinaDateToUTCDate(date: Date): string {
 }
 
 /**
+ * 将中国时区的结束日期转换为 UTC 日期（用于数据库筛选，包含结束日当天的所有数据）
+ * 例如：前端选择 2025-11-10（中国时间）作为结束日期
+ * 需要包含 2025-11-10 当天的所有数据，所以传递 UTC 日期 2025-11-11 给后端
+ * 后端使用 <= 比较时，就能包含 2025-11-10 当天的所有数据
+ * @param date 用户选择的中国时区结束日期
+ * @returns UTC 日期字符串（YYYY-MM-DD格式），已加1天
+ */
+export function convertChinaEndDateToUTCDate(date: Date): string {
+  // 获取用户选择的日期（年、月、日）
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  
+  // 创建中国时区的日期字符串并解析（明确指定 +08:00 时区）
+  const chinaDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
+  const chinaDate = new Date(chinaDateStr);
+  
+  // 加1天，确保包含结束日当天的所有数据
+  const nextDay = new Date(chinaDate);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  
+  // 返回 UTC 日期字符串（YYYY-MM-DD）
+  return nextDay.toISOString().split('T')[0];
+}
+
+/**
+ * 将单日查询转换为日期范围（用于单日筛选）
+ * 例如：用户选择 2025-11-10（中国时间）作为单日查询
+ * 需要查询这一天的所有数据，所以转换为日期范围：开始日期=2025-11-09（UTC），结束日期=2025-11-11（UTC，加1天）
+ * @param date 用户选择的中国时区单日
+ * @returns 包含 startDate 和 endDate 的对象（UTC 日期字符串）
+ */
+export function convertSingleDateToDateRange(date: Date): { startDate: string; endDate: string } {
+  // 获取用户选择的日期（年、月、日）
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  
+  // 创建中国时区的日期字符串并解析（明确指定 +08:00 时区）
+  const chinaDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
+  const chinaDate = new Date(chinaDateStr);
+  
+  // 开始日期：转换为 UTC 日期
+  const startDate = chinaDate.toISOString().split('T')[0];
+  
+  // 结束日期：加1天，确保包含当天的所有数据
+  const nextDay = new Date(chinaDate);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const endDate = nextDay.toISOString().split('T')[0];
+  
+  return { startDate, endDate };
+}
+
+/**
  * 将 UTC 日期字符串转换为中国时区的 Date 对象（用于显示）
  * 例如：UTC 日期 "2025-11-01" 转换为中国时区的 Date 对象，显示为 2025-11-02
  * @param utcDateStr UTC 日期字符串（YYYY-MM-DD格式）

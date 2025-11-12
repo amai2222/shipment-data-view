@@ -101,9 +101,18 @@ export default function Home() {
         return chinaDate.toISOString().split('T')[0];
       };
       
+      // 结束日期需要加1天，确保包含结束日当天的所有数据
+      const convertEndDateToUTC = (dateStr: string): string => {
+        if (!dateStr) return '';
+        const chinaDate = new Date(`${dateStr}T00:00:00+08:00`);
+        const nextDay = new Date(chinaDate);
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        return nextDay.toISOString().split('T')[0];
+      };
+      
       const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types', {
         p_start_date: filterInputs.startDate ? convertDateInputToUTC(filterInputs.startDate) : null,
-        p_end_date: filterInputs.endDate ? convertDateInputToUTC(filterInputs.endDate) : null,
+        p_end_date: filterInputs.endDate ? convertEndDateToUTC(filterInputs.endDate) : null,
         p_project_id: filterInputs.projectId === 'all' ? null : filterInputs.projectId,
       });
       if (error) throw error;

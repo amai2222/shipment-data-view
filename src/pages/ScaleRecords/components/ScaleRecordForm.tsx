@@ -7,6 +7,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, X } from 'lucide-react';
+import { formatChinaDateString } from '@/utils/dateUtils';
 
 interface Project {
   id: string;
@@ -56,7 +57,8 @@ interface NamingParams {
 export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }: ScaleRecordFormProps) {
   const [formData, setFormData] = useState({
     projectId: '',
-    loadingDate: new Date().toISOString().split('T')[0],
+    // 使用中国时区的今天日期
+    loadingDate: formatChinaDateString(new Date()),
     licensePlate: '',
     tripNumber: 1,
     validQuantity: '',
@@ -117,7 +119,8 @@ export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }:
       setIsEditMode(false);
       setFormData({
         projectId: '',
-        loadingDate: new Date().toISOString().split('T')[0],
+        // 使用中国时区的今天日期
+        loadingDate: formatChinaDateString(new Date()),
         licensePlate: '',
         tripNumber: 1,
         validQuantity: '',

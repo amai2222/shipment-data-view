@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { formatChinaDateString } from '@/utils/dateUtils';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import {
   Truck,
@@ -170,7 +171,8 @@ export default function MobileVehicleAssignment() {
         const { error: unassignError } = await supabase
           .from('internal_driver_vehicle_relations')
           .update({
-            valid_until: new Date().toISOString().split('T')[0]
+            // 使用中国时区的今天日期
+            valid_until: formatChinaDateString(new Date())
           })
           .eq('vehicle_id', selectedVehicle.id)
           .is('valid_until', null);
@@ -184,7 +186,8 @@ export default function MobileVehicleAssignment() {
         .insert({
           vehicle_id: selectedVehicle.id,
           driver_id: selectedDriverId,
-          valid_from: new Date().toISOString().split('T')[0],
+          // 使用中国时区的今天日期
+          valid_from: formatChinaDateString(new Date()),
           valid_until: null,
           is_primary: true
         });
@@ -232,7 +235,8 @@ export default function MobileVehicleAssignment() {
       const { error } = await supabase
         .from('internal_driver_vehicle_relations')
         .update({
-          valid_until: new Date().toISOString().split('T')[0]
+          // 使用中国时区的今天日期
+          valid_until: formatChinaDateString(new Date())
         })
         .eq('vehicle_id', vehicle.id)
         .is('valid_until', null);

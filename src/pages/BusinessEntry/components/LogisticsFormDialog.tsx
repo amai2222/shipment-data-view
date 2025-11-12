@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
+import { formatChinaDateString, convertUTCDateToChinaDate } from "@/utils/dateUtils";
 
 interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 interface Location { id: string; name: string; }
@@ -358,8 +359,10 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         driver_id: formData.driverId,
         loading_location: loadingLocationNames,
         unloading_location: unloadingLocationNames,
-        loading_date: formData.loadingDate.toISOString(),
-        unloading_date: formData.unloadingDate ? formData.unloadingDate.toISOString() : null,
+        // 将中国时区的日期转换为日期字符串（YYYY-MM-DD格式）
+        // 用户选择的是中国时区的日期，需要正确格式化
+        loading_date: formatChinaDateString(formData.loadingDate),
+        unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null,
         license_plate: formData.licensePlate,
         driver_phone: formData.driverPhone,
         loading_weight: formData.loading_weight,
@@ -386,7 +389,9 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_driver_name: drivers.find(d => d.id === finalDriverId)?.name || editingRecord.driver_name || '',
           p_loading_location: loadingLocationNames,
           p_unloading_location: unloadingLocationNames,
-          p_loading_date: formData.loadingDate?.toISOString() || editingRecord.loading_date,
+          // 将中国时区的日期转换为日期字符串（YYYY-MM-DD格式）
+          // 如果表单有日期，使用表单日期；否则使用编辑记录的日期（从UTC转换为中国时区）
+          p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : (editingRecord.loading_date ? formatChinaDateString(convertUTCDateToChinaDate(editingRecord.loading_date.split('T')[0])) : ''),
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
           p_current_cost: parseFloat(formData.currentCost) || 0,
@@ -395,7 +400,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_transport_type: formData.transportType,
           p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
-          p_unloading_date: formData.unloadingDate?.toISOString()
+          // 将中国时区的日期转换为日期字符串（YYYY-MM-DD格式）
+          p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null
         } as any);
         
         // 更新可选字段
@@ -425,7 +431,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
           p_loading_location: loadingLocationNames,
           p_unloading_location: unloadingLocationNames,
-          p_loading_date: formData.loadingDate?.toISOString().split('T')[0] || '',
+          // 将中国时区的日期转换为日期字符串（YYYY-MM-DD格式）
+          p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : '',
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
           p_current_cost: parseFloat(formData.currentCost) || 0,
@@ -434,7 +441,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_transport_type: formData.transportType,
           p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
-          p_unloading_date: formData.unloadingDate?.toISOString().split('T')[0] || ''
+          p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : ''
         });
         
         if (error) throw error;
@@ -445,7 +452,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           .select('id')
           .eq('project_id', formData.projectId)
           .eq('driver_name', drivers.find(d => d.id === formData.driverId)?.name || '')
-          .eq('loading_date', formData.loadingDate?.toISOString().split('T')[0] || '')
+          .eq('loading_date', formData.loadingDate ? formatChinaDateString(formData.loadingDate) : '')
           .order('created_at', { ascending: false })
           .limit(1)
           .single();

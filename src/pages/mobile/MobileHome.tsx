@@ -21,7 +21,7 @@ import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
-import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
+import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate } from '@/utils/dateUtils';
 
 interface DashboardStats {
   totalRecords: number;
@@ -108,7 +108,8 @@ export default function MobileHome() {
         // 使用与桌面端相同的默认日期范围（2025-01-01到现在）
         supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
           p_start_date: '2025-01-01',
-          p_end_date: new Date().toISOString().split('T')[0],
+          // 使用中国时区的今天作为结束日期，转换为UTC
+          p_end_date: convertChinaEndDateToUTCDate(new Date()),
           p_project_id: null
         })
       ]);
@@ -156,7 +157,8 @@ export default function MobileHome() {
       // 使用与桌面端相同的默认日期范围（2025-01-01到现在）
       const rpcAgg = await supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
         p_start_date: '2025-01-01',
-        p_end_date: new Date().toISOString().split('T')[0],
+        // 使用中国时区的今天作为结束日期，转换为UTC
+        p_end_date: convertChinaEndDateToUTCDate(new Date()),
         p_project_id: null
       });
 

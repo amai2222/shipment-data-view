@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
+import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate } from '@/utils/dateUtils';
 
 interface InvoiceFilters {
   projectId: string;
@@ -81,7 +81,8 @@ export function InvoiceRequestFilterBar({
       ...filters,
       // 将中国时区的日期转换为 UTC 日期，确保筛选正确
       startDate: range?.from ? convertChinaDateToUTCDate(range.from) : '',
-      endDate: range?.to ? convertChinaDateToUTCDate(range.to) : ''
+      // 结束日期需要加1天，确保包含结束日当天的所有数据
+      endDate: range?.to ? convertChinaEndDateToUTCDate(range.to) : ''
     });
   };
 
