@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 // @ts-expect-error - lucide-react图标导入
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, RotateCcw, Users, Merge, Undo2 } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, RotateCcw, Users, Merge, Undo2, Copy } from 'lucide-react';
 // ✅ 导入可复用组件
 import {
   PaginationControl,
@@ -1202,10 +1202,11 @@ export default function InvoiceAudit() {
       // 计算合作方汇总（简化版，开票申请通常针对单一合作方）
       if (detailedRecords.length > 0) {
         const totalAmount = detailedRecords.reduce((sum, rec) => sum + (rec.invoiceable_amount || 0), 0);
-        const firstDetail = detailsData[0] as InvoiceRequestDetail;
+        // ✅ 修复：使用 selectedRequest 中的开票单位信息，而不是从 detail 中获取
+        const invoicingPartnerName = request.invoicing_partner_full_name || request.partner_full_name || request.partner_name || '开票单位';
         setPartnerTotals([{
-          partner_id: firstDetail.partner_id || '',
-          partner_name: firstDetail.invoicing_partner_full_name || firstDetail.partner_full_name || firstDetail.partner_name || '未知合作方',
+          partner_id: request.invoicing_partner_id || '',
+          partner_name: invoicingPartnerName,
           total_amount: totalAmount,
           level: 1
         }]);
@@ -1958,10 +1959,40 @@ export default function InvoiceAudit() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-6xl">
           <DialogHeader>
-            <DialogTitle>申请单详情: {selectedRequest?.request_number}</DialogTitle>
-            <DialogDescription>
-              此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
-            </DialogDescription>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <DialogTitle>申请单详情: {selectedRequest?.request_number}</DialogTitle>
+                <DialogDescription>
+                  此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
+                </DialogDescription>
+              </div>
+              {/* 复制运单号按钮 */}
+              {modalRecords.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const waybillNumbers = modalRecords.map(rec => rec.auto_number).filter(Boolean).join(',');
+                    navigator.clipboard.writeText(waybillNumbers).then(() => {
+                      toast({
+                        title: "复制成功",
+                        description: `已复制 ${modalRecords.length} 个运单号到剪贴板`,
+                      });
+                    }).catch(() => {
+                      toast({
+                        title: "复制失败",
+                        description: "无法复制到剪贴板",
+                        variant: "destructive",
+                      });
+                    });
+                  }}
+                  className="ml-4"
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  复制运单号
+                </Button>
+              )}
+            </div>
           </DialogHeader>
           
           {!modalContentLoading && partnerTotals.length > 0 && (
