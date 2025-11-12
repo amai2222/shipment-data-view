@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate } from '@/utils/dateUtils';
+import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate, formatChinaDateString } from '@/utils/dateUtils';
 
 interface InvoiceFilters {
   projectId: string;
@@ -71,18 +71,28 @@ export function InvoiceRequestFilterBar({
   };
 
   // 日期范围处理
+  // filters.startDate 和 filters.endDate 存储的是中国时区的日期字符串（用于显示）
+  // 在查询时会转换为UTC日期字符串
   const dateRangeValue = {
-    from: filters.startDate ? new Date(filters.startDate) : undefined,
-    to: filters.endDate ? new Date(filters.endDate) : undefined
+    from: filters.startDate ? (() => {
+      // 解析中国时区日期字符串为 Date 对象（用于显示）
+      const [year, month, day] = filters.startDate.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    })() : undefined,
+    to: filters.endDate ? (() => {
+      // 解析中国时区日期字符串为 Date 对象（用于显示）
+      const [year, month, day] = filters.endDate.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    })() : undefined
   };
 
   const handleDateChange = (range: { from?: Date; to?: Date } | undefined) => {
     onFiltersChange({
       ...filters,
-      // 将中国时区的日期转换为 UTC 日期，确保筛选正确
-      startDate: range?.from ? convertChinaDateToUTCDate(range.from) : '',
-      // 结束日期需要加1天，确保包含结束日当天的所有数据
-      endDate: range?.to ? convertChinaEndDateToUTCDate(range.to) : ''
+      // 存储中国时区的日期字符串（用于显示）
+      // 在查询时会转换为UTC日期字符串
+      startDate: range?.from ? formatChinaDateString(range.from) : '',
+      endDate: range?.to ? formatChinaDateString(range.to) : ''
     });
   };
 

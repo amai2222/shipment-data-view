@@ -19,7 +19,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { convertChinaDateToUTCDate } from "@/utils/dateUtils";
+import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate, formatChinaDateString } from "@/utils/dateUtils";
 import { useFilterState } from "@/hooks/useFilterState";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
@@ -174,9 +174,10 @@ export default function FinanceReconciliation() {
   const handleDateChange = (dateRange: DateRange | undefined) => { 
     setUiFilters(prev => ({ 
       ...prev, 
-      // 将中国时区的日期转换为 UTC 日期，确保筛选正确
-      startDate: dateRange?.from ? convertChinaDateToUTCDate(dateRange.from) : '', 
-      endDate: dateRange?.to ? convertChinaDateToUTCDate(dateRange.to) : '' 
+      // 存储中国时区的日期字符串（用于显示）
+      // 在查询时会转换为UTC日期字符串
+      startDate: dateRange?.from ? formatChinaDateString(dateRange.from) : '', 
+      endDate: dateRange?.to ? formatChinaDateString(dateRange.to) : '' 
     })); 
   };
   
@@ -264,7 +265,20 @@ export default function FinanceReconciliation() {
   };
 
   // --- 派生状态和工具函数 ---
-  const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? { from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined } : undefined;
+  // 将存储的中国时区日期字符串转换为 Date 对象（用于显示）
+  // uiFilters.startDate 和 uiFilters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
+  const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? {
+    from: uiFilters.startDate ? (() => {
+      // 解析中国时区日期字符串为 Date 对象（用于显示）
+      const [year, month, day] = uiFilters.startDate.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    })() : undefined,
+    to: uiFilters.endDate ? (() => {
+      // 解析中国时区日期字符串为 Date 对象（用于显示）
+      const [year, month, day] = uiFilters.endDate.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    })() : undefined
+  } : undefined;
   
   const displayedPartners = useMemo(() => {
     if (uiFilters.partnerId !== "all") {

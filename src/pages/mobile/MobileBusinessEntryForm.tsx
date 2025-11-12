@@ -13,7 +13,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { formatChinaDateString } from '@/utils/dateUtils';
+import { formatChinaDateString, convertUTCDateToChinaDate } from '@/utils/dateUtils';
 import { ExternalTrackingNumber } from '@/types';
 import { limitAmountInput } from '@/utils/formatters';
 
@@ -179,14 +179,22 @@ export default function MobileBusinessEntryForm() {
       if (error) throw error;
 
       if (data) {
+        // 将UTC日期转换为中国时区的Date对象（用于显示）
+        const loadingDate = data.loading_date 
+          ? convertUTCDateToChinaDate(data.loading_date.split('T')[0])
+          : new Date();
+        const unloadingDate = data.unloading_date 
+          ? convertUTCDateToChinaDate(data.unloading_date.split('T')[0])
+          : new Date();
+        
         setFormData({
           projectId: data.project_id || '',
           chainId: data.chain_id || '',
           driverId: data.driver_id || '',
           loadingLocationId: data.loading_location || '',
           unloadingLocationId: data.unloading_location || '',
-          loadingDate: data.loading_date ? new Date(data.loading_date) : new Date(),
-          unloadingDate: data.unloading_date ? new Date(data.unloading_date) : new Date(),
+          loadingDate,
+          unloadingDate,
           licensePlate: data.license_plate || '',
           driverPhone: data.driver_phone || '',
           loading_weight: data.loading_weight?.toString() || '',

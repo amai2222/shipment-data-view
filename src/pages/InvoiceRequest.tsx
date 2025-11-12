@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useFilterState } from "@/hooks/useFilterState";
 import { format } from "date-fns";
+import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate } from "@/utils/dateUtils";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/PageHeader";
@@ -215,10 +216,24 @@ export default function InvoiceRequest() {
         const mappedStatus = statusMap[activeFilters.invoiceStatus] || activeFilters.invoiceStatus;
         statusArray = [mappedStatus];
       }
+      // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
+      // activeFilters.startDate 和 activeFilters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
+      const utcStartDate = activeFilters.startDate ? (() => {
+        const [year, month, day] = activeFilters.startDate.split('-').map(Number);
+        const chinaDate = new Date(year, month - 1, day);
+        return convertChinaDateToUTCDate(chinaDate);
+      })() : null;
+      // 结束日期需要加1天，确保包含结束日当天的所有数据
+      const utcEndDate = activeFilters.endDate ? (() => {
+        const [year, month, day] = activeFilters.endDate.split('-').map(Number);
+        const chinaDate = new Date(year, month - 1, day);
+        return convertChinaEndDateToUTCDate(chinaDate);
+      })() : null;
+      
       const { data, error } = await supabase.rpc('get_invoice_request_data', {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
-        p_start_date: activeFilters.startDate || null,
-        p_end_date: activeFilters.endDate || null,
+        p_start_date: utcStartDate,
+        p_end_date: utcEndDate,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
         p_invoice_status_array: statusArray,
         p_page_size: PAGE_SIZE,
@@ -429,10 +444,22 @@ export default function InvoiceRequest() {
 
       if (isCrossPageSelection) {
         // 使用与主查询相同的逻辑获取所有筛选条件下的运单ID
+        // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
+        const utcStartDate = activeFilters.startDate ? (() => {
+          const [year, month, day] = activeFilters.startDate.split('-').map(Number);
+          const chinaDate = new Date(year, month - 1, day);
+          return convertChinaDateToUTCDate(chinaDate);
+        })() : null;
+        const utcEndDate = activeFilters.endDate ? (() => {
+          const [year, month, day] = activeFilters.endDate.split('-').map(Number);
+          const chinaDate = new Date(year, month - 1, day);
+          return convertChinaEndDateToUTCDate(chinaDate);
+        })() : null;
+        
         const { data: allData, error: allError } = await supabase.rpc('get_invoice_request_data', {
           p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
-          p_start_date: activeFilters.startDate || null,
-          p_end_date: activeFilters.endDate || null,
+          p_start_date: utcStartDate,
+          p_end_date: utcEndDate,
           p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
           p_invoice_status_array: null, // 获取所有状态
           p_page_size: 1000,
