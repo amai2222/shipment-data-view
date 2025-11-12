@@ -201,13 +201,15 @@ BEGIN
             SELECT 
                 fr.id,
                 -- 装货日期范围：最早日期 - 最晚日期
+                -- ✅ 规范：后端返回UTC日期，前端负责转换为中国时区显示
+                -- 使用 (loading_date AT TIME ZONE ''UTC'')::date 提取UTC日期部分
                 CASE 
-                    WHEN MIN(lr.loading_date)::date = MAX(lr.loading_date)::date THEN
-                        -- 如果所有运单都是同一天，只显示一个日期
-                        TO_CHAR(MIN(lr.loading_date)::date, ''YYYY-MM-DD'')
+                    WHEN (MIN(lr.loading_date) AT TIME ZONE ''UTC'')::date = (MAX(lr.loading_date) AT TIME ZONE ''UTC'')::date THEN
+                        -- 如果所有运单都是同一天，只显示一个日期（UTC日期）
+                        TO_CHAR((MIN(lr.loading_date) AT TIME ZONE ''UTC'')::date, ''YYYY-MM-DD'')
                     ELSE
-                        -- 如果有多个日期，显示范围
-                        TO_CHAR(MIN(lr.loading_date)::date, ''YYYY-MM-DD'') || '' ~ '' || TO_CHAR(MAX(lr.loading_date)::date, ''YYYY-MM-DD'')
+                        -- 如果有多个日期，显示范围（UTC日期）
+                        TO_CHAR((MIN(lr.loading_date) AT TIME ZONE ''UTC'')::date, ''YYYY-MM-DD'') || '' ~ '' || TO_CHAR((MAX(lr.loading_date) AT TIME ZONE ''UTC'')::date, ''YYYY-MM-DD'')
                 END AS loading_date_range,
                 -- 司机应收合计：所有运单的payable_cost总和
                 COALESCE(SUM(lr.payable_cost), 0) AS total_payable_cost

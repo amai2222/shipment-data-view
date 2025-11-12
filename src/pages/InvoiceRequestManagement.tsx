@@ -30,6 +30,7 @@ import {
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { convertChinaDateToUTCDate, convertSingleDateToDateRange } from '@/utils/dateUtils';
+import { convertUTCDateRangeToChinaDateRange } from '@/utils/dateRangeUtils';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 import { zhCN } from 'date-fns/locale';
 import { LogisticsFormDialog } from "@/pages/BusinessEntry/components/LogisticsFormDialog";
@@ -2081,7 +2082,7 @@ export default function InvoiceRequestManagement() {
                       </TableCell>
                       <TableCell className="text-right">{request.record_count}条</TableCell>
                       <TableCell>
-                        {request.loading_date_range || '-'}
+                        {request.loading_date_range ? convertUTCDateRangeToChinaDateRange(request.loading_date_range) : '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         {request.total_payable_cost ? `¥${request.total_payable_cost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}

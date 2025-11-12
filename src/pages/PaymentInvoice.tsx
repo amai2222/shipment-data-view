@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
+import { convertUTCDateRangeToChinaDateRange } from '@/utils/dateRangeUtils';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
@@ -60,6 +61,8 @@ interface InvoiceRequest {
   invoicing_partner_tax_number?: string;
   tax_number?: string;
   invoice_number?: string;
+  loading_date_range?: string;    // ✅ 新增：运单装货日期范围
+  total_payable_cost?: number;     // ✅ 新增：司机应收合计
 }
 
 // 从RPC函数返回的原始数据类型
@@ -78,6 +81,8 @@ interface InvoiceRequestRaw {
   invoicing_partner_tax_number?: string;
   tax_number?: string;
   invoice_number?: string;
+  loading_date_range?: string;    // ✅ 新增：运单装货日期范围
+  total_payable_cost?: number;     // ✅ 新增：司机应收合计
   total_count?: number; // 用于分页
 }
 
@@ -225,7 +230,9 @@ export default function InvoiceAudit() {
         invoicing_partner_full_name: item.invoicing_partner_full_name,
         invoicing_partner_tax_number: item.invoicing_partner_tax_number,
         tax_number: item.tax_number,
-        invoice_number: item.invoice_number
+        invoice_number: item.invoice_number,
+        loading_date_range: item.loading_date_range,      // ✅ 新增字段
+        total_payable_cost: item.total_payable_cost       // ✅ 新增字段
       })));
       
       // 设置总数和总页数
@@ -496,6 +503,8 @@ export default function InvoiceAudit() {
     { key: 'time', label: '申请时间' },
     { key: 'status', label: '申请单状态' },
     { key: 'count', label: '运单数', align: 'right' },
+    { key: 'loading_date_range', label: '装货日期范围' },  // ✅ 新增列
+    { key: 'total_payable_cost', label: '司机应收合计', align: 'right' },  // ✅ 新增列
     { key: 'amount', label: '申请金额', align: 'right' },
     { key: 'actions', label: '操作', align: 'center' }
   ], []);
@@ -1663,6 +1672,8 @@ export default function InvoiceAudit() {
                     <TableHead>申请时间</TableHead>
                     <TableHead>开票申请单状态</TableHead>
                     <TableHead className="text-right">运单数</TableHead>
+                    <TableHead>装货日期范围</TableHead>  {/* ✅ 新增列 */}
+                    <TableHead className="text-right">司机应收合计</TableHead>  {/* ✅ 新增列 */}
                     <TableHead className="text-right">开票金额</TableHead>
                     <TableHead className="max-w-[200px]">备注</TableHead>
                     <TableHead className="text-center">操作</TableHead>
@@ -1680,7 +1691,7 @@ export default function InvoiceAudit() {
                           {/* 状态分组分割线 */}
                           {showDivider && (
                             <TableRow className="bg-gradient-to-r from-transparent via-muted to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted hover:to-transparent border-y border-border/50">
-                              <TableCell colSpan={isAdmin ? 8 : 7} className="h-3 p-0">
+                              <TableCell colSpan={isAdmin ? 10 : 9} className="h-3 p-0">
                                 <div className="w-full h-full flex items-center justify-center">
                                   <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
                                 </div>
@@ -1704,6 +1715,12 @@ export default function InvoiceAudit() {
                           <StatusBadge status={req.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
                         </TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
+                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
+                          {req.loading_date_range ? convertUTCDateRangeToChinaDateRange(req.loading_date_range) : '-'}
+                        </TableCell>
+                        <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
+                          {req.total_payable_cost ? `¥${req.total_payable_cost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                        </TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
                           {req.total_amount ? `¥${req.total_amount.toLocaleString()}` : '-'}
                         </TableCell>
@@ -1751,7 +1768,7 @@ export default function InvoiceAudit() {
                       );
                     })
                   ) : (
-                    <TableRow><TableCell colSpan={isAdmin ? 8 : 7} className="h-24 text-center">暂无开票申请记录。</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={isAdmin ? 10 : 9} className="h-24 text-center">暂无开票申请记录。</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

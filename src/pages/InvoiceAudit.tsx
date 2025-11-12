@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { convertChinaDateToUTCDate, convertSingleDateToDateRange } from '@/utils/dateUtils';
+import { convertUTCDateRangeToChinaDateRange } from '@/utils/dateRangeUtils';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
@@ -1857,7 +1858,7 @@ export default function InvoiceAudit() {
                         </TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
-                          {req.loading_date_range || '-'}
+                          {req.loading_date_range ? convertUTCDateRangeToChinaDateRange(req.loading_date_range) : '-'}
                         </TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
                           {req.total_payable_cost ? `¥${req.total_payable_cost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
