@@ -1702,13 +1702,16 @@ export default function InvoiceAudit() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
+      <Card className="shadow-lg border-2 border-border/50 overflow-hidden">
+        <CardHeader className="pb-3 bg-gradient-to-r from-background to-muted/30 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle>申请单列表</CardTitle>
+            <CardTitle className="text-xl font-semibold flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" />
+              申请单列表
+            </CardTitle>
             {hasButtonAccess('finance.approve_payment') && selection.selectedIds.size > 0 && (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground font-medium">
                   已选择 {selection.selectedIds.size} 个申请单
                 </span>
                 
@@ -1723,7 +1726,7 @@ export default function InvoiceAudit() {
                       variant="default"
                       size="sm"
                       disabled={isMerging}
-                      className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                      className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       {isMerging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Merge className="h-4 w-4" />}
                       合并开票 ({selection.selectedIds.size}个)
@@ -1741,7 +1744,7 @@ export default function InvoiceAudit() {
                   variant="default"
                   size="sm"
                   disabled={isBatchOperating}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all"
                 >
                   {batchOperation === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
                   批量审批
@@ -1758,7 +1761,7 @@ export default function InvoiceAudit() {
                       variant="default"
                     size="sm"
                     disabled={isBatchOperating}
-                    className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+                    className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white shadow-md hover:shadow-lg transition-all"
                   >
                     {isBatchOperating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                     批量取消审批
@@ -1776,7 +1779,7 @@ export default function InvoiceAudit() {
                       variant="destructive" 
                       size="sm"
                       disabled={selectionCount === 0 || isCancelling} 
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
                     >
                       {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                       一键作废 ({selectionCount})
@@ -1787,149 +1790,165 @@ export default function InvoiceAudit() {
             )}
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
-          <div className="min-h-[400px]">
+        <CardContent className="pt-0 p-0">
+          <div className="min-h-[400px] overflow-x-auto">
             {loading ? (
               <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
             ) : (
-              <Table>
-                 <TableHeader>
-                   <TableRow>
-                     {isAdmin && <TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>}
-                    <TableHead>开票单号</TableHead>
-                    <TableHead>申请时间</TableHead>
-                    <TableHead>开票申请单状态</TableHead>
-                    <TableHead className="text-right">运单数</TableHead>
-                    <TableHead>装货日期范围</TableHead>  {/* ✅ 新增列 */}
-                    <TableHead className="text-right">司机应收合计</TableHead>  {/* ✅ 新增列 */}
-                    <TableHead className="text-right">开票金额</TableHead>
-                    <TableHead className="max-w-[200px]">备注</TableHead>
-                    <TableHead className="text-center">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requests.length > 0 ? (
-                    groupedRequests.map((req, index) => {
-                      // 检查是否需要插入分割线
-                      const prevReq = index > 0 ? groupedRequests[index - 1] : null;
-                      const showDivider = prevReq && prevReq.status !== req.status;
-                      
-                      return (
-                        <Fragment key={req.id}>
-                          {/* 状态分组分割线 */}
-                          {showDivider && (
-                            <TableRow className="bg-gradient-to-r from-transparent via-muted to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted hover:to-transparent border-y border-border/50">
-                              <TableCell colSpan={isAdmin ? 10 : 9} className="h-3 p-0">
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
+              <div className="border-t">
+                <Table>
+                  <TableHeader className="bg-muted/50 sticky top-0 z-10">
+                    <TableRow className="border-b-2 hover:bg-muted/50">
+                      {isAdmin && <TableHead className="w-12 font-semibold"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>}
+                      <TableHead className="font-semibold text-foreground">开票单号</TableHead>
+                      <TableHead className="font-semibold text-foreground">申请时间</TableHead>
+                      <TableHead className="font-semibold text-foreground">开票申请单状态</TableHead>
+                      <TableHead className="font-semibold text-foreground">装货日期范围</TableHead>
+                      <TableHead className="text-right font-semibold text-foreground">司机应收合计</TableHead>
+                      <TableHead className="text-right font-semibold text-foreground">开票金额</TableHead>
+                      <TableHead className="text-right font-semibold text-foreground">运单数</TableHead>
+                      <TableHead className="max-w-[200px] font-semibold text-foreground">备注</TableHead>
+                      <TableHead className="text-center font-semibold text-foreground">操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {requests.length > 0 ? (
+                      groupedRequests.map((req, index) => {
+                        // 检查是否需要插入分割线
+                        const prevReq = index > 0 ? groupedRequests[index - 1] : null;
+                        const showDivider = prevReq && prevReq.status !== req.status;
+                        
+                        return (
+                          <Fragment key={req.id}>
+                            {/* 状态分组分割线 */}
+                            {showDivider && (
+                              <TableRow className="bg-gradient-to-r from-transparent via-muted/30 to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted/30 hover:to-transparent border-y border-border/50">
+                                <TableCell colSpan={isAdmin ? 10 : 9} className="h-3 p-0">
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                            
+                            <TableRow 
+                              key={req.id} 
+                              data-state={selection.selectedIds.has(req.id) ? "selected" : undefined}
+                              className={cn(
+                                "hover:bg-muted/60 transition-colors duration-150 border-b border-border/30",
+                                selection.selectedIds.has(req.id) && "bg-primary/5 border-l-4 border-l-primary"
+                              )}
+                            >
+                              {isAdmin && (
+                                <TableCell onClick={(e) => e.stopPropagation()} className="py-3">
+                                  <Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(req.id)} onCheckedChange={() => handleRequestSelect(req.id)} />
+                                </TableCell>
+                              )}
+                              <TableCell className="font-mono cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{req.request_number}</span>
+                                  {req.is_merged_request && (
+                                    <Badge className="bg-purple-100 text-purple-800 text-xs border border-purple-200">
+                                      合并({req.merged_count})
+                                    </Badge>
+                                  )}
+                                  {req.status === 'Merged' && (
+                                    <Badge variant="outline" className="text-gray-600 text-xs border-gray-300">
+                                      已合并
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
+                                <span className="text-sm">{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</span>
+                              </TableCell>
+                              <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
+                                <StatusBadge status={req.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
+                              </TableCell>
+                              <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
+                                <span className="text-sm text-muted-foreground">
+                                  {req.loading_date_range ? convertUTCDateRangeToChinaDateRange(req.loading_date_range) : '-'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right cursor-pointer py-3 font-mono font-semibold text-green-700" onClick={() => handleViewDetails(req)}>
+                                {req.total_payable_cost ? `¥${req.total_payable_cost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                              </TableCell>
+                              <TableCell className="text-right cursor-pointer py-3 font-mono font-semibold text-blue-700" onClick={() => handleViewDetails(req)}>
+                                {req.total_amount ? `¥${req.total_amount.toLocaleString()}` : '-'}
+                              </TableCell>
+                              <TableCell className="text-right cursor-pointer py-3 font-medium" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
+                              <TableCell className="max-w-[200px] cursor-pointer truncate text-sm text-muted-foreground py-3" onClick={() => handleViewDetails(req)} title={req.remarks || ''}>
+                                {req.remarks || '-'}
+                              </TableCell>
+                              <TableCell className="text-center py-3">
+                                <div className="flex items-center justify-center gap-2 flex-wrap">
+                                  {/* 查看申请单按钮 - 蓝色主题 */}
+                                  <Button 
+                                    variant="default" 
+                                    size="sm" 
+                                    onClick={(e) => handleViewInvoiceRequestForm(e, req)} 
+                                    disabled={exportingId === req.id}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm hover:shadow-md transition-all duration-200"
+                                  >
+                                    <FileText className="mr-1.5 h-3.5 w-3.5" />
+                                    查看申请单
+                                  </Button>
+
+                                  {/* 取消合并按钮 - 橙色，只有合并申请单且待审核状态才显示 */}
+                                  {req.is_merged_request && req.status === 'Pending' && (
+                                    <Button 
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleUnmergeInvoice(req);
+                                      }}
+                                      disabled={isUnmerging}
+                                      className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200 shadow-sm hover:shadow transition-all"
+                                      title="取消合并"
+                                    >
+                                      <Undo2 className="mr-1.5 h-3.5 w-3.5" />
+                                      取消合并
+                                    </Button>
+                                  )}
+
+                                  {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
+                                  {req.status === 'Pending' && (
+                                    <ConfirmDialog
+                                      title="确认审批"
+                                      description={`确定要审批开票申请 ${req.request_number} 吗？审批后申请单状态将变为"已审批待开票"。`}
+                                      onConfirm={() => handleApproval(req)}
+                                    >
+                                      <Button 
+                                        variant="default" 
+                                        size="sm" 
+                                        disabled={exportingId === req.id}
+                                        className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm hover:shadow-md font-medium transition-all duration-200"
+                                      >
+                                        <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
+                                        审批
+                                      </Button>
+                                    </ConfirmDialog>
+                                  )}
                                 </div>
                               </TableCell>
                             </TableRow>
-                          )}
-                          
-                          <TableRow 
-                        key={req.id} 
-                        data-state={selection.selectedIds.has(req.id) ? "selected" : undefined}
-                        className="hover:bg-muted/50"
-                      >
-                        {isAdmin && (
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            <Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(req.id)} onCheckedChange={() => handleRequestSelect(req.id)} />
-                          </TableCell>
-                        )}
-                        <TableCell className="font-mono cursor-pointer" onClick={() => handleViewDetails(req)}>
-                          <div className="flex items-center gap-2">
-                            <span>{req.request_number}</span>
-                            {req.is_merged_request && (
-                              <Badge className="bg-purple-100 text-purple-800 text-xs">
-                                合并({req.merged_count})
-                              </Badge>
-                            )}
-                            {req.status === 'Merged' && (
-                              <Badge variant="outline" className="text-gray-600 text-xs">
-                                已合并
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
-                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
-                          <StatusBadge status={req.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
-                        </TableCell>
-                        <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
-                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
-                          {req.loading_date_range ? convertUTCDateRangeToChinaDateRange(req.loading_date_range) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
-                          {req.total_payable_cost ? `¥${req.total_payable_cost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                        </TableCell>
-                        <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
-                          {req.total_amount ? `¥${req.total_amount.toLocaleString()}` : '-'}
-                        </TableCell>
-                        <TableCell className="max-w-[200px] cursor-pointer truncate text-sm text-muted-foreground" onClick={() => handleViewDetails(req)} title={req.remarks || ''}>
-                          {req.remarks || '-'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-3 flex-wrap">
-                            {/* 查看申请单按钮 - 蓝色主题 */}
-                            <Button 
-                              variant="default" 
-                              size="sm" 
-                              onClick={(e) => handleViewInvoiceRequestForm(e, req)} 
-                              disabled={exportingId === req.id}
-                              className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm transition-all duration-200"
-                            >
-                              <FileText className="mr-2 h-4 w-4" />
-                              查看申请单
-                            </Button>
-
-                            {/* 取消合并按钮 - 橙色，只有合并申请单且待审核状态才显示 */}
-                            {req.is_merged_request && req.status === 'Pending' && (
-                              <Button 
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleUnmergeInvoice(req);
-                                }}
-                                disabled={isUnmerging}
-                                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200"
-                                title="取消合并"
-                              >
-                                <Undo2 className="mr-2 h-4 w-4" />
-                                取消合并
-                              </Button>
-                            )}
-
-                            {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
-                            {req.status === 'Pending' && (
-                              <ConfirmDialog
-                                title="确认审批"
-                                description={`确定要审批开票申请 ${req.request_number} 吗？审批后申请单状态将变为"已审批待开票"。`}
-                                onConfirm={() => handleApproval(req)}
-                              >
-                              <Button 
-                                variant="default" 
-                                size="sm" 
-                                disabled={exportingId === req.id}
-                                className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
-                              >
-                                <ClipboardList className="mr-2 h-4 w-4" />
-                                审批
-                              </Button>
-                              </ConfirmDialog>
-                            )}
+                          </Fragment>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={isAdmin ? 10 : 9} className="h-24 text-center text-muted-foreground">
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <Receipt className="h-8 w-8 text-muted-foreground/50" />
+                            <span>暂无开票申请记录</span>
                           </div>
                         </TableCell>
                       </TableRow>
-                        </Fragment>
-                      );
-                    })
-                  ) : (
-                    <TableRow><TableCell colSpan={isAdmin ? 8 : 7} className="h-24 text-center">暂无开票申请记录。</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </div>
         </CardContent>
