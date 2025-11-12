@@ -1654,15 +1654,15 @@ export default function InvoiceRequestManagement() {
 
   // ✅ 已删除getStatusBadgeVariant和getStatusText函数（使用StatusBadge组件替代）
   
-  // ✅ 表格列配置（调整顺序：运单数放在开票金额后面）
+  // ✅ 表格列配置（调整顺序：与InvoiceAudit.tsx保持一致）
   const tableColumns: TableColumn[] = useMemo(() => [
-    { key: 'number', label: '申请单号' },
-    { key: 'partner', label: '合作方' },
+    { key: 'number', label: '开票单号' },
+    { key: 'time', label: '申请时间' },
+    { key: 'status', label: '开票申请单状态' },
     { key: 'loading_date_range', label: '装货日期范围' },  // ✅ 新增列
     { key: 'total_payable_cost', label: '司机应收合计', align: 'right' },  // ✅ 新增列
     { key: 'amount', label: '开票金额', align: 'right' },
-    { key: 'count', label: '运单数量', align: 'right' },  // ✅ 调整：放在开票金额后面
-    { key: 'status', label: '状态' },
+    { key: 'count', label: '运单数', align: 'right' },  // ✅ 调整：放在开票金额后面
     { key: 'remarks', label: '备注' },
     { key: 'actions', label: '操作', align: 'center' }
   ], []);
@@ -2062,7 +2062,7 @@ export default function InvoiceRequestManagement() {
             />
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="pt-0 p-0">
           {/* ✅ 使用LoadingState组件 */}
           {loading ? (
             <LoadingState message="加载开票申请单中..." />
@@ -2072,13 +2072,13 @@ export default function InvoiceRequestManagement() {
               <TableHeader className="bg-muted/50 sticky top-0 z-10">
                 <TableRow className="border-b-2 hover:bg-muted/50">
                   <TableHead className="w-12 font-semibold"><Checkbox checked={isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>
-                  <TableHead className="font-semibold text-foreground">申请单号</TableHead>
-                  <TableHead className="font-semibold text-foreground">合作方</TableHead>
+                  <TableHead className="font-semibold text-foreground">开票单号</TableHead>
+                  <TableHead className="font-semibold text-foreground">申请时间</TableHead>
+                  <TableHead className="font-semibold text-foreground">开票申请单状态</TableHead>
                   <TableHead className="font-semibold text-foreground">装货日期范围</TableHead>
                   <TableHead className="text-right font-semibold text-foreground">司机应收合计</TableHead>
                   <TableHead className="text-right font-semibold text-foreground">开票金额</TableHead>
                   <TableHead className="text-right font-semibold text-foreground">运单数</TableHead>
-                  <TableHead className="font-semibold text-foreground">状态</TableHead>
                   <TableHead className="max-w-[200px] font-semibold text-foreground">备注</TableHead>
                   <TableHead className="text-center font-semibold text-foreground">操作</TableHead>
                 </TableRow>
@@ -2094,8 +2094,8 @@ export default function InvoiceRequestManagement() {
                       <Fragment key={request.id}>
                         {/* 状态分组分割线 */}
                         {showDivider && (
-                          <TableRow className="bg-gradient-to-r from-transparent via-muted to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted hover:to-transparent border-y border-border/50">
-                            <TableCell colSpan={tableColumns.length + 1} className="h-3 p-0">
+                          <TableRow className="bg-gradient-to-r from-transparent via-muted/30 to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted/30 hover:to-transparent border-y border-border/50">
+                            <TableCell colSpan={10} className="h-3 p-0">
                               <div className="w-full h-full flex items-center justify-center">
                                 <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
                               </div>
@@ -2122,7 +2122,11 @@ export default function InvoiceRequestManagement() {
                         {request.request_number}
                       </TableCell>
                       <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(request)}>
-                        {request.invoicing_partner_full_name || request.partner_full_name || request.partner_name}
+                        <span className="text-sm">{format(new Date(request.created_at), 'yyyy-MM-dd HH:mm')}</span>
+                      </TableCell>
+                      <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(request)}>
+                        {/* ✅ 使用StatusBadge组件 */}
+                        <StatusBadge status={request.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
                       </TableCell>
                       <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(request)}>
                         <span className="text-sm text-muted-foreground">
@@ -2136,11 +2140,7 @@ export default function InvoiceRequestManagement() {
                         {request.total_amount ? `¥${request.total_amount.toLocaleString()}` : '-'}
                       </TableCell>
                       <TableCell className="text-right cursor-pointer py-3 font-medium" onClick={() => handleViewDetails(request)}>
-                        {request.record_count}条
-                      </TableCell>
-                      <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(request)}>
-                        {/* ✅ 使用StatusBadge组件 */}
-                        <StatusBadge status={request.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
+                        {request.record_count}
                       </TableCell>
                       <TableCell className="max-w-[200px] cursor-pointer truncate text-sm text-muted-foreground py-3" onClick={() => handleViewDetails(request)} title={request.remarks || ''}>
                         {request.remarks || '-'}
@@ -2178,7 +2178,7 @@ export default function InvoiceRequestManagement() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={tableColumns.length + 1} className="h-24 text-center">
+                    <TableCell colSpan={10} className="h-24 text-center">
                       暂无开票申请记录。
                     </TableCell>
                   </TableRow>
