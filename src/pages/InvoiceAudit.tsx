@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-// @ts-expect-error - lucide-react图标导入
 import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, RotateCcw, Users, Merge, Undo2, Copy } from 'lucide-react';
 // ✅ 导入可复用组件
 import {
@@ -34,12 +33,13 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 import { PageHeader } from '@/components/PageHeader';
+import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
+import { LogisticsRecord, PlatformTracking } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-// @ts-expect-error - lucide-react图标导入
 import { CalendarIcon, X, Building2, Search } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
@@ -49,12 +49,13 @@ interface InvoiceRequest {
   id: string;
   created_at: string;
   request_number: string;
-  status: 'Pending' | 'Approved' | 'Completed' | 'Rejected' | 'Voided';
+  status: 'Pending' | 'Approved' | 'Completed' | 'Rejected' | 'Voided' | 'Merged';
   remarks: string | null;
   logistics_record_ids: string[];
   record_count: number;
   total_amount?: number; // 开票金额
   invoicing_partner_id?: string;  // ✅ 添加（关键！）
+  partner_id?: string;  // ✅ 新增：合作方ID
   partner_name?: string;
   partner_full_name?: string;
   invoicing_partner_full_name?: string;
@@ -63,6 +64,8 @@ interface InvoiceRequest {
   invoice_number?: string;
   loading_date_range?: string;    // ✅ 新增：运单装货日期范围
   total_payable_cost?: number;     // ✅ 新增：司机应收合计
+  is_merged_request?: boolean;     // ✅ 新增：是否为合并申请单
+  merged_count?: number;           // ✅ 新增：合并的原申请单数量
 }
 
 // 从RPC函数返回的原始数据类型
@@ -75,6 +78,7 @@ interface InvoiceRequestRaw {
   record_count: number;
   total_amount?: number;
   invoicing_partner_id?: string;
+  partner_id?: string;  // ✅ 新增：合作方ID
   partner_name?: string;
   partner_full_name?: string;
   invoicing_partner_full_name?: string;
@@ -83,6 +87,8 @@ interface InvoiceRequestRaw {
   invoice_number?: string;
   loading_date_range?: string;    // ✅ 新增：运单装货日期范围
   total_payable_cost?: number;     // ✅ 新增：司机应收合计
+  is_merged_request?: boolean;     // ✅ 新增：是否为合并申请单
+  merged_count?: number;           // ✅ 新增：合并的原申请单数量
   total_count?: number; // 用于分页
 }
 
@@ -95,7 +101,21 @@ interface LogisticsRecordDetail {
   unloading_location: string; 
   loading_date: string; 
   loading_weight: number | null; 
+  payable_cost: number | null;  // ✅ 新增：司机应收
   invoiceable_amount: number | null; 
+}
+
+// 运单记录查询结果类型
+interface LogisticsRecordQueryResult {
+  id: string;
+  auto_number: string;
+  project_id: string | null;
+  driver_id: string | null;
+  loading_location: string;
+  unloading_location: string;
+  loading_date: string;
+  loading_weight: number | null;
+  [key: string]: unknown;  // 允许其他字段
 }
 
 interface InvoiceRequestDetail {
@@ -148,6 +168,9 @@ export default function InvoiceAudit() {
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
   const [modalContentLoading, setModalContentLoading] = useState(false);
   const [partnerTotals, setPartnerTotals] = useState<PartnerTotal[]>([]);
+  // 运单详情对话框状态
+  const [waybillDetailOpen, setWaybillDetailOpen] = useState(false);
+  const [selectedWaybillRecord, setSelectedWaybillRecord] = useState<LogisticsRecord | null>(null);
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [isCancelling, setIsCancelling] = useState(false);
   const [totalRequestsCount, setTotalRequestsCount] = useState(0);
@@ -233,6 +256,7 @@ export default function InvoiceAudit() {
         record_count: item.record_count || 0,
         total_amount: item.total_amount,
         invoicing_partner_id: item.invoicing_partner_id,  // ✅ 关键字段
+        partner_id: item.partner_id,  // ✅ 新增字段
         partner_name: item.partner_name,
         partner_full_name: item.partner_full_name,
         invoicing_partner_full_name: item.invoicing_partner_full_name,
@@ -240,7 +264,9 @@ export default function InvoiceAudit() {
         tax_number: item.tax_number,
         invoice_number: item.invoice_number,
         loading_date_range: item.loading_date_range,      // ✅ 新增字段
-        total_payable_cost: item.total_payable_cost       // ✅ 新增字段
+        total_payable_cost: item.total_payable_cost,      // ✅ 新增字段
+        is_merged_request: item.is_merged_request,        // ✅ 新增字段
+        merged_count: item.merged_count                   // ✅ 新增字段
       })));
       
       // 设置总数和总页数
@@ -466,8 +492,12 @@ export default function InvoiceAudit() {
       setSelection({ mode: 'none', selectedIds: new Set() });
       fetchInvoiceRequests();
       
-    } catch (error: any) {
-      toast({ title: '合并失败', description: error.message, variant: 'destructive' });
+    } catch (error) {
+      toast({ 
+        title: '合并失败', 
+        description: error instanceof Error ? error.message : '合并申请单失败', 
+        variant: 'destructive' 
+      });
     } finally {
       setIsMerging(false);
     }
@@ -514,8 +544,12 @@ export default function InvoiceAudit() {
       
       fetchInvoiceRequests();
       
-    } catch (error: any) {
-      toast({ title: '取消合并失败', description: error.message, variant: 'destructive' });
+    } catch (error) {
+      toast({ 
+        title: '取消合并失败', 
+        description: error instanceof Error ? error.message : '取消合并申请单失败', 
+        variant: 'destructive' 
+      });
     } finally {
       setIsUnmerging(false);
     }
@@ -692,7 +726,7 @@ export default function InvoiceAudit() {
 
           // 组合数据
           details = detailsData.map(detail => {
-            const logisticsRecord = logisticsMap.get(detail.logistics_record_id);
+            const logisticsRecord = logisticsMap.get(detail.logistics_record_id) as LogisticsRecordQueryResult | undefined;
             return {
               id: detail.id,
               invoice_request_id: detail.invoice_request_id,
@@ -1141,6 +1175,110 @@ export default function InvoiceAudit() {
     }
   };
 
+  // 获取完整的运单数据
+  const fetchFullLogisticsRecord = useCallback(async (recordId: string): Promise<LogisticsRecord | null> => {
+    try {
+      // 分别查询运单、项目和司机信息，避免关系冲突
+      const { data: logisticsData, error: logisticsError } = await supabase
+        .from('logistics_records')
+        .select('*')
+        .eq('id', recordId)
+        .single();
+
+      if (logisticsError) throw logisticsError;
+      if (!logisticsData) throw new Error('运单记录不存在');
+
+      // 查询项目信息
+      let projectName = '';
+      if (logisticsData.project_id) {
+        const { data: projectData } = await supabase
+          .from('projects')
+          .select('id, name')
+          .eq('id', logisticsData.project_id)
+          .single();
+        projectName = projectData?.name || '';
+      }
+
+      // 查询合作链路信息
+      let chainName: string | null = null;
+      if (logisticsData.chain_id) {
+        const { data: chainData } = await supabase
+          .from('partner_chains')
+          .select('chain_name')
+          .eq('id', logisticsData.chain_id)
+          .single();
+        chainName = chainData?.chain_name || null;
+      }
+
+      // 查询司机信息
+      let driverInfo: { id?: string; name?: string; license_plate?: string; phone?: string } = {};
+      if (logisticsData.driver_id) {
+        const { data: driverData } = await supabase
+          .from('drivers')
+          .select('id, name, license_plate, phone')
+          .eq('id', logisticsData.driver_id)
+          .single();
+        driverInfo = driverData || {};
+      }
+
+      const formattedRecord: LogisticsRecord = {
+        id: logisticsData.id,
+        auto_number: logisticsData.auto_number,
+        project_id: logisticsData.project_id || '',
+        project_name: projectName,
+        chain_id: logisticsData.chain_id || undefined,
+        loading_date: logisticsData.loading_date,
+        unloading_date: logisticsData.unloading_date || undefined,
+        loading_location: logisticsData.loading_location,
+        unloading_location: logisticsData.unloading_location,
+        driver_id: driverInfo.id || '',
+        driver_name: driverInfo.name || '',
+        license_plate: driverInfo.license_plate || '',
+        driver_phone: driverInfo.phone || '',
+        loading_weight: logisticsData.loading_weight || 0,
+        unloading_weight: logisticsData.unloading_weight || undefined,
+        transport_type: (logisticsData.transport_type as "实际运输" | "退货") || "实际运输",
+        current_cost: logisticsData.current_cost || undefined,
+        extra_cost: logisticsData.extra_cost || undefined,
+        payable_cost: logisticsData.payable_cost || undefined,
+        remarks: logisticsData.remarks || undefined,
+        created_at: logisticsData.created_at,
+        created_by_user_id: logisticsData.created_by_user_id || '',
+        billing_type_id: logisticsData.billing_type_id || undefined,
+        payment_status: logisticsData.payment_status as 'Unpaid' | 'Processing' | 'Paid' | undefined,
+        cargo_type: logisticsData.cargo_type || undefined,
+        loading_location_ids: logisticsData.loading_location_ids || undefined,
+        unloading_location_ids: logisticsData.unloading_location_ids || undefined,
+        external_tracking_numbers: (logisticsData.external_tracking_numbers as PlatformTracking[] | undefined) || undefined,
+        other_platform_names: logisticsData.other_platform_names || undefined,
+      };
+      
+      // 添加 chain_name 属性（WaybillDetailDialog 需要）
+      // 使用类型断言扩展 LogisticsRecord 类型
+      const recordWithChainName = formattedRecord as LogisticsRecord & { chain_name?: string | null };
+      recordWithChainName.chain_name = chainName;
+      
+      return recordWithChainName;
+    } catch (error) {
+      console.error('获取运单详情失败:', error);
+      toast({
+        title: "加载失败",
+        description: error instanceof Error ? error.message : '无法加载运单详情',
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [toast]);
+
+  // 处理查看运单详情
+  const handleViewWaybillDetail = useCallback(async (recordId: string) => {
+    const record = await fetchFullLogisticsRecord(recordId);
+    if (record) {
+      setSelectedWaybillRecord(record);
+      setWaybillDetailOpen(true);
+    }
+  }, [fetchFullLogisticsRecord]);
+
   // 查看详情
   const handleViewDetails = useCallback(async (request: InvoiceRequest) => {
     setSelectedRequest(request);
@@ -1173,7 +1311,7 @@ export default function InvoiceAudit() {
       // 分别查询运单信息（logistics_records表中没有invoiceable_amount字段）
       const { data: logisticsData, error: logisticsError } = await supabase
         .from('logistics_records')
-        .select('id, auto_number, driver_name, license_plate, loading_location, unloading_location, loading_date, loading_weight')
+        .select('id, auto_number, driver_name, license_plate, loading_location, unloading_location, loading_date, loading_weight, payable_cost')
         .in('id', logisticsRecordIds);
 
       if (logisticsError) throw logisticsError;
@@ -1183,7 +1321,17 @@ export default function InvoiceAudit() {
 
       // 组合数据（使用invoice_request_details表中的invoiceable_amount）
       const detailedRecords = (detailsData as InvoiceRequestDetail[]).map((detail) => {
-        const record = logisticsMap.get(detail.logistics_record_id);
+        const record = logisticsMap.get(detail.logistics_record_id) as {
+          id: string;
+          auto_number: string;
+          driver_name: string;
+          license_plate: string;
+          loading_location: string;
+          unloading_location: string;
+          loading_date: string;
+          loading_weight: number | null;
+          payable_cost: number | null;
+        } | undefined;
         return {
           id: record?.id || detail.logistics_record_id,
           auto_number: record?.auto_number || '',
@@ -1193,6 +1341,7 @@ export default function InvoiceAudit() {
           unloading_location: record?.unloading_location || '',
           loading_date: record?.loading_date || '',
           loading_weight: record?.loading_weight || null,
+          payable_cost: record?.payable_cost || null,  // ✅ 新增：司机应收
           invoiceable_amount: detail.invoiceable_amount || detail.amount || 0,
         };
       });
@@ -1797,7 +1946,7 @@ export default function InvoiceAudit() {
               <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
             ) : (
               <div className="border-t">
-                <Table>
+              <Table>
                   <TableHeader className="bg-muted/50 sticky top-0 z-10">
                     <TableRow className="border-b-2 hover:bg-muted/50">
                       {isAdmin && <TableHead className="w-12 font-semibold"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>}
@@ -1810,62 +1959,62 @@ export default function InvoiceAudit() {
                       <TableHead className="text-right font-semibold text-foreground">运单数</TableHead>
                       <TableHead className="max-w-[200px] font-semibold text-foreground">备注</TableHead>
                       <TableHead className="text-center font-semibold text-foreground">操作</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {requests.length > 0 ? (
-                      groupedRequests.map((req, index) => {
-                        // 检查是否需要插入分割线
-                        const prevReq = index > 0 ? groupedRequests[index - 1] : null;
-                        const showDivider = prevReq && prevReq.status !== req.status;
-                        
-                        return (
-                          <Fragment key={req.id}>
-                            {/* 状态分组分割线 */}
-                            {showDivider && (
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {requests.length > 0 ? (
+                    groupedRequests.map((req, index) => {
+                      // 检查是否需要插入分割线
+                      const prevReq = index > 0 ? groupedRequests[index - 1] : null;
+                      const showDivider = prevReq && prevReq.status !== req.status;
+                      
+                      return (
+                        <Fragment key={req.id}>
+                          {/* 状态分组分割线 */}
+                          {showDivider && (
                               <TableRow className="bg-gradient-to-r from-transparent via-muted/30 to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted/30 hover:to-transparent border-y border-border/50">
                                 <TableCell colSpan={isAdmin ? 10 : 9} className="h-3 p-0">
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                            
-                            <TableRow 
-                              key={req.id} 
-                              data-state={selection.selectedIds.has(req.id) ? "selected" : undefined}
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          
+                          <TableRow 
+                        key={req.id} 
+                        data-state={selection.selectedIds.has(req.id) ? "selected" : undefined}
                               className={cn(
                                 "hover:bg-muted/60 transition-colors duration-150 border-b border-border/30",
                                 selection.selectedIds.has(req.id) && "bg-primary/5 border-l-4 border-l-primary"
                               )}
-                            >
-                              {isAdmin && (
+                      >
+                        {isAdmin && (
                                 <TableCell onClick={(e) => e.stopPropagation()} className="py-3">
-                                  <Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(req.id)} onCheckedChange={() => handleRequestSelect(req.id)} />
-                                </TableCell>
-                              )}
+                            <Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(req.id)} onCheckedChange={() => handleRequestSelect(req.id)} />
+                          </TableCell>
+                        )}
                               <TableCell className="font-mono cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
-                                <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
                                   <span className="font-medium">{req.request_number}</span>
-                                  {req.is_merged_request && (
+                            {req.is_merged_request && (
                                     <Badge className="bg-purple-100 text-purple-800 text-xs border border-purple-200">
-                                      合并({req.merged_count})
-                                    </Badge>
-                                  )}
-                                  {req.status === 'Merged' && (
+                                合并({req.merged_count})
+                              </Badge>
+                            )}
+                            {req.status === 'Merged' && (
                                     <Badge variant="outline" className="text-gray-600 text-xs border-gray-300">
-                                      已合并
-                                    </Badge>
-                                  )}
-                                </div>
-                              </TableCell>
+                                已合并
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
                               <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
                                 <span className="text-sm">{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</span>
                               </TableCell>
                               <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
-                                <StatusBadge status={req.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
-                              </TableCell>
+                          <StatusBadge status={req.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
+                        </TableCell>
                               <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
                                 <span className="text-sm text-muted-foreground">
                                   {req.loading_date_range ? convertUTCDateRangeToChinaDateRange(req.loading_date_range) : '-'}
@@ -1875,69 +2024,69 @@ export default function InvoiceAudit() {
                                 {req.total_payable_cost ? `¥${req.total_payable_cost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                               </TableCell>
                               <TableCell className="text-right cursor-pointer py-3 font-mono font-semibold text-blue-700" onClick={() => handleViewDetails(req)}>
-                                {req.total_amount ? `¥${req.total_amount.toLocaleString()}` : '-'}
-                              </TableCell>
+                          {req.total_amount ? `¥${req.total_amount.toLocaleString()}` : '-'}
+                        </TableCell>
                               <TableCell className="text-right cursor-pointer py-3 font-medium" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                               <TableCell className="max-w-[200px] cursor-pointer truncate text-sm text-muted-foreground py-3" onClick={() => handleViewDetails(req)} title={req.remarks || ''}>
-                                {req.remarks || '-'}
-                              </TableCell>
+                          {req.remarks || '-'}
+                        </TableCell>
                               <TableCell className="text-center py-3">
                                 <div className="flex items-center justify-center gap-2 flex-wrap">
-                                  {/* 查看申请单按钮 - 蓝色主题 */}
-                                  <Button 
-                                    variant="default" 
-                                    size="sm" 
-                                    onClick={(e) => handleViewInvoiceRequestForm(e, req)} 
-                                    disabled={exportingId === req.id}
+                            {/* 查看申请单按钮 - 蓝色主题 */}
+                            <Button 
+                              variant="default" 
+                              size="sm" 
+                              onClick={(e) => handleViewInvoiceRequestForm(e, req)} 
+                              disabled={exportingId === req.id}
                                     className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-sm hover:shadow-md transition-all duration-200"
-                                  >
+                            >
                                     <FileText className="mr-1.5 h-3.5 w-3.5" />
-                                    查看申请单
-                                  </Button>
+                              查看申请单
+                            </Button>
 
-                                  {/* 取消合并按钮 - 橙色，只有合并申请单且待审核状态才显示 */}
-                                  {req.is_merged_request && req.status === 'Pending' && (
-                                    <Button 
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleUnmergeInvoice(req);
-                                      }}
-                                      disabled={isUnmerging}
+                            {/* 取消合并按钮 - 橙色，只有合并申请单且待审核状态才显示 */}
+                            {req.is_merged_request && req.status === 'Pending' && (
+                              <Button 
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUnmergeInvoice(req);
+                                }}
+                                disabled={isUnmerging}
                                       className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200 shadow-sm hover:shadow transition-all"
-                                      title="取消合并"
-                                    >
+                                title="取消合并"
+                              >
                                       <Undo2 className="mr-1.5 h-3.5 w-3.5" />
-                                      取消合并
-                                    </Button>
-                                  )}
+                                取消合并
+                              </Button>
+                            )}
 
-                                  {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
-                                  {req.status === 'Pending' && (
-                                    <ConfirmDialog
-                                      title="确认审批"
-                                      description={`确定要审批开票申请 ${req.request_number} 吗？审批后申请单状态将变为"已审批待开票"。`}
-                                      onConfirm={() => handleApproval(req)}
-                                    >
-                                      <Button 
-                                        variant="default" 
-                                        size="sm" 
-                                        disabled={exportingId === req.id}
+                            {/* 审批按钮 - 绿色主题，只在待审批状态显示 */}
+                            {req.status === 'Pending' && (
+                              <ConfirmDialog
+                                title="确认审批"
+                                description={`确定要审批开票申请 ${req.request_number} 吗？审批后申请单状态将变为"已审批待开票"。`}
+                                onConfirm={() => handleApproval(req)}
+                              >
+                              <Button 
+                                variant="default" 
+                                size="sm" 
+                                disabled={exportingId === req.id}
                                         className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm hover:shadow-md font-medium transition-all duration-200"
-                                      >
+                              >
                                         <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
-                                        审批
-                                      </Button>
-                                    </ConfirmDialog>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          </Fragment>
-                        );
-                      })
-                    ) : (
+                                审批
+                              </Button>
+                              </ConfirmDialog>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                        </Fragment>
+                      );
+                    })
+                  ) : (
                       <TableRow>
                         <TableCell colSpan={isAdmin ? 10 : 9} className="h-24 text-center text-muted-foreground">
                           <div className="flex flex-col items-center justify-center gap-2">
@@ -1946,9 +2095,9 @@ export default function InvoiceAudit() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                  )}
+                </TableBody>
+              </Table>
               </div>
             )}
           </div>
@@ -1961,10 +2110,10 @@ export default function InvoiceAudit() {
           <DialogHeader>
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <DialogTitle>申请单详情: {selectedRequest?.request_number}</DialogTitle>
-                <DialogDescription>
-                  此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
-                </DialogDescription>
+            <DialogTitle>申请单详情: {selectedRequest?.request_number}</DialogTitle>
+            <DialogDescription>
+              此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
+            </DialogDescription>
               </div>
               {/* 复制运单号按钮 */}
               {modalRecords.length > 0 && (
@@ -2028,6 +2177,7 @@ export default function InvoiceAudit() {
                     <TableHead>起运地 → 目的地</TableHead>
                     <TableHead>装车日期</TableHead>
                     <TableHead className="text-right">吨位</TableHead>
+                    <TableHead className="text-right">司机应收(元)</TableHead>
                     <TableHead className="text-right">开票金额(元)</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -2035,12 +2185,20 @@ export default function InvoiceAudit() {
                   {modalRecords.length > 0 ? (
                     modalRecords.map((rec) => (
                       <TableRow key={rec.id}>
-                        <TableCell className="font-mono">{rec.auto_number}</TableCell>
+                        <TableCell 
+                          className="font-mono cursor-pointer hover:text-primary hover:underline"
+                          onClick={() => handleViewWaybillDetail(rec.id)}
+                        >
+                          {rec.auto_number}
+                        </TableCell>
                         <TableCell>{rec.driver_name}</TableCell>
                         <TableCell>{rec.license_plate}</TableCell>
                         <TableCell>{`${rec.loading_location} → ${rec.unloading_location}`}</TableCell>
                         <TableCell>{format(new Date(rec.loading_date), 'yyyy-MM-dd')}</TableCell>
                         <TableCell className="text-right">{rec.loading_weight ?? 'N/A'}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold text-green-700">
+                          {rec.payable_cost ? `¥${rec.payable_cost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-primary">
                           {(rec.invoiceable_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
                         </TableCell>
@@ -2048,7 +2206,7 @@ export default function InvoiceAudit() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
+                      <TableCell colSpan={8} className="h-24 text-center">
                         未能加载运单详情或此申请单无运单。
                       </TableCell>
                     </TableRow>
@@ -2080,6 +2238,16 @@ export default function InvoiceAudit() {
         placeholder={getBatchInputConfig().placeholder}
         description={getBatchInputConfig().description}
         currentValue={getCurrentBatchValue()}
+      />
+
+      {/* 运单详情对话框 */}
+      <WaybillDetailDialog
+        isOpen={waybillDetailOpen}
+        onClose={() => {
+          setWaybillDetailOpen(false);
+          setSelectedWaybillRecord(null);
+        }}
+        record={selectedWaybillRecord}
       />
     </div>
   );

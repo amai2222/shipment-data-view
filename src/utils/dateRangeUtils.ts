@@ -3,7 +3,7 @@
  * 用于将后端返回的UTC日期范围转换为前端显示的中国时区日期范围
  */
 
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 
 /**
  * 将UTC日期字符串转换为中国时区日期字符串
@@ -45,8 +45,11 @@ export function convertUTCDateStringToChinaDateString(utcDateStr: string): strin
  * - "2025-10-28" (单日)
  * - "2025-10-28 ~ 2025-10-30" (日期范围)
  * 
+ * ✅ 修改：装货日期范围的显示起始和结束日期都加1天
+ * 例如：后端返回 "2025-10-22 ~ 2025-10-24"，前端显示 "2025-10-23 ~ 2025-10-25"
+ * 
  * @param utcDateRangeStr UTC日期范围字符串
- * @returns 中国时区日期范围字符串
+ * @returns 中国时区日期范围字符串（已加1天）
  */
 export function convertUTCDateRangeToChinaDateRange(utcDateRangeStr: string | null | undefined): string {
   if (!utcDateRangeStr) return '-';
@@ -56,10 +59,19 @@ export function convertUTCDateRangeToChinaDateRange(utcDateRangeStr: string | nu
     const [startDate, endDate] = utcDateRangeStr.split(' ~ ');
     const chinaStartDate = convertUTCDateStringToChinaDateString(startDate.trim());
     const chinaEndDate = convertUTCDateStringToChinaDateString(endDate.trim());
-    return `${chinaStartDate} ~ ${chinaEndDate}`;
+    
+    // ✅ 将起始和结束日期都加1天
+    const startDateObj = new Date(chinaStartDate + 'T00:00:00+08:00');
+    const endDateObj = new Date(chinaEndDate + 'T00:00:00+08:00');
+    const adjustedStartDate = format(addDays(startDateObj, 1), 'yyyy-MM-dd');
+    const adjustedEndDate = format(addDays(endDateObj, 1), 'yyyy-MM-dd');
+    
+    return `${adjustedStartDate} ~ ${adjustedEndDate}`;
   } else {
-    // 单日
-    return convertUTCDateStringToChinaDateString(utcDateRangeStr.trim());
+    // 单日：也加1天
+    const chinaDate = convertUTCDateStringToChinaDateString(utcDateRangeStr.trim());
+    const dateObj = new Date(chinaDate + 'T00:00:00+08:00');
+    return format(addDays(dateObj, 1), 'yyyy-MM-dd');
   }
 }
 
