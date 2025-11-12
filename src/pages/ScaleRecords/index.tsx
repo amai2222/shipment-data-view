@@ -15,7 +15,7 @@ import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useFilterState } from '@/hooks/useFilterState';
-import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
+import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate, formatChinaDateString } from '@/utils/dateUtils';
 import { ScaleRecordForm } from './components/ScaleRecordForm';
 import { ImageViewer } from './components/ImageViewer';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
@@ -94,31 +94,23 @@ export default function ScaleRecords() {
       const to = from + PAGE_SIZE - 1;
 
       // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
-      // activeFilters.startDate 和 activeFilters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
-      const convertChinaDateToUTC = (dateStr: string): string => {
-        if (!dateStr) return '';
-        const [year, month, day] = dateStr.split('-').map(Number);
-        // 创建中国时区的日期字符串并解析（明确指定 +08:00 时区）
-        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
-        const chinaDateObj = new Date(chinaDateStr);
-        return chinaDateObj.toISOString().split('T')[0];
-      };
-      
-      // 结束日期需要加1天，确保包含结束日当天的所有数据
-      const convertChinaEndDateToUTC = (dateStr: string): string => {
-        if (!dateStr) return '';
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
-        const chinaDateObj = new Date(chinaDateStr);
-        const nextDay = new Date(chinaDateObj);
-        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-        return nextDay.toISOString().split('T')[0];
-      };
-      
+      // activeFilters.startDate 和 activeFilters.endDate 存储的是中国时区的日期字符串（如 "2025-10-05"）
+      // 需要转换为UTC日期字符串传递给后端
       let query = supabase.from('scale_records').select('*', { count: 'exact' }).order('loading_date', { ascending: false }).order('trip_number', { ascending: false });
       if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId);
-      if (activeFilters.startDate) query = query.gte('loading_date', convertChinaDateToUTC(activeFilters.startDate));
-      if (activeFilters.endDate) query = query.lte('loading_date', convertChinaEndDateToUTC(activeFilters.endDate));
+      if (activeFilters.startDate) {
+        const [year, month, day] = activeFilters.startDate.split('-').map(Number);
+        const chinaDate = new Date(year, month - 1, day);
+        const utcStartDate = convertChinaDateToUTCDate(chinaDate);
+        query = query.gte('loading_date', utcStartDate);
+      }
+      // 结束日期需要加1天，确保包含结束日当天的所有数据
+      if (activeFilters.endDate) {
+        const [year, month, day] = activeFilters.endDate.split('-').map(Number);
+        const chinaDate = new Date(year, month - 1, day);
+        const utcEndDate = convertChinaEndDateToUTCDate(chinaDate);
+        query = query.lte('loading_date', utcEndDate);
+      }
       if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
       
       const { data, error, count } = await query.range(from, to);
@@ -263,9 +255,10 @@ export default function ScaleRecords() {
   const handleDateRangeChange = (dateRange: DateRange | undefined) => {
     setUiFilters(prev => ({ 
       ...prev, 
-      // 将中国时区的日期转换为 UTC 日期，确保筛选正确
-      startDate: dateRange?.from ? convertChinaDateToUTCDate(dateRange.from) : '', 
-      endDate: dateRange?.to ? convertChinaDateToUTCDate(dateRange.to) : '' 
+      // 存储中国时区的日期字符串（用于显示）
+      // 在查询时会转换为UTC日期字符串
+      startDate: dateRange?.from ? formatChinaDateString(dateRange.from) : '', 
+      endDate: dateRange?.to ? formatChinaDateString(dateRange.to) : '' 
     }));
   };
 
@@ -326,31 +319,23 @@ export default function ScaleRecords() {
     setIsSelectingAll(true);
     try {
       // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
-      // activeFilters.startDate 和 activeFilters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
-      const convertChinaDateToUTC = (dateStr: string): string => {
-        if (!dateStr) return '';
-        const [year, month, day] = dateStr.split('-').map(Number);
-        // 创建中国时区的日期字符串并解析（明确指定 +08:00 时区）
-        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
-        const chinaDateObj = new Date(chinaDateStr);
-        return chinaDateObj.toISOString().split('T')[0];
-      };
-      
-      // 结束日期需要加1天，确保包含结束日当天的所有数据
-      const convertChinaEndDateToUTC = (dateStr: string): string => {
-        if (!dateStr) return '';
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const chinaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
-        const chinaDateObj = new Date(chinaDateStr);
-        const nextDay = new Date(chinaDateObj);
-        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-        return nextDay.toISOString().split('T')[0];
-      };
-      
+      // activeFilters.startDate 和 activeFilters.endDate 存储的是中国时区的日期字符串（如 "2025-10-05"）
+      // 需要转换为UTC日期字符串传递给后端
       let query = supabase.from('scale_records').select('id');
       if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId);
-      if (activeFilters.startDate) query = query.gte('loading_date', convertChinaDateToUTC(activeFilters.startDate));
-      if (activeFilters.endDate) query = query.lte('loading_date', convertChinaEndDateToUTC(activeFilters.endDate));
+      if (activeFilters.startDate) {
+        const [year, month, day] = activeFilters.startDate.split('-').map(Number);
+        const chinaDate = new Date(year, month - 1, day);
+        const utcStartDate = convertChinaDateToUTCDate(chinaDate);
+        query = query.gte('loading_date', utcStartDate);
+      }
+      // 结束日期需要加1天，确保包含结束日当天的所有数据
+      if (activeFilters.endDate) {
+        const [year, month, day] = activeFilters.endDate.split('-').map(Number);
+        const chinaDate = new Date(year, month - 1, day);
+        const utcEndDate = convertChinaEndDateToUTCDate(chinaDate);
+        query = query.lte('loading_date', utcEndDate);
+      }
       if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
       
       const { data, error } = await query;
@@ -407,7 +392,24 @@ export default function ScaleRecords() {
                   }}
                 />
               </div>
-              <div className="flex-1 min-w-[280px]"><Label htmlFor="date-range">日期范围</Label><DateRangePicker date={{ from: uiFilters.startDate ? new Date(uiFilters.startDate) : undefined, to: uiFilters.endDate ? new Date(uiFilters.endDate) : undefined, }} setDate={handleDateRangeChange} /></div>
+              <div className="flex-1 min-w-[280px]">
+                <Label htmlFor="date-range">日期范围</Label>
+                <DateRangePicker 
+                  date={{ 
+                    // 将存储的中国时区日期字符串转换为 Date 对象（用于显示）
+                    // uiFilters.startDate 和 uiFilters.endDate 存储的是中国时区的日期字符串（如 "2025-10-05"）
+                    from: uiFilters.startDate ? (() => {
+                      const [year, month, day] = uiFilters.startDate.split('-').map(Number);
+                      return new Date(year, month - 1, day);
+                    })() : undefined, 
+                    to: uiFilters.endDate ? (() => {
+                      const [year, month, day] = uiFilters.endDate.split('-').map(Number);
+                      return new Date(year, month - 1, day);
+                    })() : undefined, 
+                  }} 
+                  setDate={handleDateRangeChange} 
+                />
+              </div>
               <div className="flex-1 min-w-[180px]"><Label htmlFor="licensePlate">车牌号</Label><Input id="licensePlate" placeholder="输入车牌号" value={uiFilters.licensePlate} onChange={(e) => setUiFilters(prev => ({ ...prev, licensePlate: e.target.value }))} /></div>
             </div>
             <div className="flex items-end gap-2">

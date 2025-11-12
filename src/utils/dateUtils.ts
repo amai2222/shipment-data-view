@@ -32,28 +32,41 @@ export function convertChinaDateToUTCDate(date: Date): string {
 
 /**
  * 将中国时区的结束日期转换为 UTC 日期（用于数据库筛选，包含结束日当天的所有数据）
- * 例如：前端选择 2025-11-10（中国时间）作为结束日期
- * 需要包含 2025-11-10 当天的所有数据，所以传递 UTC 日期 2025-11-11 给后端
- * 后端使用 <= 比较时，就能包含 2025-11-10 当天的所有数据
+ * 例如：前端选择 2025-10-06（中国时间）作为结束日期
+ * 需要包含 2025-10-06 当天的所有数据，所以传递 UTC 日期 2025-10-07 给后端
+ * 后端使用 <= 比较时，就能包含 2025-10-06 当天的所有数据
  * @param date 用户选择的中国时区结束日期
  * @returns UTC 日期字符串（YYYY-MM-DD格式），已加1天
  */
 export function convertChinaEndDateToUTCDate(date: Date): string {
+  // ✅ 正确的逻辑：
+  // 1. 用户选择中国时间 2025-10-06 作为结束日期
+  // 2. 中国时间 2025-10-06 23:59:59+08:00 = UTC 2025-10-06 15:59:59+00:00
+  // 3. 后端使用 `loading_date <= '2025-10-06'::date` 时：
+  //    - 在 UTC 会话中，'2025-10-06'::date = 2025-10-06 00:00:00+00:00
+  //    - 比较：loading_date <= 2025-10-06 00:00:00+00:00
+  //    - 这会排除 UTC 2025-10-06 00:00:01 及以后的数据
+  //    - 即排除中国时间 2025-10-06 08:00:01 到 23:59:59 的数据 ❌
+  // 4. 所以我们需要传递 "2025-10-07"，让后端使用 `<= '2025-10-07'::date`
+  //    - 比较：loading_date <= 2025-10-07 00:00:00+00:00
+  //    - 这会包含 UTC 2025-10-06 15:59:59（中国时间 2025-10-06 23:59:59）
+  //    - 即包含中国时间 2025-10-06 的所有数据 ✓
+  
   // 获取用户选择的日期（年、月、日）
   const year = date.getFullYear();
   const month = date.getMonth();
   const day = date.getDate();
   
-  // 创建中国时区的日期字符串并解析（明确指定 +08:00 时区）
-  const chinaDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+08:00`;
-  const chinaDate = new Date(chinaDateStr);
+  // 在本地时区（中国时区）加1天
+  const nextDayDate = new Date(year, month, day + 1);
+  const nextYear = nextDayDate.getFullYear();
+  const nextMonth = nextDayDate.getMonth();
+  const nextDay = nextDayDate.getDate();
   
-  // 加1天，确保包含结束日当天的所有数据
-  const nextDay = new Date(chinaDate);
-  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-  
-  // 返回 UTC 日期字符串（YYYY-MM-DD）
-  return nextDay.toISOString().split('T')[0];
+  // 返回加1天后的日期字符串（作为UTC日期传递给后端）
+  // 例如：中国时间 2025-10-06 -> 加1天 -> 2025-10-07 -> 返回 "2025-10-07"
+  // 后端使用 `loading_date <= '2025-10-07'::date` 时，会包含中国时间 2025-10-06 的所有数据
+  return `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
 }
 
 /**
