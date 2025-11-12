@@ -2206,7 +2206,7 @@ export default function InvoiceRequestManagement() {
                   此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
                 </DialogDescription>
               </div>
-              {/* ✅ 复制运单号按钮 */}
+              {/* ✅ 复制运单号按钮 - 美化并调整位置 */}
               {requestDetails.length > 0 && (
                 <Button
                   variant="outline"
@@ -2226,7 +2226,7 @@ export default function InvoiceRequestManagement() {
                       });
                     });
                   }}
-                  className="ml-4"
+                  className="ml-8 mr-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700 hover:text-blue-800 shadow-sm hover:shadow-md transition-all duration-200"
                 >
                   <Copy className="mr-2 h-4 w-4" />
                   复制运单号

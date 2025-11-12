@@ -60,7 +60,7 @@ const SYSTEM_FIELDS = [
   { key: 'transport_type', label: '运输类型', required: false },
   { key: 'remarks', label: '备注', required: false },
   { key: 'other_platform_names', label: '其他平台名称', required: false },
-  { key: 'other_platform_waybills', label: '其他平台运单号', required: false }
+  { key: 'external_tracking_numbers', label: '其他平台运单号', required: false }
 ];
 
 interface ImportTemplate {

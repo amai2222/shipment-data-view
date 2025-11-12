@@ -91,7 +91,7 @@ const SYSTEM_FIELDS = [
   { key: 'transport_type', label: '运输类型', type: 'text', required: false },
   { key: 'remarks', label: '备注', type: 'text', required: false },
   { key: 'other_platform_names', label: '其他平台名称', type: 'text', required: false },
-  { key: 'other_platform_waybills', label: '其他平台运单号', type: 'text', required: false }
+  { key: 'external_tracking_numbers', label: '其他平台运单号', type: 'text', required: false }
 ];
 
 // 所有系统字段（包括运单号，用于固定值映射等其他场景）

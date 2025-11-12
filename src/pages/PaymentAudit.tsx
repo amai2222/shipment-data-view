@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 // @ts-expect-error - lucide-react图标导入
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users, Merge, Undo2 } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users, Merge, Undo2, Copy } from 'lucide-react';
 // ✅ 导入可复用组件
 import {
   PaginationControl,
@@ -1780,10 +1780,40 @@ export default function PaymentAudit() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-6xl">
           <DialogHeader>
-            <DialogTitle>申请单详情: {selectedRequest?.request_id}</DialogTitle>
-            <DialogDescription>
-              此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
-            </DialogDescription>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <DialogTitle>申请单详情: {selectedRequest?.request_id}</DialogTitle>
+                <DialogDescription>
+                  此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
+                </DialogDescription>
+              </div>
+              {/* ✅ 复制运单号按钮 - 美化并调整位置 */}
+              {modalRecords.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const waybillNumbers = modalRecords.map(rec => rec.auto_number).filter(Boolean).join(',');
+                    navigator.clipboard.writeText(waybillNumbers).then(() => {
+                      toast({
+                        title: "复制成功",
+                        description: `已复制 ${modalRecords.length} 个运单号到剪贴板`,
+                      });
+                    }).catch(() => {
+                      toast({
+                        title: "复制失败",
+                        description: "无法复制到剪贴板",
+                        variant: "destructive",
+                      });
+                    });
+                  }}
+                  className="ml-8 mr-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700 hover:text-blue-800 shadow-sm hover:shadow-md transition-all duration-200"
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  复制运单号
+                </Button>
+              )}
+            </div>
           </DialogHeader>
           
           {!modalContentLoading && partnerTotals.length > 0 && (
