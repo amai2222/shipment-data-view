@@ -809,28 +809,77 @@ export default function TemplateBasedImport() {
         console.error('RPC调用错误:', error);
         // 提取详细的错误信息
         let errorMessage = "数据库调用失败";
+        let errorDetails = "";
+        
         if (error instanceof Error) {
           errorMessage = error.message;
+          errorDetails = error.stack || "";
         } else if (typeof error === 'object' && error !== null) {
           // 尝试从 Supabase 错误对象中提取信息
-          const supabaseError = error as { message?: string; details?: string; hint?: string; code?: string };
+          const supabaseError = error as { 
+            message?: string; 
+            details?: string; 
+            hint?: string; 
+            code?: string;
+            error?: string;
+            error_description?: string;
+          };
+          
           if (supabaseError.message) {
             errorMessage = supabaseError.message;
+          } else if (supabaseError.error) {
+            errorMessage = supabaseError.error;
           } else if (supabaseError.details) {
             errorMessage = supabaseError.details;
           } else if (supabaseError.hint) {
             errorMessage = supabaseError.hint;
+          } else if (supabaseError.error_description) {
+            errorMessage = supabaseError.error_description;
+          }
+          
+          if (supabaseError.details) {
+            errorDetails = supabaseError.details;
+          }
+          if (supabaseError.hint) {
+            errorDetails += (errorDetails ? "\n" : "") + "提示: " + supabaseError.hint;
+          }
+          if (supabaseError.code) {
+            errorDetails += (errorDetails ? "\n" : "") + "错误代码: " + supabaseError.code;
           }
         } else if (typeof error === 'string') {
           errorMessage = error;
         }
-        throw new Error(`数据库调用失败: ${errorMessage}`);
+        
+        // 显示更详细的错误信息
+        const fullErrorMessage = errorDetails 
+          ? `数据库调用失败: ${errorMessage}\n${errorDetails}`
+          : `数据库调用失败: ${errorMessage}`;
+        
+        console.error('完整错误信息:', {
+          error,
+          errorMessage,
+          errorDetails,
+          fullErrorMessage
+        });
+        
+        throw new Error(fullErrorMessage);
       }
 
       if (!result) {
         throw new Error('数据库未返回结果');
       }
 
+      // 记录完整的返回结果，用于调试
+      console.log('导入函数返回结果:', {
+        result,
+        success_count: result.success_count,
+        error_count: result.error_count,
+        inserted_count: result.inserted_count,
+        updated_count: result.updated_count,
+        error_details: result.error_details,
+        errors: result.errors
+      });
+      
       const data = result;
       const insertedCount = Number(result.inserted_count) || 0;
       const updatedCount = Number(result.updated_count) || 0;
@@ -848,7 +897,31 @@ export default function TemplateBasedImport() {
           });
         });
       } else if (Array.isArray(result.errors) && result.errors.length > 0) {
-        errorList.push(...result.errors);
+        // 处理 errors 数组（可能是字符串数组或对象数组）
+        result.errors.forEach((err, index) => {
+          if (typeof err === 'string') {
+            errorList.push({
+              row: index + 1,
+              message: err,
+              error_message: err
+            });
+          } else if (typeof err === 'object' && err !== null) {
+            errorList.push({
+              row: (err as any).record_index ?? index + 1,
+              message: (err as any).error_message || (err as any).message || '未知错误',
+              error_message: (err as any).error_message || (err as any).message || '未知错误',
+              record_data: (err as any).record_data || {}
+            });
+          }
+        });
+      } else if (result.error_count > 0 && errorList.length === 0) {
+        // 如果有错误但没有详细信息，创建一个通用错误信息
+        console.warn('函数返回了错误计数但没有错误详情:', result);
+        errorList.push({
+          row: 1,
+          message: `批量导入失败：${result.error_count} 条记录未能导入。请检查浏览器控制台获取详细错误信息。`,
+          error_message: `批量导入失败：${result.error_count} 条记录未能导入。可能的原因：数据格式错误、必填字段缺失、项目不存在等。请检查数据格式。`
+        });
       }
       
       setImportResult({
@@ -1521,14 +1594,27 @@ export default function TemplateBasedImport() {
               </div>
 
               {importResult.errors.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-2">错误详情:</h4>
-                  <div className="max-h-40 overflow-auto space-y-2">
+                <div className="mt-4">
+                  <h4 className="font-semibold mb-2 text-red-700">错误详情 ({importResult.errors.length} 条):</h4>
+                  <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg p-3 bg-red-50">
                     {importResult.errors.map((error, index) => (
-                      <Alert key={index} variant="destructive">
+                      <Alert key={index} variant="destructive" className="mb-2">
                         <AlertTriangle className="h-4 w-4" />
-                        <AlertDescription>
-                          {typeof error === 'string' ? error : JSON.stringify(error)}
+                        <AlertDescription className="text-sm">
+                          <div className="font-medium mb-1">
+                            {error.row ? `第 ${error.row} 行: ` : `错误 ${index + 1}: `}
+                          </div>
+                          <div className="text-xs font-mono bg-red-100 p-2 rounded break-words">
+                            {error.error_message || error.message || (typeof error === 'string' ? error : JSON.stringify(error, null, 2))}
+                          </div>
+                          {error.record_data && Object.keys(error.record_data).length > 0 && (
+                            <details className="mt-2 text-xs">
+                              <summary className="cursor-pointer text-red-600 hover:text-red-800">查看记录数据</summary>
+                              <pre className="mt-1 p-2 bg-red-100 rounded overflow-auto max-h-32 text-xs">
+                                {JSON.stringify(error.record_data, null, 2)}
+                              </pre>
+                            </details>
+                          )}
                         </AlertDescription>
                       </Alert>
                     ))}
