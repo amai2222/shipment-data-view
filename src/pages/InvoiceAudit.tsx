@@ -2159,6 +2159,15 @@ export default function InvoiceAudit() {
                   </div>
                 ))}
               </div>
+              {/* ✅ 新增：司机应收合计 */}
+              {selectedRequest && selectedRequest.total_payable_cost !== undefined && (
+                <div className="mt-3 pt-3 border-t flex justify-between items-baseline">
+                  <span className="text-sm font-semibold text-foreground">司机应收合计：</span>
+                  <span className="font-mono font-semibold text-green-700">
+                    {selectedRequest.total_payable_cost.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

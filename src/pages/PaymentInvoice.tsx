@@ -10,8 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-// @ts-expect-error - lucide-react图标导入
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, RotateCcw, Users } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, RotateCcw, Users, Copy } from 'lucide-react';
 // ✅ 导入可复用组件
 import {
   PaginationControl,
@@ -39,10 +38,11 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-// @ts-expect-error - lucide-react图标导入
 import { CalendarIcon, X, Building2, Search } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
+import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
+import { LogisticsRecord, PlatformTracking } from '@/types';
 
 // --- 类型定义 ---
 interface InvoiceRequest {
@@ -95,6 +95,7 @@ interface LogisticsRecordDetail {
   unloading_location: string; 
   loading_date: string; 
   loading_weight: number | null; 
+  payable_cost: number | null;  // ✅ 新增：司机应收
   invoiceable_amount: number | null; 
 }
 
@@ -148,6 +149,9 @@ export default function InvoiceAudit() {
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
   const [modalContentLoading, setModalContentLoading] = useState(false);
   const [partnerTotals, setPartnerTotals] = useState<PartnerTotal[]>([]);
+  // ✅ 新增：运单详情对话框状态（用于WaybillDetailDialog）
+  const [waybillDetailOpen, setWaybillDetailOpen] = useState(false);
+  const [selectedWaybillRecord, setSelectedWaybillRecord] = useState<LogisticsRecord | null>(null);
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [isCancelling, setIsCancelling] = useState(false);
   const [totalRequestsCount, setTotalRequestsCount] = useState(0);
@@ -497,15 +501,15 @@ export default function InvoiceAudit() {
 
   // ✅ 已删除getStatusBadge函数（使用StatusBadge组件替代）
   
-  // ✅ 表格列配置
+  // ✅ 表格列配置（调整顺序：运单数放在开票金额后面）
   const tableColumns: TableColumn[] = useMemo(() => [
     { key: 'number', label: '开票单号' },
     { key: 'time', label: '申请时间' },
     { key: 'status', label: '申请单状态' },
-    { key: 'count', label: '运单数', align: 'right' },
     { key: 'loading_date_range', label: '装货日期范围' },  // ✅ 新增列
     { key: 'total_payable_cost', label: '司机应收合计', align: 'right' },  // ✅ 新增列
     { key: 'amount', label: '申请金额', align: 'right' },
+    { key: 'count', label: '运单数', align: 'right' },  // ✅ 调整：放在开票金额后面
     { key: 'actions', label: '操作', align: 'center' }
   ], []);
 
@@ -1064,7 +1068,7 @@ export default function InvoiceAudit() {
       // 分别查询运单信息（logistics_records表中没有invoiceable_amount字段）
       const { data: logisticsData, error: logisticsError } = await supabase
         .from('logistics_records')
-        .select('id, auto_number, driver_name, license_plate, loading_location, unloading_location, loading_date, loading_weight')
+        .select('id, auto_number, driver_name, license_plate, loading_location, unloading_location, loading_date, loading_weight, payable_cost')
         .in('id', logisticsRecordIds);
 
       if (logisticsError) throw logisticsError;
@@ -1084,6 +1088,7 @@ export default function InvoiceAudit() {
           unloading_location: record?.unloading_location || '',
           loading_date: record?.loading_date || '',
           loading_weight: record?.loading_weight || null,
+          payable_cost: (record as any)?.payable_cost || null,  // ✅ 新增：司机应收
           invoiceable_amount: detail.invoiceable_amount || detail.amount || 0,
         };
       });
@@ -1114,6 +1119,109 @@ export default function InvoiceAudit() {
       setModalContentLoading(false);
     }
   }, [toast]);
+
+  // ✅ 新增：获取完整的运单数据
+  const fetchFullLogisticsRecord = useCallback(async (recordId: string): Promise<LogisticsRecord | null> => {
+    try {
+      // 分别查询运单、项目和司机信息，避免关系冲突
+      const { data: logisticsData, error: logisticsError } = await supabase
+        .from('logistics_records')
+        .select('*')
+        .eq('id', recordId)
+        .single();
+
+      if (logisticsError) throw logisticsError;
+      if (!logisticsData) return null;
+
+      // 获取项目名称
+      let projectName = '';
+      if (logisticsData.project_id) {
+        const { data: projectData } = await supabase
+          .from('projects')
+          .select('name')
+          .eq('id', logisticsData.project_id)
+          .single();
+        projectName = projectData?.name || '';
+      }
+
+      // 获取司机信息
+      let driverInfo: { id: string; name: string; license_plate: string; phone: string } = { id: '', name: '', license_plate: '', phone: '' };
+      if (logisticsData.driver_id) {
+        const { data: driverData } = await supabase
+          .from('drivers')
+          .select('id, name, license_plate, phone')
+          .eq('id', logisticsData.driver_id)
+          .single();
+        driverInfo = driverData || { id: '', name: '', license_plate: '', phone: '' };
+      }
+
+      // 获取chain_name
+      let chainName = null;
+      if (logisticsData.chain_id) {
+        const { data: chainData } = await supabase
+          .from('chains')
+          .select('name')
+          .eq('id', logisticsData.chain_id)
+          .single();
+        chainName = chainData?.name || null;
+      }
+
+      const formattedRecord: LogisticsRecord = {
+        id: logisticsData.id,
+        auto_number: logisticsData.auto_number,
+        project_id: logisticsData.project_id || '',
+        project_name: projectName,
+        chain_id: logisticsData.chain_id || undefined,
+        loading_date: logisticsData.loading_date,
+        unloading_date: logisticsData.unloading_date || undefined,
+        loading_location: logisticsData.loading_location,
+        unloading_location: logisticsData.unloading_location,
+        driver_id: driverInfo.id || '',
+        driver_name: driverInfo.name || '',
+        license_plate: driverInfo.license_plate || '',
+        driver_phone: driverInfo.phone || '',
+        loading_weight: logisticsData.loading_weight || 0,
+        unloading_weight: logisticsData.unloading_weight || undefined,
+        transport_type: (logisticsData.transport_type as "实际运输" | "退货") || "实际运输",
+        current_cost: logisticsData.current_cost || undefined,
+        extra_cost: logisticsData.extra_cost || undefined,
+        payable_cost: logisticsData.payable_cost || undefined,
+        remarks: logisticsData.remarks || undefined,
+        created_at: logisticsData.created_at,
+        created_by_user_id: logisticsData.created_by_user_id || '',
+        billing_type_id: logisticsData.billing_type_id || undefined,
+        payment_status: logisticsData.payment_status as 'Unpaid' | 'Processing' | 'Paid' | undefined,
+        cargo_type: logisticsData.cargo_type || undefined,
+        loading_location_ids: logisticsData.loading_location_ids || undefined,
+        unloading_location_ids: logisticsData.unloading_location_ids || undefined,
+        external_tracking_numbers: (logisticsData.external_tracking_numbers as PlatformTracking[] | undefined) || undefined,
+        other_platform_names: logisticsData.other_platform_names || undefined,
+      };
+      
+      // 添加 chain_name 属性（WaybillDetailDialog 需要）
+      const recordWithChainName = formattedRecord as LogisticsRecord & { chain_name?: string | null };
+      recordWithChainName.chain_name = chainName;
+      
+      return recordWithChainName;
+    } catch (error) {
+      console.error('获取运单详情失败:', error);
+      toast({
+        title: "加载失败",
+        description: error instanceof Error ? error.message : '无法加载运单详情',
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [toast]);
+
+  // ✅ 新增：处理查看运单详情（使用WaybillDetailDialog）
+  const handleViewWaybillDetail = useCallback(async (recordId: string) => {
+    const record = await fetchFullLogisticsRecord(recordId);
+    if (record) {
+      setSelectedWaybillRecord(record);
+      setWaybillDetailOpen(true);
+    }
+  }, [fetchFullLogisticsRecord]);
 
   // 选择相关函数
   const handleRequestSelect = (requestId: string) => {
@@ -1593,10 +1701,13 @@ export default function InvoiceAudit() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
+      <Card className="shadow-lg border-2 border-border/50 overflow-hidden">
+        <CardHeader className="pb-3 bg-gradient-to-r from-background to-muted/30 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle>申请单列表</CardTitle>
+            <CardTitle className="text-xl font-semibold flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" />
+              申请单列表
+            </CardTitle>
             {hasButtonAccess('finance.approve_payment') && selection.selectedIds.size > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
@@ -1659,24 +1770,25 @@ export default function InvoiceAudit() {
             )}
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
-          <div className="min-h-[400px]">
+        <CardContent className="pt-0 p-0">
+          <div className="min-h-[400px] overflow-x-auto">
             {loading ? (
               <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
             ) : (
+              <div className="border-t">
               <Table>
-                 <TableHeader>
-                   <TableRow>
-                     {isAdmin && <TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>}
-                    <TableHead>开票单号</TableHead>
-                    <TableHead>申请时间</TableHead>
-                    <TableHead>开票申请单状态</TableHead>
-                    <TableHead className="text-right">运单数</TableHead>
-                    <TableHead>装货日期范围</TableHead>  {/* ✅ 新增列 */}
-                    <TableHead className="text-right">司机应收合计</TableHead>  {/* ✅ 新增列 */}
-                    <TableHead className="text-right">开票金额</TableHead>
-                    <TableHead className="max-w-[200px]">备注</TableHead>
-                    <TableHead className="text-center">操作</TableHead>
+                 <TableHeader className="bg-muted/50 sticky top-0 z-10">
+                   <TableRow className="border-b-2 hover:bg-muted/50">
+                     {isAdmin && <TableHead className="w-12 font-semibold"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>}
+                    <TableHead className="font-semibold text-foreground">开票单号</TableHead>
+                    <TableHead className="font-semibold text-foreground">申请时间</TableHead>
+                    <TableHead className="font-semibold text-foreground">开票申请单状态</TableHead>
+                    <TableHead className="font-semibold text-foreground">装货日期范围</TableHead>
+                    <TableHead className="text-right font-semibold text-foreground">司机应收合计</TableHead>
+                    <TableHead className="text-right font-semibold text-foreground">开票金额</TableHead>
+                    <TableHead className="text-right font-semibold text-foreground">运单数</TableHead>
+                    <TableHead className="max-w-[200px] font-semibold text-foreground">备注</TableHead>
+                    <TableHead className="text-center font-semibold text-foreground">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1702,28 +1814,35 @@ export default function InvoiceAudit() {
                           <TableRow 
                         key={req.id} 
                         data-state={selection.selectedIds.has(req.id) ? "selected" : undefined}
-                        className="hover:bg-muted/50"
+                        className={cn(
+                          "hover:bg-muted/60 transition-colors duration-150 border-b border-border/30",
+                          selection.selectedIds.has(req.id) && "bg-primary/5 border-l-4 border-l-primary"
+                        )}
                       >
                         {isAdmin && (
-                          <TableCell onClick={(e) => e.stopPropagation()}>
+                          <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
                             <Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(req.id)} onCheckedChange={() => handleRequestSelect(req.id)} />
                           </TableCell>
                         )}
-                        <TableCell className="font-mono cursor-pointer" onClick={() => handleViewDetails(req)}>{req.request_number}</TableCell>
-                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
-                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
+                        <TableCell className="font-mono cursor-pointer py-3" onClick={() => handleViewDetails(req)}>{req.request_number}</TableCell>
+                        <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
+                          <span className="text-sm">{format(new Date(req.created_at), 'yyyy-MM-dd HH:mm')}</span>
+                        </TableCell>
+                        <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
                           <StatusBadge status={req.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
                         </TableCell>
-                        <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
-                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
-                          {req.loading_date_range ? convertUTCDateRangeToChinaDateRange(req.loading_date_range) : '-'}
+                        <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
+                          <span className="text-sm text-muted-foreground">
+                            {req.loading_date_range ? convertUTCDateRangeToChinaDateRange(req.loading_date_range) : '-'}
+                          </span>
                         </TableCell>
-                        <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
+                        <TableCell className="text-right cursor-pointer py-3 font-mono font-semibold text-green-700" onClick={() => handleViewDetails(req)}>
                           {req.total_payable_cost ? `¥${req.total_payable_cost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                         </TableCell>
-                        <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
+                        <TableCell className="text-right cursor-pointer py-3 font-mono font-semibold text-blue-700" onClick={() => handleViewDetails(req)}>
                           {req.total_amount ? `¥${req.total_amount.toLocaleString()}` : '-'}
                         </TableCell>
+                        <TableCell className="text-right cursor-pointer py-3 font-medium" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="max-w-[200px] cursor-pointer truncate text-sm text-muted-foreground" onClick={() => handleViewDetails(req)} title={req.remarks || ''}>
                           {req.remarks || '-'}
                         </TableCell>
@@ -1772,6 +1891,7 @@ export default function InvoiceAudit() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             )}
           </div>
         </CardContent>
@@ -1781,10 +1901,40 @@ export default function InvoiceAudit() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-6xl">
           <DialogHeader>
-            <DialogTitle>申请单详情: {selectedRequest?.request_number}</DialogTitle>
-            <DialogDescription>
-              此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
-            </DialogDescription>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <DialogTitle>申请单详情: {selectedRequest?.request_number}</DialogTitle>
+                <DialogDescription>
+                  此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
+                </DialogDescription>
+              </div>
+              {/* ✅ 复制运单号按钮 */}
+              {modalRecords.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const waybillNumbers = modalRecords.map(rec => rec.auto_number).filter(Boolean).join(',');
+                    navigator.clipboard.writeText(waybillNumbers).then(() => {
+                      toast({
+                        title: "复制成功",
+                        description: `已复制 ${modalRecords.length} 个运单号到剪贴板`,
+                      });
+                    }).catch(() => {
+                      toast({
+                        title: "复制失败",
+                        description: "无法复制到剪贴板",
+                        variant: "destructive",
+                      });
+                    });
+                  }}
+                  className="ml-4"
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  复制运单号
+                </Button>
+              )}
+            </div>
           </DialogHeader>
           
           {!modalContentLoading && partnerTotals.length > 0 && (
@@ -1802,6 +1952,15 @@ export default function InvoiceAudit() {
                   </div>
                 ))}
               </div>
+              {/* ✅ 新增：司机应收合计 */}
+              {selectedRequest && selectedRequest.total_payable_cost !== undefined && (
+                <div className="mt-3 pt-3 border-t flex justify-between items-baseline">
+                  <span className="text-sm font-semibold text-foreground">司机应收合计：</span>
+                  <span className="font-mono font-semibold text-green-700">
+                    {selectedRequest.total_payable_cost.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -1820,6 +1979,7 @@ export default function InvoiceAudit() {
                     <TableHead>起运地 → 目的地</TableHead>
                     <TableHead>装车日期</TableHead>
                     <TableHead className="text-right">吨位</TableHead>
+                    <TableHead className="text-right">司机应收(元)</TableHead>
                     <TableHead className="text-right">开票金额(元)</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1827,12 +1987,20 @@ export default function InvoiceAudit() {
                   {modalRecords.length > 0 ? (
                     modalRecords.map((rec) => (
                       <TableRow key={rec.id}>
-                        <TableCell className="font-mono">{rec.auto_number}</TableCell>
+                        <TableCell 
+                          className="font-mono cursor-pointer hover:text-primary hover:underline"
+                          onClick={() => handleViewWaybillDetail(rec.id)}
+                        >
+                          {rec.auto_number}
+                        </TableCell>
                         <TableCell>{rec.driver_name}</TableCell>
                         <TableCell>{rec.license_plate}</TableCell>
                         <TableCell>{`${rec.loading_location} → ${rec.unloading_location}`}</TableCell>
                         <TableCell>{format(new Date(rec.loading_date), 'yyyy-MM-dd')}</TableCell>
                         <TableCell className="text-right">{rec.loading_weight ?? 'N/A'}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold text-green-700">
+                          {rec.payable_cost ? `¥${rec.payable_cost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-primary">
                           {(rec.invoiceable_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
                         </TableCell>
@@ -1840,7 +2008,7 @@ export default function InvoiceAudit() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
+                      <TableCell colSpan={8} className="h-24 text-center">
                         未能加载运单详情或此申请单无运单。
                       </TableCell>
                     </TableRow>
@@ -1863,6 +2031,16 @@ export default function InvoiceAudit() {
       />
       </div>
       
+      {/* ✅ 新增：运单详情对话框（WaybillDetailDialog） */}
+      <WaybillDetailDialog
+        isOpen={waybillDetailOpen}
+        onClose={() => {
+          setWaybillDetailOpen(false);
+          setSelectedWaybillRecord(null);
+        }}
+        record={selectedWaybillRecord}
+      />
+
       {/* 批量输入对话框 */}
       <BatchInputDialog
         isOpen={batchInputDialog.isOpen}
