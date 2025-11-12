@@ -2278,37 +2278,60 @@ export default function PaymentRequest() {
               </p>
             </div>
           </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setBatchModifyType(null);
-                setBatchCostRecords([]);
-              }}
-              disabled={isBatchModifying}
-            >
-              取消
-            </Button>
-            <ConfirmDialog
-              title="确认批量恢复默认"
-              description={`确定要将选中的 ${batchCostRecords.length} 条运单的应收金额恢复为系统自动计算吗？此操作将清除手动修改标记，重新计算合作方应收，并将司机应收恢复为与合作方应收一致。`}
-              onConfirm={handleBatchResetToAuto}
-            >
-              <Button variant="secondary" disabled={isBatchModifying}>
-                {isBatchModifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "🔄"}
-                批量恢复默认 ({batchCostRecords.length}条)
+          <DialogFooter className="flex items-center justify-between">
+            {/* 合计显示 */}
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">司机应收合计：</span>
+                <span className="font-mono font-semibold text-green-700">
+                  ¥{batchCostRecords.reduce((sum, record) => {
+                    const value = parseFloat(record.new_driver_amount?.toString() || '0') || 0;
+                    return sum + value;
+                  }, 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">合作方应收合计：</span>
+                <span className="font-mono font-semibold text-blue-700">
+                  ¥{batchCostRecords.reduce((sum, record) => {
+                    const value = parseFloat(record.new_amount?.toString() || '0') || 0;
+                    return sum + value;
+                  }, 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setBatchModifyType(null);
+                  setBatchCostRecords([]);
+                }}
+                disabled={isBatchModifying}
+              >
+                取消
               </Button>
-            </ConfirmDialog>
-            <ConfirmDialog
-              title="确认批量修改应收"
-              description={`确定要批量修改 ${batchCostRecords.length} 条运单的应收金额吗？此操作将同时更新合作方应收和司机应收。`}
-              onConfirm={handleBatchModifyCost}
-            >
-              <Button disabled={isBatchModifying}>
-                {isBatchModifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                确认修改 ({batchCostRecords.length}条)
-              </Button>
-            </ConfirmDialog>
+              <ConfirmDialog
+                title="确认批量恢复默认"
+                description={`确定要将选中的 ${batchCostRecords.length} 条运单的应收金额恢复为系统自动计算吗？此操作将清除手动修改标记，重新计算合作方应收，并将司机应收恢复为与合作方应收一致。`}
+                onConfirm={handleBatchResetToAuto}
+              >
+                <Button variant="secondary" disabled={isBatchModifying}>
+                  {isBatchModifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "🔄"}
+                  批量恢复默认 ({batchCostRecords.length}条)
+                </Button>
+              </ConfirmDialog>
+              <ConfirmDialog
+                title="确认批量修改应收"
+                description={`确定要批量修改 ${batchCostRecords.length} 条运单的应收金额吗？此操作将同时更新合作方应收和司机应收。`}
+                onConfirm={handleBatchModifyCost}
+              >
+                <Button disabled={isBatchModifying}>
+                  {isBatchModifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  确认修改 ({batchCostRecords.length}条)
+                </Button>
+              </ConfirmDialog>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
