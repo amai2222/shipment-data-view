@@ -94,25 +94,10 @@ export default function Home() {
     else setIsSearching(true);
     
     try {
-      // 将日期输入框中的日期（中国时区）转换为 UTC 日期
-      const convertDateInputToUTC = (dateStr: string): string => {
-        if (!dateStr) return '';
-        const chinaDate = new Date(`${dateStr}T00:00:00+08:00`);
-        return chinaDate.toISOString().split('T')[0];
-      };
-      
-      // 结束日期需要加1天，确保包含结束日当天的所有数据
-      const convertEndDateToUTC = (dateStr: string): string => {
-        if (!dateStr) return '';
-        const chinaDate = new Date(`${dateStr}T00:00:00+08:00`);
-        const nextDay = new Date(chinaDate);
-        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-        return nextDay.toISOString().split('T')[0];
-      };
-      
-      const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types', {
-        p_start_date: filterInputs.startDate ? convertDateInputToUTC(filterInputs.startDate) : null,
-        p_end_date: filterInputs.endDate ? convertEndDateToUTC(filterInputs.endDate) : null,
+      // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
+      const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types_1113', {
+        p_start_date: filterInputs.startDate || null,
+        p_end_date: filterInputs.endDate || null,
         p_project_id: filterInputs.projectId === 'all' ? null : filterInputs.projectId,
       });
       if (error) throw error;

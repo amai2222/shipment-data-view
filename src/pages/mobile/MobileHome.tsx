@@ -21,7 +21,7 @@ import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
-import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate } from '@/utils/dateUtils';
+// ✅ 修改：移除日期转换函数，直接传递中国时区日期字符串给后端
 
 interface DashboardStats {
   totalRecords: number;
@@ -106,10 +106,11 @@ export default function MobileHome() {
           .eq('status', 'Pending'),
         // 使用与桌面端相同的RPC函数，确保数据一致性
         // 使用与桌面端相同的默认日期范围（2025-01-01到现在）
-        supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
+        // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
+        supabase.rpc('get_dashboard_stats_with_billing_types_1113' as any, {
           p_start_date: '2025-01-01',
-          // 使用中国时区的今天作为结束日期，转换为UTC
-          p_end_date: convertChinaEndDateToUTCDate(new Date()),
+          // 使用中国时区的今天作为结束日期
+          p_end_date: format(new Date(), 'yyyy-MM-dd'),
           p_project_id: null
         })
       ]);
@@ -154,11 +155,11 @@ export default function MobileHome() {
   const { data: totalStats, isLoading: totalStatsLoading } = useQuery({
     queryKey: ['mobileHomeTotalStats'],
     queryFn: async () => {
-      // 使用与桌面端相同的默认日期范围（2025-01-01到现在）
-      const rpcAgg = await supabase.rpc('get_dashboard_stats_with_billing_types' as any, {
+      // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
+      const rpcAgg = await supabase.rpc('get_dashboard_stats_with_billing_types_1113' as any, {
         p_start_date: '2025-01-01',
-        // 使用中国时区的今天作为结束日期，转换为UTC
-        p_end_date: convertChinaEndDateToUTCDate(new Date()),
+        // 使用中国时区的今天作为结束日期
+        p_end_date: format(new Date(), 'yyyy-MM-dd'),
         p_project_id: null
       });
 

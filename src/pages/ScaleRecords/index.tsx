@@ -15,7 +15,7 @@ import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useFilterState } from '@/hooks/useFilterState';
-import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate, formatChinaDateString } from '@/utils/dateUtils';
+import { formatChinaDateString } from '@/utils/dateUtils';
 import { ScaleRecordForm } from './components/ScaleRecordForm';
 import { ImageViewer } from './components/ImageViewer';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
@@ -98,18 +98,18 @@ export default function ScaleRecords() {
       // 需要转换为UTC日期字符串传递给后端
       let query = supabase.from('scale_records').select('*', { count: 'exact' }).order('loading_date', { ascending: false }).order('trip_number', { ascending: false });
       if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId);
+      // ✅ 修改：Supabase查询需要UTC时间戳字符串
       if (activeFilters.startDate) {
-        const [year, month, day] = activeFilters.startDate.split('-').map(Number);
-        const chinaDate = new Date(year, month - 1, day);
-        const utcStartDate = convertChinaDateToUTCDate(chinaDate);
-        query = query.gte('loading_date', utcStartDate);
+        // 中国时区 00:00:00 转换为 UTC 时间戳字符串
+        const chinaStartTimestamp = `${activeFilters.startDate}T00:00:00+08:00`;
+        const utcStartTimestamp = new Date(chinaStartTimestamp).toISOString();
+        query = query.gte('loading_date', utcStartTimestamp);
       }
-      // 结束日期需要加1天，确保包含结束日当天的所有数据
       if (activeFilters.endDate) {
-        const [year, month, day] = activeFilters.endDate.split('-').map(Number);
-        const chinaDate = new Date(year, month - 1, day);
-        const utcEndDate = convertChinaEndDateToUTCDate(chinaDate);
-        query = query.lte('loading_date', utcEndDate);
+        // 中国时区 23:59:59 转换为 UTC 时间戳字符串（包含结束日当天的所有数据）
+        const chinaEndTimestamp = `${activeFilters.endDate}T23:59:59+08:00`;
+        const utcEndTimestamp = new Date(chinaEndTimestamp).toISOString();
+        query = query.lte('loading_date', utcEndTimestamp);
       }
       if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
       
@@ -318,23 +318,20 @@ export default function ScaleRecords() {
   const handleSelectAllMatching = async () => {
     setIsSelectingAll(true);
     try {
-      // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
-      // activeFilters.startDate 和 activeFilters.endDate 存储的是中国时区的日期字符串（如 "2025-10-05"）
-      // 需要转换为UTC日期字符串传递给后端
+      // ✅ 修改：Supabase查询需要UTC时间戳字符串
       let query = supabase.from('scale_records').select('id');
       if (activeFilters.projectId && activeFilters.projectId !== 'all') query = query.eq('project_id', activeFilters.projectId);
       if (activeFilters.startDate) {
-        const [year, month, day] = activeFilters.startDate.split('-').map(Number);
-        const chinaDate = new Date(year, month - 1, day);
-        const utcStartDate = convertChinaDateToUTCDate(chinaDate);
-        query = query.gte('loading_date', utcStartDate);
+        // 中国时区 00:00:00 转换为 UTC 时间戳字符串
+        const chinaStartTimestamp = `${activeFilters.startDate}T00:00:00+08:00`;
+        const utcStartTimestamp = new Date(chinaStartTimestamp).toISOString();
+        query = query.gte('loading_date', utcStartTimestamp);
       }
-      // 结束日期需要加1天，确保包含结束日当天的所有数据
       if (activeFilters.endDate) {
-        const [year, month, day] = activeFilters.endDate.split('-').map(Number);
-        const chinaDate = new Date(year, month - 1, day);
-        const utcEndDate = convertChinaEndDateToUTCDate(chinaDate);
-        query = query.lte('loading_date', utcEndDate);
+        // 中国时区 23:59:59 转换为 UTC 时间戳字符串（包含结束日当天的所有数据）
+        const chinaEndTimestamp = `${activeFilters.endDate}T23:59:59+08:00`;
+        const utcEndTimestamp = new Date(chinaEndTimestamp).toISOString();
+        query = query.lte('loading_date', utcEndTimestamp);
       }
       if (activeFilters.licensePlate) query = query.ilike('license_plate', `%${activeFilters.licensePlate}%`);
       

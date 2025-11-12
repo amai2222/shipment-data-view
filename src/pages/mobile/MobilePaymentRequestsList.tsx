@@ -19,8 +19,8 @@ const Users = ({ className }: { className?: string }) => <span className={classN
 const RotateCcw = ({ className }: { className?: string }) => <span className={className}>🔄</span>;
 import { MobilePaymentApproval } from '@/components/mobile/MobilePaymentApproval';
 import { useToast } from '@/hooks/use-toast';
+// ✅ 修改：移除日期转换函数，直接传递中国时区日期字符串给后端
 import { format } from 'date-fns';
-import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { MobileCard } from '@/components/mobile/MobileCard';
 import { MobilePullToRefresh } from '@/components/mobile/MobilePullToRefresh';
@@ -112,12 +112,13 @@ export default function MobilePaymentRequestsList() {
     setLoading(true);
     try {
       // 使用后端筛选函数
+      // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
       // @ts-ignore - 新的RPC函数，TypeScript类型尚未更新
-      const { data, error } = await supabase.rpc('get_payment_requests_filtered', {
+      const { data, error } = await supabase.rpc('get_payment_requests_filtered_1113', {
         p_request_id: filters.requestId || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
-        p_loading_date: filters.loadingDate ? convertChinaDateToUTCDate(filters.loadingDate) : null,
+        p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
         p_status: filters.status || null,
         p_limit: pageSize,
         p_offset: (currentPage - 1) * pageSize

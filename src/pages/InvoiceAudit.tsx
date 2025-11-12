@@ -27,7 +27,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
-import { convertChinaDateToUTCDate, convertSingleDateToDateRange } from '@/utils/dateUtils';
+// ✅ 修改：移除日期转换函数，直接传递中国时区日期字符串给后端
 import { convertUTCDateRangeToChinaDateRange } from '@/utils/dateRangeUtils';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
@@ -223,16 +223,12 @@ export default function InvoiceAudit() {
   const fetchInvoiceRequests = useCallback(async () => {
     setLoading(true);
     try {
-      // 使用后端筛选函数
-      const { data, error } = await supabase.rpc('get_invoice_requests_filtered', {
+      // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
+      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1113', {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
-        // 单日查询：将单日转换为日期范围，确保包含当天的所有数据
-        p_loading_date: filters.loadingDate ? (() => {
-          const { startDate } = convertSingleDateToDateRange(filters.loadingDate);
-          return startDate;
-        })() : null,
+        p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
         p_status: filters.status || null,
         p_project_id: filters.projectId || null,
         p_license_plate: filters.licensePlate || null,      // ✅ 添加车牌号筛选

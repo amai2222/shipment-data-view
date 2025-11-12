@@ -87,14 +87,12 @@ export default function FinanceReconciliation() {
     const startTime = performance.now();
     setLoading(true);
     try {
-      // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
-      // activeFilters.startDate 和 activeFilters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
+      // 注意：get_finance_reconciliation_by_partner 不是我们要修改的函数，保持原有转换逻辑
       const utcStartDate = activeFilters.startDate ? (() => {
         const [year, month, day] = activeFilters.startDate.split('-').map(Number);
         const chinaDate = new Date(year, month - 1, day);
         return convertChinaDateToUTCDate(chinaDate);
       })() : null;
-      // 结束日期需要加1天，确保包含结束日当天的所有数据
       const utcEndDate = activeFilters.endDate ? (() => {
         const [year, month, day] = activeFilters.endDate.split('-').map(Number);
         const chinaDate = new Date(year, month - 1, day);

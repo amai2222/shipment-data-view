@@ -28,7 +28,7 @@ import {
 } from '@/components/common';
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { convertChinaDateToUTCDate, convertSingleDateToDateRange } from '@/utils/dateUtils';
+// ✅ 修改：移除日期转换函数，直接传递中国时区日期字符串给后端
 import { convertUTCDateRangeToChinaDateRange } from '@/utils/dateRangeUtils';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 import { zhCN } from 'date-fns/locale';
@@ -254,18 +254,13 @@ export default function InvoiceRequestManagement() {
     try {
       setLoading(true);
       
-      // 使用后端筛选函数（更高效）
-      const { data, error } = await supabase.rpc('get_invoice_requests_filtered', {
+      // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
+      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1113', {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
-        // 单日查询：将单日转换为日期范围，确保包含当天的所有数据
-        // 由于后端使用 lr.loading_date = p_loading_date 精确匹配，我们需要传递开始日期
-        // 但为了包含当天的所有数据，我们传递开始日期（UTC）
-        p_loading_date: filters.loadingDate ? (() => {
-          const { startDate } = convertSingleDateToDateRange(filters.loadingDate);
-          return startDate;
-        })() : null,
+        // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
+        p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
         p_status: filters.status || null,
         p_project_id: filters.projectId || null,
         p_license_plate: filters.licensePlate || null,

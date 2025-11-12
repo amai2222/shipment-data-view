@@ -24,7 +24,8 @@ export function useAllFilteredRecords() {
   const getAllFilteredRecordIds = useCallback(async (filters: LogisticsFilters): Promise<AllFilteredRecordsResult | null> => {
     setLoading(true);
     try {
-      const { data, error } = await (supabase.rpc as any)('get_all_filtered_record_ids', {
+      // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
+      const { data, error } = await (supabase.rpc as any)('get_all_filtered_record_ids_1113', {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,

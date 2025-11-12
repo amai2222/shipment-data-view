@@ -93,14 +93,15 @@ export class SupabaseStorage {
 
   static async getDashboardStats(filters: { startDate: string; endDate: string; projectId: string | null; }): Promise<any> {
     try {
-      const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types', {
+      // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
+      const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types_1113', {
         p_start_date: filters.startDate,
         p_end_date: filters.endDate,
         p_project_id: filters.projectId === 'all' ? null : filters.projectId,
       });
 
       if (error) {
-        console.error('RPC call to get_dashboard_stats_with_billing_types failed:', error);
+        console.error('RPC call to get_dashboard_stats_with_billing_types_1113 failed:', error);
         throw error;
       }
 

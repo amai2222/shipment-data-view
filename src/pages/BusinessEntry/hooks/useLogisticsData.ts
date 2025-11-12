@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogisticsRecord, PaginationState } from '../types';
-import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate } from '@/utils/dateUtils';
+// ✅ 修改：移除日期转换函数，直接传递中国时区日期字符串给后端
 
 interface LogisticsResponse {
   records: LogisticsRecord[];
@@ -93,24 +93,10 @@ export function useLogisticsData() {
   ) => {
     setLoading(true);
     try {
-      // filters.startDate 和 filters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
-      // 传递给后端时需要转换为 UTC 日期
-      // 将日期字符串解析为 Date 对象（代表中国时区的日期）
-      const utcStartDate = filters.startDate ? (() => {
-        const [year, month, day] = filters.startDate.split('-').map(Number);
-        const chinaDate = new Date(year, month - 1, day);
-        return convertChinaDateToUTCDate(chinaDate);
-      })() : null;
-      // 结束日期需要加1天，确保包含结束日当天的所有数据
-      const utcEndDate = filters.endDate ? (() => {
-        const [year, month, day] = filters.endDate.split('-').map(Number);
-        const chinaDate = new Date(year, month - 1, day);
-        return convertChinaEndDateToUTCDate(chinaDate);
-      })() : null;
-      
-      const { data, error } = await (supabase.rpc as any)('get_logistics_summary_and_records_enhanced', {
-        p_start_date: utcStartDate,
-        p_end_date: utcEndDate,
+      // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
+      const { data, error } = await (supabase.rpc as any)('get_logistics_summary_and_records_enhanced_1113', {
+        p_start_date: filters.startDate || null,
+        p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,
         p_driver_name: filters.driverName || null,
         p_license_plate: filters.licensePlate || null,

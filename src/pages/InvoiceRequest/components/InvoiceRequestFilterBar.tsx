@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate, formatChinaDateString } from '@/utils/dateUtils';
+import { formatChinaDateString } from '@/utils/dateUtils';
 
 interface InvoiceFilters {
   projectId: string;
