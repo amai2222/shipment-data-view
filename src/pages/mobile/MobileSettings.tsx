@@ -377,12 +377,10 @@ export default function MobileSettings() {
   // 处理退出登录
   const handleSignOut = async () => {
     try {
+      // signOut() 函数内部已经会处理导航到 /auth，不需要手动导航
       await signOut();
-      toast({
-        title: '已退出登录',
-        description: '感谢使用物流管理系统'
-      });
-      navigate('/login');
+      // 注意：signOut() 会使用 window.location.href 强制跳转，所以这里的 toast 可能不会显示
+      // 但保留代码以防 signOut 失败时显示错误提示
     } catch (error) {
       toast({
         title: '退出失败',

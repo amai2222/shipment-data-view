@@ -222,8 +222,8 @@ export function EnhancedMobileLayout({
   const navigate = useNavigate();
 
   const handleLogout = async () => {
+    // signOut() 函数内部已经会处理导航到 /auth，不需要手动导航
     await signOut();
-    navigate('/auth');
     setIsMenuOpen(false);
   };
 
