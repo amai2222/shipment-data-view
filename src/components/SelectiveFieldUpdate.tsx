@@ -1,13 +1,14 @@
 // 选择性字段更新组件
 // 允许用户选择要更新的字段，其他字段作为定位依据
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { 
@@ -19,7 +20,8 @@ import {
   Loader2,
   Download,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Settings
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 // 导入日期解析工具函数（符合主流规范：Excel数据是中国时区，解析为YYYY-MM-DD格式，后端转换为UTC存储）
@@ -74,11 +76,58 @@ interface ExcelRowData {
   [key: string]: unknown;
 }
 
-// 字段值提取函数（支持模糊匹配）
-const extractFieldValue = (rowData: ExcelRowData, fieldKey: string): unknown => {
+// 模板字段映射接口
+interface TemplateFieldMapping {
+  id: string;
+  template_id: string;
+  excel_column: string;
+  database_field: string;
+  field_type: string;
+  is_required: boolean;
+  default_value: string | null;
+  validation_rules?: {
+    value_mappings?: Record<string, string>;
+  };
+}
+
+// 字段值提取函数（支持模板映射和模糊匹配）
+const extractFieldValue = (
+  rowData: ExcelRowData, 
+  fieldKey: string, 
+  templateMappings?: TemplateFieldMapping[]
+): unknown => {
   const field = UPDATABLE_FIELDS.find(f => f.key === fieldKey);
   if (!field) return null;
 
+  // 如果提供了模板映射，优先使用模板映射
+  if (templateMappings && templateMappings.length > 0) {
+    const mapping = templateMappings.find(m => m.database_field === fieldKey);
+    if (mapping) {
+      // 使用模板映射的Excel列名
+      let value = rowData[mapping.excel_column];
+      
+      // 应用值转换规则（如果存在）
+      if (mapping.validation_rules?.value_mappings && value !== null && value !== undefined) {
+        const valueStr = String(value).trim();
+        if (mapping.validation_rules.value_mappings[valueStr]) {
+          value = mapping.validation_rules.value_mappings[valueStr];
+        } else if (mapping.validation_rules.value_mappings['default']) {
+          value = mapping.validation_rules.value_mappings['default'];
+        }
+      }
+      
+      // 如果模板映射中没有找到值，使用默认值
+      if ((value === null || value === undefined || value === '') && mapping.default_value) {
+        value = mapping.default_value;
+      }
+      
+      if (value !== null && value !== undefined && value !== '') {
+        return value;
+      }
+    }
+  }
+
+  // 如果没有模板映射或模板映射中没有找到，使用原有的模糊匹配逻辑（向后兼容）
   switch (fieldKey) {
     case 'unloading_weight':
       return rowData['卸货数量'] || rowData['卸货数量(可选)'] || rowData['卸货重量'] || null;
@@ -150,6 +199,12 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
     new Set(['unloading_weight'])  // 默认选择卸货数量
   );
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // 模板映射相关状态
+  const [templates, setTemplates] = useState<Array<{ id: string; name: string; platform_name: string }>>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [templateMappings, setTemplateMappings] = useState<TemplateFieldMapping[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   interface PreviewDataItem {
     row_index: number;
     auto_number: string;
@@ -195,6 +250,79 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
     } else {
       setSelectedFields(new Set());
     }
+  };
+
+  // 加载模板列表
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('import_templates')
+          .select('id, name, platform_name')
+          .eq('is_active', true)
+          .order('name');
+
+        if (error) throw error;
+        setTemplates(data || []);
+      } catch (error: unknown) {
+        console.error('加载模板列表失败:', error);
+        // 不显示错误提示，因为模板是可选的
+      }
+    };
+
+    loadTemplates();
+  }, []);
+
+  // 加载模板映射
+  const loadTemplateMappings = async (templateId: string) => {
+    if (!templateId) {
+      setTemplateMappings([]);
+      return;
+    }
+
+    setIsLoadingTemplates(true);
+    try {
+      const { data, error } = await supabase
+        .from('import_field_mappings')
+        .select('*')
+        .eq('template_id', templateId)
+        .order('display_order');
+
+      if (error) throw error;
+
+      setTemplateMappings((data || []).map(m => ({
+        id: m.id,
+        template_id: m.template_id,
+        excel_column: m.excel_column || '',
+        database_field: m.database_field || '',
+        field_type: m.field_type || 'text',
+        is_required: m.is_required || false,
+        default_value: m.default_value,
+        validation_rules: m.validation_rules as { value_mappings?: Record<string, string> } | undefined
+      })));
+
+      toast({
+        title: '模板映射已加载',
+        description: `已加载 ${data?.length || 0} 个字段映射`,
+        duration: 2000
+      });
+    } catch (error: unknown) {
+      console.error('加载模板映射失败:', error);
+      toast({
+        title: '加载失败',
+        description: error instanceof Error ? error.message : '加载模板映射失败',
+        variant: 'destructive'
+      });
+      setTemplateMappings([]);
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  };
+
+  // 处理模板选择变化
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    loadTemplateMappings(templateId);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -255,7 +383,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
 
           // 遍历所有可更新字段
           UPDATABLE_FIELDS.forEach(field => {
-            const newValue = extractFieldValue(rowData, field.key);
+            const newValue = extractFieldValue(rowData, field.key, templateMappings.length > 0 ? templateMappings : undefined);
             // 获取原值（从数据库记录中）
             let oldValue = existingRecord[field.key];
             if (field.key === 'chain_name') {
@@ -372,8 +500,13 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
           // 构建更新数据（只更新选中的字段）
           const updateData: Record<string, unknown> = {};
 
+          // 使用统一的字段提取逻辑（支持模板映射）
+          const getFieldValue = (fieldKey: string): unknown => {
+            return extractFieldValue(item.rowData, fieldKey, templateMappings.length > 0 ? templateMappings : undefined);
+          };
+
           if (selectedFields.has('unloading_weight')) {
-            const value = item.rowData['卸货数量'] || item.rowData['卸货数量(可选)'] || item.rowData['卸货重量'];
+            const value = getFieldValue('unloading_weight');
             if (value != null && value !== '') {
               updateData.unloading_weight = parseFloat(String(value));
               updatedFields.add('unloading_weight');
@@ -381,7 +514,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
           }
 
           if (selectedFields.has('unloading_date')) {
-            const value = item.rowData['卸货日期'] || item.rowData['卸货日期(可选)'];
+            const value = getFieldValue('unloading_date');
             if (value) {
               // 使用日期解析函数处理Excel日期（支持数字序列号、Date对象、各种字符串格式）
               // 返回YYYY-MM-DD格式的字符串（中国时区），后端会自动转换为UTC存储
@@ -396,7 +529,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
           }
 
           if (selectedFields.has('current_cost')) {
-            const value = item.rowData['运费金额'] || item.rowData['运费金额(可选)'] || item.rowData['运费'];
+            const value = getFieldValue('current_cost');
             if (value != null && value !== '') {
               updateData.current_cost = parseFloat(String(value));
               updatedFields.add('current_cost');
@@ -404,7 +537,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
           }
 
           if (selectedFields.has('extra_cost')) {
-            const value = item.rowData['额外费用'] || item.rowData['额外费用(可选)'];
+            const value = getFieldValue('extra_cost');
             if (value != null && value !== '') {
               updateData.extra_cost = parseFloat(String(value));
               updatedFields.add('extra_cost');
@@ -412,65 +545,81 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
           }
 
           if (selectedFields.has('remarks')) {
-            const value = item.rowData['备注'] || item.rowData['备注(可选)'] || item.rowData['说明'];
+            const value = getFieldValue('remarks');
             if (value) {
-              updateData.remarks = value;
+              updateData.remarks = String(value);
               updatedFields.add('remarks');
             }
           }
 
           if (selectedFields.has('cargo_type')) {
-            const value = item.rowData['货物类型'] || item.rowData['货类'];
+            const value = getFieldValue('cargo_type');
             if (value) {
-              updateData.cargo_type = value;
+              updateData.cargo_type = String(value);
               updatedFields.add('cargo_type');
             }
           }
 
           if (selectedFields.has('license_plate')) {
-            const value = item.rowData['车牌号'] || item.rowData['车牌号*'] || item.rowData['车牌'];
+            const value = getFieldValue('license_plate');
             if (value) {
-              updateData.license_plate = value;
+              updateData.license_plate = String(value);
               updatedFields.add('license_plate');
             }
           }
 
           if (selectedFields.has('driver_phone')) {
-            const value = item.rowData['司机电话'] || item.rowData['司机电话(可选)'];
+            const value = getFieldValue('driver_phone');
             if (value) {
-              updateData.driver_phone = value;
+              updateData.driver_phone = String(value);
               updatedFields.add('driver_phone');
             }
           }
 
           if (selectedFields.has('other_platform_names')) {
-            const value = item.rowData['其他平台名称'] || item.rowData['其他平台名称(可选)'] || item.rowData['平台名称'];
+            const value = getFieldValue('other_platform_names');
             if (value) {
-              const platforms = String(value).split(',').map((p: string) => p.trim()).filter(p => p);
-              updateData.other_platform_names = platforms;
-              updatedFields.add('other_platform_names');
+              // 处理数组字段：支持字符串和数组格式
+              let platforms: string[] = [];
+              if (Array.isArray(value)) {
+                platforms = value.map(p => String(p).trim()).filter(p => p);
+              } else {
+                platforms = String(value).split(',').map((p: string) => p.trim()).filter(p => p);
+              }
+              if (platforms.length > 0) {
+                updateData.other_platform_names = platforms;
+                updatedFields.add('other_platform_names');
+              }
             }
           }
 
           if (selectedFields.has('external_tracking_numbers')) {
-            const value = item.rowData['其他平台运单号'] || item.rowData['其他平台运单号(可选)'] || item.rowData['外部运单号'];
+            const value = getFieldValue('external_tracking_numbers');
             if (value) {
-              const platforms = String(value).split(',').map((p: string) => p.trim()).filter(p => p);
-              updateData.external_tracking_numbers = platforms;
-              updatedFields.add('external_tracking_numbers');
+              // 处理数组字段：支持字符串和数组格式
+              let trackingNumbers: string[] = [];
+              if (Array.isArray(value)) {
+                trackingNumbers = value.map(tn => String(tn).trim()).filter(tn => tn);
+              } else {
+                trackingNumbers = String(value).split(',').map((tn: string) => tn.trim()).filter(tn => tn);
+              }
+              if (trackingNumbers.length > 0) {
+                updateData.external_tracking_numbers = trackingNumbers;
+                updatedFields.add('external_tracking_numbers');
+              }
             }
           }
 
           if (selectedFields.has('transport_type')) {
-            const value = item.rowData['运输类型'] || item.rowData['运输类型(可选)'] || item.rowData['类型'];
+            const value = getFieldValue('transport_type');
             if (value) {
-              updateData.transport_type = value;
+              updateData.transport_type = String(value);
               updatedFields.add('transport_type');
             }
           }
 
           if (selectedFields.has('chain_name')) {
-            const value = item.rowData['合作链路'] || item.rowData['合作链路(可选)'] || item.rowData['链路'];
+            const value = getFieldValue('chain_name');
             if (value) {
               const chainId = chainIdMap.get(String(value));
               if (chainId) {
@@ -638,6 +787,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
             <li>勾选要更新的字段，只有这些字段会被更新</li>
             <li>Excel中留空的字段不会更新数据库原值</li>
             <li>未勾选的字段保持数据库原值不变</li>
+            <li>可选择导入模板以使用预定义的字段映射关系，支持自定义Excel列名和值转换规则</li>
           </ul>
         </AlertDescription>
       </Alert>
@@ -689,11 +839,63 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
         </CardContent>
       </Card>
 
+      {/* 模板选择（可选） */}
+      {templates.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              模板映射（可选）
+            </CardTitle>
+            <CardDescription>
+              选择导入模板以使用预定义的字段映射关系，支持自定义Excel列名
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <Label htmlFor="template-select">选择模板</Label>
+                <Select
+                  value={selectedTemplateId}
+                  onValueChange={handleTemplateChange}
+                  disabled={isLoadingTemplates}
+                >
+                  <SelectTrigger id="template-select" className="mt-1">
+                    <SelectValue placeholder={isLoadingTemplates ? "加载中..." : "不使用模板（使用默认字段匹配）"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">不使用模板（使用默认字段匹配）</SelectItem>
+                    {templates.map(template => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name} {template.platform_name ? `(${template.platform_name})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedTemplateId && templateMappings.length > 0 && (
+                <Badge variant="outline" className="mt-6">
+                  {templateMappings.length} 个字段映射已加载
+                </Badge>
+              )}
+            </div>
+            {selectedTemplateId && templateMappings.length === 0 && !isLoadingTemplates && (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  该模板没有配置字段映射，将使用默认字段匹配
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>第2步：上传Excel文件</CardTitle>
           <CardDescription>
-            包含定位字段和要更新的字段值
+            包含定位字段和要更新的字段值{selectedTemplateId && templateMappings.length > 0 && '（将使用模板映射）'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
