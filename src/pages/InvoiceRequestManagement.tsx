@@ -29,7 +29,7 @@ import {
 } from '@/components/common';
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { convertChinaDateToUTCDate } from '@/utils/dateUtils';
+import { convertChinaDateToUTCDate, convertSingleDateToDateRange } from '@/utils/dateUtils';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 import { zhCN } from 'date-fns/locale';
 import { LogisticsFormDialog } from "@/pages/BusinessEntry/components/LogisticsFormDialog";
@@ -104,6 +104,8 @@ interface InvoiceRequest {
   tax_number?: string;
   invoice_number?: string;
   invoice_date?: string;
+  loading_date_range?: string;    // ✅ 新增：运单装货日期范围
+  total_payable_cost?: number;     // ✅ 新增：司机应收合计
 }
 
 // 开票申请单详情类型
@@ -1624,6 +1626,8 @@ export default function InvoiceRequestManagement() {
     { key: 'partner', label: '合作方' },
     { key: 'amount', label: '开票金额', align: 'right' },
     { key: 'count', label: '运单数量', align: 'right' },
+    { key: 'loading_date_range', label: '装货日期范围' },  // ✅ 新增列
+    { key: 'total_payable_cost', label: '司机应收合计', align: 'right' },  // ✅ 新增列
     { key: 'status', label: '状态' },
     { key: 'remarks', label: '备注' },
     { key: 'actions', label: '操作', align: 'center' }
@@ -2077,6 +2081,12 @@ export default function InvoiceRequestManagement() {
                       </TableCell>
                       <TableCell className="text-right">{request.record_count}条</TableCell>
                       <TableCell>
+                        {request.loading_date_range || '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {request.total_payable_cost ? `¥${request.total_payable_cost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                      </TableCell>
+                      <TableCell>
                         {/* ✅ 使用StatusBadge组件 */}
                         <StatusBadge status={request.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
                       </TableCell>
@@ -2116,7 +2126,7 @@ export default function InvoiceRequestManagement() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">
+                    <TableCell colSpan={tableColumns.length + 1} className="h-24 text-center">
                       暂无开票申请记录。
                     </TableCell>
                   </TableRow>
