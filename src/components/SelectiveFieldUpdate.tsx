@@ -839,61 +839,73 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
         </CardContent>
       </Card>
 
-      {/* 模板选择（可选） */}
-      {templates.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              模板映射（可选）
-            </CardTitle>
-            <CardDescription>
-              选择导入模板以使用预定义的字段映射关系，支持自定义Excel列名
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <Label htmlFor="template-select">选择模板</Label>
-                <Select
-                  value={selectedTemplateId}
-                  onValueChange={handleTemplateChange}
-                  disabled={isLoadingTemplates}
-                >
-                  <SelectTrigger id="template-select" className="mt-1">
-                    <SelectValue placeholder={isLoadingTemplates ? "加载中..." : "不使用模板（使用默认字段匹配）"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">不使用模板（使用默认字段匹配）</SelectItem>
-                    {templates.map(template => (
+      {/* 第2步：模板选择（可选） */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            第2步：选择导入模板（可选）
+          </CardTitle>
+          <CardDescription>
+            选择导入模板以使用预定义的字段映射关系，支持自定义Excel列名和值转换规则
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <Label htmlFor="template-select">选择模板</Label>
+              <Select
+                value={selectedTemplateId}
+                onValueChange={handleTemplateChange}
+                disabled={isLoadingTemplates}
+              >
+                <SelectTrigger id="template-select" className="mt-1">
+                  <SelectValue placeholder={isLoadingTemplates ? "加载中..." : "不使用模板（使用默认字段匹配）"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">不使用模板（使用默认字段匹配）</SelectItem>
+                  {templates.length === 0 ? (
+                    <SelectItem value="no-templates" disabled>
+                      暂无可用模板（可在"模板管理"中创建）
+                    </SelectItem>
+                  ) : (
+                    templates.map(template => (
                       <SelectItem key={template.id} value={template.id}>
                         {template.name} {template.platform_name ? `(${template.platform_name})` : ''}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {selectedTemplateId && templateMappings.length > 0 && (
-                <Badge variant="outline" className="mt-6">
-                  {templateMappings.length} 个字段映射已加载
-                </Badge>
-              )}
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
-            {selectedTemplateId && templateMappings.length === 0 && !isLoadingTemplates && (
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  该模板没有配置字段映射，将使用默认字段匹配
-                </AlertDescription>
-              </Alert>
+            {selectedTemplateId && templateMappings.length > 0 && (
+              <Badge variant="outline" className="mt-6">
+                {templateMappings.length} 个字段映射已加载
+              </Badge>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </div>
+          {selectedTemplateId && templateMappings.length === 0 && !isLoadingTemplates && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                该模板没有配置字段映射，将使用默认字段匹配
+              </AlertDescription>
+            </Alert>
+          )}
+          {!selectedTemplateId && templates.length === 0 && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                当前没有可用的导入模板。您可以在"模板管理"标签页中创建模板，以支持自定义Excel列名和值转换规则。
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>第2步：上传Excel文件</CardTitle>
+          <CardTitle>第3步：上传Excel文件</CardTitle>
           <CardDescription>
             包含定位字段和要更新的字段值{selectedTemplateId && templateMappings.length > 0 && '（将使用模板映射）'}
           </CardDescription>
@@ -1240,155 +1252,156 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
           <CardDescription>Excel列名支持以下多种写法，系统会自动识别（按优先级顺序匹配）</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* 定位字段 */}
             <div>
               <h4 className="font-semibold text-sm mb-3 text-gray-700 border-b pb-2">定位字段（必填，用于查找运单）：</h4>
-              <div className="space-y-3 text-sm">
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">项目名称：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">项目名称</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">项目名称*</code> （带星号）</div>
-                    <div>• <code className="bg-white px-1 rounded">项目</code> （简化写法）</div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">项目名称</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">项目名称</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">项目名称*</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">项目</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">司机姓名：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">司机姓名</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">司机姓名*</code> （带星号）</div>
-                    <div>• <code className="bg-white px-1 rounded">司机</code> （简化写法）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">司机姓名</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">司机姓名</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">司机姓名*</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">司机</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">装货地点：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">装货地点</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">装货地点*</code> （带星号）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">装货地点</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">装货地点</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">装货地点*</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">卸货地点：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">卸货地点</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">卸货地点*</code> （带星号）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">卸货地点</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">卸货地点</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">卸货地点*</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">装货日期：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">装货日期</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">装货日期*</code> （带星号）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">装货日期</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">装货日期</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">装货日期*</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">装货数量：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">装货数量</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">装货数量*</code> （带星号）</div>
-                    <div>• <code className="bg-white px-1 rounded">装货重量</code> （同义词）</div>
-                    <div>• <code className="bg-white px-1 rounded">装货重量*</code> （同义词带星号）</div>
-                    <div>• <code className="bg-white px-1 rounded">装货吨数</code> （同义词）</div>
-                    <div>• <code className="bg-white px-1 rounded">装货吨数*</code> （同义词带星号）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">装货数量</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">装货数量</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">装货数量*</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">装货重量</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">装货吨数</code></div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* 可更新字段 */}
             <div>
               <h4 className="font-semibold text-sm mb-3 text-gray-700 border-b pb-2">可更新字段（可选，勾选后才会更新）：</h4>
-              <div className="space-y-3 text-sm">
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">卸货数量 (unloading_weight)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">卸货数量</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">卸货数量(可选)</code> （带可选标记）</div>
-                    <div>• <code className="bg-white px-1 rounded">卸货重量</code> （同义词）</div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">卸货数量</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">卸货数量</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">卸货数量(可选)</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">卸货重量</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">卸货日期 (unloading_date)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">卸货日期</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">卸货日期(可选)</code> （带可选标记）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">卸货日期</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">卸货日期</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">卸货日期(可选)</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">运费金额 (current_cost)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">运费金额</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">运费金额(可选)</code> （带可选标记）</div>
-                    <div>• <code className="bg-white px-1 rounded">运费</code> （简化写法）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">运费金额</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">运费金额</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">运费金额(可选)</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">运费</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">额外费用 (extra_cost)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">额外费用</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">额外费用(可选)</code> （带可选标记）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">额外费用</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">额外费用</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">额外费用(可选)</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">备注 (remarks)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">备注</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">备注(可选)</code> （带可选标记）</div>
-                    <div>• <code className="bg-white px-1 rounded">说明</code> （同义词）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">备注</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">备注</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">备注(可选)</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">说明</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">货物类型 (cargo_type)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">货物类型</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">货类</code> （简化写法）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">货物类型</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">货物类型</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">货类</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">车牌号 (license_plate)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">车牌号</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">车牌号*</code> （带星号）</div>
-                    <div>• <code className="bg-white px-1 rounded">车牌</code> （简化写法）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">车牌号</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">车牌号</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">车牌号*</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">车牌</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">司机电话 (driver_phone)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">司机电话</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">司机电话(可选)</code> （带可选标记）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">司机电话</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">司机电话</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">司机电话(可选)</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">运输类型 (transport_type)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">运输类型</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">运输类型(可选)</code> （带可选标记）</div>
-                    <div>• <code className="bg-white px-1 rounded">类型</code> （简化写法）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">运输类型</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">运输类型</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">运输类型(可选)</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">类型</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">合作链路 (chain_name)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">合作链路</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">合作链路(可选)</code> （带可选标记）</div>
-                    <div>• <code className="bg-white px-1 rounded">链路</code> （简化写法）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">合作链路</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">合作链路</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">合作链路(可选)</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">链路</code></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">其他平台名称 (other_platform_names)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">其他平台名称</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">其他平台名称(可选)</code> （带可选标记）</div>
-                    <div>• <code className="bg-white px-1 rounded">平台名称</code> （简化写法）</div>
-                    <div className="text-xs text-orange-600 mt-1">⚠️ 多个平台用逗号分隔，如：平台A,平台B</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">其他平台名称</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">其他平台名称</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">其他平台名称(可选)</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">平台名称</code></div>
+                    <div className="text-[10px] text-orange-600 mt-0.5">⚠️ 逗号分隔</div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <strong className="text-blue-600 block mb-1">其他平台运单号 (external_tracking_numbers)：</strong>
-                  <div className="text-muted-foreground ml-2 space-y-1">
-                    <div>• <code className="bg-white px-1 rounded">其他平台运单号</code> （标准写法）</div>
-                    <div>• <code className="bg-white px-1 rounded">其他平台运单号(可选)</code> （带可选标记）</div>
-                    <div>• <code className="bg-white px-1 rounded">外部运单号</code> （简化写法）</div>
-                    <div className="text-xs text-orange-600 mt-1">⚠️ 格式：运单1|运单2,运单3|运单4（逗号和竖线分隔）</div>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <strong className="text-blue-600 block mb-1 text-xs">其他平台运单号</strong>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">其他平台运单号</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">其他平台运单号(可选)</code></div>
+                    <div>• <code className="bg-white px-1 rounded text-[10px]">外部运单号</code></div>
+                    <div className="text-[10px] text-orange-600 mt-0.5">⚠️ 逗号|竖线分隔</div>
                   </div>
                 </div>
               </div>
