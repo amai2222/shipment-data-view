@@ -201,7 +201,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
   const [isProcessing, setIsProcessing] = useState(false);
   
   // 模板映射相关状态
-  const [templates, setTemplates] = useState<Array<{ id: string; name: string; platform_name: string }>>([]);
+  const [templates, setTemplates] = useState<Array<{ id: string; name: string; platform_type: string }>>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('__none__'); // 使用特殊值代替空字符串
   const [templateMappings, setTemplateMappings] = useState<TemplateFieldMapping[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
@@ -259,7 +259,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
         setIsLoadingTemplates(true);
         const { data, error } = await supabase
           .from('import_templates')
-          .select('id, name, platform_name')
+          .select('id, name, platform_type')
           .eq('is_active', true)
           .order('name');
 
@@ -885,7 +885,7 @@ export default function SelectiveFieldUpdate({ selectedProject, onUpdateSuccess 
                     ) : (
                       templates.map(template => (
                         <SelectItem key={template.id} value={template.id}>
-                          {template.name} {template.platform_name ? `(${template.platform_name})` : ''}
+                          {template.name} {template.platform_type ? `(${template.platform_type})` : ''}
                         </SelectItem>
                       ))
                     )}
