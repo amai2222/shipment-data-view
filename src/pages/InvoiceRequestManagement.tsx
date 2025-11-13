@@ -264,12 +264,13 @@ export default function InvoiceRequestManagement() {
         // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
         p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
         p_status: filters.status || null,
-        p_project_id: filters.projectId || null,
+        p_project_id: filters.projectId && filters.projectId.trim() !== '' ? filters.projectId : null,
         p_license_plate: filters.licensePlate || null,
         p_phone_number: filters.phoneNumber || null,
         p_platform_name: filters.platformName || null,
-        p_limit: pageSize,
-        p_offset: (currentPage - 1) * pageSize
+        p_invoicing_partner_id: null,  // 财务开票页面不需要按开票方筛选
+        p_page_number: currentPage,
+        p_page_size: pageSize
       });
 
       if (error) throw error;

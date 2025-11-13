@@ -231,12 +231,13 @@ export default function InvoiceAudit() {
         p_driver_name: filters.driverName || null,
         p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
         p_status: filters.status || null,
-        p_project_id: filters.projectId || null,
+        p_project_id: filters.projectId && filters.projectId.trim() !== '' ? filters.projectId : null,
         p_license_plate: filters.licensePlate || null,      // ✅ 添加车牌号筛选
         p_phone_number: filters.phoneNumber || null,        // ✅ 添加电话筛选
         p_platform_name: filters.platformName || null,      // ✅ 添加平台筛选
-        p_limit: pageSize,
-        p_offset: (currentPage - 1) * pageSize
+        p_invoicing_partner_id: null,  // 开票审核页面不需要按开票方筛选
+        p_page_number: currentPage,
+        p_page_size: pageSize
       });
 
       if (error) throw error;
