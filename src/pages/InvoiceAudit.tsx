@@ -2149,34 +2149,9 @@ export default function InvoiceAudit() {
             )}
           </DialogHeader>
           
-          {!modalContentLoading && partnerTotals.length > 0 && (
-            <div className="p-4 border rounded-lg bg-muted/50">
-              <h4 className="mb-2 font-semibold text-foreground">金额汇总 (按合作方)</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
-                {partnerTotals
-                  .sort((a, b) => (b.total_amount || 0) - (a.total_amount || 0))
-                  .map(pt => (
-                  <div key={pt.partner_id} className="flex justify-between items-baseline">
-                    <span className="text-sm text-muted-foreground">{pt.partner_name}:</span>
-                    <span className="font-mono font-semibold text-primary">
-                      {(pt.total_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {/* ✅ 新增：司机应收合计 */}
-              {selectedRequest && selectedRequest.total_payable_cost !== undefined && (
-                <div className="mt-3 pt-3 border-t flex justify-between items-baseline">
-                  <span className="text-sm font-semibold text-foreground">司机应收合计：</span>
-                  <span className="font-mono font-semibold text-green-700">
-                    {selectedRequest.total_payable_cost.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="max-h-[50vh] overflow-y-auto">
+          <div className="flex gap-4">
+            {/* 表格区域 */}
+            <div className="flex-1 max-h-[50vh] overflow-y-auto">
             {modalContentLoading ? (
               <div className="flex justify-center items-center h-48">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -2233,6 +2208,35 @@ export default function InvoiceAudit() {
                   )}
                 </TableBody>
               </Table>
+            )}
+            </div>
+
+            {/* 合计金额区域 - 右侧对齐 */}
+            {!modalContentLoading && partnerTotals.length > 0 && (
+              <div className="flex-shrink-0 w-64 p-4 border rounded-lg bg-muted/50">
+                <h4 className="mb-3 font-semibold text-foreground">金额汇总 (按合作方)</h4>
+                <div className="space-y-3">
+                  {partnerTotals
+                    .sort((a, b) => (b.total_amount || 0) - (a.total_amount || 0))
+                    .map(pt => (
+                    <div key={pt.partner_id} className="flex justify-between items-baseline">
+                      <span className="text-sm text-muted-foreground truncate pr-2">{pt.partner_name}:</span>
+                      <span className="font-mono font-semibold text-primary text-right whitespace-nowrap">
+                        {(pt.total_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {/* ✅ 司机应收合计 */}
+                {selectedRequest && selectedRequest.total_payable_cost !== undefined && (
+                  <div className="mt-4 pt-4 border-t flex justify-between items-baseline">
+                    <span className="text-sm font-semibold text-foreground">司机应收合计：</span>
+                    <span className="font-mono font-semibold text-green-700 text-right whitespace-nowrap">
+                      {selectedRequest.total_payable_cost.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </DialogContent>
