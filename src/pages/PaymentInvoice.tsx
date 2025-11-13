@@ -43,6 +43,7 @@ import { zhCN } from 'date-fns/locale';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
 import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
 import { LogisticsRecord, PlatformTracking } from '@/types';
+import { RouteDisplay } from '@/components/RouteDisplay';
 
 // --- 类型定义 ---
 interface InvoiceRequest {
@@ -1783,6 +1784,7 @@ export default function InvoiceAudit() {
                     <TableHead className="font-semibold text-foreground">开票单号</TableHead>
                     <TableHead className="font-semibold text-foreground">申请时间</TableHead>
                     <TableHead className="font-semibold text-foreground">开票申请单状态</TableHead>
+                    <TableHead className="font-semibold text-foreground">开票方</TableHead>
                     <TableHead className="font-semibold text-foreground">装货日期范围</TableHead>
                     <TableHead className="text-right font-semibold text-foreground">司机应收合计</TableHead>
                     <TableHead className="text-right font-semibold text-foreground">开票金额</TableHead>
@@ -1803,7 +1805,7 @@ export default function InvoiceAudit() {
                           {/* 状态分组分割线 */}
                           {showDivider && (
                             <TableRow className="bg-gradient-to-r from-transparent via-muted/30 to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted/30 hover:to-transparent border-y border-border/50">
-                              <TableCell colSpan={isAdmin ? 10 : 9} className="h-3 p-0">
+                              <TableCell colSpan={isAdmin ? 11 : 10} className="h-3 p-0">
                                 <div className="w-full h-full flex items-center justify-center">
                                   <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
                                 </div>
@@ -1830,6 +1832,11 @@ export default function InvoiceAudit() {
                         </TableCell>
                         <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
                           <StatusBadge status={req.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
+                        </TableCell>
+                        <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
+                          <span className="text-sm font-medium">
+                            {req.partner_name || req.invoicing_partner_full_name || '-'}
+                          </span>
                         </TableCell>
                         <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(req)}>
                           <span className="text-sm text-muted-foreground">
@@ -1887,7 +1894,7 @@ export default function InvoiceAudit() {
                       );
                     })
                   ) : (
-                    <TableRow><TableCell colSpan={isAdmin ? 10 : 9} className="h-24 text-center">暂无开票申请记录。</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={isAdmin ? 11 : 10} className="h-24 text-center">暂无开票申请记录。</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -1908,8 +1915,10 @@ export default function InvoiceAudit() {
                   此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
                 </DialogDescription>
               </div>
-              {/* ✅ 复制运单号按钮 - 美化并调整位置 */}
-              {modalRecords.length > 0 && (
+            </div>
+            {/* ✅ 复制运单号按钮 - 居中显示 */}
+            {modalRecords.length > 0 && (
+              <div className="flex justify-center mt-4">
                 <Button
                   variant="outline"
                   size="sm"
@@ -1928,13 +1937,13 @@ export default function InvoiceAudit() {
                       });
                     });
                   }}
-                  className="ml-8 mr-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700 hover:text-blue-800 shadow-sm hover:shadow-md transition-all duration-200"
+                  className="bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700 hover:text-blue-800 shadow-sm hover:shadow-md transition-all duration-200"
                 >
                   <Copy className="mr-2 h-4 w-4" />
                   复制运单号
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </DialogHeader>
           
           {!modalContentLoading && partnerTotals.length > 0 && (
@@ -1995,7 +2004,13 @@ export default function InvoiceAudit() {
                         </TableCell>
                         <TableCell>{rec.driver_name}</TableCell>
                         <TableCell>{rec.license_plate}</TableCell>
-                        <TableCell>{`${rec.loading_location} → ${rec.unloading_location}`}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <RouteDisplay
+                            loadingLocation={rec.loading_location}
+                            unloadingLocation={rec.unloading_location}
+                            variant="compact"
+                          />
+                        </TableCell>
                         <TableCell>{format(new Date(rec.loading_date), 'yyyy-MM-dd')}</TableCell>
                         <TableCell className="text-right">{rec.loading_weight ?? 'N/A'}</TableCell>
                         <TableCell className="text-right font-mono font-semibold text-green-700">

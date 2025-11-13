@@ -39,6 +39,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
 import { LogisticsRecord, PlatformTracking } from '@/types';
+import { RouteDisplay } from '@/components/RouteDisplay';
 
 // 运单记录类型
 interface LogisticsRecord {
@@ -2070,6 +2071,7 @@ export default function InvoiceRequestManagement() {
                   <TableHead className="font-semibold text-foreground">开票单号</TableHead>
                   <TableHead className="font-semibold text-foreground">申请时间</TableHead>
                   <TableHead className="font-semibold text-foreground">开票申请单状态</TableHead>
+                  <TableHead className="font-semibold text-foreground">开票方</TableHead>
                   <TableHead className="font-semibold text-foreground">装货日期范围</TableHead>
                   <TableHead className="text-right font-semibold text-foreground">司机应收合计</TableHead>
                   <TableHead className="text-right font-semibold text-foreground">开票金额</TableHead>
@@ -2090,7 +2092,7 @@ export default function InvoiceRequestManagement() {
                         {/* 状态分组分割线 */}
                         {showDivider && (
                           <TableRow className="bg-gradient-to-r from-transparent via-muted/30 to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted/30 hover:to-transparent border-y border-border/50">
-                            <TableCell colSpan={10} className="h-3 p-0">
+                            <TableCell colSpan={11} className="h-3 p-0">
                               <div className="w-full h-full flex items-center justify-center">
                                 <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
                               </div>
@@ -2122,6 +2124,11 @@ export default function InvoiceRequestManagement() {
                       <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(request)}>
                         {/* ✅ 使用StatusBadge组件 */}
                         <StatusBadge status={request.status} customConfig={INVOICE_REQUEST_STATUS_CONFIG} />
+                      </TableCell>
+                      <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(request)}>
+                        <span className="text-sm font-medium">
+                          {request.partner_name || request.invoicing_partner_full_name || '-'}
+                        </span>
                       </TableCell>
                       <TableCell className="cursor-pointer py-3" onClick={() => handleViewDetails(request)}>
                         <span className="text-sm text-muted-foreground">
@@ -2173,7 +2180,7 @@ export default function InvoiceRequestManagement() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-24 text-center">
+                    <TableCell colSpan={11} className="h-24 text-center">
                       暂无开票申请记录。
                     </TableCell>
                   </TableRow>
@@ -2206,8 +2213,10 @@ export default function InvoiceRequestManagement() {
                   此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
                 </DialogDescription>
               </div>
-              {/* ✅ 复制运单号按钮 - 美化并调整位置 */}
-              {requestDetails.length > 0 && (
+            </div>
+            {/* ✅ 复制运单号按钮 - 居中显示 */}
+            {requestDetails.length > 0 && (
+              <div className="flex justify-center mt-4">
                 <Button
                   variant="outline"
                   size="sm"
@@ -2226,13 +2235,13 @@ export default function InvoiceRequestManagement() {
                       });
                     });
                   }}
-                  className="ml-8 mr-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700 hover:text-blue-800 shadow-sm hover:shadow-md transition-all duration-200"
+                  className="bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700 hover:text-blue-800 shadow-sm hover:shadow-md transition-all duration-200"
                 >
                   <Copy className="mr-2 h-4 w-4" />
                   复制运单号
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </DialogHeader>
           
           {/* ✅ 新增：金额汇总 (按合作方) 和司机应收合计 */}
@@ -2286,7 +2295,13 @@ export default function InvoiceRequestManagement() {
                       </TableCell>
                       <TableCell>{detail.logistics_record.driver_name}</TableCell>
                       <TableCell>-</TableCell>
-                      <TableCell>{`${detail.logistics_record.loading_location} → ${detail.logistics_record.unloading_location}`}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <RouteDisplay
+                          loadingLocation={detail.logistics_record.loading_location}
+                          unloadingLocation={detail.logistics_record.unloading_location}
+                          variant="compact"
+                        />
+                      </TableCell>
                       <TableCell>
                         {detail.logistics_record.loading_date ? format(new Date(detail.logistics_record.loading_date), 'yyyy-MM-dd') : '-'}
                       </TableCell>
