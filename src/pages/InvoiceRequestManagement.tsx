@@ -281,6 +281,12 @@ export default function InvoiceRequestManagement() {
         records?: InvoiceRequest[];
         total_count?: number;
       };
+      
+      // 确保数据格式正确
+      if (!result || result.success === false) {
+        throw new Error('后端返回数据格式错误');
+      }
+      
       const requestsData = result.records || [];
       setInvoiceRequests(requestsData);
       
@@ -290,9 +296,13 @@ export default function InvoiceRequestManagement() {
       setTotalPages(Math.ceil(totalCount / pageSize));
     } catch (error) {
       console.error('加载开票申请单失败:', error);
+      // 设置默认值，避免页面崩溃
+      setInvoiceRequests([]);
+      setTotalRequestsCount(0);
+      setTotalPages(0);
       toast({
         title: "加载失败",
-        description: `无法加载开票申请单列表: ${error.message || '未知错误'}`,
+        description: `无法加载开票申请单列表: ${error instanceof Error ? error.message : '未知错误'}`,
         variant: "destructive",
       });
     } finally {
@@ -372,7 +382,7 @@ export default function InvoiceRequestManagement() {
       console.error('加载申请单详情失败:', error);
       toast({
         title: "加载失败",
-        description: `无法加载申请单详情: ${error.message || '未知错误'}`,
+        description: `无法加载申请单详情: ${error instanceof Error ? error.message : '未知错误'}`,
         variant: "destructive",
       });
     }
@@ -511,7 +521,7 @@ export default function InvoiceRequestManagement() {
       console.error('确认开票失败:', error);
       toast({
         title: "确认失败",
-        description: error.message || '无法确认开票',
+        description: error instanceof Error ? error.message : '无法确认开票',
         variant: "destructive",
       });
     }
@@ -1654,7 +1664,7 @@ export default function InvoiceRequestManagement() {
       console.error('导出失败:', error);
       toast({
         title: "导出失败",
-        description: error.message || '无法导出数据',
+        description: error instanceof Error ? error.message : '无法导出数据',
         variant: "destructive",
       });
     }

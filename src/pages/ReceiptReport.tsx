@@ -100,9 +100,17 @@ export default function ReceiptReport() {
 
       if (error) throw error;
 
-      const result = data as { success: boolean; statistics: ReceiptStatistics };
+      const result = data as { success: boolean; statistics?: ReceiptStatistics };
       if (result.success && result.statistics) {
-        setStatistics(result.statistics);
+        // 确保所有字段都有值
+        setStatistics({
+          total_invoiced: result.statistics.total_invoiced ?? 0,
+          total_received: result.statistics.total_received ?? 0,
+          total_unreceived: result.statistics.total_unreceived ?? 0,
+          receipt_rate: result.statistics.receipt_rate ?? 0,
+          overdue_amount: result.statistics.overdue_amount ?? 0,
+          overdue_count: result.statistics.overdue_count ?? 0
+        });
       } else {
         // 如果返回的数据为空，设置默认值
         setStatistics({
@@ -116,6 +124,15 @@ export default function ReceiptReport() {
       }
     } catch (error) {
       console.error('加载统计数据失败:', error);
+      // 设置默认值，避免页面崩溃
+      setStatistics({
+        total_invoiced: 0,
+        total_received: 0,
+        total_unreceived: 0,
+        receipt_rate: 0,
+        overdue_amount: 0,
+        overdue_count: 0
+      });
       toast({
         title: "错误",
         description: "加载统计数据失败",
@@ -187,6 +204,7 @@ export default function ReceiptReport() {
       <PageHeader
         title="收款报表与分析"
         description="查看收款统计、明细和逾期情况"
+        icon={TrendingUp}
       />
 
       {/* 筛选器 */}
@@ -334,7 +352,7 @@ export default function ReceiptReport() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {statistics.receipt_rate.toFixed(2)}%
+                {(statistics.receipt_rate ?? 0).toFixed(2)}%
               </div>
             </CardContent>
           </Card>

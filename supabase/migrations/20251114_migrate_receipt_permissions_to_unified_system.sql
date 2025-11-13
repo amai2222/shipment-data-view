@@ -672,20 +672,31 @@ BEGIN
     END IF;
 
     -- 构建统计查询（与合并文件保持一致）
+    WITH stats AS (
+        SELECT 
+            COALESCE(SUM(total_amount), 0) AS total_invoiced,
+            COALESCE(SUM(total_received_amount), 0) AS total_received,
+            COALESCE(SUM(total_amount - COALESCE(total_received_amount, 0)), 0) AS total_unreceived,
+            COUNT(*) FILTER (WHERE payment_due_date < CURRENT_DATE AND status = 'Completed' AND COALESCE(total_received_amount, 0) < total_amount) AS overdue_count,
+            COALESCE(SUM(total_amount - COALESCE(total_received_amount, 0)) FILTER (WHERE payment_due_date < CURRENT_DATE AND status = 'Completed' AND COALESCE(total_received_amount, 0) < total_amount), 0) AS overdue_amount
+        FROM public.invoice_requests
+        WHERE (p_start_date IS NULL OR DATE(created_at) >= p_start_date)
+          AND (p_end_date IS NULL OR DATE(created_at) <= p_end_date)
+          AND (p_partner_id IS NULL OR invoicing_partner_id = p_partner_id)
+    )
     SELECT jsonb_build_object(
-        'total_invoice_amount', COALESCE(SUM(total_amount), 0),
-        'total_received_amount', COALESCE(SUM(total_received_amount), 0),
-        'total_unreceived_amount', COALESCE(SUM(total_amount - COALESCE(total_received_amount, 0)), 0),
-        'receipt_count', COUNT(*) FILTER (WHERE status = 'Received'),
-        'partial_receipt_count', COUNT(*) FILTER (WHERE status = 'Completed' AND total_received_amount > 0 AND total_received_amount < total_amount),
-        'unreceived_count', COUNT(*) FILTER (WHERE status = 'Completed' AND COALESCE(total_received_amount, 0) = 0),
-        'overdue_count', COUNT(*) FILTER (WHERE payment_due_date < CURRENT_DATE AND status = 'Completed' AND COALESCE(total_received_amount, 0) < total_amount),
-        'overdue_amount', COALESCE(SUM(total_amount - COALESCE(total_received_amount, 0)) FILTER (WHERE payment_due_date < CURRENT_DATE AND status = 'Completed' AND COALESCE(total_received_amount, 0) < total_amount), 0)
+        'total_invoiced', stats.total_invoiced,
+        'total_received', stats.total_received,
+        'total_unreceived', stats.total_unreceived,
+        'receipt_rate', CASE 
+            WHEN stats.total_invoiced > 0 THEN 
+                ROUND((stats.total_received / stats.total_invoiced * 100)::numeric, 2)
+            ELSE 0 
+        END,
+        'overdue_amount', stats.overdue_amount,
+        'overdue_count', stats.overdue_count
     ) INTO v_statistics
-    FROM public.invoice_requests
-    WHERE (p_start_date IS NULL OR DATE(created_at) >= p_start_date)
-      AND (p_end_date IS NULL OR DATE(created_at) <= p_end_date)
-      AND (p_partner_id IS NULL OR invoicing_partner_id = p_partner_id);
+    FROM stats;
 
     RETURN jsonb_build_object('success', true, 'statistics', v_statistics);
 END;

@@ -248,6 +248,12 @@ export default function InvoiceAudit() {
         records?: InvoiceRequestRaw[];
         total_count?: number;
       };
+      
+      // 确保数据格式正确
+      if (!result || result.success === false) {
+        throw new Error('后端返回数据格式错误');
+      }
+      
       const requestsData = result.records || [];
       setTotalRequestsCount(result.total_count || 0);
       setRequests(requestsData.map(item => ({
@@ -284,7 +290,15 @@ export default function InvoiceAudit() {
       }
     } catch (error) {
       console.error("加载开票申请列表失败:", error);
-      toast({ title: "错误", description: `加载开票申请列表失败: ${(error as Error).message}`, variant: "destructive" });
+      // 设置默认值，避免页面崩溃
+      setRequests([]);
+      setTotalRequestsCount(0);
+      setTotalPages(0);
+      toast({ 
+        title: "错误", 
+        description: `加载开票申请列表失败: ${error instanceof Error ? error.message : '未知错误'}`, 
+        variant: "destructive" 
+      });
     } finally {
       setLoading(false);
     }
@@ -420,7 +434,11 @@ export default function InvoiceAudit() {
       fetchInvoiceRequests();
     } catch (error) {
       console.error('批量审批失败:', error);
-      toast({ title: "批量审批失败", description: (error as Error).message, variant: "destructive" });
+      toast({ 
+        title: "批量审批失败", 
+        description: error instanceof Error ? error.message : '批量审批失败', 
+        variant: "destructive" 
+      });
     } finally {
       setIsBatchOperating(false);
       setBatchOperation(null);
@@ -444,7 +462,11 @@ export default function InvoiceAudit() {
       fetchInvoiceRequests();
     } catch (error) {
       console.error('审批回滚失败:', error);
-      toast({ title: "审批回滚失败", description: (error as Error).message, variant: "destructive" });
+      toast({ 
+        title: "审批回滚失败", 
+        description: error instanceof Error ? error.message : '审批回滚失败', 
+        variant: "destructive" 
+      });
     } finally {
       setExportingId(null);
     }
@@ -1161,7 +1183,11 @@ export default function InvoiceAudit() {
       
       if (error) {
         console.error('审批失败:', error);
-        toast({ title: "审批失败", description: error.message, variant: "destructive" });
+        toast({ 
+          title: "审批失败", 
+          description: error instanceof Error ? error.message : '审批失败', 
+          variant: "destructive" 
+        });
         return;
       }
       
@@ -1369,7 +1395,7 @@ export default function InvoiceAudit() {
       console.error('获取运单详情失败:', error);
       toast({
         title: '获取详情失败',
-        description: (error as Error).message,
+        description: error instanceof Error ? error.message : '获取详情失败',
         variant: 'destructive',
       });
       setIsModalOpen(false);
@@ -1484,7 +1510,11 @@ export default function InvoiceAudit() {
       fetchInvoiceRequests();
     } catch (error) {
       console.error("批量回滚申请失败:", error);
-      toast({ title: "错误", description: `操作失败: ${(error as Error).message}`, variant: "destructive" });
+      toast({ 
+        title: "错误", 
+        description: `操作失败: ${error instanceof Error ? error.message : '未知错误'}`, 
+        variant: "destructive" 
+      });
     } finally {
       setIsCancelling(false);
     }
@@ -1546,7 +1576,11 @@ export default function InvoiceAudit() {
       fetchInvoiceRequests();
     } catch (error) {
       console.error("批量作废删除失败:", error);
-      toast({ title: "错误", description: `操作失败: ${(error as Error).message}`, variant: "destructive" });
+      toast({ 
+        title: "错误", 
+        description: `操作失败: ${error instanceof Error ? error.message : '未知错误'}`, 
+        variant: "destructive" 
+      });
     } finally {
       setIsCancelling(false);
     }
