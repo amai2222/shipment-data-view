@@ -52,6 +52,8 @@ interface PaymentRequest {
   logistics_record_ids: string[];
   record_count: number;
   max_amount?: number; // 申请金额（最高金额）
+  total_driver_freight?: number; // 司机运费合计
+  total_partner_amount?: number; // 货主金额合计
 }
 
 // 从RPC函数返回的原始数据类型
@@ -168,15 +170,6 @@ export default function PaymentAudit() {
       
       // 处理返回的数据
       const requestsData = (data as PaymentRequestRaw[]) || [];
-      setRequests(requestsData.map(item => ({
-        id: item.id,
-        created_at: item.created_at,
-        request_id: item.request_id,
-        status: item.status as PaymentRequest['status'],
-        notes: item.notes,
-        logistics_record_ids: item.logistics_record_ids,
-        record_count: item.record_count
-      })));
       
       // 设置总数和总页数
       if (requestsData.length > 0) {
@@ -187,6 +180,72 @@ export default function PaymentAudit() {
         setTotalRequestsCount(0);
         setTotalPages(0);
       }
+      
+      // 并行获取每个申请单的详细数据以计算合计
+      const requestsWithTotals = await Promise.all(
+        requestsData.map(async (item) => {
+          try {
+            // 获取申请单的详细数据
+            const { data: detailData } = await supabase.rpc('get_payment_request_data_v2', {
+              p_record_ids: item.logistics_record_ids
+            });
+            
+            if (detailData && (detailData as { records?: unknown[] }).records) {
+              const records = (detailData as { records?: unknown[] }).records || [];
+              let totalDriverFreight = 0;
+              let totalPartnerAmount = 0;
+              
+              records.forEach((rec: unknown) => {
+                const recData = rec as { 
+                  payable_cost?: number;
+                  partner_costs?: Array<{ level?: number; payable_amount?: number }>;
+                };
+                
+                // 司机运费 = payable_cost
+                totalDriverFreight += Number(recData.payable_cost || 0);
+                
+                // 货主金额 = 最高级合作方的应收金额
+                if (recData.partner_costs && recData.partner_costs.length > 0) {
+                  const maxLevel = Math.max(...recData.partner_costs.map(c => c.level || 0));
+                  const highestPartner = recData.partner_costs.find(c => c.level === maxLevel);
+                  if (highestPartner) {
+                    totalPartnerAmount += Number(highestPartner.payable_amount || 0);
+                  }
+                }
+              });
+              
+              return {
+                id: item.id,
+                created_at: item.created_at,
+                request_id: item.request_id,
+                status: item.status as PaymentRequest['status'],
+                notes: item.notes,
+                logistics_record_ids: item.logistics_record_ids,
+                record_count: item.record_count,
+                total_driver_freight: totalDriverFreight,
+                total_partner_amount: totalPartnerAmount
+              };
+            }
+          } catch (error) {
+            console.error(`获取申请单 ${item.request_id} 详细数据失败:`, error);
+          }
+          
+          // 如果获取失败，返回基本数据
+          return {
+            id: item.id,
+            created_at: item.created_at,
+            request_id: item.request_id,
+            status: item.status as PaymentRequest['status'],
+            notes: item.notes,
+            logistics_record_ids: item.logistics_record_ids,
+            record_count: item.record_count,
+            total_driver_freight: undefined,
+            total_partner_amount: undefined
+          };
+        })
+      );
+      
+      setRequests(requestsWithTotals);
     } catch (error) {
       console.error("加载付款申请列表失败:", error);
       toast({ title: "错误", description: `加载付款申请列表失败: ${(error as Error).message}`, variant: "destructive" });
@@ -1649,7 +1708,8 @@ export default function PaymentAudit() {
                     <TableHead>申请时间</TableHead>
                     <TableHead>付款申请单状态</TableHead>
                     <TableHead className="text-right">运单数</TableHead>
-                    <TableHead className="text-right">申请金额</TableHead>
+                    <TableHead className="text-right">司机运费</TableHead>
+                    <TableHead className="text-right">货主金额</TableHead>
                     <TableHead className="max-w-[200px]">备注</TableHead>
                     <TableHead className="text-center">操作</TableHead>
                   </TableRow>
@@ -1666,7 +1726,7 @@ export default function PaymentAudit() {
                           {/* 状态分组分割线 */}
                           {showDivider && (
                             <TableRow className="bg-gradient-to-r from-transparent via-muted to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted hover:to-transparent border-y border-border/50">
-                              <TableCell colSpan={isAdmin ? 8 : 7} className="h-3 p-0">
+                              <TableCell colSpan={isAdmin ? 9 : 8} className="h-3 p-0">
                                 <div className="w-full h-full flex items-center justify-center">
                                   <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
                                 </div>
@@ -1704,8 +1764,11 @@ export default function PaymentAudit() {
                           <StatusBadge status={req.status} customConfig={PAYMENT_REQUEST_STATUS_CONFIG} />
                         </TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
-                        <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>
-                          {req.max_amount ? `¥${req.max_amount.toLocaleString()}` : '-'}
+                        <TableCell className="text-right cursor-pointer font-mono font-semibold text-green-700" onClick={() => handleViewDetails(req)}>
+                          {req.total_driver_freight !== undefined ? `¥${req.total_driver_freight.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right cursor-pointer font-mono font-semibold text-blue-700" onClick={() => handleViewDetails(req)}>
+                          {req.total_partner_amount !== undefined ? `¥${req.total_partner_amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                         </TableCell>
                         <TableCell className="max-w-[200px] cursor-pointer truncate text-sm text-muted-foreground" onClick={() => handleViewDetails(req)} title={req.notes || ''}>
                           {req.notes || '-'}
