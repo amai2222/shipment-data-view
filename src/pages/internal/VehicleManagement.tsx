@@ -41,7 +41,8 @@ import {
   Eye,
   Save,
   X,
-  Trash2
+  Trash2,
+  Copy
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -96,6 +97,7 @@ export default function VehicleManagement() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -383,6 +385,27 @@ export default function VehicleManagement() {
       remarks: ''
     });
     setShowEditDialog(true);
+  };
+
+  // 打开复制对话框（复制原车辆信息，除车牌号和内部编号）
+  const openCopyDialog = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle);
+    setFormData({
+      license_plate: '', // 清空车牌号
+      vehicle_number: '', // 清空内部编号
+      vehicle_type: vehicle.vehicle_type,
+      vehicle_brand: vehicle.vehicle_brand,
+      vehicle_model: vehicle.vehicle_model,
+      vehicle_status: vehicle.vehicle_status,
+      load_capacity: vehicle.load_capacity.toString(),
+      manufacture_year: vehicle.manufacture_year.toString(),
+      current_mileage: vehicle.current_mileage.toString(),
+      driving_license_expire_date: vehicle.driving_license_expire_date || '',
+      insurance_expire_date: vehicle.insurance_expire_date || '',
+      annual_inspection_date: vehicle.annual_inspection_date || '',
+      remarks: ''
+    });
+    setShowCopyDialog(true);
   };
 
   const getStatusConfig = (status: string) => {
@@ -812,8 +835,18 @@ export default function VehicleManagement() {
                               variant="ghost" 
                               className="h-8 w-8 p-0"
                               onClick={() => openEditDialog(vehicle)}
+                              title="编辑"
                             >
                               <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => openCopyDialog(vehicle)}
+                              title="复制车辆"
+                            >
+                              <Copy className="h-4 w-4" />
                             </Button>
                             <Button 
                               size="sm" 
@@ -823,6 +856,7 @@ export default function VehicleManagement() {
                                 setVehicleToDelete(vehicle);
                                 setShowDeleteDialog(true);
                               }}
+                              title="删除"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -900,7 +934,12 @@ export default function VehicleManagement() {
       </Dialog>
 
       {/* 编辑车辆对话框 */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+      <Dialog open={showEditDialog} onOpenChange={(open) => {
+        setShowEditDialog(open);
+        if (!open) {
+          setSelectedVehicle(null);
+        }
+      }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -923,6 +962,44 @@ export default function VehicleManagement() {
               取消
             </Button>
             <Button onClick={handleEditVehicle}>
+              <Save className="h-4 w-4 mr-2" />
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 复制车辆对话框 */}
+      <Dialog open={showCopyDialog} onOpenChange={(open) => {
+        setShowCopyDialog(open);
+        if (!open) {
+          setSelectedVehicle(null);
+          resetForm();
+        }
+      }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Copy className="h-5 w-5" />
+              复制车辆
+            </DialogTitle>
+            <DialogDescription>
+              基于现有车辆信息创建新车辆（车牌号和内部编号需重新填写）
+            </DialogDescription>
+          </DialogHeader>
+
+          <VehicleForm />
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowCopyDialog(false);
+              setSelectedVehicle(null);
+              resetForm();
+            }}>
+              <X className="h-4 w-4 mr-2" />
+              取消
+            </Button>
+            <Button onClick={handleAddVehicle}>
               <Save className="h-4 w-4 mr-2" />
               保存
             </Button>
