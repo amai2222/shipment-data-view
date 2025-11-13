@@ -367,6 +367,10 @@ export default function ReceiptReport() {
             </CardContent>
           </Card>
         </div>
+      ) : (
+        <div className="text-center py-8 text-muted-foreground">
+          暂无统计数据
+        </div>
       )}
 
       {/* 明细表格 */}
