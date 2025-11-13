@@ -387,12 +387,15 @@ BEGIN
             'created_at', pbt.created_at
         ) ORDER BY pbt.created_at DESC
     ) INTO v_transactions
-    FROM public.partner_balance_transactions pbt
-    WHERE pbt.partner_id = p_partner_id
-      AND (p_start_date IS NULL OR DATE(pbt.created_at) >= p_start_date)
-      AND (p_end_date IS NULL OR DATE(pbt.created_at) <= p_end_date)
-    ORDER BY pbt.created_at DESC
-    LIMIT p_limit OFFSET p_offset;
+    FROM (
+        SELECT pbt.*
+        FROM public.partner_balance_transactions pbt
+        WHERE pbt.partner_id = p_partner_id
+          AND (p_start_date IS NULL OR DATE(pbt.created_at) >= p_start_date)
+          AND (p_end_date IS NULL OR DATE(pbt.created_at) <= p_end_date)
+        ORDER BY pbt.created_at DESC
+        LIMIT p_limit OFFSET p_offset
+    ) pbt;
     
     RETURN jsonb_build_object(
         'success', true,
@@ -1356,7 +1359,7 @@ BEGIN
     -- 构建WHERE条件
     IF p_invoicing_partner_id IS NOT NULL THEN
         v_where_conditions := array_append(v_where_conditions, 
-            format('ir.invoicing_partner_id = %L', p_invoicing_partner_id));
+            format('ir.invoicing_partner_id = %L::uuid', p_invoicing_partner_id::text));
     END IF;
     
     IF p_request_number IS NOT NULL AND p_request_number != '' THEN
@@ -1389,8 +1392,8 @@ BEGIN
 
     IF p_project_id IS NOT NULL THEN
         v_where_conditions := array_append(v_where_conditions, 
-            format('EXISTS (SELECT 1 FROM invoice_request_details ird INNER JOIN logistics_records lr ON ird.logistics_record_id = lr.id WHERE ird.invoice_request_id = ir.id AND lr.project_id = %L)', 
-                p_project_id));
+            format('EXISTS (SELECT 1 FROM invoice_request_details ird INNER JOIN logistics_records lr ON ird.logistics_record_id = lr.id WHERE ird.invoice_request_id = ir.id AND lr.project_id = %L::uuid)', 
+                p_project_id::text));
     END IF;
 
     IF p_license_plate IS NOT NULL AND p_license_plate != '' THEN
@@ -1466,11 +1469,17 @@ BEGIN
                     END,
                     ''''-'''' 
                 ) AS loading_date_range,
-                COALESCE(SUM(lpc.payable_amount), 0) AS total_payable_cost
+                COALESCE(SUM(
+                    CASE 
+                        WHEN p.partner_type = ''货主'' THEN lpc.payable_amount 
+                        ELSE 0 
+                    END
+                ), 0) AS total_payable_cost
             FROM filtered_requests fr
             LEFT JOIN invoice_request_details ird ON ird.invoice_request_id = fr.id
             LEFT JOIN logistics_records lr ON ird.logistics_record_id = lr.id
-            LEFT JOIN logistics_partner_costs lpc ON lpc.logistics_record_id = lr.id AND lpc.partner_type = ''司机''
+            LEFT JOIN logistics_partner_costs lpc ON lpc.logistics_record_id = lr.id
+            LEFT JOIN partners p ON p.id = lpc.partner_id
             GROUP BY fr.id
         )
         SELECT jsonb_agg(

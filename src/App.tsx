@@ -436,7 +436,7 @@ const App = () => (
             } />
             
             <Route path="/finance/receipt-report" element={
-              <ProtectedRoute requiredPermission="finance.payment_invoice">
+              <ProtectedRoute requiredPermission="finance.receipt_report">
                 <AppLayout><ReceiptReport /></AppLayout>
               </ProtectedRoute>
             } />
@@ -720,6 +720,12 @@ const App = () => (
             <Route path="/m/finance/payment-invoice/:requestId" element={
               <ProtectedRoute requiredPermission="finance.payment_invoice">
                 <MobileLayout><PaymentInvoiceDetail /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/finance/receipt-report" element={
+              <ProtectedRoute requiredPermission="finance.receipt_report">
+                <MobileLayout><ReceiptReport /></MobileLayout>
               </ProtectedRoute>
             } />
 

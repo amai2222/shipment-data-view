@@ -74,13 +74,13 @@ export default function ReceiptReport() {
     const loadPartners = async () => {
       try {
         const { data, error } = await supabase
-          .from('logistics_partners')
+          .from('partners')
           .select('id, full_name')
           .eq('partner_type', '货主')
           .order('full_name');
         
         if (error) throw error;
-        setPartners((data || []).map(p => ({ id: p.id, name: p.full_name })));
+        setPartners((data || []).map(p => ({ id: p.id, name: p.full_name || '' })));
       } catch (error) {
         console.error('加载货主列表失败:', error);
       }
@@ -101,8 +101,18 @@ export default function ReceiptReport() {
       if (error) throw error;
 
       const result = data as { success: boolean; statistics: ReceiptStatistics };
-      if (result.success) {
+      if (result.success && result.statistics) {
         setStatistics(result.statistics);
+      } else {
+        // 如果返回的数据为空，设置默认值
+        setStatistics({
+          total_invoiced: 0,
+          total_received: 0,
+          total_unreceived: 0,
+          receipt_rate: 0,
+          overdue_amount: 0,
+          overdue_count: 0
+        });
       }
     } catch (error) {
       console.error('加载统计数据失败:', error);
@@ -280,7 +290,7 @@ export default function ReceiptReport() {
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : statistics && (
+      ) : statistics ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-3">

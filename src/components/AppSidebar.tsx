@@ -93,7 +93,7 @@ export const menuItems = [
     icon: Calculator,
     items: [
       { title: "运费对账", url: "/finance/reconciliation", icon: Calculator },
-      { title: "付款与开票", url: "/finance/payment-invoice", icon: Banknote },
+      { title: "财务收款", url: "/finance/payment-invoice", icon: Banknote },
       { title: "财务开票", url: "/invoice-request-management", icon: FileText },
       { title: "财务付款", url: "/payment-requests-list", icon: ClipboardList },
       { title: "收款报表", url: "/finance/receipt-report", icon: TrendingUp },
@@ -157,6 +157,8 @@ export function AppSidebar() {
       // 财务管理
       '/finance/reconciliation': 'finance.reconciliation',
       '/finance/payment-invoice': 'finance.payment_invoice',
+      '/finance/receipt-report': 'finance.receipt_report',
+      '/partner-balance': 'finance.partner_balance',
       '/payment-requests-list': 'finance.payment_requests',
       '/invoice-request-management': 'finance.invoice_request_management',
       
