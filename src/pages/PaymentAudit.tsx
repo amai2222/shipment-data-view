@@ -14,7 +14,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-// @ts-expect-error - lucide-react图标导入
 import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users, Merge, Undo2, Copy } from 'lucide-react';
 // ✅ 导入可复用组件
 import {
@@ -37,23 +36,27 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-// @ts-expect-error - lucide-react图标导入
 import { CalendarIcon, X, Building2, Search } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
 import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDialog';
+import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
+import { LogisticsRecord, PlatformTracking } from '@/types';
+import { RouteDisplay } from '@/components/RouteDisplay';
 
 // --- 类型定义 ---
 interface PaymentRequest {
   id: string;
   created_at: string;
   request_id: string;
-  status: 'Pending' | 'Approved' | 'Paid' | 'Rejected' | 'Cancelled';
+  status: 'Pending' | 'Approved' | 'Paid' | 'Rejected' | 'Cancelled' | 'Merged';
   notes: string | null;
   logistics_record_ids: string[];
   record_count: number;
   max_amount?: number; // 申请金额（最高金额）
   total_driver_freight?: number; // 司机运费合计
   total_partner_amount?: number; // 货主金额合计
+  is_merged_request?: boolean; // 是否为合并申请单
+  merged_count?: number; // 合并的申请单数量
 }
 
 // 从RPC函数返回的原始数据类型
@@ -102,6 +105,10 @@ export default function PaymentAudit() {
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
   const [modalContentLoading, setModalContentLoading] = useState(false);
   const [partnerTotals, setPartnerTotals] = useState<PartnerTotal[]>([]);
+  const [waybillDetailOpen, setWaybillDetailOpen] = useState(false);
+  const [selectedWaybillRecord, setSelectedWaybillRecord] = useState<LogisticsRecord | null>(null);
+  const [totalDriverPayable, setTotalDriverPayable] = useState<number>(0);
+  const [totalPartnerAmount, setTotalPartnerAmount] = useState<number>(0);
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [isCancelling, setIsCancelling] = useState(false);
   const [totalRequestsCount, setTotalRequestsCount] = useState(0);
@@ -397,10 +404,10 @@ export default function PaymentAudit() {
       });
       
       setSelection({ mode: 'none', selectedIds: new Set() });
-      loadRequests();
+      fetchPaymentRequests();
       
-    } catch (error: any) {
-      toast({ title: '合并失败', description: error.message, variant: 'destructive' });
+    } catch (error) {
+      toast({ title: '合并失败', description: error instanceof Error ? error.message : '合并失败', variant: 'destructive' });
     } finally {
       setIsMerging(false);
     }
@@ -445,10 +452,10 @@ export default function PaymentAudit() {
         description: `已恢复 ${data.restored_count} 个原申请单`
       });
       
-      loadRequests();
+      fetchPaymentRequests();
       
-    } catch (error: any) {
-      toast({ title: '取消合并失败', description: error.message, variant: 'destructive' });
+    } catch (error) {
+      toast({ title: '取消合并失败', description: error instanceof Error ? error.message : '取消合并失败', variant: 'destructive' });
     } finally {
       setIsUnmerging(false);
     }
@@ -794,7 +801,8 @@ export default function PaymentAudit() {
                 // 从已获取的数据中找到上一级合作方信息
                 const parentPartner = partnersById.get(parentInfo.partner_id);
                 if (parentPartner) {
-                  parentTitle = parentPartner.full_name || parentPartner.name || parentTitle;
+                  const partnerData = parentPartner as { full_name?: string; name?: string };
+                  parentTitle = partnerData.full_name || partnerData.name || parentTitle;
                 }
               }
             }
@@ -1070,6 +1078,8 @@ export default function PaymentAudit() {
     setModalContentLoading(true);
     setModalRecords([]);
     setPartnerTotals([]);
+    setTotalDriverPayable(0);
+    setTotalPartnerAmount(0);
 
     try {
       const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2', {
@@ -1110,9 +1120,35 @@ export default function PaymentAudit() {
       );
       
       setPartnerTotals(filteredTotals);
+      
+      // ✅ 计算司机应付汇总和货主金额汇总
+      let driverTotal = 0;
+      let partnerTotal = 0;
+      
+      rawRecords.forEach((rec: unknown) => {
+        const recData = rec as {
+          payable_cost?: number;
+          partner_costs?: Array<{ level?: number; payable_amount?: number }>;
+        };
+        
+        // 司机应付 = payable_cost
+        driverTotal += Number(recData.payable_cost || 0);
+        
+        // 货主金额 = 最高级合作方的应收金额
+        if (recData.partner_costs && recData.partner_costs.length > 0) {
+          const maxLevelInRecord = Math.max(...recData.partner_costs.map(c => c.level || 0));
+          const highestPartner = recData.partner_costs.find(c => c.level === maxLevelInRecord);
+          if (highestPartner) {
+            partnerTotal += Number(highestPartner.payable_amount || 0);
+          }
+        }
+      });
+      
+      setTotalDriverPayable(driverTotal);
+      setTotalPartnerAmount(partnerTotal);
 
       // ✅ 先对rawRecords排序：日期降序，运单编号升序
-      const sortedRawRecords = [...rawRecords].sort((a: any, b: any) => {
+      const sortedRawRecords = [...rawRecords].sort((a: { loading_date: string; auto_number: string }, b: { loading_date: string; auto_number: string }) => {
         // 主排序：日期降序
         const dateA = new Date(a.loading_date).getTime();
         const dateB = new Date(b.loading_date).getTime();
@@ -1162,6 +1198,109 @@ export default function PaymentAudit() {
       setModalContentLoading(false);
     }
   }, [toast]);
+
+  // 获取完整的运单数据
+  const fetchFullLogisticsRecord = useCallback(async (recordId: string): Promise<LogisticsRecord | null> => {
+    try {
+      // 分别查询运单、项目和司机信息，避免关系冲突
+      const { data: logisticsData, error: logisticsError } = await supabase
+        .from('logistics_records')
+        .select('*')
+        .eq('id', recordId)
+        .single();
+
+      if (logisticsError) throw logisticsError;
+      if (!logisticsData) return null;
+
+      // 查询项目信息
+      let projectName = '';
+      if (logisticsData.project_id) {
+        const { data: projectData } = await supabase
+          .from('projects')
+          .select('id, name')
+          .eq('id', logisticsData.project_id)
+          .single();
+        projectName = projectData?.name || '';
+      }
+
+      // 查询合作链路信息
+      let chainName: string | null = null;
+      if (logisticsData.chain_id) {
+        const { data: chainData } = await supabase
+          .from('partner_chains')
+          .select('chain_name')
+          .eq('id', logisticsData.chain_id)
+          .single();
+        chainName = chainData?.chain_name || null;
+      }
+
+      // 查询司机信息
+      let driverInfo: { id?: string; name?: string; license_plate?: string; phone?: string } = {};
+      if (logisticsData.driver_id) {
+        const { data: driverData } = await supabase
+          .from('drivers')
+          .select('id, name, license_plate, phone')
+          .eq('id', logisticsData.driver_id)
+          .single();
+        driverInfo = driverData || {};
+      }
+
+      const formattedRecord: LogisticsRecord = {
+        id: logisticsData.id,
+        auto_number: logisticsData.auto_number,
+        project_id: logisticsData.project_id || '',
+        project_name: projectName,
+        chain_id: logisticsData.chain_id || undefined,
+        loading_date: logisticsData.loading_date,
+        unloading_date: logisticsData.unloading_date || undefined,
+        loading_location: logisticsData.loading_location,
+        unloading_location: logisticsData.unloading_location,
+        driver_id: driverInfo.id || '',
+        driver_name: driverInfo.name || '',
+        license_plate: driverInfo.license_plate || '',
+        driver_phone: driverInfo.phone || '',
+        loading_weight: logisticsData.loading_weight || 0,
+        unloading_weight: logisticsData.unloading_weight || undefined,
+        transport_type: (logisticsData.transport_type as "实际运输" | "退货") || "实际运输",
+        current_cost: logisticsData.current_cost || undefined,
+        extra_cost: logisticsData.extra_cost || undefined,
+        payable_cost: logisticsData.payable_cost || undefined,
+        remarks: logisticsData.remarks || undefined,
+        created_at: logisticsData.created_at,
+        created_by_user_id: logisticsData.created_by_user_id || '',
+        billing_type_id: logisticsData.billing_type_id || undefined,
+        payment_status: logisticsData.payment_status as 'Unpaid' | 'Processing' | 'Paid' | undefined,
+        cargo_type: logisticsData.cargo_type || undefined,
+        loading_location_ids: logisticsData.loading_location_ids || undefined,
+        unloading_location_ids: logisticsData.unloading_location_ids || undefined,
+        external_tracking_numbers: (logisticsData.external_tracking_numbers as PlatformTracking[] | undefined) || undefined,
+        other_platform_names: logisticsData.other_platform_names || undefined,
+      };
+      
+      // 添加 chain_name 属性（WaybillDetailDialog 需要）
+      const recordWithChainName = formattedRecord as LogisticsRecord & { chain_name?: string | null };
+      recordWithChainName.chain_name = chainName;
+      
+      return recordWithChainName;
+    } catch (error) {
+      console.error('获取运单详情失败:', error);
+      toast({
+        title: "加载失败",
+        description: error instanceof Error ? error.message : '无法加载运单详情',
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [toast]);
+
+  // 处理查看运单详情
+  const handleViewWaybillDetail = useCallback(async (recordId: string) => {
+    const record = await fetchFullLogisticsRecord(recordId);
+    if (record) {
+      setSelectedWaybillRecord(record);
+      setWaybillDetailOpen(true);
+    }
+  }, [fetchFullLogisticsRecord]);
 
   const handleRequestSelect = (requestId: string) => {
     setSelection(prev => {
@@ -1850,8 +1989,10 @@ export default function PaymentAudit() {
                   此申请单包含以下 {selectedRequest?.record_count ?? 0} 条运单记录。
                 </DialogDescription>
               </div>
-              {/* ✅ 复制运单号按钮 - 美化并调整位置 */}
-              {modalRecords.length > 0 && (
+            </div>
+            {/* ✅ 复制运单号按钮 - 居中显示 */}
+            {modalRecords.length > 0 && (
+              <div className="flex justify-center mt-4">
                 <Button
                   variant="outline"
                   size="sm"
@@ -1870,63 +2011,61 @@ export default function PaymentAudit() {
                       });
                     });
                   }}
-                  className="ml-8 mr-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700 hover:text-blue-800 shadow-sm hover:shadow-md transition-all duration-200"
+                  className="bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700 hover:text-blue-800 shadow-sm hover:shadow-md transition-all duration-200"
                 >
                   <Copy className="mr-2 h-4 w-4" />
                   复制运单号
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </DialogHeader>
           
-          {!modalContentLoading && partnerTotals.length > 0 && (
-            <div className="p-4 border rounded-lg bg-muted/50">
-              <h4 className="mb-2 font-semibold text-foreground">金额汇总 (按合作方)</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
-                {partnerTotals
-                  .sort((a, b) => (b.total_amount || 0) - (a.total_amount || 0))
-                  .map(pt => (
-                  <div key={pt.partner_id} className="flex justify-between items-baseline">
-                    <span className="text-sm text-muted-foreground">{pt.partner_name}:</span>
-                    <span className="font-mono font-semibold text-primary">
-                      {(pt.total_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="max-h-[50vh] overflow-y-auto">
+          <div className="flex gap-4">
+            {/* 表格区域 */}
+            <div className="flex-1 max-h-[50vh] overflow-y-auto">
             {modalContentLoading ? (
               <div className="flex justify-center items-center h-48">
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
             ) : (
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>运单号</TableHead>
-                    <TableHead>司机</TableHead>
-                    <TableHead>车牌号</TableHead>
-                    <TableHead>起运地 → 目的地</TableHead>
-                    <TableHead>装车日期</TableHead>
-                    <TableHead className="text-right">吨位</TableHead>
-                    <TableHead className="text-right">司机应收(元)</TableHead>
+                <TableHeader className="bg-muted/50 sticky top-0 z-10">
+                  <TableRow className="border-b-2 hover:bg-muted/50">
+                    <TableHead className="font-semibold text-foreground">运单号</TableHead>
+                    <TableHead className="font-semibold text-foreground">司机</TableHead>
+                    <TableHead className="font-semibold text-foreground">车牌号</TableHead>
+                    <TableHead className="font-semibold text-foreground">起运地 → 目的地</TableHead>
+                    <TableHead className="font-semibold text-foreground">装车日期</TableHead>
+                    <TableHead className="text-right font-semibold text-foreground">吨位</TableHead>
+                    <TableHead className="text-right font-semibold text-foreground">司机应收(元)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {modalRecords.length > 0 ? (
                     modalRecords.map((rec) => (
-                      <TableRow key={rec.id}>
-                        <TableCell className="font-mono">{rec.auto_number}</TableCell>
+                      <TableRow 
+                        key={rec.id}
+                        className="hover:bg-muted/60 transition-colors duration-150 border-b border-border/30"
+                      >
+                        <TableCell 
+                          className="font-mono cursor-pointer hover:text-primary hover:underline"
+                          onClick={() => handleViewWaybillDetail(rec.id)}
+                        >
+                          {rec.auto_number}
+                        </TableCell>
                         <TableCell>{rec.driver_name}</TableCell>
                         <TableCell>{rec.license_plate}</TableCell>
-                        <TableCell>{`${rec.loading_location} → ${rec.unloading_location}`}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <RouteDisplay
+                            loadingLocation={rec.loading_location}
+                            unloadingLocation={rec.unloading_location}
+                            variant="compact"
+                          />
+                        </TableCell>
                         <TableCell>{format(new Date(rec.loading_date), 'yyyy-MM-dd')}</TableCell>
                         <TableCell className="text-right">{rec.loading_weight ?? 'N/A'}</TableCell>
-                        <TableCell className="text-right font-mono text-primary">
-                          {(rec.payable_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                        <TableCell className="text-right font-mono font-semibold text-green-700">
+                          {(rec.payable_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                       </TableRow>
                     ))
@@ -1939,6 +2078,44 @@ export default function PaymentAudit() {
                   )}
                 </TableBody>
               </Table>
+            )}
+            </div>
+
+            {/* 汇总金额区域 - 右侧对齐 */}
+            {!modalContentLoading && (
+              <div className="flex-shrink-0 w-64 p-4 border rounded-lg bg-muted/50">
+                <h4 className="mb-3 font-semibold text-foreground">金额汇总 (按合作方)</h4>
+                <div className="space-y-3">
+                  {partnerTotals.length > 0 ? (
+                    partnerTotals
+                      .sort((a, b) => (b.total_amount || 0) - (a.total_amount || 0))
+                      .map(pt => (
+                        <div key={pt.partner_id} className="flex justify-between items-baseline">
+                          <span className="text-sm text-muted-foreground truncate pr-2">{pt.partner_name}:</span>
+                          <span className="font-mono font-semibold text-primary text-right whitespace-nowrap">
+                            {(pt.total_amount || 0).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                          </span>
+                        </div>
+                      ))
+                  ) : (
+                    <div className="text-sm text-muted-foreground">暂无合作方数据</div>
+                  )}
+                </div>
+                {/* ✅ 司机应付汇总 */}
+                <div className="mt-4 pt-4 border-t flex justify-between items-baseline">
+                  <span className="text-sm font-semibold text-foreground">司机应付汇总：</span>
+                  <span className="font-mono font-semibold text-green-700 text-right whitespace-nowrap">
+                    {totalDriverPayable.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                {/* ✅ 货主金额汇总 */}
+                <div className="mt-3 pt-3 border-t flex justify-between items-baseline">
+                  <span className="text-sm font-semibold text-foreground">货主金额汇总：</span>
+                  <span className="font-mono font-semibold text-blue-700 text-right whitespace-nowrap">
+                    {totalPartnerAmount.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
             )}
           </div>
         </DialogContent>
@@ -1955,6 +2132,16 @@ export default function PaymentAudit() {
       />
       </div>
       
+      {/* 运单详情对话框 */}
+      <WaybillDetailDialog
+        isOpen={waybillDetailOpen}
+        onClose={() => {
+          setWaybillDetailOpen(false);
+          setSelectedWaybillRecord(null);
+        }}
+        record={selectedWaybillRecord}
+      />
+
       {/* 批量输入对话框 */}
       <BatchInputDialog
         isOpen={batchInputDialog.isOpen}
