@@ -7,14 +7,19 @@
  * - 生产环境：始终启用（优化性能）
  */
 
-import { lazy } from 'react';
+import { lazy, ComponentType, LazyExoticComponent, ComponentPropsWithoutRef, createElement } from 'react';
 
 // 🔧 懒加载配置开关
 const USE_LAZY_IN_DEV = false; // ⚠️ 开发环境是否使用懒加载（设为false可快速查看错误）
 
+// 条件懒加载函数类型定义
+type ConditionalLazy = <T extends ComponentType<Record<string, unknown>>>(
+  importFn: () => Promise<{ default: T }>
+) => LazyExoticComponent<T>;
+
 // 条件懒加载函数
-const conditionalLazy = import.meta.env.DEV && !USE_LAZY_IN_DEV
-  ? <T,>(importFn: () => Promise<{ default: T }>) => {
+const conditionalLazy: ConditionalLazy = (import.meta.env.DEV && !USE_LAZY_IN_DEV
+  ? <T extends ComponentType<Record<string, unknown>>>(importFn: () => Promise<{ default: T }>) => {
       // 开发环境且禁用懒加载：立即同步导入，不使用 lazy()
       // 这样可以完全避免懒加载相关的错误
       console.warn(
@@ -38,7 +43,7 @@ const conditionalLazy = import.meta.env.DEV && !USE_LAZY_IN_DEV
       });
       
       // 返回一个包装组件，在组件渲染时等待加载完成
-      return ((props: any) => {
+      return ((props: ComponentPropsWithoutRef<T>) => {
         if (!resolvedComponent && loadingPromise) {
           // 如果还没加载完成，抛出 Promise 让 Suspense 处理
           throw loadingPromise;
@@ -46,11 +51,12 @@ const conditionalLazy = import.meta.env.DEV && !USE_LAZY_IN_DEV
         if (!resolvedComponent) {
           return <div>加载中...</div>;
         }
-        const Component = resolvedComponent as React.ComponentType<any>;
-        return <Component {...props} />;
-      }) as T;
+        const Component = resolvedComponent as T;
+        // 使用 createElement 来避免 JSX 类型检查问题
+        return createElement(Component, props);
+      }) as LazyExoticComponent<T>;
     }
-  : lazy; // 生产环境或开发环境启用懒加载：使用标准lazy
+  : lazy) as ConditionalLazy; // 生产环境或开发环境启用懒加载：使用标准lazy
 
 // 开发模式状态提示
 if (import.meta.env.DEV) {
@@ -85,11 +91,13 @@ export const PaymentInvoice = conditionalLazy(() => import('./pages/PaymentInvoi
 export const PaymentInvoiceDetail = conditionalLazy(() => import('./pages/PaymentInvoiceDetail'));
 export const PaymentRequestsList = conditionalLazy(() => import('./pages/PaymentRequestsList'));
 export const FinancialOverview = conditionalLazy(() => import('./pages/FinancialOverview'));
+export const ReceiptReport = conditionalLazy(() => import('./pages/ReceiptReport'));
 
 // 基础数据管理
 export const Drivers = conditionalLazy(() => import('./pages/Drivers'));
 export const Locations = conditionalLazy(() => import('./pages/Locations'));
 export const Partners = conditionalLazy(() => import('./pages/Partners'));
+export const PartnerBalance = conditionalLazy(() => import('./pages/PartnerBalance'));
 export const FleetManagement = conditionalLazy(() => import('./pages/FleetManagement'));
 
 // 内部车辆管理 - PC端

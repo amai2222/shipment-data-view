@@ -28,7 +28,8 @@ import {
   CheckCircle,
   Calendar,
   ArrowLeft,
-  Route
+  Route,
+  TrendingUp
 } from 'lucide-react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -283,6 +284,18 @@ const menuGroups = [
         href: '/m/payment-requests-management',
         icon: Receipt,
         roles: ['admin', 'finance', 'operator']
+      },
+      {
+        name: '收款报表',
+        href: '/m/finance/receipt-report',
+        icon: TrendingUp,
+        roles: ['admin', 'finance']
+      },
+      {
+        name: '货主余额',
+        href: '/m/partner-balance',
+        icon: DollarSign,
+        roles: ['admin', 'finance']
       }
     ]
   },

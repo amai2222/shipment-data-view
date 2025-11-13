@@ -15,11 +15,12 @@ import { toast } from 'sonner';
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { Partner } from '@/types';
-import { Trash2, Edit, Plus, Download, Upload, Users, Eye, EyeOff } from 'lucide-react';
+import { Trash2, Edit, Plus, Download, Upload, Users, Eye, EyeOff, DollarSign } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PageHeader } from '@/components/PageHeader';
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 import { useQueryClient } from '@tanstack/react-query';
+import { cn } from '@/lib/utils';
 
 // 扩展 Partner 类型，使其可以直接包含项目列表
 interface PartnerWithProjects extends Partner {
@@ -77,6 +78,40 @@ export default function Partners() {
     partnerType: '货主' as '货主' | '合作商' | '资方' | '本公司'
   });
 
+  // 加载货主余额
+  const loadPartnerBalances = useCallback(async (partnerIds: string[]) => {
+    if (partnerIds.length === 0) return {};
+    
+    try {
+      const balanceMap: Record<string, number> = {};
+      
+      // 批量查询余额
+      await Promise.all(
+        partnerIds.map(async (partnerId) => {
+          try {
+            const { data, error } = await supabase.rpc('get_partner_balance', {
+              p_partner_id: partnerId
+            });
+            
+            if (!error && data) {
+              const result = data as { success: boolean; balance: number };
+              if (result.success) {
+                balanceMap[partnerId] = result.balance || 0;
+              }
+            }
+          } catch (err) {
+            console.error(`加载货主 ${partnerId} 余额失败:`, err);
+          }
+        })
+      );
+      
+      return balanceMap;
+    } catch (error) {
+      console.error('批量加载余额失败:', error);
+      return {};
+    }
+  }, []);
+
   const fetchPartners = useCallback(async () => {
     try {
       let data: any, error: any;
@@ -132,16 +167,29 @@ export default function Partners() {
           projectCode: pp.projects.auto_code,
           level: pp.level,
           taxRate: Number(pp.tax_rate)
-        }))
+        })),
+        balance: undefined  // 稍后加载
         };
       });
 
       setPartners(formattedData);
+
+      // 如果是货主类型，加载余额
+      if (activeTab === '货主') {
+        const shipperIds = formattedData.filter(p => p.partnerType === '货主').map(p => p.id);
+        if (shipperIds.length > 0) {
+          const balanceMap = await loadPartnerBalances(shipperIds);
+          setPartners(prev => prev.map(p => ({
+            ...p,
+            balance: balanceMap[p.id]
+          })));
+        }
+      }
     } catch (error) {
       console.error('获取合作方失败:', error);
       toast.error('获取合作方失败');
     }
-  }, [canViewSensitive]);
+  }, [canViewSensitive, activeTab, loadPartnerBalances]);
 
   useEffect(() => {
     fetchPartners();
@@ -455,6 +503,7 @@ export default function Partners() {
                       {showDetails && <TableHead>公司地址</TableHead>}
                       {showDetails && canViewSensitive && <TableHead>银行信息</TableHead>}
                       {canViewSensitive && <TableHead>默认税点</TableHead>}
+                      {type === '货主' && <TableHead className="text-right">账号余额</TableHead>}
                       <TableHead>关联项目</TableHead>
                       <TableHead>创建时间</TableHead>
                       <TableHead>操作</TableHead>
@@ -500,6 +549,20 @@ export default function Partners() {
                         {canViewSensitive && (
                           <TableCell>{(partner.taxRate * 100).toFixed(2)}%</TableCell>
                         )}
+                        {type === '货主' && (
+                          <TableCell className="text-right">
+                            {partner.balance !== undefined ? (
+                              <span className={cn(
+                                "font-mono font-semibold",
+                                partner.balance >= 0 ? "text-green-600" : "text-red-600"
+                              )}>
+                                ¥{partner.balance.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">加载中...</span>
+                            )}
+                          </TableCell>
+                        )}
                   <TableCell>
                     <div className="max-w-xs space-y-1">
                       {partner.projects.length > 0 ? (
@@ -529,6 +592,17 @@ export default function Partners() {
                         <TableCell>{new Date(partner.createdAt).toLocaleDateString()}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
+                            {type === '货主' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.location.href = `/partner-balance?partnerId=${partner.id}`}
+                                title="查看余额和流水"
+                              >
+                                <DollarSign className="h-4 w-4 mr-1" />
+                                余额
+                              </Button>
+                            )}
                             <Button variant="outline" size="sm" onClick={() => handleEdit(partner)}><Edit className="h-4 w-4" /></Button>
                             <DeleteConfirmButton 
                               partnerId={partner.id}
@@ -541,7 +615,7 @@ export default function Partners() {
                     ))}
                     {partners.filter(p => p.partnerType === type).length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={showDetails ? (canViewSensitive ? 9 : 7) : (canViewSensitive ? 5 : 4)} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={showDetails ? (canViewSensitive ? (type === '货主' ? 10 : 9) : (type === '货主' ? 8 : 7)) : (canViewSensitive ? (type === '货主' ? 6 : 5) : (type === '货主' ? 5 : 4))} className="text-center py-8 text-muted-foreground">
                           暂无{type}数据
                         </TableCell>
                       </TableRow>

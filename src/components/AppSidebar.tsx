@@ -19,7 +19,9 @@ import {
   History,
   TreePine,
   CheckCircle2,
-  CreditCard
+  CreditCard,
+  TrendingUp,
+  DollarSign
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -94,6 +96,8 @@ export const menuItems = [
       { title: "付款与开票", url: "/finance/payment-invoice", icon: Banknote },
       { title: "财务开票", url: "/invoice-request-management", icon: FileText },
       { title: "财务付款", url: "/payment-requests-list", icon: ClipboardList },
+      { title: "收款报表", url: "/finance/receipt-report", icon: TrendingUp },
+      { title: "货主余额", url: "/partner-balance", icon: DollarSign },
     ]
   },
   {

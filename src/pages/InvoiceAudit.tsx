@@ -225,7 +225,7 @@ export default function InvoiceAudit() {
     setLoading(true);
     try {
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
-      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1113', {
+      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1114', {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
@@ -241,8 +241,14 @@ export default function InvoiceAudit() {
 
       if (error) throw error;
       
-      // 处理返回的数据
-      const requestsData = (data as InvoiceRequestRaw[]) || [];
+      // 处理返回的JSONB数据
+      const result = data as {
+        success: boolean;
+        records?: InvoiceRequestRaw[];
+        total_count?: number;
+      };
+      const requestsData = result.records || [];
+      setTotalRequestsCount(result.total_count || 0);
       setRequests(requestsData.map(item => ({
         id: item.id,
         created_at: item.created_at,

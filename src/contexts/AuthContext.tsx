@@ -24,11 +24,17 @@ export interface UserProfile {
   work_wechat_department?: number[];
   avatar_url?: string;
   created_at?: string;
+  partnerId?: string;  // 货主ID（仅partner角色使用）
+}
+
+// 扩展User类型，添加partnerId属性（用于货主移动端）
+interface ExtendedUser extends User {
+  partnerId?: string;
 }
 
 // 定义AuthContext的类型，明确提供给子组件的属性和方法
 interface AuthContextType {
-  user: User | null;
+  user: ExtendedUser | null;
   profile: UserProfile | null;
   session: Session | null;
   loading: boolean;
@@ -43,7 +49,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // AuthProvider组件，包裹整个应用，提供认证状态
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +66,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         setSession(session);
         const currentUser = session?.user ?? null;
-        setUser(currentUser);
+        // 扩展User对象，添加partnerId（从profile中获取）
+        if (currentUser && profile?.partnerId) {
+          (currentUser as ExtendedUser).partnerId = profile.partnerId;
+        }
+        setUser(currentUser as ExtendedUser | null);
 
         // ✅ 只处理用户主动登出事件
         if (event === 'SIGNED_OUT') {
@@ -102,15 +112,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setProfile(null);
               } else if (profileData) {
                 const anyProfile = profileData as any;
-                const userProfile = {
+                
+                // 如果是partner角色，查询关联的货主ID
+                let partnerId: string | undefined;
+                if (anyProfile.role === 'partner') {
+                  try {
+                    const { data: partnerData } = await supabase
+                      .from('partners')
+                      .select('id')
+                      .eq('partner_type', '货主')
+                      .limit(1)
+                      .single();
+                    partnerId = partnerData?.id;
+                  } catch (error) {
+                    console.warn('查询货主ID失败:', error);
+                  }
+                }
+                
+                const userProfile: UserProfile = {
                   id: anyProfile.id,
                   email: anyProfile.email || '',
                   username: anyProfile.username || anyProfile.email || '',
                   full_name: anyProfile.full_name || '',
                   role: (anyProfile.role as UserRole) ?? 'operator',
-                  is_active: anyProfile.is_active ?? true
+                  is_active: anyProfile.is_active ?? true,
+                  partnerId
                 };
                 setProfile(userProfile);
+                
+                // 更新user对象的partnerId
+                if (currentUser && partnerId) {
+                  (currentUser as ExtendedUser).partnerId = partnerId;
+                  setUser(currentUser as ExtendedUser);
+                }
                 
                 // 特殊处理：partner（货主）角色登录后直接跳转到货主看板
                 // 暂时注释，等Lovable应用新的package.json配置（精确版本React）

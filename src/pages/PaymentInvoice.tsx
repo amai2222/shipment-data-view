@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, RotateCcw, Users, Copy } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Receipt, RotateCcw, Users, Copy, DollarSign, Upload, X as XIcon, History, FileCheck } from 'lucide-react';
 // ✅ 导入可复用组件
 import {
   PaginationControl,
@@ -35,6 +35,7 @@ import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 import { PageHeader } from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -50,11 +51,17 @@ interface InvoiceRequest {
   id: string;
   created_at: string;
   request_number: string;
-  status: 'Pending' | 'Approved' | 'Completed' | 'Rejected' | 'Voided';
+  status: 'Pending' | 'Approved' | 'Completed' | 'Received' | 'Rejected' | 'Voided';
   remarks: string | null;
   logistics_record_ids: string[];
   record_count: number;
   total_amount?: number; // 开票金额
+  total_received_amount?: number;  // 累计收款金额（支持部分收款）
+  remaining_amount?: number;  // 未收款金额
+  payment_due_date?: string;  // 收款期限
+  overdue_days?: number;  // 逾期天数
+  reminder_count?: number;  // 提醒次数
+  reconciliation_status?: string;  // 对账状态
   invoicing_partner_id?: string;  // ✅ 添加（关键！）
   partner_name?: string;
   partner_full_name?: string;
@@ -75,6 +82,12 @@ interface InvoiceRequestRaw {
   remarks: string | null;
   record_count: number;
   total_amount?: number;
+  total_received_amount?: number;  // 累计收款金额（支持部分收款）
+  remaining_amount?: number;  // 未收款金额
+  payment_due_date?: string;  // 收款期限
+  overdue_days?: number;  // 逾期天数
+  reminder_count?: number;  // 提醒次数
+  reconciliation_status?: string;  // 对账状态
   invoicing_partner_id?: string;
   partner_name?: string;
   partner_full_name?: string;
@@ -155,7 +168,53 @@ export default function InvoiceAudit() {
   const [selectedWaybillRecord, setSelectedWaybillRecord] = useState<LogisticsRecord | null>(null);
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [isCancelling, setIsCancelling] = useState(false);
+  
+  // 收款对话框状态
+  const [showReceiptDialog, setShowReceiptDialog] = useState(false);
+  const [selectedReceiptRequest, setSelectedReceiptRequest] = useState<InvoiceRequest | null>(null);
+  const [receiptNumber, setReceiptNumber] = useState<string>('');  // 收款单号
+  const [receiptBank, setReceiptBank] = useState<string>('');  // 收款银行
+  const [receiptAmount, setReceiptAmount] = useState<string>('');  // 收款金额
+  const [receiptImages, setReceiptImages] = useState<File[]>([]);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [totalRequestsCount, setTotalRequestsCount] = useState(0);
+  
+  // 退款对话框状态
+  const [showRefundDialog, setShowRefundDialog] = useState(false);
+  const [selectedRefundRequest, setSelectedRefundRequest] = useState<InvoiceRequest | null>(null);
+  const [refundAmount, setRefundAmount] = useState<string>('');
+  const [refundReason, setRefundReason] = useState<string>('');
+  const [processingRefund, setProcessingRefund] = useState(false);
+  
+  // 对账对话框状态
+  const [showReconciliationDialog, setShowReconciliationDialog] = useState(false);
+  const [selectedReconciliationRequest, setSelectedReconciliationRequest] = useState<InvoiceRequest | null>(null);
+  const [reconciliationStatus, setReconciliationStatus] = useState<string>('Reconciled');
+  const [reconciliationNotes, setReconciliationNotes] = useState<string>('');
+  const [processingReconciliation, setProcessingReconciliation] = useState(false);
+  
+  // 收款记录对话框状态
+  const [showReceiptRecordsDialog, setShowReceiptRecordsDialog] = useState(false);
+  const [selectedReceiptRecordsRequest, setSelectedReceiptRecordsRequest] = useState<InvoiceRequest | null>(null);
+  interface ReceiptRecord {
+    id: string;
+    invoice_request_id: string;
+    request_number: string;
+    receipt_number?: string;
+    receipt_bank?: string;
+    receipt_amount: number;
+    refund_amount?: number;
+    net_amount: number;
+    receipt_images?: string[];
+    receipt_date: string;
+    refund_reason?: string;
+    refund_date?: string;
+    notes?: string;
+    received_by_name?: string;
+    refunded_by_name?: string;
+  }
+  const [receiptRecords, setReceiptRecords] = useState<ReceiptRecord[]>([]);
+  const [loadingReceiptRecords, setLoadingReceiptRecords] = useState(false);
   
   // 批量操作状态
   const [isBatchOperating, setIsBatchOperating] = useState(false);
@@ -202,7 +261,7 @@ export default function InvoiceAudit() {
     setLoading(true);
     try {
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
-      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1113', {
+      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1114', {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
@@ -218,8 +277,14 @@ export default function InvoiceAudit() {
 
       if (error) throw error;
       
-      // 处理返回的数据
-      const requestsData = (data as InvoiceRequestRaw[]) || [];
+      // 处理返回的JSONB数据
+      const result = data as {
+        success: boolean;
+        records?: InvoiceRequestRaw[];
+        total_count?: number;
+      };
+      const requestsData = result.records || [];
+      setTotalRequestsCount(result.total_count || 0);
       setRequests(requestsData.map(item => ({
         id: item.id,
         created_at: item.created_at,
@@ -237,7 +302,11 @@ export default function InvoiceAudit() {
         tax_number: item.tax_number,
         invoice_number: item.invoice_number,
         loading_date_range: item.loading_date_range,      // ✅ 新增字段
-        total_payable_cost: item.total_payable_cost       // ✅ 新增字段
+        total_payable_cost: item.total_payable_cost,       // ✅ 新增字段
+        total_received_amount: item.total_received_amount || 0,  // 累计收款金额
+        payment_due_date: item.payment_due_date,  // 收款期限
+        overdue_days: item.overdue_days,  // 逾期天数
+        reconciliation_status: item.reconciliation_status,  // 对账状态
       })));
       
       // 设置总数和总页数
@@ -588,7 +657,16 @@ export default function InvoiceAudit() {
 
           // 组合数据
           details = detailsData.map(detail => {
-            const logisticsRecord = logisticsMap.get(detail.logistics_record_id);
+            const logisticsRecord = logisticsMap.get(detail.logistics_record_id) as {
+              id: string;
+              auto_number: string;
+              project_id: string;
+              driver_id: string;
+              loading_location: string;
+              unloading_location: string;
+              loading_date: string;
+              loading_weight?: number;
+            } | undefined;
             return {
               id: detail.id,
               invoice_request_id: detail.invoice_request_id,
@@ -1037,6 +1115,257 @@ export default function InvoiceAudit() {
     }
   };
 
+  // 处理收款（支持部分收款）
+  const handleReceipt = async () => {
+    if (!selectedReceiptRequest) return;
+    
+    if (!receiptAmount || parseFloat(receiptAmount) <= 0) {
+      toast({
+        title: "输入错误",
+        description: "请输入有效的收款金额",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // 前端金额校验
+    const invoiceAmount = selectedReceiptRequest.total_amount || 0;
+    const totalReceived = (selectedReceiptRequest as any).total_received_amount || 0;
+    const remainingAmount = invoiceAmount - totalReceived;
+    const receiptAmountNum = parseFloat(receiptAmount);
+
+    if (receiptAmountNum > remainingAmount) {
+      toast({
+        title: "金额错误",
+        description: `收款金额超过未收款金额。开票金额：¥${invoiceAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}，已收款：¥${totalReceived.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}，未收款：¥${remainingAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploadingReceipt(true);
+    try {
+      let receiptImageUrls: string[] = [];
+      
+      // 上传银行回单图片
+      if (receiptImages.length > 0) {
+        const filesToUpload = receiptImages.map(file => ({
+          fileName: file.name,
+          fileData: ''
+        }));
+
+        // 转换为base64
+        for (let i = 0; i < receiptImages.length; i++) {
+          const file = receiptImages[i];
+          const reader = new FileReader();
+          await new Promise((resolve) => {
+            reader.onload = () => {
+              const base64 = reader.result as string;
+              filesToUpload[i].fileData = base64.split(',')[1];
+              resolve(null);
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+
+        // 调用七牛云上传函数
+        const timestamp = Date.now();
+        const { data: uploadData, error: uploadError } = await supabase.functions.invoke('qiniu-upload', {
+          body: {
+            files: filesToUpload,
+            namingParams: {
+              projectName: 'InvoiceReceipt',
+              customName: `收款回单-${selectedReceiptRequest.request_number}-${timestamp}`
+            }
+          }
+        });
+
+        if (uploadError) throw uploadError;
+        if (!uploadData.success) throw new Error(uploadData.error || '图片上传失败');
+        
+        receiptImageUrls = uploadData.urls || [];
+      }
+
+      // 调用后端RPC函数更新状态
+      const { data, error } = await supabase.rpc('receive_invoice_payment_1114', {
+        p_request_number: selectedReceiptRequest.request_number,
+        p_receipt_number: receiptNumber || null,  // 收款单号
+        p_receipt_bank: receiptBank || null,  // 收款银行
+        p_received_amount: receiptAmountNum,  // 收款金额
+        p_receipt_images: receiptImageUrls.length > 0 ? receiptImageUrls : null,  // 银行回单图片
+        p_notes: null  // 备注
+      });
+
+      if (error) throw error;
+
+      const result = data as { 
+        success: boolean; 
+        message: string; 
+        updated_count: number;
+        is_full_payment: boolean;
+        total_received: number;
+        remaining_amount: number;
+      };
+      
+      if (result.success) {
+        toast({
+          title: result.is_full_payment ? "收款成功（全额收款）" : "收款成功（部分收款）",
+          description: result.message || `本次收款 ¥${receiptAmountNum.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        });
+        setShowReceiptDialog(false);
+        setSelectedReceiptRequest(null);
+        setReceiptNumber('');
+        setReceiptBank('');
+        setReceiptAmount('');
+        setReceiptImages([]);
+        fetchInvoiceRequests();
+      } else {
+        throw new Error(result.message || '收款操作失败');
+      }
+    } catch (error) {
+      console.error('收款操作失败:', error);
+      toast({
+        title: "收款失败",
+        description: (error as Error).message || '操作失败，请重试',
+        variant: "destructive"
+      });
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
+  // 处理退款
+  const handleRefund = async () => {
+    if (!selectedRefundRequest) return;
+    
+    if (!refundAmount || parseFloat(refundAmount) <= 0) {
+      toast({
+        title: "输入错误",
+        description: "请输入有效的退款金额",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const totalReceived = selectedRefundRequest.total_received_amount || 0;
+    const refundAmountNum = parseFloat(refundAmount);
+
+    if (refundAmountNum > totalReceived) {
+      toast({
+        title: "金额错误",
+        description: `退款金额不能超过已收款金额。已收款：¥${totalReceived.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setProcessingRefund(true);
+    try {
+      const { data, error } = await supabase.rpc('refund_invoice_receipt_1114', {
+        p_request_number: selectedRefundRequest.request_number,
+        p_refund_amount: refundAmountNum,
+        p_refund_reason: refundReason || null,
+        p_receipt_record_id: null  // 从累计金额中退款
+      });
+
+      if (error) throw error;
+
+      const result = data as { 
+        success: boolean; 
+        message: string; 
+        total_received: number;
+        remaining_amount: number;
+      };
+      
+      if (result.success) {
+        toast({
+          title: "退款成功",
+          description: result.message || `退款金额 ¥${refundAmountNum.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        });
+        setShowRefundDialog(false);
+        setSelectedRefundRequest(null);
+        setRefundAmount('');
+        setRefundReason('');
+        fetchInvoiceRequests();
+      } else {
+        throw new Error(result.message || '退款操作失败');
+      }
+    } catch (error) {
+      console.error('退款操作失败:', error);
+      toast({
+        title: "退款失败",
+        description: (error as Error).message || '操作失败，请重试',
+        variant: "destructive"
+      });
+    } finally {
+      setProcessingRefund(false);
+    }
+  };
+
+  // 处理对账
+  const handleReconciliation = async () => {
+    if (!selectedReconciliationRequest) return;
+
+    setProcessingReconciliation(true);
+    try {
+      const { data, error } = await supabase.rpc('reconcile_invoice_receipt_1114', {
+        p_request_number: selectedReconciliationRequest.request_number,
+        p_reconciliation_status: reconciliationStatus,
+        p_reconciliation_notes: reconciliationNotes || null
+      });
+
+      if (error) throw error;
+
+      const result = data as { success: boolean; message: string };
+      
+      if (result.success) {
+        toast({
+          title: "对账成功",
+          description: result.message || '对账完成'
+        });
+        setShowReconciliationDialog(false);
+        setSelectedReconciliationRequest(null);
+        setReconciliationStatus('Reconciled');
+        setReconciliationNotes('');
+        fetchInvoiceRequests();
+      } else {
+        throw new Error(result.message || '对账操作失败');
+      }
+    } catch (error) {
+      console.error('对账操作失败:', error);
+      toast({
+        title: "对账失败",
+        description: (error as Error).message || '操作失败，请重试',
+        variant: "destructive"
+      });
+    } finally {
+      setProcessingReconciliation(false);
+    }
+  };
+
+  // 处理图片选择
+  const handleReceiptImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length !== files.length) {
+      toast({
+        title: "提示",
+        description: "只能上传图片文件",
+        variant: "destructive"
+      });
+    }
+
+    setReceiptImages(prev => [...prev, ...imageFiles]);
+    // 重置input，允许重复选择同一文件
+    e.target.value = '';
+  };
+
+  // 删除图片
+  const removeReceiptImage = (index: number) => {
+    setReceiptImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   // 查看详情
   const handleViewDetails = useCallback(async (request: InvoiceRequest) => {
     setSelectedRequest(request);
@@ -1079,7 +1408,17 @@ export default function InvoiceAudit() {
 
       // 组合数据（使用invoice_request_details表中的invoiceable_amount）
       const detailedRecords = (detailsData as InvoiceRequestDetail[]).map((detail) => {
-        const record = logisticsMap.get(detail.logistics_record_id);
+        const record = logisticsMap.get(detail.logistics_record_id) as {
+          id: string;
+          auto_number: string;
+          driver_name: string;
+          license_plate: string;
+          loading_location: string;
+          unloading_location: string;
+          loading_date: string;
+          loading_weight?: number | null;
+          payable_cost?: number | null;
+        } | undefined;
         return {
           id: record?.id || detail.logistics_record_id,
           auto_number: record?.auto_number || '',
@@ -1089,7 +1428,7 @@ export default function InvoiceAudit() {
           unloading_location: record?.unloading_location || '',
           loading_date: record?.loading_date || '',
           loading_weight: record?.loading_weight || null,
-          payable_cost: (record as any)?.payable_cost || null,  // ✅ 新增：司机应收
+          payable_cost: record?.payable_cost || null,  // ✅ 新增：司机应收
           invoiceable_amount: detail.invoiceable_amount || detail.amount || 0,
         };
       });
@@ -1258,9 +1597,9 @@ export default function InvoiceAudit() {
     return requests.every(req => selection.selectedIds.has(req.id));
   }, [requests, selection.selectedIds]);
 
-  // 对申请单按状态分组排序：待审核 > 已审批待开票 > 已开票
+  // 对申请单按状态分组排序：待审核 > 已审批待开票 > 已开票 > 已收款
   const groupedRequests = useMemo(() => {
-    const statusOrder = { 'Pending': 1, 'Approved': 2, 'Completed': 3 };
+    const statusOrder = { 'Pending': 1, 'Approved': 2, 'Completed': 3, 'Received': 4 };
     return [...requests].sort((a, b) => {
       const orderA = statusOrder[a.status as keyof typeof statusOrder] || 99;
       const orderB = statusOrder[b.status as keyof typeof statusOrder] || 99;
@@ -1492,6 +1831,7 @@ export default function InvoiceAudit() {
                 <option value="Pending">待审核</option>
                 <option value="Approved">已审批</option>
                 <option value="Completed">已开票</option>
+                <option value="Received">已收款</option>
               </select>
             </div>
 
@@ -1887,6 +2227,102 @@ export default function InvoiceAudit() {
                               </Button>
                               </ConfirmDialog>
                             )}
+
+                            {/* 收款按钮 - 橙色主题，支持部分收款 */}
+                            {(req.status === 'Completed' || (req.status === 'Received' && (req.total_received_amount || 0) < (req.total_amount || 0))) && (
+                              <Button 
+                                variant="default" 
+                                size="sm" 
+                                onClick={() => {
+                                  setSelectedReceiptRequest(req);
+                                  const remaining = (req.total_amount || 0) - (req.total_received_amount || 0);
+                                  setReceiptAmount(remaining > 0 ? remaining.toString() : '');
+                                  setReceiptNumber('');
+                                  setReceiptBank('');
+                                  setReceiptImages([]);
+                                  setShowReceiptDialog(true);
+                                }}
+                                className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-sm font-medium transition-all duration-200"
+                              >
+                                <DollarSign className="mr-2 h-4 w-4" />
+                                {(req.total_received_amount || 0) > 0 ? '继续收款' : '收款'}
+                              </Button>
+                            )}
+                            
+                            {/* 退款按钮 - 红色主题，只在已收款状态显示 */}
+                            {req.status === 'Received' && (req.total_received_amount || 0) > 0 && (
+                              <Button 
+                                variant="destructive" 
+                                size="sm" 
+                                onClick={() => {
+                                  setSelectedRefundRequest(req);
+                                  setRefundAmount('');
+                                  setRefundReason('');
+                                  setShowRefundDialog(true);
+                                }}
+                                className="border-0 shadow-sm font-medium transition-all duration-200"
+                              >
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                退款
+                              </Button>
+                            )}
+                            
+                            {/* 对账按钮 - 蓝色主题，有收款时显示 */}
+                            {((req.status === 'Received' || req.status === 'Completed') && (req.total_received_amount || 0) > 0) && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => {
+                                  setSelectedReconciliationRequest(req);
+                                  setReconciliationStatus(req.reconciliation_status || 'Unreconciled');
+                                  setReconciliationNotes('');
+                                  setShowReconciliationDialog(true);
+                                }}
+                                className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                              >
+                                <FileCheck className="mr-2 h-4 w-4" />
+                                对账
+                              </Button>
+                            )}
+                            
+                            {/* 收款记录按钮 - 灰色主题 */}
+                            {(req.total_received_amount || 0) > 0 && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={async () => {
+                                  setSelectedReceiptRecordsRequest(req);
+                                  setShowReceiptRecordsDialog(true);
+                                  setLoadingReceiptRecords(true);
+                                  try {
+                                    const { data, error } = await supabase.rpc('get_receipt_records_1114', {
+                                      p_request_number: req.request_number,
+                                      p_start_date: null,
+                                      p_end_date: null,
+                                      p_page_number: 1,
+                                      p_page_size: 100
+                                    });
+                                    if (error) throw error;
+                                    const result = data as { success: boolean; records: ReceiptRecord[] };
+                                    if (result.success) {
+                                      setReceiptRecords(result.records || []);
+                                    }
+                                  } catch (error) {
+                                    toast({
+                                      title: "加载失败",
+                                      description: (error as Error).message || '加载收款记录失败',
+                                      variant: "destructive"
+                                    });
+                                  } finally {
+                                    setLoadingReceiptRecords(false);
+                                  }
+                                }}
+                                className="border-gray-300 text-gray-600 hover:bg-gray-50"
+                              >
+                                <History className="mr-2 h-4 w-4" />
+                                收款记录
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -2070,6 +2506,492 @@ export default function InvoiceAudit() {
         description={getBatchInputConfig().description}
         currentValue={getCurrentBatchValue()}
       />
+
+      {/* 收款对话框 */}
+      <Dialog open={showReceiptDialog} onOpenChange={setShowReceiptDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              收款登记
+            </DialogTitle>
+            <DialogDescription>
+              开票申请单：{selectedReceiptRequest?.request_number}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* 收款单号 */}
+            <div className="space-y-2">
+              <Label htmlFor="receiptNumber">
+                收款单号（可选）
+              </Label>
+              <Input
+                id="receiptNumber"
+                type="text"
+                value={receiptNumber}
+                onChange={(e) => setReceiptNumber(e.target.value)}
+                placeholder="请输入收款单号"
+              />
+            </div>
+
+            {/* 收款银行 */}
+            <div className="space-y-2">
+              <Label htmlFor="receiptBank">
+                收款银行（可选）
+              </Label>
+              <Input
+                id="receiptBank"
+                type="text"
+                value={receiptBank}
+                onChange={(e) => setReceiptBank(e.target.value)}
+                placeholder="请输入收款银行"
+              />
+            </div>
+
+            {/* 收款金额 */}
+            <div className="space-y-2">
+              <Label htmlFor="receiptAmount">
+                收款金额 <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="receiptAmount"
+                type="number"
+                step="0.01"
+                value={receiptAmount}
+                onChange={(e) => setReceiptAmount(e.target.value)}
+                placeholder="请输入收款金额"
+                className="text-lg font-semibold"
+              />
+              {selectedReceiptRequest?.total_amount && (
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">开票金额：</span>
+                    <span className="font-semibold">¥{selectedReceiptRequest.total_amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">累计已收款：</span>
+                    <span className="text-green-600 font-semibold">¥{(selectedReceiptRequest.total_received_amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-1">
+                    <span className="text-muted-foreground">未收款：</span>
+                    <span className={(selectedReceiptRequest.total_amount || 0) - (selectedReceiptRequest.total_received_amount || 0) > 0 ? "text-orange-600 font-semibold" : "text-green-600 font-semibold"}>
+                      ¥{((selectedReceiptRequest.total_amount || 0) - (selectedReceiptRequest.total_received_amount || 0)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {receiptAmount && parseFloat(receiptAmount) > 0 && (
+                    <>
+                      <div className="flex justify-between border-t pt-1 mt-1">
+                        <span className="text-muted-foreground">本次收款后剩余：</span>
+                        <span className={((selectedReceiptRequest.total_amount || 0) - (selectedReceiptRequest.total_received_amount || 0) - parseFloat(receiptAmount)) > 0 ? "text-orange-600 font-semibold" : "text-green-600 font-semibold"}>
+                          ¥{((selectedReceiptRequest.total_amount || 0) - (selectedReceiptRequest.total_received_amount || 0) - parseFloat(receiptAmount)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      {parseFloat(receiptAmount) > ((selectedReceiptRequest.total_amount || 0) - (selectedReceiptRequest.total_received_amount || 0)) && (
+                        <p className="text-xs text-red-600 mt-1">
+                          ⚠️ 收款金额超过未收款金额，请检查
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 上传银行回单 */}
+            <div className="space-y-2">
+              <Label htmlFor="receiptImages">
+                上传银行回单图片（可选，支持多图）
+              </Label>
+              <Input
+                id="receiptImages"
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleReceiptImageSelect}
+                className="cursor-pointer"
+              />
+              {receiptImages.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {receiptImages.map((file, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={`银行回单 ${index + 1}`}
+                        className="w-full h-32 object-cover rounded border border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeReceiptImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors"
+                        title="删除图片"
+                      >
+                        <XIcon className="h-4 w-4" />
+                      </button>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 truncate">
+                        {file.name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                已选择 {receiptImages.length} 张图片
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowReceiptDialog(false);
+                setSelectedReceiptRequest(null);
+                setReceiptNumber('');
+                setReceiptBank('');
+                setReceiptAmount('');
+                setReceiptImages([]);
+              }}
+              disabled={uploadingReceipt}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleReceipt}
+              disabled={uploadingReceipt || !receiptAmount || parseFloat(receiptAmount) <= 0}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {uploadingReceipt ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  处理中...
+                </>
+              ) : (
+                <>
+                  <DollarSign className="mr-2 h-4 w-4" />
+                  确认收款
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 退款对话框 */}
+      <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-red-600">退款处理</DialogTitle>
+            <DialogDescription>
+              申请单号：{selectedRefundRequest?.request_number}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* 金额信息 */}
+            {selectedRefundRequest && (
+              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">开票金额：</span>
+                  <span className="font-semibold">¥{(selectedRefundRequest.total_amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">累计已收款：</span>
+                  <span className="font-semibold text-green-600">¥{(selectedRefundRequest.total_received_amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between border-t pt-2">
+                  <span className="text-muted-foreground">可退款金额：</span>
+                  <span className="font-semibold text-orange-600">¥{(selectedRefundRequest.total_received_amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            )}
+
+            {/* 退款金额 */}
+            <div className="space-y-2">
+              <Label htmlFor="refundAmount">
+                退款金额 <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="refundAmount"
+                type="number"
+                step="0.01"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                placeholder="请输入退款金额"
+                className="text-lg font-semibold"
+              />
+              {refundAmount && parseFloat(refundAmount) > 0 && selectedRefundRequest && (
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between border-t pt-1">
+                    <span className="text-muted-foreground">退款后剩余收款：</span>
+                    <span className={((selectedRefundRequest.total_received_amount || 0) - parseFloat(refundAmount)) > 0 ? "text-orange-600 font-semibold" : "text-green-600 font-semibold"}>
+                      ¥{((selectedRefundRequest.total_received_amount || 0) - parseFloat(refundAmount)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {parseFloat(refundAmount) > (selectedRefundRequest.total_received_amount || 0) && (
+                    <p className="text-xs text-red-600 mt-1">
+                      ⚠️ 退款金额超过已收款金额，请检查
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 退款原因 */}
+            <div className="space-y-2">
+              <Label htmlFor="refundReason">
+                退款原因 <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                id="refundReason"
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                placeholder="请输入退款原因"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRefundDialog(false);
+                setSelectedRefundRequest(null);
+                setRefundAmount('');
+                setRefundReason('');
+              }}
+              disabled={processingRefund}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleRefund}
+              disabled={processingRefund || !refundAmount || parseFloat(refundAmount) <= 0 || !refundReason}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {processingRefund ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  处理中...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  确认退款
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 对账对话框 */}
+      <Dialog open={showReconciliationDialog} onOpenChange={setShowReconciliationDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-blue-600">收款对账</DialogTitle>
+            <DialogDescription>
+              申请单号：{selectedReconciliationRequest?.request_number}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* 金额信息 */}
+            {selectedReconciliationRequest && (
+              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">开票金额：</span>
+                  <span className="font-semibold">¥{(selectedReconciliationRequest.total_amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">累计已收款：</span>
+                  <span className="font-semibold text-green-600">¥{(selectedReconciliationRequest.total_received_amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">当前对账状态：</span>
+                  <Badge variant={selectedReconciliationRequest.reconciliation_status === 'Reconciled' ? 'default' : selectedReconciliationRequest.reconciliation_status === 'Exception' ? 'destructive' : 'outline'}>
+                    {selectedReconciliationRequest.reconciliation_status === 'Reconciled' ? '已对账' : selectedReconciliationRequest.reconciliation_status === 'Exception' ? '异常' : '未对账'}
+                  </Badge>
+                </div>
+              </div>
+            )}
+
+            {/* 对账状态 */}
+            <div className="space-y-2">
+              <Label htmlFor="reconciliationStatus">
+                对账状态 <span className="text-red-500">*</span>
+              </Label>
+              <Select value={reconciliationStatus} onValueChange={setReconciliationStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择对账状态" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Reconciled">已对账</SelectItem>
+                  <SelectItem value="Exception">异常</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 对账备注 */}
+            <div className="space-y-2">
+              <Label htmlFor="reconciliationNotes">
+                对账备注（可选）
+              </Label>
+              <Textarea
+                id="reconciliationNotes"
+                value={reconciliationNotes}
+                onChange={(e) => setReconciliationNotes(e.target.value)}
+                placeholder="请输入对账备注"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowReconciliationDialog(false);
+                setSelectedReconciliationRequest(null);
+                setReconciliationStatus('Reconciled');
+                setReconciliationNotes('');
+              }}
+              disabled={processingReconciliation}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleReconciliation}
+              disabled={processingReconciliation}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {processingReconciliation ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  处理中...
+                </>
+              ) : (
+                <>
+                  <FileCheck className="mr-2 h-4 w-4" />
+                  确认对账
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 收款记录对话框 */}
+      <Dialog open={showReceiptRecordsDialog} onOpenChange={setShowReceiptRecordsDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">收款记录</DialogTitle>
+            <DialogDescription>
+              申请单号：{selectedReceiptRecordsRequest?.request_number}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {loadingReceiptRecords ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : receiptRecords.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                暂无收款记录
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {receiptRecords.map((record) => (
+                  <Card key={record.id} className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">收款日期：</span>
+                            <span>{format(new Date(record.receipt_date), 'yyyy-MM-dd HH:mm:ss')}</span>
+                          </div>
+                          {record.receipt_number && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground">收款单号：</span>
+                              <span>{record.receipt_number}</span>
+                            </div>
+                          )}
+                          {record.receipt_bank && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground">收款银行：</span>
+                              <span>{record.receipt_bank}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right space-y-1">
+                          <div className="text-lg font-semibold text-green-600">
+                            ¥{record.receipt_amount?.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                          {record.refund_amount > 0 && (
+                            <div className="text-sm text-red-600">
+                              退款：¥{record.refund_amount?.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          )}
+                          <div className="text-sm font-semibold">
+                            净收款：¥{(record.net_amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {record.refund_reason && (
+                        <div className="p-2 bg-red-50 rounded text-sm">
+                          <span className="font-semibold text-red-600">退款原因：</span>
+                          <span className="text-red-700">{record.refund_reason}</span>
+                        </div>
+                      )}
+                      
+                      {record.notes && (
+                        <div className="text-sm text-muted-foreground">
+                          <span className="font-semibold">备注：</span>
+                          <span>{record.notes}</span>
+                        </div>
+                      )}
+                      
+                      {record.receipt_images && record.receipt_images.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-sm font-semibold">凭证图片：</span>
+                          <div className="grid grid-cols-3 gap-2">
+                            {record.receipt_images.map((url: string, idx: number) => (
+                              <div key={idx} className="relative group">
+                                <img
+                                  src={url}
+                                  alt={`凭证${idx + 1}`}
+                                  className="w-full h-32 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => window.open(url, '_blank')}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowReceiptRecordsDialog(false);
+                setSelectedReceiptRecordsRequest(null);
+                setReceiptRecords([]);
+              }}
+            >
+              关闭
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

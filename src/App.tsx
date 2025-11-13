@@ -29,6 +29,7 @@ import {
   Drivers,
   Locations,
   Partners,
+  PartnerBalance,
   FleetManagement,
   // 内部车辆管理 - PC端
   VehicleManagement,
@@ -52,6 +53,7 @@ import {
   PaymentInvoiceDetail,
   PaymentRequestsList,
   FinancialOverview,
+  ReceiptReport,
   ContractManagement,
   WaybillMaintenance,
   UserManagement,
@@ -142,6 +144,13 @@ const InvoiceAudit = lazy(() => import("./pages/InvoiceAudit"));
 const EnhancedWaybillMaintenance = lazy(() => import("./pages/DataMaintenance/EnhancedWaybillMaintenance"));
 const MobileInvoiceRequestManagement = lazy(() => import("./pages/mobile/MobileInvoiceRequestManagement"));
 const MobileShipperDashboard = lazy(() => import("./pages/mobile/MobileShipperDashboard"));
+// 货主移动端页面
+const MobileShipperHome = lazy(() => import("./pages/mobile/shipper/MobileShipperHome"));
+const MobileShipperPendingPayments = lazy(() => import("./pages/mobile/shipper/MobileShipperPendingPayments"));
+const MobileShipperRecharge = lazy(() => import("./pages/mobile/shipper/MobileShipperRecharge"));
+const MobileShipperSubmitReceipt = lazy(() => import("./pages/mobile/shipper/MobileShipperSubmitReceipt"));
+const MobileShipperWaybills = lazy(() => import("./pages/mobile/shipper/MobileShipperWaybills"));
+const MobileShipperTransactions = lazy(() => import("./pages/mobile/shipper/MobileShipperTransactions"));
 const MobileProjectDashboard = lazy(() => import("./pages/mobile/MobileProjectDashboard"));
 
 const queryClient = new QueryClient();
@@ -241,6 +250,12 @@ const App = () => (
             <Route path="/partners" element={
               <ProtectedRoute requiredPermission="maintenance.partners">
                 <AppLayout><Partners /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/partner-balance" element={
+              <ProtectedRoute requiredPermission="finance.partner_balance">
+                <AppLayout><PartnerBalance /></AppLayout>
               </ProtectedRoute>
             } />
             
@@ -417,6 +432,12 @@ const App = () => (
             <Route path="/finance/payment-invoice/:requestId" element={
               <ProtectedRoute requiredPermission="finance.payment_invoice">
                 <AppLayout><PaymentInvoiceDetail /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/finance/receipt-report" element={
+              <ProtectedRoute requiredPermission="finance.payment_invoice">
+                <AppLayout><ReceiptReport /></AppLayout>
               </ProtectedRoute>
             } />
             
@@ -648,6 +669,35 @@ const App = () => (
                 <MobileShipperDashboard />
               </ProtectedRoute>
             } />
+
+            {/* 货主移动端路由 */}
+            <Route path="/m/shipper" element={
+              <MobileShipperHome />
+            } />
+            <Route path="/m/shipper/pending-payments" element={
+              <MobileShipperPendingPayments />
+            } />
+            <Route path="/m/shipper/pending-payments/:id" element={
+              <MobileShipperPendingPayments />
+            } />
+            <Route path="/m/shipper/recharge" element={
+              <MobileShipperRecharge />
+            } />
+            <Route path="/m/shipper/submit-receipt" element={
+              <MobileShipperSubmitReceipt />
+            } />
+            <Route path="/m/shipper/waybills" element={
+              <MobileShipperWaybills />
+            } />
+            <Route path="/m/shipper/transactions" element={
+              <MobileShipperTransactions />
+            } />
+            <Route path="/m/shipper/notifications" element={
+              <MobileLayout><MobileNotifications /></MobileLayout>
+            } />
+            <Route path="/m/shipper/settings" element={
+              <MobileLayout><MobileSettings /></MobileLayout>
+            } />
             
             <Route path="/m/financial-overview" element={
               <ProtectedRoute requiredPermission="dashboard.financial">
@@ -670,6 +720,12 @@ const App = () => (
             <Route path="/m/finance/payment-invoice/:requestId" element={
               <ProtectedRoute requiredPermission="finance.payment_invoice">
                 <MobileLayout><PaymentInvoiceDetail /></MobileLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/partner-balance" element={
+              <ProtectedRoute requiredPermission="finance.partner_balance">
+                <MobileLayout><PartnerBalance /></MobileLayout>
               </ProtectedRoute>
             } />
 

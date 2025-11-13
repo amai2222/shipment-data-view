@@ -16,6 +16,7 @@ export const INVOICE_REQUEST_STATUS_CONFIG = {
   Pending: { label: '待审核', variant: 'secondary' as const },
   Approved: { label: '已审批待开票', variant: 'default' as const },
   Completed: { label: '已开票', variant: 'outline' as const, className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
+  Received: { label: '已收款', variant: 'outline' as const, className: 'border-orange-600 text-white bg-orange-600 hover:bg-orange-700' },
 };
 
 // 通用状态配置（保持向后兼容）
