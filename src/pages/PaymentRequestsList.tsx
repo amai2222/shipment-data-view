@@ -517,7 +517,28 @@ export default function PaymentRequestsList() {
 
         const records: unknown[] = Array.isArray((requestData as { records?: unknown[] })?.records) ? (requestData as { records: unknown[] }).records : [];
 
-        // ✅ 修复：按每个运单单独判断最高级，只包含低层级合作方
+        // ✅ 先获取项目合作方信息，用于确定上下级关系
+        const { data: projectsData } = await supabase.from('projects').select('id, name');
+        const { data: projectPartnersData } = await supabase.from('project_partners').select(`
+          project_id,
+          partner_id,
+          level,
+          partner_chains!inner(chain_name)
+        `);
+        const { data: partnersData } = await supabase.from('partners').select('id, name, full_name');
+        
+        const projectsByName = new Map((projectsData || []).map(p => [p.name, p.id]));
+        const partnersById = new Map((partnersData || []).map(p => [p.id, p]));
+        const projectPartnersByProjectId = (projectPartnersData || []).reduce((acc, pp) => {
+          if (!acc.has(pp.project_id)) acc.set(pp.project_id, []);
+          acc.get(pp.project_id).push({
+            ...pp,
+            chain_name: pp.partner_chains?.chain_name
+          });
+          return acc;
+        }, new Map());
+
+        // ✅ 修复：按每个运单单独判断最高级，只包含低层级合作方，并按上下级关系分组
         const sheetMap = new Map<string, unknown>();
         for (const rec of records) {
           const costs = Array.isArray((rec as { partner_costs?: unknown[] }).partner_costs) ? (rec as { partner_costs: unknown[] }).partner_costs : [];
@@ -540,8 +561,29 @@ export default function PaymentRequestsList() {
             }
             
             const recData = rec as { id: string; project_name: string; chain_id?: string; chain_name?: string };
-            // ✅ 修复：只按合作方分组，同一合作方的所有链路合并到一个PDF
-            const key = costData.partner_id;
+            
+            // ✅ 找到当前合作方的上级合作方
+            let parentPartnerId: string | null = null;
+            const projectName = recData.project_name;
+            const projectId = projectsByName.get(projectName);
+            if (projectId && recData.chain_name) {
+              const allPartnersInProject = projectPartnersByProjectId.get(projectId) || [];
+              const partnersInChain = allPartnersInProject.filter((p) => p.chain_name === recData.chain_name);
+              const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === costData.partner_id);
+              if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
+                const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
+                if (currentPartnerInfo.level < maxLevelInChain - 1) {
+                  const parentLevel = currentPartnerInfo.level + 1;
+                  const parentInfo = partnersInChain.find((p) => p.level === parentLevel);
+                  if (parentInfo) {
+                    parentPartnerId = parentInfo.partner_id;
+                  }
+                }
+              }
+            }
+            
+            // ✅ 修复：按上下级关系分组，同样的上下级合并sheet，否则单开sheet
+            const key = `${parentPartnerId || 'none'}_${costData.partner_id}`;
             if (!sheetMap.has(key)) {
               sheetMap.set(key, {
                 paying_partner_id: costData.partner_id,
@@ -549,6 +591,7 @@ export default function PaymentRequestsList() {
                 paying_partner_bank_account: costData.bank_account || '',
                 paying_partner_bank_name: costData.bank_name || '',
                 paying_partner_branch_name: costData.branch_name || '',
+                parent_partner_id: parentPartnerId,
                 record_count: 0,
                 total_payable: 0,
                 project_name: recData.project_name,
@@ -575,27 +618,6 @@ export default function PaymentRequestsList() {
             sheet.total_payable += Number(costData.payable_amount || 0);
           }
         }
-        
-        // 获取项目合作方信息，实现与Excel导出相同的逻辑
-        const { data: projectsData } = await supabase.from('projects').select('id, name');
-        const { data: projectPartnersData } = await supabase.from('project_partners').select(`
-          project_id,
-          partner_id,
-          level,
-          partner_chains!inner(chain_name)
-        `);
-        const { data: partnersData } = await supabase.from('partners').select('id, name, full_name');
-        
-        const projectsByName = new Map((projectsData || []).map(p => [p.name, p.id]));
-        const partnersById = new Map((partnersData || []).map(p => [p.id, p]));
-        const projectPartnersByProjectId = (projectPartnersData || []).reduce((acc, pp) => {
-          if (!acc.has(pp.project_id)) acc.set(pp.project_id, []);
-          acc.get(pp.project_id).push({
-            ...pp,
-            chain_name: pp.partner_chains?.chain_name
-          });
-          return acc;
-        }, new Map());
         
         // ✅ 已在上面的循环中过滤掉最高级，这里只需要获取所有sheet
         const filteredSheets = Array.from(sheetMap.values());
