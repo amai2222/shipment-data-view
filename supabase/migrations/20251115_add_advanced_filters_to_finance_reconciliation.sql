@@ -150,7 +150,7 @@ BEGIN
                         'driver_phone', lr.driver_phone,
                         'transport_type', lr.transport_type,
                         'remarks', lr.remarks,
-                        'chain_name', lr.chain_name,
+                        'chain_name', pc.chain_name,
                         'billing_type_id', lr.billing_type_id,
                         'partner_costs', COALESCE(
                             (SELECT jsonb_agg(
@@ -169,7 +169,8 @@ BEGIN
                     ) ORDER BY lr.auto_number DESC
                 )
                 FROM paginated_records pr
-                JOIN public.logistics_records lr ON pr.id = lr.id),
+                JOIN public.logistics_records lr ON pr.id = lr.id
+                LEFT JOIN public.partner_chains pc ON lr.chain_id = pc.id),
                 '[]'::jsonb
             ),
             'overview', jsonb_build_object(
@@ -196,16 +197,23 @@ BEGIN
             'partner_summary', COALESCE(
                 (SELECT jsonb_agg(
                     jsonb_build_object(
-                        'partner_id', lpc.partner_id,
-                        'partner_name', p.name,
-                        'records_count', COUNT(DISTINCT lpc.logistics_record_id),
-                        'total_payable', SUM(lpc.payable_amount)
+                        'partner_id', partner_id,
+                        'partner_name', partner_name,
+                        'records_count', records_count,
+                        'total_payable', total_payable
                     )
                 )
-                FROM filtered_records fr
-                JOIN public.logistics_partner_costs lpc ON fr.id = lpc.logistics_record_id
-                JOIN public.partners p ON lpc.partner_id = p.id
-                GROUP BY lpc.partner_id, p.name),
+                FROM (
+                    SELECT 
+                        lpc.partner_id,
+                        p.name as partner_name,
+                        COUNT(DISTINCT lpc.logistics_record_id) as records_count,
+                        SUM(lpc.payable_amount) as total_payable
+                    FROM filtered_records fr
+                    JOIN public.logistics_partner_costs lpc ON fr.id = lpc.logistics_record_id
+                    JOIN public.partners p ON lpc.partner_id = p.id
+                    GROUP BY lpc.partner_id, p.name
+                ) partner_stats),
                 '[]'::jsonb
             ),
             'count', (SELECT count FROM total_count_cte),
