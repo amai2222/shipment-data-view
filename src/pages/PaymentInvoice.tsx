@@ -261,7 +261,7 @@ export default function InvoiceAudit() {
     setLoading(true);
     try {
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
-      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1114', {
+      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1115', {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
