@@ -86,6 +86,7 @@ export default function FinanceReconciliation() {
     platform_name: string;
     usage_count: number;
   }[]>([]);
+  const [showAllLevels, setShowAllLevels] = useState(false); // 控制是否显示所有层级的合作方
 
   // 加载平台选项
   const loadPlatformOptions = useCallback(async () => {
@@ -434,17 +435,38 @@ export default function FinanceReconciliation() {
   } : undefined;
   
   const displayedPartners = useMemo(() => {
+    // 如果筛选了特定合作方，只显示该合作方
     if (uiFilters.partnerId !== "all") {
       const selected = allPartners.find(p => p.id === uiFilters.partnerId);
       return selected ? [selected] : [];
     }
-    if (!reportData?.records) return [];
+    
+    if (!reportData || !Array.isArray(reportData.records)) return [];
+    
+    // 计算相关的合作方和最高级别
     const relevantPartnerIds = new Set<string>();
-    (reportData.records || []).forEach((record: any) => {
-      (record.partner_costs || []).forEach((cost: any) => relevantPartnerIds.add(cost.partner_id));
+    let maxLevel = 0;
+    reportData.records.forEach((record: any) => {
+      if (record && Array.isArray(record.partner_costs)) {
+        record.partner_costs.forEach((cost: any) => {
+          relevantPartnerIds.add(cost.partner_id);
+          if (cost.level > maxLevel) {
+            maxLevel = cost.level;
+          }
+        });
+      }
     });
-    return allPartners.filter(partner => relevantPartnerIds.has(partner.id)).sort((a, b) => a.level - b.level);
-  }, [reportData, allPartners, uiFilters.partnerId]);
+    
+    const filteredPartners = allPartners
+      .filter(partner => relevantPartnerIds.has(partner.id))
+      .sort((a, b) => a.level - b.level);
+    
+    // ✅ 根据 showAllLevels 决定是否只显示最高级
+    if (!showAllLevels && maxLevel > 0) {
+      return filteredPartners.filter(p => p.level === maxLevel);
+    }
+    return filteredPartners;
+  }, [reportData, allPartners, uiFilters.partnerId, showAllLevels]);
 
   const exportDetailsToExcel = () => {
     if (!reportData?.records || reportData.records.length === 0) {
@@ -842,9 +864,26 @@ export default function FinanceReconciliation() {
           {/* --- 美化结束 --- */}
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div><CardTitle>运单财务明细</CardTitle><p className="text-sm text-muted-foreground">各合作方应付金额按级别从左到右排列</p></div>
-                <Button variant="outline" size="sm" onClick={exportDetailsToExcel} disabled={!(reportData?.records?.length > 0)}><Download className="mr-2 h-4 w-4" />导出明细</Button>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gradient-to-r from-background to-muted/10 border-b">
+                <div>
+                  <CardTitle className="text-lg">运单财务明细</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {showAllLevels ? '显示所有层级的合作方' : '仅显示最高级合作方'}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowAllLevels(!showAllLevels)} 
+                    className="whitespace-nowrap hover:bg-primary/10 transition-colors"
+                  >
+                    {showAllLevels ? '仅显示最高级' : '展示全部级别'}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exportDetailsToExcel} disabled={!(reportData?.records?.length > 0)}>
+                    <Download className="mr-2 h-4 w-4" />导出明细
+                  </Button>
+                </div>
             </CardHeader>
             <CardContent>
               <div className="min-h-[400px] overflow-x-auto">
