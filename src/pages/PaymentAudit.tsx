@@ -871,7 +871,7 @@ export default function PaymentAudit() {
               
               <!-- 合作方信息头部 - 与Excel导出逻辑一致 -->
               <div class="partner-header">
-                <div class="partner-title">项目名称：${sheetData.project_name}${(sheetData as { chain_names?: Set<string> }).chain_names && (sheetData as { chain_names?: Set<string> }).chain_names!.size > 0 ? ` | 链路：${Array.from((sheetData as { chain_names?: Set<string> }).chain_names!).join('、')}` : (sheetData.chain_name ? ` | 链路：${sheetData.chain_name}` : '')}</div>
+                <div class="partner-title">项目名称：${sheetData.project_name}</div>
                 <div class="request-id">申请编号：${req.request_id}</div>
               </div>
               
