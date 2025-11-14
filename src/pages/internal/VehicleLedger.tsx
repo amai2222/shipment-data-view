@@ -55,18 +55,21 @@ export default function VehicleLedger() {
   const [records, setRecords] = useState<LedgerRecord[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [fleetManagerFilter, setFleetManagerFilter] = useState('all');
   const [vehicles, setVehicles] = useState<{ id: string; license_plate: string }[]>([]);
+  const [fleetManagers, setFleetManagers] = useState<{ id: string; full_name: string }[]>([]);
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
   useEffect(() => {
     loadVehicles();
+    loadFleetManagers();
   }, []);
 
   useEffect(() => {
     loadLedger();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVehicle, selectedMonth]);
+  }, [selectedVehicle, selectedMonth, fleetManagerFilter]);
 
   const loadVehicles = async () => {
     const { data } = await supabase
@@ -77,20 +80,65 @@ export default function VehicleLedger() {
     setVehicles(data || []);
   };
 
+  const loadFleetManagers = async () => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('role', 'fleet_manager')
+        .order('full_name');
+      setFleetManagers(data || []);
+    } catch (error) {
+      console.error('加载车队队长列表失败:', error);
+    }
+  };
+
   const loadLedger = async () => {
     setLoading(true);
     try {
       const records: LedgerRecord[] = [];
       
-      // ✅ 第一步：获取所有内部车辆的车牌号列表
-      const { data: internalVehicles, error: vehiclesError } = await supabase
+      // ✅ 第一步：获取所有内部车辆的车牌号列表（如果选择了车队队长，只获取该车队长的车辆）
+      const vehiclesQuery = supabase
         .from('internal_vehicles')
-        .select('license_plate')
+        .select('license_plate, fleet_manager_id')
         .eq('is_active', true);
+      
+      const { data: internalVehicles, error: vehiclesError } = await vehiclesQuery;
       
       if (vehiclesError) throw vehiclesError;
       
-      const internalLicensePlates = (internalVehicles || []).map(v => v.license_plate);
+      // 如果选择了车队队长，需要进一步筛选车辆（通过车辆直接分配或通过司机关联）
+      let internalLicensePlates: string[] = [];
+      if (fleetManagerFilter !== 'all') {
+        // 获取该车队长的车辆（直接分配）
+        const directVehicles = (internalVehicles || []).filter(v => v.fleet_manager_id === fleetManagerFilter);
+        internalLicensePlates = directVehicles.map(v => v.license_plate);
+        
+        // 获取该车队长的司机，然后获取这些司机的车辆
+        const { data: fleetManagerDrivers } = await supabase
+          .from('drivers')
+          .select('id')
+          .eq('driver_type', 'internal')
+          .eq('fleet_manager_id', fleetManagerFilter);
+        
+        if (fleetManagerDrivers && fleetManagerDrivers.length > 0) {
+          const driverIds = fleetManagerDrivers.map(d => d.id);
+          const { data: driverVehicles } = await supabase
+            .from('internal_driver_vehicle_relations')
+            .select('vehicle:internal_vehicles(license_plate)')
+            .in('driver_id', driverIds);
+          
+          const driverVehiclePlates = (driverVehicles || [])
+            .map((dv: { vehicle?: { license_plate?: string } }) => dv.vehicle?.license_plate)
+            .filter((plate: string | undefined): plate is string => !!plate);
+          
+          // 合并去重
+          internalLicensePlates = [...new Set([...internalLicensePlates, ...driverVehiclePlates])];
+        }
+      } else {
+        internalLicensePlates = (internalVehicles || []).map(v => v.license_plate);
+      }
       
       if (internalLicensePlates.length === 0) {
         setRecords([]);
@@ -98,11 +146,17 @@ export default function VehicleLedger() {
         return;
       }
       
-      // ✅ 第二步：获取所有内部司机的 driver_id 和姓名
-      const { data: internalDrivers, error: driversError } = await supabase
+      // ✅ 第二步：获取所有内部司机的 driver_id 和姓名（如果选择了车队队长，只获取该车队长的司机）
+      let driversQuery = supabase
         .from('drivers')
         .select('id, name')
         .eq('driver_type', 'internal');
+      
+      if (fleetManagerFilter !== 'all') {
+        driversQuery = driversQuery.eq('fleet_manager_id', fleetManagerFilter);
+      }
+      
+      const { data: internalDrivers, error: driversError } = await driversQuery;
       
       if (driversError) throw driversError;
       
@@ -297,7 +351,21 @@ export default function VehicleLedger() {
         </CardHeader>
 
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label>车队队长</Label>
+              <Select value={fleetManagerFilter} onValueChange={setFleetManagerFilter}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部车队长</SelectItem>
+                  {fleetManagers.map(fm => (
+                    <SelectItem key={fm.id} value={fm.id}>{fm.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label>车辆</Label>
               <Select value={selectedVehicle} onValueChange={setSelectedVehicle}>

@@ -55,17 +55,20 @@ export default function InternalDailyWaybills() {
   const [waybills, setWaybills] = useState<Waybill[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [vehicleFilter, setVehicleFilter] = useState('all');
+  const [fleetManagerFilter, setFleetManagerFilter] = useState('all');
   const [vehicles, setVehicles] = useState<string[]>([]);
+  const [fleetManagers, setFleetManagers] = useState<{ id: string; full_name: string }[]>([]);
 
   useEffect(() => {
     loadVehicles();
+    loadFleetManagers();
   }, []);
 
   useEffect(() => {
     if (selectedDate) {
       loadWaybills();
     }
-  }, [selectedDate, vehicleFilter]);
+  }, [selectedDate, vehicleFilter, fleetManagerFilter]);
 
   const loadVehicles = async () => {
     try {
@@ -81,14 +84,34 @@ export default function InternalDailyWaybills() {
     }
   };
 
+  const loadFleetManagers = async () => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('role', 'fleet_manager')
+        .order('full_name');
+      setFleetManagers(data || []);
+    } catch (error) {
+      console.error('加载车队队长列表失败:', error);
+    }
+  };
+
   const loadWaybills = async () => {
     setLoading(true);
     try {
-      // 第一步：获取所有内部司机的 driver_id
-      const { data: internalDrivers, error: driversError } = await supabase
+      // 第一步：获取所有内部司机的 driver_id（如果选择了车队队长，只获取该车队长的司机）
+      let driversQuery = supabase
         .from('drivers')
         .select('id')
         .eq('driver_type', 'internal');
+
+      // 如果选择了车队队长，只查询该车队长的司机
+      if (fleetManagerFilter !== 'all') {
+        driversQuery = driversQuery.eq('fleet_manager_id', fleetManagerFilter);
+      }
+
+      const { data: internalDrivers, error: driversError } = await driversQuery;
 
       if (driversError) throw driversError;
 
@@ -216,6 +239,20 @@ export default function InternalDailyWaybills() {
                 value={selectedDate}
                 onChange={e => setSelectedDate(e.target.value)}
               />
+            </div>
+            <div>
+              <Label>车队队长</Label>
+              <Select value={fleetManagerFilter} onValueChange={setFleetManagerFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部车队长</SelectItem>
+                  {fleetManagers.map(fm => (
+                    <SelectItem key={fm.id} value={fm.id}>{fm.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>

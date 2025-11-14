@@ -84,6 +84,8 @@ export default function DriverManagement() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [fleetManagerFilter, setFleetManagerFilter] = useState('all');
+  const [fleetManagers, setFleetManagers] = useState<{ id: string; full_name: string }[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
@@ -105,12 +107,42 @@ export default function DriverManagement() {
   });
 
   useEffect(() => {
+    loadFleetManagers();
+  }, []);
+
+  useEffect(() => {
     loadDrivers();
-  }, [statusFilter]);
+  }, [statusFilter, fleetManagerFilter]);
+
+  const loadFleetManagers = async () => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('role', 'fleet_manager')
+        .order('full_name');
+      setFleetManagers(data || []);
+    } catch (error) {
+      console.error('加载车队队长列表失败:', error);
+    }
+  };
 
   const loadDrivers = async () => {
     setLoading(true);
     try {
+      // 如果选择了车队队长，直接查询该车队长的司机
+      if (fleetManagerFilter !== 'all') {
+        const { data, error } = await supabase
+          .from('internal_drivers')
+          .select('*')
+          .eq('fleet_manager_id', fleetManagerFilter)
+          .order('name');
+        
+        if (error) throw error;
+        setDrivers(data || []);
+        return;
+      }
+
       const { data, error } = await supabase.rpc('get_internal_drivers', {
         p_search: searchTerm || null,
         p_page: 1,
@@ -183,25 +215,52 @@ export default function DriverManagement() {
     if (!selectedDriver) return;
 
     try {
-      const { error } = await supabase
+      // 检查状态是否变为离职
+      const isResigning = formData.employment_status === 'resigned' && selectedDriver.employment_status !== 'resigned';
+      
+      // 准备更新数据
+      const updateData: any = {
+        name: formData.name,
+        phone: formData.phone,
+        id_card_number: formData.id_card_number || null,
+        hire_date: formData.hire_date,
+        employment_status: formData.employment_status,
+        base_salary: parseFloat(formData.base_salary),
+        salary_calculation_type: formData.salary_calculation_type,
+        commission_rate: formData.salary_calculation_type === 'monthly' ? null : parseFloat(formData.commission_rate)
+      };
+
+      // 如果状态变为离职，自动解绑车队长和车辆
+      if (isResigning) {
+        updateData.fleet_manager_id = null;
+      }
+
+      // 更新司机信息
+      const { error: updateError } = await supabase
         .from('internal_drivers')
-        .update({
-          name: formData.name,
-          phone: formData.phone,
-          id_card_number: formData.id_card_number || null,
-          hire_date: formData.hire_date,
-          employment_status: formData.employment_status,
-          base_salary: parseFloat(formData.base_salary),
-          salary_calculation_type: formData.salary_calculation_type,
-          commission_rate: formData.salary_calculation_type === 'monthly' ? null : parseFloat(formData.commission_rate)
-        })
+        .update(updateData)
         .eq('id', selectedDriver.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // 如果状态变为离职，解绑车辆关联
+      if (isResigning) {
+        const { error: unbindError } = await supabase
+          .from('internal_driver_vehicle_relations')
+          .delete()
+          .eq('driver_id', selectedDriver.id);
+
+        if (unbindError) {
+          console.error('解绑车辆失败:', unbindError);
+          // 不抛出错误，因为司机信息已经更新成功
+        }
+      }
 
       toast({
         title: '更新成功',
-        description: `司机 ${formData.name} 信息已更新`
+        description: isResigning 
+          ? `司机 ${formData.name} 已标记为离职，已自动解绑车队长和车辆`
+          : `司机 ${formData.name} 信息已更新`
       });
 
       setShowEditDialog(false);
@@ -501,10 +560,29 @@ export default function DriverManagement() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div>
+                <Label>车队队长</Label>
+                <Select value={fleetManagerFilter} onValueChange={setFleetManagerFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部车队长</SelectItem>
+                    {fleetManagers.map(fm => (
+                      <SelectItem key={fm.id} value={fm.id}>{fm.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}>
+              <Button variant="outline" onClick={() => { 
+                setSearchTerm(''); 
+                setStatusFilter('all'); 
+                setFleetManagerFilter('all');
+              }}>
                 清除筛选
               </Button>
               <Button onClick={loadDrivers}>

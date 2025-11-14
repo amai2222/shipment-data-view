@@ -61,6 +61,8 @@ interface Vehicle {
   insurance_expire_date: string | null;
   annual_inspection_date: string | null;
   driver_name: string | null;
+  fleet_manager_id: string | null;
+  driver_fleet_manager_id: string | null;
   fleet_manager_name: string | null;
 }
 
@@ -90,6 +92,8 @@ export default function VehicleManagement() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [fleetManagerFilter, setFleetManagerFilter] = useState('all');
+  const [fleetManagers, setFleetManagers] = useState<{ id: string; full_name: string }[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
@@ -118,8 +122,25 @@ export default function VehicleManagement() {
   });
 
   useEffect(() => {
+    loadFleetManagers();
+  }, []);
+
+  useEffect(() => {
     loadVehicles();
-  }, [statusFilter]);
+  }, [statusFilter, fleetManagerFilter]);
+
+  const loadFleetManagers = async () => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('role', 'fleet_manager')
+        .order('full_name');
+      setFleetManagers(data || []);
+    } catch (error) {
+      console.error('加载车队队长列表失败:', error);
+    }
+  };
 
   const loadVehicles = async () => {
     setLoading(true);
@@ -152,6 +173,7 @@ export default function VehicleManagement() {
         return {
           ...v,
           driver_name: v.driver?.[0]?.driver?.name || null,
+          fleet_manager_id: v.fleet_manager_id || null,
           driver_fleet_manager_id: v.driver?.[0]?.driver?.fleet_manager_id || null,
           fleet_manager_name: vehicleFleetManager || null
         };
@@ -181,8 +203,24 @@ export default function VehicleManagement() {
         });
       }
       
+      // ✅ 根据车队队长筛选
+      let filteredData = processedData;
+      if (fleetManagerFilter !== 'all') {
+        filteredData = processedData.filter(v => {
+          // 检查车辆直接分配的车队长
+          if (v.fleet_manager_id === fleetManagerFilter) {
+            return true;
+          }
+          // 检查司机的车队长
+          if (v.driver_fleet_manager_id === fleetManagerFilter) {
+            return true;
+          }
+          return false;
+        });
+      }
+      
       // ✅ 排序：先按车队长名字排序，其次按驾驶员名字排序，未分配的放最下面
-      processedData.sort((a, b) => {
+      filteredData.sort((a, b) => {
         // 未分配的放最下面
         const aHasDriver = a.driver_name !== null;
         const bHasDriver = b.driver_name !== null;
@@ -203,7 +241,7 @@ export default function VehicleManagement() {
         return aDriver.localeCompare(bDriver, 'zh-CN');
       });
       
-      setVehicles(processedData);
+      setVehicles(filteredData);
     } catch (error) {
       console.error('加载失败:', error);
       toast({
@@ -675,7 +713,7 @@ export default function VehicleManagement() {
         {/* 筛选器 */}
         {showFilters && (
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <Label>搜索</Label>
                 <div className="relative">
@@ -705,6 +743,21 @@ export default function VehicleManagement() {
               </div>
 
               <div>
+                <Label>车队队长</Label>
+                <Select value={fleetManagerFilter} onValueChange={setFleetManagerFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部车队长</SelectItem>
+                    {fleetManagers.map(fm => (
+                      <SelectItem key={fm.id} value={fm.id}>{fm.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <Label>显示数量</Label>
                 <Select value={pageSize.toString()} disabled>
                   <SelectTrigger>
@@ -720,7 +773,11 @@ export default function VehicleManagement() {
             </div>
 
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}>
+              <Button variant="outline" onClick={() => { 
+                setSearchTerm(''); 
+                setStatusFilter('all'); 
+                setFleetManagerFilter('all');
+              }}>
                 清除筛选
               </Button>
               <Button onClick={loadVehicles}>
