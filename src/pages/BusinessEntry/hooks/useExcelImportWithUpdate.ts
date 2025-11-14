@@ -17,10 +17,17 @@ const parseExcelDate = (excelDate: any): string | null => {
   
   // 处理Excel数字日期序列号
   if (typeof excelDate === 'number' && excelDate > 0) {
-    // Excel日期序列号：1900年1月1日为1，但Excel错误地认为1900是闰年
-    // 所以需要减去2天来修正
-    const excelEpoch = new Date(1900, 0, 1);
-    date = new Date(excelEpoch.getTime() + (excelDate - 2) * 24 * 60 * 60 * 1000);
+    // ✅ 修复：Excel日期序列号正确计算
+    // Excel日期序列号：1900年1月1日为1
+    // Excel错误地认为1900年是闰年，所以1900年2月29日存在（但实际上不存在）
+    // 修正规则：如果序列号 >= 60（1900年2月29日），需要减去1天来修正
+    const excelEpochUTC = Date.UTC(1900, 0, 1); // 1900年1月1日 UTC
+    let daysToAdd = excelDate - 1; // 序列号1 = 1900-01-01，所以减去1
+    if (excelDate >= 60) {
+      daysToAdd = daysToAdd - 1; // 修正Excel的闰年错误
+    }
+    const dateUTC = excelEpochUTC + daysToAdd * 24 * 60 * 60 * 1000;
+    date = new Date(dateUTC);
     if (isNaN(date.getTime())) return null;
   }
   // 处理Date对象
@@ -45,11 +52,11 @@ const parseExcelDate = (excelDate: any): string | null => {
     return null;
   }
   
-  // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
-  // Excel数据已经是中国时区，直接按中国时区格式化即可
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  // ✅ 修复：使用UTC方法获取年月日，确保日期准确（不受系统时区影响）
+  // Excel数据已经是中国时区的日期，但我们需要确保解析的日期准确
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 

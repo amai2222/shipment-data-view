@@ -280,13 +280,25 @@ export function parseExcelDateToChina(dateValue: unknown): string {
   
   // 如果是数字（Excel日期序列号），转换为Date对象
   if (typeof dateValue === 'number') {
+    // ✅ 修复：Excel日期序列号正确计算
     // Excel日期序列号：1900年1月1日为1
-    const excelEpoch = new Date(1900, 0, 1);
-    const date = new Date(excelEpoch.getTime() + (dateValue - 2) * 24 * 60 * 60 * 1000);
+    // Excel错误地认为1900年是闰年，所以1900年2月29日存在（但实际上不存在）
+    // 修正规则：如果序列号 >= 60（1900年2月29日），需要减去1天来修正
+    const excelEpochUTC = Date.UTC(1900, 0, 1); // 1900年1月1日 UTC
+    let daysToAdd = dateValue - 1; // 序列号1 = 1900-01-01，所以减去1
+    if (dateValue >= 60) {
+      daysToAdd = daysToAdd - 1; // 修正Excel的闰年错误
+    }
+    const dateUTC = excelEpochUTC + daysToAdd * 24 * 60 * 60 * 1000;
+    const date = new Date(dateUTC);
     if (isNaN(date.getTime())) {
       throw new Error('无效的Excel日期序列号');
     }
-    return format(date, 'yyyy-MM-dd');
+    // 使用UTC方法获取年月日，确保日期准确
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
   
   const dateStr = String(dateValue).trim();

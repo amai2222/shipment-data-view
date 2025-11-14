@@ -96,6 +96,12 @@ BEGIN
             SELECT id INTO driver_id_val FROM public.drivers WHERE name = TRIM(record_data->>'driver_name') AND license_plate = TRIM(record_data->>'license_plate') LIMIT 1;
             SELECT id INTO chain_id_val FROM public.partner_chains WHERE chain_name = TRIM(record_data->>'chain_name') AND project_id = project_id_val LIMIT 1;
 
+            -- ✅ 日期处理：读取Excel的日期，然后转换为UTC存入数据库（与模板导入保持一致）
+            -- 流程：
+            -- 1. Excel中的日期：2025-01-15（中国时区日期）
+            -- 2. 前端解析后传递：'2025-01-15'（YYYY-MM-DD格式字符串，代表中国时区日期）
+            -- 3. 后端转换：'2025-01-15' || ' 00:00:00+08:00' → 2025-01-15 00:00:00+08:00
+            -- 4. 存储为UTC：PostgreSQL自动转换为UTC → 2025-01-14 16:00:00+00（UTC）
             v_loading_date_formatted := TRIM(record_data->>'loading_date');
             v_unloading_date_formatted := COALESCE(NULLIF(TRIM(record_data->>'unloading_date'), ''), v_loading_date_formatted);
 
@@ -115,6 +121,8 @@ BEGIN
                 UPDATE public.logistics_records SET
                     project_id = project_id_val,
                     chain_id = chain_id_val,
+                    -- ✅ 将Excel读取的中国时区日期转换为UTC存储（与模板导入保持一致）
+                    -- 示例：'2025-01-15' || ' 00:00:00+08:00' → 2025-01-15 00:00:00+08:00 → 2025-01-14 16:00:00+00 (UTC)
                     loading_date = (v_loading_date_formatted || ' 00:00:00+08:00')::timestamptz,
                     unloading_date = (v_unloading_date_formatted || ' 00:00:00+08:00')::timestamptz,
                     loading_weight = CASE WHEN record_data->>'loading_weight' IS NOT NULL AND TRIM(record_data->>'loading_weight') != '' THEN (record_data->>'loading_weight')::numeric ELSE NULL END,
@@ -142,6 +150,8 @@ BEGIN
                     auto_number_val, 
                     project_id_val, 
                     TRIM(record_data->>'project_name'),
+                    -- ✅ 将Excel读取的中国时区日期转换为UTC存储（与模板导入保持一致）
+                    -- 示例：'2025-01-15' || ' 00:00:00+08:00' → 2025-01-15 00:00:00+08:00 → 2025-01-14 16:00:00+00 (UTC)
                     (v_loading_date_formatted || ' 00:00:00+08:00')::timestamptz,
                     TRIM(record_data->>'loading_location'),
                     TRIM(record_data->>'unloading_location'), 
@@ -150,6 +160,8 @@ BEGIN
                     TRIM(record_data->>'license_plate'), 
                     TRIM(record_data->>'driver_phone'),
                     (record_data->>'loading_weight')::numeric, 
+                    -- ✅ 将Excel读取的中国时区日期转换为UTC存储（与模板导入保持一致）
+                    -- 示例：'2025-01-15' || ' 00:00:00+08:00' → 2025-01-15 00:00:00+08:00 → 2025-01-14 16:00:00+00 (UTC)
                     CASE WHEN record_data->>'unloading_date' IS NOT NULL AND TRIM(record_data->>'unloading_date') != '' 
                          THEN (v_unloading_date_formatted || ' 00:00:00+08:00')::timestamptz ELSE NULL END,
                     CASE WHEN record_data->>'unloading_weight' IS NOT NULL AND TRIM(record_data->>'unloading_weight') != '' 
