@@ -104,12 +104,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
               if (error) {
                 console.error('获取用户配置文件失败:', error);
-                // ✅ 如果是401错误，可能是token过期，但Supabase会自动刷新，不立即退出
+                // ✅ 如果是401错误或JWT错误，可能是token过期，等待自动刷新
                 if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
                   console.log('⚠️ Token可能已过期，等待Supabase自动刷新...');
                   // 不立即清除状态，等待Supabase的autoRefreshToken机制自动刷新
+                  return; // ✅ 不设置 profile 为 null
                 }
-                setProfile(null);
+                // ✅ 其他错误也不清空 profile，保持当前状态
+                console.warn('⚠️ 获取用户配置文件失败，但保持当前登录状态');
+                return;
               } else if (profileData) {
                 const anyProfile = profileData as any;
                 
@@ -156,11 +159,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 //   }
                 // }
               } else {
-                setProfile(null);
+                // ✅ 如果没有 profile 数据，也不清空，避免频繁重新加载
+                console.warn('⚠️ 未找到用户配置文件，保持当前状态');
               }
             } catch (catchError) {
               console.error('处理用户配置文件时发生意外错误:', catchError);
-              setProfile(null);
+              // ✅ 不清空 profile，避免因临时网络问题导致登出
+              console.warn('⚠️ 获取用户信息异常，但保持当前登录状态');
             } finally {
               setLoading(false);
             }
