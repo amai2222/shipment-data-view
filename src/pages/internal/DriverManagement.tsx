@@ -1,6 +1,6 @@
 // PC端 - 内部司机管理（完整功能实现）
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -57,6 +57,8 @@ interface Driver {
   primary_vehicle: string | null;
   driver_license_expire_date: string | null;
   id_card_number: string | null;
+  fleet_manager_id: string | null;
+  fleet_manager_name: string | null;
 }
 
 interface DriverFormData {
@@ -130,27 +132,54 @@ export default function DriverManagement() {
   const loadDrivers = async () => {
     setLoading(true);
     try {
-      // 如果选择了车队队长，直接查询该车队长的司机
+      let query = supabase
+        .from('internal_drivers')
+        .select(`
+          *,
+          fleet_manager:profiles!fleet_manager_id(full_name)
+        `);
+
+      // 如果选择了车队队长，只查询该车队长的司机
       if (fleetManagerFilter !== 'all') {
-        const { data, error } = await supabase
-          .from('internal_drivers')
-          .select('*')
-          .eq('fleet_manager_id', fleetManagerFilter)
-          .order('name');
-        
+        query = query.eq('fleet_manager_id', fleetManagerFilter);
+      }
+
+      // 如果使用了搜索，通过 RPC 函数查询
+      if (searchTerm && fleetManagerFilter === 'all') {
+        const { data, error } = await supabase.rpc('get_internal_drivers', {
+          p_search: searchTerm || null,
+          p_page: 1,
+          p_page_size: 100
+        });
+
         if (error) throw error;
-        setDrivers(data || []);
+        
+        // 处理 RPC 返回的数据，需要补充车队队长和车辆信息
+        const driverIds = (data || []).map((d: any) => d.id);
+        if (driverIds.length > 0) {
+          const { data: fullData } = await supabase
+            .from('internal_drivers')
+            .select(`
+              *,
+              fleet_manager:profiles!fleet_manager_id(full_name)
+            `)
+            .in('id', driverIds);
+          
+          const processedData = await processDriverData(fullData || []);
+          setDrivers(processedData);
+        } else {
+          setDrivers([]);
+        }
         return;
       }
 
-      const { data, error } = await supabase.rpc('get_internal_drivers', {
-        p_search: searchTerm || null,
-        p_page: 1,
-        p_page_size: 100
-      });
-
+      const { data, error } = await query.order('name');
+      
       if (error) throw error;
-      setDrivers(data || []);
+      
+      // 处理数据，添加车队队长和车辆信息
+      const processedData = await processDriverData(data || []);
+      setDrivers(processedData);
     } catch (error) {
       console.error('加载失败:', error);
       toast({
@@ -161,6 +190,48 @@ export default function DriverManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 处理司机数据，添加车队队长和车辆信息
+  const processDriverData = async (drivers: any[]): Promise<Driver[]> => {
+    if (!drivers || drivers.length === 0) return [];
+
+    // 获取所有司机的车辆关联
+    const driverIds = drivers.map(d => d.id);
+    const { data: vehicleRelations } = await supabase
+      .from('internal_driver_vehicle_relations')
+      .select(`
+        driver_id,
+        vehicle:internal_vehicles(license_plate),
+        is_primary
+      `)
+      .in('driver_id', driverIds)
+      .eq('is_primary', true);
+
+    // 构建司机ID到车牌号的映射
+    const driverVehicleMap = new Map<string, string>();
+    (vehicleRelations || []).forEach((rel: any) => {
+      if (rel.vehicle?.license_plate) {
+        driverVehicleMap.set(rel.driver_id, rel.vehicle.license_plate);
+      }
+    });
+
+    // 处理数据
+    return drivers.map((d: any) => ({
+      id: d.id,
+      name: d.name,
+      phone: d.phone,
+      hire_date: d.hire_date,
+      employment_status: d.employment_status,
+      base_salary: d.base_salary || 0,
+      salary_calculation_type: d.salary_calculation_type,
+      commission_rate: d.commission_rate,
+      primary_vehicle: driverVehicleMap.get(d.id) || null,
+      driver_license_expire_date: d.driver_license_expire_date,
+      id_card_number: d.id_card_number,
+      fleet_manager_id: d.fleet_manager_id,
+      fleet_manager_name: d.fleet_manager?.full_name || null
+    }));
   };
 
   // 新增司机
@@ -350,8 +421,8 @@ export default function DriverManagement() {
   const paginatedDrivers = filteredDrivers.slice((page - 1) * pageSize, page * pageSize);
   const totalPages = Math.ceil(filteredDrivers.length / pageSize);
 
-  // 司机表单组件
-  const DriverForm = () => (
+  // 司机表单组件 - 使用 useMemo 避免重新创建导致输入框失去焦点
+  const DriverForm = useMemo(() => (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -475,7 +546,7 @@ export default function DriverManagement() {
         />
       </div>
     </div>
-  );
+  ), [formData]);
 
   return (
     <div className="p-4 space-y-4">
@@ -607,9 +678,10 @@ export default function DriverManagement() {
                   <TableHead>电话</TableHead>
                   <TableHead>入职日期</TableHead>
                   <TableHead>状态</TableHead>
+                  <TableHead>车队长</TableHead>
+                  <TableHead>车辆</TableHead>
                   <TableHead>工资制度</TableHead>
                   <TableHead className="text-right">基本工资</TableHead>
-                  <TableHead>主车</TableHead>
                   <TableHead>驾驶证到期</TableHead>
                   <TableHead className="text-center">操作</TableHead>
                 </TableRow>
@@ -617,14 +689,14 @@ export default function DriverManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                       加载中...
                     </TableCell>
                   </TableRow>
                 ) : paginatedDrivers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       暂无司机数据
                     </TableCell>
                   </TableRow>
@@ -641,12 +713,17 @@ export default function DriverManagement() {
                         </TableCell>
                         <TableCell>{getStatusBadge(driver.employment_status)}</TableCell>
                         <TableCell className="text-sm">
+                          {driver.fleet_manager_name || <span className="text-muted-foreground">未分配</span>}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {driver.primary_vehicle || <span className="text-muted-foreground">未分配</span>}
+                        </TableCell>
+                        <TableCell className="text-sm">
                           {getSalaryType(driver.salary_calculation_type, driver.commission_rate)}
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           ¥{driver.base_salary?.toFixed(0) || 0}
                         </TableCell>
-                        <TableCell>{driver.primary_vehicle || '-'}</TableCell>
                         <TableCell>
                           {driver.driver_license_expire_date ? (
                             <div className={isLicenseExpiring ? 'text-red-600 font-medium flex items-center gap-1' : ''}>
@@ -731,7 +808,7 @@ export default function DriverManagement() {
             </DialogDescription>
           </DialogHeader>
 
-          <DriverForm />
+          {DriverForm}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => {
@@ -762,7 +839,7 @@ export default function DriverManagement() {
             </DialogDescription>
           </DialogHeader>
 
-          <DriverForm />
+          {DriverForm}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => {
