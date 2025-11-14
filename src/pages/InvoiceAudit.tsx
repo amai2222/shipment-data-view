@@ -290,13 +290,27 @@ export default function InvoiceAudit() {
       }
     } catch (error) {
       console.error("加载开票申请列表失败:", error);
+      // 详细错误日志
+      if (error && typeof error === 'object') {
+        console.error("错误详情:", JSON.stringify(error, null, 2));
+      }
       // 设置默认值，避免页面崩溃
       setRequests([]);
       setTotalRequestsCount(0);
       setTotalPages(0);
+      
+      // 提取详细错误信息
+      let errorMessage = '未知错误';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error && typeof error === 'object') {
+        const err = error as any;
+        errorMessage = err.message || err.error_description || err.hint || JSON.stringify(error);
+      }
+      
       toast({ 
-        title: "错误", 
-        description: `加载开票申请列表失败: ${error instanceof Error ? error.message : '未知错误'}`, 
+        title: "加载失败", 
+        description: `加载开票申请列表失败: ${errorMessage}`, 
         variant: "destructive" 
       });
     } finally {
