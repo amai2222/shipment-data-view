@@ -101,28 +101,52 @@ export default function InternalDailyWaybills() {
     setLoading(true);
     try {
       // 第一步：获取所有内部司机的 driver_id（如果选择了车队队长，只获取该车队长的司机）
-      let driversQuery = supabase
-        .from('drivers')
-        .select('id')
-        .eq('driver_type', 'internal');
+      // 注意：fleet_manager_id 在 internal_drivers 表中，需要通过 internal_drivers 查询
+      let internalDriversQuery = supabase
+        .from('internal_drivers')
+        .select('id, name, phone');
 
       // 如果选择了车队队长，只查询该车队长的司机
       if (fleetManagerFilter !== 'all') {
-        driversQuery = driversQuery.eq('fleet_manager_id', fleetManagerFilter);
+        internalDriversQuery = internalDriversQuery.eq('fleet_manager_id', fleetManagerFilter);
       }
 
-      const { data: internalDrivers, error: driversError } = await driversQuery;
+      const { data: internalDrivers, error: driversError } = await internalDriversQuery;
 
       if (driversError) throw driversError;
 
-      const internalDriverIds = (internalDrivers || []).map(d => d.id);
-
-      if (internalDriverIds.length === 0) {
+      if (!internalDrivers || internalDrivers.length === 0) {
         setWaybills([]);
+        setLoading(false);
         return;
       }
 
-      // 第二步：查询这些内部司机的运单
+      // 第二步：通过姓名和电话在 drivers 表中找到对应的 id
+      // 因为 logistics_records 表的 driver_id 关联的是 drivers 表的 id
+      // 使用 Promise.all 并行查询以提高效率
+      const driverIdPromises = internalDrivers.map(async (internalDriver) => {
+        const { data: driverData } = await supabase
+          .from('drivers')
+          .select('id')
+          .eq('driver_type', 'internal')
+          .eq('name', internalDriver.name)
+          .eq('phone', internalDriver.phone)
+          .limit(1)
+          .single();
+        
+        return driverData?.id || null;
+      });
+      
+      const driverIdResults = await Promise.all(driverIdPromises);
+      const driverIds = driverIdResults.filter((id): id is string => id !== null);
+
+      if (driverIds.length === 0) {
+        setWaybills([]);
+        setLoading(false);
+        return;
+      }
+
+      // 第三步：查询这些内部司机的运单
       // 注意：loading_date 是 timestamp with time zone，需要转换为 DATE 进行比较
       // 使用 gte 和 lt 来匹配当天的所有记录
       // 将中国时区的日期转换为 UTC 日期范围
@@ -134,7 +158,7 @@ export default function InternalDailyWaybills() {
       let query = supabase
         .from('logistics_records')
         .select('*')
-        .in('driver_id', internalDriverIds)  // 只显示内部司机的运单
+        .in('driver_id', driverIds)  // 使用 drivers 表的 id
         .gte('loading_date', utcDateStart)
         .lte('loading_date', utcDateEnd)
         .order('auto_number');

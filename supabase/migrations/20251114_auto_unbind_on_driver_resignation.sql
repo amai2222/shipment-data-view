@@ -52,23 +52,23 @@ BEGIN
         DELETE FROM internal_driver_vehicle_relations
         WHERE driver_id = NEW.id;
         
-        -- 2. 同步更新 drivers 表的 fleet_manager_id（如果存在同步记录）
+        -- 2. 同步更新 drivers 表的车牌号（清空车牌号，因为已解绑车辆）
+        -- 注意：drivers 表中没有 fleet_manager_id 字段，所以不需要更新
         UPDATE drivers
-        SET fleet_manager_id = NULL,
-            license_plate = NULL,  -- 同时清空车牌号
+        SET license_plate = NULL,  -- 清空车牌号
             updated_at = NOW()
         WHERE name = NEW.name
         AND phone = NEW.phone
         AND driver_type = 'internal';
         
-        RAISE NOTICE '✅ 司机 % 已离职，已删除所有车辆关联并同步 drivers 表', NEW.name;
+        RAISE NOTICE '✅ 司机 % 已离职，已删除所有车辆关联并清空 drivers 表的车牌号', NEW.name;
     END IF;
     
     RETURN NEW;
 END;
 $$;
 
-COMMENT ON FUNCTION auto_delete_vehicle_relations_on_resignation IS '触发器函数：司机离职后删除车辆关联并同步 drivers 表';
+COMMENT ON FUNCTION auto_delete_vehicle_relations_on_resignation IS '触发器函数：司机离职后删除车辆关联并清空 drivers 表的车牌号';
 
 -- ============================================================================
 -- 第三步：创建触发器
@@ -110,8 +110,9 @@ BEGIN
     RAISE NOTICE '========================================';
     RAISE NOTICE '';
     RAISE NOTICE '功能说明：';
-    RAISE NOTICE '  1. 当司机状态变为"离职"时，自动将 fleet_manager_id 设为 NULL';
+    RAISE NOTICE '  1. 当司机状态变为"离职"时，自动将 internal_drivers.fleet_manager_id 设为 NULL';
     RAISE NOTICE '  2. 自动删除 internal_driver_vehicle_relations 表中的所有关联记录';
+    RAISE NOTICE '  3. 自动清空 drivers 表中的车牌号（因为已解绑车辆）';
     RAISE NOTICE '';
     RAISE NOTICE '触发器：';
     RAISE NOTICE '  - trigger_auto_unbind_on_resignation (BEFORE UPDATE)';
