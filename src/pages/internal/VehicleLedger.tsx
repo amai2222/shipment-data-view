@@ -55,7 +55,7 @@ export default function VehicleLedger() {
   const [records, setRecords] = useState<LedgerRecord[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
-  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<{ id: string; license_plate: string }[]>([]);
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -65,6 +65,7 @@ export default function VehicleLedger() {
 
   useEffect(() => {
     loadLedger();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVehicle, selectedMonth]);
 
   const loadVehicles = async () => {
@@ -81,12 +82,76 @@ export default function VehicleLedger() {
     try {
       const records: LedgerRecord[] = [];
       
-      // ✅ 1. 查询运费收入（从logistics_records）
-      const { data: incomeData, error: incomeError } = await supabase
+      // ✅ 第一步：获取所有内部车辆的车牌号列表
+      const { data: internalVehicles, error: vehiclesError } = await supabase
+        .from('internal_vehicles')
+        .select('license_plate')
+        .eq('is_active', true);
+      
+      if (vehiclesError) throw vehiclesError;
+      
+      const internalLicensePlates = (internalVehicles || []).map(v => v.license_plate);
+      
+      if (internalLicensePlates.length === 0) {
+        setRecords([]);
+        setLoading(false);
+        return;
+      }
+      
+      // ✅ 第二步：获取所有内部司机的 driver_id 和姓名
+      const { data: internalDrivers, error: driversError } = await supabase
+        .from('drivers')
+        .select('id, name')
+        .eq('driver_type', 'internal');
+      
+      if (driversError) throw driversError;
+      
+      const internalDriverIds = (internalDrivers || []).map(d => d.id);
+      const internalDriverNames = (internalDrivers || []).map(d => d.name);
+      
+      // ✅ 第三步：获取司机和车辆的关联关系（用于支出记录的车辆关联）
+      const { data: driverVehicleRelations, error: relationsError } = await supabase
+        .from('internal_driver_vehicle_relations')
+        .select(`
+          driver:internal_drivers(name),
+          vehicle:internal_vehicles(license_plate)
+        `)
+        .or('valid_until.is.null,valid_until.gt.' + new Date().toISOString().split('T')[0]);
+      
+      if (relationsError) {
+        console.warn('获取司机车辆关联失败:', relationsError);
+      }
+      
+      // 构建司机姓名到车牌号的映射
+      const driverNameToPlateMap: Record<string, string> = {};
+      (driverVehicleRelations || []).forEach((rel: {
+        driver?: { name?: string };
+        vehicle?: { license_plate?: string };
+      }) => {
+        const driverName = rel.driver?.name;
+        const licensePlate = rel.vehicle?.license_plate;
+        if (driverName && licensePlate) {
+          driverNameToPlateMap[driverName] = licensePlate;
+        }
+      });
+      
+      // ✅ 1. 查询运费收入（从logistics_records）- 只查询内部车辆的记录
+      let incomeQuery = supabase
         .from('logistics_records')
-        .select('id, auto_number, loading_date, payable_cost, project_name, license_plate')
+        .select('id, auto_number, loading_date, payable_cost, project_name, license_plate, driver_id')
+        .in('license_plate', internalLicensePlates)  // 只查询内部车辆
         .order('loading_date', { ascending: false })
-        .limit(100);
+        .limit(1000);
+      
+      // 如果选择了特定车辆，再过滤车牌号
+      if (selectedVehicle !== 'all') {
+        const selectedVehicleObj = vehicles.find(v => v.id === selectedVehicle);
+        if (selectedVehicleObj) {
+          incomeQuery = incomeQuery.eq('license_plate', selectedVehicleObj.license_plate);
+        }
+      }
+      
+      const { data: incomeData, error: incomeError } = await incomeQuery;
       
       if (incomeError) throw incomeError;
       
@@ -107,13 +172,18 @@ export default function VehicleLedger() {
         }
       });
       
-      // ✅ 2. 查询费用支出（从internal_driver_expense_applications）
-      const { data: expenseData, error: expenseError } = await supabase
+      // ✅ 2. 查询费用支出（从internal_driver_expense_applications）- 只查询内部司机的记录
+      const expenseQuery = supabase
         .from('internal_driver_expense_applications')
         .select('id, expense_date, expense_type, amount, description, driver_name')
         .eq('status', 'approved')
+        .in('driver_name', internalDriverNames)  // 只查询内部司机
         .order('expense_date', { ascending: false })
-        .limit(100);
+        .limit(1000);
+      
+      // 注意：月份过滤在客户端进行，以便支持更灵活的查询
+      
+      const { data: expenseData, error: expenseError } = await expenseQuery;
       
       if (expenseError) throw expenseError;
       
@@ -132,10 +202,21 @@ export default function VehicleLedger() {
       // 处理支出数据
       (expenseData || []).forEach(item => {
         if (item.amount && item.amount > 0) {
+          // 通过司机姓名找到对应的车辆车牌号
+          const licensePlate = driverNameToPlateMap[item.driver_name || ''] || item.driver_name || '未知';
+          
+          // 如果选择了特定车辆，只添加该车辆的支出记录
+          if (selectedVehicle !== 'all') {
+            const selectedVehicleObj = vehicles.find(v => v.id === selectedVehicle);
+            if (selectedVehicleObj && licensePlate !== selectedVehicleObj.license_plate) {
+              return; // 跳过不属于选中车辆的支出记录
+            }
+          }
+          
           records.push({
             id: item.id,
-            vehicle_id: item.driver_name || '',
-            vehicle_plate: item.driver_name || '未知',
+            vehicle_id: licensePlate,  // 使用车牌号作为 vehicle_id
+            vehicle_plate: licensePlate,
             date: item.expense_date,
             type: 'expense',
             category: expenseTypeMap[item.expense_type] || item.expense_type,
@@ -162,7 +243,17 @@ export default function VehicleLedger() {
     }
   };
 
-  const filteredRecords = selectedVehicle === 'all' ? records : records.filter(r => r.vehicle_id === selectedVehicle);
+  // 过滤记录：如果选择了特定车辆，使用车牌号进行匹配
+  const filteredRecords = selectedVehicle === 'all' 
+    ? records.filter(r => r.month === selectedMonth)  // 只过滤月份
+    : (() => {
+        const selectedVehicleObj = vehicles.find(v => v.id === selectedVehicle);
+        if (!selectedVehicleObj) return records.filter(r => r.month === selectedMonth);
+        return records.filter(r => 
+          r.vehicle_plate === selectedVehicleObj.license_plate && 
+          r.month === selectedMonth
+        );
+      })();
   const stats = {
     totalIncome: filteredRecords.filter(r => r.type === 'income').reduce((sum, r) => sum + r.amount, 0),
     totalExpense: filteredRecords.filter(r => r.type === 'expense').reduce((sum, r) => sum + r.amount, 0),
