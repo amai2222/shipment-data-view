@@ -834,6 +834,7 @@ export default function PaymentAudit() {
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机电话</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">车牌号</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">吨位</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机运费</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">承运人运费</th>
                     <th colspan="4" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">收款人信息</th>
                   </tr>
@@ -846,7 +847,7 @@ export default function PaymentAudit() {
                 </thead>
                 <tbody>
                   ${sorted.map((item: unknown, index: number) => {
-                    const itemData = item as { record: { unloading_date?: string; loading_date?: string; loading_location?: string; unloading_location?: string; cargo_type?: string; driver_name?: string; driver_phone?: string; license_plate?: string; loading_weight?: number; payable_amount?: number }; payable_amount?: number };
+                    const itemData = item as { record: { unloading_date?: string; loading_date?: string; loading_location?: string; unloading_location?: string; cargo_type?: string; driver_name?: string; driver_phone?: string; license_plate?: string; loading_weight?: number; payable_cost?: number; payable_amount?: number }; payable_amount?: number };
                     const rec = itemData.record;
                     let finalUnloadingDate = rec.unloading_date;
                     if (!finalUnloadingDate) {
@@ -864,6 +865,7 @@ export default function PaymentAudit() {
                         <td>${rec.driver_phone || ''}</td>
                         <td>${rec.license_plate || ''}</td>
                         <td>${rec.loading_weight || ''}</td>
+                        <td class="amount-cell">${(rec.payable_cost || 0).toFixed(2)}</td>
                         <td class="amount-cell">${(itemData.payable_amount || 0).toFixed(2)}</td>
                         <td>${payingPartnerName}</td>
                         <td>${bankAccount}</td>
@@ -873,7 +875,8 @@ export default function PaymentAudit() {
                     `;
                   }).join('')}
                   <tr class="total-row">
-                    <td colspan="10" class="remarks-label">备注：</td>
+                    <td colspan="10" class="remarks-label">备注：共${sorted.length}条运单</td>
+                    <td class="total-amount">${sorted.reduce((sum: number, item: unknown) => sum + Number((item as { record: { payable_cost?: number } }).record.payable_cost || 0), 0).toFixed(2)}</td>
                     <td class="total-amount">${(sheetData as { total_payable?: number }).total_payable?.toFixed(2) || '0.00'}</td>
                     <td colspan="4"></td>
                   </tr>
@@ -887,7 +890,7 @@ export default function PaymentAudit() {
                     <td class="signature-cell">信息专员签字</td>
                     <td class="signature-cell">信息部审核签字</td>
                     <td class="signature-cell">业务负责人签字</td>
-                    <td class="signature-cell">业务经理签字</td>
+                    <td class="signature-cell">总经理签字</td>
                     <td class="signature-cell">复核审批人签字</td>
                     <td class="signature-cell">财务部审核签字</td>
                     <td class="signature-cell">董事长签字</td>
@@ -948,7 +951,7 @@ export default function PaymentAudit() {
               .main-table thead th { display: table-cell !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: 20px !important; }
               .main-table .data-row td { text-align: left; }
               .main-table .data-row td:first-child { text-align: center; }
-              .main-table .data-row td:nth-child(11), .main-table .data-row td:nth-child(12), .main-table .data-row td:nth-child(13), .main-table .data-row td:nth-child(14), .main-table .data-row td:nth-child(15) { text-align: right; }
+              .main-table .data-row td:nth-child(11), .main-table .data-row td:nth-child(12), .main-table .data-row td:nth-child(13), .main-table .data-row td:nth-child(14), .main-table .data-row td:nth-child(15), .main-table .data-row td:nth-child(16) { text-align: right; }
               .total-row { font-weight: bold; background: #f8f8f8; }
               .shipper-cell { background: #f9f9f9; font-weight: bold; vertical-align: middle; }
               .serial-number { text-align: center; }
