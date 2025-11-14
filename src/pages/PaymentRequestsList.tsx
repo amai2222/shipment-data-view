@@ -540,8 +540,8 @@ export default function PaymentRequestsList() {
             }
             
             const recData = rec as { id: string; project_name: string; chain_id?: string; chain_name?: string };
-            // ✅ 修复：先按链路，再按合作方分组，确保不同链路的同一合作方分别生成PDF
-            const key = `${recData.chain_id || recData.chain_name || 'default'}_${costData.partner_id}`;
+            // ✅ 修复：只按合作方分组，同一合作方的所有链路合并到一个PDF
+            const key = costData.partner_id;
             if (!sheetMap.has(key)) {
               sheetMap.set(key, {
                 paying_partner_id: costData.partner_id,
@@ -554,10 +554,20 @@ export default function PaymentRequestsList() {
                 project_name: recData.project_name,
                 chain_id: recData.chain_id,
                 chain_name: recData.chain_name,
+                chain_names: new Set<string>(), // 收集所有链路名称
                 records: [],
               });
             }
-            const sheet = sheetMap.get(key) as { records: unknown[]; record_count: number; total_payable: number };
+            const sheet = sheetMap.get(key) as { 
+              records: unknown[]; 
+              record_count: number; 
+              total_payable: number;
+              chain_names?: Set<string>;
+            };
+            // 收集链路名称
+            if (recData.chain_name && sheet.chain_names) {
+              sheet.chain_names.add(recData.chain_name);
+            }
             if (!sheet.records.some((r: unknown) => (r as { record: { id: string } }).record.id === recData.id)) {
               sheet.record_count += 1;
             }
@@ -592,8 +602,8 @@ export default function PaymentRequestsList() {
         
         // 按合作方级别排序，级别高的在前面
         const sortedSheets = filteredSheets.sort((a, b) => {
-          const aData = a as { project_name: string; chain_name?: string; paying_partner_id: string };
-          const bData = b as { project_name: string; chain_name?: string; paying_partner_id: string };
+          const aData = a as { project_name: string; paying_partner_id: string; chain_names?: Set<string> };
+          const bData = b as { project_name: string; paying_partner_id: string; chain_names?: Set<string> };
           const projectNameA = aData.project_name;
           const projectNameB = bData.project_name;
           const projectIdA = projectsByName.get(projectNameA);
@@ -602,8 +612,19 @@ export default function PaymentRequestsList() {
           const allPartnersInProjectA = projectIdA ? projectPartnersByProjectId.get(projectIdA) || [] : [];
           const allPartnersInProjectB = projectIdB ? projectPartnersByProjectId.get(projectIdB) || [] : [];
           
-          const partnersInChainA = allPartnersInProjectA.filter((p) => !aData.chain_name || p.chain_name === aData.chain_name);
-          const partnersInChainB = allPartnersInProjectB.filter((p) => !bData.chain_name || p.chain_name === bData.chain_name);
+          // ✅ 修复：由于同一合作方可能包含多个链路，直接在所有链路中查找合作方信息
+          // 如果sheet有多个链路，使用第一个链路来过滤（用于排序）
+          const chainNamesA = aData.chain_names ? Array.from(aData.chain_names) : [];
+          const chainNamesB = bData.chain_names ? Array.from(bData.chain_names) : [];
+          const firstChainA = chainNamesA.length > 0 ? chainNamesA[0] : null;
+          const firstChainB = chainNamesB.length > 0 ? chainNamesB[0] : null;
+          
+          const partnersInChainA = firstChainA 
+            ? allPartnersInProjectA.filter((p) => p.chain_name === firstChainA)
+            : allPartnersInProjectA;
+          const partnersInChainB = firstChainB 
+            ? allPartnersInProjectB.filter((p) => p.chain_name === firstChainB)
+            : allPartnersInProjectB;
           
           const currentPartnerInfoA = partnersInChainA.find((p) => p.partner_id === aData.paying_partner_id);
           const currentPartnerInfoB = partnersInChainB.find((p) => p.partner_id === bData.paying_partner_id);
@@ -685,7 +706,12 @@ export default function PaymentRequestsList() {
           const projectName = sheetData.project_name;
           const projectId = projectsByName.get(projectName);
           const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
-          const partnersInChain = allPartnersInProject.filter((p) => !sheetData.chain_name || p.chain_name === sheetData.chain_name);
+          // ✅ 修复：由于同一合作方可能包含多个链路，使用第一个链路来过滤（用于获取上一级合作方）
+          const chainNames = (sheetData as { chain_names?: Set<string> }).chain_names ? Array.from((sheetData as { chain_names?: Set<string> }).chain_names!) : [];
+          const firstChain = chainNames.length > 0 ? chainNames[0] : (sheetData.chain_name || null);
+          const partnersInChain = firstChain 
+            ? allPartnersInProject.filter((p) => p.chain_name === firstChain)
+            : allPartnersInProject;
           const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
           const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === sheetData.paying_partner_id);
           
@@ -713,7 +739,7 @@ export default function PaymentRequestsList() {
               
               <!-- 合作方信息头部 - 与Excel导出逻辑一致 -->
               <div class="partner-header">
-                <div class="partner-title">项目名称：${sheetData.project_name}${sheetData.chain_name ? ` | 链路：${sheetData.chain_name}` : ''}</div>
+                <div class="partner-title">项目名称：${sheetData.project_name}${(sheetData as { chain_names?: Set<string> }).chain_names && (sheetData as { chain_names?: Set<string> }).chain_names!.size > 0 ? ` | 链路：${Array.from((sheetData as { chain_names?: Set<string> }).chain_names!).join('、')}` : (sheetData.chain_name ? ` | 链路：${sheetData.chain_name}` : '')}</div>
                 <div class="request-id">申请编号：${req.request_id}</div>
               </div>
               
