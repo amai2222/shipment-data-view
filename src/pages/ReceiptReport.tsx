@@ -95,7 +95,7 @@ export default function ReceiptReport() {
       const { data, error } = await supabase.rpc('get_receipt_statistics_1114', {
         p_start_date: filters.startDate ? format(filters.startDate, 'yyyy-MM-dd') : null,
         p_end_date: filters.endDate ? format(filters.endDate, 'yyyy-MM-dd') : null,
-        p_partner_id: filters.partnerId || null
+        p_partner_id: filters.partnerId && filters.partnerId !== 'all' ? filters.partnerId : null
       });
 
       if (error) throw error;
