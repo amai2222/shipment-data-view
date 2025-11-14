@@ -232,7 +232,7 @@ export default function InvoiceAudit() {
     waybillNumber: '',
     driverName: '',
     loadingDate: null as Date | null,
-    status: 'Pending', // 默认筛选"待审核"
+    status: 'Completed', // ✅ 默认筛选"已开票"
     projectId: '',
     partnerName: '',
     licensePlate: '',
