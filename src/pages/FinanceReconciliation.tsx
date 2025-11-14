@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeFilter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Loader2, RefreshCw, Search, Calculator } from "lucide-react";
+import { Download, Loader2, RefreshCw, Search, Calculator, ChevronDown, ChevronUp, Users, Hash, Phone, FileText, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { BatchInputDialog } from "@/pages/BusinessEntry/components/BatchInputDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
@@ -30,13 +32,34 @@ import { PageHeader } from "@/components/PageHeader";
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; loading_weight: number | null; unloading_weight: number | null; current_cost: number | null; payable_cost: number | null; extra_cost: number | null; license_plate: string | null; driver_phone: string | null; transport_type: string | null; remarks: string | null; chain_name: string | null; billing_type_id: number; }
 interface PartnerPayable { partner_id: string; partner_name: string; level: number; total_payable: number; records_count: number; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { partner_costs: { partner_id: string; partner_name: string; level: number; payable_amount: number; }[]; }
-interface FinanceFilters { projectId: string; partnerId: string; startDate: string; endDate: string; }
+interface FinanceFilters { 
+  projectId: string; 
+  partnerId: string; 
+  startDate: string; 
+  endDate: string;
+  // 高级筛选字段
+  driverName?: string;
+  licensePlate?: string;
+  driverPhone?: string;
+  waybillNumbers?: string;
+  otherPlatformName?: string;
+}
 interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
 
 // --- 常量和初始状态 ---
 const PAGE_SIZE = 50;
-const INITIAL_FINANCE_FILTERS: FinanceFilters = { projectId: "all", partnerId: "all", startDate: "", endDate: "" };
+const INITIAL_FINANCE_FILTERS: FinanceFilters = { 
+  projectId: "all", 
+  partnerId: "all", 
+  startDate: "", 
+  endDate: "",
+  driverName: "",
+  licensePlate: "",
+  driverPhone: "",
+  waybillNumbers: "",
+  otherPlatformName: ""
+};
 const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded-lg bg-muted/20"> <Search className="mx-auto h-12 w-12 text-muted-foreground" /> <h3 className="mt-2 text-sm font-semibold text-foreground">筛选条件已更改</h3> <p className="mt-1 text-sm text-muted-foreground">请点击“搜索”按钮以查看最新结果。</p> </div> );
 
 export default function FinanceReconciliation() {
@@ -53,6 +76,48 @@ export default function FinanceReconciliation() {
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [waybillInput, setWaybillInput] = useState('');
+  const [batchDialog, setBatchDialog] = useState<{
+    isOpen: boolean;
+    type: 'driver' | 'license' | 'phone' | 'waybill' | null;
+  }>({ isOpen: false, type: null });
+  const [platformOptions, setPlatformOptions] = useState<{
+    platform_name: string;
+    usage_count: number;
+  }[]>([]);
+
+  // 加载平台选项
+  const loadPlatformOptions = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('logistics_records')
+        .select('other_platform_names')
+        .not('other_platform_names', 'is', null);
+      
+      if (error) throw error;
+      
+      const platformMap = new Map<string, number>();
+      (data || []).forEach(record => {
+        if (record.other_platform_names && Array.isArray(record.other_platform_names)) {
+          record.other_platform_names.forEach((platform: string) => {
+            if (platform && platform.trim()) {
+              platformMap.set(platform.trim(), (platformMap.get(platform.trim()) || 0) + 1);
+            }
+          });
+        }
+      });
+      
+      const platforms = Array.from(platformMap.entries())
+        .map(([platform_name, usage_count]) => ({ platform_name, usage_count }))
+        .sort((a, b) => b.usage_count - a.usage_count)
+        .slice(0, 20); // 只显示前20个
+      
+      setPlatformOptions(platforms);
+    } catch (error) {
+      console.error('加载平台选项失败:', error);
+    }
+  }, []);
 
   // --- 数据获取 ---
   const fetchInitialOptions = useCallback(async () => {
@@ -75,13 +140,16 @@ export default function FinanceReconciliation() {
       ).sort((a, b) => a.level - b.level);
       setAllPartners(uniquePartners);
       
+      // 加载平台选项
+      loadPlatformOptions();
+      
       const loadTime = performance.now() - startTime;
       console.log(`初始数据加载时间: ${loadTime.toFixed(2)}ms`);
     } catch (error) {
       console.error('加载筛选选项失败:', error);
       toast({ title: "错误", description: "加载筛选选项失败", variant: "destructive" });
     }
-  }, [toast]);
+  }, [toast, loadPlatformOptions]);
 
   const fetchReportData = useCallback(async () => {
     const startTime = performance.now();
@@ -99,14 +167,20 @@ export default function FinanceReconciliation() {
         return convertChinaEndDateToUTCDate(chinaDate);
       })() : null;
       
-      // 使用优化的分页函数，包含billing_type_id
-      const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner' as any, {
+      // 使用优化的分页函数，包含billing_type_id和高级筛选
+      const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1115' as any, {
         p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
         p_start_date: utcStartDate,
         p_end_date: utcEndDate,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
         p_page_number: pagination.currentPage,
         p_page_size: PAGE_SIZE,
+        // 高级筛选参数
+        p_driver_name: activeFilters.driverName || null,
+        p_license_plate: activeFilters.licensePlate || null,
+        p_driver_phone: activeFilters.driverPhone || null,
+        p_waybill_numbers: activeFilters.waybillNumbers || null,
+        p_other_platform_name: activeFilters.otherPlatformName || null,
       });
       if (error) throw error;
       
@@ -135,6 +209,11 @@ export default function FinanceReconciliation() {
     setPagination(p => p.currentPage === 1 ? p : { ...p, currentPage: 1 });
     setSelection({ mode: 'none', selectedIds: new Set() });
   }, [activeFilters]);
+
+  // 同步运单编号输入框
+  useEffect(() => {
+    setWaybillInput(uiFilters.waybillNumbers || '');
+  }, [uiFilters.waybillNumbers]);
 
   // [新增] 一个小巧、高效的货币格式化函数
   const formatCurrency = (value: number | null | undefined): string => {
@@ -177,6 +256,82 @@ export default function FinanceReconciliation() {
       startDate: dateRange?.from ? formatChinaDateString(dateRange.from) : '', 
       endDate: dateRange?.to ? formatChinaDateString(dateRange.to) : '' 
     })); 
+  };
+
+  // 批量输入对话框处理
+  const openBatchDialog = (type: 'driver' | 'license' | 'phone' | 'waybill') => {
+    setBatchDialog({ isOpen: true, type });
+  };
+
+  const closeBatchDialog = () => {
+    setBatchDialog({ isOpen: false, type: null });
+  };
+
+  const getCurrentValue = () => {
+    const type = batchDialog.type;
+    if (type === 'driver') return uiFilters.driverName || '';
+    if (type === 'license') return uiFilters.licensePlate || '';
+    if (type === 'phone') return uiFilters.driverPhone || '';
+    if (type === 'waybill') return waybillInput;
+    return '';
+  };
+
+  const handleBatchConfirm = (value: string) => {
+    const type = batchDialog.type;
+    if (type === 'driver') {
+      handleFilterChange('driverName', value);
+    } else if (type === 'license') {
+      handleFilterChange('licensePlate', value);
+    } else if (type === 'phone') {
+      handleFilterChange('driverPhone', value);
+    } else if (type === 'waybill') {
+      setWaybillInput(value);
+      handleFilterChange('waybillNumbers', value);
+    }
+    closeBatchDialog();
+  };
+
+  const getDialogConfig = () => {
+    const type = batchDialog.type;
+    switch (type) {
+      case 'driver':
+        return {
+          title: '批量输入司机姓名',
+          placeholder: '请输入司机姓名，多个用逗号或换行分隔\n例如：张三,李四,王五',
+          description: '支持批量输入多个司机姓名进行筛选'
+        };
+      case 'license':
+        return {
+          title: '批量输入车牌号',
+          placeholder: '请输入车牌号，多个用逗号或换行分隔\n例如：京A12345,沪B67890,粤C11111',
+          description: '支持批量输入多个车牌号进行筛选'
+        };
+      case 'phone':
+        return {
+          title: '批量输入司机电话',
+          placeholder: '请输入司机电话，多个用逗号或换行分隔\n例如：13800138000,13900139000',
+          description: '支持批量输入多个司机电话进行筛选'
+        };
+      case 'waybill':
+        return {
+          title: '批量输入运单编号',
+          placeholder: '请输入运单编号，多个用逗号或换行分隔\n例如：WB001,WB002,WB003',
+          description: '支持批量输入多个运单编号进行筛选'
+        };
+      default:
+        return { title: '', placeholder: '', description: '' };
+    }
+  };
+
+  const handleWaybillNumbersChange = (value: string) => {
+    setWaybillInput(value);
+    handleFilterChange('waybillNumbers', value);
+  };
+
+  const handleWaybillKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
   };
   
   const handleRecordSelect = (recordId: string) => {
@@ -362,10 +517,218 @@ export default function FinanceReconciliation() {
             <div className="flex-none w-40 space-y-2"><Label>合作方</Label><Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}><SelectTrigger className="h-10"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">全部</SelectItem>{allPartners.map(p => (<SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>))}</SelectContent></Select></div>
             <Button onClick={handleSearch} className="h-10 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"><Search className="mr-2 h-4 w-4"/>搜索</Button>
             <Button variant="outline" onClick={handleClear} className="h-10">清除</Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="h-10"
+            >
+              {showAdvanced ? (
+                <>
+                  <ChevronUp className="mr-1 h-4 w-4" />
+                  收起
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="mr-1 h-4 w-4" />
+                  高级
+                </>
+              )}
+            </Button>
             <ConfirmDialog title="确认批量重算" description={`您确定要为选中的 ${selectionCount} 条运单重新计算所有合作方的应付金额吗？此操作会根据最新的项目合作链路配置覆盖现有数据。`} onConfirm={handleBatchRecalculate}>
               <Button variant="destructive" disabled={selectionCount === 0 || isRecalculating}>{isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}一键重算已选运单 ({selectionCount})</Button>
             </ConfirmDialog>
           </div>
+
+          {/* 高级筛选器 - 可折叠 */}
+          {showAdvanced && (
+            <div className="mt-4 pt-4 border-t border-purple-200">
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                {/* 司机 */}
+                <div className="space-y-2">
+                  <Label htmlFor="driver-name" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                    <Users className="h-4 w-4" />
+                    司机
+                  </Label>
+                  <div className="flex gap-1">
+                    <Input 
+                      type="text" 
+                      id="driver-name" 
+                      placeholder="司机姓名..." 
+                      value={uiFilters.driverName || ''} 
+                      onChange={e => handleFilterChange('driverName', e.target.value)} 
+                      disabled={loading}
+                      className="h-10 flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openBatchDialog('driver')}
+                      className="h-10 px-2"
+                      title="批量输入"
+                    >
+                      <Users className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 车牌号 */}
+                <div className="space-y-2">
+                  <Label htmlFor="license-plate" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                    <Hash className="h-4 w-4" />
+                    车牌号
+                  </Label>
+                  <div className="flex gap-1">
+                    <Input 
+                      type="text" 
+                      id="license-plate" 
+                      placeholder="车牌号..." 
+                      value={uiFilters.licensePlate || ''} 
+                      onChange={e => handleFilterChange('licensePlate', e.target.value)} 
+                      disabled={loading}
+                      className="h-10 flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openBatchDialog('license')}
+                      className="h-10 px-2"
+                      title="批量输入"
+                    >
+                      <Hash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 司机电话 */}
+                <div className="space-y-2">
+                  <Label htmlFor="driver-phone" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                    <Phone className="h-4 w-4" />
+                    司机电话
+                  </Label>
+                  <div className="flex gap-1">
+                    <Input 
+                      type="text" 
+                      id="driver-phone" 
+                      placeholder="司机电话..." 
+                      value={uiFilters.driverPhone || ''} 
+                      onChange={e => handleFilterChange('driverPhone', e.target.value)} 
+                      disabled={loading}
+                      className="h-10 flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openBatchDialog('phone')}
+                      className="h-10 px-2"
+                      title="批量输入"
+                    >
+                      <Phone className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 运单编号 */}
+                <div className="space-y-2">
+                  <Label htmlFor="waybill-numbers" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                    <FileText className="h-4 w-4" />
+                    运单编号
+                  </Label>
+                  <div className="flex gap-1">
+                    <div className="relative flex-1">
+                      <Input 
+                        type="text" 
+                        id="waybill-numbers" 
+                        placeholder="输入运单编号，多个用逗号分隔..." 
+                        value={waybillInput} 
+                        onChange={e => handleWaybillNumbersChange(e.target.value)}
+                        onKeyDown={handleWaybillKeyDown}
+                        disabled={loading}
+                        className="h-10 pr-8"
+                      />
+                      {waybillInput && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-1 top-1 h-6 w-6 p-0 hover:bg-purple-100"
+                          onClick={() => handleWaybillNumbersChange('')}
+                        >
+                          <X className="h-3 w-3 text-purple-600" />
+                        </Button>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openBatchDialog('waybill')}
+                      className="h-10 px-2"
+                      title="批量输入"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="text-xs text-purple-600">
+                    💡 支持多个运单编号查询，用逗号分隔，按回车快速搜索
+                  </div>
+                </div>
+
+                {/* 其他平台名称 */}
+                <div className="space-y-2">
+                  <Label htmlFor="other-platform" className="text-sm font-medium text-purple-800">其他平台名称</Label>
+                  <Select
+                    value={uiFilters.otherPlatformName || 'all'}
+                    onValueChange={(value) => handleFilterChange('otherPlatformName', value === 'all' ? '' : value)}
+                    disabled={loading}
+                  >
+                    <SelectTrigger id="other-platform" className="h-10">
+                      <SelectValue placeholder="选择平台" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">所有平台</SelectItem>
+                      
+                      {/* 固定平台列表 */}
+                      <SelectItem value="本平台">本平台</SelectItem>
+                      <SelectItem value="中科智运">中科智运</SelectItem>
+                      <SelectItem value="中工智云">中工智云</SelectItem>
+                      <SelectItem value="可乐公司">可乐公司</SelectItem>
+                      <SelectItem value="盼盼集团">盼盼集团</SelectItem>
+                      
+                      {/* 动态平台列表（从数据库获取） */}
+                      {platformOptions.length > 0 && (
+                        <>
+                          {/* 分隔线提示 */}
+                          <SelectItem value="---" disabled className="text-xs text-purple-400">
+                            ─── 其他平台 ───
+                          </SelectItem>
+                          {platformOptions.map((platform) => (
+                            <SelectItem 
+                              key={platform.platform_name} 
+                              value={platform.platform_name}
+                            >
+                              {platform.platform_name} ({platform.usage_count}条)
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <div className="text-xs text-purple-600">
+                    📊 固定平台: 5个 {platformOptions.length > 0 && `| 其他平台: ${platformOptions.length}个`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 批量输入对话框 */}
+          <BatchInputDialog
+            isOpen={batchDialog.isOpen}
+            onClose={closeBatchDialog}
+            onConfirm={handleBatchConfirm}
+            title={getDialogConfig().title}
+            placeholder={getDialogConfig().placeholder}
+            description={getDialogConfig().description}
+            currentValue={getCurrentValue()}
+          />
         </CardContent>
       </Card>
 
