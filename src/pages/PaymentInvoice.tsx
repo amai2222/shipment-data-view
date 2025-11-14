@@ -284,6 +284,12 @@ export default function InvoiceAudit() {
         records?: InvoiceRequestRaw[];
         total_count?: number;
       };
+      
+      // 确保数据格式正确
+      if (!result || result.success === false) {
+        throw new Error('后端返回数据格式错误');
+      }
+      
       const requestsData = result.records || [];
       setTotalRequestsCount(result.total_count || 0);
       setRequests(requestsData.map(item => ({
@@ -321,7 +327,15 @@ export default function InvoiceAudit() {
       }
     } catch (error) {
       console.error("加载开票申请列表失败:", error);
-      toast({ title: "错误", description: `加载开票申请列表失败: ${(error as Error).message}`, variant: "destructive" });
+      // 设置默认值，避免页面崩溃
+      setRequests([]);
+      setTotalRequestsCount(0);
+      setTotalPages(0);
+      toast({ 
+        title: "错误", 
+        description: `加载开票申请列表失败: ${error instanceof Error ? error.message : '未知错误'}`, 
+        variant: "destructive" 
+      });
     } finally {
       setLoading(false);
     }

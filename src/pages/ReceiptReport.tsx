@@ -56,8 +56,8 @@ export default function ReceiptReport() {
   const [filters, setFilters] = useState({
     startDate: null as Date | null,
     endDate: null as Date | null,
-    partnerId: '',
-    status: '' as '' | 'Completed' | 'Received' | 'Overdue'
+    partnerId: 'all',
+    status: 'all' as 'all' | 'Completed' | 'Received' | 'Overdue'
   });
 
   // 分页状态
@@ -150,8 +150,8 @@ export default function ReceiptReport() {
       const { data, error } = await supabase.rpc('get_receipt_details_report_1114', {
         p_start_date: filters.startDate ? format(filters.startDate, 'yyyy-MM-dd') : null,
         p_end_date: filters.endDate ? format(filters.endDate, 'yyyy-MM-dd') : null,
-        p_partner_id: filters.partnerId || null,
-        p_status: filters.status || null,
+        p_partner_id: filters.partnerId && filters.partnerId !== 'all' ? filters.partnerId : null,
+        p_status: filters.status && filters.status !== 'all' ? filters.status : null,
         p_page_number: currentPage,
         p_page_size: pageSize
       });
@@ -166,9 +166,22 @@ export default function ReceiptReport() {
       };
       
       if (result.success) {
-        setDetails(result.records || []);
+        // 确保所有记录都有默认值
+        const safeRecords = (result.records || []).map(record => ({
+          ...record,
+          total_amount: record.total_amount ?? 0,
+          total_received_amount: record.total_received_amount ?? 0,
+          remaining_amount: record.remaining_amount ?? 0,
+          receipt_rate: record.receipt_rate ?? 0,
+          overdue_days: record.overdue_days ?? 0
+        }));
+        setDetails(safeRecords);
         setTotalCount(result.total_count || 0);
         setTotalPages(result.total_pages || 1);
+      } else {
+        setDetails([]);
+        setTotalCount(0);
+        setTotalPages(0);
       }
     } catch (error) {
       console.error('加载明细数据失败:', error);
@@ -271,12 +284,12 @@ export default function ReceiptReport() {
             {/* 货主 */}
             <div className="space-y-2">
               <Label>货主</Label>
-              <Select value={filters.partnerId} onValueChange={(value) => setFilters(prev => ({ ...prev, partnerId: value }))}>
+              <Select value={filters.partnerId || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, partnerId: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="全部货主" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部货主</SelectItem>
+                  <SelectItem value="all">全部货主</SelectItem>
                   {partners.map(partner => (
                     <SelectItem key={partner.id} value={partner.id}>{partner.name}</SelectItem>
                   ))}
@@ -287,12 +300,12 @@ export default function ReceiptReport() {
             {/* 状态 */}
             <div className="space-y-2">
               <Label>状态</Label>
-              <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value as any }))}>
+              <Select value={filters.status || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value as 'all' | 'Completed' | 'Received' | 'Overdue' }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="全部状态" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部状态</SelectItem>
+                  <SelectItem value="all">全部状态</SelectItem>
                   <SelectItem value="Completed">未全额收款</SelectItem>
                   <SelectItem value="Received">已全额收款</SelectItem>
                   <SelectItem value="Overdue">逾期未收款</SelectItem>
@@ -316,7 +329,7 @@ export default function ReceiptReport() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ¥{statistics.total_invoiced.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ¥{(statistics.total_invoiced ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </CardContent>
           </Card>
@@ -327,7 +340,7 @@ export default function ReceiptReport() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                ¥{statistics.total_received.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ¥{(statistics.total_received ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </CardContent>
           </Card>
@@ -338,7 +351,7 @@ export default function ReceiptReport() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">
-                ¥{statistics.total_unreceived.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ¥{(statistics.total_unreceived ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </CardContent>
           </Card>
@@ -366,7 +379,7 @@ export default function ReceiptReport() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                ¥{statistics.overdue_amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ¥{(statistics.overdue_amount ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </CardContent>
           </Card>
@@ -380,7 +393,7 @@ export default function ReceiptReport() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {statistics.overdue_count}
+                {statistics.overdue_count ?? 0}
               </div>
             </CardContent>
           </Card>
@@ -429,17 +442,17 @@ export default function ReceiptReport() {
                         <TableCell className="font-mono">{detail.request_number}</TableCell>
                         <TableCell>{detail.invoicing_partner_full_name || detail.partner_name || '-'}</TableCell>
                         <TableCell className="text-right font-semibold">
-                          ¥{detail.total_amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          ¥{(detail.total_amount ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-right text-green-600 font-semibold">
-                          ¥{detail.total_received_amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          ¥{(detail.total_received_amount ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-right text-orange-600 font-semibold">
-                          ¥{detail.remaining_amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          ¥{(detail.remaining_amount ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Badge variant={detail.receipt_rate >= 100 ? 'default' : detail.receipt_rate >= 80 ? 'secondary' : 'outline'}>
-                            {detail.receipt_rate.toFixed(1)}%
+                          <Badge variant={(detail.receipt_rate ?? 0) >= 100 ? 'default' : (detail.receipt_rate ?? 0) >= 80 ? 'secondary' : 'outline'}>
+                            {(detail.receipt_rate ?? 0).toFixed(1)}%
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -451,7 +464,7 @@ export default function ReceiptReport() {
                           {detail.payment_due_date ? format(new Date(detail.payment_due_date), 'yyyy-MM-dd') : '-'}
                         </TableCell>
                         <TableCell>
-                          {detail.overdue_days > 0 ? (
+                          {(detail.overdue_days ?? 0) > 0 ? (
                             <Badge variant="destructive">{detail.overdue_days}天</Badge>
                           ) : (
                             '-'
