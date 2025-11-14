@@ -338,7 +338,7 @@ export default function CertificateManagement() {
                     const daysLeft = Math.floor((new Date(cert.expire_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
                     
                     return (
-                      <TableRow key={index} className="hover:bg-muted/50" onClick={(e) => e.stopPropagation()}>
+                      <TableRow key={index} className="hover:bg-muted/50">
                         <TableCell className="font-medium">{cert.type}</TableCell>
                         <TableCell>{cert.owner}</TableCell>
                         <TableCell>{format(new Date(cert.expire_date), 'yyyy-MM-dd')}</TableCell>
@@ -346,13 +346,15 @@ export default function CertificateManagement() {
                           {daysLeft < 0 ? `已过期 ${Math.abs(daysLeft)}天` : `${daysLeft}天`}
                         </TableCell>
                         <TableCell>{getStatusBadge(cert.expire_date)}</TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-1 justify-center" style={{ pointerEvents: 'auto' }}>
                             <Button 
                               size="sm" 
                               variant="ghost" 
                               className="h-8 w-8 p-0 relative z-10"
+                              style={{ pointerEvents: 'auto' }}
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 // TODO: 实现查看功能
                               }}
@@ -363,7 +365,9 @@ export default function CertificateManagement() {
                               size="sm" 
                               variant="ghost" 
                               className="h-8 w-8 p-0 relative z-10"
+                              style={{ pointerEvents: 'auto' }}
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 setSelectedCert(cert);
                                 setUpdateFormData({

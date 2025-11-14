@@ -471,7 +471,7 @@ export default function VehicleAssignment() {
                       </TableRow>
                     ) : (
                       vehicles.map(vehicle => (
-                        <TableRow key={vehicle.id} onClick={(e) => e.stopPropagation()}>
+                        <TableRow key={vehicle.id}>
                           <TableCell className="font-semibold font-mono">
                             {vehicle.license_plate}
                           </TableCell>
@@ -497,18 +497,20 @@ export default function VehicleAssignment() {
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex gap-1 justify-center" style={{ pointerEvents: 'auto' }}>
                               {vehicle.current_driver_id ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={(e) => {
+                                    e.preventDefault();
                                     e.stopPropagation();
                                     handleUnassign(vehicle);
                                   }}
                                   disabled={saving}
                                   className="text-orange-600 hover:text-orange-700 relative z-10"
+                                  style={{ pointerEvents: 'auto' }}
                                 >
                                   <Unlink className="h-4 w-4 mr-1" />
                                   解除
@@ -517,12 +519,14 @@ export default function VehicleAssignment() {
                                 <Button
                                   size="sm"
                                   onClick={(e) => {
+                                    e.preventDefault();
                                     e.stopPropagation();
                                     setSelectedVehicle(vehicle);
                                     setShowAssignDialog(true);
                                   }}
                                   disabled={saving}
                                   className="relative z-10"
+                                  style={{ pointerEvents: 'auto' }}
                                 >
                                   <LinkIcon className="h-4 w-4 mr-1" />
                                   分配
@@ -582,7 +586,7 @@ export default function VehicleAssignment() {
                       </TableRow>
                     ) : (
                       vehicles.map(vehicle => (
-                        <TableRow key={vehicle.id} onClick={(e) => e.stopPropagation()}>
+                        <TableRow key={vehicle.id}>
                           <TableCell className="font-semibold font-mono">
                             {vehicle.license_plate}
                           </TableCell>
@@ -608,18 +612,20 @@ export default function VehicleAssignment() {
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex gap-1 justify-center" style={{ pointerEvents: 'auto' }}>
                               {vehicle.fleet_manager_id ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={(e) => {
+                                    e.preventDefault();
                                     e.stopPropagation();
                                     handleUnassignFleetManager(vehicle);
                                   }}
                                   disabled={saving}
                                   className="text-orange-600 hover:text-orange-700 relative z-10"
+                                  style={{ pointerEvents: 'auto' }}
                                 >
                                   <Unlink className="h-4 w-4 mr-1" />
                                   解除
@@ -628,12 +634,14 @@ export default function VehicleAssignment() {
                                 <Button
                                   size="sm"
                                   onClick={(e) => {
+                                    e.preventDefault();
                                     e.stopPropagation();
                                     setSelectedVehicleForFleet(vehicle);
                                     setShowFleetManagerDialog(true);
                                   }}
                                   disabled={saving}
                                   className="relative z-10"
+                                  style={{ pointerEvents: 'auto' }}
                                 >
                                   <LinkIcon className="h-4 w-4 mr-1" />
                                   分配

@@ -705,7 +705,7 @@ export default function DriverManagement() {
                     const isLicenseExpiring = isExpiringSoon(driver.driver_license_expire_date);
                     
                     return (
-                      <TableRow key={driver.id} className="hover:bg-muted/50" onClick={(e) => e.stopPropagation()}>
+                      <TableRow key={driver.id} className="hover:bg-muted/50">
                         <TableCell className="font-semibold">{driver.name}</TableCell>
                         <TableCell className="text-muted-foreground">{driver.phone}</TableCell>
                         <TableCell className="text-sm">
@@ -732,13 +732,15 @@ export default function DriverManagement() {
                             </div>
                           ) : '-'}
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-1 justify-center" style={{ pointerEvents: 'auto' }}>
                             <Button 
                               size="sm" 
                               variant="ghost" 
                               className="h-8 w-8 p-0 relative z-10"
+                              style={{ pointerEvents: 'auto' }}
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 setSelectedDriver(driver);
                                 setShowDetailDialog(true);
@@ -750,7 +752,9 @@ export default function DriverManagement() {
                               size="sm" 
                               variant="ghost" 
                               className="h-8 w-8 p-0 relative z-10"
+                              style={{ pointerEvents: 'auto' }}
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 openEditDialog(driver);
                               }}

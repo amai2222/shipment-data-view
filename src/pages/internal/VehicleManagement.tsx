@@ -835,7 +835,7 @@ export default function VehicleManagement() {
                       isExpiringSoon(vehicle.annual_inspection_date);
                     
                     return (
-                      <TableRow key={vehicle.id} className="hover:bg-muted/50" onClick={(e) => e.stopPropagation()}>
+                      <TableRow key={vehicle.id} className="hover:bg-muted/50">
                         <TableCell className="font-semibold">{vehicle.license_plate}</TableCell>
                         <TableCell className="text-muted-foreground">{vehicle.vehicle_number || '-'}</TableCell>
                         <TableCell>
@@ -874,13 +874,15 @@ export default function VehicleManagement() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-1 justify-center" style={{ pointerEvents: 'auto' }}>
                             <Button 
                               size="sm" 
                               variant="ghost" 
                               className="h-8 w-8 p-0 relative z-10"
+                              style={{ pointerEvents: 'auto' }}
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 setSelectedVehicle(vehicle);
                                 setShowDetailDialog(true);
@@ -892,7 +894,9 @@ export default function VehicleManagement() {
                               size="sm" 
                               variant="ghost" 
                               className="h-8 w-8 p-0 relative z-10"
+                              style={{ pointerEvents: 'auto' }}
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 openEditDialog(vehicle);
                               }}
@@ -904,7 +908,9 @@ export default function VehicleManagement() {
                               size="sm" 
                               variant="ghost" 
                               className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 relative z-10"
+                              style={{ pointerEvents: 'auto' }}
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 openCopyDialog(vehicle);
                               }}
@@ -916,7 +922,9 @@ export default function VehicleManagement() {
                               size="sm" 
                               variant="ghost" 
                               className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 relative z-10"
+                              style={{ pointerEvents: 'auto' }}
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 setVehicleToDelete(vehicle);
                                 setShowDeleteDialog(true);
