@@ -835,7 +835,7 @@ export default function VehicleManagement() {
                       isExpiringSoon(vehicle.annual_inspection_date);
                     
                     return (
-                      <TableRow key={vehicle.id} className="hover:bg-muted/50">
+                      <TableRow key={vehicle.id} className="hover:bg-muted/50" onClick={(e) => e.stopPropagation()}>
                         <TableCell className="font-semibold">{vehicle.license_plate}</TableCell>
                         <TableCell className="text-muted-foreground">{vehicle.vehicle_number || '-'}</TableCell>
                         <TableCell>
@@ -875,12 +875,13 @@ export default function VehicleManagement() {
                           )}
                         </TableCell>
                         <TableCell className="text-center">
-                          <div className="flex gap-1 justify-center">
+                          <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
                             <Button 
                               size="sm" 
                               variant="ghost" 
-                              className="h-8 w-8 p-0"
-                              onClick={() => {
+                              className="h-8 w-8 p-0 relative z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setSelectedVehicle(vehicle);
                                 setShowDetailDialog(true);
                               }}
@@ -890,8 +891,11 @@ export default function VehicleManagement() {
                             <Button 
                               size="sm" 
                               variant="ghost" 
-                              className="h-8 w-8 p-0"
-                              onClick={() => openEditDialog(vehicle)}
+                              className="h-8 w-8 p-0 relative z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditDialog(vehicle);
+                              }}
                               title="编辑"
                             >
                               <Edit className="h-4 w-4" />
@@ -899,8 +903,11 @@ export default function VehicleManagement() {
                             <Button 
                               size="sm" 
                               variant="ghost" 
-                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              onClick={() => openCopyDialog(vehicle)}
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 relative z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openCopyDialog(vehicle);
+                              }}
                               title="复制车辆"
                             >
                               <Copy className="h-4 w-4" />
@@ -908,8 +915,9 @@ export default function VehicleManagement() {
                             <Button 
                               size="sm" 
                               variant="ghost" 
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => {
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 relative z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setVehicleToDelete(vehicle);
                                 setShowDeleteDialog(true);
                               }}

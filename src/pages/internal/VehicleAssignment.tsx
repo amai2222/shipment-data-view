@@ -471,7 +471,7 @@ export default function VehicleAssignment() {
                       </TableRow>
                     ) : (
                       vehicles.map(vehicle => (
-                        <TableRow key={vehicle.id}>
+                        <TableRow key={vehicle.id} onClick={(e) => e.stopPropagation()}>
                           <TableCell className="font-semibold font-mono">
                             {vehicle.license_plate}
                           </TableCell>
@@ -498,14 +498,17 @@ export default function VehicleAssignment() {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            <div className="flex gap-1 justify-center">
+                            <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
                               {vehicle.current_driver_id ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleUnassign(vehicle)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUnassign(vehicle);
+                                  }}
                                   disabled={saving}
-                                  className="text-orange-600 hover:text-orange-700"
+                                  className="text-orange-600 hover:text-orange-700 relative z-10"
                                 >
                                   <Unlink className="h-4 w-4 mr-1" />
                                   解除
@@ -513,11 +516,13 @@ export default function VehicleAssignment() {
                               ) : (
                                 <Button
                                   size="sm"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedVehicle(vehicle);
                                     setShowAssignDialog(true);
                                   }}
                                   disabled={saving}
+                                  className="relative z-10"
                                 >
                                   <LinkIcon className="h-4 w-4 mr-1" />
                                   分配
@@ -577,7 +582,7 @@ export default function VehicleAssignment() {
                       </TableRow>
                     ) : (
                       vehicles.map(vehicle => (
-                        <TableRow key={vehicle.id}>
+                        <TableRow key={vehicle.id} onClick={(e) => e.stopPropagation()}>
                           <TableCell className="font-semibold font-mono">
                             {vehicle.license_plate}
                           </TableCell>
@@ -604,14 +609,17 @@ export default function VehicleAssignment() {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            <div className="flex gap-1 justify-center">
+                            <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
                               {vehicle.fleet_manager_id ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleUnassignFleetManager(vehicle)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUnassignFleetManager(vehicle);
+                                  }}
                                   disabled={saving}
-                                  className="text-orange-600 hover:text-orange-700"
+                                  className="text-orange-600 hover:text-orange-700 relative z-10"
                                 >
                                   <Unlink className="h-4 w-4 mr-1" />
                                   解除
@@ -619,11 +627,13 @@ export default function VehicleAssignment() {
                               ) : (
                                 <Button
                                   size="sm"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedVehicleForFleet(vehicle);
                                     setShowFleetManagerDialog(true);
                                   }}
                                   disabled={saving}
+                                  className="relative z-10"
                                 >
                                   <LinkIcon className="h-4 w-4 mr-1" />
                                   分配

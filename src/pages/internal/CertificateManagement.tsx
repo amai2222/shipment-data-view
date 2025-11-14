@@ -338,7 +338,7 @@ export default function CertificateManagement() {
                     const daysLeft = Math.floor((new Date(cert.expire_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
                     
                     return (
-                      <TableRow key={index} className="hover:bg-muted/50">
+                      <TableRow key={index} className="hover:bg-muted/50" onClick={(e) => e.stopPropagation()}>
                         <TableCell className="font-medium">{cert.type}</TableCell>
                         <TableCell>{cert.owner}</TableCell>
                         <TableCell>{format(new Date(cert.expire_date), 'yyyy-MM-dd')}</TableCell>
@@ -347,15 +347,24 @@ export default function CertificateManagement() {
                         </TableCell>
                         <TableCell>{getStatusBadge(cert.expire_date)}</TableCell>
                         <TableCell className="text-center">
-                          <div className="flex gap-1 justify-center">
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                          <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0 relative z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // TODO: 实现查看功能
+                              }}
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
                             <Button 
                               size="sm" 
                               variant="ghost" 
-                              className="h-8 w-8 p-0"
-                              onClick={() => {
+                              className="h-8 w-8 p-0 relative z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setSelectedCert(cert);
                                 setUpdateFormData({
                                   expire_date: cert.expire_date,

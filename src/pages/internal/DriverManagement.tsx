@@ -705,7 +705,7 @@ export default function DriverManagement() {
                     const isLicenseExpiring = isExpiringSoon(driver.driver_license_expire_date);
                     
                     return (
-                      <TableRow key={driver.id} className="hover:bg-muted/50">
+                      <TableRow key={driver.id} className="hover:bg-muted/50" onClick={(e) => e.stopPropagation()}>
                         <TableCell className="font-semibold">{driver.name}</TableCell>
                         <TableCell className="text-muted-foreground">{driver.phone}</TableCell>
                         <TableCell className="text-sm">
@@ -733,12 +733,13 @@ export default function DriverManagement() {
                           ) : '-'}
                         </TableCell>
                         <TableCell className="text-center">
-                          <div className="flex gap-1 justify-center">
+                          <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
                             <Button 
                               size="sm" 
                               variant="ghost" 
-                              className="h-8 w-8 p-0"
-                              onClick={() => {
+                              className="h-8 w-8 p-0 relative z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setSelectedDriver(driver);
                                 setShowDetailDialog(true);
                               }}
@@ -748,8 +749,11 @@ export default function DriverManagement() {
                             <Button 
                               size="sm" 
                               variant="ghost" 
-                              className="h-8 w-8 p-0"
-                              onClick={() => openEditDialog(driver)}
+                              className="h-8 w-8 p-0 relative z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditDialog(driver);
+                              }}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
