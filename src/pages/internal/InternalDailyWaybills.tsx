@@ -123,30 +123,41 @@ export default function InternalDailyWaybills() {
 
       // 第二步：通过姓名和电话在 drivers 表中找到对应的 id
       // 因为 logistics_records 表的 driver_id 关联的是 drivers 表的 id
-      // 使用 Promise.all 并行查询以提高效率
+      // 使用 Promise.all 并行查询以提高效率，但需要处理错误
       const driverIdPromises = internalDrivers.map(async (internalDriver) => {
-        const { data: driverData } = await supabase
-          .from('drivers')
-          .select('id')
-          .eq('driver_type', 'internal')
-          .eq('name', internalDriver.name)
-          .eq('phone', internalDriver.phone)
-          .limit(1)
-          .single();
-        
-        return driverData?.id || null;
+        try {
+          const { data: driverData, error } = await supabase
+            .from('drivers')
+            .select('id')
+            .eq('driver_type', 'internal')
+            .eq('name', internalDriver.name)
+            .eq('phone', internalDriver.phone)
+            .limit(1)
+            .maybeSingle();  // 使用 maybeSingle 而不是 single，避免查询不到时抛出错误
+          
+          if (error) {
+            console.warn(`查询司机 ${internalDriver.name} 失败:`, error);
+            return null;
+          }
+          
+          return driverData?.id || null;
+        } catch (error) {
+          console.warn(`查询司机 ${internalDriver.name} 时出错:`, error);
+          return null;
+        }
       });
       
       const driverIdResults = await Promise.all(driverIdPromises);
       const driverIds = driverIdResults.filter((id): id is string => id !== null);
 
+      // 第三步：查询这些内部司机的运单
+      // 如果没有找到对应的司机ID，直接返回空结果
       if (driverIds.length === 0) {
         setWaybills([]);
         setLoading(false);
         return;
       }
 
-      // 第三步：查询这些内部司机的运单
       // 注意：loading_date 是 timestamp with time zone，需要转换为 DATE 进行比较
       // 使用 gte 和 lt 来匹配当天的所有记录
       // 将中国时区的日期转换为 UTC 日期范围
@@ -155,6 +166,7 @@ export default function InternalDailyWaybills() {
       const utcDateStart = chinaDateStart.toISOString();
       const utcDateEnd = chinaDateEnd.toISOString();
       
+      // 构建查询，确保 driverIds 不为空
       let query = supabase
         .from('logistics_records')
         .select('*')
