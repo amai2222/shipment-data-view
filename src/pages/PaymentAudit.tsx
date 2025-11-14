@@ -662,8 +662,8 @@ export default function PaymentAudit() {
             }
             
             const recData = rec as { id: string; project_name: string; chain_id?: string; chain_name?: string };
-            // ✅ 修复：按 partner_id + chain_id 分组，确保不同链路的同一合作方分别生成PDF
-            const key = `${costData.partner_id}_${recData.chain_id || 'default'}`;
+            // ✅ 修复：先按链路，再按合作方分组，确保不同链路的同一合作方分别生成PDF
+            const key = `${recData.chain_id || recData.chain_name || 'default'}_${costData.partner_id}`;
             if (!sheetMap.has(key)) {
               sheetMap.set(key, {
                 paying_partner_id: costData.partner_id,
