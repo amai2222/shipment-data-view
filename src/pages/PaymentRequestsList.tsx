@@ -527,20 +527,24 @@ export default function PaymentRequestsList() {
             ? Math.max(...costs.map(c => (c as { level: number }).level)) 
             : 0;
           
-          // 只包含低于该运单最高级的合作方
+          // 只包含低于该运单最高级的合作方（特殊情况：只有1个合作方时也包含）
           for (const cost of costs) {
             const costData = cost as { partner_id: string; level: number; full_name?: string; partner_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; payable_amount?: number };
             
-            // ✅ 关键修复：跳过最高级合作方
-            if (costData.level >= recMaxLevel) {
-              continue;  // 跳过该运单的最高级合作方
+            // ✅ 规则1：如果只有1个合作方，必须包含
+            // ✅ 规则2：如果有多个合作方，只包含低层级（排除最高级）
+            const shouldInclude = costs.length === 1 || costData.level < recMaxLevel;
+            
+            if (!shouldInclude) {
+              continue;  // 跳过该运单的最高级合作方（仅当有多个合作方时）
             }
             
-            const recData = rec as { id: string; project_name: string };
-            const key = costData.partner_id;
+            const recData = rec as { id: string; project_name: string; chain_id?: string; chain_name?: string };
+            // ✅ 修复：按 partner_id + chain_id 分组，确保不同链路的同一合作方分别生成PDF
+            const key = `${costData.partner_id}_${recData.chain_id || 'default'}`;
             if (!sheetMap.has(key)) {
               sheetMap.set(key, {
-                paying_partner_id: key,
+                paying_partner_id: costData.partner_id,
                 paying_partner_full_name: costData.full_name || costData.partner_name,
                 paying_partner_bank_account: costData.bank_account || '',
                 paying_partner_bank_name: costData.bank_name || '',
@@ -548,6 +552,8 @@ export default function PaymentRequestsList() {
                 record_count: 0,
                 total_payable: 0,
                 project_name: recData.project_name,
+                chain_id: recData.chain_id,
+                chain_name: recData.chain_name,
                 records: [],
               });
             }
@@ -707,7 +713,7 @@ export default function PaymentRequestsList() {
               
               <!-- 合作方信息头部 - 与Excel导出逻辑一致 -->
               <div class="partner-header">
-                <div class="partner-title">项目名称：${sheetData.project_name}</div>
+                <div class="partner-title">项目名称：${sheetData.project_name}${sheetData.chain_name ? ` | 链路：${sheetData.chain_name}` : ''}</div>
                 <div class="request-id">申请编号：${req.request_id}</div>
               </div>
               
