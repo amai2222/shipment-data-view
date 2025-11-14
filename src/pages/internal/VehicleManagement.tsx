@@ -127,6 +127,7 @@ export default function VehicleManagement() {
 
   useEffect(() => {
     loadVehicles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, fleetManagerFilter]);
 
   const loadFleetManagers = async () => {
@@ -163,7 +164,29 @@ export default function VehicleManagement() {
       
       if (error) throw error;
       
-      const processedData = (data || []).map((v: any) => {
+      const processedData = (data || []).map((v: {
+        id: string;
+        license_plate: string;
+        vehicle_number: string;
+        vehicle_type: string;
+        vehicle_brand: string;
+        vehicle_model: string;
+        vehicle_status: string;
+        load_capacity: number;
+        manufacture_year: number;
+        current_mileage: number;
+        driving_license_expire_date: string | null;
+        insurance_expire_date: string | null;
+        annual_inspection_date: string | null;
+        fleet_manager_id: string | null;
+        fleet_manager?: { full_name: string } | null;
+        driver?: Array<{
+          driver?: {
+            name: string;
+            fleet_manager_id: string | null;
+          } | null;
+        }> | null;
+      }) => {
         // 优先使用车辆直接分配的车队长，如果没有则使用司机的车队长
         const vehicleFleetManager = v.fleet_manager?.full_name || null;
         const driverFleetManager = v.driver?.[0]?.driver?.fleet_manager_id 
@@ -192,7 +215,7 @@ export default function VehicleManagement() {
           .in('id', driverFleetManagerIds);
         
         const fleetManagerMap = new Map(
-          (fleetManagers || []).map((fm: any) => [fm.id, fm.full_name])
+          (fleetManagers || []).map((fm: { id: string; full_name: string }) => [fm.id, fm.full_name])
         );
         
         // 填充司机的车队长名字
@@ -288,10 +311,11 @@ export default function VehicleManagement() {
       setShowAddDialog(false);
       resetForm();
       loadVehicles();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '无法添加车辆';
       toast({
         title: '新增失败',
-        description: error.message || '无法添加车辆',
+        description: errorMessage,
         variant: 'destructive'
       });
     }
@@ -331,10 +355,11 @@ export default function VehicleManagement() {
       setShowEditDialog(false);
       setSelectedVehicle(null);
       loadVehicles();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '无法更新车辆';
       toast({
         title: '更新失败',
-        description: error.message || '无法更新车辆',
+        description: errorMessage,
         variant: 'destructive'
       });
     }
@@ -378,10 +403,11 @@ export default function VehicleManagement() {
       setShowDeleteDialog(false);
       setVehicleToDelete(null);
       loadVehicles();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '无法删除车辆';
       toast({
         title: '删除失败',
-        description: error.message || '无法删除车辆',
+        description: errorMessage,
         variant: 'destructive'
       });
     }
@@ -874,8 +900,8 @@ export default function VehicleManagement() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex gap-1 justify-center" style={{ pointerEvents: 'auto' }}>
+                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()} style={{ position: 'relative', zIndex: 10 }}>
+                          <div className="flex gap-1 justify-center" style={{ pointerEvents: 'auto', position: 'relative', zIndex: 20 }}>
                             <Button 
                               size="sm" 
                               variant="ghost" 
@@ -890,20 +916,20 @@ export default function VehicleManagement() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              className="h-8 w-8 p-0 relative z-10"
-                              style={{ pointerEvents: 'auto' }}
+                            <button
+                              type="button"
+                              className="inline-flex items-center justify-center h-8 w-8 p-0 rounded-md hover:bg-accent hover:text-accent-foreground relative z-50 cursor-pointer"
+                              style={{ pointerEvents: 'auto', position: 'relative' }}
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
+                                console.log('编辑按钮被点击', vehicle);
                                 openEditDialog(vehicle);
                               }}
                               title="编辑"
                             >
-                              <Edit className="h-4 w-4" />
-                            </Button>
+                              <Edit className="h-4 w-4" style={{ pointerEvents: 'none' }} />
+                            </button>
                             <Button 
                               size="sm" 
                               variant="ghost" 
