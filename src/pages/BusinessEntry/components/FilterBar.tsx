@@ -19,7 +19,7 @@ const Hash = ({ className }: { className?: string }) => <span className={classNa
 const Phone = ({ className }: { className?: string }) => <span className={className}>📞</span>;
 const FileText = ({ className }: { className?: string }) => <span className={className}>📄</span>;
 const Building2 = ({ className }: { className?: string }) => <span className={className}>🏢</span>;
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { BatchInputDialog } from "./BatchInputDialog";
 import { relaxedSupabase as supabase } from "@/lib/supabase-helpers";
 import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeFilter";
@@ -52,6 +52,15 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
   const [selectedProjectId, setSelectedProjectId] = useState('all');
   const [availableProjects, setAvailableProjects] = useState<Project[]>([]); // ✅ 当前货主对应的项目列表
   
+  // ✅ 使用 useRef 保存最新的状态值，避免闭包问题
+  const selectedShipperIdRef = useRef(selectedShipperId);
+  const selectedProjectIdRef = useRef(selectedProjectId);
+  
+  useEffect(() => {
+    selectedShipperIdRef.current = selectedShipperId;
+    selectedProjectIdRef.current = selectedProjectId;
+  }, [selectedShipperId, selectedProjectId]);
+  
   // 合作商加载状态
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loadingPartners, setLoadingPartners] = useState(false);
@@ -62,9 +71,10 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     usage_count: number;
   }[]>([]);
 
-  const handleInputChange = (field: keyof Omit<LogisticsFilters, 'startDate' | 'endDate'>, value: string) => {
+  // ✅ 使用 useCallback 包装 handleInputChange，避免每次渲染都重新创建
+  const handleInputChange = useCallback((field: keyof Omit<LogisticsFilters, 'startDate' | 'endDate'>, value: string) => {
     onFiltersChange({ ...filters, [field]: value });
-  };
+  }, [filters, onFiltersChange]);
 
   // ✅ 修改：移除未使用的日期转换函数，现在直接传递中国时区日期字符串给后端RPC函数
   // 格式化中国时区的日期为字符串（用于存储和显示）
@@ -310,12 +320,18 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
               selectedProjectId={selectedProjectId}
               onShipperChange={(id) => {
                 setSelectedShipperId(id);
+                // ✅ 更新 ref 的值
+                selectedShipperIdRef.current = id;
                 // ✅ 货主变化时，先清空项目名称，等待项目列表加载完成后再设置
                 handleInputChange('projectName', '');
                 setSelectedProjectId('all');
+                selectedProjectIdRef.current = 'all';
               }}
               onProjectChange={(id) => {
                 setSelectedProjectId(id);
+                // ✅ 更新 ref 的值
+                selectedProjectIdRef.current = id;
+                
                 if (id === 'all') {
                   // ✅ 选择"所有项目"时，如果选择了货主，使用该货主的所有项目名称（逗号分隔）
                   if (selectedShipperId && selectedShipperId !== 'all' && availableProjects.length > 0) {
@@ -331,32 +347,58 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
                   }
                 }
               }}
-              onProjectsChange={(projects) => {
+              onProjectsChange={useCallback((projects: Project[]) => {
                 // ✅ 当项目列表更新时，保存到状态
-                setAvailableProjects(projects);
+                setAvailableProjects(prevProjects => {
+                  // ✅ 优化：只在项目列表真正变化时才更新，避免不必要的重新渲染
+                  const prevIds = new Set(prevProjects.map(p => p.id));
+                  const newIds = new Set(projects.map(p => p.id));
+                  
+                  // 如果项目列表没有变化，返回旧值
+                  if (prevIds.size === newIds.size && 
+                      Array.from(prevIds).every(id => newIds.has(id))) {
+                    return prevProjects;
+                  }
+                  
+                  return projects;
+                });
+                
+                // ✅ 使用 ref 获取最新的状态值，避免闭包问题
+                const currentShipperId = selectedShipperIdRef.current;
+                const currentProjectId = selectedProjectIdRef.current;
+                
                 // ✅ 关键修复：如果选择了货主（非"全部货主"）且项目列表已加载，自动设置项目名称
-                // 无论当前 selectedProjectId 是什么，只要选择了具体货主，就设置项目名称
-                if (selectedShipperId && selectedShipperId !== 'all' && projects.length > 0) {
+                // 确保项目名称正确设置为该货主及其下级的所有项目
+                if (currentShipperId && currentShipperId !== 'all' && projects.length > 0) {
                   // 如果当前选择的是"所有项目"，使用所有项目名称（逗号分隔）
-                  if (selectedProjectId === 'all') {
-                    const projectNames = projects.map(p => p.name).join(',');
+                  if (currentProjectId === 'all') {
+                    // ✅ 确保使用最新的项目列表，按名称排序并去重
+                    const projectNames = projects
+                      .map(p => p.name)
+                      .filter((name, index, self) => self.indexOf(name) === index) // 去重
+                      .sort()
+                      .join(',');
                     handleInputChange('projectName', projectNames);
                   } else {
                     // 如果选择了具体项目，使用该项目的名称
-                    const project = projects.find(p => p.id === selectedProjectId);
+                    const project = projects.find(p => p.id === currentProjectId);
                     if (project) {
                       handleInputChange('projectName', project.name);
                     } else {
-                      // 如果选择的项目不在列表中，使用所有项目名称
-                      const projectNames = projects.map(p => p.name).join(',');
+                      // 如果选择的项目不在列表中，使用所有项目名称（表示该货主的所有项目）
+                      const projectNames = projects
+                        .map(p => p.name)
+                        .filter((name, index, self) => self.indexOf(name) === index) // 去重
+                        .sort()
+                        .join(',');
                       handleInputChange('projectName', projectNames);
                     }
                   }
-                } else if (selectedShipperId === 'all' || projects.length === 0) {
+                } else if (currentShipperId === 'all' || projects.length === 0) {
                   // 如果选择的是"全部货主"或没有项目，清空项目名称
                   handleInputChange('projectName', '');
                 }
-              }}
+              }, [handleInputChange])}
             />
           </div>
 

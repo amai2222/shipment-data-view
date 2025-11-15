@@ -170,7 +170,7 @@ export default function FinanceReconciliation() {
       
       // 使用优化的分页函数，包含billing_type_id和高级筛选
       const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1115' as any, {
-        p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
+        p_project_id: (activeFilters.projectId === 'all' || activeFilters.projectId === '') ? null : activeFilters.projectId,
         p_start_date: utcStartDate,
         p_end_date: utcEndDate,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
@@ -364,7 +364,7 @@ export default function FinanceReconciliation() {
       let error;
       if (selection.mode === 'all_filtered') {
         const { error: filterError } = await supabase.rpc('batch_recalculate_by_filter' as any, {
-          p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
+          p_project_id: (activeFilters.projectId === 'all' || activeFilters.projectId === '') ? null : activeFilters.projectId,
           p_start_date: activeFilters.startDate || null,
           p_end_date: activeFilters.endDate || null,
           p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
@@ -531,7 +531,8 @@ export default function FinanceReconciliation() {
                 }}
                 onProjectChange={(id) => {
                   setSelectedProjectId(id);
-                  handleFilterChange('projectId', id);
+                  // ✅ 统一处理：'all' 转换为空字符串，与 RPC 调用时的处理保持一致
+                  handleFilterChange('projectId', id === 'all' ? '' : id);
                 }}
               />
             </div>

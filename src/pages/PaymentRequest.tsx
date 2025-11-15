@@ -212,7 +212,7 @@ export default function PaymentRequest() {
       const statusArray = activeFilters.paymentStatus === 'all' ? null : [activeFilters.paymentStatus];
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
       const { data, error } = await supabase.rpc('get_payment_request_data_1113', {
-        p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
+        p_project_id: (activeFilters.projectId === 'all' || activeFilters.projectId === '') ? null : activeFilters.projectId,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
         p_payment_status_array: statusArray,
@@ -416,7 +416,7 @@ export default function PaymentRequest() {
 
       if (isCrossPageSelection) {
         const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_unpaid_ids' as any, {
-            p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
+            p_project_id: (activeFilters.projectId === 'all' || activeFilters.projectId === '') ? null : activeFilters.projectId,
             p_start_date: activeFilters.startDate || null,
             p_end_date: activeFilters.endDate || null,
             p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
@@ -1449,7 +1449,8 @@ export default function PaymentRequest() {
                   }}
                   onProjectChange={(id) => {
                     setSelectedProjectId(id);
-                    handleFilterChange('projectId', id);
+                    // ✅ 统一处理：'all' 转换为空字符串，与 RPC 调用时的处理保持一致
+                    handleFilterChange('projectId', id === 'all' ? '' : id);
                   }}
                 />
               </div>

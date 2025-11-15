@@ -1,7 +1,7 @@
 // 货主-项目级联筛选器组件
 // 支持树级展开货主，选择后自动显示关联项目
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,17 @@ interface Shipper {
   projects?: Project[];
 }
 
+// ✅ 数据库查询返回的货主数据类型
+interface ShipperDataFromDB {
+  id: string;
+  name: string;
+  full_name: string;
+  parent_partner_id: string | null;
+  is_root?: boolean;
+  partner_type?: string;
+  [key: string]: unknown; // 允许其他字段
+}
+
 interface Project {
   id: string;
   name: string;
@@ -64,6 +75,16 @@ export function ShipperProjectCascadeFilter({
   const [searchValue, setSearchValue] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set()); // ✅ 默认折叠（空Set）
   const [allShippers, setAllShippers] = useState<Shipper[]>([]); // 保存完整的货主列表用于搜索
+  
+  // ✅ 使用 useRef 保存回调函数，避免将其加入依赖项导致循环更新
+  const onProjectsChangeRef = useRef(onProjectsChange);
+  const onProjectChangeRef = useRef(onProjectChange);
+  
+  // 更新 ref 的值
+  useEffect(() => {
+    onProjectsChangeRef.current = onProjectsChange;
+    onProjectChangeRef.current = onProjectChange;
+  }, [onProjectsChange, onProjectChange]);
 
   // 加载货主数据（树形结构）
   useEffect(() => {
@@ -90,7 +111,8 @@ export function ShipperProjectCascadeFilter({
         const rootShippers: Shipper[] = [];
 
         // 第一遍：创建映射
-        (shipperData as any[] || []).forEach((s: any) => {
+        const shipperDataList: ShipperDataFromDB[] = (shipperData || []) as ShipperDataFromDB[];
+        shipperDataList.forEach((s: ShipperDataFromDB) => {
           shipperMap.set(s.id, {
             ...s,
             children: []
@@ -98,7 +120,7 @@ export function ShipperProjectCascadeFilter({
         });
 
         // 第二遍：构建树形关系（使用 parent_partner_id）
-        (shipperData as any[] || []).forEach((s: any) => {
+        shipperDataList.forEach((s: ShipperDataFromDB) => {
           const shipper = shipperMap.get(s.id)!;
           if (s.parent_partner_id) {
             const parent = shipperMap.get(s.parent_partner_id);
@@ -138,6 +160,8 @@ export function ShipperProjectCascadeFilter({
 
   // 根据选中的货主加载项目列表（包含本级和所有下级货主的项目）
   useEffect(() => {
+    let isCancelled = false; // ✅ 用于取消已取消的请求
+    
     const loadProjects = async () => {
       // ✅ 如果选择了"全部"或未选择，加载所有项目
       if (!selectedShipperId || selectedShipperId === 'all') {
@@ -146,11 +170,14 @@ export function ShipperProjectCascadeFilter({
           .select('id, name')
           .order('name');
         
-        setProjects(data || []);
+        if (isCancelled) return; // ✅ 如果组件已卸载或货主已改变，不更新状态
         
-        // ✅ 通知父组件项目列表已更新
-        if (onProjectsChange) {
-          onProjectsChange(data || []);
+        const projectList = data || [];
+        setProjects(projectList);
+        
+        // ✅ 使用 ref 调用回调，避免依赖项问题
+        if (onProjectsChangeRef.current) {
+          onProjectsChangeRef.current(projectList);
         }
         return;
       }
@@ -194,11 +221,15 @@ export function ShipperProjectCascadeFilter({
         // ✅ 如果没有找到任何相关货主，返回空列表
         if (allShipperIds.length === 0) {
           console.warn('未找到相关货主，返回空项目列表');
+          if (isCancelled) return;
+          
           setProjects([]);
-          if (onProjectsChange) {
-            onProjectsChange([]);
+          if (onProjectsChangeRef.current) {
+            onProjectsChangeRef.current([]);
           }
-          onProjectChange('all');
+          if (onProjectChangeRef.current) {
+            onProjectChangeRef.current('all');
+          }
           return;
         }
         
@@ -214,6 +245,8 @@ export function ShipperProjectCascadeFilter({
           `)
           .in('partner_id', allShipperIds); // ✅ 只查询这些货主的项目
 
+        if (isCancelled) return; // ✅ 检查是否已取消
+
         console.log('project_partners 查询结果:', data, error);
 
         if (error) {
@@ -228,37 +261,50 @@ export function ShipperProjectCascadeFilter({
 
         console.log('提取的项目列表（包含下级）:', projectList);
 
-        // ✅ 第三步：去重（根据项目ID）
+        // ✅ 第三步：去重（根据项目ID），并按名称排序
         const uniqueProjects = Array.from(
           new Map(projectList.map(p => [p.id, p])).values()
-        );
+        ).sort((a, b) => a.name.localeCompare(b.name)); // ✅ 按名称排序，提升用户体验
 
         console.log('去重后的项目列表（仅包含该货主及其下级）:', uniqueProjects);
 
+        if (isCancelled) return; // ✅ 再次检查是否已取消
+
         // ✅ 只设置这些项目，不包含其他货主的项目
-        setProjects(uniqueProjects || []);
+        setProjects(uniqueProjects);
         
-        // ✅ 通知父组件项目列表已更新
-        if (onProjectsChange) {
-          onProjectsChange(uniqueProjects || []);
+        // ✅ 使用 ref 调用回调，避免依赖项问题
+        if (onProjectsChangeRef.current) {
+          onProjectsChangeRef.current(uniqueProjects);
         }
 
         // ✅ 默认选择"所有项目"（表示该货主及其下级的所有项目）
         // 不自动选择第一个项目，让用户看到"所有项目"选项
-        onProjectChange('all');
+        if (onProjectChangeRef.current) {
+          onProjectChangeRef.current('all');
+        }
 
       } catch (error) {
+        if (isCancelled) return; // ✅ 错误处理时也检查
+        
         console.error('加载项目失败:', error);
         setProjects([]);
-        if (onProjectsChange) {
-          onProjectsChange([]);
+        if (onProjectsChangeRef.current) {
+          onProjectsChangeRef.current([]);
         }
-        onProjectChange('all');
+        if (onProjectChangeRef.current) {
+          onProjectChangeRef.current('all');
+        }
       }
     };
 
     loadProjects();
-  }, [selectedShipperId, allShippers, onProjectsChange]);
+    
+    // ✅ 清理函数：当依赖项改变时，标记请求为已取消
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedShipperId, allShippers]); // ✅ 移除 onProjectsChange 和 onProjectChange 从依赖项
 
   // 扁平化货主列表（用于下拉框，支持展开/折叠）
   const flattenShippers = (shipperList: Shipper[], level = 0): (Shipper & { level: number })[] => {
