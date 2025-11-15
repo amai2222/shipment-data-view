@@ -310,8 +310,8 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
               selectedProjectId={selectedProjectId}
               onShipperChange={(id) => {
                 setSelectedShipperId(id);
+                // ✅ 货主变化时，先清空项目名称，等待项目列表加载完成后再设置
                 handleInputChange('projectName', '');
-                // 货主变化后，项目会自动加载，等待项目加载完成
                 setSelectedProjectId('all');
               }}
               onProjectChange={(id) => {
@@ -334,10 +334,27 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
               onProjectsChange={(projects) => {
                 // ✅ 当项目列表更新时，保存到状态
                 setAvailableProjects(projects);
-                // ✅ 如果当前选择的是"所有项目"，更新 projectName
-                if (selectedProjectId === 'all' && selectedShipperId && selectedShipperId !== 'all' && projects.length > 0) {
-                  const projectNames = projects.map(p => p.name).join(',');
-                  handleInputChange('projectName', projectNames);
+                // ✅ 关键修复：如果选择了货主（非"全部货主"）且项目列表已加载，自动设置项目名称
+                // 无论当前 selectedProjectId 是什么，只要选择了具体货主，就设置项目名称
+                if (selectedShipperId && selectedShipperId !== 'all' && projects.length > 0) {
+                  // 如果当前选择的是"所有项目"，使用所有项目名称（逗号分隔）
+                  if (selectedProjectId === 'all') {
+                    const projectNames = projects.map(p => p.name).join(',');
+                    handleInputChange('projectName', projectNames);
+                  } else {
+                    // 如果选择了具体项目，使用该项目的名称
+                    const project = projects.find(p => p.id === selectedProjectId);
+                    if (project) {
+                      handleInputChange('projectName', project.name);
+                    } else {
+                      // 如果选择的项目不在列表中，使用所有项目名称
+                      const projectNames = projects.map(p => p.name).join(',');
+                      handleInputChange('projectName', projectNames);
+                    }
+                  }
+                } else if (selectedShipperId === 'all' || projects.length === 0) {
+                  // 如果选择的是"全部货主"或没有项目，清空项目名称
+                  handleInputChange('projectName', '');
                 }
               }}
             />

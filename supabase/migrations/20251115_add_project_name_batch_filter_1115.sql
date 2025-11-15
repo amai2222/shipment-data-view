@@ -135,19 +135,6 @@ BEGIN
                      NOT EXISTS (SELECT 1 FROM public.scale_records sr WHERE sr.logistics_number = lr.auto_number)
                  ELSE true
              END)
-        ORDER BY 
-            CASE WHEN p_sort_field = 'auto_number' AND p_sort_direction = 'asc' THEN lr.auto_number END ASC,
-            CASE WHEN p_sort_field = 'auto_number' AND p_sort_direction = 'desc' THEN lr.auto_number END DESC,
-            CASE WHEN p_sort_field = 'loading_date' AND p_sort_direction = 'asc' THEN lr.loading_date END ASC,
-            CASE WHEN p_sort_field = 'loading_date' AND p_sort_direction = 'desc' THEN lr.loading_date END DESC,
-            CASE WHEN p_sort_field = 'project_name' AND p_sort_direction = 'asc' THEN lr.project_name END ASC,
-            CASE WHEN p_sort_field = 'project_name' AND p_sort_direction = 'desc' THEN lr.project_name END DESC,
-            CASE WHEN p_sort_field = 'driver_name' AND p_sort_direction = 'asc' THEN lr.driver_name END ASC,
-            CASE WHEN p_sort_field = 'driver_name' AND p_sort_direction = 'desc' THEN lr.driver_name END DESC,
-            CASE WHEN p_sort_field = 'payable_cost' AND p_sort_direction = 'asc' THEN lr.payable_cost END ASC,
-            CASE WHEN p_sort_field = 'payable_cost' AND p_sort_direction = 'desc' THEN lr.payable_cost END DESC
-        LIMIT p_page_size
-        OFFSET v_offset
     ),
     total_count AS (
         SELECT COUNT(*) as count
@@ -208,16 +195,16 @@ BEGIN
     ),
     summary AS (
         SELECT 
-            COALESCE(SUM(CASE WHEN lr.record_type = '实际' THEN 1 ELSE 0 END), 0) as actual_count,
-            COALESCE(SUM(CASE WHEN lr.record_type = '退货' THEN 1 ELSE 0 END), 0) as return_count,
-            COALESCE(SUM(CASE WHEN lr.record_type = '实际' THEN COALESCE(lr.loading_weight, 0) ELSE 0 END), 0) as total_weight_loading,
-            COALESCE(SUM(CASE WHEN lr.record_type = '实际' THEN COALESCE(lr.unloading_weight, 0) ELSE 0 END), 0) as total_weight_unloading,
-            COALESCE(SUM(CASE WHEN lr.record_type = '实际' THEN COALESCE(lr.current_cost, 0) ELSE 0 END), 0) as total_current_cost,
-            COALESCE(SUM(CASE WHEN lr.record_type = '实际' THEN COALESCE(lr.extra_cost, 0) ELSE 0 END), 0) as total_extra_cost,
-            COALESCE(SUM(CASE WHEN lr.record_type = '实际' THEN COALESCE(lr.payable_cost, 0) ELSE 0 END), 0) as total_driver_payable_cost,
-            COALESCE(SUM(CASE WHEN lr.record_type = '实际' THEN COALESCE(lr.trips_loading, 0) ELSE 0 END), 0) as total_trips_loading,
-            COALESCE(SUM(CASE WHEN lr.record_type = '实际' THEN COALESCE(lr.volume_loading, 0) ELSE 0 END), 0) as total_volume_loading,
-            COALESCE(SUM(CASE WHEN lr.record_type = '实际' THEN COALESCE(lr.volume_unloading, 0) ELSE 0 END), 0) as total_volume_unloading
+            COALESCE(SUM(CASE WHEN lr.transport_type = '实际运输' THEN 1 ELSE 0 END), 0) as actual_count,
+            COALESCE(SUM(CASE WHEN lr.transport_type = '退货' THEN 1 ELSE 0 END), 0) as return_count,
+            COALESCE(SUM(COALESCE(lr.loading_weight, 0)), 0) as total_weight_loading,
+            COALESCE(SUM(COALESCE(lr.unloading_weight, 0)), 0) as total_weight_unloading,
+            COALESCE(SUM(COALESCE(lr.current_cost, 0)), 0) as total_current_cost,
+            COALESCE(SUM(COALESCE(lr.extra_cost, 0)), 0) as total_extra_cost,
+            COALESCE(SUM(COALESCE(lr.payable_cost, 0)), 0) as total_driver_payable_cost,
+            COUNT(CASE WHEN COALESCE(lr.billing_type_id, 1) = 2 THEN 1 ELSE NULL END) as total_trips_loading,
+            COALESCE(SUM(CASE WHEN COALESCE(lr.billing_type_id, 1) = 3 THEN COALESCE(lr.loading_weight, 0) ELSE 0 END), 0) as total_volume_loading,
+            COALESCE(SUM(CASE WHEN COALESCE(lr.billing_type_id, 1) = 3 THEN COALESCE(lr.unloading_weight, 0) ELSE 0 END), 0) as total_volume_unloading
         FROM public.logistics_records lr
         LEFT JOIN public.partner_chains pc ON lr.chain_id = pc.id
         WHERE
@@ -274,37 +261,8 @@ BEGIN
              END)
     )
     SELECT jsonb_build_object(
-        'records', COALESCE(jsonb_agg(
-            jsonb_build_object(
-                'id', fr.id,
-                'auto_number', fr.auto_number,
-                'project_id', fr.project_id,
-                'project_name', fr.project_name,
-                'driver_id', fr.driver_id,
-                'driver_name', fr.driver_name,
-                'license_plate', fr.license_plate,
-                'driver_phone', fr.driver_phone,
-                'loading_date', fr.loading_date,
-                'unloading_date', fr.unloading_date,
-                'loading_address', fr.loading_address,
-                'unloading_address', fr.unloading_address,
-                'loading_weight', fr.loading_weight,
-                'unloading_weight', fr.unloading_weight,
-                'current_cost', fr.current_cost,
-                'extra_cost', fr.extra_cost,
-                'payable_cost', fr.payable_cost,
-                'record_type', fr.record_type,
-                'payment_status', fr.payment_status,
-                'chain_id', fr.chain_id,
-                'chain_name', fr.chain_name,
-                'other_platform_names', fr.other_platform_names,
-                'external_tracking_numbers', fr.external_tracking_numbers,
-                'has_scale_record', fr.has_scale_record,
-                'trips_loading', fr.trips_loading,
-                'volume_loading', fr.volume_loading,
-                'volume_unloading', fr.volume_unloading
-            )
-            ORDER BY 
+        'records', (
+            SELECT COALESCE(jsonb_agg(fr.* ORDER BY 
                 CASE WHEN p_sort_field = 'auto_number' AND p_sort_direction = 'asc' THEN fr.auto_number END ASC,
                 CASE WHEN p_sort_field = 'auto_number' AND p_sort_direction = 'desc' THEN fr.auto_number END DESC,
                 CASE WHEN p_sort_field = 'loading_date' AND p_sort_direction = 'asc' THEN fr.loading_date END ASC,
@@ -313,9 +271,32 @@ BEGIN
                 CASE WHEN p_sort_field = 'project_name' AND p_sort_direction = 'desc' THEN fr.project_name END DESC,
                 CASE WHEN p_sort_field = 'driver_name' AND p_sort_direction = 'asc' THEN fr.driver_name END ASC,
                 CASE WHEN p_sort_field = 'driver_name' AND p_sort_direction = 'desc' THEN fr.driver_name END DESC,
+                CASE WHEN p_sort_field = 'current_cost' AND p_sort_direction = 'asc' THEN fr.current_cost END ASC,
+                CASE WHEN p_sort_field = 'current_cost' AND p_sort_direction = 'desc' THEN fr.current_cost END DESC,
                 CASE WHEN p_sort_field = 'payable_cost' AND p_sort_direction = 'asc' THEN fr.payable_cost END ASC,
-                CASE WHEN p_sort_field = 'payable_cost' AND p_sort_direction = 'desc' THEN fr.payable_cost END DESC
-        ), '[]'::jsonb),
+                CASE WHEN p_sort_field = 'payable_cost' AND p_sort_direction = 'desc' THEN fr.payable_cost END DESC,
+                fr.loading_date DESC, fr.created_at DESC
+            ), '[]'::jsonb)
+            FROM (
+                SELECT *
+                FROM filtered_records
+                ORDER BY 
+                    CASE WHEN p_sort_field = 'auto_number' AND p_sort_direction = 'asc' THEN auto_number END ASC,
+                    CASE WHEN p_sort_field = 'auto_number' AND p_sort_direction = 'desc' THEN auto_number END DESC,
+                    CASE WHEN p_sort_field = 'loading_date' AND p_sort_direction = 'asc' THEN loading_date END ASC,
+                    CASE WHEN p_sort_field = 'loading_date' AND p_sort_direction = 'desc' THEN loading_date END DESC,
+                    CASE WHEN p_sort_field = 'project_name' AND p_sort_direction = 'asc' THEN project_name END ASC,
+                    CASE WHEN p_sort_field = 'project_name' AND p_sort_direction = 'desc' THEN project_name END DESC,
+                    CASE WHEN p_sort_field = 'driver_name' AND p_sort_direction = 'asc' THEN driver_name END ASC,
+                    CASE WHEN p_sort_field = 'driver_name' AND p_sort_direction = 'desc' THEN driver_name END DESC,
+                    CASE WHEN p_sort_field = 'current_cost' AND p_sort_direction = 'asc' THEN current_cost END ASC,
+                    CASE WHEN p_sort_field = 'current_cost' AND p_sort_direction = 'desc' THEN current_cost END DESC,
+                    CASE WHEN p_sort_field = 'payable_cost' AND p_sort_direction = 'asc' THEN payable_cost END ASC,
+                    CASE WHEN p_sort_field = 'payable_cost' AND p_sort_direction = 'desc' THEN payable_cost END DESC,
+                    loading_date DESC, created_at DESC
+                LIMIT p_page_size OFFSET v_offset
+            ) fr
+        ),
         'summary', (
             SELECT jsonb_build_object(
                 'totalCurrentCost', s.total_current_cost,
@@ -332,8 +313,7 @@ BEGIN
             FROM summary s
         ),
         'totalCount', (SELECT count FROM total_count)
-    ) INTO v_result
-    FROM filtered_records fr;
+    ) INTO v_result;
     
     RETURN v_result;
 END;

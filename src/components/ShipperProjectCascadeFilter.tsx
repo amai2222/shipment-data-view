@@ -195,6 +195,9 @@ export function ShipperProjectCascadeFilter({
         if (allShipperIds.length === 0) {
           console.warn('未找到相关货主，返回空项目列表');
           setProjects([]);
+          if (onProjectsChange) {
+            onProjectsChange([]);
+          }
           onProjectChange('all');
           return;
         }
@@ -247,12 +250,15 @@ export function ShipperProjectCascadeFilter({
       } catch (error) {
         console.error('加载项目失败:', error);
         setProjects([]);
+        if (onProjectsChange) {
+          onProjectsChange([]);
+        }
         onProjectChange('all');
       }
     };
 
     loadProjects();
-  }, [selectedShipperId, allShippers]);
+  }, [selectedShipperId, allShippers, onProjectsChange]);
 
   // 扁平化货主列表（用于下拉框，支持展开/折叠）
   const flattenShippers = (shipperList: Shipper[], level = 0): (Shipper & { level: number })[] => {
