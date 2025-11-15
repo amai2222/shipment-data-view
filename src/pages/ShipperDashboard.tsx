@@ -191,9 +191,15 @@ export default function ShipperDashboard() {
     try {
       const dates = getDateRange(dateRange);
       
+      console.log('加载货主看板数据:', {
+        shipperId: currentShipperId,
+        startDate: dates.startDate,
+        endDate: dates.endDate
+      });
+      
       // 加载总体统计（货主看板数据总是包括本级和下级）
       const { data: statsData, error: statsError } = await supabase.rpc(
-        'get_shipper_dashboard_stats',
+        'get_shipper_dashboard_stats_1115',
         {
           p_shipper_id: currentShipperId,
           p_start_date: dates.startDate,
@@ -203,12 +209,27 @@ export default function ShipperDashboard() {
         }
       );
 
-      if (statsError) throw statsError;
+      console.log('统计数据返回:', { statsData, statsError });
+
+      if (statsError) {
+        console.error('获取统计数据失败:', statsError);
+        throw statsError;
+      }
+      
+      if (!statsData) {
+        console.warn('统计数据为空');
+        toast({
+          title: '提示',
+          description: '未获取到统计数据，请检查货主ID和日期范围',
+          variant: 'default'
+        });
+      }
+      
       setStats(statsData as unknown as ShipperDashboardStats);
 
       // 加载下级货主列表
       const { data: subordinatesData, error: subordinatesError } = await supabase.rpc(
-        'get_subordinate_shippers_stats',
+        'get_subordinate_shippers_stats_1115',
         {
           p_shipper_id: currentShipperId,
           p_start_date: dates.startDate,

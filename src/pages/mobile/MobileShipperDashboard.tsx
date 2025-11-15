@@ -170,7 +170,7 @@ export default function MobileShipperDashboard() {
 
       // 加载统计数据
       const { data: statsData, error: statsError } = await supabase.rpc(
-        'get_shipper_dashboard_stats',
+        'get_shipper_dashboard_stats_1115',
         {
           p_shipper_id: currentShipperId,
           p_start_date: dates.startDate,
@@ -185,7 +185,7 @@ export default function MobileShipperDashboard() {
 
       // 加载下级货主
       const { data: subordinatesData, error: subordinatesError } = await supabase.rpc(
-        'get_subordinate_shippers_stats',
+        'get_subordinate_shippers_stats_1115',
         {
           p_shipper_id: currentShipperId,
           p_start_date: dates.startDate,
