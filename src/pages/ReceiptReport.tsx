@@ -213,29 +213,27 @@ export default function ReceiptReport() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <PageHeader
         title="收款报表与分析"
         description="查看收款统计、明细和逾期情况"
         icon={TrendingUp}
+        iconColor="text-blue-600"
       />
 
       {/* 筛选器 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">筛选条件</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <Card className="border-muted/40">
+        <CardContent className="p-4">
+          <div className="flex items-end gap-3 flex-wrap">
             {/* 开始日期 */}
-            <div className="space-y-2">
+            <div className="flex-none w-48 space-y-2">
               <Label>开始日期</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "w-full justify-start text-left font-normal h-10",
                       !filters.startDate && "text-muted-foreground"
                     )}
                   >
@@ -255,14 +253,14 @@ export default function ReceiptReport() {
             </div>
 
             {/* 结束日期 */}
-            <div className="space-y-2">
+            <div className="flex-none w-48 space-y-2">
               <Label>结束日期</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "w-full justify-start text-left font-normal h-10",
                       !filters.endDate && "text-muted-foreground"
                     )}
                   >
@@ -282,10 +280,10 @@ export default function ReceiptReport() {
             </div>
 
             {/* 货主 */}
-            <div className="space-y-2">
+            <div className="flex-none w-48 space-y-2">
               <Label>货主</Label>
               <Select value={filters.partnerId || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, partnerId: value }))}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue placeholder="全部货主" />
                 </SelectTrigger>
                 <SelectContent>
@@ -298,10 +296,10 @@ export default function ReceiptReport() {
             </div>
 
             {/* 状态 */}
-            <div className="space-y-2">
+            <div className="flex-none w-40 space-y-2">
               <Label>状态</Label>
               <Select value={filters.status || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value as 'all' | 'Completed' | 'Received' | 'Overdue' }))}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue placeholder="全部状态" />
                 </SelectTrigger>
                 <SelectContent>
@@ -405,11 +403,12 @@ export default function ReceiptReport() {
       )}
 
       {/* 明细表格 */}
-      <Card>
+      <Card className="border-muted/40">
         <CardHeader>
           <CardTitle className="text-lg">收款明细</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
+          <div className="p-4">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -481,6 +480,7 @@ export default function ReceiptReport() {
                 </Table>
               </div>
 
+            <div className="mt-4">
               <PaginationControl
                 currentPage={currentPage}
                 pageSize={pageSize}
@@ -489,8 +489,10 @@ export default function ReceiptReport() {
                 onPageChange={handlePageChange}
                 onPageSizeChange={handlePageSizeChange}
               />
+            </div>
             </>
           )}
+          </div>
         </CardContent>
       </Card>
     </div>
