@@ -60,7 +60,7 @@ export function ShipperProjectCascadeFilter({
   const [loading, setLoading] = useState(true);
   const [shipperOpen, setShipperOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set()); // ✅ 默认折叠（空Set）
   const [allShippers, setAllShippers] = useState<Shipper[]>([]); // 保存完整的货主列表用于搜索
 
   // 加载货主数据（树形结构）
@@ -134,7 +134,7 @@ export function ShipperProjectCascadeFilter({
     loadShippers();
   }, []);
 
-  // 根据选中的货主加载项目列表
+  // 根据选中的货主加载项目列表（包含本级和所有下级货主的项目）
   useEffect(() => {
     const loadProjects = async () => {
       if (!selectedShipperId || selectedShipperId === 'all') {
@@ -149,9 +149,36 @@ export function ShipperProjectCascadeFilter({
       }
 
       try {
-        console.log('开始加载货主的项目，货主ID:', selectedShipperId);
+        console.log('开始加载货主的项目（包含下级），货主ID:', selectedShipperId);
         
-        // 获取该货主关联的项目
+        // ✅ 第一步：使用递归查询获取所有下级货主ID（包括本级）
+        const getAllSubordinateIds = async (shipperId: string): Promise<string[]> => {
+          // 递归查找所有下级货主
+          const findSubordinates = (parentId: string, visited: Set<string> = new Set()): string[] => {
+            if (visited.has(parentId)) {
+              return []; // 防止循环引用
+            }
+            visited.add(parentId);
+            
+            const result = [parentId]; // 包含本级
+            
+            // 查找直接下级
+            const children = allShippers.filter(s => s.parent_partner_id === parentId);
+            for (const child of children) {
+              result.push(...findSubordinates(child.id, visited));
+            }
+            
+            return result;
+          };
+          
+          return findSubordinates(shipperId);
+        };
+        
+        // 获取所有相关货主ID（本级 + 所有下级）
+        const allShipperIds = await getAllSubordinateIds(selectedShipperId);
+        console.log('相关货主ID列表（本级+下级）:', allShipperIds);
+        
+        // ✅ 第二步：查询这些货主关联的所有项目
         const { data, error } = await supabase
           .from('project_partners')
           .select(`
@@ -161,7 +188,7 @@ export function ShipperProjectCascadeFilter({
               name
             )
           `)
-          .eq('partner_id', selectedShipperId);
+          .in('partner_id', allShipperIds);
 
         console.log('project_partners 查询结果:', data, error);
 
@@ -175,9 +202,9 @@ export function ShipperProjectCascadeFilter({
           .filter(Boolean)
           .flat() as Project[];
 
-        console.log('提取的项目列表:', projectList);
+        console.log('提取的项目列表（包含下级）:', projectList);
 
-        // 去重（根据项目ID）
+        // ✅ 第三步：去重（根据项目ID）
         const uniqueProjects = Array.from(
           new Map(projectList.map(p => [p.id, p])).values()
         );
@@ -200,8 +227,11 @@ export function ShipperProjectCascadeFilter({
       }
     };
 
-    loadProjects();
-  }, [selectedShipperId]);
+    // 等待 allShippers 加载完成后再加载项目
+    if (allShippers.length > 0 || !selectedShipperId || selectedShipperId === 'all') {
+      loadProjects();
+    }
+  }, [selectedShipperId, allShippers]);
 
   // 扁平化货主列表（用于下拉框，支持展开/折叠）
   const flattenShippers = (shipperList: Shipper[], level = 0): (Shipper & { level: number })[] => {
@@ -342,15 +372,17 @@ export function ShipperProjectCascadeFilter({
             </div>
           </PopoverTrigger>
           <PopoverContent className="w-[400px] p-0">
-            <Command>
+            <Command shouldFilter={true}>
               <CommandInput 
                 placeholder="输入货主名称搜索..." 
                 className="h-10"
+                value={searchValue}
+                onValueChange={setSearchValue}
               />
               <CommandEmpty>未找到匹配的货主</CommandEmpty>
               <CommandGroup className="max-h-96 overflow-y-auto p-2">
-                {/* 搜索时显示所有货主，非搜索时显示折叠的树 */}
-                {getSearchableShippers().map((shipper) => {
+                {/* ✅ 有搜索时显示所有匹配的货主，无搜索时显示折叠的树（默认折叠） */}
+                {(searchValue ? getSearchableShippers() : flattenShippers(shippers)).map((shipper) => {
                   const hasChildren = shipper.children && shipper.children.length > 0;
                   const isExpanded = expandedIds.has(shipper.id);
                   const isSelected = selectedShipperId === shipper.id;
@@ -362,6 +394,7 @@ export function ShipperProjectCascadeFilter({
                         onSelect={() => {
                           onShipperChange(shipper.id);
                           setShipperOpen(false);
+                          setSearchValue(''); // 选择后清空搜索
                         }}
                         className={cn(
                           "flex items-center cursor-pointer",
@@ -372,8 +405,11 @@ export function ShipperProjectCascadeFilter({
                           {/* 展开/折叠箭头 */}
                           {hasChildren ? (
                             <div 
-                              onClick={(e) => toggleExpand(shipper.id, e)}
-                              className="cursor-pointer hover:bg-gray-200 rounded p-0.5"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpand(shipper.id, e);
+                              }}
+                              className="cursor-pointer hover:bg-gray-200 rounded p-0.5 mr-1"
                             >
                               {isExpanded ? (
                                 <ChevronDown className="h-3.5 w-3.5" />
