@@ -916,20 +916,20 @@ export default function VehicleManagement() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <button
-                              type="button"
-                              className="inline-flex items-center justify-center h-8 w-8 p-0 rounded-md hover:bg-accent hover:text-accent-foreground relative z-50 cursor-pointer"
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0 relative z-50"
                               style={{ pointerEvents: 'auto', position: 'relative' }}
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                console.log('编辑按钮被点击', vehicle);
                                 openEditDialog(vehicle);
                               }}
                               title="编辑"
                             >
-                              <Edit className="h-4 w-4" style={{ pointerEvents: 'none' }} />
-                            </button>
+                              <Edit className="h-4 w-4" />
+                            </Button>
                             <Button 
                               size="sm" 
                               variant="ghost" 
